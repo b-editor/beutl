@@ -1,9 +1,19 @@
 ﻿using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
+using Beutl.AgentHost;
+using Beutl.AgentToolkit.Rendering;
+using Beutl.Extensibility;
+using Beutl.Editor;
+using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
+using Reactive.Bindings;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text.Json.Nodes;
 
 namespace Beutl.HeadlessUITests;
 
@@ -357,7 +367,7 @@ public class ShutdownPipelineTests
 
             releaseClosing.SetResult();
             await first.WaitAsync(TimeSpan.FromSeconds(5));
-            viewModel.Dispose();
+            await viewModel.DisposeAsync().AsTask();
 
             Assert.Multiple(() =>
             {
@@ -371,7 +381,311 @@ public class ShutdownPipelineTests
             releaseClosing.TrySetResult();
             viewModel.ProjectService.Closing -= closing;
             viewModel.ProjectService.CloseProjectImmediately();
-            viewModel.Dispose();
+            await viewModel.DisposeAsync().AsTask();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task MainViewModel_aborted_shutdown_keeps_agent_host_usable_until_terminal_close()
+    {
+        await TestReset.ResetShellAsync();
+        int stopCalls = 0;
+        var viewModel = new MainViewModel((projectService, editorService) =>
+            new AgentHostEndpoint(
+                projectService,
+                editorService,
+                GetAvailableLoopbackPort(),
+                "shutdown-test-token",
+                _ =>
+                {
+                    stopCalls++;
+                    return Task.CompletedTask;
+                }));
+        SetOpenProject("shutdown-agent-restart");
+        var editorContext = new ShutdownEditorContext();
+        viewModel.EditorService.TabItems.Add(new EditorTabItem(editorContext));
+        int closeAttempts = 0;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            (_, _) =>
+            {
+                Assert.That(editorContext.IsEnabled.Value, Is.False);
+                return ++closeAttempts == 1
+                    ? Task.FromException(new ProjectCloseAbortedException("save failed"))
+                    : Task.CompletedTask;
+            };
+        viewModel.ProjectService.ClosingPreparing += closing;
+        try
+        {
+            await viewModel.AgentHostEndpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.True);
+            Task aborted = viewModel.ShutdownAsync();
+            ProjectCloseAbortedException? abortedException = null;
+            try
+            {
+                await aborted.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (ProjectCloseAbortedException ex)
+            {
+                abortedException = ex;
+            }
+            Assert.That(abortedException, Is.Not.Null);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.True);
+                Assert.That(stopCalls, Is.Zero);
+                Assert.That(editorContext.IsEnabled.Value, Is.True);
+            });
+            await viewModel.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(stopCalls, Is.EqualTo(1));
+                Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.False);
+            });
+        }
+        finally
+        {
+            viewModel.ProjectService.ClosingPreparing -= closing;
+            viewModel.ProjectService.CloseProjectImmediately();
+            await viewModel.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Shutdown_drains_detached_render_lease_before_project_closing()
+    {
+        await TestReset.ResetShellAsync();
+        var manager = new RenderJobManager();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new TestLease();
+        EditorService? capturedEditorService = null;
+        var viewModel = new MainViewModel((projectService, editorService) =>
+        {
+            capturedEditorService = editorService;
+            return new AgentHostEndpoint(
+                projectService,
+                editorService,
+                GetAvailableLoopbackPort(),
+                "shutdown-render-drain-token",
+                _ => Task.CompletedTask,
+                null,
+                () => manager);
+        });
+        SetOpenProject("shutdown-render-drain");
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            (_, _) =>
+            {
+                Assert.That(started.Task.IsCompleted, Is.True);
+                Assert.That(lease.DisposeCount, Is.EqualTo(1));
+                using IDisposable? mutation = viewModel.EditorService.TryBeginWorktreeMutation();
+                Assert.That(mutation, Is.Not.Null);
+                return Task.CompletedTask;
+            };
+        viewModel.ProjectService.ClosingPreparing += closing;
+        try
+        {
+            await viewModel.AgentHostEndpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            IDisposable outputLease = capturedEditorService!.TryBeginOutputOperation()!;
+            lease = new TestLease(outputLease);
+            manager.Enqueue("detached", async token =>
+            {
+                started.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    cancellationObserved.TrySetResult();
+                    await releaseCleanup.Task;
+                    throw;
+                }
+
+                return new JsonObject();
+            }, lease);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task shutdown = viewModel.ShutdownAsync();
+            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(shutdown.IsCompleted, Is.False);
+            releaseCleanup.TrySetResult();
+            await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(lease.DisposeCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            viewModel.ProjectService.ClosingPreparing -= closing;
+            viewModel.ProjectService.CloseProjectImmediately();
+            await viewModel.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Main_shutdown_cancellation_is_retryable_after_quiescence_cleanup()
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel((projectService, editorService) =>
+            new AgentHostEndpoint(
+                projectService,
+                editorService,
+                GetAvailableLoopbackPort(),
+                "shutdown-cancel-retry-token"));
+        SetOpenProject("shutdown-cancel-retry");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        try
+        {
+            await viewModel.AgentHostEndpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            try
+            {
+                await viewModel.ShutdownAsync(cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Fail("Canceled shutdown should not complete successfully.");
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.True);
+            await viewModel.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.False);
+        }
+        finally
+        {
+            viewModel.ProjectService.CloseProjectImmediately();
+            await viewModel.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Main_shutdown_cancellation_during_close_is_retryable_and_keeps_composition_usable()
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel((projectService, editorService) =>
+            new AgentHostEndpoint(
+                projectService,
+                editorService,
+                GetAvailableLoopbackPort(),
+                "shutdown-close-cancel-token"));
+        Project project = SetOpenProject("shutdown-close-cancel");
+        var closingEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            async (_, cancellationToken) =>
+            {
+                closingEntered.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            };
+        viewModel.ProjectService.Closing += closing;
+        using var cancellation = new CancellationTokenSource();
+
+        try
+        {
+            await viewModel.AgentHostEndpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", viewModel.AgentHostEndpoint.Token);
+
+            Task shutdown = viewModel.ShutdownAsync(cancellation.Token);
+            await closingEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            cancellation.Cancel();
+
+            OperationCanceledException? canceledException = null;
+            try
+            {
+                await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Fail("Cancellation during project close should be retryable.");
+            }
+            catch (OperationCanceledException ex)
+            {
+                canceledException = ex;
+            }
+
+            using (IDisposable? editorLease = viewModel.EditorService.TryBeginWorktreeMutation())
+            {
+                Assert.That(editorLease, Is.Not.Null);
+            }
+            using HttpResponseMessage response =
+                await client.GetAsync(viewModel.AgentHostEndpoint.EndpointUri);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(canceledException, Is.Not.Null);
+                Assert.That(canceledException!.CancellationToken, Is.EqualTo(cancellation.Token));
+                Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.True);
+                Assert.That(response.StatusCode, Is.Not.EqualTo(HttpStatusCode.ServiceUnavailable));
+                Assert.That(viewModel.IsDisposed, Is.False);
+            });
+
+            viewModel.ProjectService.Closing -= closing;
+            await viewModel.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.False);
+        }
+        finally
+        {
+            viewModel.ProjectService.Closing -= closing;
+            viewModel.ProjectService.CloseProjectImmediately();
+            await viewModel.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task MainViewModel_late_closing_abort_keeps_agent_host_usable_until_terminal_close()
+    {
+        await TestReset.ResetShellAsync();
+        int stopCalls = 0;
+        var viewModel = new MainViewModel((projectService, editorService) =>
+            new AgentHostEndpoint(
+                projectService,
+                editorService,
+                GetAvailableLoopbackPort(),
+                "shutdown-late-abort-token",
+                _ =>
+                {
+                    stopCalls++;
+                    return Task.CompletedTask;
+                }));
+        SetOpenProject("shutdown-late-abort");
+        int closeAttempts = 0;
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            (_, _) => ++closeAttempts == 1
+                ? Task.FromException(new ProjectCloseAbortedException("save failed"))
+                : Task.CompletedTask;
+        viewModel.ProjectService.Closing += closing;
+        try
+        {
+            await viewModel.AgentHostEndpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Task aborted = viewModel.ShutdownAsync();
+            ProjectCloseAbortedException? abortedException = null;
+            try
+            {
+                await aborted.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (ProjectCloseAbortedException ex)
+            {
+                abortedException = ex;
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(abortedException, Is.Not.Null);
+                Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.True);
+                Assert.That(stopCalls, Is.Zero);
+            });
+
+            await viewModel.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(stopCalls, Is.EqualTo(1));
+                Assert.That(viewModel.AgentHostEndpoint.IsRunning, Is.False);
+            });
+        }
+        finally
+        {
+            viewModel.ProjectService.Closing -= closing;
+            viewModel.ProjectService.CloseProjectImmediately();
+            await viewModel.DisposeAsync();
         }
     }
 
@@ -406,7 +720,50 @@ public class ShutdownPipelineTests
         {
             viewModel.ProjectService.Closing -= closing;
             viewModel.ProjectService.CloseProjectImmediately();
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Menu_close_command_handles_close_failures_without_faulting(bool unexpected)
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel();
+        SetOpenProject("menu-close-aborted");
+        var invoked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> closing =
+            (_, _) =>
+            {
+                invoked.TrySetResult();
+                return Task.FromException(unexpected
+                    ? new InvalidOperationException("close failed")
+                    : new ProjectCloseAbortedException("save failed"));
+            };
+        viewModel.ProjectService.Closing += closing;
+        try
+        {
+            viewModel.MenuBar.CloseProject.Execute();
+            await invoked.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await viewModel.MenuBar.CloseProjectCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+            DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+            while (!viewModel.MenuBar.CloseProject.CanExecute())
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    Assert.Fail("CloseProject did not re-enable after completion.");
+                }
+                await Task.Delay(10);
+            }
+            Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
+            Assert.That(viewModel.MenuBar.CloseProject.CanExecute(), Is.True);
+        }
+        finally
+        {
+            viewModel.ProjectService.Closing -= closing;
+            viewModel.ProjectService.CloseProjectImmediately();
+            await viewModel.DisposeAsync();
         }
     }
 
@@ -416,5 +773,57 @@ public class ShutdownPipelineTests
         var project = new Project { Uri = new Uri(Path.GetFullPath(path)) };
         BeutlApplication.Current.Project = project;
         return project;
+    }
+
+    private static int GetAvailableLoopbackPort()
+    {
+        using var listener = new System.Net.Sockets.TcpListener(
+            System.Net.IPAddress.Loopback,
+            0);
+        listener.Start();
+        return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    private sealed class ShutdownEditorContext : IEditorContext
+    {
+        public CoreObject Object { get; } = new Scene
+        {
+            Uri = new Uri("file:///shutdown-editor.scene"),
+        };
+
+        public EditorExtension Extension => SceneEditorExtension.Instance;
+
+        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
+
+        public IKnownEditorCommands? Commands => null;
+
+        public object? GetService(Type serviceType) => null;
+
+        public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
+
+        public T? FindToolTab<T>() where T : IToolContext => default;
+
+        public bool OpenToolTab(IToolContext item) => false;
+
+        public void CloseToolTab(IToolContext item)
+        {
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class TestLease : IDisposable
+    {
+        private int _disposeCount;
+        private readonly IDisposable? _inner;
+        public TestLease(IDisposable? inner = null) => _inner = inner;
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+        public void Dispose()
+        {
+            if (Interlocked.Increment(ref _disposeCount) == 1)
+            {
+                _inner?.Dispose();
+            }
+        }
     }
 }

@@ -10,6 +10,9 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
+    private TaskCompletionSource _closeProjectCompletion =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     [MemberNotNull(
         nameof(CloseFile),
         nameof(CloseProject),
@@ -27,7 +30,7 @@ public partial class MenuBarViewModel
             .WithSubscribe(OnCloseFileCore);
 
         CloseProject = new AsyncReactiveCommand(IsProjectOpened)
-            .WithSubscribe(() => _projectService.CloseProject());
+            .WithSubscribe(CloseProjectAsync);
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSave);
@@ -97,6 +100,8 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand CloseProject { get; private set; }
 
+    internal Task CloseProjectCompletion => _closeProjectCompletion.Task;
+
     public AsyncReactiveCommand Save { get; private set; }
 
     public AsyncReactiveCommand SaveAll { get; private set; }
@@ -118,6 +123,35 @@ public partial class MenuBarViewModel
     public AsyncReactiveCommand ExportProject { get; private set; } = null!;
 
     public AsyncReactiveCommand ImportProject { get; } = new();
+
+    private async Task CloseProjectAsync()
+    {
+        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _closeProjectCompletion = completion;
+        bool handled = false;
+        try
+        {
+            await _projectService.CloseProject();
+            handled = true;
+        }
+        catch (ProjectCloseAbortedException)
+        {
+            handled = true;
+        }
+        catch (Exception ex)
+        {
+            handled = true;
+            _logger.LogError(ex, "Failed to close the project.");
+            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+        }
+        finally
+        {
+            if (handled)
+            {
+                completion.TrySetResult();
+            }
+        }
+    }
 
     private async Task OnSaveAll()
     {

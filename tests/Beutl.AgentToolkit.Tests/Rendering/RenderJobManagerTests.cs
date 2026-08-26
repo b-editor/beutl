@@ -438,6 +438,166 @@ public sealed class RenderJobManagerTests
         rejectedLease.Dispose();
     }
 
+    [Test]
+    public async Task CancelAndDrain_is_reusable_and_releases_leases_once()
+    {
+        await using var manager = new RenderJobManager();
+        await manager.CancelAndDrainAsync();
+
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new TestLease();
+        string job = manager.Enqueue("drain", async token =>
+        {
+            started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                cancellationObserved.TrySetResult();
+                await cleanup.Task;
+                throw;
+            }
+
+            return new JsonObject();
+        }, lease);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task drain = manager.CancelAndDrainAsync();
+        await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(drain.IsCompleted, Is.False);
+        Assert.That(lease.DisposeCount, Is.Zero);
+        var rejectedLease = new TestLease();
+        Assert.Throws<InvalidOperationException>(() => manager.Enqueue(
+            "rejected",
+            _ => Task.FromResult<JsonNode>(new JsonObject()),
+            rejectedLease));
+        Assert.That(rejectedLease.DisposeCount, Is.Zero);
+        rejectedLease.Dispose();
+        cleanup.TrySetResult();
+        await drain.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(manager.Get(job)!.State, Is.EqualTo("cancelled"));
+        Assert.That(lease.DisposeCount, Is.EqualTo(1));
+
+        var thirdLease = new TestLease();
+        string third = manager.Enqueue("third", _ => Task.FromResult<JsonNode>(new JsonObject()), thirdLease);
+        Assert.That((await WaitForTerminalAsync(manager, third)).State, Is.EqualTo("completed"));
+        Assert.That(thirdLease.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CancelAndDrain_drains_all_jobs_before_reporting_callback_failure()
+    {
+        await using var manager = new RenderJobManager();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstLease = new TestLease();
+        var secondLease = new TestLease();
+        string first = manager.Enqueue("first", async token =>
+        {
+            using CancellationTokenRegistration registration = token.Register(
+                static () => throw new InvalidOperationException("cancel callback"));
+            started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                await cleanup.Task;
+                throw;
+            }
+
+            return new JsonObject();
+        }, firstLease);
+        string second = manager.Enqueue("second", async token =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return new JsonObject();
+        }, secondLease);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task drain = manager.CancelAndDrainAsync();
+        cleanup.TrySetResult();
+        Exception? failure = Assert.ThrowsAsync<AggregateException>(async () => await drain);
+        Assert.That(failure!.ToString(), Does.Contain("cancel callback"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Get(first)!.State, Is.EqualTo("cancelled"));
+            Assert.That(manager.Get(second)!.State, Is.EqualTo("cancelled"));
+            Assert.That(firstLease.DisposeCount, Is.EqualTo(1));
+            Assert.That(secondLease.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task CancelAndDrain_allows_enqueue_immediately_after_successful_await()
+    {
+        await using var manager = new RenderJobManager();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new TestLease();
+        string first = manager.Enqueue("first", async token =>
+        {
+            started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return new JsonObject();
+        }, lease);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await manager.CancelAndDrainAsync();
+
+        var nextLease = new TestLease();
+        string next = manager.Enqueue(
+            "next",
+            _ => Task.FromResult<JsonNode>(new JsonObject()),
+            nextLease);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Get(first)!.State, Is.EqualTo("cancelled"));
+            Assert.That(next, Is.Not.Empty);
+        });
+        Assert.That((await WaitForTerminalAsync(manager, next)).State, Is.EqualTo("completed"));
+        Assert.That(nextLease.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task CancelAndDrain_allows_enqueue_immediately_after_awaited_failure()
+    {
+        await using var manager = new RenderJobManager();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new TestLease();
+        string first = manager.Enqueue("first", async token =>
+        {
+            using CancellationTokenRegistration registration = token.Register(
+                static () => throw new InvalidOperationException("cancel callback"));
+            started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return new JsonObject();
+        }, lease);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Exception? failure = Assert.ThrowsAsync<AggregateException>(
+            async () => await manager.CancelAndDrainAsync());
+        Assert.That(failure!.ToString(), Does.Contain("cancel callback"));
+
+        var nextLease = new TestLease();
+        string next = manager.Enqueue(
+            "next",
+            _ => Task.FromResult<JsonNode>(new JsonObject()),
+            nextLease);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Get(first)!.State, Is.EqualTo("cancelled"));
+            Assert.That(next, Is.Not.Empty);
+        });
+        Assert.That((await WaitForTerminalAsync(manager, next)).State, Is.EqualTo("completed"));
+        Assert.That(nextLease.DisposeCount, Is.EqualTo(1));
+    }
+
     private static async Task<RenderJobSnapshot> WaitForTerminalAsync(RenderJobManager manager, string jobId)
     {
         for (int attempt = 0; attempt < 200; attempt++)

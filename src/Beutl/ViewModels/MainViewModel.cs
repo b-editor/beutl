@@ -281,80 +281,110 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, I
     {
         // Publish the single-flight task before a synchronous Closing handler can re-enter shutdown.
         await Task.Yield();
-        _agentHostEndpoint.RequestStop();
-        _projectService.RequestShutdown();
-
-        ProjectCloseAbortedException? closeAborted = null;
+        AgentHostEndpoint.AgentHostShutdownScope hostScope;
         try
         {
-            try
-            {
-                // AgentHost owns the ingress to ProjectService and EditorService. Drain active MCP
-                // requests and detached render jobs before closing the project or disposing either
-                // dependency.
-                await _agentHostEndpoint.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to drain the agent host during application shutdown.");
-            }
-
-            try
-            {
-                await using ProjectService.ProjectTransitionScope transition =
-                    await _projectService.BeginShutdownTransitionAsync(this, cancellationToken);
-                // The shutdown transition waits for an active version-control mutation to finish
-                // its recovery and reopen before the final close runs.
-                await transition.CloseProjectAsync(cancellationToken);
-            }
-            catch (ProjectCloseAbortedException ex)
-            {
-                // The close abandoned itself so the unsaved edits stay in their editors. Disposing
-                // the composition anyway would discard exactly what it protected, so the shutdown
-                // stops here and the application keeps running.
-                closeAborted = ex;
-                _logger.LogWarning(
-                    ex,
-                    "Application shutdown was abandoned because the open project could not be closed.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to close the project during application shutdown.");
-            }
-
-            if (closeAborted is null && ProxyMediaServices.Current is { } proxyMediaServices)
-            {
-                Task disposalTask = proxyMediaServices.DisposeAsync().AsTask();
-                try
-                {
-                    await disposalTask;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
-                }
-            }
+            hostScope = await _agentHostEndpoint.BeginShutdownDrainAsync(cancellationToken);
         }
-        finally
+        catch
         {
-            if (closeAborted is null)
-            {
-                BeginCompositionDisposal();
-                await _disposalCompletion.Task;
-            }
-        }
-
-        if (closeAborted is not null)
-        {
-            // Shutdown is otherwise terminal, so the request has to be cleared for the user to save
-            // and close again; the shutdown task is dropped for the same reason.
             _projectService.ClearShutdownRequest();
             lock (_shutdownGate)
             {
                 _shutdownTask = null;
             }
 
+            throw;
+        }
+
+        ProjectCloseAbortedException? closeAborted = null;
+        OperationCanceledException? shutdownCanceled = null;
+        await using (hostScope)
+        {
+            _projectService.RequestShutdown();
+
+            try
+            {
+                try
+                {
+                    await using ProjectService.ProjectTransitionScope transition =
+                        await _projectService.BeginShutdownTransitionAsync(this, cancellationToken);
+                    using IDisposable editorSuspension = _editorService.SuspendEditors();
+                    await transition.CloseProjectAsync(cancellationToken);
+                }
+                catch (ProjectCloseAbortedException ex)
+                {
+                    // The close abandoned itself so the unsaved edits stay in their editors. Disposing
+                    // the composition anyway would discard exactly what it protected, so the shutdown
+                    // stops here and the application keeps running.
+                    closeAborted = ex;
+                    _logger.LogWarning(
+                        ex,
+                        "Application shutdown was abandoned because the open project could not be closed.");
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // CloseProjectAsync awaits completion callbacks while unwinding, so this is safe
+                    // to retry without committing the host shutdown scope.
+                    shutdownCanceled = new OperationCanceledException(cancellationToken);
+                    _logger.LogInformation("Application shutdown was canceled before the project closed.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to close the project during application shutdown.");
+                }
+
+                if (closeAborted is null
+                    && shutdownCanceled is null
+                    && ProxyMediaServices.Current is { } proxyMediaServices)
+                {
+                    Task disposalTask = proxyMediaServices.DisposeAsync().AsTask();
+                    try
+                    {
+                        await disposalTask;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+                    }
+                }
+            }
+            finally
+            {
+                if (closeAborted is null && shutdownCanceled is null)
+                {
+                    hostScope.Commit();
+                    BeginCompositionDisposal();
+                    await _disposalCompletion.Task;
+                }
+            }
+
+            if (closeAborted is not null || shutdownCanceled is not null)
+            {
+                // Shutdown is otherwise terminal, so the request has to be cleared for the user to save
+                // and close again; the shutdown task is dropped for the same reason.
+                _projectService.ClearShutdownRequest();
+            }
+        }
+
+        if (closeAborted is not null)
+        {
+            lock (_shutdownGate)
+            {
+                _shutdownTask = null;
+            }
+
             throw closeAborted;
+        }
+
+        if (shutdownCanceled is not null)
+        {
+            lock (_shutdownGate)
+            {
+                _shutdownTask = null;
+            }
+
+            throw shutdownCanceled;
         }
     }
 

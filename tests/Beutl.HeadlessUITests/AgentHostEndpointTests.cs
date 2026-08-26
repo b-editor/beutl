@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -19,6 +20,108 @@ namespace Beutl.HeadlessUITests;
 
 public sealed class AgentHostEndpointTests
 {
+    [AvaloniaTest]
+    public async Task Normal_tracked_close_holds_live_session_suspension_until_completion_and_restores_on_abort()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommit = config.AutoCommitOnClose;
+        config.AutoCommitOnClose = true;
+        try
+        {
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "agent-close-live-suspension");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640, 480, 30, 44100, "live-close", location))!;
+            Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Test", "beutl@example.invalid"))), Is.True);
+            TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var binding = new EditViewModelLiveBinding(editor);
+            LiveEditingSession session = new LiveSessionSource().Attach(binding);
+            TaskCompletionSource checkedDuringClose = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            async Task ObserveClose(ProjectService.ProjectCloseContext _, CancellationToken __)
+            {
+                Assert.That(binding.IsAlive, Is.False);
+                Assert.Throws<SessionUnavailableException>(() => session.Invoke(() => { }));
+                checkedDuringClose.SetResult();
+                await Task.CompletedTask;
+            }
+
+            TestShell.Project.Closing += ObserveClose;
+            try
+            {
+                await TestShell.Project.CloseProject();
+                await checkedDuringClose.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(binding.IsAlive, Is.False);
+
+                var reopenedServiceReady = new TaskCompletionSource<IProjectVersionControlService>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                using IDisposable servicePublication =
+                    TestShell.Editor.ProjectVersionControlService.Subscribe(service =>
+                    {
+                        if (service?.Repository is not null)
+                        {
+                            reopenedServiceReady.TrySetResult(service);
+                        }
+                    });
+                await TestShell.Project.OpenProject(project.Uri!.LocalPath);
+                IProjectVersionControlService reopenedService =
+                    await reopenedServiceReady.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                Assert.That(TestShell.VersionControl.CurrentService, Is.SameAs(reopenedService));
+                await reopenedService.GetStatusAsync(CancellationToken.None);
+                Project reopened = TestShell.Project.CurrentProject.Value!;
+                TestShell.Editor.ActivateTabItem(reopened.Items.OfType<Scene>().Single());
+                Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+                editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+                binding = new EditViewModelLiveBinding(editor);
+                session = new LiveSessionSource().Attach(binding);
+                async Task AbortClose(ProjectService.ProjectCloseContext _, CancellationToken __)
+                {
+                    Assert.That(binding.IsAlive, Is.False);
+                    Assert.Throws<SessionUnavailableException>(() => session.Invoke(() => { }));
+                    throw new ProjectCloseAbortedException("test abort");
+                }
+
+                TestShell.Project.ClosingPreparing += AbortClose;
+                try
+                {
+                    try
+                    {
+                        await TestShell.Project.CloseProject();
+                        Assert.Fail("The close should have been aborted.");
+                    }
+                    catch (ProjectCloseAbortedException)
+                    {
+                    }
+                }
+                finally
+                {
+                    TestShell.Project.ClosingPreparing -= AbortClose;
+                }
+
+                Assert.That(binding.IsAlive, Is.True);
+                int invocations = 0;
+                session.Invoke(() => invocations++);
+                Assert.That(invocations, Is.EqualTo(1));
+            }
+            finally
+            {
+                TestShell.Project.Closing -= ObserveClose;
+            }
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommit;
+        }
+    }
+
     [AvaloniaTest]
     public async Task Live_session_rejects_edits_while_the_editors_are_suspended()
     {
@@ -497,6 +600,159 @@ public sealed class AgentHostEndpointTests
                 Assert.That(toolNames, Does.Contain("apply_edit"));
                 Assert.That(toolNames, Does.Contain("render_still"));
             });
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Shutdown_drain_rejects_authenticated_requests_and_reopens_after_abort()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "shutdown-gate-token");
+
+        try
+        {
+            await endpoint.StartAsync();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", endpoint.Token);
+
+            await using AgentHostEndpoint.AgentHostShutdownScope scope =
+                await endpoint.BeginShutdownDrainAsync();
+            using HttpResponseMessage paused = await client.GetAsync(endpoint.EndpointUri);
+            Assert.That(paused.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+
+            await scope.DisposeAsync();
+            using HttpResponseMessage resumed = await client.GetAsync(endpoint.EndpointUri);
+            Assert.That(resumed.StatusCode, Is.Not.EqualTo(HttpStatusCode.ServiceUnavailable));
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Shutdown_drain_waits_for_two_admitted_requests_and_rejects_new_work()
+    {
+        await TestReset.ResetShellAsync();
+        var entered = new TaskCompletionSource[2]
+        {
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        var releases = new TaskCompletionSource[2]
+        {
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        int index = 0;
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "shutdown-two-request-token",
+            static _ => Task.CompletedTask,
+            admissionProbe: async () =>
+            {
+                int current = Interlocked.Increment(ref index) - 1;
+                entered[current].TrySetResult();
+                await releases[current].Task;
+            });
+
+        try
+        {
+            await endpoint.StartAsync();
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", endpoint.Token);
+            Task<HttpResponseMessage> first = client.GetAsync(endpoint.EndpointUri);
+            await entered[0].Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task<HttpResponseMessage> second = client.GetAsync(endpoint.EndpointUri);
+            await entered[1].Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task<AgentHostEndpoint.AgentHostShutdownScope> prepare = endpoint.BeginShutdownDrainAsync();
+            Assert.That(prepare.IsCompleted, Is.False);
+            releases[0].TrySetResult();
+            await first.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(prepare.IsCompleted, Is.False);
+            releases[1].TrySetResult();
+            await using AgentHostEndpoint.AgentHostShutdownScope scope =
+                await prepare.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using HttpResponseMessage paused = await client.GetAsync(endpoint.EndpointUri);
+            Assert.That(paused.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+            await scope.DisposeAsync();
+            await Task.WhenAll(first, second);
+        }
+        finally
+        {
+            releases[0].TrySetResult();
+            releases[1].TrySetResult();
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Concurrent_shutdown_preparation_is_rejected_without_reopening_the_owner()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "shutdown-concurrent-token");
+        try
+        {
+            await endpoint.StartAsync();
+            Task<AgentHostEndpoint.AgentHostShutdownScope> owner = endpoint.BeginShutdownDrainAsync();
+            Assert.That(
+                () => endpoint.BeginShutdownDrainAsync(),
+                Throws.TypeOf<InvalidOperationException>());
+            await using AgentHostEndpoint.AgentHostShutdownScope scope =
+                await owner.WaitAsync(TimeSpan.FromSeconds(5));
+            await scope.DisposeAsync();
+        }
+        finally
+        {
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Canceled_shutdown_preparation_reopens_admission_and_can_retry()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "shutdown-cancel-token");
+        try
+        {
+            await endpoint.StartAsync();
+            using var canceled = new CancellationTokenSource();
+            canceled.Cancel();
+            Assert.That(
+                async () => await endpoint.BeginShutdownDrainAsync(canceled.Token),
+                Throws.InstanceOf<OperationCanceledException>());
+
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", endpoint.Token);
+            using HttpResponseMessage resumed = await client.GetAsync(endpoint.EndpointUri);
+            Assert.That(resumed.StatusCode, Is.Not.EqualTo(HttpStatusCode.ServiceUnavailable));
+
+            await using AgentHostEndpoint.AgentHostShutdownScope scope =
+                await endpoint.BeginShutdownDrainAsync();
+            await scope.DisposeAsync();
         }
         finally
         {

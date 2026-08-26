@@ -46,6 +46,8 @@ public sealed class RenderJobManager : IAsyncDisposable
     private readonly ConcurrentDictionary<string, JobRecord> _jobs = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _lifecycleLock = new();
+    private bool _draining;
+    private Task? _drainTask;
     private Task? _disposalTask;
 
     /// <summary>
@@ -71,6 +73,10 @@ public sealed class RenderJobManager : IAsyncDisposable
         lock (_lifecycleLock)
         {
             ObjectDisposedException.ThrowIf(_disposalTask is not null, this);
+            if (_draining)
+            {
+                throw new InvalidOperationException("Render jobs are being drained.");
+            }
 
             string jobId = Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
             record = new JobRecord
@@ -157,6 +163,97 @@ public sealed class RenderJobManager : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Cancels and awaits all jobs accepted before this operation began. The manager remains
+    /// usable after the operation completes, which lets a reversible shutdown resume the host.
+    /// </summary>
+    /// <remarks>
+    /// This drain is deliberately non-cancelable: accepted jobs and their output-operation leases
+    /// must reach a terminal state. Cancellation-callback failures are reported as an
+    /// <see cref="AggregateException"/> only after every accepted job has drained. The manager is
+    /// reusable after either a successful or faulted drain.
+    /// </remarks>
+    internal Task CancelAndDrainAsync()
+    {
+        JobRecord[] jobs;
+        TaskCompletionSource completion;
+        lock (_lifecycleLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposalTask is not null, this);
+            if (_drainTask is not null)
+            {
+                return _drainTask;
+            }
+
+            _draining = true;
+            jobs = [.. _jobs.Values];
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _drainTask = completion.Task;
+        }
+
+        _ = CompleteCancelAndDrainAsync(jobs, completion);
+        return completion.Task;
+    }
+
+    private async Task CompleteCancelAndDrainAsync(
+        JobRecord[] jobs,
+        TaskCompletionSource completion)
+    {
+        List<Exception> failures = [];
+        Exception? failure = null;
+        try
+        {
+            foreach (JobRecord record in jobs)
+            {
+                try
+                {
+                    record.Cts.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (AggregateException ex)
+                {
+                    failures.AddRange(ex.Flatten().InnerExceptions);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(ex);
+                }
+            }
+
+            await Task.WhenAll(jobs.Select(static record => record.Completion.Task)).ConfigureAwait(false);
+            if (failures.Count > 0)
+            {
+                failure = new AggregateException(
+                    "One or more render jobs failed while cancellation callbacks ran.",
+                    failures);
+            }
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        lock (_lifecycleLock)
+        {
+            if (ReferenceEquals(_drainTask, completion.Task))
+            {
+                _draining = false;
+                _drainTask = null;
+            }
+        }
+
+        if (failure is null)
+        {
+            completion.TrySetResult();
+        }
+        else
+        {
+            completion.TrySetException(failure);
+        }
+    }
+
     private async Task RunAsync(JobRecord record, Func<CancellationToken, Task<JsonNode>> work)
     {
         bool acquired = false;
@@ -228,6 +325,7 @@ public sealed class RenderJobManager : IAsyncDisposable
     {
         TaskCompletionSource completion;
         JobRecord[] jobs;
+        Task? activeDrain;
         Task disposalTask;
 
         lock (_lifecycleLock)
@@ -241,13 +339,18 @@ public sealed class RenderJobManager : IAsyncDisposable
             disposalTask = completion.Task;
             _disposalTask = disposalTask;
             jobs = [.. _jobs.Values];
+            activeDrain = _drainTask;
+            _draining = true;
         }
 
-        _ = CompleteDisposalAsync(jobs, completion);
+        _ = CompleteDisposalAsync(jobs, activeDrain, completion);
         return new ValueTask(disposalTask);
     }
 
-    private async Task CompleteDisposalAsync(JobRecord[] jobs, TaskCompletionSource completion)
+    private async Task CompleteDisposalAsync(
+        JobRecord[] jobs,
+        Task? activeDrain,
+        TaskCompletionSource completion)
     {
         List<Exception> failures = [];
         foreach (JobRecord record in jobs)
@@ -271,7 +374,14 @@ public sealed class RenderJobManager : IAsyncDisposable
 
         try
         {
-            await Task.WhenAll(jobs.Select(static record => record.Completion.Task)).ConfigureAwait(false);
+            if (activeDrain is not null)
+            {
+                await activeDrain.ConfigureAwait(false);
+            }
+            else
+            {
+                await Task.WhenAll(jobs.Select(static record => record.Completion.Task)).ConfigureAwait(false);
+            }
         }
         catch (AggregateException ex)
         {
