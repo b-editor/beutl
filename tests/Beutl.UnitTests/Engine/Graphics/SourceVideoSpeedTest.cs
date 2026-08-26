@@ -194,6 +194,24 @@ public class SourceVideoSpeedTest
     }
 
     [Test]
+    public void CalculateTimelineDuration_DistantTerminalKeyframeDoesNotIntegrateUnusedPrefix()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromDays(365) });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        TimeSpan result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(2),
+            _sourceVideoResource);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)).Within(TimeSpan.FromMilliseconds(50)));
+    }
+
+    [Test]
     public void CalculateTimelineDuration_NegativeStartSaturatesUpperBound()
     {
         var animation = new KeyFrameAnimation<float>();

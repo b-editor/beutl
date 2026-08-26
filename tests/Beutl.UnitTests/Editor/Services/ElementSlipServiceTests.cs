@@ -2,7 +2,9 @@
 using Beutl.Audio;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -207,6 +209,33 @@ public class ElementSlipServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void Slip_SourceVideo_NegativeMappedPositionUsesSourceTail()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(-2),
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -564,6 +593,32 @@ public class ElementSlipServiceTests
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Slip_VideoNestedInTimeMappingPresenter_UsesMappedSourceRange()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = videoSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(5)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            Target = { CurrentValue = video },
+        };
+        element.Objects.Add(presenter);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -953,5 +1008,32 @@ public class ElementSlipServiceTests
             Assert.That(applied, Is.False);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
+    }
+
+}
+
+internal sealed partial class TestTimeMappingPresenter : Drawable, ITimeMappingPresenter<Drawable>
+{
+    public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
+
+    public TimeSpan MappedStart { get; set; } = TimeSpan.FromSeconds(4);
+
+    public bool IsReversed => false;
+
+    public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable target)
+        => new(MappedStart, timeRange.Duration);
+
+    public TimeSpan CalculateTimelineDuration(
+        TimeSpan start,
+        TimeSpan targetDuration,
+        Drawable target,
+        bool reverse = false)
+        => targetDuration;
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
     }
 }

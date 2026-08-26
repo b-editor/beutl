@@ -167,12 +167,28 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         float terminalSpeed = last.Value;
 
         TimeSpan terminal = last.KeyTime > start ? last.KeyTime : start;
-        TimeSpan elapsed = terminal - start;
+        TimeSpan terminalDuration = terminal - start;
+        TimeSpan elapsed = terminalDuration;
+        TimeSpan probe = EstimateTimelineDuration(sourceDuration, start, animation);
+        if (probe < elapsed)
+            elapsed = probe;
+
         TimeSpan consumed = CalculateVideoDuration(start, elapsed, resource);
         if (consumed >= sourceDuration)
         {
             high = elapsed;
             return true;
+        }
+
+        if (elapsed < terminalDuration)
+        {
+            elapsed = terminalDuration;
+            consumed = CalculateVideoDuration(start, elapsed, resource);
+            if (consumed >= sourceDuration)
+            {
+                high = elapsed;
+                return true;
+            }
         }
 
         if (terminalSpeed <= 0)
@@ -191,6 +207,22 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
 
         return true;
+    }
+
+    private static TimeSpan EstimateTimelineDuration(
+        TimeSpan sourceDuration,
+        TimeSpan start,
+        KeyFrameAnimation<float> animation)
+    {
+        float speed = animation.Interpolate(start);
+        if (!(speed > 0))
+            return sourceDuration;
+
+        double ticks = sourceDuration.Ticks / (speed / 100.0);
+        if (ticks >= TimeSpan.MaxValue.Ticks)
+            return TimeSpan.MaxValue;
+
+        return TimeSpan.FromTicks(Math.Max(1L, (long)ticks));
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)

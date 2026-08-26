@@ -9,7 +9,7 @@ using Beutl.Media;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(GraphicsStrings.DrawableTimeController), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
+public sealed partial class DrawableTimeController : Drawable, ITimeMappingPresenter<Drawable>, IFlowOperator
 {
     public DrawableTimeController()
     {
@@ -45,6 +45,8 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
+
+    public bool IsReversed => Reverse.CurrentValue;
 
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
     {
@@ -242,6 +244,9 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
                 AddDurationSaturated(targetDuration, GetFrameDuration(resource.FrameRate)),
                 1 / speed)
             : targetDuration;
+        if (high <= TimeSpan.Zero)
+            high = TimeSpan.FromTicks(1);
+
         if (animation is { KeyFrames.Count: > 0 }
             && !TryGetTimelineUpperBound(
                 start, targetDuration, targetAtStart, resource, targetDrawable, animation, reverse, out high))
@@ -281,6 +286,16 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         }
 
         return low;
+    }
+
+    public TimeSpan CalculateTimelineDuration(
+        TimeSpan start,
+        TimeSpan targetDuration,
+        Drawable targetDrawable,
+        bool reverse = false)
+    {
+        using var resource = (Resource)ToResource(CompositionContext.Default);
+        return CalculateTimelineDuration(start, targetDuration, targetDrawable, resource, reverse);
     }
 
     private static bool IsHeldAtTail(Resource resource, bool reverse)
@@ -666,6 +681,12 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         TimeSpan rangeStart = start <= end ? start : end;
         TimeSpan rangeEnd = start >= end ? start : end;
         return new TimeRange(rangeStart, rangeEnd - rangeStart);
+    }
+
+    public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable targetDrawable)
+    {
+        using var resource = (Resource)ToResource(CompositionContext.Default);
+        return CalculateTargetTimeRange(timeRange, targetDrawable, resource);
     }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

@@ -148,7 +148,7 @@ public class ElementResizeServiceTests
 
         Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
-                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-2), TimeSpan.FromSeconds(1), 0)]));
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)]));
 
         Assert.Multiple(() =>
         {
@@ -245,7 +245,8 @@ public class ElementResizeServiceTests
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero),
                 "the service floors the start to the timeline start");
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1)),
+                "the service preserves the requested end when it floors the start");
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1163,6 +1164,31 @@ public class ElementResizeServiceTests
             Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
             Assert.That(result, Is.GreaterThan(TimeSpan.FromDays(1)));
         });
+    }
+
+    [Test]
+    public void CalculateTimelineDuration_HighStaticSpeedUsesOneTickSearchSeed()
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = 2_000_000_000f },
+            FrameRate = { CurrentValue = 30f },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+
+        TimeSpan result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            video,
+            resource);
+
+        Assert.That(result, Is.Not.EqualTo(TimeSpan.MaxValue));
     }
 
     [Test]
