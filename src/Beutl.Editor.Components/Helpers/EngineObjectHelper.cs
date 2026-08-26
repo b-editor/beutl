@@ -89,12 +89,33 @@ public static class EngineObjectHelper
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
+        return obj.SubscribeEngineVersionedResource(time, createResource, RenderThread.Dispatcher);
+    }
+
+    /// <param name="renderDispatcher">
+    /// The dispatcher that owns the resource. Only a test passes anything but the render thread's, which is
+    /// the one shared dispatcher a test must not shut down.
+    /// </param>
+    /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
+    internal static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<T, TResource>(
+        this T obj,
+        IObservable<TimeSpan> time,
+        Func<T, CompositionContext, TResource> createResource,
+        Dispatcher renderDispatcher)
+        where T : EngineObject
+        where TResource : EngineObject.Resource
+    {
         return Observable.Create<(TResource Resource, int Version)>(observer =>
             {
                 var renderContext = new CompositionContext(TimeSpan.Zero);
                 var cts = new CancellationTokenSource();
                 CancellationToken token = cts.Token;
                 TResource? resource = null;
+                var gate = new object();
+                int runningUpdates = 0;
+                bool workCancelled = false;
+                bool releaseRequested = false;
+                var release = new DispatcherCleanup(renderDispatcher, ReleaseResource);
 
                 IDisposable trigger = Observable.FromEventPattern(
                         h => obj.Edited += h,
@@ -107,14 +128,19 @@ public static class EngineObjectHelper
                         if (token.IsCancellationRequested)
                             return;
 
-                        RenderThread.Dispatcher.Dispatch(
+                        renderDispatcher.Dispatch(
                             () =>
                             {
-                                if (token.IsCancellationRequested)
-                                    return;
+                                lock (gate)
+                                {
+                                    runningUpdates++;
+                                }
 
                                 try
                                 {
+                                    if (token.IsCancellationRequested)
+                                        return;
+
                                     renderContext.Time = t.Second;
                                     if (resource is null)
                                     {
@@ -132,7 +158,7 @@ public static class EngineObjectHelper
                                 {
                                     // An escaping exception unwinds the shared render-thread loop, which
                                     // installs no unhandled-exception handler.
-                                    cts.Cancel();
+                                    CancelPendingWork();
                                     try
                                     {
                                         resource?.Dispose();
@@ -145,6 +171,15 @@ public static class EngineObjectHelper
                                     resource = null;
                                     observer.OnError(ex);
                                 }
+                                finally
+                                {
+                                    lock (gate)
+                                    {
+                                        runningUpdates--;
+                                    }
+
+                                    ReleaseWhenSettled();
+                                }
                             },
                             DispatchPriority.Low);
                     },
@@ -152,42 +187,74 @@ public static class EngineObjectHelper
                     // leaving this subscription uninformed and still holding its resource.
                     onError: ex =>
                     {
-                        cts.Cancel();
-                        ReleaseOnRenderThread(disposeTokenSource: false);
+                        RequestRelease();
                         observer.OnError(ex);
                     });
 
                 return Disposable.Create(() =>
                 {
-                    cts.Cancel();
+                    CancelPendingWork();
                     trigger.Dispose();
-                    ReleaseOnRenderThread(disposeTokenSource: true);
+                    RequestRelease();
                 });
 
-                void ReleaseOnRenderThread(bool disposeTokenSource)
+                // The release disposes the token source, and a Cancel reaching a disposed source throws.
+                // Latching the cancellation under the same gate that admits the release orders the two: a
+                // caller arriving after the release sees the latch and leaves the source alone.
+                void CancelPendingWork()
                 {
-                    RenderThread.Dispatcher.Dispatch(
-                        () =>
-                        {
-                            // The render loop installs no unhandled-exception handler, so a throwing
-                            // Dispose here would take the render thread down with it.
-                            try
-                            {
-                                resource?.Dispose();
-                            }
-                            catch (Exception disposeFailure)
-                            {
-                                s_logger.LogWarning(
-                                    disposeFailure,
-                                    "Releasing the versioned resource for '{Object}' failed.",
-                                    obj);
-                            }
+                    lock (gate)
+                    {
+                        if (workCancelled)
+                            return;
 
-                            resource = null;
-                            if (disposeTokenSource)
-                                cts.Dispose();
-                        },
-                        DispatchPriority.Low);
+                        workCancelled = true;
+                        cts.Cancel();
+                    }
+                }
+
+                void RequestRelease()
+                {
+                    CancelPendingWork();
+                    lock (gate)
+                    {
+                        releaseRequested = true;
+                    }
+
+                    ReleaseWhenSettled();
+                }
+
+                void ReleaseWhenSettled()
+                {
+                    lock (gate)
+                    {
+                        // An update already recording from the resource has to settle first, even during a
+                        // shutdown that releases inline; only work that never starts can be written off.
+                        if (!releaseRequested || runningUpdates > 0)
+                            return;
+                    }
+
+                    release.Request();
+                }
+
+                void ReleaseResource()
+                {
+                    // The render loop installs no unhandled-exception handler, so a throwing
+                    // Dispose here would take the render thread down with it.
+                    try
+                    {
+                        resource?.Dispose();
+                    }
+                    catch (Exception disposeFailure)
+                    {
+                        s_logger.LogWarning(
+                            disposeFailure,
+                            "Releasing the versioned resource for '{Object}' failed.",
+                            obj);
+                    }
+
+                    resource = null;
+                    cts.Dispose();
                 }
             })
             .DistinctUntilChanged(t => t.Version);
