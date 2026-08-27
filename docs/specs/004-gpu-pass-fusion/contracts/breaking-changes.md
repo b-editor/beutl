@@ -410,7 +410,7 @@ catch
 
 ### Metadata and scale migration
 
-Bounds, hit testing, scale, cardinality, input readback, target access, and device-grid behavior are fixed definition metadata. Their callbacks must be deterministic, side-effect-free, and non-capturing.
+Bounds, hit testing, scale, cardinality, input readback, target access, and device-grid behavior are fixed definition metadata. Their callbacks must be deterministic and side-effect-free. They may capture a lightweight immutable CPU value or the `RenderNode` that declares them, and nothing else.
 
 For a one-input element-wise density transform, declare both directions of the density relationship:
 
@@ -886,7 +886,10 @@ describes, and nothing at runtime notices.
   `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderInputDemandContract`,
   `OpaqueRenderBoundsContract` and `TargetCaptureScaleContract`, and on the definition builders
   `OpaqueRenderDefinition`, `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
-  `RawTargetCommandDefinition` and `GeometryDefinition`.
+  `RawTargetCommandDefinition` and `GeometryDefinition`. The rule is a compile-time preference, not the
+  runtime boundary: a metadata callback that reads the `RenderNode` declaring it is accepted at recording
+  and shares its plan with every other node of that type. The analyzer ships only to projects that
+  reference `Beutl.Engine.SourceGenerators`, so an out-of-tree author never sees it.
 - **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`,
   but it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or
   get-only property only when the value is provably fixed: the getter reduces to one returned expression
@@ -935,13 +938,23 @@ used to cost only pixel-cache reuse, so the change still reached the frame throu
 the node is not re-recorded at all and the change never arrives. BESG005 reports the shapes it can see, and
 the Debug cross-check catches drift it cannot, but neither runs in a Release build of a plugin.
 
-## Recorded identity keys on the delegate, not its `MethodInfo`
+## Recorded identity keys on a metadata callback's `MethodInfo`, not on the delegate
 
-Reflection is no longer used anywhere on the render path. Structural identity keys on the delegate instance
-rather than on `Delegate.Method`, which is sound because C# caches a `static` lambda and a static
-method-group conversion per call site — and per generic instantiation, so two instantiations of the same
-generic helper stay distinct. A method group over a value-typed receiver boxes a fresh target on every
-conversion and so never compares equal; BESG003 reports that shape for exactly this reason.
+Reflection is still not used anywhere on the render path: `Delegate.Method` is cached by the runtime, so
+reading it is a field read and allocates nothing. The structural identity of a metadata callback — the
+callbacks `RenderBoundsContract`, `OpaqueRenderBoundsContract`, `RenderHitTestContract`,
+`RenderScaleContract` and `RenderInputDemandContract` take — is that method, which is what makes one
+declaration one plan. Two closed instantiations of one generic callback stay distinct, because each has its
+own constructed `MethodInfo`.
+
+This is what lets a callback read the `RenderNode` that declares it without costing a plan per node: a
+`static` lambda is a cached singleton and two nodes writing one already shared a plan, while a
+node-reading lambda is a different delegate per node. It also means a method group over a value-typed
+receiver, which boxes a fresh target on every conversion, no longer defeats reuse.
+
+An *execution* callback is unchanged and still keys on the delegate. The engine holds a metadata callback to
+being a pure function of its arguments and can therefore ignore what it reads; it makes no such promise
+about an execution callback, and the request-local overloads exist so one may close over a recording.
 
 ## `EffectiveScale.Unbounded` is a field, not a get-only property
 

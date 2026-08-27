@@ -1,0 +1,304 @@
+﻿using System.Collections;
+using System.Runtime.CompilerServices;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media;
+using SkiaSharp;
+
+namespace Beutl.UnitTests.Engine.Graphics.Rendering;
+
+/// <summary>
+/// Pins what a metadata callback may be written against: the node that declares it, and nothing else the
+/// identity validator names.
+/// </summary>
+/// <remarks>
+/// The validator reads one object - the delegate's target - so a lambda that closes over anything besides
+/// <see langword="this"/> arrives as a compiler display class and has always been accepted, however many
+/// resources its fields hold. What the list decides is therefore what the callback <em>is</em>: a method
+/// group bound to one of those types, or a lambda inside one that reads nothing but its own instance. Only
+/// the node case is admitted here.
+/// </remarks>
+[TestFixture]
+public sealed class NodeCapturingMetadataCallbackTests
+{
+    private static readonly Rect s_domain = new(0, 0, 200, 100);
+    private static readonly Rect s_sourceBounds = new(0, 0, 40, 20);
+
+    [Test]
+    public void ANodeReadingItsOwnPropertyFromABoundsMapping_RecordsAndRasterizes()
+    {
+        using var node = new ShiftedSourceNode(12);
+        using RenderNodeRenderer renderer = CreateRenderer(node);
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measurement.HasFragments, Is.True);
+            Assert.That(
+                measurement.OutputBounds,
+                Is.EqualTo(s_sourceBounds.Translate(new Vector(12, 0))),
+                "the mapping must have answered from the node's own property");
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+        });
+    }
+
+    /// <remarks>
+    /// The reason the plan key stands for a method rather than a delegate. A static callback is a cached
+    /// singleton, so two nodes writing one already share a plan; a callback that reads its own node is a
+    /// different delegate per node and would otherwise compile a plan each.
+    /// </remarks>
+    [Test]
+    public void TwoNodesOfOneTypeReadingDifferentValues_CompileOneStructuralPlan()
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new ShiftedSourceNode(12));
+        using RenderNodeRenderer renderer = CreateRenderer(root);
+
+        renderer.Rasterize().Dispose();
+        long afterFirstNode = renderer.StructuralPlanCacheStatistics.Compilations;
+        root.SetChild(0, new ShiftedSourceNode(31));
+        using RenderNodeRasterization second = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterFirstNode, Is.EqualTo(1));
+            Assert.That(
+                renderer.StructuralPlanCacheStatistics.Compilations,
+                Is.EqualTo(1),
+                "what a metadata callback reads is request data; a second node of the same type must re-run "
+                + "the compiled plan rather than compile a second one");
+            Assert.That(renderer.StructuralPlanCacheStatistics.Hits, Is.GreaterThan(0));
+            Assert.That(
+                renderer.Measure().OutputBounds,
+                Is.EqualTo(s_sourceBounds.Translate(new Vector(31, 0))),
+                "the shared plan must still be re-run over the second node's own value");
+        });
+    }
+
+    [Test]
+    public void ACallbackBoundToTheDeclaringNode_IsAccepted()
+    {
+        using var node = new ShiftedSourceNode(3);
+
+        Assert.DoesNotThrow(() => node.CreateBounds());
+    }
+
+    /// <remarks>
+    /// The property that lets a plan key stand for a method: one declaration is one identity, and two
+    /// declarations are two - including two closed instantiations of one generic callback, which the
+    /// delegate-keyed form separated because C# caches a static lambda per instantiation.
+    /// </remarks>
+    [Test]
+    public void StructuralIdentity_SeparatesDeclarationsAndGenericInstantiations()
+    {
+        object shiftByFour = RenderBoundsContract.Create(ShiftRight, ShiftLeft).StructuralIdentity;
+        object shiftBySeven = RenderBoundsContract.Create(ShiftRight, ShiftLeft).StructuralIdentity;
+        object otherDeclaration = RenderBoundsContract.Create(ShiftLeft, ShiftRight).StructuralIdentity;
+        object overInt = Passthrough(0).StructuralIdentity;
+        object overLong = Passthrough(0L).StructuralIdentity;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shiftBySeven, Is.EqualTo(shiftByFour));
+            Assert.That(otherDeclaration, Is.Not.EqualTo(shiftByFour));
+            Assert.That(overLong, Is.Not.EqualTo(overInt),
+                "two instantiations of one generic callback are two declarations");
+        });
+    }
+
+    private static Rect ShiftRight(Rect value) => value.Translate(new Vector(1, 0));
+
+    private static Rect ShiftLeft(Rect value) => value.Translate(new Vector(-1, 0));
+
+    private static RenderBoundsContract Passthrough<TState>(TState state)
+        => RenderBoundsContract.Create(
+            state,
+            static (_, input) => input,
+            static (_, requested) => requested);
+
+    [TestCaseSource(nameof(RejectedIdentities))]
+    public void AnIdentityThatIsNotANode_IsStillRejected(object key)
+    {
+        ArgumentException? failure = Assert.Throws<ArgumentException>(
+            () => RenderIdentityKeyValidator.ThrowIfInvalid(key, "callback"));
+
+        Assert.That(failure!.Message, Does.Contain("must be a lightweight, immutable CPU value"));
+    }
+
+    private static IEnumerable<TestCaseData> RejectedIdentities()
+    {
+        // Every arm of the validator's list, so admitting the node cannot have widened another by sharing a
+        // clause with it. An uninitialized instance is enough for the arms whose type is only pattern-tested;
+        // a session or a writer has no constructor a test can reach.
+        yield return Uninitialized<MemoryStream>();
+        yield return Uninitialized<RenderResource<object>>();
+        yield return Uninitialized<RenderNodeContext>();
+        yield return Uninitialized<RenderRequest>();
+        yield return Uninitialized<RenderRequestOptions>();
+        yield return Uninitialized<RecordedRenderGraph>();
+        yield return Uninitialized<RecordedRenderGraphBuilder>();
+        yield return Uninitialized<RenderResourceSlot<object>>();
+        yield return Uninitialized<RenderResourceRegistration>();
+        yield return Uninitialized<RenderFragmentHandle>();
+        yield return Uninitialized<RenderExecutionInput>();
+        yield return Uninitialized<RenderCallbackCanvas>();
+        yield return Uninitialized<OpaqueRenderSession>();
+        yield return Uninitialized<OpaqueRenderOutput>();
+        yield return Uninitialized<GeometrySession>();
+        yield return Uninitialized<ShaderExecutionContext>();
+        yield return Uninitialized<ShaderUniformWriter>();
+        yield return Uninitialized<ShaderResourceWriter>();
+        yield return Uninitialized<TargetScopeSession>();
+        yield return Uninitialized<TargetCommandSession>();
+        yield return Uninitialized<RawTargetScopeSession>();
+        yield return Uninitialized<RawTargetCommandSession>();
+        yield return new TestCaseData(new int[1]).SetArgDisplayNames("Array");
+        yield return new TestCaseData(new List<int>()).SetArgDisplayNames("IList");
+        yield return new TestCaseData(new Dictionary<int, int>()).SetArgDisplayNames("IDictionary");
+        yield return new TestCaseData(new Queue<int>()).SetArgDisplayNames("ICollection");
+    }
+
+    private static TestCaseData Uninitialized<T>()
+        => new TestCaseData(RuntimeHelpers.GetUninitializedObject(typeof(T)))
+            .SetArgDisplayNames(typeof(T).Name);
+
+    /// <remarks>
+    /// The exemption is written into the disposability clause alone, so the mutable-payload clause still
+    /// answers for a node that is also a collection.
+    /// </remarks>
+    [Test]
+    public void ANodeThatIsAlsoAMutableCollection_IsStillRejected()
+    {
+        using var node = new CollectionNode();
+
+        Assert.Throws<ArgumentException>(
+            () => RenderIdentityKeyValidator.ThrowIfInvalid(node, "callback"));
+    }
+
+    /// <remarks>
+    /// What the node exemption does not do. A resource a callback reads through its node was never visible
+    /// here - the target is the node, and the validator reads no field of it - so nothing that used to be
+    /// rejected on that ground has started passing. A callback that <em>is</em> a resource still is.
+    /// </remarks>
+    [Test]
+    public void ACallbackReachingAResourceThroughItsNode_IsNotWhatTheValidatorReads()
+    {
+        using var node = new ResourceHoldingNode();
+        object resource = RuntimeHelpers.GetUninitializedObject(typeof(RenderResource<object>));
+        Func<int> boundToResource = resource.GetHashCode;
+        Func<Rect, Rect> boundToNode = node.CreateResourceReadingCallback();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(boundToNode.Target, Is.SameAs(node));
+            Assert.DoesNotThrow(
+                () => RenderDescriptionValidation.ValidatePureMetadataCallback(boundToNode, "callback"),
+                "the target is the node, and no clause reads a node's fields");
+            Assert.That(boundToResource.Target, Is.SameAs(resource));
+            Assert.Throws<ArgumentException>(
+                () => RenderDescriptionValidation.ValidatePureMetadataCallback(boundToResource, "callback"));
+        });
+    }
+
+    private static RenderNodeRenderer CreateRenderer(RenderNode root)
+        => new(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = s_domain,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+    /// <summary>A source shifted by a distance the node holds, read by the node's own bounds mapping.</summary>
+    private sealed class ShiftedSourceNode(float offset) : RenderNode
+    {
+        public float Offset { get; } = offset;
+
+        public RenderBoundsContract CreateBounds()
+            => RenderBoundsContract.Create(
+                r => r.Translate(new Vector(Offset, 0)),
+                r => r.Translate(new Vector(-Offset, 0)));
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
+                static session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_sourceBounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale));
+
+            context.Publish(context.OpaqueMap(source, OpaqueRenderDescription.CreateRequestLocal(
+                static session =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                    output.Canvas.Use(session.Inputs[0].Draw);
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Map(CreateBounds()),
+                RenderHitTestContract.AnyInput,
+                RenderValueCardinality.Single,
+                RenderScaleContract.PreserveInputSupply)));
+        }
+    }
+
+    private sealed class ResourceHoldingNode : RenderNode
+    {
+        private readonly RenderResource<object> _held =
+            (RenderResource<object>)RuntimeHelpers.GetUninitializedObject(typeof(RenderResource<object>));
+
+        public Func<Rect, Rect> CreateResourceReadingCallback()
+            => r => _held is null ? Rect.Empty : r;
+
+        public override void Process(RenderNodeContext context) => context.PassThrough();
+    }
+
+    private sealed class CollectionNode : RenderNode, ICollection
+    {
+        public int Count => 0;
+
+        public bool IsSynchronized => false;
+
+        public object SyncRoot => this;
+
+        public void CopyTo(Array array, int index)
+        {
+        }
+
+        public IEnumerator GetEnumerator() => Array.Empty<object>().GetEnumerator();
+
+        public override void Process(RenderNodeContext context) => context.PassThrough();
+    }
+
+    private sealed class CpuTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
+            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
+    }
+
+    private sealed class CpuRenderTarget(int width, int height)
+        : RenderTarget(
+            SKSurface.Create(new SKImageInfo(
+                width,
+                height,
+                SKColorType.RgbaF16,
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear())),
+            width,
+            height);
+}

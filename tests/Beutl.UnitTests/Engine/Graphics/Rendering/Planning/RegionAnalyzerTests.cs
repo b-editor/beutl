@@ -249,6 +249,55 @@ public sealed class RegionAnalyzerTests
         });
     }
 
+    /// <remarks>
+    /// A metadata callback may read the node that declares it, which is a value that can move. What holds it
+    /// is not the identity validator - the callback is admitted - but the rule that a recorded answer has to
+    /// survive being asked for again, which is the same rule a callback over any other moving value meets.
+    /// </remarks>
+    [Test]
+    public void Analyze_RejectsAConcreteForwardMappingWhoseNodeMovedAfterRecording()
+    {
+        var graph = new FragmentGraph();
+        RenderFragmentReference source = graph.Source(new Rect(0, 0, 10, 10));
+        using var node = new ShiftingNode { Offset = 5 };
+        RenderFragmentReference output = graph.Map(source, node.CreateBounds());
+        node.Offset = 40;
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RegionAnalyzer().Analyze(Options(), [output]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.RecordedBounds, Is.EqualTo(new Rect(5, 0, 10, 10)),
+                "Recording must have mapped the input before the node moved.");
+            Assert.That(
+                failure!.Message,
+                Does.Contain("A forward bounds mapping changed between recording and graph-wide metadata resolution"));
+        });
+    }
+
+    [Test]
+    public void Analyze_RejectsASymbolicForwardMappingWhoseNodeMovedAfterRecording()
+    {
+        var graph = new FragmentGraph();
+        var placeholder = new Rect(0, 0, 10, 10);
+        RenderFragmentReference source = graph.SymbolicSource(placeholder);
+        using var node = new ShiftingNode { Offset = 5 };
+        RenderFragmentReference output = graph.Map(source, node.CreateBounds());
+        node.Offset = 40;
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RegionAnalyzer().Analyze(Options(new Rect(0, 0, 200, 200)), [output]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.RecordedBounds, Is.EqualTo(placeholder.Translate(new Vector(5, 0))));
+            Assert.That(
+                failure!.Message,
+                Does.Contain("A forward bounds mapping changed between recording and graph-wide metadata resolution"));
+        });
+    }
+
     [Test]
     public void Analyze_RejectsNonDeterministicSymbolicSupplyContract()
     {
@@ -315,6 +364,19 @@ public sealed class RegionAnalyzerTests
     /// <see langword="static"/>, so nothing here is a captured delegate; what the contract cannot check is that
     /// the state handed to it is immutable.
     /// </remarks>
+    /// <summary>A node whose own bounds mapping reads a property of its that the test then moves.</summary>
+    private sealed class ShiftingNode : RenderNode
+    {
+        public float Offset { get; set; }
+
+        public RenderBoundsContract CreateBounds()
+            => RenderBoundsContract.Create(
+                input => input.Translate(new Vector(Offset, 0)),
+                input => input.Translate(new Vector(-Offset, 0)));
+
+        public override void Process(RenderNodeContext context) => context.PassThrough();
+    }
+
     private sealed class DriftingInset
     {
         private int _reads;

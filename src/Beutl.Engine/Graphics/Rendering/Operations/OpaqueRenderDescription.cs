@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Reflection;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
 
@@ -504,16 +505,20 @@ public sealed class OpaqueRenderBoundsContract
         OpaqueRenderBoundsKind kind,
         Func<IReadOnlyList<Rect>, Rect> transformBounds,
         Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds,
-        object? forwardIdentity = null,
-        object? backwardIdentity = null)
+        Delegate? forwardIdentity = null,
+        Delegate? backwardIdentity = null)
     {
         Kind = kind;
         _transformBounds = transformBounds;
         _getRequiredInputBounds = getRequiredInputBounds;
+        // A state-passing factory names the author's own callback here; a capturing one has none to name and
+        // the invoked delegate is the author's. Declaring these Delegate rather than object is what keeps a
+        // future factory from putting a per-recording binding into the identity by omitting the argument.
+        Delegate? backward = backwardIdentity ?? getRequiredInputBounds;
         StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
             kind,
-            forwardIdentity ?? transformBounds,
-            backwardIdentity ?? getRequiredInputBounds,
+            RenderDescriptionValidation.StructuralIdentityOf(forwardIdentity ?? transformBounds),
+            backward is null ? null : RenderDescriptionValidation.StructuralIdentityOf(backward),
             null);
     }
 
@@ -811,7 +816,9 @@ public readonly struct RenderHitTestContract
     {
         ArgumentNullException.ThrowIfNull(hitTest);
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
-        return new RenderHitTestContract(hitTest, hitTest);
+        return new RenderHitTestContract(
+            hitTest,
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     /// <summary>
@@ -833,7 +840,9 @@ public readonly struct RenderHitTestContract
         ArgumentNullException.ThrowIfNull(hitTest);
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
         var binding = new HitTestBinding<TState>(state, hitTest);
-        return new RenderHitTestContract(binding.HitTest, hitTest);
+        return new RenderHitTestContract(
+            binding.HitTest,
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     /// <summary>
@@ -856,7 +865,7 @@ public readonly struct RenderHitTestContract
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
         return new RenderHitTestContract(
             (context, point) => context.UseResource(slot, value => hitTest(value, point)),
-            hitTest);
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     /// <summary>
@@ -879,7 +888,7 @@ public readonly struct RenderHitTestContract
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
         return new RenderHitTestContract(
             (context, point) => context.UseResource(slot, value => hitTest(value, context, point)),
-            hitTest);
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     internal static RenderHitTestContract FromResource<T>(
@@ -891,7 +900,7 @@ public readonly struct RenderHitTestContract
         ArgumentNullException.ThrowIfNull(hitTest);
         return new RenderHitTestContract(
             (_, point) => resource.Registry.Use(resource, value => hitTest(value, point)),
-            hitTest);
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     internal static RenderHitTestContract FromResource<T>(
@@ -905,7 +914,7 @@ public readonly struct RenderHitTestContract
             (context, point) => resource.Registry.Use(
                 resource,
                 value => hitTest(value, context, point)),
-            hitTest);
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     internal static RenderHitTestContract FromResource<T, TState>(
@@ -918,7 +927,9 @@ public readonly struct RenderHitTestContract
         ArgumentNullException.ThrowIfNull(hitTest);
         RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
         var binding = new ResourceHitTestBinding<T, TState>(resource, state, hitTest);
-        return new RenderHitTestContract(binding.HitTest, hitTest);
+        return new RenderHitTestContract(
+            binding.HitTest,
+            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
     /// <summary>Holds one recording's state so the test itself stays static.</summary>
@@ -1155,8 +1166,8 @@ public readonly struct RenderScaleContract
             map,
             mapOutputDemandToInput,
             new RenderScaleBidirectionalMappingStructuralIdentity(
-                map,
-                mapOutputDemandToInput));
+                RenderDescriptionValidation.StructuralIdentityOf(map),
+                RenderDescriptionValidation.StructuralIdentityOf(mapOutputDemandToInput)));
     }
 
     /// <summary>
@@ -1182,7 +1193,7 @@ public readonly struct RenderScaleContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderScaleContract(map, map);
+        return new RenderScaleContract(map, RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     /// <summary>
@@ -1198,7 +1209,9 @@ public readonly struct RenderScaleContract
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
         var binding = new ScaleMapping<TState>(state, map, null);
-        return new RenderScaleContract(binding.MapSupply, map);
+        return new RenderScaleContract(
+            binding.MapSupply,
+            RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     /// <summary>
@@ -1222,7 +1235,9 @@ public readonly struct RenderScaleContract
     {
         ArgumentNullException.ThrowIfNull(resolve);
         RenderDescriptionValidation.ValidatePureMetadataCallback(resolve, nameof(resolve));
-        return new RenderScaleContract(resolve, resolve);
+        return new RenderScaleContract(
+            resolve,
+            RenderDescriptionValidation.StructuralIdentityOf(resolve));
     }
 
     /// <summary>
@@ -1247,7 +1262,9 @@ public readonly struct RenderScaleContract
         return new RenderScaleContract(
             binding.MapSupply,
             binding.MapDemand,
-            new RenderScaleBidirectionalMappingStructuralIdentity(map, mapOutputDemandToInput));
+            new RenderScaleBidirectionalMappingStructuralIdentity(
+                RenderDescriptionValidation.StructuralIdentityOf(map),
+                RenderDescriptionValidation.StructuralIdentityOf(mapOutputDemandToInput)));
     }
 
     /// <summary>
@@ -1263,7 +1280,9 @@ public readonly struct RenderScaleContract
         ArgumentNullException.ThrowIfNull(resolve);
         RenderDescriptionValidation.ValidatePureMetadataCallback(resolve, nameof(resolve));
         var binding = new ScaleResolver<TState>(state, resolve);
-        return new RenderScaleContract(binding.Resolve, resolve);
+        return new RenderScaleContract(
+            binding.Resolve,
+            RenderDescriptionValidation.StructuralIdentityOf(resolve));
     }
 
     /// <summary>Holds one recording's state so the density maps themselves stay static.</summary>
@@ -1766,8 +1785,8 @@ internal readonly record struct RenderScaleContractStructuralIdentity(
     object CallbackIdentity);
 
 internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
-    Delegate SupplyMap,
-    Delegate DemandMap);
+    MethodInfo SupplyMap,
+    MethodInfo DemandMap);
 
 internal readonly record struct OpaqueRenderStructuralIdentity(
     OpaqueRenderTopology Topology,
@@ -1868,6 +1887,27 @@ internal static class RenderDescriptionValidation
         ThrowIfExecutionFacadeIdentity(target, parameterName);
         RenderIdentityKeyValidator.ThrowIfInvalid(target, parameterName);
     }
+
+    /// <summary>What a metadata callback contributes to the structural identity of the operation holding it.</summary>
+    /// <remarks>
+    /// <para>
+    /// The method, not the delegate. A structural identity says which plan a recording can be served by, and a
+    /// plan is the shape of the work: what a callback answers is request data the plan is re-run over, which is
+    /// why a recording that only resizes reuses its plan rather than compiling a second one. A callback the
+    /// engine holds to being a pure function of its arguments therefore contributes which declaration it is and
+    /// nothing about the instance it reads, so two nodes of one type that read different values of their own
+    /// share the plan the way two calls of one static callback already do.
+    /// </para>
+    /// <para>
+    /// This is confined to the callbacks <see cref="ValidatePureMetadataCallback"/> gates. An execution
+    /// callback carries no such promise - the request-local overloads exist so that one may close over a
+    /// recording - so what it closed over still separates it.
+    /// </para>
+    /// <para>
+    /// <see cref="Delegate.Method"/> is cached by the runtime, so reading it allocates nothing.
+    /// </para>
+    /// </remarks>
+    public static MethodInfo StructuralIdentityOf(Delegate callback) => callback.Method;
 
     public static IReadOnlyList<RenderResource> CopyResources(
         IEnumerable<RenderResource>? resources,

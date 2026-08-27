@@ -198,10 +198,16 @@ internal readonly record struct RenderBoundsStructuralIdentity(
     public static RenderBoundsStructuralIdentity Create(
         Delegate transformBounds,
         Delegate getRequiredInputBounds)
-        => new(RenderBoundsContractKind.Custom, transformBounds, getRequiredInputBounds);
+        => new(
+            RenderBoundsContractKind.Custom,
+            RenderDescriptionValidation.StructuralIdentityOf(transformBounds),
+            RenderDescriptionValidation.StructuralIdentityOf(getRequiredInputBounds));
 
     public static RenderBoundsStructuralIdentity CreateFullInput(Delegate transformBounds)
-        => new(RenderBoundsContractKind.CustomFullInput, transformBounds, null);
+        => new(
+            RenderBoundsContractKind.CustomFullInput,
+            RenderDescriptionValidation.StructuralIdentityOf(transformBounds),
+            null);
 }
 
 internal enum RenderBoundsContractKind : byte

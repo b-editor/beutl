@@ -43,7 +43,9 @@ public readonly struct RenderInputDemandContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderInputDemandContract((_, demand) => map(demand), map);
+        return new RenderInputDemandContract(
+            (_, demand) => map(demand),
+            RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     /// <summary>
@@ -66,7 +68,7 @@ public readonly struct RenderInputDemandContract
     {
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderInputDemandContract(map, map);
+        return new RenderInputDemandContract(map, RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     /// <summary>
@@ -82,7 +84,9 @@ public readonly struct RenderInputDemandContract
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
         var binding = new DemandMapping<TState>(state, map);
-        return new RenderInputDemandContract(binding.Map, map);
+        return new RenderInputDemandContract(
+            binding.Map,
+            RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     /// <summary>
@@ -98,7 +102,9 @@ public readonly struct RenderInputDemandContract
         ArgumentNullException.ThrowIfNull(map);
         RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
         var binding = new PerInputDemandMapping<TState>(state, map);
-        return new RenderInputDemandContract(binding.Map, map);
+        return new RenderInputDemandContract(
+            binding.Map,
+            RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     internal bool IsUnchanged => _map is null;
