@@ -652,6 +652,13 @@ public class DrawableBrushThumbnailTests
 
             dispatcher.Shutdown();
 
+            Assert.That(
+                resource.IsDisposed, Is.False,
+                "the dispatcher thread is still inside the blocked operation");
+
+            releaseBlocker.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+
             Assert.Multiple(() =>
             {
                 Assert.That(resource.IsDisposed, Is.True);
@@ -673,7 +680,8 @@ public class DrawableBrushThumbnailTests
 
     // A dispose with no update pending settles at once and hands the release to the render dispatcher.
     // Shutdown abandons whatever is still queued, so the handler has to stay able to recover that release
-    // instead of writing it off the moment it is queued.
+    // instead of writing it off the moment it is queued - but not before the dispatcher thread has stopped,
+    // since the blocked operation below stands in for a frame still reading the resource.
     [AvaloniaTest]
     public void Render_dispatcher_shutdown_recovers_a_release_it_abandoned()
     {
@@ -705,18 +713,21 @@ public class DrawableBrushThumbnailTests
 
             dispatcher.Shutdown();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(resource.IsDisposed, Is.True);
-                Assert.That(drawableBrush.ResourceDisposeCalls, Is.EqualTo(1));
-            });
+            Assert.That(
+                resource.IsDisposed, Is.False,
+                "the dispatcher thread is still inside the blocked operation");
 
             releaseBlocker.Set();
             Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
-            Assert.That(
-                drawableBrush.ResourceDisposeCalls,
-                Is.EqualTo(1),
-                "draining the queue must not release the resource a second time");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(resource.IsDisposed, Is.True);
+                Assert.That(
+                    drawableBrush.ResourceDisposeCalls,
+                    Is.EqualTo(1),
+                    "draining the queue must not release the resource a second time");
+            });
         }
         finally
         {

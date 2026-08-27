@@ -97,6 +97,10 @@ public class EngineObjectHelperTests
     // the moment a shutdown begins. A shutdown starting after that dispatch - or before the queued call is
     // reached - therefore abandoned the release, leaving the resource held and the token source alive with
     // the subscription already gone and nothing left to notice.
+    //
+    // Recovering it has to wait for the dispatcher thread to actually stop, not merely for Shutdown() to be
+    // called: the blocked operation below stands in for a frame still reading the resource, and it keeps
+    // running well past the point where HasShutdownStarted turns true.
     [Test]
     public void Render_dispatcher_shutdown_releases_a_resource_whose_dispatch_it_abandoned()
     {
@@ -137,17 +141,20 @@ public class EngineObjectHelperTests
 
             dispatcher.Shutdown();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(created.IsDisposed, Is.True);
-                Assert.That(created.DisposeCalls, Is.EqualTo(1));
-            });
+            Assert.That(
+                created.IsDisposed, Is.False,
+                "the dispatcher thread is still inside the blocked operation");
 
             releaseBlocker.Set();
             Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
-            Assert.That(
-                created.DisposeCalls, Is.EqualTo(1),
-                "draining the queue must not release the resource a second time");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(created.IsDisposed, Is.True);
+                Assert.That(
+                    created.DisposeCalls, Is.EqualTo(1),
+                    "draining the queue must not release the resource a second time");
+            });
         }
         finally
         {
