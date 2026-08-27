@@ -21,8 +21,14 @@ public readonly record struct EffectiveScale
         _bounded = bounded;
     }
 
-    /// <summary>Gets the re-rasterizable sentinel, which is equal to <c>default</c>.</summary>
-    public static EffectiveScale Unbounded => default;
+    /// <summary>
+    /// The re-rasterizable sentinel, which is equal to <c>default</c>.
+    /// </summary>
+    /// <remarks>
+    /// A field and not a get-only property because a getter's body does not cross an assembly boundary and a
+    /// struct's fields do, so this is the only form a referencing compilation can read as a constant.
+    /// </remarks>
+    public static readonly EffectiveScale Unbounded;
 
     /// <summary>
     /// Creates a concrete bitmap density in device pixels per logical unit.

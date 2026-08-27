@@ -927,3 +927,30 @@ rather than on `Delegate.Method`, which is sound because C# caches a `static` la
 method-group conversion per call site — and per generic instantiation, so two instantiations of the same
 generic helper stay distinct. A method group over a value-typed receiver boxes a fresh target on every
 conversion and so never compares equal; BESG003 reports that shape for exactly this reason.
+
+## `EffectiveScale.Unbounded` is a field, not a get-only property
+
+`public static EffectiveScale Unbounded => default;` is now
+`public static readonly EffectiveScale Unbounded;`. Reading `EffectiveScale.Unbounded` compiles to the same
+thing either way, so no source has to change; this is a **binary** break. A plugin compiled against the old
+surface calls `get_Unbounded()`, which no longer exists, and must be recompiled. Anything enumerating
+`typeof(EffectiveScale).GetProperties()` no longer sees the member and has to look at `GetFields()`.
+
+The reason is BESG004, described above. A property's getter body is not imported into a referencing
+compilation — only its signature — so from another assembly `Unbounded => default` and a getter computing
+its result from settings are the same signature, and the rule refuses both. A `static readonly` field
+carries `initonly` in the metadata itself, and a struct's fields are imported whatever their accessibility,
+so the rule can read the whole of what the sentinel holds and accept it. `EffectiveScale`'s only fields are
+a `bool` and a `float`, which is what makes it provable.
+
+Before this change, an out-of-tree author whose scale-mapping callback returned the unbounded sentinel had
+to copy it into a `static readonly` of their own to get a clean build. Four such snapshots existed in
+Beutl's own test assemblies and are gone. `Rect.Empty` was already declared this way, so this brings the
+supply-scale sentinel in line with it.
+
+The other `=> default` sentinels in `Beutl.Engine` were deliberately **not** converted, because converting
+them would not help. `CompositionEligibility`, `RenderInputDemandContract`, `RenderTargetSamplingIntent`,
+`RenderFragmentHitTest` and `BitmapColorSpaceXyz` each hold a field the rule cannot prove immutable — an
+immutable-collection class imported from another assembly, a delegate, an unsealed Skia handle, an
+interface-typed list, and a `float[]` respectively. As fields they are reported just as they are as
+properties, only with a different message, so the conversion would be a binary break bought for nothing.

@@ -65,13 +65,9 @@ public sealed class SymbolicSupplyMappingTests
             }
         }
 
-        // EffectiveScale.Unbounded is a get-only property this assembly reads as metadata, where a
-        // recording callback cannot be shown what its getter answers; snapshotting it here can be.
-        private static readonly EffectiveScale s_unbounded = EffectiveScale.Unbounded;
-
         private static EffectiveScale HalfSupply(EffectiveScale input)
             => input.IsUnbounded
-                ? s_unbounded
+                ? EffectiveScale.Unbounded
                 : EffectiveScale.At(input.Value / 2);
     }
 }

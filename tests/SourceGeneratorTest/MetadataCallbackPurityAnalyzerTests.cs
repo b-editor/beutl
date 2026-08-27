@@ -976,6 +976,81 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// The pair below is why EffectiveScale.Unbounded is a field. A sentinel of an immutable struct is the
+    /// same constant in either form to a source caller, and only one of the two survives the assembly
+    /// boundary: the getter's body is not imported, so the rule is left holding a signature that a computed
+    /// getter and a constant one share, while the struct's fields are imported and carry initonly with them.
+    /// Both directions are pinned together because the property case is the whole reason the field case
+    /// matters - accepting the field proves nothing unless the property it replaced was refused.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAGetOnlySentinelPropertyFromAnotherAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            SentinelLibrary,
+            SentinelAuthor("Density.AsProperty"));
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a getter's body does not cross the assembly boundary, so a sentinel returning default is "
+                + "indistinguishable from one computing its result");
+    }
+
+    [Test]
+    public void AStaticLambdaReadingAStaticReadonlySentinelFieldFromAnotherAssembly_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            SentinelLibrary,
+            SentinelAuthor("Density.AsField"));
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the field is initonly and the struct's fields are imported, so the rule can read the whole of "
+                + "what the sentinel carries");
+    }
+
+    /// <summary>
+    /// A sentinel of an immutable struct offered in both forms, so the two tests above differ only in which
+    /// one the callback reads.
+    /// </summary>
+    private const string SentinelLibrary = """
+        namespace External
+        {
+            public readonly struct Density
+            {
+                private readonly bool _bounded;
+                private readonly float _value;
+
+                public static Density AsProperty => default;
+
+                public static readonly Density AsField;
+
+                public float Value => _bounded ? _value : 1f;
+            }
+        }
+        """;
+
+    private static string SentinelAuthor(string sentinel) => $$"""
+        using Beutl.Graphics;
+        using Beutl.Graphics.Rendering;
+        using External;
+
+        internal static class Author
+        {
+            public static RenderBoundsContract Build()
+                => RenderBoundsContract.Create(
+                    static value => new Rect(
+                        value.X + {{sentinel}}.Value,
+                        value.Y,
+                        value.Width,
+                        value.Height),
+                    static value => value);
+        }
+        """;
+
+    /// <remarks>
     /// The shape the diagnostic's own message sends an author to, seen the way an author outside
     /// Beutl.Engine sees it: a metadata class, which the field walk is no longer allowed to clear. The rule
     /// knows this one by name instead, so recommending it and accepting it stay the same answer whichever
