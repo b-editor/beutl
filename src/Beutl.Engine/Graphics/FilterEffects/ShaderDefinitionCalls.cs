@@ -252,6 +252,7 @@ public sealed class ShaderDefinitionBuilder<TState>
     private readonly List<ShaderBindingTemplate<TState>> _templates = [];
     private readonly List<ShaderBindingShape> _shapes = [];
     private readonly List<RenderResourceSlot> _resourceSlots = [];
+    private readonly HashSet<RenderResourceSlot> _declaredSlots = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<string> _names = new(StringComparer.Ordinal);
 
     internal ShaderDefinitionBuilder()
@@ -317,7 +318,7 @@ public sealed class ShaderDefinitionBuilder<TState>
         ValidateName(name);
         _templates.Add(new ResourceTemplate<TState, T>(name, slot, coordinateSpace, bind));
         _shapes.Add(new ShaderBindingShape(name, IsResource: true, coordinateSpace));
-        _resourceSlots.Add(slot);
+        DeclareSlot(slot);
     }
 
     /// <summary>Declares a typed child-shader resource slot and an execution binder supplied from the call state.</summary>
@@ -351,7 +352,7 @@ public sealed class ShaderDefinitionBuilder<TState>
         ValidateName(name);
         _templates.Add(new StateResourceTemplate<TState, T, TValue>(name, slot, coordinateSpace, value, bind));
         _shapes.Add(new ShaderBindingShape(name, IsResource: true, coordinateSpace));
-        _resourceSlots.Add(slot);
+        DeclareSlot(slot);
     }
 
     internal IReadOnlyList<ShaderBindingTemplate<TState>> Templates => _templates;
@@ -359,6 +360,15 @@ public sealed class ShaderDefinitionBuilder<TState>
     internal IReadOnlyList<ShaderBindingShape> Shapes => _shapes;
 
     internal IReadOnlyList<RenderResourceSlot> ResourceSlots => _resourceSlots;
+
+    // A slot is the address a call binds, and two child-shader names can read one resource - the same
+    // bitmap sampled through two call-state matrices. The schema names that address once however many
+    // bindings read it, so the call binds it once; templates resolve by slot identity, never by position.
+    private void DeclareSlot(RenderResourceSlot slot)
+    {
+        if (_declaredSlots.Add(slot))
+            _resourceSlots.Add(slot);
+    }
 
     private void AddUniform(string name, ShaderBindingTemplate<TState> template)
     {

@@ -14,8 +14,12 @@ public sealed class ShaderAuthoringContractTests
         "uniform float amount; half4 apply(half4 color) { return color * amount; }";
     private const string WholeSource =
         "uniform shader src; uniform shader tint; half4 main(float2 coord) { return tint.eval(coord); }";
+    private const string TwoChildWholeSource =
+        "uniform shader src; uniform shader tintA; uniform shader tintB; "
+        + "half4 main(float2 coord) { return (tintA.eval(coord) + tintB.eval(coord)) * 0.5; }";
     private static readonly Rect s_bounds = new(0, 0, 8, 6);
     private static readonly RenderResourceSlot<ShaderColor> s_colorSlot = new();
+    private static readonly RenderResourceSlot<ShaderColor> s_sharedColorSlot = new();
     private static readonly ShaderDefinition<float> s_currentPixelDefinition =
         ShaderDefinition<float>.CurrentPixel(
             CurrentPixelSource,
@@ -177,6 +181,101 @@ public sealed class ShaderAuthoringContractTests
         });
     }
 
+    /// <remarks>
+    /// Two child-shader names legitimately read one resource - the same bitmap sampled through two call-state
+    /// matrices is one leased resource and two bindings. A slot is the address a call binds, so declaring it
+    /// once is what the call has to satisfy however many names read it.
+    /// </remarks>
+    [Test]
+    public void TwoChildShaderBindings_CanShareOneResourceSlot()
+    {
+        var color = new ShaderColor(SKColors.MediumPurple);
+        ShaderDefinition<float> definition = ShaderDefinition<float>.WholeSource(
+            TwoChildWholeSource,
+            RenderBoundsContract.Identity,
+            static bindings =>
+            {
+                bindings.Resource(
+                    "tintA",
+                    s_sharedColorSlot,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, shared, _) =>
+                    {
+                        shared.Uses++;
+                        writer.Set(SKShader.CreateColor(shared.Color));
+                    });
+                bindings.Resource(
+                    "tintB",
+                    s_sharedColorSlot,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static state => state,
+                    static (writer, shared, opacity, _) =>
+                    {
+                        shared.Uses++;
+                        shared.LastOpacity = opacity;
+                        writer.Set(SKShader.CreateColor(shared.Color.WithAlpha((byte)(opacity * 255))));
+                    });
+            });
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderResource<ShaderColor> token = context.Borrow(color);
+            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
+            context.Publish(context.Shader(
+                source,
+                definition.Call(0.5f, [s_sharedColorSlot.Bind(token)])));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(color.Uses, Is.EqualTo(2), "both binding templates resolve the shared slot");
+            Assert.That(color.LastOpacity, Is.EqualTo(0.5f), "the state-reading template keeps its own value");
+        }
+    }
+
+    [Test]
+    public void ACallSharingOneSlotAcrossBindings_BindsThatSlotExactlyOnce()
+    {
+        ShaderDefinition<float> definition = ShaderDefinition<float>.WholeSource(
+            TwoChildWholeSource,
+            RenderBoundsContract.Identity,
+            static bindings =>
+            {
+                bindings.Resource(
+                    "tintA",
+                    s_sharedColorSlot,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, shared, _) => writer.Set(SKShader.CreateColor(shared.Color)));
+                bindings.Resource(
+                    "tintB",
+                    s_sharedColorSlot,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, shared, _) => writer.Set(SKShader.CreateColor(shared.Color)));
+            });
+
+        var color = new ShaderColor(SKColors.MediumPurple);
+        Exception? failure = null;
+        using var node = new DelegateNode(context =>
+        {
+            RenderResource<ShaderColor> token = context.Borrow(color);
+            RenderResourceBinding binding = s_sharedColorSlot.Bind(token);
+            failure = Assert.Throws<ArgumentException>(() => definition.Call(0.5f, [binding, binding]));
+            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
+            context.Publish(context.Shader(source, definition.Call(0.5f, [binding])));
+        });
+
+        using RenderNodeRasterization rasterization = Rasterize(node);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(failure, Is.Not.Null, "a shared slot is still bound once, not once per name");
+        }
+    }
+
     [Test]
     public void ShaderDescription_IsNotPartOfTheExternalAuthoringSurface()
     {
@@ -248,6 +347,8 @@ public sealed class ShaderAuthoringContractTests
         public SKColor Color { get; } = color;
 
         public int Uses { get; set; }
+
+        public float LastOpacity { get; set; }
     }
 
     private readonly record struct FragmentSnapshot(Rect Bounds, bool CanBeUsedAsValueInput)
