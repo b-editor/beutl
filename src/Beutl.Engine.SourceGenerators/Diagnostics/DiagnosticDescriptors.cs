@@ -101,8 +101,11 @@ public static class DiagnosticDescriptors
         description:
             "Deciding in general whether a render node's recorded output can go stale is not possible, and "
             + "this rule does not try. It reports one shape: a member of the node's own type assigns an "
-            + "instance field or auto-property that the node's Process reads, and neither that member nor a "
-            + "method of the same type it calls marks that node with MarkChanged(). Everything else stays "
+            + "instance field, an auto-property, or the backing store a property names with the field "
+            + "keyword, that the node's Process reads, and neither that member nor a method of the same "
+            + "type it calls on this node marks that node with MarkChanged(). The Process it reads is the "
+            + "override filling the RenderNode slot, inherited or not, and not a same-named overload "
+            + "declared beside it. Everything else stays "
             + "invisible - an assignment made through a helper on another type, through a virtual call, or "
             + "by mutating a collection in place; an assignment guarded by a branch that skips the "
             + "MarkChanged() call the rule found elsewhere in the same member; and any assignment written "

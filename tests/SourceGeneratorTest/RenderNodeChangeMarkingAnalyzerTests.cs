@@ -423,6 +423,386 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
+    /// <remarks>
+    /// Reading a property whose setter marks is not a mark - the setter never ran. The rule used to walk both
+    /// accessors of every property reference, so a bare read of a marking property cleared every assignment
+    /// in the mutator that read it.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatOnlyReadsAMarkingProperty_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+                private int _generation;
+
+                public int Generation
+                {
+                    get => _generation;
+                    set
+                    {
+                        _generation = value;
+                        MarkChanged();
+                    }
+                }
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    if (Generation > 0)
+                        return;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a read cannot run the setter that marks, so it cannot excuse the assignment beside it");
+    }
+
+    /// <remarks>
+    /// The other half of the accessor split: a write really does run the marking setter, so factoring the
+    /// mark into a property is still a way to invalidate the node.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatWritesThroughAMarkingProperty_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+                private int _generation;
+
+                public int Generation
+                {
+                    get => _generation;
+                    set
+                    {
+                        _generation = value;
+                        MarkChanged();
+                    }
+                }
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Generation = _generation + 1;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A conditional access keeps its receiver in the enclosing expression rather than beside the name, so
+    /// <c>_other?.MarkChanged()</c> looks bare to a check that only knows qualified member access.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatConditionallyMarksAnotherNode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ForwardingNode : RenderNode
+            {
+                private readonly RenderNode _other;
+                private Rect _bounds;
+
+                public ForwardingNode(RenderNode other)
+                {
+                    _other = other;
+                }
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    _other?.MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "marking whatever _other happens to be says nothing about this node's own recording");
+    }
+
+    /// <remarks>
+    /// Reaching the mark through a helper called on another instance is the same forwarding one call deeper:
+    /// the helper's body names <c>MarkChanged</c> bare, but the receiver that helper ran against was not this
+    /// node.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatMarksAnotherNodeThroughAHelper_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ForwardingNode : RenderNode
+            {
+                private readonly ForwardingNode _other;
+                private Rect _bounds;
+
+                public ForwardingNode(ForwardingNode other)
+                {
+                    _other = other;
+                }
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    _other.Invalidate();
+                }
+
+                private void Invalidate() => MarkChanged();
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
+    }
+
+    /// <remarks>
+    /// Spelling the receiver out is the ordinary way to write the mark, and the receiver check has to keep
+    /// accepting it. The unqualified spelling is pinned by <see cref="AMutatorThatMarksTheNode_IsNotReported"/>.
+    /// </remarks>
+    [Test]
+    public void AMutatorThatMarksThroughThisAndBase_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+                private int _generation;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    this.MarkChanged();
+                }
+
+                public void Advance()
+                {
+                    _generation++;
+                    base.MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_generation, 0, 0, 0));
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The render pipeline calls <c>Process</c> through the <c>RenderNode</c> slot, so a same-named overload
+    /// declared on the node is not the body that records it. Picking the overload leaves the read set empty
+    /// and the rule silent about everything the inherited body actually reads.
+    /// </remarks>
+    [Test]
+    public void ADerivedNodeShadowedByAnUnrelatedProcessOverload_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class PublishingNode : RenderNode
+            {
+                protected Rect Bounds;
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+
+            internal sealed class DriftingNode : PublishingNode
+            {
+                public void Process(int frameIndex)
+                {
+                }
+
+                public void Update(Rect bounds)
+                {
+                    Bounds = bounds;
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the inherited override is the body that records, whatever else on the node shares its name");
+    }
+
+    /// <remarks>
+    /// The same shape declared on one type: the overload sits beside the real override rather than above it
+    /// in the chain, so member order alone decided which one the rule read.
+    /// </remarks>
+    [Test]
+    public void ANodeDeclaringAnUnrelatedProcessOverloadFirst_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Process(int frameIndex)
+                {
+                }
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
+    }
+
+    /// <remarks>
+    /// Finding the real override must not turn every node carrying an overload into a report: this one marks,
+    /// and the inherited body is read only to learn what marking had to cover.
+    /// </remarks>
+    [Test]
+    public void ADerivedNodeWithAnUnrelatedProcessOverloadThatMarks_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class PublishingNode : RenderNode
+            {
+                protected Rect Bounds;
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+
+            internal sealed class WellBehavedNode : PublishingNode
+            {
+                public void Process(int frameIndex)
+                {
+                }
+
+                public void Update(Rect bounds)
+                {
+                    Bounds = bounds;
+                    MarkChanged();
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A property whose accessors have bodies is skipped so the assignment inside the setter is reported
+    /// instead, but the field keyword names a backing field no other member can reach. Excluding every field
+    /// a property owns dropped both halves and left the state invisible.
+    /// </remarks>
+    [Test]
+    public void ASemiAutoPropertyMutatedWithoutMarking_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                public Rect Bounds
+                {
+                    get => field;
+                    set => field = value;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
+    }
+
+    [Test]
+    public void ASemiAutoPropertyThatMarks_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                public Rect Bounds
+                {
+                    get => field;
+                    set
+                    {
+                        field = value;
+                        MarkChanged();
+                    }
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CreateCompilation(source);

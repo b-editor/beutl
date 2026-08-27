@@ -61,7 +61,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         if (renderNodeType is null || !InheritsFrom(type, renderNodeType))
             return;
 
-        IMethodSymbol? process = FindProcessMethod(type);
+        IMethodSymbol? process = FindProcessMethod(type, renderNodeType);
         if (process is null)
             return;
 
@@ -105,10 +105,16 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool IsDisposalOverride(IMethodSymbol method, INamedTypeSymbol renderNodeType)
-    {
-        if (method.Name != DisposeCallbackName)
-            return false;
+        => method.Name == DisposeCallbackName && OverridesRenderNodeMember(method, renderNodeType);
 
+    /// <summary>Whether <paramref name="method"/> fills a virtual slot declared by <c>RenderNode</c> itself.</summary>
+    /// <remarks>
+    /// Sharing a name with a <c>RenderNode</c> member is not the same as being the member the engine calls. A
+    /// node may declare an unrelated overload, or hide the member with <c>new</c>; neither is the body a
+    /// virtual call through <c>RenderNode</c> reaches.
+    /// </remarks>
+    private static bool OverridesRenderNodeMember(IMethodSymbol method, INamedTypeSymbol renderNodeType)
+    {
         for (IMethodSymbol? current = method; current is not null; current = current.OverriddenMethod)
         {
             if (SymbolEqualityComparer.Default.Equals(
@@ -144,18 +150,26 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Finds the <c>Process</c> body a node of this type would actually run, if it is in source.</summary>
     /// <remarks>
+    /// <para>
     /// A node that inherits <c>Process</c> is analyzed against the base's body, so only state that body names
     /// enters the read set. Whatever the base reaches through a virtual hook does not, which is one of the
     /// places this rule stops.
+    /// </para>
+    /// <para>
+    /// The body is chosen by the slot it overrides rather than by name and arity, because an unrelated
+    /// <c>Process</c> overload declared on the node would otherwise be read as the render path and leave the
+    /// read set empty - silencing the rule over everything the inherited override really reads.
+    /// </para>
     /// </remarks>
-    private static IMethodSymbol? FindProcessMethod(INamedTypeSymbol type)
+    private static IMethodSymbol? FindProcessMethod(INamedTypeSymbol type, INamedTypeSymbol renderNodeType)
     {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
         {
             foreach (ISymbol member in current.GetMembers(ProcessMethodName))
             {
-                if (member is IMethodSymbol { IsStatic: false, Parameters.Length: 1 } method
-                    && method.DeclaringSyntaxReferences.Length > 0)
+                if (member is IMethodSymbol { IsStatic: false } method
+                    && method.DeclaringSyntaxReferences.Length > 0
+                    && OverridesRenderNodeMember(method, renderNodeType))
                 {
                     return method;
                 }
@@ -166,6 +180,35 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     }
 
     private readonly record struct StateAssignment(ISymbol State, Location Location);
+
+    /// <summary>A reference to a member, as the state walkers need to read it.</summary>
+    private readonly record struct StateReference(ISymbol? Symbol, ExpressionSyntax Access, bool OnThisInstance);
+
+    /// <summary>Reads <paramref name="node"/> as a reference to a member, if that is what it is.</summary>
+    /// <remarks>
+    /// The <c>field</c> keyword is a reference to instance state that never spells a name, so a walk that
+    /// only looked at names could not see a property's backing field at all - neither the read that puts it
+    /// in the read set nor the write that has to be marked.
+    /// </remarks>
+    private static StateReference? GetStateReference(SemanticModel model, SyntaxNode node)
+    {
+        switch (node)
+        {
+            case SimpleNameSyntax name when !IsInsideNameOf(name):
+                return new StateReference(
+                    model.GetSymbolInfo(name).Symbol,
+                    GetAccessExpression(name),
+                    IsOnThisInstance(name));
+
+            // field names the backing store of the property being declared, and no receiver can be written
+            // for it, so it is always this instance's.
+            case FieldExpressionSyntax fieldExpression:
+                return new StateReference(model.GetSymbolInfo(fieldExpression).Symbol, fieldExpression, true);
+
+            default:
+                return null;
+        }
+    }
 
     private sealed class TypeAnalysis(
         Compilation compilation,
@@ -220,17 +263,16 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 {
                     foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
                     {
-                        if (node is not SimpleNameSyntax name || IsInsideNameOf(name))
+                        if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference
+                            || !IsTrackedInstanceState(symbol))
+                        {
                             continue;
-
-                        ISymbol? symbol = body.Model.GetSymbolInfo(name).Symbol;
-                        if (!IsTrackedInstanceState(symbol))
-                            continue;
+                        }
 
                         // A simple assignment overwrites without reading, so the target alone does not make
                         // the member part of what Process depends on.
-                        if (!IsSimpleAssignmentTarget(GetAccessExpression(name)))
-                            read.Add(symbol!);
+                        if (!IsSimpleAssignmentTarget(reference.Access))
+                            read.Add(symbol);
                     }
                 }
             }
@@ -264,22 +306,19 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             {
                 foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
                 {
-                    if (node is not SimpleNameSyntax name || IsInsideNameOf(name))
+                    if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference
+                        || !trackedState.Contains(symbol))
+                    {
                         continue;
-
-                    ISymbol? symbol = body.Model.GetSymbolInfo(name).Symbol;
-                    if (symbol is null || !trackedState.Contains(symbol))
-                        continue;
-
-                    ExpressionSyntax access = GetAccessExpression(name);
+                    }
 
                     // An assignment to another instance of the same type is a different object's state, and
                     // marking this node changed would say nothing about it.
-                    if (!IsOnThisInstance(name))
+                    if (!reference.OnThisInstance)
                         continue;
 
-                    if (IsWriteTarget(access))
-                        yield return new StateAssignment(symbol, access.GetLocation());
+                    if (IsWriteTarget(reference.Access))
+                        yield return new StateAssignment(symbol, reference.Access.GetLocation());
                 }
             }
         }
@@ -296,8 +335,13 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     if (node is not SimpleNameSyntax name || IsInsideNameOf(name))
                         continue;
 
+                    // A helper reached through another instance marks that instance, however bare the
+                    // MarkChanged call inside its body looks, so the receiver decides both questions below.
+                    if (!IsOnThisInstance(name))
+                        continue;
+
                     ISymbol? symbol = body.Model.GetSymbolInfo(name).Symbol;
-                    if (IsMarkChanged(symbol) && IsOnThisInstance(name))
+                    if (IsMarkChanged(symbol))
                         return true;
 
                     foreach (IMethodSymbol callee in ResolveCallees(body.Model, name))
@@ -329,6 +373,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return symbol switch
             {
                 IFieldSymbol { IsConst: false, AssociatedSymbol: null } => true,
+
+                // The backing field a property body names with the field keyword. Nothing else in source can
+                // reach it, so tracking it reports the setter that writes it and never doubles up with the
+                // property itself - a property with a body is not an auto-property, and an auto-property has
+                // no body to name the field from.
+                IFieldSymbol { IsConst: false, AssociatedSymbol: IPropertySymbol } => true,
 
                 // A hand-written property is skipped: its setter body assigns the backing field, and that
                 // assignment is what gets reported instead - once, where the value actually changes.
@@ -396,6 +446,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             }
         }
 
+        /// <summary>The methods a reference to <paramref name="name"/> actually runs.</summary>
+        /// <remarks>
+        /// A property reference runs one accessor, not both: a read runs the getter and a plain assignment
+        /// runs the setter, while a compound assignment or an increment runs each in turn. Yielding both for
+        /// every reference let a bare read of a property whose setter marks stand in for the mark.
+        /// </remarks>
         private static IEnumerable<IMethodSymbol> ResolveCallees(SemanticModel model, SimpleNameSyntax name)
         {
             ISymbol? symbol = model.GetSymbolInfo(name).Symbol;
@@ -405,9 +461,10 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     yield return method;
                     break;
                 case IPropertySymbol property:
-                    if (property.GetMethod is { } getter)
+                    ExpressionSyntax access = GetAccessExpression(name);
+                    if (!IsSimpleAssignmentTarget(access) && property.GetMethod is { } getter)
                         yield return getter;
-                    if (property.SetMethod is { } setter)
+                    if (IsWriteTarget(access) && property.SetMethod is { } setter)
                         yield return setter;
                     break;
             }
@@ -422,13 +479,42 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             : name;
 
     /// <remarks>
-    /// A bare identifier inside an instance member is this node; a qualified one has to say so. Anything else
+    /// A bare identifier inside an instance member is this node; a qualified one has to say so, whether it
+    /// spells the receiver beside the name or once at the head of a conditional-access chain. Anything else
     /// names another object, whose staleness this node's mark does not decide.
     /// </remarks>
     private static bool IsOnThisInstance(SimpleNameSyntax name)
-        => name.Parent is not MemberAccessExpressionSyntax memberAccess
-           || memberAccess.Name != name
-           || memberAccess.Expression is ThisExpressionSyntax or BaseExpressionSyntax;
+    {
+        switch (name.Parent)
+        {
+            case MemberAccessExpressionSyntax memberAccess when memberAccess.Name == name:
+                return memberAccess.Expression is ThisExpressionSyntax or BaseExpressionSyntax;
+
+            // A conditional access spells its receiver once, in the expression that guards the whole chain,
+            // so the binding beside the name carries no receiver of its own.
+            case MemberBindingExpressionSyntax binding when binding.Name == name:
+                return FindConditionalAccessReceiver(binding)
+                    is ThisExpressionSyntax or BaseExpressionSyntax;
+
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>The receiver the conditional access enclosing <paramref name="binding"/> tests and binds to.</summary>
+    private static ExpressionSyntax? FindConditionalAccessReceiver(MemberBindingExpressionSyntax binding)
+    {
+        for (SyntaxNode? current = binding; current is not null; current = current.Parent)
+        {
+            if (current.Parent is ConditionalAccessExpressionSyntax conditional
+                && conditional.WhenNotNull == current)
+            {
+                return conditional.Expression;
+            }
+        }
+
+        return null;
+    }
 
     private static bool IsSimpleAssignmentTarget(ExpressionSyntax expression)
         => expression.Parent is AssignmentExpressionSyntax assignment
