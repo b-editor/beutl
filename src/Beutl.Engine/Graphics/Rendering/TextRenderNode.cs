@@ -45,10 +45,8 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             (float)(rasterBounds.Right - bounds.Right),
             (float)(rasterBounds.Bottom - bounds.Bottom));
 
-        (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
-        (Pen.Resource Resource, int Version)? penSnapshot = Pen;
-        Brush.Resource? fill = fillSnapshot?.Resource;
-        Pen.Resource? pen = penSnapshot?.Resource;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
         Brush.Resource? textBrush = text.Brush;
         Pen.Resource? textPen = text.Pen;
         RenderResource<FormattedText> textResource = context.Borrow(text);

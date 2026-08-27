@@ -30,11 +30,9 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         if (Geometry is not { } geometrySnapshot)
             return;
 
-        (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
-        (Pen.Resource Resource, int Version)? penSnapshot = Pen;
         Geometry.Resource geometry = geometrySnapshot.Resource;
-        Brush.Resource? fill = fillSnapshot?.Resource;
-        Pen.Resource? pen = penSnapshot?.Resource;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
         Rect strokeBounds = PenHelper.CalculateBoundsWithStrokeCap(
             geometry.GetRenderBounds(pen),
             pen);

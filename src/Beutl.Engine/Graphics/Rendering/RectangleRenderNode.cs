@@ -33,10 +33,8 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
     public override void Process(RenderNodeContext context)
     {
         Rect rect = Rect;
-        (Brush.Resource Resource, int Version)? fillSnapshot = Fill;
-        (Pen.Resource Resource, int Version)? penSnapshot = Pen;
-        Brush.Resource? fill = fillSnapshot?.Resource;
-        Pen.Resource? pen = penSnapshot?.Resource;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
         Rect bounds = PenHelper.GetBounds(rect, pen);
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
