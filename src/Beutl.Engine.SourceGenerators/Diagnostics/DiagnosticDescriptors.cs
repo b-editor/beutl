@@ -25,10 +25,10 @@ public static class DiagnosticDescriptors
         title: "Render metadata callback reads more than the render node that declares it",
         messageFormat:
             "'{0}.{1}' keys its compiled plan by which method the callback is, not by what the callback "
-            + "closed over, so the callback may read the render node it is written inside and must close "
-            + "over nothing else; {2}. Declare the callback static, or let it read only the declaring node, "
-            + "and carry every other changing value through the state-passing overload or a bound render "
-            + "resource.",
+            + "reads, so the callback may read the render node it is written inside and must reach nothing "
+            + "else; {2}. Declare the callback static, write it as a lambda closing over nothing but the "
+            + "declaring node or as a method group naming one of that node's own methods, and carry every "
+            + "other changing value through the state-passing overload or a bound render resource.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -40,11 +40,14 @@ public static class DiagnosticDescriptors
             + "callback is admitted on that footing: the node arrives as the delegate's own target rather "
             + "than as a closure field, marking the node changed re-records it, and an answer of the node's "
             + "that moves between recording and graph-wide metadata resolution fails the request at the "
-            + "recorded-answer cross-check instead of silently winning. A captured local or parameter has "
-            + "none of that - nothing re-records when it is assigned, and the plan compiled for its first "
-            + "answer is replayed for the second - and neither does an enclosing instance that is not a "
-            + "node, whose state no change marking covers. The runtime identity validator cannot stand in "
-            + "for this rule either: it reads the delegate's target alone, and a closure over anything "
+            + "recorded-answer cross-check instead of silently winning. That admits both spellings of it, a "
+            + "lambda closing over nothing but its own node and a method group naming a method of that "
+            + "node, because the two hand the runtime the same delegate and differ only in how the mapping "
+            + "was written. A captured local or parameter has none of that - nothing re-records when it is "
+            + "assigned, and the plan compiled for its first answer is replayed for the second - and "
+            + "neither does an enclosing instance that is not a node, whose state no change marking covers, "
+            + "nor a receiver the author holds somewhere else. The runtime identity validator cannot stand "
+            + "in for this rule either: it reads the delegate's target alone, and a closure over anything "
             + "besides the declaring instance arrives as a compiler display class that none of its type "
             + "tests answer for.");
 

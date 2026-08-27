@@ -24,19 +24,21 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// paid for it.
 /// </para>
 /// <para>
-/// One reader is admitted: a lambda may read the <c>RenderNode</c> it is written inside. That node arrives as
-/// the delegate's own target rather than as a closure field, marking it changed re-records it, and an answer
-/// of the node's that moves between recording and graph-wide metadata resolution fails the request at the
-/// recorded-answer cross-check. A local, a parameter, and an enclosing instance that is not a node have none
-/// of that: nothing re-records when one is assigned, and the runtime identity validator never sees them,
-/// because a closure over anything besides <see langword="this"/> arrives as a compiler display class that
-/// none of its type tests answer for. This rule is the whole of what stands there.
+/// One reader is admitted: a callback may read the <c>RenderNode</c> it is written inside. That node arrives
+/// as the delegate's own target rather than as a closure field, marking it changed re-records it, and an
+/// answer of the node's that moves between recording and graph-wide metadata resolution fails the request at
+/// the recorded-answer cross-check. A local, a parameter, and an enclosing instance that is not a node have
+/// none of that: nothing re-records when one is assigned, and the runtime identity validator never sees
+/// them, because a closure over anything besides <see langword="this"/> arrives as a compiler display class
+/// that none of its type tests answer for. This rule is the whole of what stands there.
 /// </para>
 /// <para>
-/// The exemption decides what a lambda closes over and leaves the receiver arm below as it was: a method
-/// group bound to an instance is still reported, including one bound to the declaring node. Whether that arm
-/// should take the same exemption is a question about what a receiver may be, not about what a closure may
-/// hold, and this rule does not answer it.
+/// The exemption is about which instance the callback reads and not about how the callback was written, so
+/// both spellings of that one reader take it: a lambda closing over nothing but its own node, and a method
+/// group naming a method of that node. They hand the runtime the same delegate - the node as its target and
+/// a method of the node's type as the structural identity the plan is keyed by - and the method group is the
+/// narrower of the two, having no enclosing scope to reach into. A method group bound to any other instance
+/// is still reported, and so is one bound to an enclosing instance that is not a node.
 /// </para>
 /// <para>
 /// A callback clearing this rule can still read static state, which changes what it answers without
@@ -459,12 +461,21 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     }
 
     /// <remarks>
+    /// <para>
     /// A method group carries no closure, but an instance method's receiver becomes the delegate's target,
-    /// and that receiver is whatever the author named. A reference-typed one is the author's own object, so
-    /// changing a field on it changes what the callback answers; a value-typed one is boxed at the
-    /// conversion, so the delegate answers from a copy of whatever the receiver held right there. Neither is
-    /// narrowed by the exemption a lambda reading its own node takes: that one is about what a closure may
-    /// hold, and this is about what a receiver may be.
+    /// and that receiver is whatever the author named. A reference-typed one the author holds somewhere
+    /// else is their own object, so changing a field on it changes what the callback answers; a value-typed
+    /// one is boxed at the conversion, so the delegate answers from a copy of whatever the receiver held
+    /// right there.
+    /// </para>
+    /// <para>
+    /// One receiver is admitted, and it is the instance the closure rule already admits: the enclosing one,
+    /// when that instance is a <c>RenderNode</c>. Both spellings hand the runtime the same delegate - the
+    /// node as its target, and a method of the node's type as the structural identity the plan is keyed by
+    /// - so reporting one while admitting the other would be judging how the mapping was spelled. A method
+    /// group is the narrower form at that: an instance method reads its receiver and its arguments, where a
+    /// lambda has the whole enclosing scope to reach into and needs the closure walk to say it did not.
+    /// </para>
     /// </remarks>
     private static string? DescribeReceiverImpurity(
         SyntaxNodeAnalysisContext context,
@@ -477,9 +488,20 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         if (expression is not MemberAccessExpressionSyntax memberAccess)
         {
-            // An unqualified instance method is called on `this`, which the enclosing object can change.
-            return "the callback is an instance method, whose receiver can be changed after this call";
+            // A bare name is an instance method on `this` or a local function, and only the first has a
+            // receiver at all. A local function not declared static reaches the scope it is written in the
+            // way a lambda does, and nothing here reads which locals it took, so it keeps the answer the
+            // closure walk gives an unreadable lambda.
+            return method.MethodKind == MethodKind.LocalFunction
+                ? "the callback is a local function that is not declared static, so it can read a local or "
+                  + "a parameter of the method it is written in and this rule does not read which"
+                : DescribeEnclosingReceiverImpurity(context, model, expression);
         }
+
+        // Parentheses and nothing else: a cast is what changes the member the call binds to, so stripping
+        // one would read a receiver the call was never bound against.
+        if (StripParentheses(memberAccess.Expression) is ThisExpressionSyntax or BaseExpressionSyntax)
+            return DescribeEnclosingReceiverImpurity(context, model, expression);
 
         ITypeSymbol? receiver = model
             .GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type;
@@ -488,6 +510,46 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
               + "whatever the receiver held at this call"
             : "the callback is an instance method on a reference type, and the delegate keeps that "
               + "object as its receiver";
+    }
+
+    /// <summary>
+    /// Decides a method group whose receiver is the instance the call is written inside: the render node
+    /// declaring it, which is admitted, or anything else, which is not.
+    /// </summary>
+    /// <remarks>
+    /// The type is read at the call rather than off the method, so a method a base type declares is judged
+    /// by the instance that runs it, which is the one that becomes the delegate's target. That is the type
+    /// the closure walk reads for a lambda and the object the runtime identity validator is handed.
+    /// </remarks>
+    private static string? DescribeEnclosingReceiverImpurity(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        ExpressionSyntax expression)
+    {
+        ITypeSymbol? enclosingInstance = model
+            .GetEnclosingSymbol(expression.SpanStart, context.CancellationToken)?.ContainingType;
+
+        if (enclosingInstance is null)
+        {
+            // Silence has to mean the rule looked, and here it could not.
+            return "the callback is an instance method and this rule could not read what type it is "
+                + "written inside, so it is reported rather than assumed to be a node's";
+        }
+
+        // A RenderNode is a class, so this decides nothing the node test would have decided otherwise; it
+        // is here to name what actually happens to a struct's `this`.
+        if (enclosingInstance.IsValueType)
+        {
+            return "the callback is an instance method on a value type, so the delegate carries a boxed "
+                + "copy of whatever the receiver held at this call";
+        }
+
+        if (IsRenderNode(enclosingInstance))
+            return null;
+
+        return $"the callback is an instance method of the enclosing '{enclosingInstance.Name}', which is "
+            + "not a RenderNode: change marking and the recorded-answer cross-check are a node's, so "
+            + "nothing holds what its receiver reads to one answer";
     }
 
     /// <remarks>

@@ -878,19 +878,23 @@ compiled clean before. They exist because the engine keys a compiled plan on the
 if the same callback answers differently on a later frame, the plan is reused for pixels it no longer
 describes, and nothing at runtime notices.
 
-- **BESG003** — a metadata callback may read the `RenderNode` that declares it and must close over nothing
-  else. It reports a lambda closing over a local, over a parameter, or over an enclosing instance that is
-  not a `RenderNode`; a callback that arrives as a parameter or a local; one behind a cast, parentheses,
-  `as`, a null-suppression or `checked`; a method group bound to an instance, value-typed or not; and any
-  callback expression it cannot classify. A lambda reading nothing but the node it is written inside is
+- **BESG003** — a metadata callback may read the `RenderNode` that declares it and must reach nothing else.
+  It reports a lambda closing over a local, over a parameter, or over an enclosing instance that is not a
+  `RenderNode`; a callback that arrives as a parameter or a local; one behind a cast, parentheses, `as`, a
+  null-suppression or `checked`; a method group bound to an instance the author holds somewhere else,
+  value-typed or not; a local function not declared `static`, whose captures it does not read; and any
+  callback expression it cannot classify. A callback reading nothing but the node it is written inside is
   accepted, which is the runtime boundary as well: such a callback arrives with the node as its delegate
   target, marking the node changed re-records it, an answer of its that moves fails the request at the
   recorded-answer cross-check, and its plan is keyed by the callback's method, so it is shared with every
-  other node of that type. Migration: write the callback as a `static` lambda or a static method group at
-  the call site, or let it read only the declaring node, and pass the values that change through the
-  contract's state-passing overload. Those overloads exist on `RenderBoundsContract`,
-  `RenderHitTestContract`, `RenderScaleContract`, `RenderInputDemandContract`, `OpaqueRenderBoundsContract`
-  and `TargetCaptureScaleContract`, and on the definition builders `OpaqueRenderDefinition`,
+  other node of that type. Both spellings of that reader are accepted — a lambda closing over nothing but
+  its own node, and a method group naming a method of that node — because the two hand the runtime the same
+  delegate, and the exemption is about which instance the callback reads rather than about how it was
+  written. Migration: write the callback as a `static` lambda or a static method group at the call site, or
+  let it read only the declaring node, and pass the values that change through the contract's state-passing
+  overload. Those overloads exist on `RenderBoundsContract`, `RenderHitTestContract`,
+  `RenderScaleContract`, `RenderInputDemandContract`, `OpaqueRenderBoundsContract` and
+  `TargetCaptureScaleContract`, and on the definition builders `OpaqueRenderDefinition`,
   `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
   `RawTargetCommandDefinition` and `GeometryDefinition`. The analyzer ships only to projects that
   reference `Beutl.Engine.SourceGenerators`, so an out-of-tree author never sees it.

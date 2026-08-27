@@ -453,6 +453,308 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// The one reader the rule admits, written the other way. The runtime is handed the same delegate as
+    /// for the lambda: the node as its target, and a method of the node's type as the structural identity
+    /// the plan is keyed by. The method group is the narrower of the two forms - an instance method reads
+    /// its receiver and its arguments, where a lambda has the enclosing scope to reach into - so reporting
+    /// this while admitting the lambda would be judging how the mapping was spelled.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnTheDeclaringNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Forward, this.Backward);
+
+                private Rect Forward(Rect value)
+                    => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+
+                private Rect Backward(Rect value)
+                    => new Rect(value.X - Offset, value.Y, value.Width, value.Height);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the node is the delegate's target and one of its methods is the plan key either way, so the "
+            + "rule cannot turn on whether the author wrote a lambda or named the method");
+    }
+
+    /// <remarks>
+    /// The receiver is read at the call and not off the method, so a mapping a base node declares is judged
+    /// by the node that runs it - which is the object that becomes the delegate's target.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnAMethodABaseNodeDeclares_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShiftingNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                protected Rect Forward(Rect value)
+                    => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+            }
+
+            internal sealed class ShiftedNode : ShiftingNode
+            {
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(base.Forward, Forward);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// Parentheses around a receiver leave the same object underneath, and the whole point of this arm is
+    /// that the rule answers by what the callback reads rather than by how it was spelled.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnAParenthesisedThis_InsideANode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create((this).Forward, ((this)).Forward);
+
+                private Rect Forward(Rect value)
+                    => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// The body is the whole of what a method group contributes, and the exemption says nothing about what
+    /// that body reads, so BESG004 still follows it. Accepting the receiver must not stop the rule looking.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnTheDeclaringNodeReadingAMutableStatic_IsReportedByTheStaticStateRule()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Forward, static value => value);
+
+                private Rect Forward(Rect value)
+                    => new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG003"),
+            "the receiver is the declaring node, which is the reader the rule admits");
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "admitting the receiver decides nothing about the body, which is still walked");
+    }
+
+    /// <remarks>
+    /// The exemption is for the node the callback is written inside, not for whatever object a node holds.
+    /// Nothing marks that object changed, and the runtime validator is handed it rather than the node.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnAnotherObject_InsideANode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                public float Offset { get; set; }
+
+                public Rect Map(Rect value)
+                    => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Provider _other = new Provider();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(_other.Map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "the delegate's target is the provider, whose state no change marking on this node covers");
+    }
+
+    /// <remarks>
+    /// The sharpest case for the exemption's boundary: the receiver is a <c>RenderNode</c> and is still not
+    /// the node whose recording the callback belongs to, so marking it changed re-records the wrong node.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnAnotherNode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class SourceNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                public Rect Map(Rect value)
+                    => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly SourceNode _source = new SourceNode();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(_source.Map, static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "being a node is not the test; being the node this callback is recorded for is");
+    }
+
+    /// <remarks>
+    /// The receiver arm takes the exemption on the same terms the closure arm does, which the runtime
+    /// validator writes as <c>not RenderNode</c>: an ordinary object is covered by no change marking, so
+    /// its state moving is caught by nothing.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnThis_OutsideANode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                public float Offset { get; set; }
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, this.Map);
+
+                private Rect Map(Rect value)
+                    => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "no change marking covers an ordinary object, so its receiver moving is caught by nothing");
+    }
+
+    /// <remarks>
+    /// A struct's own <c>this</c> is boxed at the conversion exactly as a named value-typed receiver is, so
+    /// the delegate answers from a copy of what the receiver held right there. The exemption names a class
+    /// and cannot reach this whatever the struct is written inside.
+    /// </remarks>
+    [Test]
+    public void AMethodGroupOnAStructsOwnThis_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal readonly record struct Metadata(float Inset)
+            {
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, this.Map);
+
+                private Rect Map(Rect value)
+                    => new Rect(value.X + Inset, value.Y, value.Width, value.Height);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// A bare name is not always a receiver. A local function that is not declared static reads the scope
+    /// it is written in exactly as a lambda does, and nothing here reads which locals it took, so widening
+    /// the receiver arm must not widen to this.
+    /// </remarks>
+    [Test]
+    public void ALocalFunctionCapturingAParameter_InsideANode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public RenderBoundsContract Build(float offset)
+                {
+                    Rect Forward(Rect value)
+                        => new Rect(value.X + offset, value.Y, value.Width, value.Height);
+
+                    return RenderBoundsContract.Create(Forward, static value => value);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "the delegate carries the caller's argument, which is the case this rule exists for");
+    }
+
+    /// <remarks>
+    /// Staticness is still read first, so it decides the callback without the receiver being consulted.
+    /// </remarks>
+    [Test]
+    public void AStaticMethodGroupInsideANode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class PassthroughNode : RenderNode
+            {
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Map, Map);
+
+                private static Rect Map(Rect value) => value;
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
+    /// <remarks>
     /// A forwarded callback is checked nowhere else: the caller hands it to the helper, not to a contract,
     /// so the caller's own call is not a contract call and is not analyzed. The forwarder is the last place
     /// that knows a contract is involved.
