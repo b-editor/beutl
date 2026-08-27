@@ -59,6 +59,8 @@ Root provenance retains painter order and query behavior independently of materi
 
 Forward analysis resolves output bounds, effective supply, value cardinality, contribution, target dependence, and hit-test provenance from the complete graph. It may reevaluate pure bounds or scale mappings after symbolic upstream metadata becomes concrete. It does not execute deferred execution callbacks; only pure metadata callbacks run during analysis.
 
+A reevaluated mapping is held to the answer recording stored. For a fragment with no symbolic upstream metadata that is the resolved answer itself, which is computed over the same input metadata recording passed the mapping. For a symbolic fragment the resolved answer is expected to differ, so the mapping is asked once more for the input metadata it was recorded over and must return what recording stored. Either disagreement fails the request. Equality is exact: a tolerance would admit a mapping that reads mutable state rather than accommodate drift between identical inputs. Backward mappings and hit-test contracts are not covered - recording never evaluates the first, and resolution never reevaluates the second.
+
 ### Backward regions
 
 Backward analysis starts at the requested root region or complete output extent and propagates required regions through value transforms and scope-local target dependencies. Unknown mappings request full inputs. Full target access requires a finite owning target domain.

@@ -221,6 +221,123 @@ public sealed class RegionAnalyzerTests
     }
 
     [Test]
+    public void Analyze_RejectsNonDeterministicSymbolicForwardMapping()
+    {
+        var graph = new FragmentGraph();
+        var placeholder = new Rect(0, 0, 10, 10);
+        RenderFragmentReference source = graph.SymbolicSource(placeholder);
+        var inset = new DriftingInset();
+        RenderBoundsContract nonDeterministic = RenderBoundsContract.Create(
+            inset,
+            static (state, input) => input.Inflate(state.Next),
+            static (_, requested) => requested);
+        RenderFragmentReference output = graph.Map(source, nonDeterministic);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RegionAnalyzer().Analyze(Options(new Rect(0, 0, 200, 200)), [output]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.RecordedBounds, Is.EqualTo(placeholder),
+                "Recording must have mapped the placeholder before the inset moved.");
+            Assert.That(
+                failure!.Message,
+                Does.Contain("A forward bounds mapping changed between recording and graph-wide metadata resolution"));
+            // Recording, resolving over the owning domain, and replaying at the recorded point. The last two
+            // read the same moved inset, so comparing them to each other would have accepted this mapping.
+            Assert.That(inset.Reads, Is.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void Analyze_RejectsNonDeterministicSymbolicSupplyContract()
+    {
+        var graph = new FragmentGraph();
+        RenderFragmentReference source = graph.SymbolicSource(new Rect(0, 0, 10, 10));
+        var supply = new DriftingSupply();
+        RenderFragmentReference output = graph.Map(
+            source,
+            RenderBoundsContract.Identity,
+            scale: RenderScaleContract.MapInputSupplyPreservingDemand(
+                supply,
+                static (state, input) => state.Map(input)));
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
+            () => new RegionAnalyzer().Analyze(Options(new Rect(0, 0, 200, 200)), [output]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.RecordedEffectiveScale, Is.EqualTo(EffectiveScale.At(1)));
+            Assert.That(
+                failure!.Message,
+                Does.Contain("A supply-density contract changed between recording and graph-wide metadata resolution"));
+            // Recording, resolving over the moved input supply, and replaying at the recorded point.
+            Assert.That(supply.Reads, Is.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void Analyze_AcceptsDeterministicSymbolicMappingsOverAnInputThatMoved()
+    {
+        var graph = new FragmentGraph();
+        RenderFragmentReference source = graph.SymbolicSource(new Rect(0, 0, 10, 10));
+        RenderBoundsContract grow = RenderBoundsContract.Create(
+            static input => input.Inflate(new Thickness(4)),
+            static requested => requested.Inflate(new Thickness(4)));
+        RenderFragmentReference output = graph.Map(
+            source,
+            grow,
+            scale: RenderScaleContract.MapInputSupplyPreservingDemand(HalveSupply));
+        var domain = new Rect(0, 0, 200, 200);
+
+        RegionAnalysis result = new RegionAnalyzer().Analyze(Options(domain), [output]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.GetMetadata(source).Bounds, Is.EqualTo(domain),
+                "The symbolic input must resolve away from its recorded placeholder.");
+            Assert.That(result.GetMetadata(output).Bounds, Is.EqualTo(domain.Inflate(new Thickness(4))));
+            Assert.That(result.GetMetadata(output).EffectiveScale, Is.EqualTo(EffectiveScale.At(0.5f)));
+        });
+    }
+
+    private static EffectiveScale HalveSupply(EffectiveScale input)
+        => input.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(input.Value / 2);
+
+    /// <summary>
+    /// State a metadata callback reads whose value moves once - on the first read after the recording that
+    /// used it - and then stays put.
+    /// </summary>
+    /// <remarks>
+    /// That is the shape a field takes when something writes it between the recording that read it and the
+    /// resolution that reads it again, and it is the case a guard comparing two evaluations at the resolved
+    /// point cannot see: both of those reads return the moved value and agree. The callbacks reading this stay
+    /// <see langword="static"/>, so nothing here is a captured delegate; what the contract cannot check is that
+    /// the state handed to it is immutable.
+    /// </remarks>
+    private sealed class DriftingInset
+    {
+        private int _reads;
+
+        public int Reads => _reads;
+
+        public Thickness Next => new(_reads++ == 0 ? 0 : 4);
+    }
+
+    /// <summary>A supply mapping whose factor moves once, the same way <see cref="DriftingInset"/> does.</summary>
+    private sealed class DriftingSupply
+    {
+        private int _reads;
+
+        public int Reads => _reads;
+
+        public EffectiveScale Map(EffectiveScale input)
+            => input.IsUnbounded
+                ? EffectiveScale.Unbounded
+                : EffectiveScale.At(input.Value / (_reads++ == 0 ? 1 : 2));
+    }
+
+    [Test]
     public void Analyze_KeepsOutputQueryTargetRequestedAndCommitDomainsIndependent()
     {
         var graph = new FragmentGraph();
@@ -298,6 +415,9 @@ public sealed class RegionAnalyzerTests
 
     private sealed class FragmentGraph
     {
+        private const float DefaultOutputScale = 1;
+        private const float DefaultMaxWorkingScale = float.PositiveInfinity;
+
         private readonly RenderRequestId _requestId = new(1);
         private long _nextId;
 
@@ -328,23 +448,63 @@ public sealed class RegionAnalyzerTests
                 RenderFragmentHitTest.Bounds));
         }
 
+        /// <summary>
+        /// Builds a source whose extent is stated symbolically, so resolution replaces its recorded
+        /// placeholder with the owning target domain and every fragment above it resolves over an input that
+        /// moved.
+        /// </summary>
+        public RenderFragmentReference SymbolicSource(Rect placeholderBounds)
+        {
+            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
+                static _ => { },
+                OpaqueRenderBoundsContract.Source(placeholderBounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale);
+            return Stamp(new RenderFragmentReference(
+                RenderFragmentKind.OpaqueSource,
+                placeholderBounds,
+                EffectiveScale.At(1),
+                RenderValueCardinality.Single,
+                contributesValuesToTarget: true,
+                canBeUsedAsValueInput: true,
+                hasTargetEffects: false,
+                hasOpaqueExternalWork: true,
+                inputs: [],
+                new OpaqueRenderFragmentPayload(
+                    OpaqueRenderTopology.Source,
+                    description,
+                    Array.Empty<RenderInputReadback>()),
+                RenderFragmentHitTest.Bounds,
+                RenderFragmentBoundsRequirement.OwningTargetDomain));
+        }
+
         public RenderFragmentReference Map(
             RenderFragmentReference input,
             RenderBoundsContract bounds,
             bool? contributes = null,
-            Rect? recordedBounds = null)
+            Rect? recordedBounds = null,
+            RenderScaleContract? scale = null)
         {
             Rect outputBounds = recordedBounds ?? bounds.TransformBounds(input.Bounds);
+            RenderScaleContract scaleContract = scale ?? RenderScaleContract.PreserveInputSupply;
+            // Recording resolves the density from the contract over the input's recorded supply, so a graph
+            // built here has to state the same answer rather than copy the input's.
+            EffectiveScale outputScale = scaleContract.Resolve(
+                [input.EffectiveScale],
+                outputBounds,
+                DefaultOutputScale,
+                DefaultMaxWorkingScale);
             OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
                 static _ => { },
                 OpaqueRenderBoundsContract.Map(bounds),
                 RenderHitTestContract.AnyInput,
                 RenderValueCardinality.Single,
-                RenderScaleContract.PreserveInputSupply);
+                scaleContract);
             return Stamp(new RenderFragmentReference(
                 RenderFragmentKind.OpaqueMap,
                 outputBounds,
-                input.EffectiveScale,
+                outputScale,
                 RenderValueCardinality.Single,
                 contributes ?? input.ContributesValuesToTarget,
                 canBeUsedAsValueInput: true,

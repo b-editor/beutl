@@ -567,19 +567,37 @@ internal sealed class RegionAnalyzer
             RenderRectValidation.ThrowIfInvalidResult(
                 resolvedBounds,
                 "A resolved fragment contains invalid forward bounds.");
-            if (!reference.HasSymbolicBoundsDependency
-                && resolvedBounds != reference.RecordedBounds)
+            if (!reference.HasSymbolicBoundsDependency)
             {
-                // Concrete mappings are deliberately evaluated both while recording and here. Exact equality
-                // enforces the public contract that bounds delegates are deterministic over an immutable snapshot;
-                // a tolerance would hide mutable captures rather than accommodate numeric drift from identical inputs.
-                throw new InvalidOperationException(
-                    "A forward bounds mapping changed between recording and graph-wide metadata resolution.");
+                if (resolvedBounds != reference.RecordedBounds)
+                {
+                    // Concrete mappings are deliberately evaluated both while recording and here. Exact equality
+                    // enforces the public contract that bounds delegates are deterministic over an immutable snapshot;
+                    // a tolerance would hide mutable captures rather than accommodate numeric drift from identical inputs.
+                    throw new InvalidOperationException(
+                        "A forward bounds mapping changed between recording and graph-wide metadata resolution.");
+                }
+            }
+            else
+            {
+                // A symbolic fragment resolves over inputs that were meant to move, so the answer above is
+                // expected to differ from the recorded one and cannot stand in for this comparison. Replaying
+                // the mapping over the inputs' recorded metadata puts it back under the rule the branch above
+                // enforces, at the one input where a recorded answer exists.
+                SymbolicMetadataCrossCheck.VerifyForwardBounds(reference);
             }
 
-            EffectiveScale resolvedScale = reference.HasSymbolicBoundsDependency
-                ? ResolveForwardScale(reference, resolvedBounds, options)
-                : reference.RecordedEffectiveScale;
+            EffectiveScale resolvedScale;
+            if (reference.HasSymbolicBoundsDependency)
+            {
+                resolvedScale = ResolveForwardScale(reference, resolvedBounds, options);
+                // The density contract is held to its recorded answer the same way, and for the same reason.
+                SymbolicMetadataCrossCheck.VerifyForwardScale(reference, options);
+            }
+            else
+            {
+                resolvedScale = reference.RecordedEffectiveScale;
+            }
             RenderFragmentHitTest? resolvedHitTest = reference.HasSymbolicBoundsDependency
                 ? ResolveForwardHitTest(reference)
                 : null;
