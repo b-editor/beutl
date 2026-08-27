@@ -428,7 +428,7 @@ public sealed class RenderNodeContext
             new ShaderRenderFragmentPayload(
                 description,
                 workingScalePolicy),
-            RenderFragmentHitTest.Inputs);
+            description.CreateFragmentHitTest());
     }
 
     /// <summary>Records a deferred geometry callback over one value-eligible fragment.</summary>

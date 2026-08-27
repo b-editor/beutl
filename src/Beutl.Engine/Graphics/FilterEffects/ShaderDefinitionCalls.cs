@@ -18,6 +18,7 @@ public sealed class ShaderDefinition<TState>
     private readonly SkslSource _source;
     private readonly RenderBoundsContract _bounds;
     private readonly RenderInputDemandContract _inputDemand;
+    private readonly RenderHitTestContract? _hitTest;
     private readonly SKShaderTileMode _sourceTileMode;
     private readonly IReadOnlyList<ShaderBindingTemplate<TState>> _bindings;
     private readonly IReadOnlyList<RenderResourceSlot> _resourceSlots;
@@ -28,6 +29,7 @@ public sealed class ShaderDefinition<TState>
         RenderBoundsContract bounds,
         RenderInputDemandContract inputDemand,
         SKShaderTileMode sourceTileMode,
+        RenderHitTestContract? hitTest,
         Action<ShaderDefinitionBuilder<TState>>? bindings)
     {
         var builder = new ShaderDefinitionBuilder<TState>();
@@ -38,6 +40,7 @@ public sealed class ShaderDefinition<TState>
         _source = source;
         _bounds = bounds;
         _inputDemand = inputDemand;
+        _hitTest = hitTest;
         _sourceTileMode = sourceTileMode;
         _bindings = builder.Templates.ToArray();
         _resourceSlots = RenderDescriptionValidation.CopyResourceSlots(builder.ResourceSlots, nameof(bindings));
@@ -55,6 +58,7 @@ public sealed class ShaderDefinition<TState>
             RenderBoundsContract.Identity,
             RenderInputDemandContract.Unchanged,
             SKShaderTileMode.Decal,
+            hitTest: null,
             bindings);
 
     /// <summary>Creates a current-pixel shader definition from an already parsed source.</summary>
@@ -74,6 +78,7 @@ public sealed class ShaderDefinition<TState>
             RenderBoundsContract.Identity,
             RenderInputDemandContract.Unchanged,
             SKShaderTileMode.Decal,
+            hitTest: null,
             bindings);
     }
 
@@ -90,14 +95,23 @@ public sealed class ShaderDefinition<TState>
     /// A stage that enlarges what it samples must declare it; the default leaves demand unchanged, which is
     /// only correct for a stage that samples <c>src</c> at the density its own consumer asked for.
     /// </param>
+    /// <param name="hitTest">
+    /// The fixed CPU hit test for the pixels this stage produces, or <see langword="null"/> to forward the
+    /// question to the input unchanged. A stage that leaves its content where it found it needs nothing here.
+    /// A stage whose <paramref name="bounds"/> relocate the content has to declare one, because the forwarded
+    /// question would otherwise be asked of the input at a point the moved content no longer covers - missing
+    /// the visible pixels and hitting the vacated ones.
+    /// </param>
     public static ShaderDefinition<TState> WholeSource(
         string source,
         RenderBoundsContract bounds,
         Action<ShaderDefinitionBuilder<TState>>? bindings = null,
         SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
-        RenderInputDemandContract inputDemand = default)
+        RenderInputDemandContract inputDemand = default,
+        RenderHitTestContract? hitTest = null)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
         if (!Enum.IsDefined(sourceTileMode))
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
 
@@ -107,23 +121,26 @@ public sealed class ShaderDefinition<TState>
             bounds,
             inputDemand,
             sourceTileMode,
+            hitTest,
             bindings);
     }
 
     /// <summary>Creates a whole-source shader definition from an already parsed source.</summary>
     /// <param name="source">A non-null <see cref="ShaderDescriptionKind.WholeSource"/> source.</param>
-    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderDefinitionBuilder{TState}}, SKShaderTileMode, RenderInputDemandContract)" path="/param[@name='bounds']|/param[@name='bindings']|/param[@name='sourceTileMode']|/param[@name='inputDemand']"/>
+    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderDefinitionBuilder{TState}}, SKShaderTileMode, RenderInputDemandContract, RenderHitTestContract?)" path="/param[@name='bounds']|/param[@name='bindings']|/param[@name='sourceTileMode']|/param[@name='inputDemand']|/param[@name='hitTest']"/>
     public static ShaderDefinition<TState> WholeSource(
         SkslSource source,
         RenderBoundsContract bounds,
         Action<ShaderDefinitionBuilder<TState>>? bindings = null,
         SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
-        RenderInputDemandContract inputDemand = default)
+        RenderInputDemandContract inputDemand = default,
+        RenderHitTestContract? hitTest = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
         bounds.ThrowIfUninitialized(nameof(bounds));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
         if (!Enum.IsDefined(sourceTileMode))
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
 
@@ -133,6 +150,7 @@ public sealed class ShaderDefinition<TState>
             bounds,
             inputDemand,
             sourceTileMode,
+            hitTest,
             bindings);
     }
 
@@ -157,7 +175,14 @@ public sealed class ShaderDefinition<TState>
 
         return _kind == ShaderDescriptionKind.CurrentPixel
             ? ShaderDescription.CurrentPixel(_source, apply)
-            : ShaderDescription.WholeSource(_source, _bounds, apply, _sourceTileMode, _inputDemand);
+            : ShaderDescription.WholeSource(
+                _source,
+                _bounds,
+                apply,
+                _sourceTileMode,
+                _inputDemand,
+                _hitTest,
+                resourceBindings);
     }
 
     private static void ValidateBindings(

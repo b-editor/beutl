@@ -17,7 +17,11 @@ public sealed class ShaderAuthoringContractTests
     private const string TwoChildWholeSource =
         "uniform shader src; uniform shader tintA; uniform shader tintB; "
         + "half4 main(float2 coord) { return (tintA.eval(coord) + tintB.eval(coord)) * 0.5; }";
+    private const string TranslateWholeSource =
+        "uniform shader src; uniform float dx; uniform float dy; "
+        + "half4 main(float2 coord) { return src.eval(coord - float2(dx, dy)); }";
     private static readonly Rect s_bounds = new(0, 0, 8, 6);
+    private static readonly Vector s_translation = new(20, 10);
     private static readonly RenderResourceSlot<ShaderColor> s_colorSlot = new();
     private static readonly RenderResourceSlot<ShaderColor> s_sharedColorSlot = new();
     private static readonly ShaderDefinition<float> s_currentPixelDefinition =
@@ -37,6 +41,19 @@ public sealed class ShaderAuthoringContractTests
                     color.Uses++;
                     writer.Set(SKShader.CreateColor(color.Color));
                 }));
+    private static readonly ShaderDefinition<Vector> s_relocatingDefinition =
+        ShaderDefinition<Vector>.WholeSource(
+            TranslateWholeSource,
+            TranslateBounds(),
+            DeclareTranslateUniforms,
+            hitTest: RenderHitTestContract.Custom(
+                s_translation,
+                static (offset, context, point) => context.Inputs[0].HitTest(point - offset)));
+    private static readonly ShaderDefinition<Vector> s_undeclaredRelocatingDefinition =
+        ShaderDefinition<Vector>.WholeSource(
+            TranslateWholeSource,
+            TranslateBounds(),
+            DeclareTranslateUniforms);
 
     /// <remarks>
     /// A plugin author with many effects over one shader has the same reason the engine does to parse it
@@ -296,6 +313,107 @@ public sealed class ShaderAuthoringContractTests
         });
     }
 
+
+    /// <remarks>
+    /// A whole-source stage states where its output lands in its bounds contract and puts it there with its own
+    /// SkSL. Forwarding the hit test to the input asks about a point in the stage's own output space, which for
+    /// a stage that moved its content names neither the pixels it produced nor the place it vacated. Only the
+    /// author knows the inverse of the mapping their SkSL performs, so only the author can state the test.
+    /// </remarks>
+    [Test]
+    public void AWholeSourceShaderThatRelocatesItsInput_HitsWhereItsDeclaredContractSays()
+    {
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
+            context.Publish(context.Shader(source, s_relocatingDefinition.Call(s_translation)));
+        });
+
+        using var renderer = CreateHitTestRenderer(node);
+        RenderNodeMeasurement measurement = renderer.Measure();
+        bool hitWhereTheContentMoved = renderer.HitTest(MovedPoint());
+        bool hitWhereTheContentLeft = renderer.HitTest(VacatedPoint());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(measurement.OutputBounds, Is.EqualTo(s_bounds.Translate(s_translation)),
+                "the bounds contract already says the content moved");
+            Assert.That(hitWhereTheContentMoved, Is.True, "the produced pixels are here");
+            Assert.That(hitWhereTheContentLeft, Is.False, "the original location is transparent now");
+        }
+    }
+
+    /// <remarks>
+    /// Declaring nothing has to keep meaning what it meant before this contract existed, or every shader
+    /// already in the wild answers a different question than the one it was written against.
+    /// </remarks>
+    [Test]
+    public void AWholeSourceShaderDeclaringNoHitTest_StillForwardsTheQuestionToItsInputUnchanged()
+    {
+        using var node = new DelegateNode(context =>
+        {
+            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
+            context.Publish(context.Shader(source, s_undeclaredRelocatingDefinition.Call(s_translation)));
+        });
+
+        using var renderer = CreateHitTestRenderer(node);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(renderer.HitTest(MovedPoint()), Is.False);
+            Assert.That(renderer.HitTest(VacatedPoint()), Is.True);
+        }
+    }
+
+    [Test]
+    public void AWholeSourceHitTest_ReadsTheResourceItsOwnCallBound()
+    {
+        var color = new ShaderColor(SKColors.MediumPurple);
+        ShaderDefinition<byte> definition = ShaderDefinition<byte>.WholeSource(
+            WholeSource,
+            RenderBoundsContract.Identity,
+            static bindings => bindings.Resource(
+                "tint",
+                s_colorSlot,
+                ShaderResourceCoordinateSpace.OutputDevice,
+                static (writer, tint, _) => writer.Set(SKShader.CreateColor(tint.Color))),
+            hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
+                s_colorSlot,
+                static (tint, point) =>
+                {
+                    tint.HitTests++;
+                    return tint.Color.Alpha > 0 && point.X < 4;
+                }));
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderResource<ShaderColor> token = context.Borrow(color);
+            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
+            context.Publish(context.Shader(source, definition.Call(default, [s_colorSlot.Bind(token)])));
+        });
+
+        using var renderer = CreateHitTestRenderer(node);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(renderer.HitTest(new Point(1, 1)), Is.True);
+            Assert.That(renderer.HitTest(new Point(6, 1)), Is.False);
+            Assert.That(color.HitTests, Is.EqualTo(2), "the hit test resolved the slot this call bound");
+        }
+    }
+
+    [Test]
+    public void AWholeSourceDefinitionDeclaringAnUninitializedHitTest_IsRejectedWhereItIsDeclared()
+    {
+        Assert.That(
+            () => ShaderDefinition<Vector>.WholeSource(
+                TranslateWholeSource,
+                TranslateBounds(),
+                DeclareTranslateUniforms,
+                hitTest: default(RenderHitTestContract)),
+            Throws.ArgumentException.With.Message.Contains("uninitialized"));
+    }
+
     private static OpaqueRenderCall<Color> SourceCall(Color color)
         => OpaqueRenderDefinition<Color>.Create(
             static (session, current) =>
@@ -309,6 +427,35 @@ public sealed class ShaderAuthoringContractTests
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale)
             .Call(color);
+
+
+    private static Point MovedPoint() => new Point(4, 3) + s_translation;
+
+    private static Point VacatedPoint() => new(4, 3);
+
+    private static RenderBoundsContract TranslateBounds()
+        => RenderBoundsContract.Create(
+            s_translation,
+            static (offset, bounds) => bounds.Translate(offset),
+            static (offset, required) => required.Translate(-offset));
+
+    private static void DeclareTranslateUniforms(ShaderDefinitionBuilder<Vector> bindings)
+    {
+        bindings.Uniform("dx", static offset => offset.X);
+        bindings.Uniform("dy", static offset => offset.Y);
+    }
+
+    private static RenderNodeRenderer CreateHitTestRenderer(RenderNode node)
+        => new(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+            });
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
@@ -347,6 +494,8 @@ public sealed class ShaderAuthoringContractTests
         public SKColor Color { get; } = color;
 
         public int Uses { get; set; }
+
+        public int HitTests { get; set; }
 
         public float LastOpacity { get; set; }
     }

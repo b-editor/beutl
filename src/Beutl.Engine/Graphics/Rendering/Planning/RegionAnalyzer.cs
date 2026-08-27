@@ -792,10 +792,11 @@ internal sealed class RegionAnalyzer
                 or RenderFragmentKind.Opacity
                 or RenderFragmentKind.Blend
                 or RenderFragmentKind.OpacityMask
-                or RenderFragmentKind.Shader
                 or RenderFragmentKind.Layer
                 or RenderFragmentKind.TargetLayerScope
                 => RenderFragmentHitTest.Inputs,
+            RenderFragmentKind.Shader
+                => ((ShaderRenderFragmentPayload)reference.Payload!).Description.CreateFragmentHitTest(),
             RenderFragmentKind.Geometry
                 => FromDescription(((GeometryRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.OpaqueSource

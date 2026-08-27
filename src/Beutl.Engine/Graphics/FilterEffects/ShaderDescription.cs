@@ -20,7 +20,9 @@ internal sealed class ShaderDescription
         RenderBoundsContract bounds,
         RenderInputDemandContract inputDemand,
         Action<ShaderBindingBuilder>? bindings,
-        SKShaderTileMode sourceTileMode)
+        SKShaderTileMode sourceTileMode,
+        RenderHitTestContract? hitTest,
+        IReadOnlyList<RenderResourceBinding> hitTestResources)
     {
         var builder = new ShaderBindingBuilder();
         bindings?.Invoke(builder);
@@ -30,6 +32,8 @@ internal sealed class ShaderDescription
         Source = parsed;
         Bounds = bounds;
         InputDemand = inputDemand;
+        HitTest = hitTest;
+        HitTestResources = hitTestResources;
         Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
         Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
         // Every resource binding is produced by an execution binder; a uniform may or may not be. Indexed
@@ -67,6 +71,7 @@ internal sealed class ShaderDescription
             spirvLowering?.StructuralIdentity,
             bounds.StructuralIdentity,
             inputDemand.StructuralIdentity,
+            hitTest?.StructuralIdentity,
             sourceTileMode,
             uniformIdentities,
             resourceIdentities);
@@ -99,6 +104,32 @@ internal sealed class ShaderDescription
     /// <summary>Gets the sampling mode used outside the implicit <c>src</c> input bounds.</summary>
     /// <remarks>The value is meaningful for <see cref="ShaderDescriptionKind.WholeSource"/> descriptions.</remarks>
     public SKShaderTileMode SourceTileMode { get; }
+
+    /// <summary>Gets the author-declared CPU hit-test contract, or <see langword="null"/> when none was declared.</summary>
+    /// <remarks>
+    /// A stage that leaves its input where it found it does not need one: forwarding the question to the input
+    /// answers for exactly the pixels the stage produced. A stage whose <see cref="Bounds"/> relocate the
+    /// content has to declare one, or the forwarded question is asked at a point the content no longer covers.
+    /// </remarks>
+    public RenderHitTestContract? HitTest { get; }
+
+    /// <summary>Gets the slot-addressed resource bindings a declared hit test resolves against.</summary>
+    /// <remarks>
+    /// <see cref="Resources"/> holds the child-shader bindings execution needs, which are addressed by SkSL
+    /// name. A hit test addresses the same request-scoped tokens by the slot the call bound them to, so it
+    /// reads this list instead of that one.
+    /// </remarks>
+    public IReadOnlyList<RenderResourceBinding> HitTestResources { get; }
+
+    /// <summary>States, in one place, how a recorded fragment of this stage answers a hit test.</summary>
+    /// <remarks>
+    /// Recording and the graph-wide re-resolution of a symbolic fragment both build this rule, and the two
+    /// have to agree: a fragment whose bounds are resolved later must not change what it hits.
+    /// </remarks>
+    internal RenderFragmentHitTest CreateFragmentHitTest()
+        => HitTest is { } contract
+            ? RenderFragmentHitTest.FromContract(contract, HitTestResources)
+            : RenderFragmentHitTest.Inputs;
 
     /// <summary>
     /// Gets whether any binding of this stage produces its value through an author-supplied binder that runs
@@ -176,7 +207,9 @@ internal sealed class ShaderDescription
             RenderBoundsContract.Identity,
             RenderInputDemandContract.Unchanged,
             bindings,
-            SKShaderTileMode.Decal);
+            SKShaderTileMode.Decal,
+            hitTest: null,
+            hitTestResources: []);
     }
 
     /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
@@ -196,7 +229,9 @@ internal sealed class ShaderDescription
             RenderBoundsContract.Identity,
             RenderInputDemandContract.Unchanged,
             bindings,
-            SKShaderTileMode.Decal);
+            SKShaderTileMode.Decal,
+            hitTest: null,
+            hitTestResources: []);
     }
 
     /// <summary>Creates a materializing shader stage that may sample arbitrary upstream locations.</summary>
@@ -230,9 +265,12 @@ internal sealed class ShaderDescription
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings = null,
         SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
-        RenderInputDemandContract inputDemand = default)
+        RenderInputDemandContract inputDemand = default,
+        RenderHitTestContract? hitTest = null,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
         if (!Enum.IsDefined(sourceTileMode))
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
 
@@ -243,7 +281,9 @@ internal sealed class ShaderDescription
             bounds,
             inputDemand,
             bindings,
-            sourceTileMode);
+            sourceTileMode,
+            hitTest,
+            hitTestResources ?? []);
     }
 
     internal static ShaderDescription WholeSource(
@@ -251,11 +291,14 @@ internal sealed class ShaderDescription
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings,
         SKShaderTileMode sourceTileMode,
-        RenderInputDemandContract inputDemand = default)
+        RenderInputDemandContract inputDemand = default,
+        RenderHitTestContract? hitTest = null,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
         bounds.ThrowIfUninitialized(nameof(bounds));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
         if (!Enum.IsDefined(sourceTileMode))
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
 
@@ -266,7 +309,9 @@ internal sealed class ShaderDescription
             bounds,
             inputDemand,
             bindings,
-            sourceTileMode);
+            sourceTileMode,
+            hitTest,
+            hitTestResources ?? []);
     }
 
     private static void ValidateBindings(
@@ -339,6 +384,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
     object? spirvLowering,
     object bounds,
     object inputDemand,
+    object? hitTest,
     SKShaderTileMode tileMode,
     ShaderBindingStructuralIdentity[] uniforms,
     ShaderResourceStructuralIdentity[] resources)
@@ -351,6 +397,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
            && Equals(spirvLowering, other.SpirvLowering)
            && Equals(bounds, other.Bounds)
            && Equals(inputDemand, other.InputDemand)
+           && Equals(hitTest, other.HitTest)
            && tileMode == other.TileMode
            && uniforms.AsSpan().SequenceEqual(other.Uniforms)
            && resources.AsSpan().SequenceEqual(other.Resources);
@@ -365,6 +412,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
         hash.Add(spirvLowering);
         hash.Add(bounds);
         hash.Add(inputDemand);
+        hash.Add(hitTest);
         hash.Add(tileMode);
         foreach (ShaderBindingStructuralIdentity item in uniforms)
             hash.Add(item);
@@ -378,6 +426,7 @@ internal sealed class ShaderDescriptionStructuralIdentity(
     private object? SpirvLowering => spirvLowering;
     private object Bounds => bounds;
     private object InputDemand => inputDemand;
+    private object? HitTest => hitTest;
     private SKShaderTileMode TileMode => tileMode;
     private ShaderBindingStructuralIdentity[] Uniforms => uniforms;
     private ShaderResourceStructuralIdentity[] Resources => resources;
