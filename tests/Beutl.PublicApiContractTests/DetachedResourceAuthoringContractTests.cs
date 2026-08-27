@@ -150,6 +150,49 @@ public sealed class DetachedResourceAuthoringContractTests
         }
     }
 
+    /// <remarks>
+    /// A detached resource has no engine object to reconcile against, so its generated setters are the only
+    /// way its parameters ever change. The path, bounds and hit-test caches all key on <c>Version</c>, and
+    /// the helper the engine invalidates them through is internal.
+    /// </remarks>
+    [Test]
+    public void MutatingADetachedGeometry_RebuildsItsCachedPath()
+    {
+        using var detached = new PluginGeometry.Resource { Side = 10 };
+        _ = detached.Bounds;
+
+        detached.Side = 40;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 40)));
+            Assert.That(detached.FillContains(new Point(30, 30)), Is.True);
+        }
+    }
+
+    [Test]
+    public void MutatingADetachedGeometry_RebuildsItsCachedStrokePath()
+    {
+        using var detached = new PluginGeometry.Resource { Side = 10 };
+        using var pen = DetachedPen(thickness: 4);
+        _ = detached.GetRenderBounds(pen);
+
+        detached.Side = 100;
+
+        Assert.That(detached.GetRenderBounds(pen), Is.EqualTo(new Rect(-2, -2, 104, 104)));
+    }
+
+    [Test]
+    public void MutatingADetachedMesh_RegeneratesItsGeometry()
+    {
+        using var detached = new PluginMesh.Resource { Extent = 3 };
+        _ = detached.GetVertices();
+
+        detached.Extent = 9;
+
+        Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(9));
+    }
+
     private static Pen.Resource DetachedPen(float thickness)
     {
         return new Pen.Resource

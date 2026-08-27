@@ -136,7 +136,6 @@ public sealed class DetachedMeshResourceTests
         mesh.BuffersDirty = false;
 
         mesh.Width = 4;
-        mesh.Version++;
         ReadOnlySpan<Vertex3D> regenerated = mesh.GetVertices();
 
         using (Assert.EnterMultipleScope())
@@ -145,6 +144,17 @@ public sealed class DetachedMeshResourceTests
             Assert.That(regenerated.Length, Is.EqualTo(24));
             Assert.That(mesh.BuffersDirty, Is.True);
         }
+    }
+
+    [Test]
+    public void MutatingADetachedCube_RegeneratesItsGeometry()
+    {
+        using var detached = new CubeMesh.Resource { Width = 1, Height = 1, Depth = 1 };
+        _ = detached.GetVertices();
+
+        detached.Width = 8;
+
+        Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(4));
     }
 
     [Test]

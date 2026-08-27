@@ -114,6 +114,26 @@ public sealed class DetachedGeometryResourceTests
         Assert.That(resource.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)));
     }
 
+    /// <remarks>
+    /// A detached resource never reconciles against an engine object, so its generated setters are the only
+    /// thing that can move its parameters. Every cache here is keyed on <c>Version</c>.
+    /// </remarks>
+    [Test]
+    public void MutatingADetachedEllipse_RebuildsItsCachedPath()
+    {
+        using var detached = new EllipseGeometry.Resource { Width = 100, Height = 50 };
+        _ = detached.Bounds;
+
+        detached.Width = 200;
+        detached.Height = 80;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 200, 80)));
+            Assert.That(detached.FillContains(new Point(150, 40)), Is.True);
+        }
+    }
+
     [Test]
     public void GeometryRenderNode_WithADetachedGeometry_RecordsAndRasterizes()
     {
