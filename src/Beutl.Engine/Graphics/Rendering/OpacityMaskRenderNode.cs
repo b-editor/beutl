@@ -5,35 +5,11 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, bool invert) : ContainerRenderNode
 {
-    public (Brush.Resource Resource, int Version)? Mask
-    {
-        get => field;
-        set
-        {
-            field = value;
-            MarkChanged();
-        }
-    } = mask.Capture();
+    public (Brush.Resource Resource, int Version)? Mask { get; private set; } = mask.Capture();
 
-    public Rect MaskBounds
-    {
-        get => field;
-        set
-        {
-            field = value;
-            MarkChanged();
-        }
-    } = maskBounds;
+    public Rect MaskBounds { get; private set; } = maskBounds;
 
-    public bool Invert
-    {
-        get => field;
-        set
-        {
-            field = value;
-            MarkChanged();
-        }
-    } = invert;
+    public bool Invert { get; private set; } = invert;
 
     public bool Update(Brush.Resource? mask, Rect maskBounds, bool invert)
     {

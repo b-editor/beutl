@@ -119,7 +119,7 @@ public sealed class RenderNodeRendererLifetimeTests
         }
 
         TrackingRenderTarget faultingTarget = factory.Targets[0];
-        node.PublishOutput = false;
+        node.StopPublishing();
         Exception? observed = null;
         int emptyResults = 0;
         const int safetyLimit = 512;
@@ -214,15 +214,13 @@ public sealed class RenderNodeRendererLifetimeTests
 
     private sealed class ShaderNode(RenderTarget source, Rect bounds) : RenderNode
     {
-        public bool PublishOutput
+        public bool PublishOutput { get; private set; } = true;
+
+        public void StopPublishing()
         {
-            get => field;
-            set
-            {
-                field = value;
-                MarkChanged();
-            }
-        } = true;
+            PublishOutput = false;
+            MarkChanged();
+        }
 
         public override void Process(RenderNodeContext context)
         {

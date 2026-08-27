@@ -214,7 +214,7 @@ public class RectClipRenderNodeTest
         {
         }
 
-        node.UseFullInputContract = true;
+        node.SwitchToFullInputContract();
         using (Compile(cache, node))
         {
         }
@@ -285,17 +285,15 @@ public class RectClipRenderNodeTest
 
     private sealed class ContractChangingScopeDefinitionNode : ContainerRenderNode
     {
-        public bool UseFullInputContract
-        {
-            get => field;
-            set
-            {
-                field = value;
-                MarkChanged();
-            }
-        }
+        public bool UseFullInputContract { get; private set; }
 
         public int DefinitionCreations { get; private set; }
+
+        public void SwitchToFullInputContract()
+        {
+            UseFullInputContract = true;
+            MarkChanged();
+        }
 
         public override void Process(RenderNodeContext context)
         {

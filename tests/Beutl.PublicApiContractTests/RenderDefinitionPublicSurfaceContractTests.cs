@@ -90,6 +90,49 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         });
     }
 
+    // The other half of that contract, asked of the nodes rather than of the base: a holder cannot move
+    // state a node's Process reads. Each of these was a public auto-property, so an assignment from outside
+    // left the node reporting no changes and its recording replayable over the new value. Update is now
+    // their only writer, and it marks. BESG005 reports the shape but only as a warning, so this is the
+    // check that fails a build which reopens one.
+    [Test]
+    public void BuiltInNodeStateThatProcessReads_IsNotAssignableFromOutsideTheNode()
+    {
+        (Type Node, string Property)[] state =
+        [
+            (typeof(RectangleRenderNode), nameof(RectangleRenderNode.Rect)),
+            (typeof(OpacityMaskRenderNode), nameof(OpacityMaskRenderNode.Mask)),
+            (typeof(OpacityMaskRenderNode), nameof(OpacityMaskRenderNode.MaskBounds)),
+            (typeof(OpacityMaskRenderNode), nameof(OpacityMaskRenderNode.Invert)),
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach ((Type node, string property) in state)
+            {
+                PropertyInfo? declared = node.GetProperty(property);
+                Assert.That(declared, Is.Not.Null, $"{node.Name}.{property}");
+                if (declared is null)
+                    continue;
+                Assert.That(declared.CanRead, Is.True, $"{node.Name}.{property}");
+                Assert.That(
+                    declared.GetSetMethod(nonPublic: false),
+                    Is.Null,
+                    $"{node.Name}.{property} is state Process reads, so assigning it from outside would "
+                    + "leave the node reporting no changes");
+            }
+
+            foreach (Type node in state.Select(static entry => entry.Node).Distinct())
+            {
+                Assert.That(
+                    node.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                        .Any(static method => method.Name == "Update"),
+                    Is.True,
+                    $"{node.Name} must keep the Update overload that moves the value and marks");
+            }
+        });
+    }
+
     [Test]
     public void DisableRenderCache_IsReachableByAnOutOfTreeNode()
     {

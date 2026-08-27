@@ -6,15 +6,7 @@ namespace Beutl.Graphics.Rendering;
 public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
-    public Rect Rect
-    {
-        get => field;
-        set
-        {
-            field = value;
-            MarkChanged();
-        }
-    } = rect;
+    public Rect Rect { get; private set; } = rect;
 
     public bool Update(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {

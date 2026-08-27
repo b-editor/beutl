@@ -969,3 +969,23 @@ them would not help. `CompositionEligibility`, `RenderInputDemandContract`, `Ren
 immutable-collection class imported from another assembly, a delegate, an unsealed Skia handle, an
 interface-typed list, and a `float[]` respectively. As fields they are reported just as they are as
 properties, only with a different message, so the conversion would be a binary break bought for nothing.
+
+## Four node properties are assigned through `Update`, not from outside the node
+
+`RectangleRenderNode.Rect` and `OpacityMaskRenderNode`'s `Mask`, `MaskBounds` and `Invert` were
+`public … { get; set; }` and are now `public … { get; private set; }`. Reading them is unchanged; the
+**source** break falls on code outside the declaring class that assigned one, which no longer compiles.
+Nothing in this tree assigned them from outside.
+
+Migration: pass the value to the constructor — `new RectangleRenderNode(rect, fill, pen)` or
+`new OpacityMaskRenderNode(mask, maskBounds, invert)` — or move an existing node with the `Update` overload
+that already carried it, `bool Update(Rect rect, Brush.Resource? fill, Pen.Resource? pen)` and
+`bool Update(Brush.Resource? mask, Rect maskBounds, bool invert)`. `Update` compares before it assigns,
+calls `MarkChanged()` once when anything actually moved, and returns whether it did, so a caller that used
+to assign a property and then mark the node by hand now gets both from the one call.
+
+The rule this answers is BESG005, described above. A public auto-property whose value `Process` reads has a
+synthesized setter, so nothing marks the node when its holder assigns one, and a recording taken before the
+assignment could be replayed after it. BESG005 names two fixes — give the setter a body that marks, or
+narrow it so only the node's own code can assign it — and these four take the second, which leaves `Update`
+as their only writer and the single `MarkChanged()` it already made as their only invalidation.
