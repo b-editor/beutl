@@ -4,18 +4,19 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 /// <summary>
-/// Reports a callback passed to a render metadata contract that is not a stable, state-free delegate.
+/// Reports a callback passed to a render metadata contract that reads more than the render node declaring it.
 /// </summary>
 /// <remarks>
 /// <para>
 /// These callbacks are evaluated repeatedly - forward bounds, backward region of interest, scale
-/// reevaluation, hit testing, cache lookup - and the compiled plan is keyed by which callback it is, not by
-/// what the callback closed over. A callback that reads a captured local therefore lets one plan key stand
-/// for two different answers, and the second recording replays a plan compiled for the first.
+/// reevaluation, hit testing, cache lookup - and the compiled plan is keyed by which method the callback is,
+/// not by what the callback closed over. A callback that reads a captured local therefore lets one plan key
+/// stand for two different answers, and the second recording replays a plan compiled for the first.
 /// </para>
 /// <para>
 /// The engine used to walk the delegate's closure at recording time to catch this. Recording is the render
@@ -23,14 +24,24 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// paid for it.
 /// </para>
 /// <para>
-/// The plan key is the delegate itself, so the callback also has to be the same delegate on every frame.
-/// Only a static lambda and a static method group are: the compiler caches those in a singleton field, while
-/// any conversion that needs a receiver builds a new delegate each time.
+/// One reader is admitted: a lambda may read the <c>RenderNode</c> it is written inside. That node arrives as
+/// the delegate's own target rather than as a closure field, marking it changed re-records it, and an answer
+/// of the node's that moves between recording and graph-wide metadata resolution fails the request at the
+/// recorded-answer cross-check. A local, a parameter, and an enclosing instance that is not a node have none
+/// of that: nothing re-records when one is assigned, and the runtime identity validator never sees them,
+/// because a closure over anything besides <see langword="this"/> arrives as a compiler display class that
+/// none of its type tests answer for. This rule is the whole of what stands there.
 /// </para>
 /// <para>
-/// A static lambda clears that bar and still fails the first one when it reads static state, so that is a
-/// second rule (BESG004) rather than a second reason on the first: the failure and the fix differ, and two
-/// ids let an author suppress one without losing the other.
+/// The exemption decides what a lambda closes over and leaves the receiver arm below as it was: a method
+/// group bound to an instance is still reported, including one bound to the declaring node. Whether that arm
+/// should take the same exemption is a question about what a receiver may be, not about what a closure may
+/// hold, and this rule does not answer it.
+/// </para>
+/// <para>
+/// A callback clearing this rule can still read static state, which changes what it answers without
+/// changing which method it is, so that is a second rule (BESG004) rather than a second reason on this one:
+/// the failure and the fix differ, and two ids let an author suppress one without losing the other.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -303,7 +314,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 // A static lambda cannot reach a local, a parameter, or this; the compiler says so.
                 return lambda.Modifiers.Any(SyntaxKind.StaticKeyword)
                     ? null
-                    : "the lambda is not declared static, so it can read a local that is assigned later";
+                    : DescribeCaptureImpurity(context, model, lambda);
 
             case IdentifierNameSyntax or MemberAccessExpressionSyntax:
                 {
@@ -343,11 +354,117 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    private const string RenderNodeTypeName = "Beutl.Graphics.Rendering.RenderNode";
+
+    /// <summary>
+    /// Decides what a non-static lambda closes over: the render node declaring it, which is admitted, or
+    /// anything else, which is not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A capture is read off the semantic model rather than off the syntax, so an instance member named
+    /// without a receiver counts as reading <see langword="this"/> the same way an explicit <c>this.X</c>
+    /// does, and a variable a nested lambda reads counts against the outer one that holds it.
+    /// </para>
+    /// <para>
+    /// The <c>RenderNode</c> test is what the runtime identity validator's exemption is written against, so
+    /// this reports a lambda reading an enclosing instance that is not a node rather than admitting a
+    /// capture the engine would reject; and a lambda reading nothing at all is accepted whatever it is
+    /// written inside, there being no instance for either side to disagree about.
+    /// </para>
+    /// </remarks>
+    private static string? DescribeCaptureImpurity(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        AnonymousFunctionExpressionSyntax lambda)
+    {
+        IOperation? operation = model.GetOperation(lambda, context.CancellationToken);
+
+        // The conversion to the delegate type shares the lambda's syntax, so what comes back can be the
+        // conversion rather than the function underneath it.
+        while (operation is IDelegateCreationOperation or IConversionOperation or IParenthesizedOperation)
+        {
+            operation = operation switch
+            {
+                IDelegateCreationOperation creation => creation.Target,
+                IConversionOperation conversion => conversion.Operand,
+                _ => ((IParenthesizedOperation)operation).Operand,
+            };
+        }
+
+        if (operation is not IAnonymousFunctionOperation function)
+        {
+            // Silence has to mean the rule looked, and here it could not.
+            return "the lambda is not declared static and this rule could not read what it closed over, "
+                + "so it is reported rather than assumed to close over nothing";
+        }
+
+        ITypeSymbol? enclosingInstance = null;
+        foreach (IOperation node in function.Descendants())
+        {
+            switch (node)
+            {
+                case ILocalReferenceOperation local when IsDeclaredOutside(local.Local, lambda):
+                    return $"the lambda closes over the local '{local.Local.Name}', which can be assigned "
+                        + "after this call, so one plan compiles for the first answer and is replayed for "
+                        + "the second";
+
+                case IParameterReferenceOperation parameter
+                    when IsDeclaredOutside(parameter.Parameter, lambda):
+                    return $"the lambda closes over the parameter '{parameter.Parameter.Name}', which the "
+                        + "caller decides per call, so one plan compiles for the first answer and is "
+                        + "replayed for the second";
+
+                case IInstanceReferenceOperation
+                {
+                    ReferenceKind: InstanceReferenceKind.ContainingTypeInstance, Type: { } instance
+                }:
+                    enclosingInstance = instance;
+                    break;
+            }
+        }
+
+        if (enclosingInstance is null || IsRenderNode(enclosingInstance))
+            return null;
+
+        return $"the lambda reads the enclosing '{enclosingInstance.Name}', which is not a RenderNode: "
+            + "change marking and the recorded-answer cross-check are a node's, so nothing holds what this "
+            + "reads to one answer";
+    }
+
+    /// <remarks>
+    /// A lambda's own parameters, and everything declared in its body, are written inside its span; a
+    /// symbol with no declaration to point at - a setter's <c>value</c> - came from outside it.
+    /// </remarks>
+    private static bool IsDeclaredOutside(ISymbol symbol, AnonymousFunctionExpressionSyntax lambda)
+    {
+        foreach (SyntaxReference reference in symbol.DeclaringSyntaxReferences)
+        {
+            if (reference.SyntaxTree == lambda.SyntaxTree && lambda.Span.Contains(reference.Span))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsRenderNode(ITypeSymbol type)
+    {
+        for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            if (current.ContainingNamespace?.ToDisplayString() + "." + current.Name == RenderNodeTypeName)
+                return true;
+        }
+
+        return false;
+    }
+
     /// <remarks>
     /// A method group carries no closure, but an instance method's receiver becomes the delegate's target,
-    /// and the target is half the delegate's identity. A reference-typed receiver is the author's own object,
-    /// so changing a field on it changes what the callback answers; a value-typed one is boxed afresh at every
-    /// conversion, so the delegate is a different instance on every frame and no plan is ever reused.
+    /// and that receiver is whatever the author named. A reference-typed one is the author's own object, so
+    /// changing a field on it changes what the callback answers; a value-typed one is boxed at the
+    /// conversion, so the delegate answers from a copy of whatever the receiver held right there. Neither is
+    /// narrowed by the exemption a lambda reading its own node takes: that one is about what a closure may
+    /// hold, and this is about what a receiver may be.
     /// </remarks>
     private static string? DescribeReceiverImpurity(
         SyntaxNodeAnalysisContext context,
@@ -367,8 +484,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol? receiver = model
             .GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type;
         return receiver is { IsValueType: true }
-            ? "the callback is an instance method on a value type, so every conversion boxes a fresh "
-              + "receiver and the delegate is a different instance on every frame"
+            ? "the callback is an instance method on a value type, so the delegate carries a boxed copy of "
+              + "whatever the receiver held at this call"
             : "the callback is an instance method on a reference type, and the delegate keeps that "
               + "object as its receiver";
     }

@@ -878,17 +878,21 @@ compiled clean before. They exist because the engine keys a compiled plan on the
 if the same callback answers differently on a later frame, the plan is reused for pixels it no longer
 describes, and nothing at runtime notices.
 
-- **BESG003** — a metadata callback must not capture. It reports a non-`static` lambda, a callback that
-  arrives as a parameter or a local, one behind a cast, parentheses, `as`, a null-suppression or `checked`,
-  a method group over a value-typed receiver, and any callback expression it cannot classify. Migration:
-  write the callback as a `static` lambda or a static method group at the call site, and pass the values
-  that change through the contract's state-passing overload. Those overloads exist on
-  `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderInputDemandContract`,
-  `OpaqueRenderBoundsContract` and `TargetCaptureScaleContract`, and on the definition builders
-  `OpaqueRenderDefinition`, `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
-  `RawTargetCommandDefinition` and `GeometryDefinition`. The rule is a compile-time preference, not the
-  runtime boundary: a metadata callback that reads the `RenderNode` declaring it is accepted at recording
-  and shares its plan with every other node of that type. The analyzer ships only to projects that
+- **BESG003** — a metadata callback may read the `RenderNode` that declares it and must close over nothing
+  else. It reports a lambda closing over a local, over a parameter, or over an enclosing instance that is
+  not a `RenderNode`; a callback that arrives as a parameter or a local; one behind a cast, parentheses,
+  `as`, a null-suppression or `checked`; a method group bound to an instance, value-typed or not; and any
+  callback expression it cannot classify. A lambda reading nothing but the node it is written inside is
+  accepted, which is the runtime boundary as well: such a callback arrives with the node as its delegate
+  target, marking the node changed re-records it, an answer of its that moves fails the request at the
+  recorded-answer cross-check, and its plan is keyed by the callback's method, so it is shared with every
+  other node of that type. Migration: write the callback as a `static` lambda or a static method group at
+  the call site, or let it read only the declaring node, and pass the values that change through the
+  contract's state-passing overload. Those overloads exist on `RenderBoundsContract`,
+  `RenderHitTestContract`, `RenderScaleContract`, `RenderInputDemandContract`, `OpaqueRenderBoundsContract`
+  and `TargetCaptureScaleContract`, and on the definition builders `OpaqueRenderDefinition`,
+  `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
+  `RawTargetCommandDefinition` and `GeometryDefinition`. The analyzer ships only to projects that
   reference `Beutl.Engine.SourceGenerators`, so an out-of-tree author never sees it.
 - **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`,
   but it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or

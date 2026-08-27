@@ -204,6 +204,31 @@ public sealed class NodeCapturingMetadataCallbackTests
         });
     }
 
+    /// <remarks>
+    /// Why the analyzer still has to report a capture of anything besides <see langword="this"/>. The
+    /// validator reads the delegate's target, and a lambda closing over a local arrives with a compiler
+    /// display class as its target - none of the types on the list, whatever its fields hold - so the
+    /// runtime admits it and nothing here governs what that field is later assigned.
+    /// </remarks>
+    [Test]
+    public void ALambdaClosingOverALocal_IsNotWhatTheValidatorReads()
+    {
+        var offset = new Vector(5, 0);
+        Func<Rect, Rect> closesOverALocal = r => r.Translate(offset);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closesOverALocal.Target, Is.Not.Null);
+            Assert.That(
+                closesOverALocal.Target!.GetType().Name,
+                Does.StartWith("<>c__DisplayClass"),
+                "a closure over anything besides this arrives as a compiler display class");
+            Assert.DoesNotThrow(
+                () => RenderDescriptionValidation.ValidatePureMetadataCallback(closesOverALocal, "callback"),
+                "no clause on the list answers for a display class, so the runtime is not what stops this");
+        });
+    }
+
     private static RenderNodeRenderer CreateRenderer(RenderNode root)
         => new(
             root,

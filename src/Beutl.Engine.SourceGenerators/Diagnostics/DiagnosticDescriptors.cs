@@ -22,14 +22,31 @@ public static class DiagnosticDescriptors
 
     public static readonly DiagnosticDescriptor CapturingMetadataCallback = new(
         id: "BESG003",
-        title: "Render metadata callback is not a stable, state-free delegate",
+        title: "Render metadata callback reads more than the render node that declares it",
         messageFormat:
-            "'{0}.{1}' keys its compiled plan by which callback this is, not by what the callback closed "
-            + "over, so {2}. Declare the callback static and carry changing values through the "
-            + "state-passing overload or a bound render resource.",
+            "'{0}.{1}' keys its compiled plan by which method the callback is, not by what the callback "
+            + "closed over, so the callback may read the render node it is written inside and must close "
+            + "over nothing else; {2}. Declare the callback static, or let it read only the declaring node, "
+            + "and carry every other changing value through the state-passing overload or a bound render "
+            + "resource.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true,
+        description:
+            "A render metadata callback is re-run whenever metadata is resolved - forward bounds, backward "
+            + "region of interest, scale reevaluation, hit testing, cache lookup - and the plan it compiles "
+            + "into is keyed by which method the callback is. Two recordings of one declaration therefore "
+            + "share a plan, and the callback is re-run over each. Reading the RenderNode that declares the "
+            + "callback is admitted on that footing: the node arrives as the delegate's own target rather "
+            + "than as a closure field, marking the node changed re-records it, and an answer of the node's "
+            + "that moves between recording and graph-wide metadata resolution fails the request at the "
+            + "recorded-answer cross-check instead of silently winning. A captured local or parameter has "
+            + "none of that - nothing re-records when it is assigned, and the plan compiled for its first "
+            + "answer is replayed for the second - and neither does an enclosing instance that is not a "
+            + "node, whose state no change marking covers. The runtime identity validator cannot stand in "
+            + "for this rule either: it reads the delegate's target alone, and a closure over anything "
+            + "besides the declaring instance arrives as a compiler display class that none of its type "
+            + "tests answer for.");
 
     public static readonly DiagnosticDescriptor StaticStateMetadataCallback = new(
         id: "BESG004",

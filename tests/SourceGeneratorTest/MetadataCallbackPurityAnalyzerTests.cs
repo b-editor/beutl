@@ -50,6 +50,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Func<TState, Rect, Rect> getRequiredInputBounds) => default;
             }
 
+            public abstract class RenderNode { }
+
             public abstract class RenderResourceSlot { }
 
             public sealed class RenderResourceSlot<T> : RenderResourceSlot
@@ -140,6 +142,190 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG003"),
             "a lambda that reads a value the caller supplies per call is the case this rule exists for");
+    }
+
+    /// <remarks>
+    /// The one reader the rule admits. A node's mapping is written against the node's own properties, and
+    /// nothing else says what that mapping is; threading every such value through TState says the same
+    /// thing at more length. What makes it safe is not the lambda but the node: it arrives as the
+    /// delegate's own target, marking it changed re-records it, and an answer of its that moves between
+    /// recording and metadata resolution fails the request at the recorded-answer cross-check.
+    /// </remarks>
+    [Test]
+    public void ALambdaReadingOnlyTheDeclaringNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(value.X + Offset, value.Y, value.Width, value.Height),
+                        value => new Rect(value.X - this.Offset, value.Y, value.Width, value.Height));
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG003"),
+            "a node writing the mapping its own properties describe is the form the runtime accepts, so "
+            + "the rule that stands in front of the runtime has to accept it too");
+    }
+
+    /// <remarks>
+    /// The half of the split nothing else covers. The runtime validator reads the delegate's target, and a
+    /// closure over a local arrives as a compiler display class that none of its type tests answer for, so
+    /// this rule is the only thing between an author and a captured mutable local.
+    /// </remarks>
+    [Test]
+    public void ALambdaClosingOverALocal_InsideANode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public RenderBoundsContract Build()
+                {
+                    float offset = 4f;
+                    return RenderBoundsContract.Create(
+                        value => new Rect(value.X + offset, value.Y, value.Width, value.Height),
+                        static value => value);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "nothing re-records when a local is assigned, so admitting the node must not admit this");
+    }
+
+    [Test]
+    public void ALambdaClosingOverAParameter_InsideANode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public RenderBoundsContract Build(float offset)
+                    => RenderBoundsContract.Create(
+                        value => new Rect(value.X + offset, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// Reading the node is a permission to read the node, not a permission to close over whatever else is
+    /// in scope beside it.
+    /// </remarks>
+    [Test]
+    public void ALambdaClosingOverTheNodeAndALocal_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                public RenderBoundsContract Build()
+                {
+                    float extra = 4f;
+                    return RenderBoundsContract.Create(
+                        value => new Rect(value.X + Offset + extra, value.Y, value.Width, value.Height),
+                        static value => value);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// The exemption follows the runtime's, which names <c>RenderNode</c> and nothing else. What holds a
+    /// node's answer still is a node's: change marking re-records the node that owns the callback, and no
+    /// such thing exists for an arbitrary object an author happens to write the lambda inside. Accepting it
+    /// here would be the analyzer promising what the engine does not.
+    /// </remarks>
+    [Test]
+    public void ALambdaReadingAnEnclosingInstanceThatIsNotANode_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                public float Offset { get; set; }
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(value.X + Offset, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "no change marking covers an ordinary object, so its state moving is caught by nothing");
+    }
+
+    /// <remarks>
+    /// Staticness is still read first, so it decides the callback without the closure walk being consulted.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaInsideANode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class PassthroughNode : RenderNode
+            {
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(static value => value, static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// A lambda that reads nothing is cached in a singleton the compiler owns, so there is no instance for
+    /// the node test to disagree about and nothing for the plan key to stand wrongly for. It is accepted
+    /// wherever it is written, which is what makes the rule about what a callback reads rather than about
+    /// how it was spelled.
+    /// </remarks>
+    [Test]
+    public void ANonStaticLambdaReadingNothing_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Provider
+            {
+                public float Offset { get; set; }
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(value => value, value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
     [Test]
@@ -1298,11 +1484,15 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
     /// <remarks>
     /// The field is only a name for the lambda, so the lambda answers for the same rule an argument lambda
-    /// does. Accepting it because the field is readonly would let the whole rule be sidestepped by moving
-    /// the callback one declaration away from the call.
+    /// does - and here that rule accepts it. A field initialiser has no local, no parameter and no
+    /// <see langword="this"/> in scope, so the lambda it holds closes over nothing whether or not it says
+    /// <c>static</c>, and the compiler caches it in a singleton. That the field is not what decided this is
+    /// what <see cref="ACapturingLambdaAssignedToAReadonlyField_IsReported"/> and
+    /// <see cref="ACapturingLambdaBehindAGetOnlyProperty_IsReported"/> pin: the rule follows the member to
+    /// what it holds rather than accepting the member.
     /// </remarks>
     [Test]
-    public void ANonStaticLambdaInAReadonlyFieldInitialiser_IsReported()
+    public void ANonStaticLambdaInAReadonlyFieldInitialiser_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using System;
@@ -1318,7 +1508,7 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             }
             """);
 
-        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
     /// <remarks>
