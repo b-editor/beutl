@@ -135,8 +135,11 @@ public sealed class DetachedGeometryResourceTests
             node,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest {
-            Intent = RenderIntent.Preview, CacheOptions = RenderCacheOptions.Disabled },
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = RenderCacheOptions.Disabled
+                },
             });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
@@ -170,8 +173,11 @@ public sealed class DetachedGeometryResourceTests
             node,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest {
-            Intent = RenderIntent.Preview, CacheOptions = RenderCacheOptions.Disabled },
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = RenderCacheOptions.Disabled
+                },
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();

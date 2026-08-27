@@ -169,8 +169,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest {
-            Intent = RenderIntent.Preview, CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled },
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled
+                },
             });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize(
@@ -197,8 +200,11 @@ public sealed class RenderNodeRendererContractTests
             });
 
         Assert.That(
-            () => renderer.Rasterize(new RenderNodeRenderRequest {
-            Intent = RenderIntent.Preview, Purpose = purpose }),
+            () => renderer.Rasterize(new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                Purpose = purpose
+            }),
             Throws.TypeOf<ArgumentOutOfRangeException>()
                 .With.Property("ParamName").EqualTo("purpose"));
     }
@@ -212,8 +218,11 @@ public sealed class RenderNodeRendererContractTests
             root,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest {
-                Intent = RenderIntent.Preview, CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled },
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled
+                },
                 TargetFactory = factory,
             });
         RenderNodeRenderRequest leftRequest = renderer.Options.DefaultRequest with
@@ -656,7 +665,7 @@ public sealed class RenderNodeRendererContractTests
                    {
                        DefaultRequest = new RenderNodeRenderRequest
                        {
-                       Intent = RenderIntent.Preview,
+                           Intent = RenderIntent.Preview,
                        },
                        TargetFactory = factory,
                    }))

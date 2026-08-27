@@ -143,8 +143,11 @@ public sealed class DeclaredPlannerTraitContractTests
             node,
             new RenderNodeRendererOptions
             {
-                DefaultRequest = new RenderNodeRenderRequest {
-            Intent = RenderIntent.Preview, TargetDomain = s_bounds },
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = s_bounds
+                },
             });
         return renderer.Measure();
     }
