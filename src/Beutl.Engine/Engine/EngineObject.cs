@@ -383,6 +383,31 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public int Version { get; set; }
 
+        /// <summary>
+        /// <see cref="Version"/> folded together with the versions of the resources this one owns.
+        /// </summary>
+        /// <remarks>
+        /// A cache that can be handed a resource an out-of-tree caller built - anything reachable from the
+        /// public authoring surface - has to key on this rather than on <see cref="Version"/>. Reconciling
+        /// against an engine object already folds every child's version into the parent's, so an attached
+        /// resource answers with <see cref="Version"/> and pays nothing for the distinction. A detached one
+        /// never reconciles, and its resource lists are handed out as plain <see cref="List{T}"/>, so a
+        /// caller reaches its children - adding, removing, reordering, or mutating one - without ever
+        /// running a setter that could move <see cref="Version"/>.
+        /// </remarks>
+        public int EffectiveVersion => GetOriginal() is null ? FoldChildVersions(Version) : Version;
+
+        /// <summary>
+        /// Folds the versions of the resources this one owns into <paramref name="seed"/>.
+        /// </summary>
+        /// <remarks>
+        /// The generated override covers every resource and resource-list property; overriding this by hand
+        /// is only needed for a child a resource keeps outside those. Fold each child's
+        /// <see cref="EffectiveVersion"/> so that the whole subtree is covered, and mix positionally rather
+        /// than summing, or a reorder reads as no change at all.
+        /// </remarks>
+        protected virtual int FoldChildVersions(int seed) => seed;
+
         public bool IsEnabled { get; set; }
 
         public bool IsDisposed { get; private set; }

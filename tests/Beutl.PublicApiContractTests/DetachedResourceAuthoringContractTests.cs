@@ -193,6 +193,77 @@ public sealed class DetachedResourceAuthoringContractTests
         Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(9));
     }
 
+    /// <remarks>
+    /// A list-bearing resource is authored by reaching into the list the getter hands back, so the setter
+    /// that moves <c>Version</c> never runs, and the count is all that separates the two states.
+    /// </remarks>
+    [Test]
+    public void AddingAFigureToADetachedPathGeometry_RebuildsItsCachedPath()
+    {
+        using var detached = new PathGeometry.Resource
+        {
+            Figures =
+            {
+                new PathFigure.Resource
+                {
+                    StartPoint = new Point(0, 0),
+                    Segments = { new PluginSegment.Resource { To = new Point(10, 10) } },
+                },
+            },
+        };
+        _ = detached.Bounds;
+
+        detached.Figures.Add(new PathFigure.Resource
+        {
+            StartPoint = new Point(0, 0),
+            Segments = { new PluginSegment.Resource { To = new Point(40, 15) } },
+        });
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)));
+    }
+
+    /// <remarks>
+    /// Mutating a child already in the list moves only the child's <c>Version</c>, so a parent that reads
+    /// nothing but its own would keep serving the path it built from the child's previous parameters.
+    /// </remarks>
+    [Test]
+    public void MutatingAFigureOfADetachedPathGeometry_RebuildsItsCachedPath()
+    {
+        using var figure = new PathFigure.Resource
+        {
+            StartPoint = new Point(0, 0),
+            Segments = { new PluginSegment.Resource { To = new Point(10, 10) } },
+        };
+        using var detached = new PathGeometry.Resource { Figures = { figure } };
+        _ = detached.Bounds;
+
+        figure.StartPoint = new Point(40, 15);
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(10, 10, 30, 5)));
+    }
+
+    /// <remarks>
+    /// The child that moved is two levels down, so the invalidation has to reach through the figure that
+    /// owns the segment as well as the geometry that owns the figure.
+    /// </remarks>
+    [Test]
+    public void MutatingASegmentOfADetachedPathGeometry_RebuildsItsCachedPath()
+    {
+        using var segment = new PluginSegment.Resource { To = new Point(10, 10) };
+        using var detached = new PathGeometry.Resource
+        {
+            Figures =
+            {
+                new PathFigure.Resource { StartPoint = new Point(0, 0), Segments = { segment } },
+            },
+        };
+        _ = detached.Bounds;
+
+        segment.To = new Point(40, 15);
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)));
+    }
+
     private static Pen.Resource DetachedPen(float thickness)
     {
         return new Pen.Resource

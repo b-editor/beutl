@@ -40,6 +40,7 @@ public static class ResourceClassEmitter
 
         EmitFields(sb, innerIndent, info);
         EmitProperties(sb, innerIndent, info);
+        EmitFoldChildVersions(sb, innerIndent, info);
         EmitGetOriginal(sb, innerIndent, currentTypeDisplay);
         EmitBindNodePortValues(sb, innerIndent, info);
         EmitUpdateMethod(sb, innerIndent, currentTypeDisplay, renderContextType, engineObjectType, info);
@@ -195,6 +196,72 @@ public static class ResourceClassEmitter
         sb.Append(innerIndent).AppendLine($"        {fieldName} = value;");
         sb.Append(innerIndent).AppendLine("        Version++;");
         sb.Append(innerIndent).AppendLine("    }");
+    }
+
+    private static bool OwnsAnyResource(ClassInfo info)
+    {
+        foreach (ObjectPropertyInfo property in info.ObjectProperties)
+        {
+            if (!property.ExcludeFromResource) return true;
+        }
+
+        foreach (ListPropertyInfo property in info.ListProperties)
+        {
+            if (!property.ExcludeFromResource) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Emits the override that folds the owned resources' versions into this one's effective version.
+    /// </summary>
+    /// <remarks>
+    /// A resource list is handed out as a plain <c>List&lt;T&gt;</c>, so adding, removing, reordering or
+    /// replacing an entry never reaches the setter that moves <c>Version</c>, and mutating a child already
+    /// stored moves only that child's. Every cache a detached resource can reach keys on
+    /// <c>EffectiveVersion</c> instead, which is what this fold feeds. Reconciling covers the same ground
+    /// for an attached resource, which is why the fold never runs for one.
+    /// </remarks>
+    private static void EmitFoldChildVersions(StringBuilder sb, string innerIndent, ClassInfo info)
+    {
+        if (!OwnsAnyResource(info)) return;
+
+        sb.Append(innerIndent).AppendLine("protected override int FoldChildVersions(int seed)");
+        sb.Append(innerIndent).AppendLine("{");
+        sb.Append(innerIndent).AppendLine("    seed = base.FoldChildVersions(seed);");
+
+        foreach (ObjectPropertyInfo property in info.ObjectProperties)
+        {
+            if (property.ExcludeFromResource) continue;
+
+            string fieldName = EmitHelpers.ToFieldName(property.Name);
+            sb.Append(innerIndent)
+                .AppendLine($"    seed = unchecked(seed * 31 + ({fieldName}?.EffectiveVersion ?? 0));");
+        }
+
+        foreach (ListPropertyInfo property in info.ListProperties)
+        {
+            if (property.ExcludeFromResource) continue;
+
+            string fieldName = EmitHelpers.ToFieldName(property.Name);
+            sb.Append(innerIndent).AppendLine($"    if ({fieldName} != null)");
+            sb.Append(innerIndent).AppendLine("    {");
+            sb.Append(innerIndent).AppendLine($"        seed = unchecked(seed * 31 + {fieldName}.Count);");
+            sb.Append(innerIndent).AppendLine($"        foreach (var __item in {fieldName})");
+            sb.Append(innerIndent).AppendLine("        {");
+            // Replacing an entry with a resource that happens to carry the same version is a change too.
+            sb.Append(innerIndent)
+                .AppendLine("            seed = unchecked(seed * 31 + global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(__item));");
+            sb.Append(innerIndent)
+                .AppendLine("            seed = unchecked(seed * 31 + (__item?.EffectiveVersion ?? 0));");
+            sb.Append(innerIndent).AppendLine("        }");
+            sb.Append(innerIndent).AppendLine("    }");
+        }
+
+        sb.Append(innerIndent).AppendLine("    return seed;");
+        sb.Append(innerIndent).AppendLine("}");
+        sb.AppendLine();
     }
 
     private static void EmitGetOriginal(StringBuilder sb, string innerIndent, string currentTypeDisplay)

@@ -159,6 +159,41 @@ public class EngineObjectResourceGeneratorTests
         });
     }
 
+    /// <summary>
+    /// A resource list is handed out as a plain <c>List&lt;T&gt;</c>, so editing it - or a child already in
+    /// it - never reaches a setter that could move <c>Version</c>. The caches a detached resource can reach
+    /// key on <c>EffectiveVersion</c>, which this fold feeds.
+    /// </summary>
+    [Test]
+    public void ResourceAndListProperties_FoldTheirChildrenIntoTheEffectiveVersion()
+    {
+        string source = Run().GetSource("Derived3_Resource.g.cs");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(source, Does.Contain("protected override int FoldChildVersions(int seed)"));
+            Assert.That(source, Does.Contain("seed = base.FoldChildVersions(seed);"));
+            Assert.That(source, Does.Contain("seed = unchecked(seed * 31 + (_child?.EffectiveVersion ?? 0));"));
+            Assert.That(
+                source,
+                Does.Contain("seed = unchecked(seed * 31 + _items.Count);"),
+                "Appending a child that has never been touched moves nothing but the count.");
+            Assert.That(
+                source,
+                Does.Contain("RuntimeHelpers.GetHashCode(__item)"),
+                "Swapping in a resource that carries the same version is a change too.");
+            Assert.That(source, Does.Contain("seed = unchecked(seed * 31 + (__item?.EffectiveVersion ?? 0));"));
+        });
+    }
+
+    [Test]
+    public void AResourceThatOwnsNoOtherResource_DoesNotOverrideTheFold()
+    {
+        string source = Run().GetSource("Derived_Resource.g.cs");
+
+        Assert.That(source, Does.Not.Contain("FoldChildVersions"));
+    }
+
     [Test]
     public void NodePortSetters_DoNotBumpVersion()
     {

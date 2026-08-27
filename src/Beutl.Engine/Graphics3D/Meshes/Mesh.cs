@@ -120,12 +120,13 @@ public abstract partial class Mesh : EngineObject
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-            if (_capturedVersion != Version || _cachedVertices == null)
+            int version = EffectiveVersion;
+            if (_capturedVersion != version || _cachedVertices == null)
             {
                 ApplyTo(out Vertex3D[] vertices, out uint[] indices);
                 _cachedVertices = vertices;
                 _cachedIndices = indices;
-                _capturedVersion = Version;
+                _capturedVersion = version;
                 BuffersDirty = true;
             }
         }

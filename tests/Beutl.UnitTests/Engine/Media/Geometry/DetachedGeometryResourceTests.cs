@@ -134,6 +134,66 @@ public sealed class DetachedGeometryResourceTests
         }
     }
 
+    /// <remarks>
+    /// Both segments are freshly built, so their versions match and only their identities tell them apart.
+    /// </remarks>
+    [Test]
+    public void ReplacingASegmentOfADetachedPathGeometry_RebuildsItsCachedPath()
+    {
+        using var figure = new PathFigure.Resource
+        {
+            StartPoint = new Point(0, 0),
+            Segments = { new LineSegment.Resource { Point = new Point(10, 0) } },
+        };
+        using var detached = new PathGeometry.Resource { Figures = { figure } };
+        _ = detached.Bounds;
+
+        figure.Segments[0] = new LineSegment.Resource { Point = new Point(80, 40) };
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)));
+    }
+
+    /// <remarks>
+    /// A reorder leaves every version and the count alone, so the fold has to weigh each entry by where it
+    /// sits rather than sum them.
+    /// </remarks>
+    [Test]
+    public void ReorderingTheSegmentsOfADetachedFigure_MovesItsEffectiveVersion()
+    {
+        using var first = new LineSegment.Resource { Point = new Point(10, 0) };
+        using var second = new LineSegment.Resource { Point = new Point(10, 10) };
+        second.Point = new Point(10, 20);
+        using var figure = new PathFigure.Resource
+        {
+            StartPoint = new Point(0, 0),
+            Segments = { first, second },
+        };
+        int before = figure.EffectiveVersion;
+
+        (figure.Segments[0], figure.Segments[1]) = (figure.Segments[1], figure.Segments[0]);
+
+        Assert.That(figure.EffectiveVersion, Is.Not.EqualTo(before));
+    }
+
+    /// <remarks>
+    /// Reconciling already folds a child's version into its parent's, so the per-frame record path must not
+    /// pay to walk the subtree again.
+    /// </remarks>
+    [Test]
+    public void AnAttachedGeometry_AnswersItsOwnVersionWithoutWalkingItsChildren()
+    {
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(new PathFigure
+        {
+            StartPoint = { CurrentValue = new Point(0, 0) },
+            Segments = { new LineSegment(new Point(10, 0)) },
+        });
+        using PathGeometry.Resource resource =
+            (PathGeometry.Resource)geometry.ToResource(CompositionContext.Default);
+
+        Assert.That(resource.EffectiveVersion, Is.EqualTo(resource.Version));
+    }
+
     [Test]
     public void GeometryRenderNode_WithADetachedGeometry_RecordsAndRasterizes()
     {
