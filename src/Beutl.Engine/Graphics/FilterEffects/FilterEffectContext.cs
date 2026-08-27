@@ -428,44 +428,22 @@ public sealed class FilterEffectContext : IDisposable
     /// <remarks>
     /// When <see cref="Bounds"/> is concrete the matrix is resolved from it immediately, matching
     /// <see cref="Transform(Matrix, BitmapInterpolationMode)"/>. When it is
-    /// <see cref="Rect.Invalid"/> (symbolic owning-domain input) the matrix is resolved once from
-    /// the combined execution-time target bounds and reused for every target.
+    /// <see cref="Rect.Invalid"/> (symbolic owning-domain input) the recorded item stays unresolved:
+    /// each activation resolves one matrix from its own combined execution-time target bounds and
+    /// maps every target of that activation with it.
     /// </remarks>
     public void Transform<T>(T data, Func<T, Rect, Matrix> matrixFactory,
         BitmapInterpolationMode bitmapInterpolationMode)
         where T : IEquatable<T>
     {
+        ArgumentNullException.ThrowIfNull(matrixFactory);
         if (!_bounds.IsInvalid)
         {
             Transform(matrixFactory(data, _bounds), bitmapInterpolationMode);
             return;
         }
 
-        // The matrix is resolved from the first bounds observation (the combined execution-time
-        // target bounds) and then fixed, so every target transforms with the same matrix.
-        Matrix resolved = default;
-        bool resolvedSet = false;
-        Func<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode), Rect, Rect> transformBounds =
-            (d, rect) =>
-            {
-                if (rect.IsInvalid)
-                    return Rect.Invalid;
-                if (!resolvedSet)
-                {
-                    resolved = d.MatrixFactory(d.Data, rect);
-                    resolvedSet = true;
-                }
-                return rect.TransformToAABB(resolved);
-            };
-        AppendDescription(new FEItem_Skia<(T Data, Func<T, Rect, Matrix> MatrixFactory, BitmapInterpolationMode Mode)>(
-            (data, matrixFactory, bitmapInterpolationMode),
-            (d, input, activator) => SKImageFilter.CreateMatrix(
-                d.MatrixFactory(d.Data, activator.CurrentTargets.CalculateBounds()).ToSKMatrix(),
-                d.Mode.ToSKSamplingOptions(), input),
-            transformBounds)
-        {
-            ResolveBoundsAtExecutionTime = true,
-        });
+        AppendDescription(new FEItem_SkiaDeferredMatrix<T>(data, matrixFactory, bitmapInterpolationMode));
     }
 
     public void MatrixConvolution(

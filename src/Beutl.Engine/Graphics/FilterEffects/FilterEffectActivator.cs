@@ -647,25 +647,27 @@ public sealed class FilterEffectActivator : IDisposable
             {
                 case IFEItem_Skia skia:
                     {
+                        // A deferred-bound Skia item's origin depends on input bounds a preceding custom
+                        // effect may only re-target at execution time, so this activation resolves its own
+                        // matrix from the combined execution-time target bounds before the filter is built.
+                        // Both the built filter and every bounds mapping below then use that one matrix.
+                        IFEItem_Skia effectiveItem = skia is IFEItem_DeferredBounds deferred
+                            ? deferred.ResolveForActivation(CurrentTargets.CalculateBounds())
+                            : skia;
+
                         BeginSkiaChain();
-                        skia.Accepts(this, Builder);
+                        effectiveItem.Accepts(this, Builder);
                         // Author code just ran and may have gone through Activate() or Flush(), either of
                         // which drops the bookkeeping this loop is about to read.
                         BeginSkiaChain();
-                        // A deferred-bound Skia item resolves its matrix once from the combined
-                        // execution-time target bounds (the first TransformBounds call fixes it),
-                        // because its origin depends on input bounds a preceding custom effect may
-                        // only re-target at execution time. Every target then maps with that matrix.
-                        if (skia.ResolveBoundsAtExecutionTime)
-                            _ = item.TransformBounds(CurrentTargets.CalculateBounds());
 
                         foreach (EffectTarget t in CurrentTargets)
                         {
                             PendingSkiaTarget pending = _pendingSkiaTargets![t];
-                            pending.PhysicalBounds = item.TransformBounds(pending.PhysicalBounds);
-                            pending.AnchorFrame = item.TransformBounds(pending.AnchorFrame);
-                            t.Bounds = item.TransformBounds(t.Bounds);
-                            t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
+                            pending.PhysicalBounds = effectiveItem.TransformBounds(pending.PhysicalBounds);
+                            pending.AnchorFrame = effectiveItem.TransformBounds(pending.AnchorFrame);
+                            t.Bounds = effectiveItem.TransformBounds(t.Bounds);
+                            t.OriginalBounds = effectiveItem.TransformBounds(t.OriginalBounds);
                             // The chain's execution frame is anchored at InputBounds.Position, which
                             // must stay equal to the displacement this item's accumulated mapping
                             // gives the chain-start Bounds.Position. A translation-invariant item
