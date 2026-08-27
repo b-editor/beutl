@@ -52,7 +52,7 @@ Each invocation checkpoints fragments, publications, and resource transfers; val
 - raw target calls only for unavoidable external-canvas behavior;
 - `Publish`, `PublishRange`, `Drop`, `RecordNode`, and `RecordSubtree` for all other topology, where `Drop` abandons a fragment recorded only to inspect its metadata.
 
-Content invalidation is equally direct: set `HasChanges` whenever a node property can alter pixels, metadata, or topology. Do not introduce application-managed output identities or resource content fields.
+Content invalidation is equally direct: call `MarkChanged()` whenever a node property can alter pixels, metadata, or topology. Do not introduce application-managed output identities or resource content fields.
 
 ### One-to-one publication
 

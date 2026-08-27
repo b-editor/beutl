@@ -6,7 +6,7 @@ BREAKING CHANGE: render-node work is now recorded through `void RenderNode.Proce
 
 BREAKING CHANGE: public callback authoring now uses immutable `*Definition<TState>` objects and per-recording `.Call(state, bindings)` values. The former public callback-record construction path is no longer an authoring API.
 
-BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation signal. A node sets it when its pixel-, metadata-, or topology-affecting state changes. No public API accepts caller-supplied cache identity, resource content metadata, or a manual operation fingerprint.
+BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation signal, and it is read-only: a node raises it by calling `RenderNode.MarkChanged()` when its pixel-, metadata-, or topology-affecting state changes. No public API accepts caller-supplied cache identity, resource content metadata, or a manual operation fingerprint.
 
 The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
 
@@ -51,7 +51,7 @@ public sealed class PassthroughNode : RenderNode
 
 `Inputs` is read-only and ordered. Use `TryCalculateInputBounds(out Rect)` and handle its `false` result when an input still depends on an enclosing target domain. Fragment handles expose metadata and hit testing only through their availability-checked APIs and cannot outlive `Process`.
 
-Set `HasChanges` at the point the node's observable state changes:
+Call `MarkChanged()` at the point the node's observable state changes:
 
 ```csharp
 public float Opacity
@@ -63,7 +63,7 @@ public float Opacity
             return;
 
         _opacity = value;
-        HasChanges = true;
+        MarkChanged();
     }
 }
 ```
@@ -898,7 +898,7 @@ describes, and nothing at runtime notices.
   in the compilation is reported, because that body is the whole of the callback. Migration: copy the value
   into a `static readonly` of an immutable type, or pass it as call state; declare a method group's method
   where the rule can read it, or write the callback as a `static` lambda at the call site.
-- **BESG005** — a `RenderNode` must mark `HasChanges` when it mutates what its `Process` reads. This is the
+- **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. This is the
   static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
   Debug-only and compares a replayed recording against a live one.
 
@@ -915,7 +915,7 @@ lifetimes a replay cannot reproduce.
 
 The consequence for an out-of-tree `RenderNode` is a real tightening, and it does not announce itself at
 compile time. **A node that mutates state its `Process` reads — including a value that only reaches an
-execution callback, such as a uniform or a command's bound state — must set `HasChanges`.** Forgetting it
+execution callback, such as a uniform or a command's bound state — must call `MarkChanged()`.** Forgetting it
 used to cost only pixel-cache reuse, so the change still reached the frame through a fresh recording; now
 the node is not re-recorded at all and the change never arrives. BESG005 reports the shapes it can see, and
 the Debug cross-check catches drift it cannot, but neither runs in a Release build of a plugin.

@@ -44,6 +44,11 @@ public sealed class RenderRecordingCrossCheckTests
                     Does.Contain(typeof(DriftingSourceNode).FullName!),
                     "a failure has to name the node an author has to go and fix");
                 Assert.That(exception.Message, Does.Contain("HasChanges"));
+                Assert.That(
+                    exception.Message,
+                    Does.Contain("MarkChanged()"),
+                    "the message has to name the call that fixes this: HasChanges is read-only, so an "
+                    + "author told to assign it cannot act on the failure");
             });
         }
     }

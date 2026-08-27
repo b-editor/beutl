@@ -10,7 +10,8 @@ Public render-node authoring lives in `Beutl.Graphics.Rendering`; shader and geo
 public abstract class RenderNode : IDisposable
 {
     public bool IsDisposed { get; }
-    public bool HasChanges { get; set; }
+    public bool HasChanges { get; }
+    public void MarkChanged();
     public virtual ReadOnlySpan<RenderNode> ChildNodes { get; }
     public abstract void Process(RenderNodeContext context);
     protected virtual void OnDispose(bool disposing);
@@ -19,7 +20,7 @@ public abstract class RenderNode : IDisposable
 
 `Process` records work; it does not draw immediately. The context and every fragment handle obtained from it are valid only for that invocation. Resource tokens from `Own`/`Borrow` are scoped to the active request family instead, so they remain declarable in nested recordings within the same request and are rejected once released. `Dispose` is not virtual; release node-owned state by overriding `OnDispose`, which both `Dispose` and the finalizer route through.
 
-`HasChanges` is the sole public content-invalidation signal. Set it before the next request whenever any node state that can affect pixels, bounds, hit testing, or recorded topology changes. An invalidation resets that node and its recorded ancestors, but does not mark unchanged `ChildNodes` dirty: an independently reusable child may continue warming or serving its retained output while its parent changes every request. Definitions may be reused across requests; changing the state passed to a call still requires the owning node to report the change. `ChildNodes` reports content dependencies for traversal and revalidation, not disposal ownership. A node that discovers what it records through only while processing, and so cannot hold a stable span, leaves `ChildNodes` empty; traversal and revalidation then stop at that node, so it must take itself out of the cache for that recording with `context.DisableRenderCache()`.
+`HasChanges` is the sole public content-invalidation signal, and it is read-only: `MarkChanged()` raises it and the renderer clears it as part of consuming a recording. Call `MarkChanged()` before the next request whenever any node state that can affect pixels, bounds, hit testing, or recorded topology changes. An invalidation resets that node and its recorded ancestors, but does not mark unchanged `ChildNodes` dirty: an independently reusable child may continue warming or serving its retained output while its parent changes every request. Definitions may be reused across requests; changing the state passed to a call still requires the owning node to report the change. `ChildNodes` reports content dependencies for traversal and revalidation, not disposal ownership. A node that discovers what it records through only while processing, and so cannot hold a stable span, leaves `ChildNodes` empty; traversal and revalidation then stop at that node, so it must take itself out of the cache for that recording with `context.DisableRenderCache()`.
 
 Authors do not provide runtime identities, structural identifiers, resource cache identities, or resource content counters. The engine derives operation shape from its immutable definition and manages reusable output state internally.
 
@@ -279,9 +280,9 @@ Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleCon
 
 ## Cache and failure rules
 
-The renderer controls retained output and resource lifetime. An author invalidates node content only by setting `HasChanges`; no context method opts a recording out of reuse and no token carries public content metadata. Raw target work remains request-local by definition.
+The renderer controls retained output and resource lifetime. An author invalidates node content only by calling `MarkChanged()`; no context method opts a recording out of reuse and no token carries public content metadata. Raw target work remains request-local by definition.
 
-`ContainerRenderNode` sets `HasChanges` itself when its children change — `AddChild`, `RemoveChild`, `RemoveRange`, `SetChild`, and `BringFrom` — because replacing a child changes what the container composes and the container's own state does not otherwise record it. `SetChild` with the child already at that index is a no-op. A container assembled and then rendered is therefore dirty on its first frame, which is one frame before its cache can warm.
+`ContainerRenderNode` calls `MarkChanged()` itself when its children change — `AddChild`, `RemoveChild`, `RemoveRange`, `SetChild`, and `BringFrom` — because replacing a child changes what the container composes and the container's own state does not otherwise record it. `SetChild` with the child already at that index is a no-op. A container assembled and then rendered is therefore dirty on its first frame, which is one frame before its cache can warm.
 
 *Amended.* The reuse opt-out this contract withheld was reinstated during implementation: `RenderNodeContext.DisableRenderCache()` monotonically removes the current transaction from persistent caching, and `IsRenderCacheEnabled` reports that state. It was published because a node that records a child it cannot list in `ChildNodes` has no other way to stay correct — the cache cannot observe a change reported only by that unlisted child. It is not a second invalidation signal: `HasChanges` remains the only way to invalidate a cached node. The migration is in [breaking-changes.md](breaking-changes.md), which carries the current contract. The rest of the paragraph is unchanged: no token carries public content metadata, and raw target work stays request-local.
 

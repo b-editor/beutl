@@ -67,7 +67,7 @@ Backward analysis starts at the requested root region or complete output extent 
 
 The renderer discovers safe candidates after metadata and region analysis. A hit substitutes an internal materialized value while preserving original query provenance. A miss inserts a capture point after the scheduled producer. Capture publication happens only after the complete request succeeds.
 
-The public lifecycle is deliberately simple: if node content changes, the node sets `HasChanges`; otherwise the renderer may reuse eligible output according to its complete internal plan and request conditions. Raw target work, unbounded external work, and target-dependent regions without a proven complete predecessor are not safely retained.
+The public lifecycle is deliberately simple: if node content changes, the node calls `MarkChanged()`; otherwise the renderer may reuse eligible output according to its complete internal plan and request conditions. Raw target work, unbounded external work, and target-dependent regions without a proven complete predecessor are not safely retained.
 
 ## Island planning
 

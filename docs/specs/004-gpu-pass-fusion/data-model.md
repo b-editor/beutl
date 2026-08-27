@@ -23,7 +23,7 @@ The public model records an immutable operation shape and a request-local invoca
 
 `RenderNode` owns application state and implements `void Process(RenderNodeContext)`. `ChildNodes` exposes content dependencies in recording order but does not transfer ownership.
 
-`HasChanges` is the public content-invalidation signal. A node sets it when a property can change pixels, bounds, hit testing, or topology. The renderer observes and clears it as part of successful request processing, invalidating that node and its recorded ancestors without resetting unchanged descendants. Public node code does not expose or supply output-reuse identities.
+`HasChanges` is the public content-invalidation signal, and it is read-only: a node raises it by calling `MarkChanged()` when a property can change pixels, bounds, hit testing, or topology. The renderer observes and clears it as part of successful request processing, invalidating that node and its recorded ancestors without resetting unchanged descendants. Public node code does not expose or supply output-reuse identities.
 
 ### RenderNodeContext
 
@@ -55,7 +55,7 @@ A public callback operation has these two entities:
 | `*Definition<TState>` | Fixed callback code, operation metadata, and resource-slot schema. |
 | `*Call<TState>` | State and resource bindings for one recording. |
 
-Definitions are immutable and are commonly static/shared when their fixed shape is unchanged to avoid allocation. Equivalent definitions recreated later still share an engine-derived plan because equivalence comes from callback code and declared metadata, not object lifetime. Calls are created by `.Call(state, bindings)` for each recording. Changing call state is ordinary node content change and requires the owning node to set `HasChanges` before the next request.
+Definitions are immutable and are commonly static/shared when their fixed shape is unchanged to avoid allocation. Equivalent definitions recreated later still share an engine-derived plan because equivalence comes from callback code and declared metadata, not object lifetime. Calls are created by `.Call(state, bindings)` for each recording. Changing call state is ordinary node content change and requires the owning node to call `MarkChanged()` before the next request.
 
 The rendering context accepts:
 

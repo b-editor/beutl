@@ -139,6 +139,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/RenderRecordingCrossCheckTests.cs"] = 9,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/Recording/ValueReplaySafetyTests.cs"] = 2,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RectClipRenderNodeTest.cs"] = 2,
+            ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeHasChangesTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererAllocationFailureTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererDeviceBoundsTests.cs"] = 1,
             ["tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderNodeRendererExceptionSafetyTests.cs"] = 2,
@@ -200,7 +201,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 235, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 236, s_testOverrideBaseline, overrides);
         }
     }
 

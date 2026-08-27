@@ -120,5 +120,48 @@ public class RenderNodeHasChangesTests
         return new NoOpUpdateCase(node, () => node.Update(resource));
     }
 
+    /// <summary>
+    /// Compiles and exercises the invalidation pattern the 004 migration contract hands an out-of-tree
+    /// author to copy, so the documented code cannot drift away from the API it is compiled against.
+    /// </summary>
+    [Test]
+    public void TheDocumentedInvalidationPattern_ReportsOnlyARealChange()
+    {
+        using var node = new DocumentedOpacityNode();
+        Assert.That(node.HasChanges, Is.False, "a node nobody has written to has nothing to re-record");
+
+        node.Opacity = 0.25f;
+        Assert.That(node.HasChanges, Is.True, "the setter has to report the change it just made");
+
+        node.ClearChanges(node.ChangeVersion);
+        node.Opacity = 0.25f;
+
+        Assert.That(node.HasChanges, Is.False, "assigning the value the node already holds is not a change");
+    }
+
+    /// <summary>The node shape <c>contracts/breaking-changes.md</c> documents as the migration target.</summary>
+    private sealed class DocumentedOpacityNode : RenderNode
+    {
+        private float _opacity = 1f;
+
+        public float Opacity
+        {
+            get => _opacity;
+            set
+            {
+                if (_opacity == value)
+                    return;
+
+                _opacity = value;
+                MarkChanged();
+            }
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.Publish(context.Opacity(context.Inputs[0], _opacity));
+        }
+    }
+
     public sealed record NoOpUpdateCase(RenderNode Node, Func<bool> NoOpUpdate);
 }
