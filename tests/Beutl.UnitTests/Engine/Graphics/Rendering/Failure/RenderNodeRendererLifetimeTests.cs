@@ -214,7 +214,15 @@ public sealed class RenderNodeRendererLifetimeTests
 
     private sealed class ShaderNode(RenderTarget source, Rect bounds) : RenderNode
     {
-        public bool PublishOutput { get; set; } = true;
+        public bool PublishOutput
+        {
+            get => field;
+            set
+            {
+                field = value;
+                MarkChanged();
+            }
+        } = true;
 
         public override void Process(RenderNodeContext context)
         {

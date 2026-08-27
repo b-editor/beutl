@@ -40,10 +40,12 @@ public static class DiagnosticDescriptors
             + "'{3}', and {4}. Carry the value through the state-passing overload or a bound render "
             + "resource, or make '{3}' answer the same way every time. This check reads the callback's own "
             + "body - a lambda's, or the one a method group names - and follows what that body names and "
-            + "what it runs without naming, to a bounded depth: the static methods, the constructors, and "
-            + "the user-defined operators and conversions. What a callee whose body has no source here "
-            + "reads, and what an instance member computes, are still invisible, so it staying silent is "
-            + "not proof that the callback is state-free.",
+            + "what it runs without naming, to a bounded depth: the static methods, the constructors, the "
+            + "user-defined operators and conversions, and any member - a method, a property or an indexer "
+            + "accessor - called on an instance the expression makes right there. What a callee whose body "
+            + "has no source here reads, and what an instance member computes on a receiver the call did "
+            + "not make, are still invisible, so it staying silent is not proof that the callback is "
+            + "state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -85,35 +87,52 @@ public static class DiagnosticDescriptors
             + "constructor - its own body, the constructor it chains to, the base constructor it runs "
             + "without saying so, and the instance field and property initialisers that run with it - and "
             + "a user-defined operator or conversion, which the source spells as punctuation or, for an "
-            + "implicit conversion, as nothing at all. What is still invisible to it: what a callee with "
-            + "no source here reads, and whatever an instance member computes - one reached through an "
-            + "accepted field, an indexer, or one the body calls on a value. Treat silence as the absence "
-            + "of the shape authors usually write, not as a purity proof.");
+            + "implicit conversion, as nothing at all. An instance member is walked on those same terms "
+            + "when the expression makes the instance it runs on: an object creation names the exact type "
+            + "it makes, so the member the call binds to is the member that runs, and what that instance "
+            + "carries came from the constructor and initialisers the walk already reads. A property or "
+            + "indexer contributes the accessor the reference actually runs - the getter for a read, the "
+            + "setter for an assignment - and an auto-property's accessor, having no body, is the "
+            + "no-source case. A receiver the call did not make is where the walk stops, and not only "
+            + "because it cannot be identified: these callbacks are handed the objects they work through, "
+            + "so a member called on one of those is the engine behind it, whose loggers, shared contexts "
+            + "and pools say nothing about whether the callback answers the same way twice. What is still "
+            + "invisible to it: what a callee with no source here reads, and what an instance member "
+            + "computes on a receiver the call did not make. Treat silence as the absence of the shape "
+            + "authors usually write, not as a purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",
         title: "Render node changes state its Process reads without marking the node changed",
         messageFormat:
-            "'{0}.{1}' assigns '{2}', which '{0}.Process' reads, and no MarkChanged() call on this node is "
+            "'{0}.{1}' changes '{2}', which '{0}.Process' reads, and no MarkChanged() call on this node is "
             + "reachable from it. A render graph recorded for a node that reports no changes may be reused "
-            + "instead of re-recorded, so this change would never reach a frame. Call MarkChanged() where "
-            + "the value changes. This rule reads only a direct assignment written inside '{0}', so it "
-            + "staying silent is not proof that every mutation is marked.",
+            + "instead of re-recorded, so this change would never reach a frame. {3}. This rule reads a "
+            + "direct assignment written inside '{0}', and the setter of an auto-property that code outside "
+            + "'{0}' can assign, so it staying silent is not proof that every mutation is marked.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description:
             "Deciding in general whether a render node's recorded output can go stale is not possible, and "
-            + "this rule does not try. It reports one shape: a member of the node's own type assigns an "
-            + "instance field, an auto-property, or the backing store a property names with the field "
-            + "keyword, that the node's Process reads, and neither that member nor a method of the same "
-            + "type it calls on this node marks that node with MarkChanged(). The Process it reads is the "
+            + "this rule does not try. It reports two shapes, both about state the node's Process reads. "
+            + "The first is an assignment: a member of the node's own type assigns an instance field, an "
+            + "auto-property, or the backing store a property names with the field keyword, and neither "
+            + "that member nor a method of the same type it calls on this node marks that node with "
+            + "MarkChanged(). The second is a declaration, because an assignment is not always written "
+            + "where the rule can read it: an auto-property the node's own type declares whose setter is "
+            + "neither private nor init-only can be assigned by whoever holds the node, and that setter is "
+            + "synthesized, so there is no body for the first shape to read and no assignment inside the "
+            + "type for it to find. The fix for it is the declaration - give the setter a body that marks, "
+            + "or narrow it to private or init so that only the node's own code, which the first shape does "
+            + "read, can assign it. The Process both shapes read is the "
             + "override filling the RenderNode slot, inherited or not, and not a same-named overload "
             + "declared beside it. Everything else stays "
             + "invisible - an assignment made through a helper on another type, through a virtual call, or "
             + "by mutating a collection in place; an assignment guarded by a branch that skips the "
-            + "MarkChanged() call the rule found elsewhere in the same member; and any assignment written "
-            + "inside Process itself or a method Process calls, which are excluded so that ordinary "
+            + "MarkChanged() call the rule found elsewhere in the same member; an assignment to state "
+            + "declared by a base type, which is reported where that type is analyzed; and any assignment "
+            + "written inside Process itself or a method Process calls, which are excluded so that ordinary "
             + "memoization is not reported. The "
             + "runtime cross-check in Beutl.Engine, not this rule, is what covers those. Treat silence as "
             + "the absence of the shape authors usually write, not as a proof that the node is safe to skip.");

@@ -528,7 +528,10 @@ public sealed class RecordingGateFingerprintTests
     /// <summary>Records one bounds with a swappable hit-test contract, so only the rule moves.</summary>
     private sealed class HitTestSwappingNode(RenderHitTestContract contract) : RenderNode
     {
+        // Deliberately not raising HasChanges: the tests that move it mark the node themselves.
+#pragma warning disable BESG005
         public RenderHitTestContract Contract { get; set; } = contract;
+#pragma warning restore BESG005
 
         public override void Process(RenderNodeContext context)
         {
@@ -551,7 +554,10 @@ public sealed class RecordingGateFingerprintTests
     /// <summary>Records one bounds with a fixed rule whose state moves, the way a shape's fill does.</summary>
     private sealed class StatefulHitTestNode(Rect hitRegion) : RenderNode
     {
+        // Deliberately not raising HasChanges: the tests that move it mark the node themselves.
+#pragma warning disable BESG005
         public Rect HitRegion { get; set; } = hitRegion;
+#pragma warning restore BESG005
 
         public override void Process(RenderNodeContext context)
         {

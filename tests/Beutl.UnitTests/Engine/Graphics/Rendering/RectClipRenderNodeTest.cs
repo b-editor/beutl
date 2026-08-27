@@ -285,7 +285,15 @@ public class RectClipRenderNodeTest
 
     private sealed class ContractChangingScopeDefinitionNode : ContainerRenderNode
     {
-        public bool UseFullInputContract { get; set; }
+        public bool UseFullInputContract
+        {
+            get => field;
+            set
+            {
+                field = value;
+                MarkChanged();
+            }
+        }
 
         public int DefinitionCreations { get; private set; }
 

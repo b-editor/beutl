@@ -20,10 +20,17 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// </para>
 /// <para>
 /// What a rule can decide here is bounded, and the bound is the point rather than an apology for it. This
-/// reports one shape - an assignment written in the node's own type to an instance field or auto-property
-/// that its <c>Process</c> reads - because that is the shape authors write, and because a rule that guessed
-/// past it on a public extension point would be suppressed wholesale and then protect nothing. The runtime
-/// cross-check in <c>Beutl.Engine</c> is what covers the rest; silence here is not a proof.
+/// reports two shapes, both about state the node's <c>Process</c> reads: an assignment written in the node's
+/// own type to an instance field or auto-property, and an auto-property the node declares whose setter
+/// anyone outside it can call. Those are the shapes authors write, and a rule that guessed past them on a
+/// public extension point would be suppressed wholesale and then protect nothing. The runtime cross-check in
+/// <c>Beutl.Engine</c> is what covers the rest; silence here is not a proof.
+/// </para>
+/// <para>
+/// The second shape is asked at the declaration because there is nowhere else to ask it. A synthesized
+/// setter has no body to read, and the assignment that runs it is written by whoever holds the node, in code
+/// this rule is not looking at - so both halves of the first shape are missing while the node still goes
+/// stale.
 /// </para>
 /// <para>
 /// An assignment inside <c>Process</c>, or inside a method <c>Process</c> calls, is deliberately not
@@ -99,9 +106,112 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     assignment.Location,
                     type.Name,
                     DescribeMember(method),
-                    assignment.State.Name));
+                    assignment.State.Name,
+                    CallMarkChanged));
             }
         }
+
+        ReportExternallyWritableState(context, type, readState);
+    }
+
+    /// <summary>
+    /// Reports an auto-property of this node that code outside it can assign, and whose <c>Process</c> reads
+    /// the value.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A setter the compiler synthesizes has no body anywhere, so the walk over member bodies above yields
+    /// nothing for it, and nobody inside the node writes the property either: the assignment is written by
+    /// whoever holds the node, in code this rule is not looking at. Both halves of the shape that reports an
+    /// assignment are therefore absent, and the node is stale from the moment the assignment lands.
+    /// </para>
+    /// <para>
+    /// So this half is asked at the declaration rather than at a call site, and it is the declaration the
+    /// author can fix: give the setter a body that marks, or narrow it until only the node's own code -
+    /// which the assignment shape does read - can reach it.
+    /// </para>
+    /// <para>
+    /// Only a property the node's own type declares, so that a node inheriting one is not reported a second
+    /// time at the same location; the type that declares it is the type analyzed for it.
+    /// </para>
+    /// </remarks>
+    private static void ReportExternallyWritableState(
+        SymbolAnalysisContext context,
+        INamedTypeSymbol type,
+        ImmutableHashSet<ISymbol> readState)
+    {
+        foreach (ISymbol member in type.GetMembers())
+        {
+            if (member is not IPropertySymbol property
+                || !readState.Contains(property)
+                || GetExternallyWritableSetter(property) is not { } setter)
+            {
+                continue;
+            }
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                DiagnosticDescriptors.UnmarkedRenderNodeMutation,
+                setter.Locations.FirstOrDefault()
+                    ?? property.Locations.FirstOrDefault()
+                    ?? Location.None,
+                type.Name,
+                property.Name + ".set",
+                property.Name,
+                MarkFromTheSetter));
+        }
+    }
+
+    /// <returns>
+    /// The setter code outside the node can call, or <see langword="null"/> when there is none.
+    /// </returns>
+    /// <remarks>
+    /// An init accessor runs only while the object is being made, which is before there is a recording to
+    /// invalidate - the same reason a constructor assignment is not reported. A private setter is reachable
+    /// only from the node's own code, and every assignment written there is already read by the shape above,
+    /// which also accepts the ones that mark; reporting the declaration too would reject a node that marks
+    /// on every path into it. A setter with a body of its own is likewise the shape above, reported where
+    /// the value actually changes.
+    /// </remarks>
+    private static IMethodSymbol? GetExternallyWritableSetter(IPropertySymbol property)
+        => IsAutoProperty(property)
+            && property.SetMethod is { IsInitOnly: false } setter
+            && setter.DeclaredAccessibility != Accessibility.Private
+                ? setter
+                : null;
+
+    private const string CallMarkChanged = "Call MarkChanged() where the value changes";
+
+    private const string MarkFromTheSetter =
+        "Give the setter a body that assigns the value and calls MarkChanged(), or make it private or "
+        + "init-only so that only this node's own code can assign it";
+
+    /// <summary>Whether every accessor of <paramref name="property"/> is one the compiler synthesizes.</summary>
+    /// <remarks>
+    /// The single test both halves of this rule are judged by: an auto-property is state in its own right,
+    /// because no body anywhere names the field behind it, while a property with a body is read through that
+    /// body instead - the assignment inside its setter is what gets reported, once, where the value changes.
+    /// </remarks>
+    private static bool IsAutoProperty(IPropertySymbol property)
+    {
+        foreach (SyntaxReference reference in property.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not PropertyDeclarationSyntax
+                {
+                    ExpressionBody: null,
+                    AccessorList: { } accessors,
+                })
+            {
+                return false;
+            }
+
+            foreach (AccessorDeclarationSyntax accessor in accessors.Accessors)
+            {
+                if (accessor.Body is not null || accessor.ExpressionBody is not null)
+                    return false;
+            }
+        }
+
+        return property.DeclaringSyntaxReferences.Length > 0;
     }
 
     private static bool IsDisposalOverride(IMethodSymbol method, INamedTypeSymbol renderNodeType)
@@ -385,29 +495,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 IPropertySymbol property => IsAutoProperty(property),
                 _ => false,
             };
-        }
-
-        private static bool IsAutoProperty(IPropertySymbol property)
-        {
-            foreach (SyntaxReference reference in property.DeclaringSyntaxReferences)
-            {
-                if (reference.GetSyntax() is not PropertyDeclarationSyntax
-                    {
-                        ExpressionBody: null,
-                        AccessorList: { } accessors,
-                    })
-                {
-                    return false;
-                }
-
-                foreach (AccessorDeclarationSyntax accessor in accessors.Accessors)
-                {
-                    if (accessor.Body is not null || accessor.ExpressionBody is not null)
-                        return false;
-                }
-            }
-
-            return property.DeclaringSyntaxReferences.Length > 0;
         }
 
         private bool IsOwnTypeChainMember(ISymbol symbol)

@@ -2344,6 +2344,240 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A helper's method is a body the callback runs, and the expression that makes the helper says
+    /// everything the walk needs: the type is exact, and what the instance carries came from the constructor
+    /// the walk already reads. So following it needs no model of a receiver, and stopping at it let an
+    /// author move a read one member sideways and keep the rule silent.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAMethodOnAFreshlyConstructedHelperThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            new Shifter().Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a read moved into a helper's method is still a read the callback reaches");
+    }
+
+    /// <remarks>
+    /// A virtual method is the one case the receiver decides, and an object creation decides it here: the
+    /// expression names the exact type it makes, so the override the call binds to is the override that
+    /// runs. That is read off the call site, not tracked from anywhere.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAVirtualMethodOnAFreshlyConstructedHelperThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class Shifter
+            {
+                public virtual float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            new Shifter().Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "new names the exact type, so the virtual call has one body and it is the one that runs");
+    }
+
+    [Test]
+    public void AStaticLambdaReadingAPropertyThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class OffsetView
+            {
+                public float Value => Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new OffsetView().Value, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a getter is a body the callback runs as surely as a method is");
+    }
+
+    /// <remarks>
+    /// An indexer is a getter reached through punctuation rather than a name, so a walk that only looked at
+    /// names could not see it at all.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAnIndexerThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class OffsetTable
+            {
+                public float this[int index] => Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new OffsetTable()[0], value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "an indexer runs a getter body the source never spells a name for");
+    }
+
+    /// <remarks>
+    /// The walk reports static reads, so a body that reads only its arguments and the instance it was
+    /// called on has nothing in it to report however far the walk goes into it. Following instance members
+    /// must not turn an ordinary helper into a diagnostic.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAnInstanceMethodOverItsArguments_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Scaler
+            {
+                private readonly float _factor;
+
+                public Scaler(float factor) => _factor = factor;
+
+                public float Scale(float value) => value * _factor;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            new Scaler(2f).Scale(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a helper reading its own arguments and fields answers the same way twice");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The bound this rule stops at, stated as a case, and it holds whether or not the callee could be
+    /// overridden - what is missing is the receiver, not the body.
+    /// </para>
+    /// <para>
+    /// Walking past it was tried and is not viable. These callbacks are handed the objects they work
+    /// through - a session, a canvas, a context - so a member called on one of those is the engine behind
+    /// it: following them reported the render backend's loggers, its shared GPU context, its dispatcher and
+    /// its pools, hundreds of times over a tree that is correct, none of which says anything about whether
+    /// a callback answers the same way twice. A rule that loud is a rule authors suppress.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [TestCase("public")]
+    [TestCase("public virtual")]
+    public void AStaticLambdaCallingAMethodOnAReceiverItDidNotCreate_IsNotReported(string modifiers)
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class Shifter
+            {
+                {{modifiers}} float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                private static float Apply(Shifter shifter, float value) => shifter.Shift(value);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Apply(new Shifter(), value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the callback did not make this receiver, so what it carries is not read off the call site");
+    }
+
+    /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// definition's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.

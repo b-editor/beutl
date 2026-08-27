@@ -803,6 +803,187 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
+    /// <remarks>
+    /// The setter of an auto-property is synthesized, so there is no body anywhere for the walk over member
+    /// bodies to read, and nobody inside the node writes the property: the shape that reports an assignment
+    /// finds nothing to report. The assignment is written by whoever holds the node, which this rule never
+    /// sees, and the recording is stale from the moment it lands.
+    /// </remarks>
+    [Test]
+    [TestCase("public Rect Bounds { get; set; }")]
+    [TestCase("public Rect Bounds { get; protected set; }")]
+    [TestCase("public Rect Bounds { get; internal set; }")]
+    public void AnExternallyWritableAutoPropertyProcessReads_IsReported(string declaration)
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal class DriftingNode : RenderNode
+            {
+                {{declaration}}
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a setter anyone outside the node can call changes what Process reads with no mark anywhere");
+    }
+
+    /// <remarks>
+    /// An init accessor can only run while the object is being made, which is before there is a recording
+    /// to invalidate - the same reason a constructor assignment is not reported.
+    /// </remarks>
+    [Test]
+    public void AnInitOnlyAutoPropertyProcessReads_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                public Rect Bounds { get; init; }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A private setter is reachable only from the node's own code, which is exactly what the assignment
+    /// shape already reads; reporting the declaration too would report the same state twice and reject the
+    /// well-behaved node below.
+    /// </remarks>
+    [Test]
+    public void APrivateSetAutoPropertyWrittenWhereAMarkFollows_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                public Rect Bounds { get; private set; }
+
+                public void Update(Rect bounds)
+                {
+                    Bounds = bounds;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    [Test]
+    public void AGetOnlyAutoPropertyProcessReads_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                public WellBehavedNode(Rect bounds) => Bounds = bounds;
+
+                public Rect Bounds { get; }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The read set is what makes a mutation matter. A property no Process reads can go stale without any
+    /// frame noticing, so an externally writable one is not on its own a diagnostic.
+    /// </remarks>
+    [Test]
+    public void AnExternallyWritableAutoPropertyProcessNeverReads_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class QuietNode : RenderNode
+            {
+                private Rect _drawn;
+
+                public Rect Bounds { get; set; }
+
+                public void Update(Rect bounds)
+                {
+                    _drawn = bounds;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_drawn);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The fix the diagnostic recommends, pinned: giving the setter a body puts the mark on the path every
+    /// external assignment takes, and the property is then no different from any other marking mutator.
+    /// </remarks>
+    [Test]
+    public void APublicPropertyWhoseSetterMarks_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public Rect Bounds
+                {
+                    get => _bounds;
+                    set
+                    {
+                        _bounds = value;
+                        MarkChanged();
+                    }
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CreateCompilation(source);

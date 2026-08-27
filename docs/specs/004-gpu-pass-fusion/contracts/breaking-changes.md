@@ -897,16 +897,28 @@ describes, and nothing at runtime notices.
   levels deep, reporting a longer chain rather than accepting it; a method group whose body has no source
   in the compilation is reported, because that body is the whole of the callback. The same walk enters what
   a body runs without naming: a constructor - its chained and base constructors and the instance
-  initialisers that run with it included - and a user-defined operator or conversion. Migration: copy the
+  initialisers that run with it included - and a user-defined operator or conversion. It follows an instance
+  member on those same terms when the expression makes the instance it runs on: an object creation names the
+  exact type it makes, and what that instance carries came from the constructor the walk already reads. A
+  property or indexer contributes the accessor the reference actually runs - the getter for a read, the
+  setter for an assignment. A receiver the call did not make is where it stops, because these callbacks are
+  handed the objects they work through and following a member called on one of those walks the render
+  backend behind it. Migration: copy the
   value into a `static readonly` of an immutable type, or pass it as call state; declare a method group's
   method where the rule can read it, or write the callback as a `static` lambda at the call site.
-- **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. This is the
+- **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. It reports
+  two shapes: an assignment written inside the node's own type with no reachable `MarkChanged()`, and an
+  auto-property the node declares whose setter is neither `private` nor `init` — because such a setter is
+  synthesized and is assigned by whoever holds the node, so there is no body to read and no assignment inside
+  the type to find, and the node goes stale anyway. Migration for the second: give the setter a body that
+  assigns and calls `MarkChanged()`, or narrow it to `private` or `init` so only the node's own code can
+  assign it. This is the
   static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
   Debug-only and compares a replayed recording against a live one.
 
 Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: what a
-callee with no source in the compilation reads, and what an instance member computes, stay invisible to all
-of them.
+callee with no source in the compilation reads stays invisible to all of them, and so does what an instance
+member computes on a receiver the call did not make.
 
 ## A recording is replayed while it is still valid
 

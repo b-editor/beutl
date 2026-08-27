@@ -425,7 +425,9 @@ public sealed class RenderNodeRecordingCacheTests
         public int PrepareCalls { get; private set; }
 
         // Deliberately not raising HasChanges: the tests that move it also say so explicitly.
+#pragma warning disable BESG005
         public Rect Bounds { get; set; } = bounds;
+#pragma warning restore BESG005
 
         public override void PrepareForRequest(RenderNodePreparation preparation) => PrepareCalls++;
 
@@ -463,7 +465,10 @@ public sealed class RenderNodeRecordingCacheTests
     {
         public int ProcessCalls { get; private set; }
 
+        // Deliberately not raising HasChanges: the test that moves it marks the node itself.
+#pragma warning disable BESG005
         public Rect Bounds { get; set; } = bounds;
+#pragma warning restore BESG005
 
         public override void Process(RenderNodeContext context)
         {

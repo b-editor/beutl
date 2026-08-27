@@ -115,7 +115,9 @@ public sealed class RecordingIdentityCollisionTests
     private sealed class TargetRegionNode(Rect region) : RenderNode
     {
         // Deliberately not raising HasChanges: the test that moves it says so explicitly.
+#pragma warning disable BESG005
         public Rect Region { get; set; } = region;
+#pragma warning restore BESG005
 
         public override void Process(RenderNodeContext context)
         {

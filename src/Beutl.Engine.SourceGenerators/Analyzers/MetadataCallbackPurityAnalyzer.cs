@@ -472,8 +472,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         + "evidence that the callback answers the same way twice";
 
     /// <summary>
-    /// Reports every static member named by <paramref name="body"/>, or by a static method it names, that is
-    /// not proven to answer the same way twice.
+    /// Reports every static member named by <paramref name="body"/>, or by a static member it names or an
+    /// instance member it makes the receiver for, that is not proven to answer the same way twice.
     /// </summary>
     /// <remarks>
     /// <paramref name="walked"/> spans the whole callback rather than one path through it: two calls
@@ -507,18 +507,40 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             ISymbol? symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
 
-            // Only a static method, because a virtual call has no one body to read and what an instance
-            // receiver carries is state the field walk decides separately; and only these three kinds,
-            // because a property read is already the branch below and an operator, a conversion and a
-            // constructor reach the walk through FollowUnnamedInvocation instead.
+            // A static method, or one called on an instance the call makes right there. Only these three
+            // kinds, because an operator, a conversion and a constructor reach the walk through
+            // FollowUnnamedInvocation instead.
             if (symbol is IMethodSymbol
                 {
-                    IsStatic: true,
                     MethodKind: MethodKind.Ordinary or MethodKind.LocalFunction
                         or MethodKind.ReducedExtension
-                } called)
+                } called
+                && (called.IsStatic || CreatesItsReceiver(context, model, name)))
             {
-                FollowCall(context, called, name, "static method", depth, walked, report);
+                FollowCall(
+                    context,
+                    called,
+                    name,
+                    called.IsStatic ? "static method" : "method",
+                    depth,
+                    walked,
+                    report);
+                continue;
+            }
+
+            // A static property is the branch below, which asks the stricter question of whether the value
+            // is the same on every read rather than only what the getter names.
+            if (symbol is IPropertySymbol { IsStatic: false } instanceProperty)
+            {
+                FollowPropertyAccess(
+                    context,
+                    model,
+                    instanceProperty,
+                    name,
+                    GetAccessExpression(name),
+                    depth,
+                    walked,
+                    report);
                 continue;
             }
 
@@ -534,10 +556,10 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// </summary>
     /// <remarks>
     /// An object creation names the type and not the constructor overload it picked, a constructor
-    /// initialiser is spelled <c>this</c> or <c>base</c>, and a user-defined operator or explicit conversion
-    /// is spelled as punctuation. None of them reach the name loop, and each still runs a body: leaving them
-    /// out let a callback move a read into a constructor and keep the rule silent, which is the one thing
-    /// silence must not mean.
+    /// initialiser is spelled <c>this</c> or <c>base</c>, an indexer is spelled as brackets, and a
+    /// user-defined operator or explicit conversion is spelled as punctuation. None of them reach the name
+    /// loop, and each still runs a body: leaving them out let a callback move a read into a constructor and
+    /// keep the rule silent, which is the one thing silence must not mean.
     /// </remarks>
     private static void FollowUnnamedInvocation(
         SyntaxNodeAnalysisContext context,
@@ -547,6 +569,19 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
+        // An indexer is spelled as brackets around an argument, so the name loop never sees it, and the
+        // accessor it runs is a body like any other.
+        if (node is ElementAccessExpressionSyntax element)
+        {
+            if (model.GetSymbolInfo(element, context.CancellationToken).Symbol
+                is IPropertySymbol { IsStatic: false } indexer)
+            {
+                FollowPropertyAccess(context, model, indexer, element, element, depth, walked, report);
+            }
+
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -591,6 +626,112 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, method, expression, "static method", depth, walked, report);
         }
     }
+
+    /// <summary>
+    /// Follows the accessor an instance property or indexer reference runs.
+    /// </summary>
+    /// <remarks>
+    /// A read runs the getter and a plain assignment runs the setter, while a compound assignment and an
+    /// increment run each in turn. Following both for every reference would report a static read written in
+    /// a setter that a bare read never reaches, which is a diagnostic about code the callback does not run.
+    /// A static property is not routed here: it is judged by the stricter question of whether its value is
+    /// the same on every read, which is more than what its getter happens to name.
+    /// </remarks>
+    private static void FollowPropertyAccess(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        IPropertySymbol property,
+        SyntaxNode reference,
+        ExpressionSyntax access,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (!CreatesItsReceiver(context, model, reference))
+            return;
+
+        if (RunsGetter(access) && property.GetMethod is { } getter)
+            FollowCall(context, getter, reference, "property", depth, walked, report);
+
+        if (RunsSetter(access) && property.SetMethod is { } setter)
+            FollowCall(context, setter, reference, "property", depth, walked, report);
+    }
+
+    /// <summary>
+    /// Whether the call makes the instance it runs on, right there in the expression.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the whole of what an instance member has to clear, and both halves of it are read off the
+    /// call site. An object creation names the exact type it makes, so the member the call binds to is the
+    /// member that runs even when it is virtual; and the instance carries only what its constructor and
+    /// initialisers put there, which is what the constructor walk already reads. Nothing has to be known
+    /// about a receiver held anywhere else, which is the identity this rule does not model.
+    /// </para>
+    /// <para>
+    /// A receiver the call did not make is where the walk stops, and the reason is not only that it cannot
+    /// be identified. The callbacks under this rule are handed the objects they work through - a session, a
+    /// canvas, a context - so walking a member called on one of those is walking the engine behind it, and
+    /// the mutable statics a render backend keeps say nothing about whether the callback answers the same
+    /// way twice. Following them reported the whole backend and would have taught authors to suppress the
+    /// id.
+    /// </para>
+    /// </remarks>
+    private static bool CreatesItsReceiver(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode reference)
+    {
+        // A type parameter is left out on purpose: new T() makes whatever T was substituted with, so the
+        // member found on the constraint is not necessarily the member that runs.
+        return GetReceiver(reference) is { } receiver
+            && StripParentheses(receiver) is BaseObjectCreationExpressionSyntax creation
+            && model.GetTypeInfo(creation, context.CancellationToken).Type is INamedTypeSymbol;
+    }
+
+    /// <returns>
+    /// The expression the call is made on, or <see langword="null"/> when the reference carries no receiver
+    /// of its own - a bare name, which is this instance or a static, or a conditional access, which spells
+    /// its receiver once at the head of the chain.
+    /// </returns>
+    private static ExpressionSyntax? GetReceiver(SyntaxNode reference) => reference switch
+    {
+        SimpleNameSyntax name when name.Parent is MemberAccessExpressionSyntax access && access.Name == name
+            => access.Expression,
+        ElementAccessExpressionSyntax element => element.Expression,
+        _ => null,
+    };
+
+    /// <remarks>
+    /// Deliberately not <see cref="Unwrap"/>, which also strips a cast: a cast is what changes the type a
+    /// call is bound against, so stripping one would read the exact type off an expression the call was
+    /// never bound to.
+    /// </remarks>
+    private static ExpressionSyntax StripParentheses(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+
+        return expression;
+    }
+
+    private static ExpressionSyntax GetAccessExpression(SimpleNameSyntax name)
+        => name.Parent is MemberAccessExpressionSyntax access && access.Name == name ? access : name;
+
+    private static bool RunsGetter(ExpressionSyntax access)
+        => access.Parent is not AssignmentExpressionSyntax assignment
+            || assignment.Left != access
+            || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression);
+
+    private static bool RunsSetter(ExpressionSyntax access) => access.Parent switch
+    {
+        AssignmentExpressionSyntax assignment => assignment.Left == access,
+        PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression)
+            || prefix.IsKind(SyntaxKind.PreDecrementExpression),
+        PostfixUnaryExpressionSyntax postfix => postfix.IsKind(SyntaxKind.PostIncrementExpression)
+            || postfix.IsKind(SyntaxKind.PostDecrementExpression),
+        _ => false,
+    };
 
     /// <remarks>
     /// A callee with no body to read is where the walk stops without reporting, and that is not the answer
@@ -825,6 +966,19 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     return block;
 
                 case LocalFunctionStatementSyntax { ExpressionBody.Expression: { } expression }:
+                    return expression;
+
+                // An accessor is a body too. An expression-bodied property declares its getter as the arrow
+                // clause itself rather than as an accessor, and an auto-property's accessor has no body at
+                // all - which is the no-source answer, and the right one: what such a getter hands back was
+                // put there by a constructor or an initialiser, which the constructor walk reads.
+                case AccessorDeclarationSyntax { Body: { } block }:
+                    return block;
+
+                case AccessorDeclarationSyntax { ExpressionBody.Expression: { } expression }:
+                    return expression;
+
+                case ArrowExpressionClauseSyntax { Expression: { } expression }:
                     return expression;
             }
         }
