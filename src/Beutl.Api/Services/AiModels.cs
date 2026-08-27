@@ -65,8 +65,9 @@ public enum AiModelCostTier
 /// What one video model will take. Published per model because it differs per
 /// model: MiniMax H3 renders only at 2K and refuses anything under five
 /// seconds, while Veo 3.1 takes 4, 6 or 8 seconds at 720p or 1080p. An empty
-/// list is the server saying nothing about that dimension, which leaves the
-/// dialog offering everything it knows how to ask for.
+/// list is the server explicitly saying the model accepts no value in that
+/// dimension. A default array means the provider omitted the dimension and
+/// leaves the dialog offering its compatible defaults.
 /// </summary>
 public sealed record AiVideoModelCapabilities(
     ImmutableArray<int> DurationsSeconds,
@@ -78,7 +79,7 @@ public sealed record AiVideoModelCapabilities(
     bool SupportsLastFrame = true)
 {
     public static AiVideoModelCapabilities Unrestricted { get; } =
-        new([], [], [], true, true);
+        new(default, default, default, true, true);
 
     /// <summary>
     /// False for a model that shares no resolution or shape with what the
@@ -87,7 +88,9 @@ public sealed record AiVideoModelCapabilities(
     /// model would be refused, and offering it is worse than hiding it.
     /// </summary>
     public bool CanServeAnything()
-        => !Resolutions.IsDefaultOrEmpty && !AspectRatios.IsDefaultOrEmpty;
+        => (DurationsSeconds.IsDefault || !DurationsSeconds.IsEmpty)
+            && (Resolutions.IsDefault || !Resolutions.IsEmpty)
+            && (AspectRatios.IsDefault || !AspectRatios.IsEmpty);
 }
 
 /// <summary>
@@ -536,8 +539,16 @@ public sealed record AiImageGenerationRequest
         long totalLimit = referencesTotalLimitBytes is { } published && published > 0
             ? published
             : AiRequestLimits.MaxImageReferencesTotalBytes;
-        if (references?.Sum(reference => reference.Length ?? 0) > totalLimit)
-            throw new AiFileTooLargeException();
+        if (references is not null)
+        {
+            long total = 0;
+            foreach (AiUploadSource reference in references)
+            {
+                if (reference.Length > totalLimit - total)
+                    throw new AiFileTooLargeException();
+                total += reference.Length;
+            }
+        }
 
         Prompt = AiRequestLimits.ValidatePrompt(prompt, nameof(prompt));
         AspectRatio = aspectRatio;
@@ -1318,13 +1329,13 @@ internal static class AiModelMapper
 
         return Narrow(
             new AiVideoModelCapabilities(
-                model.DurationsSeconds ?? [],
+                model.DurationsSeconds ?? default,
                 model.Resolutions is { } resolutions
                     ? [.. resolutions.Where(value => !string.IsNullOrWhiteSpace(value))]
-                    : [],
+                    : default,
                 model.AspectRatios is { } aspectRatios
                     ? [.. aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value))]
-                    : [],
+                    : default,
                 model.Audio ?? true,
                 model.Seed ?? true,
                 model.FirstFrame ?? true,
@@ -1359,17 +1370,30 @@ internal static class AiModelMapper
         AiVideoModelCapabilities model,
         AiOperationCapabilityResponse capability)
     {
-        ImmutableArray<int> durations = model.DurationsSeconds.IsDefaultOrEmpty
-            ? []
+        ImmutableArray<int> durations = model.DurationsSeconds.IsDefault
+            ? default
             : [.. model.DurationsSeconds.Where(seconds =>
                 seconds >= (capability.MinDurationSeconds ?? int.MinValue)
                 && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue))];
         return model with
         {
             DurationsSeconds = durations,
-            Resolutions = NarrowToOperation(model.Resolutions, capability.Resolutions),
-            AspectRatios = NarrowToOperation(model.AspectRatios, capability.AspectRatios),
+            Resolutions = NarrowVideoDimension(model.Resolutions, capability.Resolutions),
+            AspectRatios = NarrowVideoDimension(model.AspectRatios, capability.AspectRatios),
         };
+    }
+
+    private static ImmutableArray<string> NarrowVideoDimension(
+        ImmutableArray<string> model,
+        ImmutableArray<string>? operation)
+    {
+        if (operation is not { IsDefaultOrEmpty: false } offered)
+            return model;
+        if (model.IsDefault)
+            return offered;
+        if (model.IsEmpty)
+            return [];
+        return [.. offered.Where(model.Contains)];
     }
 
     // A model that publishes nothing takes whatever the operation accepts, so

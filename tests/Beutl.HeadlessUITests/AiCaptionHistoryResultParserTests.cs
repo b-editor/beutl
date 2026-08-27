@@ -77,9 +77,8 @@ public sealed class AiCaptionHistoryResultParserTests
     }
 
     [Test]
-    public void TryParse_TranslationMissingOnlySomeTimingsIsRefused()
+    public void TryParse_TranslationWithMixedContextPreservesKnownTimingsAndPlacesUntimedCuesSafely()
     {
-        // Mixed timed and untimed segments have no trustworthy ordering.
         byte[] bytes = Encoding.UTF8.GetBytes("""
             {
               "version": 1,
@@ -89,20 +88,35 @@ public sealed class AiCaptionHistoryResultParserTests
                 {
                   "id": "1",
                   "text": "First",
-                  "context": { "groupId": "g1", "partIndex": 0, "start": 0, "end": 1 }
+                  "context": { "groupId": "g1", "partIndex": 0, "start": 4, "end": 6 }
                 },
-                { "id": "2", "text": "Second" }
+                { "id": "2", "text": "Second" },
+                {
+                  "id": "3",
+                  "text": "Earlier timed",
+                  "context": { "groupId": "g0", "partIndex": 0, "start": 1, "end": 2 }
+                },
+                { "id": "4", "text": "Fourth" }
               ]
             }
             """);
 
-        Assert.That(
-            AiCaptionHistoryResultParser.TryParse(
-                bytes,
-                "translation",
-                new AiJobId("job-translation"),
-                out _),
-            Is.False);
+        bool parsed = AiCaptionHistoryResultParser.TryParse(
+            bytes,
+            "translation",
+            new AiJobId("job-translation"),
+            out AiCaptionHistoryResult? result);
+
+        Assert.That(parsed, Is.True);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result!.Segments.Select(segment => segment.Text),
+                Is.EqualTo(new[] { "Earlier timed", "First", "Second", "Fourth" }));
+            Assert.That(result.Segments.Select(segment => segment.Start),
+                Is.EqualTo(new[] { 1d, 4d, 6d, 7d }));
+            Assert.That(result.Segments.Select(segment => segment.End),
+                Is.EqualTo(new[] { 2d, 6d, 7d, 8d }));
+        }
     }
 
     [Test]

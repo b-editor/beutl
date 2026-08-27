@@ -107,20 +107,28 @@ internal static class AiCaptionHistoryResultParser
         {
             return false;
         }
-        // Preserve paid untimed results in input order so users can place them manually.
-        if (!AnySegmentHasContext(segments))
-            return TryParseUntimedTranslation(segments, jobId, targetLanguage, out result);
-
         var groups = new Dictionary<string, TranslationGroup>(StringComparer.Ordinal);
+        var untimed = new List<(int Sequence, string Text)>();
         int sequence = 0;
         foreach (JsonElement segment in segments.EnumerateArray())
         {
             if (segment.ValueKind != JsonValueKind.Object
                 || !TryGetString(segment, "text", out string? text)
                 || string.IsNullOrWhiteSpace(text)
-                || text.Length > MaximumTextLength
-                || !segment.TryGetProperty("context", out JsonElement context)
-                || context.ValueKind != JsonValueKind.Object
+                || text.Length > MaximumTextLength)
+            {
+                return false;
+            }
+
+            int segmentSequence = sequence++;
+            if (!segment.TryGetProperty("context", out JsonElement context)
+                || context.ValueKind == JsonValueKind.Null)
+            {
+                untimed.Add((segmentSequence, text));
+                continue;
+            }
+
+            if (context.ValueKind != JsonValueKind.Object
                 || !TryGetString(context, "groupId", out string? groupId)
                 || string.IsNullOrWhiteSpace(groupId)
                 || groupId.Length > 64
@@ -133,7 +141,7 @@ internal static class AiCaptionHistoryResultParser
 
             if (!groups.TryGetValue(groupId, out TranslationGroup? group))
             {
-                group = new TranslationGroup(sequence++, start, end);
+                group = new TranslationGroup(segmentSequence, start, end);
                 groups.Add(groupId, group);
             }
             else if (group.Start != start || group.End != end)
@@ -144,7 +152,10 @@ internal static class AiCaptionHistoryResultParser
                 return false;
         }
 
-        var parsed = new List<AiTranscriptionSegment>(groups.Count);
+        if (groups.Count == 0)
+            return TryParseUntimedTranslation(segments, jobId, targetLanguage, out result);
+
+        var parsed = new List<AiTranscriptionSegment>(groups.Count + untimed.Count);
         foreach (TranslationGroup group in groups.Values
                      .OrderBy(group => group.Start)
                      .ThenBy(group => group.Sequence))
@@ -165,26 +176,26 @@ internal static class AiCaptionHistoryResultParser
             });
         }
 
+        // Optional context is a per-segment contract. Keep every exact timed range,
+        // then place context-free results after the last known cue so synthesized
+        // ranges can neither overlap nor reorder the timed material.
+        double nextUntimedStart = parsed.Max(segment => segment.End);
+        foreach ((_, string text) in untimed.OrderBy(item => item.Sequence))
+        {
+            parsed.Add(new AiTranscriptionSegment
+            {
+                Start = nextUntimedStart,
+                End = nextUntimedStart + s_untimedSegmentDuration.TotalSeconds,
+                Text = text,
+            });
+            nextUntimedStart += s_untimedSegmentDuration.TotalSeconds;
+        }
+
         result = new AiCaptionHistoryResult(
             jobId,
             parsed.ToArray(),
             targetLanguage);
         return true;
-    }
-
-    private static bool AnySegmentHasContext(JsonElement segments)
-    {
-        foreach (JsonElement segment in segments.EnumerateArray())
-        {
-            if (segment.ValueKind == JsonValueKind.Object
-                && segment.TryGetProperty("context", out JsonElement context)
-                && context.ValueKind == JsonValueKind.Object)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // Positive, non-overlapping ranges keep every placeholder cue editable in the UI.

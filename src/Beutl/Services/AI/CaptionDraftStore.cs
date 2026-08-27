@@ -134,7 +134,10 @@ internal sealed record CaptionDraftScope
 
 internal sealed record CaptionDraftEntry
 {
-    public CaptionDraftEntry(string? jobId, CaptionDraft draft)
+    public CaptionDraftEntry(
+        string? jobId,
+        CaptionDraft draft,
+        CaptionDraftEntry[]? recoveries = null)
     {
         string? normalizedJobId = string.IsNullOrWhiteSpace(jobId) ? null : jobId.Trim();
         if (normalizedJobId?.Length > 256)
@@ -142,11 +145,14 @@ internal sealed record CaptionDraftEntry
 
         JobId = normalizedJobId;
         Draft = draft ?? throw new ArgumentNullException(nameof(draft));
+        Recoveries = recoveries ?? [];
     }
 
     public string? JobId { get; }
 
     public CaptionDraft Draft { get; }
+
+    public CaptionDraftEntry[] Recoveries { get; }
 }
 
 /// <summary>What came of looking for a scope's draft.</summary>
@@ -197,13 +203,14 @@ internal interface ICaptionDraftStore
 internal sealed class FileCaptionDraftStore : ICaptionDraftStore
 {
     // Version 2 records what a run's requests were named before its first piece
-    // comes back; version 3 also records whether one of those names was still
-    // outstanding when the draft was written.
-    internal const int CurrentVersion = 3;
+    // comes back; version 3 records whether one of those names was outstanding;
+    // version 4 retains more than one paid recovery for a scene.
+    internal const int CurrentVersion = 4;
     // 古い控えも読む。曖昧なのはそのときどきの名前まわりだけなので、そこだけを
     // 直して読み込む——支払い済みの結果まで捨てる理由は無い。
     internal const int OldestSupportedVersion = 1;
     internal const int MaximumStorageBytes = 8 * 1024 * 1024;
+    internal const int MaximumRetainedRecoveries = 63;
     private const int MaximumCueCount = 10_000;
     private const int MaximumCueTextLength = 100_000;
 
@@ -337,14 +344,16 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     envelope.Draft,
                     envelope.Version,
                     RecordsNamePending(bytes, envelope.Version));
-                if (!IsValid(draft))
+                CaptionDraftEntry[] recoveries = envelope.Recoveries ?? [];
+                var entry = new CaptionDraftEntry(envelope.JobId, draft, recoveries);
+                if (!IsValid(entry))
                 {
                     DeleteInvalidFile(storagePath);
                     return CaptionDraftReadResult.Absent;
                 }
                 return new CaptionDraftReadResult(
                     CaptionDraftReadOutcome.Read,
-                    new CaptionDraftEntry(envelope.JobId, draft));
+                    entry);
             }
             catch (Exception ex) when (ex is JsonException
                 or NotSupportedException
@@ -360,7 +369,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
     private void Save(CaptionDraftScope scope, Guid leaseId, CaptionDraftEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
-        if (!IsValid(entry.Draft))
+        if (!IsValid(entry))
             throw new ArgumentException("The caption draft is invalid.", nameof(entry));
 
         lock (_gate)
@@ -372,7 +381,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 CurrentVersion,
                 scope,
                 entry.JobId,
-                entry.Draft);
+                entry.Draft,
+                entry.Recoveries);
             byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(envelope, s_jsonOptions);
             if (bytes.Length > MaximumStorageBytes)
                 throw new InvalidOperationException("The caption draft exceeds the storage limit.");
@@ -482,6 +492,9 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         if (version >= CurrentVersion)
             return draft;
 
+        if (version >= 3)
+            return draft with { Version = CurrentVersion };
+
         // 書いてあるなら、そのとおりに読む。書いていないのは、その項目より前の
         // 版 2——seed があるなら抱えていたということ。
         if (version == 2 && recordsNamePending)
@@ -587,6 +600,13 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         };
     }
 
+    private static bool IsValid(CaptionDraftEntry entry)
+        => IsValid(entry.Draft)
+            && entry.Recoveries is { Length: <= MaximumRetainedRecoveries }
+            && entry.Recoveries.All(recovery => recovery is not null
+                && recovery.Recoveries.Length == 0
+                && IsValid(recovery.Draft));
+
     private static bool IsValidTranscriptionDraft(CaptionDraft draft)
         => draft.TranslationResume is null
             && draft.Segments is not null
@@ -648,9 +668,10 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             CompletedChunkCount: >= 0,
             Segments: not null,
         }
-            && resume.CompletedChunkCount < resume.ChunkCount
-            && resume.TotalSamples > (long)resume.ChunkSamples
-                * resume.CompletedChunkCount
+            && resume.CompletedChunkCount <= resume.ChunkCount
+            && (resume.CompletedChunkCount == resume.ChunkCount
+                || resume.TotalSamples > (long)resume.ChunkSamples
+                    * resume.CompletedChunkCount)
             && resume.ChunkCount == checked((int)Math.Ceiling(
                 resume.TotalSamples / (double)resume.ChunkSamples))
             && !string.IsNullOrWhiteSpace(resume.FilePath)
@@ -736,7 +757,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         int Version,
         CaptionDraftScope Scope,
         string? JobId,
-        CaptionDraft Draft);
+        CaptionDraft Draft,
+        CaptionDraftEntry[]? Recoveries = null);
 
     private sealed class Session(
         FileCaptionDraftStore owner,

@@ -187,6 +187,102 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
+    public async Task DisposeAsync_PublishesOneTaskBeforeLifetimeCancellationCanReenter()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var resource = new ProbeResource();
+        RegisterResource(app, resource);
+        using CancellationTokenSource lifetime =
+            app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
+        Task? reentrantDisposal = null;
+        using CancellationTokenRegistration registration = lifetime.Token.Register(() =>
+            reentrantDisposal = app.DisposeAsync().AsTask());
+
+        Task disposal = app.DisposeAsync().AsTask();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reentrantDisposal, Is.SameAs(disposal));
+            Assert.That(resource.DisposeCount, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public async Task DisposeAsync_SynchronousLifetimeCallbackWaitCompletesAtTheSharedDeadline()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider())
+        {
+            DisposalDeadline = TimeSpan.FromMilliseconds(100),
+        };
+        var resource = new ProbeResource();
+        RegisterResource(app, resource);
+        using CancellationTokenSource lifetime =
+            app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
+        var callbackReturned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenRegistration registration = lifetime.Token.Register(() =>
+        {
+            app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            callbackReturned.TrySetResult();
+        });
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        stopwatch.Stop();
+        await callbackReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitUntilAsync(() => resource.DisposeCount == 1, TimeSpan.FromSeconds(5));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
+            Assert.That(resource.DisposeCount, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public async Task DisposeAsync_CancellationCallbackFailureCannotSkipResources()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var resource = new ProbeResource();
+        RegisterResource(app, resource);
+        using CancellationTokenSource lifetime =
+            app.CreateLifetimeLinkedTokenSource(CancellationToken.None);
+        using CancellationTokenRegistration registration = lifetime.Token.Register(static () =>
+            throw new InvalidOperationException("callback failed"));
+
+        Assert.CatchAsync<Exception>(async () =>
+            await app.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.That(resource.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DisposeAsync_DeadlineLeavesAnActiveResourceAliveUntilItsLeaseDrains()
+    {
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider())
+        {
+            DisposalDeadline = TimeSpan.FromMilliseconds(100),
+        };
+        var resource = new BlockingResource();
+        RegisterResource(app, resource);
+
+        Task disposal = app.DisposeAsync().AsTask();
+        await resource.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(resource.DisposeCompleted, Is.False,
+            "The shutdown deadline must not tear down a resource while its lease is active.");
+
+        resource.Release.TrySetResult();
+        await resource.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(resource.DisposeCompleted, Is.True);
+    }
+
+    [Test]
     public async Task AuthenticatedRequest_KeepsCapturedBearerAndEndsWithItsSession()
     {
         using var httpClient = new HttpClient();
@@ -264,6 +360,26 @@ public sealed class BeutlApiApplicationTests
         ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
     }
 
+    private static void RegisterResource<T>(BeutlApiApplication app, T resource)
+        where T : class, IBeutlApiResource
+    {
+        FieldInfo field = typeof(BeutlApiApplication).GetField(
+            "_services",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var services = (Dictionary<Type, Lazy<object>>)field.GetValue(app)!;
+        services.Add(typeof(T), new Lazy<object>(() => resource));
+        _ = app.GetResource<T>();
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        using var cancellation = new CancellationTokenSource(timeout);
+        while (!condition())
+        {
+            await Task.Delay(10, cancellation.Token);
+        }
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public Uri? LastRequestUri { get; private set; }
@@ -282,6 +398,39 @@ public sealed class BeutlApiApplicationTests
                     Encoding.UTF8,
                     "application/json"),
             });
+        }
+    }
+
+    private sealed class ProbeResource : IBeutlApiResource, IAsyncDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class BlockingResource : IBeutlApiResource, IAsyncDisposable
+    {
+        public TaskCompletionSource DisposeStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Disposed { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool DisposeCompleted { get; private set; }
+
+        public async ValueTask DisposeAsync()
+        {
+            DisposeStarted.TrySetResult();
+            await Release.Task;
+            DisposeCompleted = true;
+            Disposed.TrySetResult();
         }
     }
 

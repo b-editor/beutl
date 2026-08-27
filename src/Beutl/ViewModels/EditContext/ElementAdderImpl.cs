@@ -252,10 +252,14 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
             try
             {
+                string elementDirectory = scene.Uri is { } sceneUri
+                    ? Path.GetDirectoryName(sceneUri.LocalPath)!
+                    : UnsavedSceneStorage.GetElementDirectory(scene.Id);
+                Directory.CreateDirectory(elementDirectory);
                 foreach (Element element in materialization.Elements)
                 {
                     element.Uri = RandomFileNameGenerator.GenerateUri(
-                        scene.Uri!,
+                        elementDirectory,
                         EditorConstants.ElementFileExtension);
                     preparedElements.Add(element);
                 }

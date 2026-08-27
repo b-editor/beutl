@@ -361,13 +361,34 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     {
         lock (_disposeGate)
         {
-            return _disposeTask ??= DisposeCoreAsync();
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
         }
     }
 
     private async Task DisposeCoreAsync()
     {
-        await _operations.DisposeAsync();
+        await _operations.DisposeAsync(async () =>
+        {
         ResultImage.Value?.Dispose();
         ResultImage.Dispose();
         OriginalImage.Value?.Dispose();
@@ -377,6 +398,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         Error.Dispose();
         _outstandingRevision.Dispose();
         _disposables.Dispose();
+        });
     }
 
     internal static string? GetSelectedImageSourcePath(CoreObject? selectedObject)

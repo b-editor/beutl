@@ -122,6 +122,8 @@ public class BeutlApiApplication : IAsyncDisposable
 
     public bool IsDisposed => _disposed;
 
+    internal TimeSpan DisposalDeadline { get; set; } = TimeSpan.FromSeconds(30);
+
     // Check for updates. Return AppUpdateResponse when this application has asset metadata;
     // otherwise, return CheckForUpdatesResponse.
     public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
@@ -179,9 +181,46 @@ public class BeutlApiApplication : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        TaskCompletionSource? proxy = null;
+        Task disposeTask;
         lock (_disposeGate)
         {
-            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
+            if (_disposeTask is null)
+            {
+                proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = proxy.Task;
+                _disposed = true;
+            }
+            disposeTask = _disposeTask;
+        }
+
+        if (proxy is not null)
+        {
+            Task teardown = Task.Run(DisposeCoreAsync);
+            _ = CompleteDisposeAsync(proxy, teardown);
+        }
+
+        return new ValueTask(disposeTask);
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource proxy, Task teardown)
+    {
+        try
+        {
+            await teardown.WaitAsync(DisposalDeadline).ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (TimeoutException)
+        {
+            s_logger.LogWarning(
+                "API application shutdown exceeded {Deadline}; cleanup will continue after callbacks and active leases drain.",
+                DisposalDeadline);
+            proxy.TrySetResult();
+            _ = ObserveDeferredTeardownAsync(teardown);
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
         }
     }
 
@@ -190,7 +229,6 @@ public class BeutlApiApplication : IAsyncDisposable
         List<object> disposableResources;
         lock (_disposeGate)
         {
-            _disposed = true;
             disposableResources = _services.Values
                 .Where(lazy => lazy.IsValueCreated)
                 .Select(lazy => lazy.Value)
@@ -200,7 +238,15 @@ public class BeutlApiApplication : IAsyncDisposable
                 .ToList();
         }
 
-        _lifetimeCts.Cancel();
+        Exception? cancellationFailure = null;
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            cancellationFailure = ex;
+        }
 
         CancellationTokenSource? authenticationSession;
         lock (_authenticationGate)
@@ -212,14 +258,32 @@ public class BeutlApiApplication : IAsyncDisposable
             _httpClient.DefaultRequestHeaders.Authorization = null;
         }
 
-        authenticationSession?.Cancel();
+        try
+        {
+            authenticationSession?.Cancel();
+        }
+        catch (Exception ex)
+        {
+            cancellationFailure ??= ex;
+        }
 
+        await DisposeResourcesAndStateAsync(disposableResources, authenticationSession)
+            .ConfigureAwait(false);
+
+        if (cancellationFailure is not null)
+            throw cancellationFailure;
+    }
+
+    private async Task DisposeResourcesAndStateAsync(
+        IReadOnlyList<object> disposableResources,
+        CancellationTokenSource? authenticationSession)
+    {
         foreach (object resource in disposableResources)
         {
             try
             {
                 if (resource is IAsyncDisposable asyncDisposable)
-                    await asyncDisposable.DisposeAsync();
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
                 else
                     ((IDisposable)resource).Dispose();
             }
@@ -232,12 +296,36 @@ public class BeutlApiApplication : IAsyncDisposable
             }
         }
 
-        authenticationSession?.Dispose();
-        _authenticationSubscription.Dispose();
-        _readOnlyAuthenticatedUser.Dispose();
-        _authenticatedUser.Dispose();
-        _lifetimeCts.Dispose();
-        ActivitySource.Dispose();
+        TryDispose(authenticationSession, "authentication session");
+        TryDispose(_authenticationSubscription, "authentication subscription");
+        TryDispose(_readOnlyAuthenticatedUser, "authenticated-user projection");
+        TryDispose(_authenticatedUser, "authenticated-user state");
+        TryDispose(_lifetimeCts, "application cancellation source");
+        TryDispose(ActivitySource, "activity source");
+    }
+
+    private static void TryDispose(IDisposable? disposable, string name)
+    {
+        try
+        {
+            disposable?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Failed to dispose API application {ResourceName}.", name);
+        }
+    }
+
+    private static async Task ObserveDeferredTeardownAsync(Task teardown)
+    {
+        try
+        {
+            await teardown.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Deferred API application cleanup failed.");
+        }
     }
 
     private void RegisterAll()

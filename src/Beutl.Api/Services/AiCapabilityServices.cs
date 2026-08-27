@@ -305,8 +305,16 @@ internal sealed class AiImageGenerationService(
             var referenceParts = new List<StreamPart>(request.References.Count);
             foreach (AiUploadSource reference in request.References)
             {
-                Stream stream = await reference.OpenReadAsync(cancellationToken);
+                Stream stream = await AiUploadValidation.OpenAsync(
+                    reference,
+                    AiRequestLimits.MaxImageUploadBytes,
+                    cancellationToken);
                 streams.Add(stream);
+                if (streams.Sum(value => value.Length - value.Position)
+                    > AiRequestLimits.MaxImageReferencesTotalBytes)
+                {
+                    throw new AiFileTooLargeException();
+                }
                 referenceParts.Add(new StreamPart(
                     stream,
                     reference.FileName,
@@ -399,7 +407,10 @@ internal sealed class AiImageEditingService(
         // edit already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
-        await using Stream stream = await request.Image.OpenReadAsync(cancellationToken);
+        await using Stream stream = await AiUploadValidation.OpenAsync(
+            request.Image,
+            AiRequestLimits.MaxImageUploadBytes,
+            cancellationToken);
         var filePart = new StreamPart(
             stream,
             request.Image.FileName,
@@ -435,7 +446,10 @@ internal sealed class AiTranscriptionService(
         // transcription already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
-        await using Stream stream = await request.Audio.OpenReadAsync(cancellationToken);
+        await using Stream stream = await AiUploadValidation.OpenAsync(
+            request.Audio,
+            AiRequestLimits.MaxTranscriptionUploadBytes,
+            cancellationToken);
         var filePart = new StreamPart(
             stream,
             request.Audio.FileName,
@@ -659,50 +673,10 @@ internal sealed class AiVideoService(
         AiUploadSource source,
         CancellationToken cancellationToken)
     {
-        Stream stream = await source.OpenReadAsync(cancellationToken);
-        try
-        {
-            if (source.Length > AiRequestLimits.MaxFrameUploadBytes
-                || stream.CanSeek
-                && stream.Length - stream.Position > AiRequestLimits.MaxFrameUploadBytes)
-            {
-                throw new AiFileTooLargeException();
-            }
-
-            if (stream.CanSeek)
-                return stream;
-
-            var buffered = new MemoryStream();
-            try
-            {
-                byte[] buffer = new byte[81920];
-                long total = 0;
-                while (true)
-                {
-                    int read = await stream.ReadAsync(buffer, cancellationToken);
-                    if (read == 0)
-                        break;
-                    total += read;
-                    if (total > AiRequestLimits.MaxFrameUploadBytes)
-                        throw new AiFileTooLargeException();
-                    await buffered.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-                }
-
-                buffered.Position = 0;
-                await stream.DisposeAsync();
-                return buffered;
-            }
-            catch
-            {
-                await buffered.DisposeAsync();
-                throw;
-            }
-        }
-        catch
-        {
-            await stream.DisposeAsync();
-            throw;
-        }
+        return await AiUploadValidation.OpenAsync(
+            source,
+            AiRequestLimits.MaxFrameUploadBytes,
+            cancellationToken);
     }
 }
 

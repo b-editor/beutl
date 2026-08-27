@@ -10,6 +10,12 @@ internal static class AiErrorConverter
     {
         activity?.SetStatus(ActivityStatusCode.Error);
 
+        // The outer worker rejects an oversized streamed body before an endpoint can
+        // produce its JSON error envelope. The HTTP status is authoritative even when
+        // the response body is empty or malformed.
+        if ((int)exception.StatusCode == 413)
+            return new AiFileTooLargeException(exception);
+
         try
         {
             ApiErrorResponse? error = await exception.GetContentAsAsync<ApiErrorResponse>();
@@ -39,13 +45,16 @@ internal static class AiErrorConverter
         ApiErrorResponse? error,
         Exception? innerException,
         string? fallbackMessage = null)
-        => error?.ErrorCode switch
+        => statusCode == 413
+            ? new AiFileTooLargeException(innerException)
+            : error?.ErrorCode switch
         {
             ApiErrorCode.AuthenticationIsRequired => new AuthenticationRequiredException(innerException),
             ApiErrorCode.AiPlanRequired => new AiPlanRequiredException(innerException),
             ApiErrorCode.AiUsageLimitExceeded => new AiUsageLimitExceededException(innerException),
             ApiErrorCode.FileIsTooLarge => new AiFileTooLargeException(innerException),
             ApiErrorCode.AiProviderError => new AiProviderErrorException(innerException),
+            ApiErrorCode.AiJobNotFound => new AiJobNotFoundException(innerException),
             ApiErrorCode.AiJobIsActive => new AiJobIsActiveException(innerException),
             ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(innerException),
             ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(innerException),

@@ -519,13 +519,34 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         lock (_disposeGate)
         {
-            return _disposeTask ??= DisposeCoreAsync();
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
         }
     }
 
     private async Task DisposeCoreAsync()
     {
-        await _operations.DisposeAsync();
+        await _operations.DisposeAsync(async () =>
+        {
         ResultImage.Value?.Dispose();
         ResultImage.Dispose();
         PreviewImage.Value?.Dispose();
@@ -539,6 +560,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         Exclusions.Dispose();
         Error.Dispose();
         _disposables.Dispose();
+        });
     }
 
     /// <summary>
@@ -551,6 +573,9 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
 
     private async Task RefreshModelsAsync()
     {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
         // A request waiting to be collected is named partly by the model it was
         // sent with, and the rest of what names it — the shape, the background —
         // follows whichever model the picker lands on. Moving the picker under an
@@ -561,8 +586,13 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
 
         try
         {
-            await ModelPicker.LoadAsync(AiOperations.ImageGeneration, CancellationToken.None);
+            await ModelPicker.LoadAsync(
+                AiOperations.ImageGeneration,
+                operation.CancellationToken);
             TrimReferenceImagesToLimit();
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {

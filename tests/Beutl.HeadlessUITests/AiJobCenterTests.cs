@@ -382,6 +382,49 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
+    public async Task DeleteJob_NotFoundRaceRefreshesAsAlreadyDeleted()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-delete-race");
+        bool deleted = false;
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted)),
+            "/api/v3/ai/jobs/job-failed" when request.Method == HttpMethod.Delete => MissingDelete(),
+            "/api/contents/file-success" => ByteResponse(s_png, "image/png"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        await WaitUntilAsync(() => viewModel.Jobs.Count == 2);
+        AiJobItemViewModel failed = viewModel.Jobs.Single(item => item.Id == "job-failed");
+
+        await viewModel.DeleteJobAsync(failed);
+        await WaitUntilAsync(() => viewModel.Jobs.Count == 1);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.Jobs.Single().Id, Is.EqualTo("job-success"));
+            Assert.That(viewModel.Error.Value, Is.Null);
+        }
+
+        HttpResponseMessage MissingDelete()
+        {
+            deleted = true;
+            return JsonResponse(HttpStatusCode.NotFound, """
+                {
+                  "error_code": "aiJobNotFound",
+                  "message": "The job no longer exists.",
+                  "documentation_url": null
+                }
+                """);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task AddToScene_RestoresTranscriptionHistory()
     {
         await TestReset.ResetShellAsync();

@@ -14,7 +14,7 @@ public sealed class AiUploadSource
         string fileName,
         string mediaType,
         Func<CancellationToken, ValueTask<Stream>> openReadAsync,
-        long? length = null)
+        long length)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);
@@ -37,7 +37,7 @@ public sealed class AiUploadSource
 
     public string MediaType { get; }
 
-    public long? Length { get; }
+    public long Length { get; }
 
     public static AiUploadSource FromFile(string filePath)
         => FromFile(filePath, Path.GetFileName(Path.GetFullPath(filePath)));

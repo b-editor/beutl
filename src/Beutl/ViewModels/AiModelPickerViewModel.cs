@@ -50,12 +50,14 @@ internal sealed class AiModelPickerViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly IAiModelCatalogService _catalog;
     private readonly IAiEntitlementService _entitlements;
+    private readonly CancellationTokenSource _lifetimeCancellation = new();
     // What the list currently on offer was built from. Reloading is how a model
     // an operator changed reaches a screen that is already open, and most
     // reloads find exactly what is already there — rebuilding then would empty
     // the list and move the user's choice for nothing.
     private AiModelCatalog? _loadedCatalog;
     private AiEntitlements? _loadedEntitlements;
+    private int _disposed;
     // Which load is the one whose answer still matters. Two can be in the air
     // at once — switching task while a scheduled reload is fetching — and only
     // the newest may say the list has arrived, or a request could go out while
@@ -116,7 +118,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
 
     private void ReloadOnSchedule()
     {
-        if (!IsLoaded.Value || CanReload?.Invoke(Operation) == false)
+        if (Volatile.Read(ref _disposed) != 0
+            || !IsLoaded.Value
+            || CanReload?.Invoke(Operation) == false)
             return;
         _ = ReloadAsync();
     }
@@ -125,7 +129,10 @@ internal sealed class AiModelPickerViewModel : IDisposable
     {
         try
         {
-            await LoadAsync(Operation, CancellationToken.None);
+            await LoadAsync(Operation, _lifetimeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_lifetimeCancellation.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -213,6 +220,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
         AiModelId? preferred,
         CancellationToken cancellationToken)
     {
+        if (Volatile.Read(ref _disposed) != 0)
+            return;
+
         // Nothing is known about an operation this picker has not been asked
         // for yet — least of all whether it has a model that can serve it. The
         // image editor's five tasks are five operations, and a request sent
@@ -222,7 +232,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         if (Operation != operation)
             IsLoaded.Value = false;
 
-        int generation = ++_loadGeneration;
+        int generation = Interlocked.Increment(ref _loadGeneration);
         try
         {
             await LoadCoreAsync(operation, preferred, generation, cancellationToken);
@@ -233,7 +243,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
             // 言う。失敗しても言ってしまうと、その task のモデルを 1 つも持たない
             // まま送れてしまい、画面にあるものとは別の——サーバーの既定の——
             // モデルで課金される。
-            if (generation == _loadGeneration)
+            if (Volatile.Read(ref _disposed) == 0
+                && generation == Volatile.Read(ref _loadGeneration))
                 IsLoaded.Value = Operation == operation;
         }
     }
@@ -245,6 +256,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
         CancellationToken cancellationToken)
     {
         AiModelCatalog catalog = await _catalog.GetAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (Volatile.Read(ref _disposed) != 0)
+            return;
         // Overtaken while this was being fetched: the screen has moved on to
         // another operation, and putting this list up would replace the one it
         // is actually showing.
@@ -254,7 +268,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // Asked again on the way back. A request may have gone out while this
         // was being fetched, and what it carries — the model, and the shape and
         // background that follow it — is what this list would replace.
-        if (CanReload?.Invoke(operation) == false)
+        if (CanReload?.Invoke(operation) == false
+            && Operation == operation
+            && IsLoaded.Value)
             return;
 
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;
@@ -329,5 +345,19 @@ internal sealed class AiModelPickerViewModel : IDisposable
                          ?? Options.FirstOrDefault();
     }
 
-    public void Dispose() => _disposables.Dispose();
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+        Interlocked.Increment(ref _loadGeneration);
+        try
+        {
+            _lifetimeCancellation.Cancel();
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCancellation.Dispose();
+        }
+    }
 }

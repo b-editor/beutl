@@ -178,33 +178,7 @@ internal sealed class AiResultImporter
     }
 
     internal static string GetUnsavedSceneDirectory(Guid sceneId)
-        => Path.Combine(
-            BeutlEnvironment.GetHomeDirectoryPath(),
-            "tmp",
-            "unsaved",
-            sceneId.ToString("N"));
-
-    internal static void CleanupUnsavedSceneResources(Scene scene)
-    {
-        ArgumentNullException.ThrowIfNull(scene);
-        if (scene.Uri is not null)
-            return;
-
-        string directory = GetUnsavedSceneDirectory(scene.Id);
-        try
-        {
-            if (Directory.Exists(directory))
-                Directory.Delete(directory, recursive: true);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogWarning(
-                ex,
-                "Failed to remove AI resources owned by unsaved scene {SceneId} from {Path}.",
-                scene.Id,
-                directory);
-        }
-    }
+        => UnsavedSceneStorage.GetDirectory(sceneId);
 
     private string GetResourceDirectory()
     {

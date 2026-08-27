@@ -403,7 +403,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         // The model's own lists, already narrowed to what the server accepts.
         // The client's own are a fallback for a server that publishes none.
-        IEnumerable<int> durations = video.DurationsSeconds.IsDefaultOrEmpty
+        IEnumerable<int> durations = video.DurationsSeconds.IsDefault
             ? DefaultDurations
             : video.DurationsSeconds;
         Replace(DurationOptions, durations.Select(seconds => new AiVideoDurationOption(seconds)));
@@ -413,7 +413,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         MaxDurationIndex.Value = DurationOptions.Count - 1;
         DurationIndex.Value = IndexOfDuration(SelectedDuration.Value);
 
-        IEnumerable<string> resolutions = video.Resolutions.IsDefaultOrEmpty
+        IEnumerable<string> resolutions = video.Resolutions.IsDefault
             ? DefaultResolutions
             : video.Resolutions;
         Replace(ResolutionOptions, resolutions.Select(value => new AiVideoResolutionOption(value)));
@@ -421,7 +421,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             ResolutionOptions.FirstOrDefault(option => option == _chosenResolution)
             ?? ResolutionOptions[0];
 
-        IEnumerable<string> aspectRatios = video.AspectRatios.IsDefaultOrEmpty
+        IEnumerable<string> aspectRatios = video.AspectRatios.IsDefault
             ? DefaultAspectRatios
             : video.AspectRatios;
         Replace(
@@ -615,14 +615,36 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         lock (_disposeGate)
         {
-            return _disposeTask ??= DisposeCoreAsync();
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
         }
     }
 
     private async Task DisposeCoreAsync()
     {
-        _availabilityLifetimeCts.Cancel();
-        await _operations.DisposeAsync();
+        await _operations.DisposeAsync(
+            _availabilityLifetimeCts.Cancel,
+            async () =>
+        {
 
         string[] temporaryFiles;
         CancellationTokenSource? pollingCts;
@@ -664,6 +686,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         {
             DeleteTemporaryFile(path);
         }
+        });
     }
 
     /// <summary>
@@ -676,6 +699,9 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
 
     private async Task RefreshModelsAsync()
     {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
         // A clip waiting to be collected is named partly by the model it was
         // sent with, and what the picker allows — the shape, and whether frames
         // may guide it at all — follows that model. Moving the picker under an
@@ -686,7 +712,12 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
 
         try
         {
-            await ModelPicker.LoadAsync(AiOperations.VideoGeneration, CancellationToken.None);
+            await ModelPicker.LoadAsync(
+                AiOperations.VideoGeneration,
+                operation.CancellationToken);
+        }
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
@@ -1116,6 +1147,13 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             RetireRequestName(issued);
             operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
         }
+        catch (AiJobNotFoundException)
+        {
+            // The create key points at a job the server no longer retains. Keeping the
+            // key would make every poll/retry return the same terminal absence.
+            RetireRequestName(issued);
+            operation.TryPublish(() => Error.Value = Strings.AiRequestWasDeleted);
+        }
         catch (AiJobLimitReachedException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiVideoJobLimitReached);
@@ -1214,7 +1252,7 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
                     operation.TryPublish(() =>
                     {
                         StatusText.Value = Strings.AiVideoFailed;
-                        Error.Value = job.Error ?? Strings.AiProviderError;
+                        Error.Value = AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError;
                     });
                     return true;
                 }

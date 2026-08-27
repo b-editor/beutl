@@ -14,6 +14,7 @@ public sealed class AiErrorConverterTests
     [TestCase("aiUsageLimitExceeded", typeof(AiUsageLimitExceededException))]
     [TestCase("fileIsTooLarge", typeof(AiFileTooLargeException))]
     [TestCase("aiProviderError", typeof(AiProviderErrorException))]
+    [TestCase("aiJobNotFound", typeof(AiJobNotFoundException))]
     [TestCase("aiJobIsActive", typeof(AiJobIsActiveException))]
     [TestCase("aiJobLimitReached", typeof(AiJobLimitReachedException))]
     [TestCase("aiRequestInProgress", typeof(AiRequestInProgressException))]
@@ -81,12 +82,30 @@ public sealed class AiErrorConverterTests
         }
     }
 
-    private static async Task<ApiException> CreateApiException(string content)
+    [Test]
+    public async Task ConvertAsync_EmptyPayloadAtBodyLimitMapsFromHttpStatus()
+    {
+        ApiException source = await CreateApiException(
+            string.Empty,
+            HttpStatusCode.RequestEntityTooLarge);
+
+        AiException result = await AiErrorConverter.ConvertAsync(source, null);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.TypeOf<AiFileTooLargeException>());
+            Assert.That(result.InnerException, Is.SameAs(source));
+        }
+    }
+
+    private static async Task<ApiException> CreateApiException(
+        string content,
+        HttpStatusCode statusCode = HttpStatusCode.BadRequest)
     {
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
             "https://beutl.beditor.net/api/v3/ai/images");
-        using var response = new HttpResponseMessage(HttpStatusCode.BadRequest)
+        using var response = new HttpResponseMessage(statusCode)
         {
             RequestMessage = request,
             Content = new StringContent(content, Encoding.UTF8, "application/json"),

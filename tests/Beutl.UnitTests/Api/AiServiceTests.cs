@@ -983,7 +983,8 @@ public sealed class AiCapabilityServiceTests
         var source = new AiUploadSource(
             "speech.custom",
             "audio/x-beutl-test",
-            _ => ValueTask.FromResult<Stream>(stream));
+            _ => ValueTask.FromResult<Stream>(stream),
+            3);
 
         AiTranscriptionResponse result = await app.GetResource<IAiTranscriptionService>()
             .TranscribeAsync(new AiTranscriptionRequest(source, "en"), CancellationToken.None);

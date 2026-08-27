@@ -3,6 +3,8 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
+using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -177,7 +179,7 @@ public sealed class AiResultImporterTests
     }
 
     [AvaloniaTest]
-    public async Task ClosingSavedScene_PreservesReferencedUnsavedTemporaryResource()
+    public async Task ClosingSavedScene_RemovesTemporaryResourcesAfterHistoryIsDiscarded()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-saved-resource-preservation");
@@ -205,14 +207,188 @@ public sealed class AiResultImporterTests
 
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(Directory.Exists(ownedDirectory), Is.True);
-                Assert.That(File.Exists(resourcePath), Is.True);
+                Assert.That(Directory.Exists(ownedDirectory), Is.False);
+                Assert.That(File.Exists(resourcePath), Is.False);
             }
         }
         finally
         {
             if (Directory.Exists(ownedDirectory))
                 Directory.Delete(ownedDirectory, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImportImage_UnsavedSceneUsesRealAdderAndRehomesItsSidecarOnFirstSave()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-unsaved-real-adder");
+        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
+        Scene scene = editor.Scene;
+        Uri savedSceneUri = scene.Uri!;
+        scene.Uri = null;
+        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        using var bitmap = new Bitmap(2, 2);
+        var importer = new AiResultImporter(
+            scene,
+            editor.GetRequiredService<IElementAdder>());
+
+        try
+        {
+            ElementAddResult result = await importer.ImportImageAsync(
+                bitmap,
+                new AiResultImportOptions(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    0,
+                    "Unsaved AI image"));
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(
+                result.IsSuccess,
+                Is.True,
+                $"{result.Failure?.Message} {result.Failure?.Exception}");
+            Element element = result.Elements.Single();
+            Uri unsavedSidecar = element.Uri!;
+            string resourcePath = element.Objects
+                .OfType<Beutl.Graphics.SourceImage>()
+                .Single()
+                .Source.CurrentValue!.Uri.LocalPath;
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.IsSuccess, Is.True);
+                Assert.That(
+                    UnsavedSceneStorage.OwnsPath(scene.Id, unsavedSidecar.LocalPath),
+                    Is.True);
+                Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True);
+                Assert.That(File.Exists(resourcePath), Is.True);
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(scene.Children, Is.Empty);
+            scene.Uri = savedSceneUri;
+            Assert.That(await editor.Commands!.OnSave(), Is.True);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True,
+                    "The redo stack still owns the unsaved element sidecar.");
+                Assert.That(File.Exists(resourcePath), Is.True,
+                    "The redo stack still owns the imported resource.");
+            }
+
+            Assert.That(editor.HistoryManager.Redo(), Is.True);
+            Assert.That(scene.Children.Single(), Is.SameAs(element));
+            Assert.That(await editor.Commands.OnSave(), Is.True);
+
+            Uri savedSidecar = element.Uri!;
+            string savedResourcePath = element.Objects
+                .OfType<Beutl.Graphics.SourceImage>()
+                .Single()
+                .Source.CurrentValue!.Uri.LocalPath;
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(savedSidecar, Is.Not.EqualTo(unsavedSidecar));
+                Assert.That(
+                    Path.GetDirectoryName(savedSidecar.LocalPath),
+                    Is.EqualTo(Path.GetDirectoryName(savedSceneUri.LocalPath)));
+                Assert.That(File.Exists(savedSidecar.LocalPath), Is.True);
+                Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.False);
+                Assert.That(savedResourcePath, Is.Not.EqualTo(resourcePath));
+                Assert.That(savedResourcePath, Does.StartWith(Path.Combine(
+                    Path.GetDirectoryName(savedSceneUri.LocalPath)!,
+                    "resources",
+                    "ai")));
+                Assert.That(File.Exists(savedResourcePath), Is.True);
+                Assert.That(File.Exists(resourcePath), Is.False);
+                Assert.That(Directory.Exists(ownedDirectory), Is.False);
+            }
+
+            await TestShell.Editor.CloseTabItem(tab);
+            Scene restored = CoreSerializer.RestoreFromUri<Scene>(savedSceneUri);
+            Element restoredElement = restored.Children.Single();
+            string restoredResource = restoredElement.Objects
+                .OfType<Beutl.Graphics.SourceImage>()
+                .Single()
+                .Source.CurrentValue!.Uri.LocalPath;
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(restoredElement.Uri, Is.EqualTo(savedSidecar));
+                Assert.That(File.Exists(restoredElement.Uri!.LocalPath), Is.True);
+                Assert.That(restoredResource, Is.EqualTo(savedResourcePath));
+                Assert.That(File.Exists(restoredResource), Is.True);
+                Assert.That(Directory.Exists(ownedDirectory), Is.False);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(ownedDirectory))
+                Directory.Delete(ownedDirectory, recursive: true);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task FirstSaveFailureRestoresUnsavedElementAndResourceUris()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-unsaved-save-rollback");
+        Scene scene = editor.Scene;
+        Uri eventualSceneUri = scene.Uri!;
+        scene.Uri = null;
+        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        string failureRoot = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            $"blocked-save-{Guid.NewGuid():N}");
+        string directoryAtScenePath = Path.Combine(failureRoot, "Scene.scene");
+        Directory.CreateDirectory(directoryAtScenePath);
+        using var bitmap = new Bitmap(2, 2);
+        var importer = new AiResultImporter(
+            scene,
+            editor.GetRequiredService<IElementAdder>());
+
+        try
+        {
+            ElementAddResult result = await importer.ImportImageAsync(
+                bitmap,
+                new AiResultImportOptions(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(2),
+                    0,
+                    "Unsaved AI image"));
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
+            Element element = result.Elements.Single();
+            Uri originalSidecar = element.Uri!;
+            var source = element.Objects
+                .OfType<Beutl.Graphics.SourceImage>()
+                .Single()
+                .Source.CurrentValue!;
+            Uri originalResource = source.Uri;
+            scene.Uri = new Uri(Path.GetFullPath(directoryAtScenePath));
+
+            Assert.CatchAsync<Exception>(async () => await editor.Commands!.OnSave());
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(element.Uri, Is.EqualTo(originalSidecar));
+                Assert.That(source.Uri, Is.EqualTo(originalResource));
+                Assert.That(File.Exists(originalSidecar.LocalPath), Is.True);
+                Assert.That(File.Exists(originalResource.LocalPath), Is.True);
+                Assert.That(Directory.GetFiles(failureRoot, "*.belm"), Is.Empty);
+                Assert.That(
+                    Directory.Exists(Path.Combine(failureRoot, "resources", "ai"))
+                        ? Directory.GetFiles(Path.Combine(failureRoot, "resources", "ai"))
+                        : [],
+                    Is.Empty);
+            }
+
+            scene.Uri = eventualSceneUri;
+            Assert.That(await editor.Commands!.OnSave(), Is.True);
+        }
+        finally
+        {
+            if (Directory.Exists(ownedDirectory))
+                Directory.Delete(ownedDirectory, recursive: true);
+            if (Directory.Exists(failureRoot))
+                Directory.Delete(failureRoot, recursive: true);
         }
     }
 

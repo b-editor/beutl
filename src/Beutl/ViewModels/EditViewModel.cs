@@ -631,9 +631,9 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         Player = null!;
         BufferStatus = null!;
 
-        // Imported resources under tmp/unsaved belong exclusively to this scene. A scene that
-        // acquired a URI may still reference those files, so preserve them once the scene is saved.
-        AiResultImporter.CleanupUnsavedSceneResources(scene);
+        // History can retain an undone unsaved element across a save. Once the editor closes and
+        // history is about to be discarded, no live or redoable item may still own this directory.
+        UnsavedSceneStorage.Cleanup(scene.Id);
         Scene = null!;
         Commands = null!;
         HistoryManager.Clear();
@@ -1139,8 +1139,25 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         public ValueTask<bool> OnSave()
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
-            CoreSerializer.StoreToUri(scene, scene.Uri!);
-            Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+            Uri sceneUri = scene.Uri
+                ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
+            UnsavedSceneStorage.SaveRelocation relocation =
+                UnsavedSceneStorage.PrepareSave(scene, sceneUri);
+            try
+            {
+                relocation.Apply();
+                Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+                // The scene is the commit record for every child/resource URI. Persist it only
+                // after every referenced file is durable at its new location.
+                CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
+            }
+            catch
+            {
+                relocation.Rollback();
+                throw;
+            }
+
+            relocation.Commit();
             viewModel.SaveState(isExplicitUserSave: true);
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 

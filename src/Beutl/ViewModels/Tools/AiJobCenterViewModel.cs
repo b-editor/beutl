@@ -230,6 +230,15 @@ public sealed class AiJobCenterViewModel : IDisposable
                 await _jobMonitor.RefreshAsync(_lifetimeCts.Token);
             }
         }
+        catch (AiJobNotFoundException)
+        {
+            // A different tab or a concurrent refresh already removed it. Re-read the
+            // authoritative list instead of presenting an idempotent delete as a failure.
+            if (!IsDisposed)
+            {
+                await _jobMonitor.RefreshAsync(_lifetimeCts.Token);
+            }
+        }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
         }
@@ -851,12 +860,7 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         Status = NormalizeToken(_response.Status.Value);
         ContentUri = _response.ContentUri;
         FileId = _response.FileId?.Value;
-        Error = NormalizeText(_response.Error) switch
-        {
-            "aiProviderError" => Strings.AiProviderError,
-            { } error => error,
-            null => null,
-        };
+        Error = AiErrorMessage.Localize(_response.Error);
         Prompt = GetString("prompt");
         ImageSize = GetString("size");
         Resolution = GetString("resolution");

@@ -708,18 +708,22 @@ public class Scene : ProjectItem, INotifyEdited
         // .scene ファイル自身を指すため、そのまま使うと _excludeElements に "../foo.belm"
         // のような不正パスが入り、Deserialize 側 (Path.GetDirectoryName を使用) と整合せず
         // 除外パターンが効かない。結果として削除した Element が再読み込みで復活する。
-        string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
+        string? dirPath = Uri is { IsFile: true } sceneUri
+            ? Path.GetDirectoryName(sceneUri.LocalPath)
+            : null;
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                string itemPath = item.Uri!.LocalPath;
-                string rel = Path.GetRelativePath(dirPath, itemPath);
-
-                if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
+                if (dirPath is not null && item.Uri is { IsFile: true } itemUri)
                 {
-                    _excludeElements.Add(rel);
+                    string itemPath = itemUri.LocalPath;
+                    string rel = Path.GetRelativePath(dirPath, itemPath);
+                    if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
+                    {
+                        _excludeElements.Add(rel);
+                    }
                 }
 
                 affectedRange.Add(item.Range);
@@ -730,12 +734,14 @@ public class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                string itemPath = item.Uri!.LocalPath;
-                string rel = Path.GetRelativePath(dirPath, itemPath);
-
-                if (_excludeElements.Contains(rel) && File.Exists(itemPath))
+                if (dirPath is not null && item.Uri is { IsFile: true } itemUri)
                 {
-                    _excludeElements.Remove(rel);
+                    string itemPath = itemUri.LocalPath;
+                    string rel = Path.GetRelativePath(dirPath, itemPath);
+                    if (_excludeElements.Contains(rel) && File.Exists(itemPath))
+                    {
+                        _excludeElements.Remove(rel);
+                    }
                 }
 
                 affectedRange.Add(item.Range);

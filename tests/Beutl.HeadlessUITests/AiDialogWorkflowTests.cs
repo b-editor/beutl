@@ -924,6 +924,72 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task VideoGeneration_JobNotFoundRetiresTheCreateKeyBeforeAnotherAttempt()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        int creates = 0;
+        using var handler = new StubHandler(request =>
+        {
+            switch (request.RequestUri?.AbsolutePath)
+            {
+                case "/api/v3/user/entitlements":
+                    return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+                case "/api/v3/ai/videos":
+                    keys.Add(IdempotencyKeyOf(request));
+                    int sequence = ++creates;
+                    return JsonResponse(HttpStatusCode.OK, $$"""
+                        {
+                          "jobId": "video-{{sequence}}",
+                          "status": "queued"
+                        }
+                        """);
+                case "/api/v3/ai/videos/video-1":
+                    return JsonResponse(HttpStatusCode.NotFound, """
+                        {
+                          "error_code": "aiJobNotFound",
+                          "message": "The job no longer exists.",
+                          "documentation_url": null
+                        }
+                        """);
+                case "/api/v3/ai/videos/video-2":
+                    return JsonResponse(HttpStatusCode.OK, """
+                        {
+                          "jobId": "video-2",
+                          "status": "failed",
+                          "error": "aiProviderError"
+                        }
+                        """);
+                default:
+                    return JsonResponse(HttpStatusCode.NotFound, "{}");
+            }
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        await using AiVideoGenerationDialogViewModel viewModel =
+            CreateVideoGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
+        viewModel.Prompt.Value = "A slow camera pan";
+
+        await viewModel.Generate.ExecuteAsync();
+        Assert.That(
+            viewModel.Error.Value,
+            Is.EqualTo(Beutl.Language.Strings.AiRequestWasDeleted));
+        await viewModel.Generate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+            Assert.That(
+                viewModel.Error.Value,
+                Is.EqualTo(Beutl.Language.Strings.AiProviderError));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task VideoGeneration_AsksUnderOneNameForTheSameFrameUnderAnotherFileName()
     {
         // 場面から切り出したフレームは、その都度ちがう名前のファイルに落ちる。
@@ -2242,6 +2308,88 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SubtitleTranslation_PartialRunKeepsItsModelAfterRemovalAndPickerChange()
+    {
+        await TestReset.ResetShellAsync();
+        bool firstModelRemoved = false;
+        var sentModels = new List<string?>();
+        int translationRequests = 0;
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
+                return JsonResponse(HttpStatusCode.OK, CaptionCapabilitiesJson(firstModelRemoved));
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                using JsonDocument json = JsonDocument.Parse(body);
+                sentModels.Add(json.RootElement.TryGetProperty("model", out JsonElement model)
+                    ? model.GetString()
+                    : null);
+                int requestNumber = ++translationRequests;
+                return requestNumber is 1 or 3
+                    ? CreateTranslationResponse(request, $"translation-{requestNumber}")
+                    : JsonResponse(HttpStatusCode.InternalServerError, """
+                        {
+                          "error_code": "aiProviderError",
+                          "message": "Provider failed.",
+                          "documentation_url": null
+                        }
+                        """);
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.TranslationModelPicker.Options.Count == 2);
+        viewModel.ResultSegments.Value = CreateTranslationBatchSegments();
+        await WaitUntilAsync(() => viewModel.CanTranslate.Value);
+
+        await viewModel.Translate.ExecuteAsync();
+        viewModel.ApplyPartialResult.Execute();
+
+        firstModelRemoved = true;
+        IAiModelCatalogService catalog = clients.GetResource<IAiModelCatalogService>();
+        catalog.Invalidate();
+        await viewModel.TranslationModelPicker.LoadAsync(
+            AiOperations.CaptionTranslation,
+            CancellationToken.None);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                viewModel.TranslationModelPicker.SelectedModel,
+                Is.EqualTo(new AiModelId("translation-a")));
+            Assert.That(
+                viewModel.TranslationModelPicker.Selected.Value!.IsAvailable,
+                Is.False,
+                "The removed model stays visible only because the partial run still owns it.");
+        }
+        viewModel.TranslationModelPicker.Selected.Value =
+            viewModel.TranslationModelPicker.Options.First(option =>
+                option.Id == new AiModelId("translation-b"));
+
+        viewModel.RefreshAvailability();
+        await WaitUntilAsync(() => viewModel.CanTranslate.Value);
+        await viewModel.Translate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(translationRequests, Is.EqualTo(3));
+            Assert.That(sentModels, Is.EqualTo(new[]
+            {
+                "translation-a",
+                "translation-a",
+                "translation-a",
+            }));
+            Assert.That(viewModel.HasPartialResult.Value, Is.False);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SubtitleTranslation_SecondBatchCancellationPreservesOriginalCues()
     {
         await TestReset.ResetShellAsync();
@@ -2377,6 +2525,58 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SubtitleTranslation_SaveFailureAfterPaidResponsePreservesSeedForRestart()
+    {
+        await TestReset.ResetShellAsync();
+        var draftStore = new FailingCaptionDraftStore(failOnSave: 2);
+        CaptionDraftScope scope = new("user-a", Guid.NewGuid(), Guid.NewGuid());
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return CreateTranslationResponse(request, "translation-paid");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+
+        using (var first = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes))
+        {
+            await WaitUntilAsync(() => first.Usage.HasSnapshot.Value);
+            first.ResultSegments.Value =
+            [new AiTranscriptionSegment { Start = 0, End = 1, Text = "paid" }];
+            await WaitUntilAsync(() => first.CanTranslate.Value);
+            await first.Translate.ExecuteAsync();
+            Assert.That(
+                first.Error.Value,
+                Is.EqualTo(Beutl.Language.Strings.AiSubtitle_RunCannotBeRecorded));
+            Assert.That(first.HasPartialResult.Value, Is.True);
+        }
+
+        draftStore.FailOnSave = null;
+        using var restored = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes);
+        await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value && restored.Cues.Count == 1);
+        restored.RefreshAvailability();
+        await WaitUntilAsync(() => restored.CanTranslate.Value);
+        await restored.Translate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.EqualTo(keys[0]));
+            Assert.That(restored.Cues.Single().Text, Is.EqualTo("T-paid"));
+            Assert.That(restored.HasPartialResult.Value, Is.False);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SubtitleTranslation_EditDuringDeferredResponsePreservesUserRevisionAndJobMetadata()
     {
         await TestReset.ResetShellAsync();
@@ -2437,6 +2637,187 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SubtitleTranslation_ResponseLossSurvivesCueEditAnotherRunAndRestart()
+    {
+        await TestReset.ResetShellAsync();
+        var draftStore = new FileCaptionDraftStore(Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "translation-ledger-drafts"));
+        CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), Guid.NewGuid());
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
+        var keys = new List<string?>();
+        int requestCount = 0;
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                int sequence = ++requestCount;
+                if (sequence == 1)
+                {
+                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
+                        {
+                          "error_code": "aiResultUnavailable",
+                          "message": "The paid result is temporarily unavailable.",
+                          "documentation_url": null
+                        }
+                        """);
+                }
+                return CreateTranslationResponse(request, $"translation-{sequence}");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+
+        using (var firstDialog = CreateSubtitleDialog(
+                   clients,
+                   draftStore: draftStore,
+                   draftScopes: scopes))
+        {
+            await WaitUntilAsync(() => firstDialog.Usage.HasSnapshot.Value);
+            firstDialog.ResultSegments.Value =
+            [
+                new AiTranscriptionSegment { Start = 0, End = 1, Text = "A" },
+            ];
+            await WaitUntilAsync(() => firstDialog.CanTranslate.Value);
+
+            await firstDialog.Translate.ExecuteAsync();
+            Assert.That(firstDialog.HasOutstandingTranslationRequest.Value, Is.True);
+
+            firstDialog.Cues[0].Text = "B";
+            await WaitUntilAsync(() => firstDialog.CanTranslate.Value);
+            await firstDialog.Translate.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(requestCount, Is.EqualTo(2));
+                Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+                Assert.That(firstDialog.Cues.Single().Text, Is.EqualTo("T-B"));
+                Assert.That(firstDialog.HasOutstandingTranslationRequest.Value, Is.True,
+                    "Settling B must leave A's paid recovery visible.");
+            }
+        }
+
+        Assert.That(draftStore.TryOpen(draftScope, out ICaptionDraftSession? storedSession), Is.True);
+        using (storedSession)
+        {
+            CaptionDraftEntry stored = storedSession!.Read().Entry!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(stored.Draft.TranslationResume!.SourceCues.Single().Text, Is.EqualTo("A"));
+                Assert.That(stored.Draft.TranslationResume.RequestKeyNamePending, Is.True);
+            });
+        }
+
+        using var restoredDialog = CreateSubtitleDialog(
+            clients,
+            draftStore: draftStore,
+            draftScopes: scopes);
+        await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value);
+        await WaitUntilAsync(() => restoredDialog.Cues.Count == 1);
+        await WaitUntilAsync(() => restoredDialog.TranslationModelPicker.IsLoaded.Value);
+        restoredDialog.RefreshAvailability();
+        await WaitUntilAsync(() => restoredDialog.CanTranslate.Value);
+        Assert.That(restoredDialog.Cues.Single().Text, Is.EqualTo("A"));
+
+        await restoredDialog.Translate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(requestCount, Is.EqualTo(3));
+            Assert.That(keys[2], Is.EqualTo(keys[0]),
+                "Restart recovery must ask for A under the key that may already have paid for it.");
+            Assert.That(restoredDialog.Cues.Single().Text, Is.EqualTo("T-A"));
+            Assert.That(restoredDialog.HasOutstandingTranslationRequest.Value, Is.False);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task SubtitleTranslation_CaptionImportKeepsPaidRecoveryAcrossRestart()
+    {
+        await TestReset.ResetShellAsync();
+        var draftStore = new FileCaptionDraftStore(Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "translation-import-ledger-drafts"));
+        CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), Guid.NewGuid());
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return keys.Count == 1
+                    ? JsonResponse(HttpStatusCode.ServiceUnavailable, """
+                        {
+                          "error_code": "aiResultUnavailable",
+                          "message": "The paid result is temporarily unavailable.",
+                          "documentation_url": null
+                        }
+                        """)
+                    : CreateTranslationResponse(request, "translation-recovered");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+
+        using (var firstDialog = CreateSubtitleDialog(
+                   clients,
+                   draftStore: draftStore,
+                   draftScopes: scopes))
+        {
+            await WaitUntilAsync(() => firstDialog.Usage.HasSnapshot.Value);
+            firstDialog.ResultSegments.Value =
+            [
+                new AiTranscriptionSegment { Start = 0, End = 1, Text = "paid A" },
+            ];
+            await WaitUntilAsync(() => firstDialog.CanTranslate.Value);
+            await firstDialog.Translate.ExecuteAsync();
+
+            bool imported = firstDialog.ImportCaptionBytes(Encoding.UTF8.GetBytes("""
+                1
+                00:00:00,000 --> 00:00:01,000
+                imported B
+
+                """), CaptionFormats.Srt);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(imported, Is.True);
+                Assert.That(firstDialog.Cues.Single().Text, Is.EqualTo("imported B"));
+                Assert.That(firstDialog.HasOutstandingTranslationRequest.Value, Is.True);
+            }
+        }
+
+        using var restoredDialog = CreateSubtitleDialog(
+            clients,
+            draftStore: draftStore,
+            draftScopes: scopes);
+        await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value
+            && restoredDialog.Cues.Count == 1
+            && restoredDialog.TranslationModelPicker.IsLoaded.Value);
+        restoredDialog.RefreshAvailability();
+        await WaitUntilAsync(() => restoredDialog.CanTranslate.Value);
+        Assert.That(restoredDialog.Cues.Single().Text, Is.EqualTo("paid A"));
+
+        await restoredDialog.Translate.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.EqualTo(keys[0]));
+            Assert.That(restoredDialog.Cues.Single().Text, Is.EqualTo("T-paid A"));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SourceFileTranscription_DeferredPaidResultPersistsResponseJobMetadata()
     {
         await TestReset.ResetShellAsync();
@@ -2446,12 +2827,14 @@ public sealed class AiDialogWorkflowTests
         CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), Guid.NewGuid());
         var transcriptionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseTranscription = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int transcriptionRequests = 0;
         using var handler = new StubHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
             {
+                Interlocked.Increment(ref transcriptionRequests);
                 transcriptionStarted.TrySetResult();
                 await releaseTranscription.Task.WaitAsync(cancellationToken);
                 return CreateTranscriptionResponse("source-transcription-job");
@@ -2473,14 +2856,19 @@ public sealed class AiDialogWorkflowTests
         try
         {
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
-            viewModel.SelectedAudioSource.Value = new AudioSourceItem(
+            var originalSource = new AudioSourceItem(
                 "Source audio",
                 sourcePath,
                 TimeSpan.FromSeconds(1));
+            viewModel.SelectedAudioSource.Value = originalSource;
             await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
             Task operation = viewModel.Transcribe.ExecuteAsync();
             await transcriptionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            viewModel.SelectedAudioSource.Value = new AudioSourceItem(
+                "Other audio",
+                Path.Combine(BeutlHomeIsolation.CurrentHome!, "other.wav"),
+                TimeSpan.FromSeconds(1));
             viewModel.ResultSegments.Value =
             [
                 new AiTranscriptionSegment { Start = 0, End = 1, Text = "user edit" },
@@ -2497,10 +2885,273 @@ public sealed class AiDialogWorkflowTests
                 draftStore,
                 draftScope,
                 "source-transcription-job");
+
+            viewModel.SelectedAudioSource.Value = originalSource;
+            viewModel.RefreshAvailability();
+            await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+            await viewModel.Transcribe.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(transcriptionRequests, Is.EqualTo(1),
+                    "A completed source transcription must apply without another HTTP request.");
+                Assert.That(viewModel.Cues.Single().Text, Is.EqualTo("new caption"));
+                Assert.That(viewModel.HasPartialResult.Value, Is.False);
+            }
         }
         finally
         {
             File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task SourceFileTranscription_SaveFailureAfterFinalResponsePreservesSeedForRestart()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-source-save-failure");
+        var draftStore = new FailingCaptionDraftStore(failOnSave: 2);
+        CaptionDraftScope scope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
+        string sourcePath = Path.Combine(BeutlHomeIsolation.CurrentHome!, "source-save-failure.wav");
+        WritePcmWave(sourcePath, 16_000, 16_000);
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return CreateTranscriptionResponse("source-paid");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        try
+        {
+            var source = new AudioSourceItem("Source", sourcePath, TimeSpan.FromSeconds(1));
+            using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
+            {
+                await WaitUntilAsync(() => first.Usage.HasSnapshot.Value);
+                first.SelectedAudioSource.Value = source;
+                await WaitUntilAsync(() => first.CanTranscribe.Value);
+                await first.Transcribe.ExecuteAsync();
+                Assert.That(
+                    first.Error.Value,
+                    Is.EqualTo(Beutl.Language.Strings.AiSubtitle_RunCannotBeRecorded));
+                Assert.That(first.HasPartialResult.Value, Is.True);
+            }
+
+            draftStore.FailOnSave = null;
+            using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
+            restored.SelectedAudioSource.Value = source;
+            await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value);
+            restored.RefreshAvailability();
+            await WaitUntilAsync(() => restored.CanTranscribe.Value);
+            await restored.Transcribe.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(keys, Has.Count.EqualTo(2));
+                Assert.That(keys[1], Is.EqualTo(keys[0]));
+                Assert.That(restored.HasPartialResult.Value, Is.False);
+            }
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task SceneTranscription_ResponseLossSurvivesRangeLanguageChangeAndRestart()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-scene-transcription-ledger");
+        var draftStore = new FileCaptionDraftStore(Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "scene-transcription-ledger-drafts"));
+        CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(draftScope);
+        var keys = new List<string?>();
+        int requestCount = 0;
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                int sequence = ++requestCount;
+                if (sequence == 1)
+                {
+                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
+                        {
+                          "error_code": "aiResultUnavailable",
+                          "message": "The paid result is temporarily unavailable.",
+                          "documentation_url": null
+                        }
+                        """);
+                }
+                return CreateTranscriptionResponse($"transcription-{sequence}");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+
+        using (var firstDialog = CreateSubtitleDialog(
+                   clients,
+                   editor,
+                   draftStore,
+                   scopes))
+        {
+            ConfigureSceneMix(firstDialog);
+            await WaitUntilAsync(() => firstDialog.Usage.HasSnapshot.Value
+                && firstDialog.SelectedAudioSource.Value?.IsSceneMix == true
+                && firstDialog.CanTranscribe.Value);
+
+            await firstDialog.Transcribe.ExecuteAsync();
+            Assert.That(firstDialog.HasOutstandingTranscriptionRequest.Value, Is.True);
+
+            firstDialog.SelectedSourceLanguage.Value = firstDialog.SourceLanguages
+                .First(option => option.Code == "ja");
+            editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
+            firstDialog.RefreshAvailability();
+            await WaitUntilAsync(() => firstDialog.CanTranscribe.Value);
+            await firstDialog.Transcribe.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(requestCount, Is.EqualTo(2));
+                Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+                Assert.That(firstDialog.HasOutstandingTranscriptionRequest.Value, Is.True,
+                    "Settling the replacement run must not retire the original recovery.");
+            }
+        }
+
+        Assert.That(draftStore.TryOpen(draftScope, out ICaptionDraftSession? storedSession), Is.True);
+        using (storedSession)
+        {
+            CaptionSceneTranscriptionResume resume =
+                storedSession!.Read().Entry!.Draft.SceneTranscriptionResume!;
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(resume.Duration, Is.EqualTo(TimeSpan.FromMilliseconds(100)));
+                Assert.That(resume.RangeStart, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(resume.ChunkCount, Is.EqualTo(1));
+                Assert.That(resume.Language, Is.Null);
+                Assert.That(resume.RequestKeyNamePending, Is.True);
+            }
+        }
+
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        using var restoredDialog = CreateSubtitleDialog(
+            clients,
+            editor,
+            draftStore,
+            scopes);
+        ConfigureSceneMix(restoredDialog);
+        await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value
+            && restoredDialog.SelectedAudioSource.Value?.IsSceneMix == true
+            && restoredDialog.TranscriptionModelPicker.IsLoaded.Value
+            && restoredDialog.CanTranscribe.Value);
+
+        await restoredDialog.Transcribe.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(requestCount, Is.EqualTo(3));
+            Assert.That(keys[2], Is.EqualTo(keys[0]));
+            Assert.That(restoredDialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        }
+
+        static void ConfigureSceneMix(AiSubtitleDialogViewModel dialog)
+        {
+            dialog.SceneMixChunkDuration = TimeSpan.FromSeconds(1);
+            dialog.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
+                return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                    new float[sampleCount],
+                    16_000,
+                    1,
+                    start));
+            };
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task SceneTranscription_SaveFailureAfterFinalResponsePreservesSeedForRestart()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-scene-save-failure");
+        var draftStore = new FailingCaptionDraftStore(failOnSave: 2);
+        CaptionDraftScope scope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return CreateTranscriptionResponse("scene-paid");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        editor.Scene.Start = TimeSpan.Zero;
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+
+        static void ConfigureSceneMix(AiSubtitleDialogViewModel dialog)
+        {
+            dialog.SceneMixChunkDuration = TimeSpan.FromSeconds(1);
+            dialog.SceneMixAudioComposer = (start, duration, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int sampleCount = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds * 16_000));
+                return Task.FromResult<AudioFrameSnapshot?>(new AudioFrameSnapshot(
+                    new float[sampleCount], 16_000, 1, start));
+            };
+        }
+
+        using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
+        {
+            ConfigureSceneMix(first);
+            await WaitUntilAsync(() => first.Usage.HasSnapshot.Value
+                && first.SelectedAudioSource.Value?.IsSceneMix == true
+                && first.CanTranscribe.Value);
+            await first.Transcribe.ExecuteAsync();
+            Assert.That(
+                first.Error.Value,
+                Is.EqualTo(Beutl.Language.Strings.AiSubtitle_RunCannotBeRecorded));
+            Assert.That(first.HasPartialResult.Value, Is.True);
+        }
+
+        draftStore.FailOnSave = null;
+        using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
+        ConfigureSceneMix(restored);
+        await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value
+            && restored.SelectedAudioSource.Value?.IsSceneMix == true
+            && restored.CanTranscribe.Value);
+        await restored.Transcribe.ExecuteAsync();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(keys, Has.Count.EqualTo(2));
+            Assert.That(keys[1], Is.EqualTo(keys[0]));
+            Assert.That(restored.HasPartialResult.Value, Is.False);
         }
     }
 
@@ -2597,6 +3248,7 @@ public sealed class AiDialogWorkflowTests
             "scene-mix-failure-drafts"));
         CaptionDraftScope draftScope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
         int transcriptionRequests = 0;
+        bool firstModelRemoved = false;
         // What each chunk was sent as. A retry that names its request the way
         // the first attempt did is the difference between recovering a paid
         // transcription and buying it a second time.
@@ -2610,6 +3262,8 @@ public sealed class AiDialogWorkflowTests
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
                 return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
+                return JsonResponse(HttpStatusCode.OK, CaptionCapabilitiesJson(firstModelRemoved));
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
             {
                 int requestNumber = Interlocked.Increment(ref transcriptionRequests);
@@ -2650,7 +3304,8 @@ public sealed class AiDialogWorkflowTests
                 start));
         };
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
-            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+            && viewModel.SelectedAudioSource.Value?.IsSceneMix == true
+            && viewModel.TranscriptionModelPicker.Options.Count == 2);
         editor.Scene.Start = TimeSpan.Zero;
         editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
         var originalSegments = new[]
@@ -2682,6 +3337,23 @@ public sealed class AiDialogWorkflowTests
         {
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "new caption" }));
         });
+
+        firstModelRemoved = true;
+        IAiModelCatalogService catalog = clients.GetResource<IAiModelCatalogService>();
+        catalog.Invalidate();
+        await viewModel.TranscriptionModelPicker.LoadAsync(
+            AiOperations.Transcription,
+            CancellationToken.None);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                viewModel.TranscriptionModelPicker.SelectedModel,
+                Is.EqualTo(new AiModelId("transcription-a")));
+            Assert.That(viewModel.TranscriptionModelPicker.Selected.Value!.IsAvailable, Is.False);
+        }
+        viewModel.TranscriptionModelPicker.Selected.Value =
+            viewModel.TranscriptionModelPicker.Options.First(option =>
+                option.Id == new AiModelId("transcription-b"));
 
         // A partial resume belongs only to the exact source/range/language
         // tuple. Changing the scene's own range must price a first chunk for it.
@@ -2715,6 +3387,8 @@ public sealed class AiDialogWorkflowTests
             Assert.That(sentBodies[1], Does.Contain("scene-mix-chunk-0001.wav"));
             Assert.That(sentBodies[2], Does.Contain("scene-mix-chunk-0001.wav"));
             Assert.That(sentBodies[0], Does.Contain("scene-mix-chunk-0000.wav"));
+            Assert.That(sentBodies, Has.All.Contains("transcription-a"),
+                "Every remaining chunk must stay on the model that started the partial run.");
             Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
             Assert.That(filesAfterResume, Is.EqualTo(filesBefore));
@@ -2890,6 +3564,7 @@ public sealed class AiDialogWorkflowTests
 
         Task operation = viewModel.Transcribe.ExecuteAsync();
         await secondRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(80);
         viewModel.Cues[0].Text = "user edit while transcribing";
         releaseSecondRequest.TrySetResult();
         await operation;
@@ -2902,11 +3577,16 @@ public sealed class AiDialogWorkflowTests
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
         });
 
-        viewModel.ApplyPartialResult.Execute();
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        viewModel.RefreshAvailability();
+        await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+        await viewModel.Transcribe.ExecuteAsync();
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
+            Assert.That(transcriptionRequests, Is.EqualTo(2),
+                "A completed scene transcription must apply without another HTTP request.");
         });
     }
 
@@ -3185,6 +3865,32 @@ public sealed class AiDialogWorkflowTests
         }
         """;
 
+    private static string CaptionCapabilitiesJson(bool removeFirst)
+    {
+        static object Model(string id, bool isDefault) => new
+        {
+            id,
+            displayName = id,
+            costTier = "low",
+            isDefault,
+        };
+
+        object[] translationModels = removeFirst
+            ? [Model("translation-b", true)]
+            : [Model("translation-a", true), Model("translation-b", false)];
+        object[] transcriptionModels = removeFirst
+            ? [Model("transcription-b", true)]
+            : [Model("transcription-a", true), Model("transcription-b", false)];
+        return JsonSerializer.Serialize(new
+        {
+            operations = new Dictionary<string, object>
+            {
+                ["subtitle.translate"] = new { models = translationModels },
+                ["audio.transcribe"] = new { models = transcriptionModels },
+            },
+        });
+    }
+
     // 拡大に 2 つのモデル。画面が見せているモデルがそのまま送られることを
     // 確かめるために、既定でないほうを選べる形にしてある。
     private static string ImageEditCapabilitiesJson() => """
@@ -3326,6 +4032,88 @@ public sealed class AiDialogWorkflowTests
                 Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType) },
             },
         };
+
+    private sealed class FailingCaptionDraftStore(int? failOnSave) : ICaptionDraftStore
+    {
+        private readonly Dictionary<CaptionDraftScope, CaptionDraftEntry> _drafts = [];
+        private readonly HashSet<CaptionDraftScope> _owners = [];
+        private readonly object _gate = new();
+        private int _saveCount;
+
+        public int? FailOnSave { get; set; } = failOnSave;
+
+        public bool TryOpen(
+            CaptionDraftScope scope,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)]
+            out ICaptionDraftSession? session)
+        {
+            lock (_gate)
+            {
+                if (!_owners.Add(scope))
+                {
+                    session = null;
+                    return false;
+                }
+
+                session = new Session(this, scope);
+                return true;
+            }
+        }
+
+        private sealed class Session(FailingCaptionDraftStore owner, CaptionDraftScope scope)
+            : ICaptionDraftSession
+        {
+            private FailingCaptionDraftStore? _owner = owner;
+
+            public CaptionDraftScope Scope { get; } = scope;
+
+            public CaptionDraftReadResult Read()
+            {
+                FailingCaptionDraftStore store = GetOwner();
+                lock (store._gate)
+                {
+                    return store._drafts.GetValueOrDefault(Scope) is { } entry
+                        ? new CaptionDraftReadResult(CaptionDraftReadOutcome.Read, entry)
+                        : CaptionDraftReadResult.Absent;
+                }
+            }
+
+            public void Save(CaptionDraftEntry entry)
+            {
+                FailingCaptionDraftStore store = GetOwner();
+                lock (store._gate)
+                {
+                    int save = ++store._saveCount;
+                    if (store.FailOnSave == save)
+                        throw new IOException("Injected caption draft save failure.");
+                    store._drafts[Scope] = entry;
+                }
+            }
+
+            public void Delete()
+            {
+                FailingCaptionDraftStore store = GetOwner();
+                lock (store._gate)
+                {
+                    store._drafts.Remove(Scope);
+                }
+            }
+
+            public void Dispose()
+            {
+                FailingCaptionDraftStore? store = Interlocked.Exchange(ref _owner, null);
+                if (store is null)
+                    return;
+                lock (store._gate)
+                {
+                    store._owners.Remove(Scope);
+                }
+            }
+
+            private FailingCaptionDraftStore GetOwner()
+                => _owner ?? throw new ObjectDisposedException(nameof(Session));
+        }
+    }
 
     private sealed class StubHandler(
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder,

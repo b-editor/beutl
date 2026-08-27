@@ -225,3 +225,14 @@ public sealed class AiJobIsActiveException : AiException
     {
     }
 }
+
+/// <summary>
+/// The requested AI job no longer exists (404 aiJobNotFound).
+/// </summary>
+public sealed class AiJobNotFoundException : AiException
+{
+    public AiJobNotFoundException(Exception? innerException = null)
+        : base("The requested AI job no longer exists.", innerException)
+    {
+    }
+}

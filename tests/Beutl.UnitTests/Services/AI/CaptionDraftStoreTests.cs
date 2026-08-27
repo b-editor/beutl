@@ -31,6 +31,62 @@ public sealed class CaptionDraftStoreTests
     }
 
     [Test]
+    public void Save_RoundTripsEveryRetainedPaidRecovery()
+    {
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        var retained = new CaptionDraftEntry(
+            "job-a",
+            CreateResumableSourceDraft());
+        var current = new CaptionDraftEntry(
+            "job-b",
+            CreateResumableSourceDraft(),
+            [retained]);
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+
+        using (session)
+        {
+            session!.Save(current);
+            CaptionDraftEntry restored = session.Read().Entry!;
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(restored.JobId, Is.EqualTo("job-b"));
+                Assert.That(restored.Recoveries, Has.Length.EqualTo(1));
+                Assert.That(restored.Recoveries[0].JobId, Is.EqualTo("job-a"));
+                Assert.That(
+                    restored.Recoveries[0].Draft.SourceTranscriptionResume!.RequestKeySeed,
+                    Is.EqualTo(retained.Draft.SourceTranscriptionResume!.RequestKeySeed));
+            }
+        }
+    }
+
+    [Test]
+    public void Save_RejectsMoreRecoveriesBeforeReplacingTheDurableEntry()
+    {
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+
+        using (session)
+        {
+            var original = new CaptionDraftEntry("job-original", CreateResumableSourceDraft());
+            session!.Save(original);
+            CaptionDraftEntry[] tooMany = Enumerable.Range(0, 64)
+                .Select(index => new CaptionDraftEntry(
+                    $"job-{index}",
+                    CreateResumableSourceDraft()))
+                .ToArray();
+
+            Assert.Throws<ArgumentException>(() => session.Save(new CaptionDraftEntry(
+                "job-new",
+                CreateResumableSourceDraft(),
+                tooMany)));
+            Assert.That(session.Read().Entry!.JobId, Is.EqualTo("job-original"));
+        }
+    }
+
+    [Test]
     public void SaveLoadDelete_RoundTripsRecoverableProgress()
     {
         var store = new FileCaptionDraftStore(_storageDirectory);
@@ -207,7 +263,9 @@ public sealed class CaptionDraftStoreTests
         string stored = File.ReadAllText(path);
         File.WriteAllText(
             path,
-            stored.Replace("\"version\":3", "\"version\":1"));
+            stored.Replace(
+                $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
+                "\"version\":1"));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
         using (reopened)
@@ -252,7 +310,9 @@ public sealed class CaptionDraftStoreTests
         string stored = File.ReadAllText(path);
         // 版 2 が書いた控えそのもの——版が 2 で、その項目がまだ無い。
         string asVersion2 = stored
-            .Replace("\"version\":3", "\"version\":2")
+            .Replace(
+                $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
+                "\"version\":2")
             .Replace(",\"requestKeyNamePending\":true", string.Empty);
         Assert.That(asVersion2, Does.Not.Contain("requestKeyNamePending"));
         File.WriteAllText(path, asVersion2);
@@ -354,7 +414,9 @@ public sealed class CaptionDraftStoreTests
         File.WriteAllText(
             path,
             File.ReadAllText(path)
-                .Replace("\"version\":3", "\"version\":2")
+                .Replace(
+                    $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
+                    "\"version\":2")
                 .Replace("\"requestKeyNamePending\":true", "\"requestKeyNamePending\":false"));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);

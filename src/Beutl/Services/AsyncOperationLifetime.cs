@@ -6,11 +6,24 @@
 /// </summary>
 internal sealed class AsyncOperationLifetime : IAsyncDisposable
 {
+    private static readonly TimeSpan s_defaultShutdownDeadline = TimeSpan.FromSeconds(30);
     private readonly object _gate = new();
+    private readonly TimeSpan _shutdownDeadline;
     private CancellationTokenSource? _cancellation = new();
     private TaskCompletionSource? _drained;
+    private Task? _stopTask;
+    private TaskCompletionSource? _stopCompletion;
+    private Exception? _cancellationFailure;
+    private Task? _disposeTask;
     private int _activeOperations;
     private bool _stopping;
+
+    public AsyncOperationLifetime(TimeSpan? shutdownDeadline = null)
+    {
+        _shutdownDeadline = shutdownDeadline ?? s_defaultShutdownDeadline;
+        if (_shutdownDeadline <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(shutdownDeadline));
+    }
 
     public Operation? TryEnter()
     {
@@ -29,7 +42,9 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     public Task StopAsync()
     {
         CancellationTokenSource? cancellation = null;
-        Task drained;
+        Task stopTask;
+        Task? drained = null;
+        bool startCompletion = false;
         lock (_gate)
         {
             if (!_stopping)
@@ -38,26 +53,216 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
                 cancellation = _cancellation;
             }
 
-            drained = _activeOperations == 0
-                ? Task.CompletedTask
-                : (_drained ??= new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+            if (_stopTask is null)
+            {
+                drained = _activeOperations == 0
+                    ? Task.CompletedTask
+                    : (_drained ??= new TaskCompletionSource(
+                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+                _stopCompletion = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _stopTask = _stopCompletion.Task;
+                startCompletion = true;
+            }
+
+            stopTask = _stopTask;
         }
 
-        cancellation?.Cancel();
-        return drained;
+        if (startCompletion && cancellation is not null)
+        {
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (Exception ex)
+            {
+                RecordCancellationFailure(ex);
+            }
+        }
+
+        if (startCompletion)
+        {
+            _ = CompleteStopAsync(drained!);
+        }
+
+        return stopTask;
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task CompleteStopAsync(Task drained)
     {
-        await StopAsync();
-        CancellationTokenSource? cancellation;
+        await drained.ConfigureAwait(false);
+        TaskCompletionSource? completion;
+        Exception? failure;
         lock (_gate)
         {
-            cancellation = _cancellation;
+            completion = _stopCompletion;
+            failure = _cancellationFailure;
+        }
+
+        if (failure is not null)
+            completion?.TrySetException(failure);
+        else
+            completion?.TrySetResult();
+    }
+
+    public ValueTask DisposeAsync()
+        => DisposeAsync(static () => ValueTask.CompletedTask);
+
+    public ValueTask DisposeAsync(Func<ValueTask> disposeResources)
+        => DisposeAsync(static () => { }, disposeResources);
+
+    public ValueTask DisposeAsync(Action cancelAdditionalWork, Func<ValueTask> disposeResources)
+    {
+        ArgumentNullException.ThrowIfNull(cancelAdditionalWork);
+        ArgumentNullException.ThrowIfNull(disposeResources);
+        TaskCompletionSource? proxy = null;
+        CancellationTokenSource? cancellation = null;
+        Task? drained = null;
+        bool startStopCompletion = false;
+        Task disposeTask;
+        lock (_gate)
+        {
+            if (_disposeTask is null)
+            {
+                proxy = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = proxy.Task;
+
+                if (!_stopping)
+                {
+                    _stopping = true;
+                    cancellation = _cancellation;
+                }
+                if (_stopTask is null)
+                {
+                    drained = _activeOperations == 0
+                        ? Task.CompletedTask
+                        : (_drained ??= new TaskCompletionSource(
+                            TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+                    _stopCompletion = new TaskCompletionSource(
+                        TaskCreationOptions.RunContinuationsAsynchronously);
+                    _stopTask = _stopCompletion.Task;
+                    startStopCompletion = true;
+                }
+            }
+
+            disposeTask = _disposeTask;
+        }
+
+        if (proxy is not null)
+        {
+            Task stopTask = _stopTask!;
+            Task teardown = Task.Run(() => DisposeCoreAsync(
+                cancellation,
+                drained,
+                startStopCompletion,
+                stopTask,
+                cancelAdditionalWork,
+                disposeResources));
+            _ = CompleteDisposeAsync(proxy, teardown);
+        }
+
+        return new ValueTask(disposeTask);
+    }
+
+    private async Task DisposeCoreAsync(
+        CancellationTokenSource? cancellation,
+        Task? drained,
+        bool startStopCompletion,
+        Task stopTask,
+        Action cancelAdditionalWork,
+        Func<ValueTask> disposeResources)
+    {
+        List<Exception>? failures = null;
+        Task additionalCancellation = Task.Run(cancelAdditionalWork);
+
+        try
+        {
+            if (cancellation is not null)
+                cancellation.Cancel();
+        }
+        catch (Exception ex)
+        {
+            RecordCancellationFailure(ex);
+            (failures ??= []).Add(ex);
+        }
+        if (startStopCompletion)
+            _ = CompleteStopAsync(drained!);
+
+        try
+        {
+            await Task.WhenAll(stopTask, additionalCancellation).ConfigureAwait(false);
+        }
+        catch
+        {
+            AddFailures(stopTask, ref failures);
+            AddFailures(additionalCancellation, ref failures);
+        }
+
+        try
+        {
+            await disposeResources().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            (failures ??= []).Add(ex);
+        }
+
+        CancellationTokenSource? ownedCancellation;
+        lock (_gate)
+        {
+            ownedCancellation = _cancellation;
             _cancellation = null;
         }
-        cancellation?.Dispose();
+        ownedCancellation?.Dispose();
+
+        if (failures is { Count: 1 })
+            throw failures[0];
+        if (failures is { Count: > 1 })
+            throw new AggregateException(failures);
+    }
+
+    private static void AddFailures(Task task, ref List<Exception>? failures)
+    {
+        if (task.Exception is not { } aggregate)
+            return;
+
+        foreach (Exception exception in aggregate.Flatten().InnerExceptions)
+        {
+            if (failures?.Contains(exception) != true)
+                (failures ??= []).Add(exception);
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource proxy, Task teardown)
+    {
+        try
+        {
+            await teardown.WaitAsync(_shutdownDeadline).ConfigureAwait(false);
+            proxy.TrySetResult();
+        }
+        catch (TimeoutException)
+        {
+            proxy.TrySetResult();
+            _ = ObserveDeferredDisposeAsync(teardown);
+        }
+        catch (Exception ex)
+        {
+            proxy.TrySetException(ex);
+        }
+    }
+
+    private static async Task ObserveDeferredDisposeAsync(Task teardown)
+    {
+        try
+        {
+            await teardown.ConfigureAwait(false);
+        }
+        catch
+        {
+            // The initiating DisposeAsync call has already completed at its deadline.
+            // Cleanup still runs to completion and its failure is intentionally observed here.
+        }
     }
 
     private bool TryPublish(Action publication)
@@ -67,10 +272,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         {
             if (_stopping)
                 return false;
-
-            publication();
-            return true;
         }
+
+        publication();
+        return true;
     }
 
     private void Exit()
@@ -88,6 +293,16 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             }
         }
         drained?.TrySetResult();
+    }
+
+    private void RecordCancellationFailure(Exception exception)
+    {
+        lock (_gate)
+        {
+            _cancellationFailure = _cancellationFailure is null
+                ? exception
+                : new AggregateException(_cancellationFailure, exception);
+        }
     }
 
     /// <summary>
@@ -114,7 +329,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         public void Cancel()
         {
-            if (_owner is null)
+            if (_owner is not { } owner)
                 return;
 
             try
@@ -123,6 +338,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             }
             catch (ObjectDisposedException)
             {
+            }
+            catch (Exception ex)
+            {
+                owner.RecordCancellationFailure(ex);
             }
         }
 

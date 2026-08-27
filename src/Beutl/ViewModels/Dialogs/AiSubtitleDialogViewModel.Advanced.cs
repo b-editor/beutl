@@ -51,6 +51,7 @@ public sealed partial class AiSubtitleDialogViewModel
     private TranslationOperation? _pendingTranslation;
     private SceneTranscriptionOperation? _pendingSceneTranscription;
     private SourceTranscriptionOperation? _pendingSourceTranscription;
+    private readonly List<CaptionDraftEntry> _retainedCaptionRecoveries = [];
     // Which model a restored run was named for, until the pickers have loaded
     // and can be put back on it.
     private AiModelId? _restoredTranscriptionModel;
@@ -108,7 +109,8 @@ public sealed partial class AiSubtitleDialogViewModel
         => HasPartialResult.Value
             || _editableCues.Count > 0
             || HasOutstandingTranscriptionRequest.Value
-            || HasOutstandingTranslationRequest.Value;
+            || HasOutstandingTranslationRequest.Value
+            || _retainedCaptionRecoveries.Any(entry => HoldsPaidWork(entry.Draft));
 
     private void ApplyHistoryResult(AiCaptionHistoryResult result)
     {
@@ -490,24 +492,56 @@ public sealed partial class AiSubtitleDialogViewModel
             chunkCount,
             fingerprint,
             draftScopeRevision);
-        if (!canResume)
-            ChangeCaptionDraftJob(null, deleteCurrent: false);
+        SourceTranscriptionOperation operation;
+        if (canResume)
+        {
+            operation = _pendingSourceTranscription!;
+            operation.ExpectedCaptionRevision = captionRevision;
+        }
+        else
+        {
+            CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
+                CanUseSourceTranscriptionDraft(
+                    entry.Draft,
+                    source,
+                    filePath,
+                    language,
+                    sampleRate,
+                    totalSamples,
+                    chunkSamples,
+                    chunkCount,
+                    fingerprint));
+            if (!TryParkCurrentCaptionRecovery())
+                throw new SubtitleInputException(Strings.AiSubtitle_RunCannotBeRecorded);
 
-        SourceTranscriptionOperation operation = canResume
-            ? _pendingSourceTranscription!
-            : new SourceTranscriptionOperation(
-                source,
-                filePath,
-                source.ElementId,
-                fingerprint.FileLength,
-                fingerprint.LastWriteTimeUtcTicks,
-                language,
-                sampleRate,
-                totalSamples,
-                chunkSamples,
-                chunkCount,
-                captionRevision,
-                draftScopeRevision);
+            if (retained is not null)
+            {
+                _retainedCaptionRecoveries.Remove(retained);
+                operation = RestoreSourceTranscriptionOperation(
+                    retained.Draft,
+                    source,
+                    captionRevision,
+                    draftScopeRevision);
+                _captionDraftJobId = retained.JobId;
+            }
+            else
+            {
+                ChangeCaptionDraftJob(null, deleteCurrent: false);
+                operation = new SourceTranscriptionOperation(
+                    source,
+                    filePath,
+                    source.ElementId,
+                    fingerprint.FileLength,
+                    fingerprint.LastWriteTimeUtcTicks,
+                    language,
+                    sampleRate,
+                    totalSamples,
+                    chunkSamples,
+                    chunkCount,
+                    captionRevision,
+                    draftScopeRevision);
+            }
+        }
         operation.Source = source;
         _pendingSourceTranscription = operation;
         _pendingSceneTranscription = null;
@@ -519,7 +553,8 @@ public sealed partial class AiSubtitleDialogViewModel
         // one that moved between pieces, or fell back because the run's model
         // was withdrawn, would rename the rest of the run and buy it again.
         AiModelId? runModel = ModelOfRun(
-            operation.RequestKey.HasOutstandingName.Value,
+            operation.CompletedChunkCount > 0
+                || operation.RequestKey.HasOutstandingName.Value,
             operation.RequestKeyModel,
             TranscriptionModelPicker.SelectedModel);
 
@@ -646,10 +681,17 @@ public sealed partial class AiSubtitleDialogViewModel
                 // names, and so does anything else still outstanding.
                 operation.RequestKey.Retire(name);
                 UpdateOutstandingCaptionRequest();
-                if (PublishSourceTranscriptionPartial(operation)
-                    == CaptionDraftOutcome.Superseded)
+                switch (PublishSourceTranscriptionPartial(operation))
                 {
-                    return;
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        // The response may already have been charged.  Stop
+                        // before the final ClearPartialResult can delete the
+                        // previous durable seed; the next attempt can persist
+                        // this in-memory progress and resume by idempotency key.
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
                 }
             }
             finally
@@ -697,22 +739,57 @@ public sealed partial class AiSubtitleDialogViewModel
             rangeStart,
             duration,
             chunkCount);
-        if (!canResume)
-            ChangeCaptionDraftJob(null, deleteCurrent: false);
+        SceneTranscriptionOperation operation;
+        if (canResume)
+        {
+            operation = _pendingSceneTranscription!;
+            operation.ExpectedCaptionRevision = Interlocked.Read(ref _captionDocumentRevision);
+            if (operation.CompletedChunkCount == operation.ChunkCount)
+            {
+                operation.ExpectedSceneAudioRevision = Interlocked.Read(ref _sceneAudioRevision);
+            }
+        }
+        else
+        {
+            CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
+                CanUseSceneTranscriptionDraft(
+                    entry.Draft,
+                    _editViewModel.Scene.Id,
+                    language,
+                    rangeStart,
+                    duration,
+                    SceneMixChunkDuration,
+                    chunkCount));
+            if (!TryParkCurrentCaptionRecovery())
+                throw new SubtitleInputException(Strings.AiSubtitle_RunCannotBeRecorded);
 
-        SceneTranscriptionOperation operation = canResume
-            ? _pendingSceneTranscription!
-            : new SceneTranscriptionOperation(
-                source,
-                language,
-                rangeStart,
-                duration,
-                SceneMixChunkDuration,
-                chunkCount,
-                Interlocked.Read(ref _captionDocumentRevision),
-                draftScopeRevision,
-                Interlocked.Read(ref _sceneAudioRevision),
-                _editViewModel.Scene.Id);
+            if (retained is not null)
+            {
+                _retainedCaptionRecoveries.Remove(retained);
+                operation = RestoreSceneTranscriptionOperation(
+                    retained.Draft,
+                    source,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    Interlocked.Read(ref _sceneAudioRevision));
+                _captionDraftJobId = retained.JobId;
+            }
+            else
+            {
+                ChangeCaptionDraftJob(null, deleteCurrent: false);
+                operation = new SceneTranscriptionOperation(
+                    source,
+                    language,
+                    rangeStart,
+                    duration,
+                    SceneMixChunkDuration,
+                    chunkCount,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    Interlocked.Read(ref _sceneAudioRevision),
+                    _editViewModel.Scene.Id);
+            }
+        }
         operation.Source = source;
         _pendingSceneTranscription = operation;
         _pendingSourceTranscription = null;
@@ -724,7 +801,8 @@ public sealed partial class AiSubtitleDialogViewModel
         // one that moved between pieces, or fell back because the run's model
         // was withdrawn, would rename the rest of the run and buy it again.
         AiModelId? runModel = ModelOfRun(
-            operation.RequestKey.HasOutstandingName.Value,
+            operation.CompletedChunkCount > 0
+                || operation.RequestKey.HasOutstandingName.Value,
             operation.RequestKeyModel,
             TranscriptionModelPicker.SelectedModel);
 
@@ -832,10 +910,17 @@ public sealed partial class AiSubtitleDialogViewModel
                 operation.CompletedChunkCount++;
                 operation.RequestKey.Retire(name);
                 UpdateOutstandingCaptionRequest();
-                if (PublishSceneTranscriptionPartial(operation)
-                    == CaptionDraftOutcome.Superseded)
+                switch (PublishSceneTranscriptionPartial(operation))
                 {
-                    return;
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        // The response may already have been charged.  Stop
+                        // before the final ClearPartialResult can delete the
+                        // previous durable seed; the next attempt can persist
+                        // this in-memory progress and resume by idempotency key.
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
                 }
             }
             finally
@@ -912,24 +997,59 @@ public sealed partial class AiSubtitleDialogViewModel
             string targetLanguage = SelectedTargetLanguage.Value.Code!;
             string? selectedSourceLanguage = SelectedSourceLanguage.Value.Code;
             string? sourceLanguage = selectedSourceLanguage ?? _lastCaptionLanguage;
-            TranslationOperation operation = CanResumeTranslation(
-                captionRevision,
-                targetLanguage,
-                selectedSourceLanguage)
-                ? _pendingTranslation!
-                : CreateTranslationOperation(
+            TranslationOperation operation;
+            if (_pendingTranslation is { } current
+                && CanUseTranslationOperation(
+                    current,
                     document,
-                    captionRevision,
-                    sourceLanguage,
-                    selectedSourceLanguage,
                     targetLanguage,
-                    draftScopeRevision);
+                    selectedSourceLanguage,
+                    draftScopeRevision))
+            {
+                operation = current;
+                operation.ExpectedCaptionRevision = captionRevision;
+            }
+            else
+            {
+                CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
+                    CanUseTranslationDraft(
+                        entry.Draft,
+                        document,
+                        targetLanguage,
+                        selectedSourceLanguage));
+                if (!TryParkCurrentCaptionRecovery())
+                {
+                    throw new SubtitleInputException(Strings.AiSubtitle_RunCannotBeRecorded);
+                }
+
+                if (retained is not null)
+                {
+                    _retainedCaptionRecoveries.Remove(retained);
+                    operation = RestoreTranslationOperation(
+                        retained.Draft,
+                        captionRevision,
+                        draftScopeRevision);
+                    _captionDraftJobId = retained.JobId;
+                }
+                else
+                {
+                    ChangeCaptionDraftJob(null, deleteCurrent: false);
+                    operation = CreateTranslationOperation(
+                        document,
+                        captionRevision,
+                        sourceLanguage,
+                        selectedSourceLanguage,
+                        targetLanguage,
+                        draftScopeRevision);
+                }
+            }
             _pendingTranslation = operation;
             UpdateOutstandingCaptionRequest();
             // Read once for the whole run, and taken from the run itself once
             // it has named anything — see ModelOfRun.
             AiModelId? runModel = ModelOfRun(
-                operation.RequestKey.HasOutstandingName.Value,
+                operation.CompletedBatchCount > 0
+                    || operation.RequestKey.HasOutstandingName.Value,
                 operation.RequestKeyModel,
                 TranslationModelPicker.SelectedModel);
             if (operation.Batches.Count == 0)
@@ -1020,10 +1140,17 @@ public sealed partial class AiSubtitleDialogViewModel
                 operation.CompletedBatchCount++;
                 operation.RequestKey.Retire(name);
                 UpdateOutstandingCaptionRequest();
-                if (PublishTranslationPartial(operation)
-                    == CaptionDraftOutcome.Superseded)
+                switch (PublishTranslationPartial(operation))
                 {
-                    return;
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        // The response may already have been charged.  Stop
+                        // before the final ClearPartialResult can delete the
+                        // previous durable seed; the next attempt can persist
+                        // this in-memory progress and resume by idempotency key.
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
                 }
                 RefreshTranslationEstimate();
             }
@@ -1104,6 +1231,10 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable);
         }
+        catch (SubtitleInputException ex)
+        {
+            SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);
+        }
         catch (OperationCanceledException) when (IsRequestCanceled)
         {
         }
@@ -1127,21 +1258,40 @@ public sealed partial class AiSubtitleDialogViewModel
     // piece has come back. The first piece is the one most likely to have been
     // charged and lost: starting a new run instead would name it differently and
     // buy it again.
-    private bool CanResumeTranslation(
-        long captionRevision,
+    private bool CanUseTranslationOperation(
+        TranslationOperation operation,
+        CaptionDocument document,
         string targetLanguage,
-        string? selectedSourceLanguage)
-        => _pendingTranslation is { } operation
-            && (operation.CompletedBatchCount > 0
+        string? selectedSourceLanguage,
+        long draftScopeRevision)
+        => (operation.CompletedBatchCount > 0
                 || operation.RequestKey.HasOutstandingName.Value)
-            && operation.CompletedBatchCount < operation.Batches.Count
-            && operation.ExpectedCaptionRevision == captionRevision
-            && IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
+            && operation.CompletedBatchCount <= operation.Batches.Count
+            && operation.ExpectedDraftScopeRevision == draftScopeRevision
+            && (CaptionDocumentsEqual(operation.SourceDocument, document)
+                || CaptionDocumentsEqual(
+                    BuildTranslationDocument(operation, includeUntranslatedParts: true),
+                    document))
             && string.Equals(operation.TargetLanguage, targetLanguage, StringComparison.Ordinal)
             && string.Equals(
                 operation.SelectedSourceLanguage,
                 selectedSourceLanguage,
                 StringComparison.Ordinal);
+
+    private static bool CanUseTranslationDraft(
+        CaptionDraft draft,
+        CaptionDocument document,
+        string targetLanguage,
+        string? selectedSourceLanguage)
+        => draft.TranslationResume is { } resume
+            && HoldsPaidWork(draft)
+            && string.Equals(resume.TargetLanguage, targetLanguage, StringComparison.Ordinal)
+            && string.Equals(
+                resume.SelectedSourceLanguage,
+                selectedSourceLanguage,
+                StringComparison.Ordinal)
+            && (StoredCuesEqual(resume.SourceCues, document.Cues)
+                || StoredCuesEqual(draft.Cues, document.Cues));
 
     private static TranslationOperation CreateTranslationOperation(
         CaptionDocument document,
@@ -1160,6 +1310,79 @@ public sealed partial class AiSubtitleDialogViewModel
             targetLanguage,
             draftScopeRevision,
             CreateTranslationBatches(sourceDocument));
+    }
+
+    private static TranslationOperation RestoreTranslationOperation(
+        CaptionDraft draft,
+        long captionRevision,
+        long draftScopeRevision)
+    {
+        CaptionTranslationResume resume = draft.TranslationResume
+            ?? throw new InvalidDataException("The retained translation has no resume state.");
+        var sourceDocument = new CaptionDocument(RestoreCues(resume.SourceCues));
+        List<TranslationBatch> batches = CreateTranslationBatches(sourceDocument);
+        if (resume.CompletedBatchCount < 0 || resume.CompletedBatchCount > batches.Count)
+            throw new InvalidDataException("The retained translation progress is invalid.");
+
+        var operation = new TranslationOperation(
+            sourceDocument,
+            captionRevision,
+            resume.SourceLanguage,
+            resume.SelectedSourceLanguage,
+            resume.TargetLanguage,
+            draftScopeRevision,
+            batches,
+            string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
+            resume.RequestKeyNamePending)
+        {
+            CompletedBatchCount = resume.CompletedBatchCount,
+            RequestKeyModel = resume.RequestKeyModel,
+        };
+        HashSet<string> completedIds = batches
+            .Take(operation.CompletedBatchCount)
+            .SelectMany(batch => batch.Pieces)
+            .Select(piece => piece.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        if (resume.TranslatedPieces.Count != completedIds.Count
+            || resume.TranslatedPieces.Keys.Any(id => !completedIds.Contains(id)))
+        {
+            throw new InvalidDataException("The retained translated segments are invalid.");
+        }
+        foreach ((string id, string text) in resume.TranslatedPieces)
+        {
+            operation.TranslatedPieces.Add(id, text);
+        }
+        return operation;
+    }
+
+    private static bool CaptionDocumentsEqual(CaptionDocument left, CaptionDocument right)
+        => StoredCuesEqual(StoreCues(left.Cues), right.Cues);
+
+    private static bool StoredCuesEqual(
+        IReadOnlyList<StoredCaptionCue> stored,
+        IReadOnlyList<CaptionCue> current)
+    {
+        if (stored.Count != current.Count)
+            return false;
+
+        for (int index = 0; index < stored.Count; index++)
+        {
+            StoredCaptionCue expected = stored[index];
+            CaptionCue actual = current[index];
+            if (expected.StartTicks != actual.Start.Ticks
+                || expected.EndTicks != actual.End.Ticks
+                || expected.Text != actual.Text
+                || expected.Speaker != actual.Speaker
+                || expected.Language != actual.Language
+                || expected.Metadata.Count != actual.Metadata.Count
+                || expected.Metadata.Any(pair =>
+                    !actual.Metadata.TryGetValue(pair.Key, out string? value)
+                    || value != pair.Value))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void AddTranslatedBatch(
@@ -1278,17 +1501,66 @@ public sealed partial class AiSubtitleDialogViewModel
         => _pendingSceneTranscription is { } operation
             && (operation.CompletedChunkCount > 0
                 || operation.RequestKey.HasOutstandingName.Value)
-            && operation.CompletedChunkCount < operation.ChunkCount
-            && (operation.Source is null && source.IsSceneMix
-                || ReferenceEquals(operation.Source, source))
+            && operation.CompletedChunkCount <= operation.ChunkCount
+            && source.IsSceneMix
+            && (operation.Source is null || operation.Source.IsSceneMix)
             && operation.Language == language
             && operation.RangeStart == rangeStart
             && operation.Duration == duration
             && operation.ChunkDuration == SceneMixChunkDuration
             && operation.ChunkCount == chunkCount
             && IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
-            && operation.ExpectedSceneAudioRevision == Interlocked.Read(ref _sceneAudioRevision)
+            && (operation.CompletedChunkCount == operation.ChunkCount
+                || operation.ExpectedSceneAudioRevision == Interlocked.Read(ref _sceneAudioRevision))
             && operation.SceneId == _editViewModel?.Scene.Id;
+
+    private static bool CanUseSceneTranscriptionDraft(
+        CaptionDraft draft,
+        Guid sceneId,
+        string? language,
+        TimeSpan rangeStart,
+        TimeSpan duration,
+        TimeSpan chunkDuration,
+        int chunkCount)
+        => draft.SceneTranscriptionResume is { } resume
+            && HoldsPaidWork(draft)
+            && resume.SceneId == sceneId
+            && resume.Language == language
+            && resume.RangeStart == rangeStart
+            && resume.Duration == duration
+            && resume.ChunkDuration == chunkDuration
+            && resume.ChunkCount == chunkCount;
+
+    private static SceneTranscriptionOperation RestoreSceneTranscriptionOperation(
+        CaptionDraft draft,
+        AudioSourceItem source,
+        long captionRevision,
+        long draftScopeRevision,
+        long sceneAudioRevision)
+    {
+        CaptionSceneTranscriptionResume resume = draft.SceneTranscriptionResume
+            ?? throw new InvalidDataException("The retained scene transcription has no resume state.");
+        var operation = new SceneTranscriptionOperation(
+            source,
+            resume.Language,
+            resume.RangeStart,
+            resume.Duration,
+            resume.ChunkDuration,
+            resume.ChunkCount,
+            captionRevision,
+            draftScopeRevision,
+            sceneAudioRevision,
+            resume.SceneId,
+            string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
+            resume.RequestKeyNamePending)
+        {
+            CompletedChunkCount = resume.CompletedChunkCount,
+            DetectedLanguage = resume.DetectedLanguage,
+            RequestKeyModel = resume.RequestKeyModel,
+        };
+        operation.Segments.AddRange(CloneSegments(resume.Segments));
+        return operation;
+    }
 
     private CaptionDraftOutcome PublishSceneTranscriptionPartial(SceneTranscriptionOperation operation)
     {
@@ -1335,7 +1607,7 @@ public sealed partial class AiSubtitleDialogViewModel
         => _pendingSourceTranscription is { } operation
             && (operation.CompletedChunkCount > 0
                 || operation.RequestKey.HasOutstandingName.Value)
-            && operation.CompletedChunkCount < operation.ChunkCount
+            && operation.CompletedChunkCount <= operation.ChunkCount
             && (operation.Source is null || AudioSourceItem.CanResume(source, operation.Source))
             && AudioSourceItem.FilePathsEqual(operation.FilePath, filePath)
             && operation.ElementId == source.ElementId
@@ -1348,6 +1620,60 @@ public sealed partial class AiSubtitleDialogViewModel
             && operation.LastWriteTimeUtcTicks == fingerprint.LastWriteTimeUtcTicks
             && operation.ExpectedDraftScopeRevision == draftScopeRevision
             && IsCurrentCaptionDraftScope(draftScopeRevision);
+
+    private static bool CanUseSourceTranscriptionDraft(
+        CaptionDraft draft,
+        AudioSourceItem source,
+        string filePath,
+        string? language,
+        int sampleRate,
+        long totalSamples,
+        int chunkSamples,
+        int chunkCount,
+        SourceAudioFingerprint fingerprint)
+        => draft.SourceTranscriptionResume is { } resume
+            && HoldsPaidWork(draft)
+            && AudioSourceItem.FilePathsEqual(resume.FilePath, filePath)
+            && resume.ElementId == source.ElementId
+            && resume.Language == language
+            && resume.SampleRate == sampleRate
+            && resume.TotalSamples == totalSamples
+            && resume.ChunkSamples == chunkSamples
+            && resume.ChunkCount == chunkCount
+            && resume.FileLength == fingerprint.FileLength
+            && resume.LastWriteTimeUtcTicks == fingerprint.LastWriteTimeUtcTicks;
+
+    private static SourceTranscriptionOperation RestoreSourceTranscriptionOperation(
+        CaptionDraft draft,
+        AudioSourceItem source,
+        long captionRevision,
+        long draftScopeRevision)
+    {
+        CaptionSourceTranscriptionResume resume = draft.SourceTranscriptionResume
+            ?? throw new InvalidDataException("The retained source transcription has no resume state.");
+        var operation = new SourceTranscriptionOperation(
+            source,
+            resume.FilePath,
+            resume.ElementId,
+            resume.FileLength,
+            resume.LastWriteTimeUtcTicks,
+            resume.Language,
+            resume.SampleRate,
+            resume.TotalSamples,
+            resume.ChunkSamples,
+            resume.ChunkCount,
+            captionRevision,
+            draftScopeRevision,
+            string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
+            resume.RequestKeyNamePending)
+        {
+            CompletedChunkCount = resume.CompletedChunkCount,
+            DetectedLanguage = resume.DetectedLanguage,
+            RequestKeyModel = resume.RequestKeyModel,
+        };
+        operation.SourceSegments.AddRange(CloneSegments(resume.Segments));
+        return operation;
+    }
 
     private CaptionDraftOutcome PublishSourceTranscriptionPartial(SourceTranscriptionOperation operation)
     {
@@ -1488,11 +1814,20 @@ public sealed partial class AiSubtitleDialogViewModel
                 : CaptionDraftOutcome.Recorded;
         }
 
+        CaptionDraft draft = CreateCaptionDraft(result);
+        if (!HoldsPaidWork(draft) && _retainedCaptionRecoveries.Count > 0)
+        {
+            ResetCurrentCaptionRecovery();
+            PersistRetainedCaptionRecoveries();
+            return CaptionDraftOutcome.Recorded;
+        }
+
         try
         {
             _captionDraftSession.Save(new CaptionDraftEntry(
                 _captionDraftJobId,
-                CreateCaptionDraft(result)));
+                draft,
+                _retainedCaptionRecoveries.ToArray()));
         }
         catch (Exception ex)
         {
@@ -1553,7 +1888,6 @@ public sealed partial class AiSubtitleDialogViewModel
             && result.Segments is { } sourceResultSegments
             && _pendingSourceTranscription is { } sourceTranscription
             && sourceTranscription.CompletedChunkCount == result.CompletedSteps
-            && sourceTranscription.CompletedChunkCount < sourceTranscription.ChunkCount
             && sourceTranscription.ChunkCount == result.TotalSteps
             && (sourceTranscription.Source is null
                 || SegmentsEqual(
@@ -1594,6 +1928,79 @@ public sealed partial class AiSubtitleDialogViewModel
             sourceResume);
     }
 
+    private bool TryParkCurrentCaptionRecovery()
+    {
+        if (_partialResult is { } result)
+        {
+            var entry = new CaptionDraftEntry(_captionDraftJobId, CreateCaptionDraft(result));
+            if (HoldsPaidWork(entry.Draft))
+            {
+                string identity = GetRecoveryIdentity(entry);
+                int duplicate = _retainedCaptionRecoveries.FindIndex(candidate =>
+                    string.Equals(GetRecoveryIdentity(candidate), identity, StringComparison.Ordinal));
+                if (duplicate >= 0)
+                {
+                    _retainedCaptionRecoveries[duplicate] = entry;
+                }
+                else
+                {
+                    if (_retainedCaptionRecoveries.Count
+                        >= FileCaptionDraftStore.MaximumRetainedRecoveries)
+                        return false;
+                    _retainedCaptionRecoveries.Add(entry);
+                }
+            }
+        }
+
+        ResetCurrentCaptionRecovery();
+        return true;
+    }
+
+    private void ResetCurrentCaptionRecovery()
+    {
+        _partialResult = null;
+        _pendingTranslation = null;
+        _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
+        _captionDraftJobId = null;
+        HasPartialResult.Value = false;
+        PartialResultMessage.Value = null;
+        ClearRestoredModelPreference();
+        UpdateOutstandingCaptionRequest();
+    }
+
+    private static string GetRecoveryIdentity(CaptionDraftEntry entry)
+    {
+        CaptionDraft draft = entry.Draft;
+        string seed = draft.TranslationResume?.RequestKeySeed
+            ?? draft.SourceTranscriptionResume?.RequestKeySeed
+            ?? draft.SceneTranscriptionResume?.RequestKeySeed
+            ?? string.Empty;
+        return $"{draft.Kind}:{seed}:{entry.JobId}";
+    }
+
+    private void PersistRetainedCaptionRecoveries()
+    {
+        if (_captionDraftSession is null || _retainedCaptionRecoveries.Count == 0)
+            return;
+
+        CaptionDraftEntry root = _retainedCaptionRecoveries[^1];
+        CaptionDraftEntry[] additional = _retainedCaptionRecoveries
+            .Take(_retainedCaptionRecoveries.Count - 1)
+            .ToArray();
+        try
+        {
+            _captionDraftSession.Save(new CaptionDraftEntry(
+                root.JobId,
+                root.Draft,
+                additional));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist retained paid caption recoveries.");
+        }
+    }
+
     private void RestoreCaptionDraft()
     {
         if (_captionDraftSession is null)
@@ -1620,6 +2027,8 @@ public sealed partial class AiSubtitleDialogViewModel
 
         try
         {
+            _retainedCaptionRecoveries.Clear();
+            _retainedCaptionRecoveries.AddRange(entry.Recoveries);
             _captionDraftJobId = entry.JobId;
             CaptionDraft draft = entry.Draft;
             long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
@@ -1704,6 +2113,15 @@ public sealed partial class AiSubtitleDialogViewModel
                         SelectedSourceLanguage.Value = sourceOption;
                     if (targetOption is not null)
                         SelectedTargetLanguage.Value = targetOption;
+                    if (draft.CompletedSteps == 0
+                        && translation.RequestKeyNamePending
+                        && _editableCues.Count == 0)
+                    {
+                        ReplaceCues(new CaptionDocument(
+                            sourceDocument.Cues.Select(cue => cue with { })));
+                        operation.ExpectedCaptionRevision = Interlocked.Read(
+                            ref _captionDocumentRevision);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1903,23 +2321,21 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ClearPartialResult()
     {
-        _partialResult = null;
-        HasPartialResult.Value = false;
-        PartialResultMessage.Value = null;
-        _pendingTranslation = null;
-        _pendingSceneTranscription = null;
-        _pendingSourceTranscription = null;
-        // The preference belonged to the run that has just gone; leaving it
-        // would move the picker back to that model on the next activation.
-        ClearRestoredModelPreference();
-        UpdateOutstandingCaptionRequest();
-        try
+        ResetCurrentCaptionRecovery();
+        if (_retainedCaptionRecoveries.Count == 0)
         {
-            _captionDraftSession?.Delete();
+            try
+            {
+                _captionDraftSession?.Delete();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove the recoverable caption draft.");
+            }
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogWarning(ex, "Failed to remove the recoverable caption draft.");
+            PersistRetainedCaptionRecoveries();
         }
         _transcriptionEstimateRevision.Value++;
         RefreshTranslationEstimate();
@@ -2035,7 +2451,15 @@ public sealed partial class AiSubtitleDialogViewModel
             return false;
         }
 
-        ChangeCaptionDraftJob(null, deleteCurrent: true);
+        if (!TryParkCurrentCaptionRecovery())
+        {
+            Error.Value = Strings.AiSubtitle_RunCannotBeRecorded;
+            return false;
+        }
+        if (_retainedCaptionRecoveries.Count == 0)
+            ChangeCaptionDraftJob(null, deleteCurrent: true);
+        else
+            PersistRetainedCaptionRecoveries();
         _lastCaptionLanguage = null;
         DetectedLanguageText.Value = null;
         ReplaceCues(result.Document);
@@ -2056,6 +2480,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 _logger.LogWarning(ex, "Failed to remove the previous recoverable caption draft.");
             }
         }
+        if (deleteCurrent)
+            _retainedCaptionRecoveries.Clear();
         _captionDraftJobId = string.IsNullOrWhiteSpace(jobId) ? null : jobId.Trim();
     }
 
@@ -2136,10 +2562,96 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         HasOutstandingTranscriptionRequest.Value =
             _pendingSourceTranscription?.RequestKey.HasOutstandingName.Value == true
-            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true;
+            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _pendingSourceTranscription is { CompletedChunkCount: > 0 } completedSource
+            && completedSource.CompletedChunkCount == completedSource.ChunkCount
+            || _pendingSceneTranscription is { CompletedChunkCount: > 0 } completedScene
+            && completedScene.CompletedChunkCount == completedScene.ChunkCount;
         HasOutstandingTranslationRequest.Value =
-            _pendingTranslation?.RequestKey.HasOutstandingName.Value == true;
+            _pendingTranslation?.RequestKey.HasOutstandingName.Value == true
+            || _pendingTranslation is { CompletedBatchCount: > 0 } completedTranslation
+            && completedTranslation.CompletedBatchCount == completedTranslation.Batches.Count
+            || _retainedCaptionRecoveries.Any(entry =>
+                entry.Draft.Kind == CaptionDraftKind.Translation
+                && (entry.Draft.TranslationResume?.RequestKeyNamePending == true
+                    || entry.Draft.CompletedSteps > 0
+                    && entry.Draft.CompletedSteps == entry.Draft.TotalSteps));
+        HasOutstandingTranscriptionRequest.Value |= _retainedCaptionRecoveries.Any(entry =>
+            entry.Draft.Kind == CaptionDraftKind.Transcription
+            && (entry.Draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+                || entry.Draft.SceneTranscriptionResume?.RequestKeyNamePending == true
+                || entry.Draft.CompletedSteps > 0
+                && entry.Draft.CompletedSteps == entry.Draft.TotalSteps));
     }
+
+    private bool HasPendingTranslationName()
+        => _pendingTranslation?.RequestKey.HasOutstandingName.Value == true
+            || _retainedCaptionRecoveries.Any(entry =>
+                entry.Draft.TranslationResume?.RequestKeyNamePending == true);
+
+    private bool HasPendingTranscriptionName()
+        => _pendingSourceTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _retainedCaptionRecoveries.Any(entry =>
+                entry.Draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+                || entry.Draft.SceneTranscriptionResume?.RequestKeyNamePending == true);
+
+    private IReadOnlyList<AiModelId> OutstandingTranslationModels()
+        => EnumerateOutstandingModels(
+                _pendingTranslation is { } current
+                && (current.RequestKey.HasOutstandingName.Value
+                    || current.CompletedBatchCount > 0
+                    && current.CompletedBatchCount < current.Batches.Count)
+                        ? current.RequestKeyModel
+                        : null,
+                _retainedCaptionRecoveries
+                    .Where(entry => entry.Draft.TranslationResume is { } resume
+                        && (resume.RequestKeyNamePending
+                            || entry.Draft.CompletedSteps > 0
+                            && entry.Draft.CompletedSteps < entry.Draft.TotalSteps))
+                    .Select(entry => entry.Draft.TranslationResume!.RequestKeyModel))
+            .ToArray();
+
+    private IReadOnlyList<AiModelId> OutstandingTranscriptionModels()
+        => EnumerateOutstandingModels(
+                CurrentTranscriptionModel(),
+                _retainedCaptionRecoveries
+                    .Where(entry => entry.Draft.Kind == CaptionDraftKind.Transcription
+                        && (entry.Draft.CompletedSteps > 0
+                            && entry.Draft.CompletedSteps < entry.Draft.TotalSteps
+                            || entry.Draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+                            || entry.Draft.SceneTranscriptionResume?.RequestKeyNamePending == true))
+                    .Select(entry => entry.Draft.SourceTranscriptionResume?.RequestKeyModel
+                        ?? entry.Draft.SceneTranscriptionResume?.RequestKeyModel
+                        ?? string.Empty))
+            .ToArray();
+
+    private string? CurrentTranscriptionModel()
+    {
+        if (_pendingSourceTranscription is { } source
+            && (source.RequestKey.HasOutstandingName.Value
+                || source.CompletedChunkCount > 0
+                && source.CompletedChunkCount < source.ChunkCount))
+        {
+            return source.RequestKeyModel;
+        }
+        if (_pendingSceneTranscription is { } scene
+            && (scene.RequestKey.HasOutstandingName.Value
+                || scene.CompletedChunkCount > 0
+                && scene.CompletedChunkCount < scene.ChunkCount))
+        {
+            return scene.RequestKeyModel;
+        }
+        return null;
+    }
+
+    private static IEnumerable<AiModelId> EnumerateOutstandingModels(
+        string? current,
+        IEnumerable<string> retained)
+        => retained.Prepend(current ?? string.Empty)
+            .Where(model => !string.IsNullOrWhiteSpace(model))
+            .Distinct(StringComparer.Ordinal)
+            .Select(model => new AiModelId(model));
 
 
 
@@ -2192,6 +2704,7 @@ public sealed partial class AiSubtitleDialogViewModel
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
         _pendingSourceTranscription = null;
+        _retainedCaptionRecoveries.Clear();
         _pendingHistoryResult = null;
         _lastCaptionLanguage = null;
         ClearRestoredModelPreference();
@@ -2239,7 +2752,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
         if (read.Outcome == CaptionDraftReadOutcome.Unreadable)
             return false;
-        if (read.Entry is { } entry && HoldsPaidWork(entry.Draft))
+        if (read.Entry is { } entry && HoldsPaidWork(entry))
             return false;
 
         _captionDraftIsUnreadable = false;
@@ -2270,7 +2783,7 @@ public sealed partial class AiSubtitleDialogViewModel
         // 何も無いと分かったときだけ引き継ぐ。読めなかったのは、無いのとは違う。
         if (left.Outcome == CaptionDraftReadOutcome.Absent)
             return;
-        if (left.Entry is { } entry && !HoldsPaidWork(entry.Draft))
+        if (left.Entry is { } entry && !HoldsPaidWork(entry))
             return;
 
         _captionDraftSession.Dispose();
@@ -2286,6 +2799,10 @@ public sealed partial class AiSubtitleDialogViewModel
             || draft.TranslationResume?.RequestKeyNamePending == true
             || draft.SourceTranscriptionResume?.RequestKeyNamePending == true
             || draft.SceneTranscriptionResume?.RequestKeyNamePending == true;
+
+    private static bool HoldsPaidWork(CaptionDraftEntry entry)
+        => HoldsPaidWork(entry.Draft)
+            || entry.Recoveries.Any(recovery => HoldsPaidWork(recovery.Draft));
 
     private void OpenCaptionDraftSession(CaptionDraftScope? scope)
     {
@@ -3166,7 +3683,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
         public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
 
-        public long ExpectedSceneAudioRevision { get; } = expectedSceneAudioRevision;
+        public long ExpectedSceneAudioRevision { get; set; } = expectedSceneAudioRevision;
 
         public Guid SceneId { get; } = sceneId;
 

@@ -155,6 +155,109 @@ public class AiModelCatalogTests
             // be refused, so offering it is worse than hiding it.
             Assert.That((hailuo with { Resolutions = [] }).CanServeAnything(), Is.False);
             Assert.That((hailuo with { AspectRatios = [] }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { DurationsSeconds = [] }).CanServeAnything(), Is.False);
+            Assert.That(AiVideoModelCapabilities.Unrestricted.CanServeAnything(), Is.True);
+        }
+    }
+
+    [Test]
+    public void Catalog_RulesOutAModelWithAnExplicitlyEmptyDurationList()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+            resolutions: ["720p"],
+            aspectRatios: ["16:9"],
+            minDurationSeconds: 4,
+            maxDurationSeconds: 8,
+            models:
+            [
+                VideoModel(
+                    "empty/durations",
+                    durations: [],
+                    resolutions: ["720p"],
+                    aspectRatios: ["16:9"],
+                    audio: true,
+                    seed: true),
+            ]));
+
+        AiVideoModelCapabilities video =
+            catalog.ModelsFor(AiOperations.VideoGeneration).Single().Video!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(video.DurationsSeconds, Is.Empty);
+            Assert.That(video.DurationsSeconds.IsDefault, Is.False);
+            Assert.That(video.CanServeAnything(), Is.False);
+        }
+    }
+
+    [Test]
+    public void Catalog_LeavesAnOmittedDurationListUnrestricted()
+    {
+        AiModelDescriptionResponse model = VideoModel(
+            "omitted/durations",
+            durations: [4],
+            resolutions: ["720p"],
+            aspectRatios: ["16:9"],
+            audio: true,
+            seed: true) with
+        {
+            DurationsSeconds = null,
+        };
+        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+            resolutions: ["720p"],
+            aspectRatios: ["16:9"],
+            minDurationSeconds: 4,
+            maxDurationSeconds: 8,
+            models: [model]));
+
+        AiVideoModelCapabilities video =
+            catalog.ModelsFor(AiOperations.VideoGeneration).Single().Video!;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(video.DurationsSeconds.IsDefault, Is.True);
+            Assert.That(video.CanServeAnything(), Is.True);
+        }
+    }
+
+    [Test]
+    public void Catalog_DistinguishesOmittedAndExplicitlyEmptyVideoShapes()
+    {
+        AiModelDescriptionResponse omitted = VideoModel(
+            "omitted/shapes",
+            durations: [4],
+            resolutions: ["720p"],
+            aspectRatios: ["16:9"],
+            audio: true,
+            seed: true) with
+        {
+            Resolutions = null,
+            AspectRatios = null,
+        };
+        AiModelDescriptionResponse empty = VideoModel(
+            "empty/shapes",
+            durations: [4],
+            resolutions: [],
+            aspectRatios: [],
+            audio: true,
+            seed: true);
+        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+            resolutions: ["720p", "1080p"],
+            aspectRatios: ["16:9", "9:16"],
+            minDurationSeconds: 4,
+            maxDurationSeconds: 8,
+            models: [omitted, empty]));
+
+        AiVideoModelCapabilities omittedResult = catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        AiVideoModelCapabilities emptyResult = catalog.ModelsFor(AiOperations.VideoGeneration)[1].Video!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(omittedResult.Resolutions, Is.EqualTo(new[] { "720p", "1080p" }));
+            Assert.That(omittedResult.AspectRatios, Is.EqualTo(new[] { "16:9", "9:16" }));
+            Assert.That(omittedResult.CanServeAnything(), Is.True);
+            Assert.That(emptyResult.Resolutions, Is.Empty);
+            Assert.That(emptyResult.AspectRatios, Is.Empty);
+            Assert.That(emptyResult.CanServeAnything(), Is.False);
         }
     }
 
