@@ -547,19 +547,19 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         await _operations.DisposeAsync(async () =>
         {
-        ResultImage.Value?.Dispose();
-        ResultImage.Dispose();
-        PreviewImage.Value?.Dispose();
-        PreviewImage.Dispose();
-        foreach (AiReferenceImageViewModel reference in ReferenceImages)
-            reference.Dispose();
-        ReferenceImages.Clear();
-        Prompt.Dispose();
-        Style.Dispose();
-        Composition.Dispose();
-        Exclusions.Dispose();
-        Error.Dispose();
-        _disposables.Dispose();
+            ResultImage.Value?.Dispose();
+            ResultImage.Dispose();
+            PreviewImage.Value?.Dispose();
+            PreviewImage.Dispose();
+            foreach (AiReferenceImageViewModel reference in ReferenceImages)
+                reference.Dispose();
+            ReferenceImages.Clear();
+            Prompt.Dispose();
+            Style.Dispose();
+            Composition.Dispose();
+            Exclusions.Dispose();
+            Error.Dispose();
+            _disposables.Dispose();
         });
     }
 
@@ -637,7 +637,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
     // ones that fit, in the order they were picked.
     private string[] WithinTotalLimit(IEnumerable<string> paths)
     {
-        long limit = ModelPicker.MaxImageReferencesTotalBytes;
+        long limit = ModelPicker.ImageReferenceLimits.MaxTotalBytes;
         long total = 0;
         var within = new List<string>();
         foreach (string path in paths)
@@ -714,6 +714,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             // model's place is left empty until it is known, because which
             // model this request carries depends on whether it is the request a
             // name is already outstanding for.
+            AiImageReferenceLimits referenceLimits = ModelPicker.ImageReferenceLimits;
             // Read once, and named by that reading. Reading again to send would
             // name one set of bytes and upload another if a picture changed in
             // between, and the answer would be recorded under a name that
@@ -721,7 +722,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             (AiUploadSource[] references, string[] referenceStamps) =
                 await ReadReferencesAsync(
                     referencePaths,
-                    ModelPicker.MaxImageReferencesTotalBytes,
+                    referenceLimits.MaxTotalBytes,
                     operation.CancellationToken);
             string?[] requestParts =
             [
@@ -772,7 +773,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                         references: references,
                         model: model,
                         idempotencyKey: name.Key,
-                        referencesTotalLimitBytes: ModelPicker.MaxImageReferencesTotalBytes),
+                        referenceLimits: referenceLimits),
                     new Progress<AiImagePreview>(preview => ShowPreview(preview, operation)),
                     operation.CancellationToken);
             }
@@ -1056,7 +1057,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
             // what each one may be. Said here rather than after the whole set
             // has been sent for the server to refuse.
             long size = SizeOf(path);
-            if (total + size > ModelPicker.MaxImageReferencesTotalBytes)
+            if (total + size > ModelPicker.ImageReferenceLimits.MaxTotalBytes)
             {
                 Error.Value = Strings.AiFileTooLarge;
                 break;
@@ -1087,7 +1088,7 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         // どの一枚も上限があるが、まとめて送れる量にも上限がある。一枚ずつしか
         // 見ないと、全部読み終えて写しまで作ってから断ることになる——残りの分
         // だけを読めば、断るときにはもう抱えていない。
-        long remaining = Math.Min(totalLimit, AiRequestLimits.MaxImageReferencesTotalBytes);
+        long remaining = totalLimit;
         for (int index = 0; index < paths.Length; index++)
         {
             string fileName = Path.GetFileName(paths[index]);

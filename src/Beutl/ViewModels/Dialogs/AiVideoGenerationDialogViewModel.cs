@@ -403,9 +403,9 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
     {
         // The model's own lists, already narrowed to what the server accepts.
         // The client's own are a fallback for a server that publishes none.
-        IEnumerable<int> durations = video.DurationsSeconds.IsDefault
-            ? DefaultDurations
-            : video.DurationsSeconds;
+        IEnumerable<int> durations = video.DurationsSeconds.IsSpecified
+            ? video.DurationsSeconds.Values
+            : DefaultDurations;
         Replace(DurationOptions, durations.Select(seconds => new AiVideoDurationOption(seconds)));
         SelectedDuration.Value = NearestDuration(
             _chosenDuration ?? SelectedDuration.Value,
@@ -413,17 +413,17 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
         MaxDurationIndex.Value = DurationOptions.Count - 1;
         DurationIndex.Value = IndexOfDuration(SelectedDuration.Value);
 
-        IEnumerable<string> resolutions = video.Resolutions.IsDefault
-            ? DefaultResolutions
-            : video.Resolutions;
+        IEnumerable<string> resolutions = video.Resolutions.IsSpecified
+            ? video.Resolutions.Values
+            : DefaultResolutions;
         Replace(ResolutionOptions, resolutions.Select(value => new AiVideoResolutionOption(value)));
         SelectedResolution.Value =
             ResolutionOptions.FirstOrDefault(option => option == _chosenResolution)
             ?? ResolutionOptions[0];
 
-        IEnumerable<string> aspectRatios = video.AspectRatios.IsDefault
-            ? DefaultAspectRatios
-            : video.AspectRatios;
+        IEnumerable<string> aspectRatios = video.AspectRatios.IsSpecified
+            ? video.AspectRatios.Values
+            : DefaultAspectRatios;
         Replace(
             AspectRatioOptions,
             aspectRatios.Select(value => new AiVideoAspectRatioOption(value)));
@@ -646,46 +646,46 @@ public sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDispos
             async () =>
         {
 
-        string[] temporaryFiles;
-        CancellationTokenSource? pollingCts;
-        lock (_lifetimeGate)
-        {
-            temporaryFiles = _temporaryFiles.ToArray();
-            _temporaryFiles.Clear();
-            _temporaryFileLeases.Clear();
-            _temporaryFilesPendingDeletion.Clear();
-            _framesHeldByName.Clear();
-            pollingCts = _pollingCts;
-            _pollingCts = null;
-        }
+            string[] temporaryFiles;
+            CancellationTokenSource? pollingCts;
+            lock (_lifetimeGate)
+            {
+                temporaryFiles = _temporaryFiles.ToArray();
+                _temporaryFiles.Clear();
+                _temporaryFileLeases.Clear();
+                _temporaryFilesPendingDeletion.Clear();
+                _framesHeldByName.Clear();
+                pollingCts = _pollingCts;
+                _pollingCts = null;
+            }
 
-        pollingCts?.Dispose();
-        Prompt.Dispose();
-        Style.Dispose();
-        Composition.Dispose();
-        Motion.Dispose();
-        Exclusions.Dispose();
-        FirstFramePreview.Value?.Dispose();
-        FirstFramePreview.Value = null;
-        LastFramePreview.Value?.Dispose();
-        LastFramePreview.Value = null;
-        FirstFramePath.Value = null;
-        LastFramePath.Value = null;
-        FirstFramePreview.Dispose();
-        LastFramePreview.Dispose();
-        SupportsFirstFrame.Dispose();
-        SupportsLastFrame.Dispose();
-        SupportsFrameGuidance.Dispose();
-        FirstFramePath.Dispose();
-        LastFramePath.Dispose();
-        Error.Dispose();
-        _disposables.Dispose();
-        _availabilityTracker.Dispose();
-        _availabilityLifetimeCts.Dispose();
-        foreach (string path in temporaryFiles)
-        {
-            DeleteTemporaryFile(path);
-        }
+            pollingCts?.Dispose();
+            Prompt.Dispose();
+            Style.Dispose();
+            Composition.Dispose();
+            Motion.Dispose();
+            Exclusions.Dispose();
+            FirstFramePreview.Value?.Dispose();
+            FirstFramePreview.Value = null;
+            LastFramePreview.Value?.Dispose();
+            LastFramePreview.Value = null;
+            FirstFramePath.Value = null;
+            LastFramePath.Value = null;
+            FirstFramePreview.Dispose();
+            LastFramePreview.Dispose();
+            SupportsFirstFrame.Dispose();
+            SupportsLastFrame.Dispose();
+            SupportsFrameGuidance.Dispose();
+            FirstFramePath.Dispose();
+            LastFramePath.Dispose();
+            Error.Dispose();
+            _disposables.Dispose();
+            _availabilityTracker.Dispose();
+            _availabilityLifetimeCts.Dispose();
+            foreach (string path in temporaryFiles)
+            {
+                DeleteTemporaryFile(path);
+            }
         });
     }
 

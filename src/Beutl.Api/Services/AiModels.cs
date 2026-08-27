@@ -66,20 +66,184 @@ public enum AiModelCostTier
 /// model: MiniMax H3 renders only at 2K and refuses anything under five
 /// seconds, while Veo 3.1 takes 4, 6 or 8 seconds at 720p or 1080p. An empty
 /// list is the server explicitly saying the model accepts no value in that
-/// dimension. A default array means the provider omitted the dimension and
-/// leaves the dialog offering its compatible defaults.
+/// dimension. An unspecified dimension means the provider omitted it and leaves
+/// the dialog offering its compatible defaults.
 /// </summary>
+public readonly struct AiVideoCapabilityDimension<T> : IEquatable<AiVideoCapabilityDimension<T>>
+    where T : notnull
+{
+    private readonly ImmutableArray<T> _values;
+
+    private AiVideoCapabilityDimension(ImmutableArray<T> values, bool isSpecified)
+    {
+        _values = values;
+        IsSpecified = isSpecified;
+    }
+
+    public ImmutableArray<T> Values => _values.IsDefault ? [] : _values;
+
+    public bool IsSpecified { get; }
+
+    public static AiVideoCapabilityDimension<T> Unspecified => default;
+
+    public static AiVideoCapabilityDimension<T> Supported(IEnumerable<T> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        return new(values.ToImmutableArray(), true);
+    }
+
+    public static AiVideoCapabilityDimension<T> Unsupported { get; } =
+        new([], true);
+
+    public bool Equals(AiVideoCapabilityDimension<T> other)
+    {
+        if (IsSpecified != other.IsSpecified)
+            return false;
+        return !IsSpecified || Values.SequenceEqual(other.Values);
+    }
+
+    public override bool Equals(object? obj)
+        => obj is AiVideoCapabilityDimension<T> other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(IsSpecified);
+        if (IsSpecified)
+        {
+            foreach (T value in Values)
+                hash.Add(value);
+        }
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(
+        AiVideoCapabilityDimension<T> left,
+        AiVideoCapabilityDimension<T> right)
+        => left.Equals(right);
+
+    public static bool operator !=(
+        AiVideoCapabilityDimension<T> left,
+        AiVideoCapabilityDimension<T> right)
+        => !left.Equals(right);
+}
+
+/// <summary>
+/// The aggregate byte budget for the reference pictures in one image request.
+/// A default value is the client fallback used when an older server publishes
+/// no limit.
+/// </summary>
+public readonly struct AiImageReferenceLimits : IEquatable<AiImageReferenceLimits>
+{
+    private readonly long _maxTotalBytes;
+
+    public AiImageReferenceLimits(long maxTotalBytes)
+    {
+        if (maxTotalBytes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxTotalBytes));
+        _maxTotalBytes = maxTotalBytes;
+    }
+
+    public long MaxTotalBytes => _maxTotalBytes == 0
+        ? AiRequestLimits.MaxImageReferencesTotalBytes
+        : _maxTotalBytes;
+
+    public static AiImageReferenceLimits Default => default;
+
+    public bool Equals(AiImageReferenceLimits other)
+        => MaxTotalBytes == other.MaxTotalBytes;
+
+    public override bool Equals(object? obj)
+        => obj is AiImageReferenceLimits other && Equals(other);
+
+    public override int GetHashCode() => MaxTotalBytes.GetHashCode();
+
+    public static bool operator ==(AiImageReferenceLimits left, AiImageReferenceLimits right)
+        => left.Equals(right);
+
+    public static bool operator !=(AiImageReferenceLimits left, AiImageReferenceLimits right)
+        => !left.Equals(right);
+}
+
+/// <summary>
+/// The server-published shape and serialized-body budget for one caption
+/// translation request. A default value carries the client fallback for an
+/// older server that publishes none of these fields.
+/// </summary>
+public readonly struct AiCaptionTranslationLimits : IEquatable<AiCaptionTranslationLimits>
+{
+    private readonly int _maxSegments;
+    private readonly int _maxCharacters;
+    private readonly int _maxRequestBytes;
+
+    public AiCaptionTranslationLimits(
+        int maxSegments,
+        int maxCharacters,
+        int maxRequestBytes)
+    {
+        if (maxSegments <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxSegments));
+        if (maxCharacters <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxCharacters));
+        if (maxRequestBytes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxRequestBytes));
+        _maxSegments = maxSegments;
+        _maxCharacters = maxCharacters;
+        _maxRequestBytes = maxRequestBytes;
+    }
+
+    public int MaxSegments => _maxSegments == 0
+        ? AiRequestLimits.MaxTranslationSegments
+        : _maxSegments;
+
+    public int MaxCharacters => _maxCharacters == 0
+        ? AiRequestLimits.MaxTranslationCharacters
+        : _maxCharacters;
+
+    public int MaxRequestBytes => _maxRequestBytes == 0
+        ? AiRequestLimits.MaxTranslationRequestBytes
+        : _maxRequestBytes;
+
+    public static AiCaptionTranslationLimits Default => default;
+
+    public bool Equals(AiCaptionTranslationLimits other)
+        => MaxSegments == other.MaxSegments
+            && MaxCharacters == other.MaxCharacters
+            && MaxRequestBytes == other.MaxRequestBytes;
+
+    public override bool Equals(object? obj)
+        => obj is AiCaptionTranslationLimits other && Equals(other);
+
+    public override int GetHashCode()
+        => HashCode.Combine(MaxSegments, MaxCharacters, MaxRequestBytes);
+
+    public static bool operator ==(
+        AiCaptionTranslationLimits left,
+        AiCaptionTranslationLimits right)
+        => left.Equals(right);
+
+    public static bool operator !=(
+        AiCaptionTranslationLimits left,
+        AiCaptionTranslationLimits right)
+        => !left.Equals(right);
+}
+
 public sealed record AiVideoModelCapabilities(
-    ImmutableArray<int> DurationsSeconds,
-    ImmutableArray<string> Resolutions,
-    ImmutableArray<string> AspectRatios,
+    AiVideoCapabilityDimension<int> DurationsSeconds,
+    AiVideoCapabilityDimension<string> Resolutions,
+    AiVideoCapabilityDimension<string> AspectRatios,
     bool SupportsAudio,
     bool SupportsSeed,
     bool SupportsFirstFrame = true,
     bool SupportsLastFrame = true)
 {
     public static AiVideoModelCapabilities Unrestricted { get; } =
-        new(default, default, default, true, true);
+        new(
+            AiVideoCapabilityDimension<int>.Unspecified,
+            AiVideoCapabilityDimension<string>.Unspecified,
+            AiVideoCapabilityDimension<string>.Unspecified,
+            true,
+            true);
 
     /// <summary>
     /// False for a model that shares no resolution or shape with what the
@@ -88,9 +252,9 @@ public sealed record AiVideoModelCapabilities(
     /// model would be refused, and offering it is worse than hiding it.
     /// </summary>
     public bool CanServeAnything()
-        => (DurationsSeconds.IsDefault || !DurationsSeconds.IsEmpty)
-            && (Resolutions.IsDefault || !Resolutions.IsEmpty)
-            && (AspectRatios.IsDefault || !AspectRatios.IsEmpty);
+        => (!DurationsSeconds.IsSpecified || !DurationsSeconds.Values.IsEmpty)
+            && (!Resolutions.IsSpecified || !Resolutions.Values.IsEmpty)
+            && (!AspectRatios.IsSpecified || !AspectRatios.Values.IsEmpty);
 }
 
 /// <summary>
@@ -178,13 +342,16 @@ public sealed class AiModelCatalog
     public bool OffersNoModel(AiOperationId operation) => WithoutModels.Contains(operation);
 
     /// <summary>
-    /// What all the reference pictures of one image generation may come to
-    /// together, as the server publishes it. Falls back to
-    /// <see cref="AiRequestLimits.MaxImageReferencesTotalBytes"/> for a server
-    /// that publishes none.
+    /// The aggregate reference-picture budget published for image generation.
+    /// A default value carries the client fallback for an older server.
     /// </summary>
-    public long MaxImageReferencesTotalBytes { get; init; } =
-        AiRequestLimits.MaxImageReferencesTotalBytes;
+    public AiImageReferenceLimits ImageReferenceLimits { get; init; }
+
+    /// <summary>
+    /// The caption-translation request limits published by the server. A
+    /// default value carries the client fallback for an older server.
+    /// </summary>
+    public AiCaptionTranslationLimits CaptionTranslationLimits { get; init; }
 
     public ImmutableArray<AiModelOption> ModelsFor(AiOperationId operation)
         => Operations.TryGetValue(operation, out ImmutableArray<AiModelOption> models)
@@ -279,10 +446,15 @@ public abstract record AiOperationAvailabilityRequest
 
     public sealed record Translation : AiOperationAvailabilityRequest
     {
-        public Translation(int characterCount, AiModelId? model = null)
+        public Translation(
+            int characterCount,
+            AiModelId? model = null,
+            AiCaptionTranslationLimits? limits = null)
             : base(AiOperations.CaptionTranslation, model)
         {
-            if (characterCount is <= 0 or > 20_000)
+            AiCaptionTranslationLimits effectiveLimits =
+                limits ?? AiCaptionTranslationLimits.Default;
+            if (characterCount <= 0 || characterCount > effectiveLimits.MaxCharacters)
                 throw new ArgumentOutOfRangeException(nameof(characterCount));
             CharacterCount = characterCount;
         }
@@ -293,7 +465,26 @@ public abstract record AiOperationAvailabilityRequest
 
 public static class AiRequestLimits
 {
+    private static readonly ImmutableHashSet<string> s_iso6391LanguageCodes =
+        ("aa ab ae af ak am an ar as av ay az ba be bg bh bi bm bn bo br bs "
+        + "ca ce ch co cr cs cu cv cy da de dv dz ee el en eo es et eu fa ff "
+        + "fi fj fo fr fy ga gd gl gn gu gv ha he hi ho hr ht hu hy hz ia id "
+        + "ie ig ii ik io is it iu ja jv ka kg ki kj kk kl km kn ko kr ks ku "
+        + "kv kw ky la lb lg li ln lo lt lu lv mg mh mi mk ml mn mr ms mt my "
+        + "na nb nd ne ng nl nn no nr nv ny oc oj om or os pa pi pl ps pt qu "
+        + "rm rn ro ru rw sa sc sd se sg si sk sl sm sn so sq sr ss st su sv "
+        + "sw ta te tg th ti tk tl tn to tr ts tt tw ty ug uk ur uz ve vi vo "
+        + "wa wo xh yi yo za zh zu")
+        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .ToImmutableHashSet(StringComparer.Ordinal);
+
     public const int MaxPromptLength = 4_000;
+
+    public const int MaxTranslationSegments = 200;
+
+    public const int MaxTranslationCharacters = 20_000;
+
+    public const int MaxTranslationRequestBytes = 128 * 1024;
 
     public const long MaxFrameUploadBytes = 5L * 1024 * 1024;
 
@@ -353,6 +544,26 @@ public static class AiRequestLimits
 
         return normalized;
     }
+
+    internal static bool IsSafeTranslationIdentifier(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > 64)
+            return false;
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            bool alphaNumeric = c is >= 'A' and <= 'Z'
+                or >= 'a' and <= 'z'
+                or >= '0' and <= '9';
+            if (i == 0 ? !alphaNumeric : !alphaNumeric && c is not ('_' or '-'))
+                return false;
+        }
+
+        return true;
+    }
+
+    internal static bool IsIso6391LanguageCode(string value)
+        => s_iso6391LanguageCodes.Contains(value);
 
     internal static string? ValidateOptionalPrompt(string? prompt, string parameterName)
         => string.IsNullOrWhiteSpace(prompt) ? null : ValidatePrompt(prompt, parameterName);
@@ -517,11 +728,7 @@ public sealed record AiImageGenerationRequest
         IReadOnlyList<AiUploadSource>? references = null,
         AiModelId? model = null,
         string? idempotencyKey = null,
-        // What the server publishes as the total its reference pictures may come
-        // to. Left unset, the outer bound this client knows is used; a server
-        // that publishes a different figure is what
-        // <see cref="AiModelCatalog.MaxImageReferencesTotalBytes"/> carries.
-        long? referencesTotalLimitBytes = null)
+        AiImageReferenceLimits? referenceLimits = null)
     {
         if (aspectRatio.Value.Length == 0)
             throw new ArgumentException("An image aspect ratio is required.", nameof(aspectRatio));
@@ -536,15 +743,14 @@ public sealed record AiImageGenerationRequest
             throw new ArgumentException("Reference pictures cannot contain null.", nameof(references));
         if (references?.Any(reference => reference.Length > AiRequestLimits.MaxImageUploadBytes) == true)
             throw new AiFileTooLargeException();
-        long totalLimit = referencesTotalLimitBytes is { } published && published > 0
-            ? published
-            : AiRequestLimits.MaxImageReferencesTotalBytes;
+        AiImageReferenceLimits effectiveLimits =
+            referenceLimits ?? AiImageReferenceLimits.Default;
         if (references is not null)
         {
             long total = 0;
             foreach (AiUploadSource reference in references)
             {
-                if (reference.Length > totalLimit - total)
+                if (reference.Length > effectiveLimits.MaxTotalBytes - total)
                     throw new AiFileTooLargeException();
                 total += reference.Length;
             }
@@ -557,6 +763,7 @@ public sealed record AiImageGenerationRequest
         References = references is null || references.Count == 0
             ? []
             : Array.AsReadOnly(references.ToArray());
+        ReferenceLimits = effectiveLimits;
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
@@ -585,11 +792,17 @@ public sealed record AiImageGenerationRequest
     /// Existing pictures the generation is guided by, in the order the model
     /// should read them. Up to <see cref="AiRequestLimits.MaxImageReferences"/>,
     /// which is what the operation's price covers, and together no larger than
-    /// <see cref="AiRequestLimits.MaxImageReferencesTotalBytes"/>; a model that
-    /// takes fewer says so through
+    /// <see cref="ReferenceLimits"/>; a model that takes fewer says so through
     /// <see cref="AiImageModelCapabilities.MaxReferenceImages"/>.
     /// </summary>
     public IReadOnlyList<AiUploadSource> References { get; }
+
+    /// <summary>
+    /// The immutable total byte budget used when this request was validated.
+    /// It is copied from the server capability snapshot so a later capability
+    /// refresh cannot change the request after construction.
+    /// </summary>
+    public AiImageReferenceLimits ReferenceLimits { get; }
 
     /// <summary>
     /// Which model to run on. Null asks for the operation's default; naming one
@@ -720,6 +933,17 @@ public sealed record AiCaptionTranslationStyle
                 nameof(glossary));
         }
 
+        if (glossary is not null)
+        {
+            foreach ((string term, string translation) in glossary)
+            {
+                if (string.IsNullOrEmpty(term) || term.Length > 100)
+                    throw new ArgumentException("Glossary terms must be 1 to 100 characters.", nameof(glossary));
+                if (string.IsNullOrEmpty(translation) || translation.Length > 200)
+                    throw new ArgumentException("Glossary translations must be 1 to 200 characters.", nameof(glossary));
+            }
+        }
+
         if (maxCharactersPerLine is not null and (< 1 or > 200))
             throw new ArgumentOutOfRangeException(nameof(maxCharactersPerLine));
         if (maxLines is not null and (< 1 or > 10))
@@ -757,25 +981,80 @@ public sealed record AiCaptionTranslationRequest
         string? sourceLanguage = null,
         AiCaptionTranslationStyle? style = null,
         AiModelId? model = null,
-        string? idempotencyKey = null)
+        string? idempotencyKey = null,
+        AiCaptionTranslationLimits? limits = null)
     {
         ArgumentNullException.ThrowIfNull(segments);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetLanguage);
+        AiCaptionTranslationLimits effectiveLimits =
+            limits ?? AiCaptionTranslationLimits.Default;
         if (segments.Count == 0)
             throw new ArgumentException("At least one subtitle segment is required.", nameof(segments));
+        if (segments.Count > effectiveLimits.MaxSegments)
+            throw new ArgumentException(
+                $"At most {effectiveLimits.MaxSegments} subtitle segments may be translated.",
+                nameof(segments));
         if (segments.Any(segment => segment is null))
             throw new ArgumentException("Translation segments cannot contain null.", nameof(segments));
 
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        int characterCount = 0;
+        foreach (AiCaptionTranslationSegment segment in segments)
+        {
+            if (!AiRequestLimits.IsSafeTranslationIdentifier(segment.Id))
+                throw new ArgumentException("Translation segment IDs must be 1 to 64 ASCII letters, digits, '_' or '-'.", nameof(segments));
+            if (!ids.Add(segment.Id))
+                throw new ArgumentException("Translation segment IDs must be unique.", nameof(segments));
+            if (string.IsNullOrWhiteSpace(segment.Text)
+                || segment.Text.Length > effectiveLimits.MaxCharacters)
+            {
+                throw new ArgumentException(
+                    $"Translation segment text must be 1 to {effectiveLimits.MaxCharacters} characters.",
+                    nameof(segments));
+            }
+
+            characterCount = checked(characterCount + segment.Text.Length);
+            if (segment.Context is { } context
+                && !AiRequestLimits.IsSafeTranslationIdentifier(context.GroupId))
+            {
+                throw new ArgumentException("Translation context group IDs must be 1 to 64 safe ASCII characters.", nameof(segments));
+            }
+            if (segment.Context is { PartIndex: var partIndex }
+                && partIndex >= effectiveLimits.MaxSegments)
+            {
+                throw new ArgumentException(
+                    $"Translation context part indexes must be below {effectiveLimits.MaxSegments}.",
+                    nameof(segments));
+            }
+        }
+
         Segments = Array.AsReadOnly(segments.ToArray());
         TargetLanguage = targetLanguage.Trim().ToLowerInvariant();
-        SourceLanguage = string.IsNullOrWhiteSpace(sourceLanguage)
-            ? null
-            : sourceLanguage.Trim().ToLowerInvariant();
+        if (!AiRequestLimits.IsIso6391LanguageCode(TargetLanguage))
+            throw new ArgumentException("Target language must be an ISO 639-1 language code.", nameof(targetLanguage));
+        if (sourceLanguage is not null && string.IsNullOrWhiteSpace(sourceLanguage))
+            throw new ArgumentException(
+                "Source language cannot be whitespace.",
+                nameof(sourceLanguage));
+        SourceLanguage = sourceLanguage?.Trim().ToLowerInvariant();
+        if (SourceLanguage is not null && !AiRequestLimits.IsIso6391LanguageCode(SourceLanguage))
+            throw new ArgumentException("Source language must be an ISO 639-1 language code.", nameof(sourceLanguage));
         Style = style is null || style.IsEmpty ? null : style;
+        if (Style?.Glossary is { } glossary)
+        {
+            foreach ((string term, string translation) in glossary)
+                characterCount = checked(characterCount + term.Length + translation.Length);
+        }
+        if (characterCount > effectiveLimits.MaxCharacters)
+            throw new ArgumentException(
+                $"Translation text cannot exceed {effectiveLimits.MaxCharacters} characters.",
+                nameof(segments));
         Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
             nameof(idempotencyKey));
+        Limits = effectiveLimits;
+        _ = AiCaptionTranslationRequestTransport.CreatePayload(this);
     }
 
     public IReadOnlyList<AiCaptionTranslationSegment> Segments { get; }
@@ -787,6 +1066,8 @@ public sealed record AiCaptionTranslationRequest
     public AiCaptionTranslationStyle? Style { get; }
 
     public AiModelId? Model { get; }
+
+    public AiCaptionTranslationLimits Limits { get; }
 
     /// <summary>
     /// Names this request, so that sending it again asks the server for the
@@ -1169,6 +1450,10 @@ public sealed record AiCaptionTranslationSegmentContext
         TimeSpan end)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
+        if (!AiRequestLimits.IsSafeTranslationIdentifier(groupId))
+            throw new ArgumentException(
+                "Translation context group IDs must be 1 to 64 safe ASCII characters.",
+                nameof(groupId));
         if (partIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(partIndex));
         if (start < TimeSpan.Zero)
@@ -1268,15 +1553,40 @@ internal static class AiModelMapper
                 .Where(pair => pair.Value.Models is { IsDefaultOrEmpty: true })
                 .Select(pair => new AiOperationId(pair.Key)))
         {
-            MaxImageReferencesTotalBytes =
-                response.Operations.TryGetValue(
-                    AiOperations.ImageGeneration.Value,
-                    out AiOperationCapabilityResponse? imageGeneration)
-                && imageGeneration.MaxReferenceImagesTotalBytes is { } published
-                && published > 0
-                    ? published
-                    : AiRequestLimits.MaxImageReferencesTotalBytes,
+            ImageReferenceLimits = ToImageReferenceLimits(response),
+            CaptionTranslationLimits = ToCaptionTranslationLimits(response),
         };
+    }
+
+    private static AiImageReferenceLimits ToImageReferenceLimits(
+        AiCapabilitiesResponse response)
+        => response.Operations.TryGetValue(
+                AiOperations.ImageGeneration.Value,
+                out AiOperationCapabilityResponse? operation)
+            && operation.MaxReferenceImagesTotalBytes is > 0 and var maxTotalBytes
+                ? new AiImageReferenceLimits(maxTotalBytes)
+                : AiImageReferenceLimits.Default;
+
+    private static AiCaptionTranslationLimits ToCaptionTranslationLimits(
+        AiCapabilitiesResponse response)
+    {
+        if (!response.Operations.TryGetValue(
+                AiOperations.CaptionTranslation.Value,
+                out AiOperationCapabilityResponse? operation))
+        {
+            return AiCaptionTranslationLimits.Default;
+        }
+
+        return new AiCaptionTranslationLimits(
+            operation.MaxSegments is > 0 and var maxSegments
+                ? maxSegments
+                : AiRequestLimits.MaxTranslationSegments,
+            operation.MaxCharacters is > 0 and var maxCharacters
+                ? maxCharacters
+                : AiRequestLimits.MaxTranslationCharacters,
+            operation.MaxRequestBytes is > 0 and var maxRequestBytes
+                ? maxRequestBytes
+                : AiRequestLimits.MaxTranslationRequestBytes);
     }
 
     // Null for every operation but image, where the server publishes nothing of
@@ -1329,13 +1639,17 @@ internal static class AiModelMapper
 
         return Narrow(
             new AiVideoModelCapabilities(
-                model.DurationsSeconds ?? default,
+                model.DurationsSeconds is { } durations
+                    ? AiVideoCapabilityDimension<int>.Supported(durations)
+                    : AiVideoCapabilityDimension<int>.Unspecified,
                 model.Resolutions is { } resolutions
-                    ? [.. resolutions.Where(value => !string.IsNullOrWhiteSpace(value))]
-                    : default,
+                    ? AiVideoCapabilityDimension<string>.Supported(
+                        resolutions.Where(value => !string.IsNullOrWhiteSpace(value)))
+                    : AiVideoCapabilityDimension<string>.Unspecified,
                 model.AspectRatios is { } aspectRatios
-                    ? [.. aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value))]
-                    : default,
+                    ? AiVideoCapabilityDimension<string>.Supported(
+                        aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value)))
+                    : AiVideoCapabilityDimension<string>.Unspecified,
                 model.Audio ?? true,
                 model.Seed ?? true,
                 model.FirstFrame ?? true,
@@ -1370,11 +1684,11 @@ internal static class AiModelMapper
         AiVideoModelCapabilities model,
         AiOperationCapabilityResponse capability)
     {
-        ImmutableArray<int> durations = model.DurationsSeconds.IsDefault
-            ? default
-            : [.. model.DurationsSeconds.Where(seconds =>
+        AiVideoCapabilityDimension<int> durations = !model.DurationsSeconds.IsSpecified
+            ? model.DurationsSeconds
+            : AiVideoCapabilityDimension<int>.Supported(model.DurationsSeconds.Values.Where(seconds =>
                 seconds >= (capability.MinDurationSeconds ?? int.MinValue)
-                && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue))];
+                && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue)));
         return model with
         {
             DurationsSeconds = durations,
@@ -1383,17 +1697,17 @@ internal static class AiModelMapper
         };
     }
 
-    private static ImmutableArray<string> NarrowVideoDimension(
-        ImmutableArray<string> model,
+    private static AiVideoCapabilityDimension<string> NarrowVideoDimension(
+        AiVideoCapabilityDimension<string> model,
         ImmutableArray<string>? operation)
     {
         if (operation is not { IsDefaultOrEmpty: false } offered)
             return model;
-        if (model.IsDefault)
-            return offered;
-        if (model.IsEmpty)
-            return [];
-        return [.. offered.Where(model.Contains)];
+        if (!model.IsSpecified)
+            return AiVideoCapabilityDimension<string>.Supported(offered);
+        if (model.Values.IsEmpty)
+            return AiVideoCapabilityDimension<string>.Unsupported;
+        return AiVideoCapabilityDimension<string>.Supported(offered.Where(model.Values.Contains));
     }
 
     // A model that publishes nothing takes whatever the operation accepts, so

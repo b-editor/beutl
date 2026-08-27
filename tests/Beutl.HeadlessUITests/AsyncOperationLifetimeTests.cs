@@ -1,5 +1,5 @@
-﻿using Beutl.Services;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using Beutl.Services;
 
 namespace Beutl.HeadlessUITests;
 
@@ -87,11 +87,148 @@ public sealed class AsyncOperationLifetimeTests
         Task stopping = await stopInvocation.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(stopping.IsCompleted, Is.False);
 
+        // Publication is admitted independently of the operation handle. Its
+        // drain must keep resources alive even when the caller releases the
+        // handle while the callback is still running.
+        operation.Dispose();
+        Assert.That(stopping.IsCompleted, Is.False);
         releasePublication.TrySetResult();
         Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
+        await lifetime.DisposeAsync();
+    }
+
+    [Test]
+    public async Task Stop_RejectsPublicationAfterShutdownAdmission()
+    {
+        var lifetime = new AsyncOperationLifetime();
+        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+
+        Task stopping = lifetime.StopAsync();
+
+        Assert.That(operation.TryPublish(static () => { }), Is.False);
+
         operation.Dispose();
         await stopping.WaitAsync(TimeSpan.FromSeconds(5));
         await lifetime.DisposeAsync();
+    }
+
+    [Test]
+    public async Task Stop_DrainsReentrantPublicationWithoutHoldingTheGate()
+    {
+        var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
+        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        var callbackReturned = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
+        {
+            // StopAsync must publish its task before waiting for this admitted callback,
+            // otherwise a callback that re-enters shutdown would deadlock the lifetime gate.
+            lifetime.StopAsync().GetAwaiter().GetResult();
+            callbackReturned.TrySetResult();
+        }));
+
+        Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        await callbackReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        operation.Dispose();
+        await lifetime.DisposeAsync();
+    }
+
+    [Test]
+    public async Task Stop_DrainsPublicationWhenCallbackThrows()
+    {
+        var lifetime = new AsyncOperationLifetime(TimeSpan.FromSeconds(1));
+        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        var callbackEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCallback = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task publication = Task.Run(() => operation.TryPublish(() =>
+        {
+            callbackEntered.TrySetResult();
+            releaseCallback.Task.GetAwaiter().GetResult();
+            throw new InvalidOperationException("publication failed");
+        }));
+        await callbackEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task stopping = lifetime.StopAsync();
+        operation.Dispose();
+        releaseCallback.TrySetResult();
+
+        Assert.That(
+            async () => await publication.WaitAsync(TimeSpan.FromSeconds(5)),
+            Throws.InstanceOf<InvalidOperationException>());
+        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
+        await lifetime.DisposeAsync();
+    }
+
+    [Test]
+    public async Task Stop_PublishesTaskBeforeCancellationCallbacksCanReenter()
+    {
+        var callbackReturned = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
+        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        using CancellationTokenRegistration registration = operation.CancellationToken.Register(() =>
+        {
+            lifetime.StopAsync().GetAwaiter().GetResult();
+            callbackReturned.TrySetResult();
+        });
+
+        var stopwatch = Stopwatch.StartNew();
+        Task stopping = lifetime.StopAsync();
+        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
+        stopwatch.Stop();
+        await callbackReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        operation.Dispose();
+
+        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromMilliseconds(500)),
+            "A reentrant callback must consume at most the one shared shutdown deadline.");
+    }
+
+    [Test]
+    public async Task Stop_CompletesAtDeadlineAndContinuesDraining()
+    {
+        var lifetime = new AsyncOperationLifetime(TimeSpan.FromMilliseconds(100));
+        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+
+        var stopwatch = Stopwatch.StartNew();
+        Task stopping = lifetime.StopAsync();
+        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
+        stopwatch.Stop();
+
+        Task disposal = lifetime.DisposeAsync().AsTask();
+        Assert.Multiple(() =>
+        {
+            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
+            Assert.That(stopping.IsCompletedSuccessfully, Is.True);
+            Assert.That(disposal.IsCompleted, Is.False,
+                "The deadline only releases the caller; the actual operation drain must continue.");
+        });
+
+        operation.Dispose();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task Stop_ReportsCancellationCallbackFailureAfterDrain()
+    {
+        var lifetime = new AsyncOperationLifetime();
+        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        using CancellationTokenRegistration registration = operation.CancellationToken.Register(
+            static () => throw new InvalidOperationException("callback failed"));
+
+        Task stopping = lifetime.StopAsync();
+        operation.Dispose();
+
+        Assert.That(
+            async () => await stopping.WaitAsync(TimeSpan.FromSeconds(5)),
+            Throws.InstanceOf<InvalidOperationException>());
+        Assert.That(
+            async () => await lifetime.DisposeAsync(),
+            Throws.InstanceOf<InvalidOperationException>());
     }
 
     [Test]
@@ -226,5 +363,30 @@ public sealed class AsyncOperationLifetimeTests
             async () => await disposal.WaitAsync(TimeSpan.FromSeconds(5)),
             Throws.InstanceOf<InvalidOperationException>());
         Assert.That(disposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Dispose_ReportsADeferredResourceFailureAfterTheDeadline()
+    {
+        var releaseCleanup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var observed = new TaskCompletionSource<Exception>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var lifetime = new AsyncOperationLifetime(
+            TimeSpan.FromMilliseconds(100),
+            exception => observed.TrySetResult(exception));
+
+        Task disposal = lifetime.DisposeAsync(async () =>
+        {
+            await releaseCleanup.Task;
+            throw new InvalidOperationException("late cleanup failed");
+        }).AsTask();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(disposal.IsCompletedSuccessfully, Is.True);
+
+        releaseCleanup.TrySetResult();
+        Exception failure = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+        Assert.That(failure.Message, Is.EqualTo("late cleanup failed"));
     }
 }

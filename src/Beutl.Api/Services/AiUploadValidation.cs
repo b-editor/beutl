@@ -1,4 +1,4 @@
-namespace Beutl.Api.Services;
+﻿namespace Beutl.Api.Services;
 
 internal static class AiUploadValidation
 {

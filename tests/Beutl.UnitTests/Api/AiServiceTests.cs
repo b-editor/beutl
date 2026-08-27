@@ -407,6 +407,32 @@ public sealed class AiCapabilityServiceTests
         }
     }
 
+    [Test]
+    public async Task Translation_AcceptsWebEquivalentCjkBodyAndSendsUtf8Json()
+    {
+        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK,
+            "{\"jobId\":\"job-cjk\",\"segments\":[]}"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+
+        AiCaptionTranslationSegment[] segments = Enumerable.Range(0, AiRequestLimits.MaxTranslationSegments)
+            .Select(index => new AiCaptionTranslationSegment
+            {
+                Id = $"cue-{index:D3}",
+                Text = new string('界', AiRequestLimits.MaxTranslationCharacters / AiRequestLimits.MaxTranslationSegments),
+            })
+            .ToArray();
+        await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
+            new AiCaptionTranslationRequest(segments, "ja"),
+            CancellationToken.None);
+
+        RecordedRequest request = handler.Requests.Single();
+        Assert.That(request.Body, Does.Contain("\"text\":\"界界"));
+        Assert.That(Encoding.UTF8.GetByteCount(request.Body), Is.LessThanOrEqualTo(
+            AiRequestLimits.MaxTranslationRequestBytes));
+    }
+
     // A streamed answer as the server sends one: `data:` lines, blank-line
     // separated, ending in the event that carries the answer itself.
     private static HttpResponseMessage EventStream(params (string Event, string Data)[] events)
@@ -740,6 +766,178 @@ public sealed class AiCapabilityServiceTests
             "a calm sky",
             new AiImageAspectRatioId("1:1"),
             references: [Upload("first.png", half), Upload("second.png", half)]));
+    }
+
+    [Test]
+    public void ImageGeneration_PreservesThePublishedReferenceTotalLimit()
+    {
+        AiUploadSource Upload(long length) => new(
+            "reference.png",
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(new MemoryStream()),
+            length);
+
+        const long publishedLimit = 30L * 1024 * 1024;
+        var limits = new AiImageReferenceLimits(publishedLimit);
+        AiImageGenerationRequest request = new(
+            "a calm sky",
+            new AiImageAspectRatioId("1:1"),
+            references: [Upload(15L * 1024 * 1024), Upload(15L * 1024 * 1024)],
+            referenceLimits: limits);
+
+        Assert.That(request.ReferenceLimits, Is.EqualTo(limits));
+    }
+
+    [Test]
+    public async Task ImageGeneration_ServiceUsesThePublishedReferenceTotalLimit()
+    {
+        const int referenceLength = 11 * 1024 * 1024;
+        var handler = new ArrivalHandler(JsonResponse(HttpStatusCode.OK, """
+            {
+              "jobId": "image-dynamic-limit",
+              "fileId": "image-dynamic-limit-file",
+              "url": "https://beutl.beditor.net/api/contents/image-dynamic-limit-file"
+            }
+            """));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+
+        AiUploadSource Upload(string name) => new(
+            name,
+            "image/png",
+            _ => ValueTask.FromResult<Stream>(
+                new MemoryStream(new byte[referenceLength], writable: false)),
+            referenceLength);
+        var limits = new AiImageReferenceLimits(24L * 1024 * 1024);
+
+        await app.GetResource<IAiImageGenerationService>().GenerateAsync(
+            new AiImageGenerationRequest(
+                "a calm sky",
+                new AiImageAspectRatioId("1:1"),
+                references: [Upload("first.png"), Upload("second.png")],
+                referenceLimits: limits),
+            CancellationToken.None);
+
+        Assert.That(handler.RequestCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Translation_EnforcesPublishedRequestLimits()
+    {
+        AiCaptionTranslationSegment Segment(string id, string text) =>
+            new() { Id = id, Text = text };
+
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            Enumerable.Range(0, AiRequestLimits.MaxTranslationSegments + 1)
+                .Select(index => Segment($"cue-{index}", "x"))
+                .ToArray(),
+            "ja"));
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", new string('x', AiRequestLimits.MaxTranslationCharacters + 1))],
+            "ja"));
+
+        var smaller = new AiCaptionTranslationLimits(1, 5, 4 * 1024);
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", "one"), Segment("cue-2", "two")],
+            "ja",
+            limits: smaller));
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", "123456")],
+            "ja",
+            limits: smaller));
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", "x")],
+            "ja",
+            limits: new AiCaptionTranslationLimits(1, 1, 32)));
+    }
+
+    [Test]
+    public void Translation_RejectsOversizedSerializedBodyWhenTheRequestIsConstructed()
+    {
+        AiCaptionTranslationSegment[] segments = Enumerable.Range(
+                0,
+                AiRequestLimits.MaxTranslationSegments)
+            .Select(index => new AiCaptionTranslationSegment
+            {
+                Id = $"cue-{index:D3}{new string('x', 56)}",
+                Text = string.Concat(Enumerable.Repeat(
+                    "😀",
+                    AiRequestLimits.MaxTranslationCharacters /
+                        AiRequestLimits.MaxTranslationSegments / 2)),
+                Context = new AiCaptionTranslationSegmentContext(
+                    new string('g', 64),
+                    index,
+                    TimeSpan.Zero,
+                    TimeSpan.MaxValue),
+            })
+            .ToArray();
+        Assert.Throws<ArgumentException>(() => _ =
+            new AiCaptionTranslationRequest(segments, "ja"));
+    }
+
+    [Test]
+    public void Translation_ValidatesLanguagesAndContextBoundariesLikeWeb()
+    {
+        AiCaptionTranslationSegment Segment(string id, string text) =>
+            new() { Id = id, Text = text };
+
+        AiCaptionTranslationSegment atBoundary = new()
+        {
+            Id = "cue-1",
+            Text = "x",
+            Context = new AiCaptionTranslationSegmentContext(
+                "cue-1",
+                AiRequestLimits.MaxTranslationSegments - 1,
+                TimeSpan.Zero,
+                TimeSpan.FromSeconds(1)),
+        };
+        AiCaptionTranslationRequest accepted = new([atBoundary], " EN ", " JA ");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(accepted.TargetLanguage, Is.EqualTo("en"));
+            Assert.That(accepted.SourceLanguage, Is.EqualTo("ja"));
+        }
+
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", "x")], "zz"));
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", "x")], "en", "zz"));
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [Segment("cue-1", "x")], "en", " "));
+        var extendedContext = new AiCaptionTranslationSegmentContext(
+            "cue-1",
+            AiRequestLimits.MaxTranslationSegments,
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1));
+        Assert.Throws<ArgumentException>(() => _ = new AiCaptionTranslationRequest(
+            [new AiCaptionTranslationSegment
+            {
+                Id = "cue-1",
+                Text = "x",
+                Context = extendedContext,
+            }],
+            "en"));
+        Assert.DoesNotThrow(() => _ = new AiCaptionTranslationRequest(
+            [new AiCaptionTranslationSegment
+            {
+                Id = "cue-1",
+                Text = "x",
+                Context = extendedContext,
+            }],
+            "en",
+            limits: new AiCaptionTranslationLimits(
+                AiRequestLimits.MaxTranslationSegments + 1,
+                AiRequestLimits.MaxTranslationCharacters,
+                AiRequestLimits.MaxTranslationRequestBytes)));
+        Assert.Throws<ArgumentException>(() => _ =
+            new AiCaptionTranslationSegmentContext(" cue-1", 0, TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ =
+            new AiCaptionTranslationSegmentContext("cue-1", 0, TimeSpan.FromMilliseconds(-1), TimeSpan.FromSeconds(1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ =
+            new AiCaptionTranslationSegmentContext("cue-1", 0, TimeSpan.Zero, TimeSpan.Zero));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ =
+            new AiCaptionTranslationSegmentContext("cue-1", 0, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1)));
     }
 
     [Test]
@@ -1305,6 +1503,20 @@ public sealed class AiCapabilityServiceTests
             HttpResponseMessage response = responder(recorded);
             response.RequestMessage = request;
             return response;
+        }
+    }
+
+    private sealed class ArrivalHandler(HttpResponseMessage response) : HttpMessageHandler
+    {
+        public int RequestCount { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            response.RequestMessage = request;
+            return Task.FromResult(response);
         }
     }
 

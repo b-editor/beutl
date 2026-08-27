@@ -311,7 +311,7 @@ internal sealed class AiImageGenerationService(
                     cancellationToken);
                 streams.Add(stream);
                 if (streams.Sum(value => value.Length - value.Position)
-                    > AiRequestLimits.MaxImageReferencesTotalBytes)
+                    > request.ReferenceLimits.MaxTotalBytes)
                 {
                     throw new AiFileTooLargeException();
                 }
@@ -486,37 +486,11 @@ internal sealed class AiCaptionTranslationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        AiCaptionTranslationRequestPayload payload =
+            AiCaptionTranslationRequestTransport.CreatePayload(request);
         // The caller's key when it has one: that is what lets a retry recover a
         // translation already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
-        var dto = new AiCaptionTranslationRequestDto
-        {
-            SourceLanguage = request.SourceLanguage,
-            TargetLanguage = request.TargetLanguage,
-            Segments = request.Segments.Select(segment => new AiCaptionTranslationSegmentDto
-            {
-                Id = segment.Id,
-                Text = segment.Text,
-                Context = segment.Context is null
-                    ? null
-                    : new AiCaptionTranslationSegmentContextDto
-                    {
-                        GroupId = segment.Context.GroupId,
-                        PartIndex = segment.Context.PartIndex,
-                        Start = segment.Context.Start.TotalSeconds,
-                        End = segment.Context.End.TotalSeconds,
-                    },
-            }).ToArray(),
-            Style = request.Style is null
-                ? null
-                : new AiCaptionTranslationStyleDto
-                {
-                    Glossary = request.Style.Glossary,
-                    MaxCharactersPerLine = request.Style.MaxCharactersPerLine,
-                    MaxLines = request.Style.MaxLines,
-                },
-            Model = request.Model?.Value,
-        };
         void Describe(Activity? activity)
         {
             activity?.SetTag("segmentCount", request.Segments.Count);
@@ -526,21 +500,26 @@ internal sealed class AiCaptionTranslationService(
 
         if (progress is null)
         {
-            return ExecuteAsync(
+            return ExecuteStreamingAsync(
                 "AiCaptionTranslationService.Translate",
-                (authorization, token) => Application.Ai.Translate(
-                    authorization,
+                () => JsonRequestBytes(
+                    "/api/v3/ai/translations",
                     idempotencyKey,
-                    dto,
-                    token),
-                AiModelMapper.ToModel,
+                    payload.Json),
+                _ => { },
+                data => AiModelMapper.ToModel(
+                    JsonSerializer.Deserialize<AiCaptionTranslationResponseDto>(
+                        data,
+                        AiStreamJson.Options)
+                    ?? throw new AiException("The AI translation result was empty.")),
                 cancellationToken,
-                Describe);
+                Describe,
+                requestEventStream: false);
         }
 
         return ExecuteStreamingAsync(
             "AiCaptionTranslationService.Translate",
-            () => JsonRequest("/api/v3/ai/translations", idempotencyKey, dto),
+            () => JsonRequestBytes("/api/v3/ai/translations", idempotencyKey, payload.Json),
             item =>
             {
                 if (item.Event != "segment")
@@ -798,7 +777,8 @@ internal abstract class AiMeteredCapabilityService(
         Func<string, TResult> readResult,
         CancellationToken cancellationToken,
         Action<Activity?>? configureActivity = null,
-        bool notifyJobsChanged = true)
+        bool notifyJobsChanged = true,
+        bool requestEventStream = true)
     {
         using CancellationTokenSource operationCts =
             Application.CreateLifetimeLinkedTokenSource(cancellationToken);
@@ -814,8 +794,11 @@ internal abstract class AiMeteredCapabilityService(
             {
                 using HttpRequestMessage request = createRequest();
                 request.Headers.TryAddWithoutValidation("Authorization", authorization);
-                request.Headers.Accept.Add(
-                    new MediaTypeWithQualityHeaderValue(AiEventStream.MediaType));
+                if (requestEventStream)
+                {
+                    request.Headers.Accept.Add(
+                        new MediaTypeWithQualityHeaderValue(AiEventStream.MediaType));
+                }
                 using HttpResponseMessage message = await Application.HttpClient.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead,
@@ -905,6 +888,22 @@ internal abstract class AiMeteredCapabilityService(
                 Encoding.UTF8,
                 "application/json"),
         };
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+        return request;
+    }
+
+    protected HttpRequestMessage JsonRequestBytes(
+        string path,
+        string idempotencyKey,
+        ReadOnlyMemory<byte> body)
+    {
+        var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            new Uri(Application.HttpClient.BaseAddress!, path))
+        {
+            Content = new ByteArrayContent(body.ToArray()),
+        };
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         request.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
         return request;
     }

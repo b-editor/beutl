@@ -157,8 +157,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// What all the reference pictures of one request may come to together, as
     /// the server publishes it.
     /// </summary>
-    public long MaxImageReferencesTotalBytes { get; private set; } =
-        AiRequestLimits.MaxImageReferencesTotalBytes;
+    public AiImageReferenceLimits ImageReferenceLimits { get; private set; }
+
+    public AiCaptionTranslationLimits CaptionTranslationLimits { get; private set; }
 
     /// <summary>
     /// Which models an operation is willing to offer, beyond what the server
@@ -304,7 +305,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
                     IsAvailable: false))
             .ToArray();
         Operation = operation;
-        MaxImageReferencesTotalBytes = catalog.MaxImageReferencesTotalBytes;
+        ImageReferenceLimits = catalog.ImageReferenceLimits;
+        CaptionTranslationLimits = catalog.CaptionTranslationLimits;
         _loadedCatalog = catalog;
         _loadedEntitlements = entitlements;
         Options.Clear();

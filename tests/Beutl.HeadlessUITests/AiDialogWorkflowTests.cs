@@ -2390,6 +2390,69 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SubtitleTranslation_UsesThePublishedSerializedBatchLimit()
+    {
+        await TestReset.ResetShellAsync();
+        var bodies = new List<string>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
+            {
+                return JsonResponse(
+                    HttpStatusCode.OK,
+                    CaptionCapabilitiesJson(
+                        removeFirst: false,
+                        maxSegments: 10,
+                        maxCharacters: 1_000,
+                        maxRequestBytes: 900));
+            }
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                bodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+                return CreateTranslationResponse(request, $"limited-{bodies.Count}");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.TranslationModelPicker.Options.Count == 2);
+        viewModel.ResultSegments.Value = Enumerable.Range(0, 3)
+            .Select(index => new AiTranscriptionSegment
+            {
+                Start = index * 2,
+                End = index * 2 + 1,
+                Text = new string('界', 150),
+            })
+            .ToArray();
+        await WaitUntilAsync(() => viewModel.CanTranslate.Value);
+
+        await viewModel.Translate.ExecuteAsync();
+
+        Assert.That(bodies, Has.Count.EqualTo(3),
+            "The byte limit, not the larger segment or character limit, splits these requests.");
+        foreach (string body in bodies)
+        {
+            using JsonDocument json = JsonDocument.Parse(body);
+            JsonElement[] segments = json.RootElement.GetProperty("segments")
+                .EnumerateArray()
+                .ToArray();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(segments, Has.Length.LessThanOrEqualTo(10));
+                Assert.That(
+                    segments.Sum(segment => segment.GetProperty("text").GetString()!.Length),
+                    Is.LessThanOrEqualTo(1_000));
+                Assert.That(Encoding.UTF8.GetByteCount(body), Is.LessThanOrEqualTo(900));
+            }
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SubtitleTranslation_SecondBatchCancellationPreservesOriginalCues()
     {
         await TestReset.ResetShellAsync();
@@ -3865,7 +3928,11 @@ public sealed class AiDialogWorkflowTests
         }
         """;
 
-    private static string CaptionCapabilitiesJson(bool removeFirst)
+    private static string CaptionCapabilitiesJson(
+        bool removeFirst,
+        int? maxSegments = null,
+        int? maxCharacters = null,
+        int? maxRequestBytes = null)
     {
         static object Model(string id, bool isDefault) => new
         {
@@ -3885,7 +3952,13 @@ public sealed class AiDialogWorkflowTests
         {
             operations = new Dictionary<string, object>
             {
-                ["subtitle.translate"] = new { models = translationModels },
+                ["subtitle.translate"] = new
+                {
+                    models = translationModels,
+                    maxSegments,
+                    maxCharacters,
+                    maxRequestBytes,
+                },
                 ["audio.transcribe"] = new { models = transcriptionModels },
             },
         });

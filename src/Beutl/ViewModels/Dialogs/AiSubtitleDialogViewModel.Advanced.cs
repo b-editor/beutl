@@ -28,8 +28,6 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed partial class AiSubtitleDialogViewModel
 {
-    private const int TranslationBatchSegmentLimit = 200;
-    private const int TranslationBatchCharacterLimit = 20_000;
     // Long enough to keep the number of paid requests down, short enough that a
     // chunk stays inside what one upload may carry: 16 kHz mono 16-bit PCM runs
     // at 32 kB a second, so the endpoint's 25 MiB stops a little under fourteen
@@ -1062,6 +1060,7 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 TranslationBatch batch = operation.Batches[index];
                 AiRequestName name = operation.RequestNameFor(index, runModel);
+                AiCaptionTranslationLimits requestLimits = operation.Limits;
                 UpdateOutstandingCaptionRequest();
                 // Anything that ends here ends before the request went out, so
                 // the name reached nothing — a refusal, a run stopped while the
@@ -1071,7 +1070,10 @@ public sealed partial class AiSubtitleDialogViewModel
                     if (!name.IsRepeat)
                     {
                         await EnsureAvailableAsync(
-                            CreateTranslationAvailabilityRequest(batch, runModel));
+                            CreateTranslationAvailabilityRequest(
+                                batch,
+                                runModel,
+                                requestLimits));
                     }
 
                     // Written before the batch goes out, not after it comes
@@ -1107,14 +1109,15 @@ public sealed partial class AiSubtitleDialogViewModel
                                 Text = piece.Text,
                                 Context = new AiCaptionTranslationSegmentContext(
                                     piece.GroupId,
-                                    piece.PartIndex,
+                                    piece.ContextPartIndex,
                                     piece.Start,
                                     piece.End),
                             }).ToArray(),
                             operation.TargetLanguage,
                             operation.SourceLanguage,
                             model: runModel,
-                            idempotencyKey: name.Key),
+                            idempotencyKey: name.Key,
+                            limits: requestLimits),
                         new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
                         RequestToken);
                 }
@@ -1293,7 +1296,7 @@ public sealed partial class AiSubtitleDialogViewModel
             && (StoredCuesEqual(resume.SourceCues, document.Cues)
                 || StoredCuesEqual(draft.Cues, document.Cues));
 
-    private static TranslationOperation CreateTranslationOperation(
+    private TranslationOperation CreateTranslationOperation(
         CaptionDocument document,
         long captionRevision,
         string? sourceLanguage,
@@ -1302,6 +1305,8 @@ public sealed partial class AiSubtitleDialogViewModel
         long draftScopeRevision)
     {
         var sourceDocument = new CaptionDocument(document.Cues.Select(cue => cue with { }));
+        AiCaptionTranslationLimits limits = TranslationModelPicker.CaptionTranslationLimits;
+        AiModelId? model = TranslationModelPicker.SelectedModel;
         return new TranslationOperation(
             sourceDocument,
             captionRevision,
@@ -1309,7 +1314,13 @@ public sealed partial class AiSubtitleDialogViewModel
             selectedSourceLanguage,
             targetLanguage,
             draftScopeRevision,
-            CreateTranslationBatches(sourceDocument));
+            limits,
+            CreateTranslationBatches(
+                sourceDocument,
+                sourceLanguage,
+                targetLanguage,
+                model,
+                limits));
     }
 
     private static TranslationOperation RestoreTranslationOperation(
@@ -1320,7 +1331,16 @@ public sealed partial class AiSubtitleDialogViewModel
         CaptionTranslationResume resume = draft.TranslationResume
             ?? throw new InvalidDataException("The retained translation has no resume state.");
         var sourceDocument = new CaptionDocument(RestoreCues(resume.SourceCues));
-        List<TranslationBatch> batches = CreateTranslationBatches(sourceDocument);
+        AiCaptionTranslationLimits limits = TranslationLimitsOf(resume);
+        AiModelId? model = string.IsNullOrEmpty(resume.RequestKeyModel)
+            ? null
+            : new AiModelId(resume.RequestKeyModel);
+        List<TranslationBatch> batches = CreateTranslationBatches(
+            sourceDocument,
+            resume.SourceLanguage,
+            resume.TargetLanguage,
+            model,
+            limits);
         if (resume.CompletedBatchCount < 0 || resume.CompletedBatchCount > batches.Count)
             throw new InvalidDataException("The retained translation progress is invalid.");
 
@@ -1331,6 +1351,7 @@ public sealed partial class AiSubtitleDialogViewModel
             resume.SelectedSourceLanguage,
             resume.TargetLanguage,
             draftScopeRevision,
+            limits,
             batches,
             string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
             resume.RequestKeyNamePending)
@@ -1354,6 +1375,17 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         return operation;
     }
+
+    private static AiCaptionTranslationLimits TranslationLimitsOf(
+        CaptionTranslationResume resume)
+        => resume.MaxSegments > 0
+            && resume.MaxCharacters > 0
+            && resume.MaxRequestBytes > 0
+                ? new AiCaptionTranslationLimits(
+                    resume.MaxSegments,
+                    resume.MaxCharacters,
+                    resume.MaxRequestBytes)
+                : AiCaptionTranslationLimits.Default;
 
     private static bool CaptionDocumentsEqual(CaptionDocument left, CaptionDocument right)
         => StoredCuesEqual(StoreCues(left.Cues), right.Cues);
@@ -1857,7 +1889,10 @@ public sealed partial class AiSubtitleDialogViewModel
                 translation.CompletedBatchCount,
                 translation.RequestKeySeed,
                 translation.RequestKeyModel,
-                translation.RequestKey.HasOutstandingName.Value);
+                translation.RequestKey.HasOutstandingName.Value,
+                translation.Limits.MaxSegments,
+                translation.Limits.MaxCharacters,
+                translation.Limits.MaxRequestBytes);
         }
 
         CaptionSceneTranscriptionResume? sceneResume = null;
@@ -2049,31 +2084,10 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 try
                 {
-                    var sourceDocument = new CaptionDocument(
-                        RestoreCues(translation.SourceCues));
-                    List<TranslationBatch> batches = CreateTranslationBatches(sourceDocument);
-                    if (translation.CompletedBatchCount < 0
-                        || translation.CompletedBatchCount > batches.Count)
-                    {
-                        throw new InvalidDataException("The stored translation progress is invalid.");
-                    }
-
-                    var operation = new TranslationOperation(
-                        sourceDocument,
+                    TranslationOperation operation = RestoreTranslationOperation(
+                        draft,
                         Interlocked.Read(ref _captionDocumentRevision),
-                        translation.SourceLanguage,
-                        translation.SelectedSourceLanguage,
-                        translation.TargetLanguage,
-                        draftScopeRevision,
-                        batches,
-                        string.IsNullOrEmpty(translation.RequestKeySeed)
-                            ? null
-                            : translation.RequestKeySeed,
-                        translation.RequestKeyNamePending)
-                    {
-                        CompletedBatchCount = translation.CompletedBatchCount,
-                        RequestKeyModel = translation.RequestKeyModel,
-                    };
+                        draftScopeRevision);
                     // The unfinished batches are named partly by the model the
                     // run used. Landing on another one would name them
                     // differently and buy them again.
@@ -2084,20 +2098,6 @@ public sealed partial class AiSubtitleDialogViewModel
                     PreferRestoredModel(
                         TranslationModelPicker,
                         _restoredTranslationModel);
-                    HashSet<string> completedIds = batches
-                        .Take(operation.CompletedBatchCount)
-                        .SelectMany(batch => batch.Pieces)
-                        .Select(piece => piece.Id)
-                        .ToHashSet(StringComparer.Ordinal);
-                    if (translation.TranslatedPieces.Count != completedIds.Count
-                        || translation.TranslatedPieces.Keys.Any(id => !completedIds.Contains(id)))
-                    {
-                        throw new InvalidDataException("The stored translated segments are invalid.");
-                    }
-                    foreach ((string id, string text) in translation.TranslatedPieces)
-                    {
-                        operation.TranslatedPieces.Add(id, text);
-                    }
                     _pendingTranslation = operation;
                     CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
                         string.Equals(
@@ -2118,7 +2118,7 @@ public sealed partial class AiSubtitleDialogViewModel
                         && _editableCues.Count == 0)
                     {
                         ReplaceCues(new CaptionDocument(
-                            sourceDocument.Cues.Select(cue => cue with { })));
+                            operation.SourceDocument.Cues.Select(cue => cue with { })));
                         operation.ExpectedCaptionRevision = Interlocked.Read(
                             ref _captionDocumentRevision);
                     }
@@ -3056,13 +3056,23 @@ public sealed partial class AiSubtitleDialogViewModel
                 StringComparison.Ordinal))
         {
             request = CreateTranslationAvailabilityRequest(
-                operation.Batches[operation.CompletedBatchCount]);
+                operation.Batches[operation.CompletedBatchCount],
+                limits: operation.Limits);
         }
         else if (TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
-                 && document is { Count: > 0 })
+                 && document is { Count: > 0 }
+                 && SelectedTargetLanguage.Value.Code is { } targetLanguage)
         {
-            request = CreateTranslationBatches(document).FirstOrDefault() is { } batch
-                ? CreateTranslationAvailabilityRequest(batch)
+            AiCaptionTranslationLimits limits =
+                TranslationModelPicker.CaptionTranslationLimits;
+            request = CreateTranslationBatches(
+                    document,
+                    SelectedSourceLanguage.Value.Code ?? _lastCaptionLanguage,
+                    targetLanguage,
+                    TranslationModelPicker.SelectedModel,
+                    limits)
+                .FirstOrDefault() is { } batch
+                ? CreateTranslationAvailabilityRequest(batch, limits: limits)
                 : null;
         }
 
@@ -3235,13 +3245,15 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
         TranslationBatch batch,
-        AiModelId? model = null)
+        AiModelId? model = null,
+        AiCaptionTranslationLimits? limits = null)
         // What the batch will actually be sent to. A run in progress is priced
         // against the model its names were built from, not against whichever the
         // picker is showing now.
         => new(
             batch.Pieces.Sum(piece => piece.Text.Length),
-            model ?? TranslationModelPicker.SelectedModel);
+            model ?? TranslationModelPicker.SelectedModel,
+            limits ?? TranslationModelPicker.CaptionTranslationLimits);
 
     // The model a run is named for. The picker's until the run has named
     // anything, and from then on the run's own — including when the run named
@@ -3288,65 +3300,221 @@ public sealed partial class AiSubtitleDialogViewModel
             ? null
             : string.Format(Strings.AiSubtitle_DetectedLanguage, language);
 
-    private static List<TranslationBatch> CreateTranslationBatches(CaptionDocument document)
+    private static List<TranslationBatch> CreateTranslationBatches(
+        CaptionDocument document,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
     {
-        var batches = new List<TranslationBatch>();
-        var current = new List<TranslationPiece>();
-        int characters = 0;
+        var pieces = new List<TranslationPiece>();
         for (int cueIndex = 0; cueIndex < document.Count; cueIndex++)
         {
-            string text = document[cueIndex].Text;
-            if (string.IsNullOrWhiteSpace(text))
+            CaptionCue cue = document[cueIndex];
+            if (string.IsNullOrWhiteSpace(cue.Text))
                 continue;
 
+            int offset = 0;
             int partIndex = 0;
-            foreach (string part in SplitTranslationText(text))
+            while (offset < cue.Text.Length)
             {
-                if (current.Count == TranslationBatchSegmentLimit
-                    || characters + part.Length > TranslationBatchCharacterLimit)
-                {
-                    batches.Add(new TranslationBatch(current.ToArray()));
-                    current.Clear();
-                    characters = 0;
-                }
-                current.Add(new TranslationPiece(
+                int maximumLength = Math.Min(
+                    limits.MaxCharacters,
+                    cue.Text.Length - offset);
+                int length = LargestTranslationPieceLength(
+                    cue,
                     cueIndex,
                     partIndex,
-                    $"c{cueIndex}-p{partIndex}",
-                    $"c{cueIndex}",
-                    document[cueIndex].Start,
-                    document[cueIndex].End,
-                    part));
-                characters += part.Length;
+                    offset,
+                    maximumLength,
+                    sourceLanguage,
+                    targetLanguage,
+                    model,
+                    limits);
+                if (length <= 0)
+                    throw new SubtitleInputException(Strings.AiFileTooLarge);
+
+                pieces.Add(CreateTranslationPiece(
+                    cue,
+                    cueIndex,
+                    partIndex,
+                    cue.Text.Substring(offset, length),
+                    limits));
+                offset += length;
                 partIndex++;
             }
         }
-        if (current.Count > 0)
+
+        var batches = new List<TranslationBatch>();
+        int start = 0;
+        while (start < pieces.Count)
         {
-            batches.Add(new TranslationBatch(current.ToArray()));
+            int candidateCount = 0;
+            int characters = 0;
+            while (start + candidateCount < pieces.Count
+                   && candidateCount < limits.MaxSegments
+                   && characters + pieces[start + candidateCount].Text.Length
+                   <= limits.MaxCharacters)
+            {
+                characters += pieces[start + candidateCount].Text.Length;
+                candidateCount++;
+            }
+
+            int count = LargestTranslationBatchPrefix(
+                pieces,
+                start,
+                candidateCount,
+                sourceLanguage,
+                targetLanguage,
+                model,
+                limits);
+            if (count <= 0)
+                throw new SubtitleInputException(Strings.AiFileTooLarge);
+
+            batches.Add(new TranslationBatch(pieces.GetRange(start, count).ToArray()));
+            start += count;
         }
         return batches;
     }
 
-    private static IEnumerable<string> SplitTranslationText(string text)
+    private static int LargestTranslationPieceLength(
+        CaptionCue cue,
+        int cueIndex,
+        int partIndex,
+        int offset,
+        int maximumLength,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
     {
-        int offset = 0;
-        while (text.Length - offset > TranslationBatchCharacterLimit)
+        int low = 1;
+        int high = maximumLength;
+        int best = 0;
+        while (low <= high)
         {
-            int length = TranslationBatchCharacterLimit;
-            if (char.IsHighSurrogate(text[offset + length - 1])
-                && char.IsLowSurrogate(text[offset + length]))
+            int midpoint = low + ((high - low) / 2);
+            int length = KeepSurrogatePairTogether(cue.Text, offset, midpoint);
+            if (length <= 0)
             {
-                length--;
+                low = midpoint + 1;
+                continue;
             }
-            yield return text.Substring(offset, length);
-            offset += length;
+
+            TranslationPiece piece = CreateTranslationPiece(
+                cue,
+                cueIndex,
+                partIndex,
+                cue.Text.Substring(offset, length),
+                limits);
+            if (TranslationBatchFits(
+                    [piece],
+                    sourceLanguage,
+                    targetLanguage,
+                    model,
+                    limits))
+            {
+                best = Math.Max(best, length);
+                low = midpoint + 1;
+            }
+            else
+            {
+                high = midpoint - 1;
+            }
         }
-        if (offset < text.Length)
+        return best;
+    }
+
+    private static int LargestTranslationBatchPrefix(
+        List<TranslationPiece> pieces,
+        int start,
+        int maximumCount,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
+    {
+        int low = 1;
+        int high = maximumCount;
+        int best = 0;
+        while (low <= high)
         {
-            yield return text[offset..];
+            int count = low + ((high - low) / 2);
+            if (TranslationBatchFits(
+                    pieces.GetRange(start, count),
+                    sourceLanguage,
+                    targetLanguage,
+                    model,
+                    limits))
+            {
+                best = count;
+                low = count + 1;
+            }
+            else
+            {
+                high = count - 1;
+            }
+        }
+        return best;
+    }
+
+    private static bool TranslationBatchFits(
+        IReadOnlyList<TranslationPiece> pieces,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
+    {
+        try
+        {
+            _ = new AiCaptionTranslationRequest(
+                pieces.Select(piece => new AiCaptionTranslationSegment
+                {
+                    Id = piece.Id,
+                    Text = piece.Text,
+                    Context = new AiCaptionTranslationSegmentContext(
+                        piece.GroupId,
+                        piece.ContextPartIndex,
+                        piece.Start,
+                        piece.End),
+                }).ToArray(),
+                targetLanguage,
+                sourceLanguage,
+                model: model,
+                limits: limits);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
         }
     }
+
+    private static TranslationPiece CreateTranslationPiece(
+        CaptionCue cue,
+        int cueIndex,
+        int partIndex,
+        string text,
+        AiCaptionTranslationLimits limits)
+    {
+        int contextGroup = partIndex / limits.MaxSegments;
+        return new TranslationPiece(
+            cueIndex,
+            partIndex,
+            partIndex % limits.MaxSegments,
+            $"c{cueIndex}-p{partIndex}",
+            contextGroup == 0 ? $"c{cueIndex}" : $"c{cueIndex}-g{contextGroup}",
+            cue.Start,
+            cue.End,
+            text);
+    }
+
+    private static int KeepSurrogatePairTogether(string text, int offset, int length)
+        => offset + length < text.Length
+            && char.IsHighSurrogate(text[offset + length - 1])
+            && char.IsLowSurrogate(text[offset + length])
+                ? length - 1
+                : length;
 
     internal static SpeechWaveChunkResult WriteSpeechWave(
         MediaReader reader,
@@ -3573,6 +3741,7 @@ public sealed partial class AiSubtitleDialogViewModel
     private sealed record TranslationPiece(
         int CueIndex,
         int PartIndex,
+        int ContextPartIndex,
         string Id,
         string GroupId,
         TimeSpan Start,
@@ -3588,6 +3757,7 @@ public sealed partial class AiSubtitleDialogViewModel
         string? selectedSourceLanguage,
         string targetLanguage,
         long expectedDraftScopeRevision,
+        AiCaptionTranslationLimits limits,
         IReadOnlyList<TranslationBatch> batches,
         string? requestKeySeed = null,
         bool requestKeyNamePending = false)
@@ -3603,6 +3773,8 @@ public sealed partial class AiSubtitleDialogViewModel
         public string TargetLanguage { get; } = targetLanguage;
 
         public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
+
+        public AiCaptionTranslationLimits Limits { get; } = limits;
 
         public IReadOnlyList<TranslationBatch> Batches { get; } = batches;
 

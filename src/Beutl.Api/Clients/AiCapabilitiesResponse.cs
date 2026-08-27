@@ -91,6 +91,15 @@ internal sealed record AiOperationCapabilityResponse
     [JsonPropertyName("maxReferenceImagesTotalBytes")]
     public long? MaxReferenceImagesTotalBytes { get; init; }
 
+    [JsonPropertyName("maxSegments")]
+    public int? MaxSegments { get; init; }
+
+    [JsonPropertyName("maxCharacters")]
+    public int? MaxCharacters { get; init; }
+
+    [JsonPropertyName("maxRequestBytes")]
+    public int? MaxRequestBytes { get; init; }
+
     [JsonPropertyName("minDurationSeconds")]
     public int? MinDurationSeconds { get; init; }
 

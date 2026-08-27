@@ -41,7 +41,10 @@ internal sealed record CaptionTranslationResume(
     // 分からない——予約されなかった依頼や、返金されて捨てられた依頼の seed も
     // 残る。これを取り違えると、誰も払っていない依頼が「支払い済みの回収」と
     // して復活する。
-    bool RequestKeyNamePending = false);
+    bool RequestKeyNamePending = false,
+    int MaxSegments = 0,
+    int MaxCharacters = 0,
+    int MaxRequestBytes = 0);
 
 internal sealed record CaptionSceneTranscriptionResume(
     Guid SceneId,
@@ -205,7 +208,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
     // Version 2 records what a run's requests were named before its first piece
     // comes back; version 3 records whether one of those names was outstanding;
     // version 4 retains more than one paid recovery for a scene.
-    internal const int CurrentVersion = 4;
+    internal const int CurrentVersion = 5;
     // 古い控えも読む。曖昧なのはそのときどきの名前まわりだけなので、そこだけを
     // 直して読み込む——支払い済みの結果まで捨てる理由は無い。
     internal const int OldestSupportedVersion = 1;
@@ -625,6 +628,12 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             CompletedBatchCount: >= 0,
         }
             && !string.IsNullOrWhiteSpace(resume.TargetLanguage)
+            && (resume.MaxSegments == 0
+                && resume.MaxCharacters == 0
+                && resume.MaxRequestBytes == 0
+                || resume.MaxSegments > 0
+                && resume.MaxCharacters > 0
+                && resume.MaxRequestBytes > 0)
             && resume.SourceCues.All(cue => cue is not null
                 && cue.Text is not null
                 && cue.Text.Length <= MaximumCueTextLength

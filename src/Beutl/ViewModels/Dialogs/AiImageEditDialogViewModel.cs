@@ -389,15 +389,15 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     {
         await _operations.DisposeAsync(async () =>
         {
-        ResultImage.Value?.Dispose();
-        ResultImage.Dispose();
-        OriginalImage.Value?.Dispose();
-        OriginalImage.Dispose();
-        SourceFilePath.Dispose();
-        Prompt.Dispose();
-        Error.Dispose();
-        _outstandingRevision.Dispose();
-        _disposables.Dispose();
+            ResultImage.Value?.Dispose();
+            ResultImage.Dispose();
+            OriginalImage.Value?.Dispose();
+            OriginalImage.Dispose();
+            SourceFilePath.Dispose();
+            Prompt.Dispose();
+            Error.Dispose();
+            _outstandingRevision.Dispose();
+            _disposables.Dispose();
         });
     }
 

@@ -90,8 +90,8 @@ public class AiModelCatalogTests
             catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(video.DurationsSeconds, Is.EqualTo(new[] { 5, 6, 7 }));
-            Assert.That(video.Resolutions, Is.EqualTo(new[] { "2K" }));
+            Assert.That(video.DurationsSeconds.Values, Is.EqualTo(new[] { 5, 6, 7 }));
+            Assert.That(video.Resolutions.Values, Is.EqualTo(new[] { "2K" }));
             Assert.That(video.SupportsAudio, Is.True);
             Assert.That(video.SupportsSeed, Is.False);
         }
@@ -121,9 +121,9 @@ public class AiModelCatalogTests
             catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(video.DurationsSeconds, Is.EqualTo(new[] { 4, 6, 8 }));
-            Assert.That(video.Resolutions, Is.EqualTo(new[] { "720p", "1080p" }));
-            Assert.That(video.AspectRatios, Is.EqualTo(new[] { "16:9" }));
+            Assert.That(video.DurationsSeconds.Values, Is.EqualTo(new[] { 4, 6, 8 }));
+            Assert.That(video.Resolutions.Values, Is.EqualTo(new[] { "720p", "1080p" }));
+            Assert.That(video.AspectRatios.Values, Is.EqualTo(new[] { "16:9" }));
         }
     }
 
@@ -142,9 +142,9 @@ public class AiModelCatalogTests
     public void Capabilities_RuleOutAModelThatSharesNothingWithTheDialog()
     {
         var hailuo = new AiVideoModelCapabilities(
-            [5, 6],
-            ["2K"],
-            ["16:9"],
+            AiVideoCapabilityDimension<int>.Supported([5, 6]),
+            AiVideoCapabilityDimension<string>.Supported(["2K"]),
+            AiVideoCapabilityDimension<string>.Supported(["16:9"]),
             SupportsAudio: true,
             SupportsSeed: false);
 
@@ -153,11 +153,72 @@ public class AiModelCatalogTests
             Assert.That(hailuo.CanServeAnything(), Is.True);
             // Nothing left after narrowing means every request naming it would
             // be refused, so offering it is worse than hiding it.
-            Assert.That((hailuo with { Resolutions = [] }).CanServeAnything(), Is.False);
-            Assert.That((hailuo with { AspectRatios = [] }).CanServeAnything(), Is.False);
-            Assert.That((hailuo with { DurationsSeconds = [] }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { Resolutions = AiVideoCapabilityDimension<string>.Unsupported }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { AspectRatios = AiVideoCapabilityDimension<string>.Unsupported }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { DurationsSeconds = AiVideoCapabilityDimension<int>.Unsupported }).CanServeAnything(), Is.False);
             Assert.That(AiVideoModelCapabilities.Unrestricted.CanServeAnything(), Is.True);
         }
+    }
+
+    [Test]
+    public void CapabilityDimensions_NormalizeDefaultAndCompareByValue()
+    {
+        AiVideoCapabilityDimension<string> omitted = default;
+        AiVideoCapabilityDimension<string> first =
+            AiVideoCapabilityDimension<string>.Supported(["720p", "1080p"]);
+        AiVideoCapabilityDimension<string> second =
+            AiVideoCapabilityDimension<string>.Supported(["720p", "1080p"]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(omitted, Is.EqualTo(AiVideoCapabilityDimension<string>.Unspecified));
+            Assert.That(omitted.Values, Is.Empty);
+            Assert.That(first, Is.EqualTo(second));
+            Assert.That(first.GetHashCode(), Is.EqualTo(second.GetHashCode()));
+        }
+    }
+
+    [Test]
+    public void Catalog_ReadsValidatedRequestLimitSnapshots()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [],
+                    MaxReferenceImagesTotalBytes = 30L * 1024 * 1024,
+                },
+                [AiOperations.CaptionTranslation.Value] = new()
+                {
+                    Models = [],
+                    MaxSegments = 150,
+                    MaxCharacters = 12_000,
+                    MaxRequestBytes = 96 * 1024,
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.ImageReferenceLimits.MaxTotalBytes,
+                Is.EqualTo(30L * 1024 * 1024));
+            Assert.That(catalog.CaptionTranslationLimits.MaxSegments, Is.EqualTo(150));
+            Assert.That(catalog.CaptionTranslationLimits.MaxCharacters, Is.EqualTo(12_000));
+            Assert.That(catalog.CaptionTranslationLimits.MaxRequestBytes, Is.EqualTo(96 * 1024));
+            Assert.That(AiImageReferenceLimits.Default,
+                Is.EqualTo(new AiImageReferenceLimits(AiRequestLimits.MaxImageReferencesTotalBytes)));
+            Assert.That(AiCaptionTranslationLimits.Default,
+                Is.EqualTo(new AiCaptionTranslationLimits(
+                    AiRequestLimits.MaxTranslationSegments,
+                    AiRequestLimits.MaxTranslationCharacters,
+                    AiRequestLimits.MaxTranslationRequestBytes)));
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ = new AiImageReferenceLimits(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => _ =
+            new AiCaptionTranslationLimits(0, 1, 1));
     }
 
     [Test]
@@ -184,8 +245,8 @@ public class AiModelCatalogTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(video.DurationsSeconds, Is.Empty);
-            Assert.That(video.DurationsSeconds.IsDefault, Is.False);
+            Assert.That(video.DurationsSeconds.Values, Is.Empty);
+            Assert.That(video.DurationsSeconds.IsSpecified, Is.True);
             Assert.That(video.CanServeAnything(), Is.False);
         }
     }
@@ -215,7 +276,7 @@ public class AiModelCatalogTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(video.DurationsSeconds.IsDefault, Is.True);
+            Assert.That(video.DurationsSeconds.IsSpecified, Is.False);
             Assert.That(video.CanServeAnything(), Is.True);
         }
     }
@@ -252,11 +313,11 @@ public class AiModelCatalogTests
         AiVideoModelCapabilities emptyResult = catalog.ModelsFor(AiOperations.VideoGeneration)[1].Video!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(omittedResult.Resolutions, Is.EqualTo(new[] { "720p", "1080p" }));
-            Assert.That(omittedResult.AspectRatios, Is.EqualTo(new[] { "16:9", "9:16" }));
+            Assert.That(omittedResult.Resolutions.Values, Is.EqualTo(new[] { "720p", "1080p" }));
+            Assert.That(omittedResult.AspectRatios.Values, Is.EqualTo(new[] { "16:9", "9:16" }));
             Assert.That(omittedResult.CanServeAnything(), Is.True);
-            Assert.That(emptyResult.Resolutions, Is.Empty);
-            Assert.That(emptyResult.AspectRatios, Is.Empty);
+            Assert.That(emptyResult.Resolutions.Values, Is.Empty);
+            Assert.That(emptyResult.AspectRatios.Values, Is.Empty);
             Assert.That(emptyResult.CanServeAnything(), Is.False);
         }
     }

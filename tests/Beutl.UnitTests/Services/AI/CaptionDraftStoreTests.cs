@@ -588,7 +588,11 @@ public sealed class CaptionDraftStoreTests
                 new Dictionary<string, string>(StringComparer.Ordinal) { ["line-1"] = "こんにちは" },
                 1,
                 "8c1d7e2a5b904f36a1e0c4d8f7b62039",
-                "openai/gpt-5"),
+                "openai/gpt-5",
+                false,
+                150,
+                12_000,
+                96 * 1024),
             null);
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
@@ -618,6 +622,10 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(
                     restored.Draft.TranslationResume.RequestKeyModel,
                     Is.EqualTo("openai/gpt-5"));
+                Assert.That(restored.Draft.TranslationResume.MaxSegments, Is.EqualTo(150));
+                Assert.That(restored.Draft.TranslationResume.MaxCharacters, Is.EqualTo(12_000));
+                Assert.That(restored.Draft.TranslationResume.MaxRequestBytes,
+                    Is.EqualTo(96 * 1024));
             }
         }
     }

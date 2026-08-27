@@ -48,25 +48,25 @@ internal static class AiErrorConverter
         => statusCode == 413
             ? new AiFileTooLargeException(innerException)
             : error?.ErrorCode switch
-        {
-            ApiErrorCode.AuthenticationIsRequired => new AuthenticationRequiredException(innerException),
-            ApiErrorCode.AiPlanRequired => new AiPlanRequiredException(innerException),
-            ApiErrorCode.AiUsageLimitExceeded => new AiUsageLimitExceededException(innerException),
-            ApiErrorCode.FileIsTooLarge => new AiFileTooLargeException(innerException),
-            ApiErrorCode.AiProviderError => new AiProviderErrorException(innerException),
-            ApiErrorCode.AiJobNotFound => new AiJobNotFoundException(innerException),
-            ApiErrorCode.AiJobIsActive => new AiJobIsActiveException(innerException),
-            ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(innerException),
-            ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(innerException),
-            ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(innerException),
-            ApiErrorCode.AiRequestChanged => new AiRequestChangedException(innerException),
-            ApiErrorCode.AiModelDoesNotSupportRequest =>
-                new AiModelDoesNotSupportRequestException(innerException),
-            ApiErrorCode.AiModelUnavailable => new AiModelUnavailableException(innerException),
-            ApiErrorCode.AiResultUnavailable => new AiResultUnavailableException(innerException),
-            _ => new AiException(
-                error?.Message ?? fallbackMessage ?? "The AI request failed.",
-                innerException,
-                isTransient: statusCode >= 500),
-        };
+            {
+                ApiErrorCode.AuthenticationIsRequired => new AuthenticationRequiredException(innerException),
+                ApiErrorCode.AiPlanRequired => new AiPlanRequiredException(innerException),
+                ApiErrorCode.AiUsageLimitExceeded => new AiUsageLimitExceededException(innerException),
+                ApiErrorCode.FileIsTooLarge => new AiFileTooLargeException(innerException),
+                ApiErrorCode.AiProviderError => new AiProviderErrorException(innerException),
+                ApiErrorCode.AiJobNotFound => new AiJobNotFoundException(innerException),
+                ApiErrorCode.AiJobIsActive => new AiJobIsActiveException(innerException),
+                ApiErrorCode.AiJobLimitReached => new AiJobLimitReachedException(innerException),
+                ApiErrorCode.AiRequestInProgress => new AiRequestInProgressException(innerException),
+                ApiErrorCode.AiRequestWasDeleted => new AiRequestWasDeletedException(innerException),
+                ApiErrorCode.AiRequestChanged => new AiRequestChangedException(innerException),
+                ApiErrorCode.AiModelDoesNotSupportRequest =>
+                    new AiModelDoesNotSupportRequestException(innerException),
+                ApiErrorCode.AiModelUnavailable => new AiModelUnavailableException(innerException),
+                ApiErrorCode.AiResultUnavailable => new AiResultUnavailableException(innerException),
+                _ => new AiException(
+                    error?.Message ?? fallbackMessage ?? "The AI request failed.",
+                    innerException,
+                    isTransient: statusCode >= 500),
+            };
 }
