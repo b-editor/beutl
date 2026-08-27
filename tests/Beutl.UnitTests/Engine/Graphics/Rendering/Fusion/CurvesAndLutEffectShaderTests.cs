@@ -193,6 +193,69 @@ public sealed class CurvesAndLutEffectShaderTests
         AssertRed(second);
     }
 
+    // Nothing advances a version when a caller writes through the CubeFile.Data array a parsed cube
+    // hands out, so re-recording the effect is the only thing that can pick such a write up. That
+    // re-recording is not a given: it happens because RenderNodeRecordingCache.Capture refuses any
+    // recording whose transaction registered a RenderResource, and LutEffect borrows one - the "lut"
+    // snapshot - every time it records. The refusal leaves the node's snapshot un-replayable, so
+    // Process runs on every request and the content comparison in LutSnapshotState.GetOrCreate is
+    // reached on every frame rather than only the first.
+    //
+    // This pins that dependency. If Capture ever stops refusing resource-bearing recordings, the LUT
+    // starts replaying a fragment that samples the immutable snapshot of the old array and this goes
+    // red - which is the signal to re-check the refusal in RenderNodeRecordingCache, not the effect.
+    [TestCase(CubeFileDimension.OneDimension, true)]
+    [TestCase(CubeFileDimension.OneDimension, false)]
+    [TestCase(CubeFileDimension.ThreeDimension, true)]
+    [TestCase(CubeFileDimension.ThreeDimension, false)]
+    public void ResourceBearingRecordingIsNeverReplayed_SoMutatedCubeDataReachesTheFrame(
+        CubeFileDimension dimension,
+        bool renderCacheEnabled)
+    {
+        var effect = new LutEffect
+        {
+            Source = { CurrentValue = CreateRedToCyanLutSource(dimension) },
+        };
+        var effectResource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
+        CubeFile cube = effectResource.Source!.Cube!;
+        var lutNode = new FilterEffectRenderNode(effectResource);
+        lutNode.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.Red, null));
+        // Under a container, so an ancestor whose own recording is replayable is in play too.
+        using var root = new ContainerRenderNode();
+        root.AddChild(lutNode);
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = s_bounds,
+                    CacheOptions = renderCacheEnabled
+                        ? RenderCacheOptions.Default
+                        : RenderCacheOptions.Disabled,
+                },
+                TargetFactory = new CpuTargetFactory(),
+            });
+
+        // Past RenderNodeCache.StableRequestCount, so the warmed-up render cache is live by the time
+        // the cube data is mutated and cannot be what carries the change through.
+        for (int frame = 0; frame < RenderNodeCache.StableRequestCount + 1; frame++)
+        {
+            using RenderNodeRasterization warmFrame = renderer.Rasterize();
+            AssertCyan(ReadCenterPixel(warmFrame));
+        }
+
+        for (int i = 0; i < cube.Data.Length; i++)
+        {
+            cube.Data[i] = Vector3.One - cube.Data[i];
+        }
+
+        using RenderNodeRasterization mutatedFrame = renderer.Rasterize();
+
+        AssertRed(ReadCenterPixel(mutatedFrame));
+    }
+
     [TestCaseSource(nameof(ResourceBackedEffects))]
     public void ResourceBackedCurrentPixelEffects_DirectCompatibilityExecution_CommitsAndReleasesResources(
         Func<FilterEffect> factory)
