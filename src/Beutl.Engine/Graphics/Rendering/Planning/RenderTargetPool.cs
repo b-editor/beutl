@@ -279,11 +279,11 @@ internal sealed class RenderTargetPool : IDisposable
     /// <summary>The largest extent <paramref name="request"/>'s allocator may be asked for.</summary>
     /// <remarks>
     /// A device's attachment limit bounds the allocations that reach that device and no others. Only the
-    /// pool's own allocator attaches through a shared context, so only it is measured against one; anything
-    /// else is bounded by the engine ceiling planning already clamped the density to, and its own allocator
-    /// declines what it cannot make - <see cref="TryAcquire"/> reports that as the same decline. A named
-    /// <see cref="RenderTargetPoolOptions.MaxBufferDimension"/> overrides both, because it states what this
-    /// pool may attach whoever allocates it.
+    /// pool's own allocator attaches through a shared context, and only from a dispatcher, so only then is
+    /// it measured against one; anything else is bounded by the engine ceiling planning already clamped the
+    /// density to, and its own allocator declines what it cannot make - <see cref="TryAcquire"/> reports
+    /// that as the same decline. A named <see cref="RenderTargetPoolOptions.MaxBufferDimension"/> overrides
+    /// both, because it states what this pool may attach whoever allocates it.
     /// </remarks>
     private int ResolveBufferBudget(RenderTargetPoolRequest request)
         => _options.MaxBufferDimension
@@ -303,12 +303,15 @@ internal sealed class RenderTargetPool : IDisposable
         if (_factory is not null || IsCpuBound(request))
             return null;
 
-        // Everything else lands in RenderTarget.Create, which attaches to the shared context.
-        // BeginImplicitRequest names one in place of the live one, and a request bound to it has to be
+        // Everything else lands in RenderTarget.Create, so it attaches wherever that would - and off a
+        // dispatcher that is nowhere, because Create rasters there whatever context this request names.
+        // Asking Create itself is what keeps the budget and the allocation from answering differently.
+        // BeginImplicitRequest names a context in place of the live one, and a request bound to it has to be
         // measured against the device it named rather than against whichever context is live now.
-        return request.ContextIdentity is ImplicitContextBinding binding
-            ? binding.Context
-            : GraphicsContextFactory.SharedContext;
+        return RenderTarget.ResolveCreationContext(
+            request.ContextIdentity is ImplicitContextBinding binding
+                ? binding.Context
+                : GraphicsContextFactory.SharedContext);
     }
 
     /// <summary>Whether <paramref name="request"/> is bound to a destination that has no graphics context.</summary>

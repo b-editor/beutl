@@ -41,9 +41,14 @@ public static class RenderScaleUtilities
     /// (<see cref="Backend.GraphicsContextFactory.Shutdown"/> is public), and answering for the next device
     /// out of the last one's memo is that same undefined behaviour whenever it can attach less. The memo is
     /// therefore keyed to the context that answered, so any other context re-reads however it was replaced.
+    /// <para>
+    /// A buffer allocated off a dispatcher never reaches that device at all - <see cref="RenderTarget.Create"/>
+    /// rasters it on the CPU - so the shared context applies only where that allocation would attach to it.
+    /// </para>
     /// </remarks>
     public static int ResolveMaxBufferDimension()
-        => ResolveMaxBufferDimension(Backend.GraphicsContextFactory.SharedContext);
+        => ResolveMaxBufferDimension(
+            RenderTarget.ResolveCreationContext(Backend.GraphicsContextFactory.SharedContext));
 
     /// <summary>
     /// <see cref="ResolveMaxBufferDimension()"/> against a named context rather than the shared one.

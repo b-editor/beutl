@@ -111,31 +111,45 @@ public class RenderTarget : IDisposable
 
     internal ITexture2D? Texture => _texture?.Value;
 
+    /// <summary>
+    /// Whether <see cref="Create"/> would attach a new target to a graphics context rather than raster it on
+    /// the CPU.
+    /// </summary>
+    /// <remarks>
+    /// Only a caller on a dispatcher reaches a graphics context; anywhere else <see cref="Create"/> rasters,
+    /// and no device's attachment limit bounds what it allocates there. A caller budgeting an allocation
+    /// reads this rather than deciding for itself which path runs, so the budget and the allocation cannot
+    /// answer differently.
+    /// </remarks>
+    internal static bool CreateAttachesToGraphicsContext => Dispatcher.Current is not null;
+
+    /// <summary>
+    /// The context <see cref="Create"/> would attach a new target to out of <paramref name="sharedContext"/>,
+    /// or <see langword="null"/> when it would raster that target on the CPU instead.
+    /// </summary>
+    /// <param name="sharedContext">The shared context that applies where one is reached at all.</param>
+    internal static IGraphicsContext? ResolveCreationContext(IGraphicsContext? sharedContext)
+        => CreateAttachesToGraphicsContext ? sharedContext : null;
+
     public static RenderTarget? Create(int width, int height)
     {
         try
         {
-            SKSurface? surface;
             ITexture2D? sharedTexture = null;
-            if (Dispatcher.Current == null)
-            {
-                surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
-            }
-            else
+
+            // Asking for the shared context is itself dispatcher-bound, so which path runs has to be settled
+            // before GetOrCreateShared is reached rather than by what it answers.
+            IGraphicsContext? context = null;
+            if (CreateAttachesToGraphicsContext)
             {
                 RenderThread.Dispatcher.VerifyAccess();
-                IGraphicsContext? context = GraphicsContextFactory.GetOrCreateShared();
-
-                if (context != null)
-                {
-                    surface = CreateSharedSurface(context, width, height, out sharedTexture);
-                }
-                else
-                {
-                    surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16,
-                        SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
-                }
+                context = GraphicsContextFactory.GetOrCreateShared();
             }
+
+            SKSurface? surface = context != null
+                ? CreateSharedSurface(context, width, height, out sharedTexture)
+                : SKSurface.Create(new SKImageInfo(
+                    width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
 
             if (surface == null)
                 return null;

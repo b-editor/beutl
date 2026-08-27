@@ -6,6 +6,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
+using Beutl.Threading;
 
 using Moq;
 
@@ -358,7 +359,8 @@ public sealed class DeviceBufferBudgetTests
     public void ACallerSuppliedAllocator_IsMeasuredAgainstTheEngineCeiling_NotTheBoundDevicesLimit()
     {
         // Both pools are bound to the same device, so which budget each one gets can only follow from which
-        // allocator fills its requests.
+        // allocator fills its requests. The probes run on the render dispatcher, the only place the pool's
+        // own allocator attaches through that device at all - off it, it rasters and both answer the ceiling.
         IGraphicsContext device = ContextAttaching(DeviceBudget);
         var atTheEngineCeiling = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2);
         var factory = new RecordingCpuTargetFactory();
@@ -367,14 +369,20 @@ public sealed class DeviceBufferBudgetTests
         using var poolAllocated = new RenderTargetPool(factory: null);
         using RenderTargetPoolRequest poolRequest = poolAllocated.BeginImplicitRequest(device);
 
-        bool callerRefuses = callerAllocated.ExceedsBufferBudget(
-            callerRequest,
-            atTheEngineCeiling,
-            out int callerBudget);
-        bool poolRefuses = poolAllocated.ExceedsBufferBudget(
-            poolRequest,
-            atTheEngineCeiling,
-            out int poolBudget);
+        (bool callerRefuses, int callerBudget, bool poolRefuses, int poolBudget) =
+            RenderThread.Dispatcher.Invoke(() =>
+            {
+                bool callerRefused = callerAllocated.ExceedsBufferBudget(
+                    callerRequest,
+                    atTheEngineCeiling,
+                    out int callerMax);
+                bool poolRefused = poolAllocated.ExceedsBufferBudget(
+                    poolRequest,
+                    atTheEngineCeiling,
+                    out int poolMax);
+                return (callerRefused, callerMax, poolRefused, poolMax);
+            });
+
         using PooledRenderTargetLease lease = callerRequest.Acquire(atTheEngineCeiling);
 
         Assert.Multiple(() =>
@@ -397,29 +405,103 @@ public sealed class DeviceBufferBudgetTests
     [Test]
     public void TheEnginesOwnAllocator_IsStillRefusedPastTheBoundDevicesLimit()
     {
+        var pastTheDevice = new PixelSize(DeviceBudget + 1, 1);
         using var pool = new RenderTargetPool(factory: null);
         using RenderTargetPoolRequest request = pool.BeginImplicitRequest(ContextAttaching(DeviceBudget));
 
-        bool acquired = pool.TryAcquire(
-            request,
-            new PixelSize(DeviceBudget + 1, 1),
-            out PooledRenderTargetLease? declined);
-        using PooledRenderTargetLease atBudget = pool.Acquire(request, new PixelSize(DeviceBudget, 1));
+        // On the render dispatcher the pool's own allocator does attach through a shared context, so the
+        // named device's limit is the one that binds - and it has to bind before the allocator is reached,
+        // because an attachment the device cannot make is undefined behaviour rather than a failed
+        // allocation. Nothing here allocates, so no real context is ever created to observe that.
+        (int budget, bool refuses, bool acquired, PooledRenderTargetLease? declined, Exception? refusal) =
+            RenderThread.Dispatcher.Invoke(() =>
+            {
+                bool refused = pool.ExceedsBufferBudget(request, pastTheDevice, out int resolved);
+                bool got = pool.TryAcquire(request, pastTheDevice, out PooledRenderTargetLease? lease);
+                Exception? thrown = null;
+                try
+                {
+                    pool.Acquire(request, new PixelSize(1, DeviceBudget + 1)).Dispose();
+                }
+                catch (Exception ex)
+                {
+                    thrown = ex;
+                }
+
+                return (resolved, refused, got, lease, thrown);
+            });
 
         Assert.Multiple(() =>
         {
+            Assert.That(
+                budget,
+                Is.EqualTo(DeviceBudget),
+                "the fixture must name a device below the engine ceiling, or the two budgets are indistinguishable");
+            Assert.That(refuses, Is.True);
             Assert.That(acquired, Is.False, "the pool attaches this one itself, so the device's limit binds it");
             Assert.That(declined, Is.Null);
             Assert.That(
-                () => pool.Acquire(request, new PixelSize(1, DeviceBudget + 1)),
-                Throws.InstanceOf<InvalidOperationException>()
-                    .With.Message.Contains(DeviceBudget.ToString()));
-            Assert.That(atBudget.Target.Width, Is.EqualTo(DeviceBudget));
+                refusal,
+                Is.InstanceOf<InvalidOperationException>().With.Message.Contains(DeviceBudget.ToString()));
             Assert.That(
                 pool.Statistics.Creates,
-                Is.EqualTo(1),
+                Is.Zero,
                 "an attachment the bound device cannot make must never reach the allocator");
         });
+    }
+
+    [Test]
+    public void TheAllocationPathDecidesTheBudget_NotWhicheverContextIsInstalled()
+    {
+        IGraphicsContext device = ContextAttaching(DeviceBudget);
+
+        // The one decision both the allocation and its budget read. Off a dispatcher RenderTarget.Create
+        // rasters, so the installed context bounds nothing; on one it attaches, so the device's limit binds.
+        IGraphicsContext? offDispatcher = RenderTarget.ResolveCreationContext(device);
+        IGraphicsContext? onDispatcher = RenderThread.Dispatcher.Invoke(
+            () => RenderTarget.ResolveCreationContext(device));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dispatcher.Current, Is.Null, "the fixture must be off the render dispatcher");
+            Assert.That(offDispatcher, Is.Null);
+            Assert.That(onDispatcher, Is.SameAs(device));
+            Assert.That(
+                RenderScaleUtilities.ResolveMaxBufferDimension(offDispatcher),
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
+            Assert.That(
+                RenderScaleUtilities.ResolveMaxBufferDimension(onDispatcher),
+                Is.EqualTo(DeviceBudget));
+        });
+    }
+
+    [Test]
+    public void AnOffDispatcherRender_IsBudgetedAgainstTheCpuRasterItAllocates()
+    {
+        // Nothing here runs on a dispatcher, so RenderTarget.Create rasters on the CPU whatever context the
+        // request names, and no device's attachment limit bounds what it allocates. The limit is the named
+        // mock's rather than the running machine's, so the sub-ceiling device is forced on any GPU.
+        Assert.That(Dispatcher.Current, Is.Null, "the case only arises off a dispatcher");
+        var pastTheDevice = new PixelSize(DeviceBudget + 1, 1);
+        using var pool = new RenderTargetPool(factory: null);
+        using RenderTargetPoolRequest request = pool.BeginImplicitRequest(ContextAttaching(DeviceBudget));
+
+        bool refuses = pool.ExceedsBufferBudget(request, pastTheDevice, out int budget);
+        bool acquired = pool.TryAcquire(request, pastTheDevice, out PooledRenderTargetLease? lease);
+
+        using (lease)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    budget,
+                    Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                    "a CPU raster answers to the engine ceiling, not to a device it never reaches");
+                Assert.That(refuses, Is.False);
+                Assert.That(acquired, Is.True, "a valid CPU render must not be refused before it allocates");
+                Assert.That(lease?.Target.Width, Is.EqualTo(pastTheDevice.Width));
+            });
+        }
     }
 
     [Test]
