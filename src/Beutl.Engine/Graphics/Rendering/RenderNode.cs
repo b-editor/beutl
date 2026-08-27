@@ -25,25 +25,23 @@ public abstract class RenderNode : IDisposable
 
     /// <summary>Whether this node would record something other than what its last consumed recording holds.</summary>
     /// <remarks>
-    /// Derived rather than stored, because <see cref="MarkChanged"/> is public and reaches this node from
-    /// whatever thread owns its content while the render thread completes a request. A stored flag would have
-    /// to be lowered by a check-then-act that a concurrent mark can slip through; a version the mark raises
-    /// and the clear can only match cannot lose that mark whichever order the two land in.
+    /// A pair of versions rather than a stored flag, because a request has to tell the mark it observed when
+    /// it began from one that arrived while it was recording. Lowering a flag would drop both, and the second
+    /// mark describes content no recording has been taken of yet.
     /// </remarks>
     public bool HasChanges => Volatile.Read(ref _changeVersion) != Volatile.Read(ref _clearedVersion);
 
     /// <summary>Reports that this node's next recording differs from the one it last had consumed.</summary>
     /// <remarks>
     /// Raising is the only direction a node gets: withdrawing a change it has already reported would let the
-    /// recording taken before the withdrawal be replayed for a state that never produced it. Lowering the
-    /// flag belongs to <see cref="ClearChanges"/>, which the engine calls with the version it recorded at, so
-    /// a mark that lands while a recording is in flight is not swallowed by that recording's clear. Callable
-    /// from any thread, including while a request is being completed elsewhere.
+    /// recording taken before the withdrawal be replayed for a state that never produced it. Lowering belongs
+    /// to <see cref="ClearChanges"/>, which the engine calls with the version the recording was taken at, so
+    /// a mark landing during that recording is not swallowed by its clear.
     /// </remarks>
     public void MarkChanged()
     {
-        // Interlocked, not ++: two owners marking at once must not collapse into one version, or the second
-        // mark is left at a version a clear already in flight is entitled to consume.
+        // Interlocked rather than ++ so the counter survives a mark arriving off the recording thread. No
+        // caller needs that today: every MarkChanged in this repository runs on the thread that records.
         Interlocked.Increment(ref _changeVersion);
     }
 
