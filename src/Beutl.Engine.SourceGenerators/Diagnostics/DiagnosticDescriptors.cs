@@ -36,13 +36,13 @@ public static class DiagnosticDescriptors
         title: "Render metadata callback reads static state that is not proven constant",
         messageFormat:
             "'{0}.{1}' keys its compiled plan by which callback this is, not by what the callback reads, "
-            + "so the callback has to answer the same way every time it runs; this one reaches the static "
-            + "{2} '{3}', and {4}. Carry the value through the state-passing overload or a bound render "
+            + "so the callback has to answer the same way every time it runs; this one reaches the {2} "
+            + "'{3}', and {4}. Carry the value through the state-passing overload or a bound render "
             + "resource, or make '{3}' answer the same way every time. This check reads the callback's own "
-            + "body - a lambda's, or the one a method group names - and follows the static methods that "
-            + "body names, and the methods those name, to a bounded depth. What a called method whose body "
-            + "has no source here reads, what an instance member computes, and what a user-defined "
-            + "operator, conversion or constructor does are all still invisible, so it staying silent is "
+            + "body - a lambda's, or the one a method group names - and follows what that body names and "
+            + "what it runs without naming, to a bounded depth: the static methods, the constructors, and "
+            + "the user-defined operators and conversions. What a callee whose body has no source here "
+            + "reads, and what an instance member computes, are still invisible, so it staying silent is "
             + "not proof that the callback is state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
@@ -80,11 +80,15 @@ public static class DiagnosticDescriptors
             + "than accepted, so the bound can cost a diagnostic and never hide one. A called method whose "
             + "body has no source here is where the walk stops without reporting: the rule did inspect the "
             + "callback, so the callee is a bound on an inspected callback rather than an uninspected one, "
-            + "and reporting it would reject every callback that names Math.Clamp. What is still invisible "
-            + "to it: what such a method reads, whatever an instance member computes - one reached through "
-            + "an accepted field, or one the body calls on a value - and a user-defined operator, "
-            + "conversion or constructor, which a body invokes without naming. Treat silence as the "
-            + "absence of the shape authors usually write, not as a purity proof.");
+            + "and reporting it would reject every callback that names Math.Clamp. The walk also enters "
+            + "what a body runs without naming, on those same terms and under that same bound: a "
+            + "constructor - its own body, the constructor it chains to, the base constructor it runs "
+            + "without saying so, and the instance field and property initialisers that run with it - and "
+            + "a user-defined operator or conversion, which the source spells as punctuation or, for an "
+            + "implicit conversion, as nothing at all. What is still invisible to it: what a callee with "
+            + "no source here reads, and whatever an instance member computes - one reached through an "
+            + "accepted field, an indexer, or one the body calls on a value. Treat silence as the absence "
+            + "of the shape authors usually write, not as a purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",

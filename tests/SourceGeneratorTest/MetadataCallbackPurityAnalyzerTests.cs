@@ -1918,6 +1918,432 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A constructor runs code the body never names: the object-creation expression names the type, and the
+    /// loop that reads the body sees only names. So a helper whose constructor snapshots a mutable static
+    /// answers differently on a later frame while the delegate keying the plan stays the same one.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConstructingAHelperThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class OffsetSnapshot
+            {
+                public OffsetSnapshot()
+                {
+                    Value = Settings.Offset;
+                }
+
+                public float Value { get; }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new OffsetSnapshot().Value, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "moving the read into a constructor does not make the callback answer the same way twice");
+    }
+
+    /// <remarks>
+    /// An initialiser runs as part of every constructor of the type, so it is reached by constructing the
+    /// type and is not written inside any constructor body.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConstructingAHelperWhoseInitialiserReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class OffsetSnapshot
+            {
+                public float Value { get; } = Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new OffsetSnapshot().Value, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a property initialiser is constructor code the callback never names");
+    }
+
+    [Test]
+    public void AStaticLambdaConstructingARecordOverItsArguments_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed record Inset(float Amount);
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new Inset(1f).Amount, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a primary constructor over its own arguments reads nothing that changes between recordings");
+    }
+
+    [Test]
+    public void AStaticLambdaConstructingAStruct_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal readonly struct Inset
+            {
+                public Inset(float amount) => Amount = amount;
+
+                public float Amount { get; }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new Inset(1f).Amount, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A type with no constructor of its own has one the compiler writes, which has no source to read and no
+    /// state to reach; reporting it would reject every callback that names a plain helper.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConstructingATypeWithAnImplicitConstructor_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Inset
+            {
+                public float Amount { get; init; }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new Inset { Amount = 1f }.Amount,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "an object initialiser assigns values already in the body, which the walk already reads");
+    }
+
+    [Test]
+    public void AStaticLambdaConstructingACollectionOverConstants_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new List<float> { 1f, 2f }.Count, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A chained constructor is spelled <c>this</c>, which is not a name the walk's loop reads, so the body
+    /// it runs is reached only by following the chain.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConstructingAHelperThatChainsToAReadingConstructor_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class OffsetSnapshot
+            {
+                public OffsetSnapshot() : this(Settings.Offset)
+                {
+                }
+
+                private OffsetSnapshot(float value) => Value = value;
+
+                public float Value { get; }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new OffsetSnapshot().Value, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    /// <remarks>
+    /// A constructor with no initialiser still runs its base type's parameterless one, and that call is
+    /// written nowhere at all. The middle type has no constructor of its own, so the chain runs through one
+    /// the compiler wrote: stopping there would lose a base this rule can read.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConstructingATypeWhoseBaseConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal abstract class Snapshot
+            {
+                protected Snapshot() => Value = Settings.Offset;
+
+                public float Value { get; }
+            }
+
+            internal abstract class NamedSnapshot : Snapshot
+            {
+            }
+
+            internal sealed class OffsetSnapshot : NamedSnapshot
+            {
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new OffsetSnapshot().Value, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    /// <remarks>
+    /// An operator is spelled as punctuation, so the same read moved behind one used to leave the rule with
+    /// nothing to look at.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingAnOperatorThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal readonly struct Inset
+            {
+                public Inset(float amount) => Amount = amount;
+
+                public float Amount { get; }
+
+                public static Inset operator +(Inset left, Inset right)
+                    => new Inset(left.Amount + right.Amount + Settings.Offset);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + (new Inset(1f) + new Inset(2f)).Amount,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    /// <remarks>
+    /// An implicit conversion is spelled nothing at all - a declared type decides it - so an author can move
+    /// a read behind one without changing a single name in the callback.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingAnImplicitConversionThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal readonly struct Scaled
+            {
+                public Scaled(float value) => Value = value;
+
+                public float Value { get; }
+
+                public static implicit operator Scaled(float value)
+                    => new Scaled(value * Settings.Offset);
+            }
+
+            internal static class Author
+            {
+                private static float Take(Scaled scaled) => scaled.Value;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(Take(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    [Test]
+    public void AStaticLambdaUsingAnOperatorOverItsOperands_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal readonly struct Inset
+            {
+                public Inset(float amount) => Amount = amount;
+
+                public float Amount { get; }
+
+                public static Inset operator +(Inset left, Inset right)
+                    => new Inset(left.Amount + right.Amount);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + (new Inset(1f) + new Inset(2f)).Amount,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A constructor with no source here is the callee case, not the callback case: the rule did read the
+    /// callback, so this is a bound on an inspected callback and reporting it would reject every callback
+    /// that constructs a framework type.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConstructingATypeFromAReferencedAssembly_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External
+            {
+                public sealed class Inset
+                {
+                    public Inset(float amount) => Amount = amount;
+
+                    public float Amount { get; }
+                }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using External;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            value.X + new Inset(1f).Amount, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// definition's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.

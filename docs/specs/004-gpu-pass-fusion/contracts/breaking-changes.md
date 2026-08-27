@@ -895,15 +895,18 @@ describes, and nothing at runtime notices.
   reported, including a member whose source is not available. It reads the callback's own body whether that
   body is a lambda's or the one a method group names, and follows the static methods that body names eight
   levels deep, reporting a longer chain rather than accepting it; a method group whose body has no source
-  in the compilation is reported, because that body is the whole of the callback. Migration: copy the value
-  into a `static readonly` of an immutable type, or pass it as call state; declare a method group's method
-  where the rule can read it, or write the callback as a `static` lambda at the call site.
+  in the compilation is reported, because that body is the whole of the callback. The same walk enters what
+  a body runs without naming: a constructor - its chained and base constructors and the instance
+  initialisers that run with it included - and a user-defined operator or conversion. Migration: copy the
+  value into a `static readonly` of an immutable type, or pass it as call state; declare a method group's
+  method where the rule can read it, or write the callback as a `static` lambda at the call site.
 - **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. This is the
   static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
   Debug-only and compares a replayed recording against a live one.
 
-Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: a static
-method the callback *calls* stays invisible to all of them.
+Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: what a
+callee with no source in the compilation reads, and what an instance member computes, stay invisible to all
+of them.
 
 ## A recording is replayed while it is still valid
 

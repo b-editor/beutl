@@ -488,8 +488,19 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        foreach (SimpleNameSyntax name in body.DescendantNodesAndSelf().OfType<SimpleNameSyntax>())
+        foreach (SyntaxNode node in body.DescendantNodesAndSelf())
         {
+            // A user-defined implicit conversion is spelled nowhere at all - it is implied by the type the
+            // expression is used as - so it is asked for rather than found.
+            if (node is ExpressionSyntax converted)
+                FollowImplicitConversion(context, model, converted, depth, walked, report);
+
+            if (node is not SimpleNameSyntax name)
+            {
+                FollowUnnamedInvocation(context, model, node, depth, walked, report);
+                continue;
+            }
+
             // A nameof argument names a member without reading it.
             if (IsInsideNameOf(name))
                 continue;
@@ -499,7 +510,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             // Only a static method, because a virtual call has no one body to read and what an instance
             // receiver carries is state the field walk decides separately; and only these three kinds,
             // because a property read is already the branch below and an operator, a conversion and a
-            // constructor are invoked without a name for this loop to reach.
+            // constructor reach the walk through FollowUnnamedInvocation instead.
             if (symbol is IMethodSymbol
                 {
                     IsStatic: true,
@@ -507,7 +518,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                         or MethodKind.ReducedExtension
                 } called)
             {
-                FollowCall(context, called, name, depth, walked, report);
+                FollowCall(context, called, name, "static method", depth, walked, report);
                 continue;
             }
 
@@ -515,6 +526,69 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 continue;
 
             report(name, kind, symbol!, reason);
+        }
+    }
+
+    /// <summary>
+    /// Follows the member an expression invokes without naming it.
+    /// </summary>
+    /// <remarks>
+    /// An object creation names the type and not the constructor overload it picked, a constructor
+    /// initialiser is spelled <c>this</c> or <c>base</c>, and a user-defined operator or explicit conversion
+    /// is spelled as punctuation. None of them reach the name loop, and each still runs a body: leaving them
+    /// out let a callback move a read into a constructor and keep the rule silent, which is the one thing
+    /// silence must not mean.
+    /// </remarks>
+    private static void FollowUnnamedInvocation(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode node,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
+            or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
+            or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
+        {
+            return;
+        }
+
+        if (model.GetSymbolInfo(node, context.CancellationToken).Symbol is not IMethodSymbol invoked)
+            return;
+
+        switch (invoked.MethodKind)
+        {
+            case MethodKind.Constructor:
+                FollowConstructor(context, invoked, node, depth, walked, report);
+                break;
+
+            // A built-in operator has no body anywhere and lands in FollowCall's no-source case; naming the
+            // user-defined kinds here says which ones the walk is actually for.
+            case MethodKind.UserDefinedOperator or MethodKind.Conversion:
+                FollowCall(context, invoked, node, "static method", depth, walked, report);
+                break;
+        }
+    }
+
+    /// <remarks>
+    /// A user-defined implicit conversion runs a static method the source never spells, so an author can
+    /// move a read behind one by changing nothing but a declared type. Asking every expression what it was
+    /// converted to costs a semantic query per node, which is affordable because this walk runs only for the
+    /// callbacks a contract call passes and not over the compilation at large.
+    /// </remarks>
+    private static void FollowImplicitConversion(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        ExpressionSyntax expression,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (model.GetConversion(expression, context.CancellationToken)
+            is { IsUserDefined: true, MethodSymbol: { } method })
+        {
+            FollowCall(context, method, expression, "static method", depth, walked, report);
         }
     }
 
@@ -527,7 +601,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static void FollowCall(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol called,
-        SimpleNameSyntax name,
+        SyntaxNode node,
+        string kind,
         int depth,
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
@@ -540,11 +615,184 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         if (depth == 0)
         {
-            report(name, "method", called, DeeperThanTheWalk);
+            report(node, kind, called, DeeperThanTheWalk);
             return;
         }
 
         WalkBody(context, GetSemanticModel(context, body.SyntaxTree), body, depth - 1, walked, report);
+    }
+
+    /// <summary>
+    /// Follows a constructor the callback reaches, on the same terms a called method is followed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same bound and the same answers: a constructor with no source here stops the walk without
+    /// reporting, because the rule did inspect the callback and this is a bound on an inspected one; a chain
+    /// longer than the bound is reported rather than accepted.
+    /// </para>
+    /// <para>
+    /// What a constructor runs is more than one syntax node. The instance field and property initialisers of
+    /// the type run before the body of whichever constructor does not chain to another of the same type, and
+    /// a constructor with no initialiser of its own still runs its base type's parameterless one. None of
+    /// that is written where the name loop could reach it.
+    /// </para>
+    /// </remarks>
+    private static void FollowConstructor(
+        SyntaxNodeAnalysisContext context,
+        IMethodSymbol constructor,
+        SyntaxNode node,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (!walked.Add(constructor.OriginalDefinition))
+            return;
+
+        List<SyntaxNode> bodies = GetConstructorBodies(context, constructor);
+        IMethodSymbol? implicitBase = GetImplicitBaseConstructor(context, constructor);
+
+        if (bodies.Count == 0 && implicitBase is null)
+            return;
+
+        if (depth == 0)
+        {
+            report(node, "constructor", constructor, DeeperThanTheWalk);
+            return;
+        }
+
+        foreach (SyntaxNode body in bodies)
+            WalkBody(context, GetSemanticModel(context, body.SyntaxTree), body, depth - 1, walked, report);
+
+        if (implicitBase is not null)
+            FollowConstructor(context, implicitBase, node, depth - 1, walked, report);
+    }
+
+    /// <returns>
+    /// Every syntax node the constructor runs whose names this rule can read - its initialiser call, its own
+    /// body, and the instance field and property initialisers it runs - or an empty list when it has no
+    /// source in this compilation.
+    /// </returns>
+    /// <remarks>
+    /// A primary constructor is declared by the type, whose members are not what it runs, so only its base
+    /// argument list is taken from there. Parameter defaults are left out on purpose: a default has to be a
+    /// constant expression, which cannot read state at all.
+    /// </remarks>
+    private static List<SyntaxNode> GetConstructorBodies(
+        SyntaxNodeAnalysisContext context,
+        IMethodSymbol constructor)
+    {
+        List<SyntaxNode> bodies = [];
+        bool chainsToThis = false;
+
+        foreach (SyntaxReference declaration in constructor.OriginalDefinition.DeclaringSyntaxReferences)
+        {
+            switch (declaration.GetSyntax(context.CancellationToken))
+            {
+                case ConstructorDeclarationSyntax syntax:
+                    if (syntax.Initializer is { } initializer)
+                    {
+                        bodies.Add(initializer);
+                        chainsToThis |= initializer.IsKind(SyntaxKind.ThisConstructorInitializer);
+                    }
+
+                    if (syntax.Body is { } block)
+                        bodies.Add(block);
+                    else if (syntax.ExpressionBody?.Expression is { } expression)
+                        bodies.Add(expression);
+                    break;
+
+                case TypeDeclarationSyntax { BaseList.Types: { } baseTypes }:
+                    foreach (BaseTypeSyntax baseType in baseTypes)
+                    {
+                        if (baseType is PrimaryConstructorBaseTypeSyntax primaryBase)
+                            bodies.Add(primaryBase);
+                    }
+
+                    break;
+            }
+        }
+
+        // A constructor that chains to another of the same type leaves the initialisers to that one, and
+        // adding them here would walk the same expression twice.
+        if (!chainsToThis)
+            AddInstanceInitializers(context, constructor.OriginalDefinition.ContainingType, bodies);
+
+        return bodies;
+    }
+
+    /// <remarks>
+    /// An auto-property's backing field carries the same initialiser the property declares, so only the
+    /// members an author wrote are read; taking both would report one read twice.
+    /// </remarks>
+    private static void AddInstanceInitializers(
+        SyntaxNodeAnalysisContext context,
+        INamedTypeSymbol? type,
+        List<SyntaxNode> bodies)
+    {
+        if (type is null)
+            return;
+
+        foreach (ISymbol member in type.GetMembers())
+        {
+            if (member is not (IFieldSymbol { IsStatic: false, IsImplicitlyDeclared: false }
+                or IPropertySymbol { IsStatic: false, IsImplicitlyDeclared: false }))
+            {
+                continue;
+            }
+
+            foreach (SyntaxReference declaration in member.DeclaringSyntaxReferences)
+            {
+                switch (declaration.GetSyntax(context.CancellationToken))
+                {
+                    case VariableDeclaratorSyntax { Initializer.Value: { } field }:
+                        bodies.Add(field);
+                        break;
+
+                    case PropertyDeclarationSyntax { Initializer.Value: { } property }:
+                        bodies.Add(property);
+                        break;
+                }
+            }
+        }
+    }
+
+    /// <returns>
+    /// The base constructor this one runs without saying so, or <see langword="null"/> when it says so
+    /// itself or when the base type has no source here.
+    /// </returns>
+    /// <remarks>
+    /// The question asked of the base is whether the type has source here, not whether its constructor does:
+    /// a type declared in this compilation whose constructor is the one the compiler writes still runs its
+    /// own base's, so stopping at it would lose a chain the rule can read. A base with no source at all -
+    /// object, which every class reaches - is where the walk stops, and returning it would have the depth
+    /// bound report a chain that ends at nothing.
+    /// </remarks>
+    private static IMethodSymbol? GetImplicitBaseConstructor(
+        SyntaxNodeAnalysisContext context,
+        IMethodSymbol constructor)
+    {
+        foreach (SyntaxReference declaration in constructor.OriginalDefinition.DeclaringSyntaxReferences)
+        {
+            switch (declaration.GetSyntax(context.CancellationToken))
+            {
+                case ConstructorDeclarationSyntax { Initializer: not null }:
+                    return null;
+
+                case TypeDeclarationSyntax { BaseList.Types: { } baseTypes }
+                    when baseTypes.Any(static type => type is PrimaryConstructorBaseTypeSyntax):
+                    return null;
+            }
+        }
+
+        if (constructor.OriginalDefinition.ContainingType?.BaseType is not { } baseType
+            || baseType.DeclaringSyntaxReferences.IsEmpty)
+        {
+            return null;
+        }
+
+        return baseType.InstanceConstructors
+            .FirstOrDefault(static candidate => candidate.Parameters.Length == 0);
     }
 
     /// <returns>
@@ -563,10 +811,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         {
             switch (declaration.GetSyntax(context.CancellationToken))
             {
-                case MethodDeclarationSyntax { Body: { } block }:
+                // An operator and a conversion are declared by their own node kinds rather than as methods,
+                // and their bodies are as much a body as any. A constructor is a base method declaration too
+                // and never arrives here: it is followed through GetConstructorBodies, which reads the
+                // initialisers this would miss.
+                case BaseMethodDeclarationSyntax { Body: { } block }:
                     return block;
 
-                case MethodDeclarationSyntax { ExpressionBody.Expression: { } expression }:
+                case BaseMethodDeclarationSyntax { ExpressionBody.Expression: { } expression }:
                     return expression;
 
                 case LocalFunctionStatementSyntax { Body: { } block }:
@@ -595,11 +847,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             IFieldSymbol { IsStatic: true, IsConst: true } => null,
 
             IFieldSymbol { IsStatic: true, IsReadOnly: false } =>
-                ("field", "a static field that is neither const nor readonly can be assigned between two "
-                    + "recordings while the plan key stays the same"),
+                ("static field", "a static field that is neither const nor readonly can be assigned "
+                    + "between two recordings while the plan key stays the same"),
 
             IFieldSymbol { IsStatic: true } field when !IsImmutableType(field.Type) =>
-                ("field", DescribeUnprovableFieldType(field.Type)),
+                ("static field", DescribeUnprovableFieldType(field.Type)),
 
             IPropertySymbol { IsStatic: true } property => DescribeUnprovenGetter(context, property),
 
@@ -646,14 +898,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         IPropertySymbol property)
     {
         if (property.SetMethod is not null)
-            return ("property", "its setter can change what it answers");
+            return ("static property", "its setter can change what it answers");
 
         ImmutableArray<SyntaxReference> declarations = property.DeclaringSyntaxReferences;
         if (declarations.IsEmpty)
         {
-            return ("property", "its getter has no source in this compilation, so what the getter reads "
-                + "cannot be seen, and having no setter is not on its own evidence that it answers the "
-                + "same way twice");
+            return ("static property", "its getter has no source in this compilation, so what the getter "
+                + "reads cannot be seen, and having no setter is not on its own evidence that it answers "
+                + "the same way twice");
         }
 
         foreach (SyntaxReference declaration in declarations)
@@ -666,8 +918,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return ("property", "its getter is not a shape this rule can prove yields the same value on every "
-            + "read, and having no setter is not on its own evidence that it does");
+        return ("static property", "its getter is not a shape this rule can prove yields the same value "
+            + "on every read, and having no setter is not on its own evidence that it does");
     }
 
     /// <returns>
