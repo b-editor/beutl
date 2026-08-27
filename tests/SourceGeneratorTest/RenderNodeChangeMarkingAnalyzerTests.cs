@@ -984,6 +984,110 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
+    /// <remarks>
+    /// An element write is the assignment shape, not the collection-mutation bound. Nothing but this field
+    /// reaches the array, no other type's body runs, and the read side already counts the field as state
+    /// Process depends on - reading the write out differently is the asymmetry that made the rule silent
+    /// while the node went stale. readonly is the sharpest form of it: the reference cannot be reassigned,
+    /// so an element write is the only way the value ever changes.
+    /// </remarks>
+    [Test]
+    public void AMutatorWritingAnElementOfTrackedStateWithoutMarking_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class SlotNode : RenderNode
+            {
+                private readonly Rect[] _bounds = new Rect[1];
+
+                public void Update(Rect bounds)
+                {
+                    _bounds[0] = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds[0]);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "writing an element changes exactly the value Process reads back");
+    }
+
+    /// <remarks>
+    /// The read side of the same syntax, pinned: a member that only takes an element out changes nothing,
+    /// and reporting it would make every accessor over an array field a diagnostic.
+    /// </remarks>
+    [Test]
+    public void AMutatorReadingAnElementOfTrackedState_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class SlotNode : RenderNode
+            {
+                private readonly Rect[] _bounds = new Rect[1];
+
+                public Rect Peek()
+                {
+                    Rect bounds = _bounds[0];
+                    return bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds[0]);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "taking an element out leaves the node's recording as valid as it was");
+    }
+
+    /// <remarks>
+    /// An element write is judged by the same mark the assignment shape is judged by, so a node that marks
+    /// stays accepted. Without this the fix the diagnostic recommends would not silence it.
+    /// </remarks>
+    [Test]
+    public void AMutatorWritingAnElementAndMarkingTheNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class SlotNode : RenderNode
+            {
+                private readonly Rect[] _bounds = new Rect[1];
+
+                public void Update(Rect bounds)
+                {
+                    _bounds[0] = bounds;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds[0]);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the mark covers an element write as it covers a whole-field assignment");
+    }
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CreateCompilation(source);

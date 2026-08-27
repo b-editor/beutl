@@ -107,9 +107,10 @@ public static class DiagnosticDescriptors
         messageFormat:
             "'{0}.{1}' changes '{2}', which '{0}.Process' reads, and no MarkChanged() call on this node is "
             + "reachable from it. A render graph recorded for a node that reports no changes may be reused "
-            + "instead of re-recorded, so this change would never reach a frame. {3}. This rule reads a "
-            + "direct assignment written inside '{0}', and the setter of an auto-property that code outside "
-            + "'{0}' can assign, so it staying silent is not proof that every mutation is marked.",
+            + "instead of re-recorded, so this change would never reach a frame. {3}. This rule reads an "
+            + "assignment written inside '{0}' - to the state itself or to an element of it - and the "
+            + "setter of an auto-property that code outside '{0}' can assign, so it staying silent is not "
+            + "proof that every mutation is marked.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -117,9 +118,10 @@ public static class DiagnosticDescriptors
             "Deciding in general whether a render node's recorded output can go stale is not possible, and "
             + "this rule does not try. It reports two shapes, both about state the node's Process reads. "
             + "The first is an assignment: a member of the node's own type assigns an instance field, an "
-            + "auto-property, or the backing store a property names with the field keyword, and neither "
-            + "that member nor a method of the same type it calls on this node marks that node with "
-            + "MarkChanged(). The second is a declaration, because an assignment is not always written "
+            + "auto-property, the backing store a property names with the field keyword, or an element of "
+            + "one of those - _points[0] = value, which changes exactly the value Process reads back - and "
+            + "neither that member nor a method of the same type it calls on this node marks that node "
+            + "with MarkChanged(). The second is a declaration, because an assignment is not always written "
             + "where the rule can read it: an auto-property the node's own type declares whose setter is "
             + "neither private nor init-only can be assigned by whoever holds the node, and that setter is "
             + "synthesized, so there is no body for the first shape to read and no assignment inside the "
@@ -128,9 +130,11 @@ public static class DiagnosticDescriptors
             + "read, can assign it. The Process both shapes read is the "
             + "override filling the RenderNode slot, inherited or not, and not a same-named overload "
             + "declared beside it. Everything else stays "
-            + "invisible - an assignment made through a helper on another type, through a virtual call, or "
-            + "by mutating a collection in place; an assignment guarded by a branch that skips the "
-            + "MarkChanged() call the rule found elsewhere in the same member; an assignment to state "
+            + "invisible - an assignment made through a helper on another type, through a virtual call, "
+            + "or by a method that mutates a collection in place, such as list.Add(x); a write past the "
+            + "name to a member of whatever the state holds, such as _child.Bounds = value, which is "
+            + "another object's state and not this node's; an assignment guarded by a branch that skips "
+            + "the MarkChanged() call the rule found elsewhere in the same member; an assignment to state "
             + "declared by a base type, which is reported where that type is analyzed; and any assignment "
             + "written inside Process itself or a method Process calls, which are excluded so that ordinary "
             + "memoization is not reported. The "

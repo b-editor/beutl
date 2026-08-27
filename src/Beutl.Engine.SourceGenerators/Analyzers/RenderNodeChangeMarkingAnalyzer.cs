@@ -21,10 +21,10 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// <para>
 /// What a rule can decide here is bounded, and the bound is the point rather than an apology for it. This
 /// reports two shapes, both about state the node's <c>Process</c> reads: an assignment written in the node's
-/// own type to an instance field or auto-property, and an auto-property the node declares whose setter
-/// anyone outside it can call. Those are the shapes authors write, and a rule that guessed past them on a
-/// public extension point would be suppressed wholesale and then protect nothing. The runtime cross-check in
-/// <c>Beutl.Engine</c> is what covers the rest; silence here is not a proof.
+/// own type to an instance field or auto-property, or to an element of one, and an auto-property the node
+/// declares whose setter anyone outside it can call. Those are the shapes authors write, and a rule that
+/// guessed past them on a public extension point would be suppressed wholesale and then protect nothing.
+/// The runtime cross-check in <c>Beutl.Engine</c> is what covers the rest; silence here is not a proof.
 /// </para>
 /// <para>
 /// The second shape is asked at the declaration because there is nowhere else to ask it. A synthesized
@@ -427,7 +427,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     if (!reference.OnThisInstance)
                         continue;
 
-                    if (IsWriteTarget(reference.Access))
+                    if (ChangesTheValueBehind(reference.Access))
                         yield return new StateAssignment(symbol, reference.Access.GetLocation());
                 }
             }
@@ -580,7 +580,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             // A conditional access spells its receiver once, in the expression that guards the whole chain,
             // so the binding beside the name carries no receiver of its own.
             case MemberBindingExpressionSyntax binding when binding.Name == name:
-                return FindConditionalAccessReceiver(binding)
+                return ConditionalAccessSyntax.FindReceiver(binding)
                     is ThisExpressionSyntax or BaseExpressionSyntax;
 
             default:
@@ -588,25 +588,36 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>The receiver the conditional access enclosing <paramref name="binding"/> tests and binds to.</summary>
-    private static ExpressionSyntax? FindConditionalAccessReceiver(MemberBindingExpressionSyntax binding)
-    {
-        for (SyntaxNode? current = binding; current is not null; current = current.Parent)
-        {
-            if (current.Parent is ConditionalAccessExpressionSyntax conditional
-                && conditional.WhenNotNull == current)
-            {
-                return conditional.Expression;
-            }
-        }
-
-        return null;
-    }
-
     private static bool IsSimpleAssignmentTarget(ExpressionSyntax expression)
         => expression.Parent is AssignmentExpressionSyntax assignment
            && assignment.Left == expression
            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression);
+
+    /// <summary>Whether the reference is where a change to the state this member holds is written.</summary>
+    /// <remarks>
+    /// <para>
+    /// An element write - <c>_points[0] = value</c> - is the assignment shape and not the
+    /// collection-mutation bound. Nothing but the tracked name reaches that element, no name outside this
+    /// member is involved, and the read side already counts the field as state <c>Process</c> depends on,
+    /// because a read of <c>_points[i]</c> reads <c>_points</c>. Reading the write out differently is what
+    /// let the node go stale while the rule stayed silent.
+    /// </para>
+    /// <para>
+    /// Asked separately from <see cref="IsWriteTarget"/>, which answers a different question - which
+    /// accessor a reference runs. An element write on a property runs its getter, so widening that one
+    /// would have walked the setter body and let a mark written there excuse a mutation it never sees.
+    /// </para>
+    /// <para>
+    /// Through brackets only, however many are nested. A member written past the name -
+    /// <c>_child.Bounds = value</c> - is another object's state, which this node's mark does not decide,
+    /// and is where the rule already stops.
+    /// </para>
+    /// </remarks>
+    private static bool ChangesTheValueBehind(ExpressionSyntax expression)
+        => IsWriteTarget(expression)
+           || (expression.Parent is ElementAccessExpressionSyntax element
+               && element.Expression == expression
+               && ChangesTheValueBehind(element));
 
     private static bool IsWriteTarget(ExpressionSyntax expression)
     {

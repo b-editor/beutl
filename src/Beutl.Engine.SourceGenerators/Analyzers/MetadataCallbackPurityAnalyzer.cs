@@ -691,13 +691,21 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
     /// <returns>
     /// The expression the call is made on, or <see langword="null"/> when the reference carries no receiver
-    /// of its own - a bare name, which is this instance or a static, or a conditional access, which spells
-    /// its receiver once at the head of the chain.
+    /// of its own - a bare name, which is this instance or a static.
     /// </returns>
+    /// <remarks>
+    /// A conditional access is the same question spelled differently, not a different question: the chain
+    /// writes its receiver once, at the head, so the binding beside the name carries none of its own.
+    /// Reading only the receiver written beside the name let an author move a read behind a question mark -
+    /// <c>new Helper()?.Map(value)</c> - and take the whole instance walk out of the rule, which is the one
+    /// thing silence must not mean.
+    /// </remarks>
     private static ExpressionSyntax? GetReceiver(SyntaxNode reference) => reference switch
     {
         SimpleNameSyntax name when name.Parent is MemberAccessExpressionSyntax access && access.Name == name
             => access.Expression,
+        SimpleNameSyntax name when name.Parent is MemberBindingExpressionSyntax binding && binding.Name == name
+            => ConditionalAccessSyntax.FindReceiver(binding),
         ElementAccessExpressionSyntax element => element.Expression,
         _ => null,
     };

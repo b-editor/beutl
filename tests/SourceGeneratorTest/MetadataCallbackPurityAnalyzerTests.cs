@@ -2578,6 +2578,129 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A conditional access spells its receiver once, at the head of the chain, so the name beside the call
+    /// carries none of its own. That is a different syntax shape and not a different rule: the object
+    /// creation guarding the chain is still made right there, so the exact type and everything the instance
+    /// carries are still read off the call site. Reading only the receiver written beside the name let an
+    /// author move a read behind a question mark and keep the id silent.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConditionallyCallingAMethodOnAFreshHelperThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            new Shifter()?.Shift(value.X) ?? value.X,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the chain still makes the instance it runs on, however the call is spelled");
+    }
+
+    /// <remarks>
+    /// The other side of the same shape: a question mark does not make a receiver visible. What the walk
+    /// needs is the object creation at the head of the chain, and a chain headed by a parameter has none, so
+    /// this stays where the rule already stops.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConditionallyCallingAMethodOnAReceiverItDidNotCreate_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                private static float Apply(Shifter shifter, float value)
+                    => shifter?.Shift(value) ?? value;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Apply(new Shifter(), value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the callback did not make this receiver, so what it carries is not read off the call site");
+    }
+
+    /// <remarks>
+    /// Following the conditional spelling must not turn an ordinary helper into a diagnostic either: a body
+    /// reading only its arguments and the fields its own constructor set has nothing in it to report.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaConditionallyCallingAMethodOverItsArguments_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Scaler
+            {
+                private readonly float _factor;
+
+                public Scaler(float factor) => _factor = factor;
+
+                public float Scale(float value) => value * _factor;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            new Scaler(2f)?.Scale(value.X) ?? value.X,
+                            value.Y,
+                            value.Width,
+                            value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a helper reading its own arguments and fields answers the same way twice");
+    }
+
+    /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// definition's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.
