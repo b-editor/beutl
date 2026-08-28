@@ -34,11 +34,7 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         Matrix transform = Transform;
         TransformOperator transformOperator = TransformOperator;
         Matrix inverse = transform.HasInverse ? transform.Invert() : default;
-        var metadataState = new TransformMetadataState(
-            transform,
-            transform.HasInverse,
-            inverse,
-            context.TargetDomain);
+        var metadataState = new TransformMetadataState(transform, inverse, context.TargetDomain);
         RenderBoundsContract bounds = transform.HasInverse
             ? RenderBoundsContract.Create(
                 metadataState,
@@ -47,14 +43,8 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             : RenderBoundsContract.CreateFullInput(
                 metadataState,
                 static (state, value) => state.TransformBounds(value));
-        RenderHitTestContract hitTest = RenderHitTestContract.Custom(
-            metadataState,
-            static (state, context, point) => state.HitTest(context, point));
-        var scaleMapper = new TransformScaleMapper(transform);
-        RenderScaleContract scale = RenderScaleContract.MapInputSupply(
-            scaleMapper,
-            static (mapper, supply) => mapper.MapSupply(supply),
-            static (mapper, demand) => mapper.MapDemand(demand));
+        RenderHitTestContract hitTest = RenderHitTestContract.Custom(HitTest);
+        RenderScaleContract scale = RenderScaleContract.MapInputSupply(MapSupply, MapDemand);
         // Set discards the ambient transform for the canvas base transform, so it moves the input even when
         // the matrix is identity.
         RenderDeviceGridMapping gridMapping =
@@ -93,6 +83,18 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             definition.Call((transform, transformOperator)),
             static (context, input, value) => context.TargetScope(input, value));
     }
+
+    private bool HitTest(RenderHitTestContext context, Point point)
+    {
+        Matrix transform = Transform;
+        if (transform.HasInverse)
+            point *= transform.Invert();
+        return context.Inputs[0].HitTest(point);
+    }
+
+    private EffectiveScale MapSupply(EffectiveScale inputSupply) => RescaleDensity(inputSupply, Transform);
+
+    private EffectiveScale MapDemand(EffectiveScale outputDemand) => RescaleDemand(outputDemand, Transform);
 
     private static void ExecuteTransform(
         TargetScopeSession session,
@@ -158,28 +160,11 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     private readonly record struct TransformMetadataState(
         Matrix Transform,
-        bool HasInverse,
         Matrix Inverse,
         Rect? DeliveredTo)
     {
         public Rect TransformBounds(Rect value) => value.TransformToDeliveredAABB(Transform, DeliveredTo);
 
         public Rect GetRequiredInputBounds(Rect value) => value.TransformToAABB(Inverse);
-
-        public bool HitTest(RenderHitTestContext metadata, Point point)
-        {
-            if (HasInverse)
-                point *= Inverse;
-            return metadata.Inputs[0].HitTest(point);
-        }
-    }
-
-    private readonly record struct TransformScaleMapper(Matrix Transform)
-    {
-        public EffectiveScale MapSupply(EffectiveScale inputSupply)
-            => RescaleDensity(inputSupply, Transform);
-
-        public EffectiveScale MapDemand(EffectiveScale outputDemand)
-            => RescaleDemand(outputDemand, Transform);
     }
 }

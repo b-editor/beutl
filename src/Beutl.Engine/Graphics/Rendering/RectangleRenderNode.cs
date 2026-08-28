@@ -39,47 +39,32 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 
-        var hitTestState = new RectangleHitTestState(
-            rect,
-            fill is not null,
-            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
-            pen?.Thickness ?? 0);
-
-        var state = (rect, hitTestState);
         context.Publish(context.PaintedSource(
-            state,
-            draw: static (canvas, fill, pen, state) =>
-                canvas.DrawRectangle(state.rect, fill, pen),
+            rect,
+            draw: static (canvas, fill, pen, rect) =>
+                canvas.DrawRectangle(rect, fill, pen),
             fill: fill,
             pen: pen,
             outputBounds: bounds,
-            hitTest: RenderHitTestContract.Custom(
-                hitTestState,
-                static (state, context, point) => state.HitTest(context, point)),
+            hitTest: RenderHitTestContract.Custom(HitTest),
             scale: RenderScaleContract.Vector));
     }
 
-    private readonly record struct RectangleHitTestState(
-        Rect Rect,
-        bool HasFill,
-        StrokeAlignment StrokeAlignment,
-        float Thickness)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        public bool HitTest(RenderHitTestContext context, Point point) => HitTest(point);
+        Rect rect = Rect;
+        Pen.Resource? pen = Pen?.Resource;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
+            pen?.Thickness ?? 0);
 
-        public bool HitTest(Point point)
+        if (Fill?.Resource is not null)
         {
-            float realThickness = PenHelper.GetRealThickness(StrokeAlignment, Thickness);
-
-            if (HasFill)
-            {
-                Rect rect = Rect.Inflate(realThickness);
-                return rect.ContainsExclusive(point);
-            }
-
-            Rect borderRect = Rect.Inflate(realThickness);
-            Rect emptyRect = Rect.Deflate(realThickness);
-            return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
+            return rect.Inflate(realThickness).ContainsExclusive(point);
         }
+
+        Rect borderRect = rect.Inflate(realThickness);
+        Rect emptyRect = rect.Deflate(realThickness);
+        return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
     }
 }

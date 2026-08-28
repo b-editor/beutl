@@ -39,79 +39,66 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
         if (bounds.Width == 0 || bounds.Height == 0)
             return;
 
-        var hitTestState = new EllipseHitTestState(
-            rect,
-            fill is not null,
-            pen?.StrokeAlignment ?? StrokeAlignment.Center,
-            pen?.Thickness ?? 0);
-
-        var state = (rect, hitTestState);
         context.Publish(context.PaintedSource(
-            state,
-            draw: static (canvas, fill, pen, state) =>
-                canvas.DrawEllipse(state.rect, fill, pen),
+            rect,
+            draw: static (canvas, fill, pen, rect) =>
+                canvas.DrawEllipse(rect, fill, pen),
             fill: fill,
             pen: pen,
             outputBounds: bounds,
-            hitTest: RenderHitTestContract.Custom(
-                hitTestState,
-                static (state, context, point) => state.HitTest(context, point)),
+            hitTest: RenderHitTestContract.Custom(HitTest),
             scale: RenderScaleContract.Vector));
     }
 
     //https://github.com/AvaloniaUI/Avalonia/blob/release/0.10.21/src/Avalonia.Visuals/Rendering/SceneGraph/EllipseNode.cs
-    private readonly record struct EllipseHitTestState(
-        Rect Rect,
-        bool HasFill,
-        StrokeAlignment StrokeAlignment,
-        float Thickness)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        public bool HitTest(RenderHitTestContext context, Point point) => HitTest(point);
+        Rect rect = Rect;
+        Pen.Resource? pen = Pen?.Resource;
+        float thickness = pen?.Thickness ?? 0;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Center,
+            thickness);
 
-        public bool HitTest(Point point)
+        Point center = rect.Center;
+
+        float rx = rect.Width / 2 + realThickness;
+        float ry = rect.Height / 2 + realThickness;
+
+        float dx = point.X - center.X;
+        float dy = point.Y - center.Y;
+
+        if (Math.Abs(dx) > rx || Math.Abs(dy) > ry)
         {
-            Point center = Rect.Center;
-
-            float realThickness = PenHelper.GetRealThickness(StrokeAlignment, Thickness);
-
-            float rx = Rect.Width / 2 + realThickness;
-            float ry = Rect.Height / 2 + realThickness;
-
-            float dx = point.X - center.X;
-            float dy = point.Y - center.Y;
-
-            if (Math.Abs(dx) > rx || Math.Abs(dy) > ry)
-            {
-                return false;
-            }
-
-            if (HasFill)
-            {
-                return Contains(rx, ry);
-            }
-            else if (Thickness > 0)
-            {
-                bool inStroke = Contains(rx, ry);
-
-                rx = Rect.Width / 2 - realThickness;
-                ry = Rect.Height / 2 - realThickness;
-
-                bool inInner = Contains(rx, ry);
-
-                return inStroke && !inInner;
-            }
-
-            bool Contains(double radiusX, double radiusY)
-            {
-                double rx2 = radiusX * radiusX;
-                double ry2 = radiusY * radiusY;
-
-                double distance = ry2 * dx * dx + rx2 * dy * dy;
-
-                return distance <= rx2 * ry2;
-            }
-
             return false;
         }
+
+        if (Fill?.Resource is not null)
+        {
+            return Contains(rx, ry);
+        }
+        else if (thickness > 0)
+        {
+            bool inStroke = Contains(rx, ry);
+
+            rx = rect.Width / 2 - realThickness;
+            ry = rect.Height / 2 - realThickness;
+
+            bool inInner = Contains(rx, ry);
+
+            return inStroke && !inInner;
+        }
+
+        bool Contains(double radiusX, double radiusY)
+        {
+            double rx2 = radiusX * radiusX;
+            double ry2 = radiusY * radiusY;
+
+            double distance = ry2 * dx * dx + rx2 * dy * dy;
+
+            return distance <= rx2 * ry2;
+        }
+
+        return false;
     }
 }

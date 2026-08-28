@@ -31,9 +31,6 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
 
     public override void Process(RenderNodeContext context)
     {
-        Rect clip = Clip;
-        ClipOperation operation = Operation;
-        var metadata = new RectClipMetadata(clip, operation);
         TargetScopeDefinition<RectClipMetadata> definition = TargetScopeDefinition<RectClipMetadata>.Create(
             static (session, state) => session.Canvas.Use(canvas =>
             {
@@ -42,35 +39,29 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
                     session.ReplayInput();
                 }
             }),
-            RenderBoundsContract.Create(
-                metadata,
-                static (state, value) => state.TransformBounds(value),
-                static (state, value) => state.GetRequiredInputBounds(value)),
-            RenderHitTestContract.Custom(
-                metadata,
-                static (state, context, point) => state.HitTest(context, point)),
+            RenderBoundsContract.Create(TransformBounds, GetRequiredInputBounds),
+            RenderHitTestContract.Custom(HitTest),
             RenderScaleContract.PreserveInputSupply,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
             deviceGridMapping: RenderDeviceGridMapping.Preserved);
 
         context.PublishMappedInputs(
-            definition.Call(metadata),
+            definition.Call(new RectClipMetadata(Clip, Operation)),
             static (context, input, value) => context.TargetScope(input, value));
     }
 
-    private readonly record struct RectClipMetadata(Rect Clip, ClipOperation Operation)
+    private Rect TransformBounds(Rect value)
+        => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
+
+    private Rect GetRequiredInputBounds(Rect value)
+        => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
+
+    private bool HitTest(RenderHitTestContext context, Point point)
     {
-        public Rect TransformBounds(Rect value)
-            => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
-
-        public Rect GetRequiredInputBounds(Rect value)
-            => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
-
-        public bool HitTest(RenderHitTestContext context, Point point)
-        {
-            bool insideClip = Clip.Contains(point);
-            bool clipAcceptsPoint = Operation == ClipOperation.Intersect ? insideClip : !insideClip;
-            return clipAcceptsPoint && context.Inputs.Any(input => input.HitTest(point));
-        }
+        bool insideClip = Clip.Contains(point);
+        bool clipAcceptsPoint = Operation == ClipOperation.Intersect ? insideClip : !insideClip;
+        return clipAcceptsPoint && context.Inputs.Any(input => input.HitTest(point));
     }
+
+    private readonly record struct RectClipMetadata(Rect Clip, ClipOperation Operation);
 }

@@ -60,11 +60,6 @@ public sealed class VideoSourceRenderNode(
         Pen.Resource? pen = Pen?.Resource;
         float supplyDensity = source.SupplyDensity;
         RenderResource<VideoSource.Resource> sourceResource = context.Borrow(source);
-        var hitTestState = new VideoHitTestState(
-            bounds,
-            fill is not null,
-            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
-            pen?.Thickness ?? 0);
 
         context.Publish(context.PaintedSource(
             state: (source, frame),
@@ -73,36 +68,28 @@ public sealed class VideoSourceRenderNode(
             fill: fill,
             pen: pen,
             outputBounds: bounds,
-            hitTest: RenderHitTestContract.Custom(
-                hitTestState,
-                static (state, context, point) => state.Evaluate(context, point)),
+            hitTest: RenderHitTestContract.Custom(HitTest),
             scale: RenderScaleContract.Custom(
                 supplyDensity,
                 static (density, _) => density),
             resources: [sourceResource]));
     }
 
-    private readonly record struct VideoHitTestState(
-        Rect Bounds,
-        bool HasFill,
-        StrokeAlignment StrokeAlignment,
-        float Thickness)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        public bool HitTest(Point point)
+        Rect bounds = Bounds;
+        Pen.Resource? pen = Pen?.Resource;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
+            pen?.Thickness ?? 0);
+
+        if (Fill?.Resource is not null)
         {
-            float realThickness = PenHelper.GetRealThickness(StrokeAlignment, Thickness);
-
-            if (HasFill)
-            {
-                Rect rect = Bounds.Inflate(realThickness);
-                return rect.ContainsExclusive(point);
-            }
-
-            Rect borderRect = Bounds.Inflate(realThickness);
-            Rect emptyRect = Bounds.Deflate(realThickness);
-            return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
+            return bounds.Inflate(realThickness).ContainsExclusive(point);
         }
 
-        public bool Evaluate(RenderHitTestContext _, Point point) => HitTest(point);
+        Rect borderRect = bounds.Inflate(realThickness);
+        Rect emptyRect = bounds.Deflate(realThickness);
+        return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
     }
 }
