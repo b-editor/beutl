@@ -5,9 +5,17 @@
 /// </summary>
 /// <typeparam name="TState">The per-recording state supplied by an <see cref="OpaqueRenderCall{TState}"/>.</typeparam>
 /// <remarks>
+/// <para>
 /// A definition contains only operation shape: its callback, metadata contracts, and planner traits. Values that
 /// affect pixels belong to a call. When those values change, the owning <see cref="RenderNode"/> must call
 /// <see cref="RenderNode.MarkChanged"/> before its next request.
+/// </para>
+/// <para>
+/// The bounds contract is one of those metadata contracts, so what an operation declares about its geometry is
+/// answered before any call supplies state. An operation whose geometry is itself a per-recording value builds
+/// its definition inside <see cref="RenderNode.Process"/> rather than holding one; nothing is lost by that,
+/// because a plan is keyed by the shape of the work and not by the rectangles a recording carries.
+/// </para>
 /// </remarks>
 public sealed class OpaqueRenderDefinition<TState>
     where TState : notnull
