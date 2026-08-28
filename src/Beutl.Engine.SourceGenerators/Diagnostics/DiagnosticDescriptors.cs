@@ -61,11 +61,12 @@ public static class DiagnosticDescriptors
             + "resource, or make '{3}' answer the same way every time. This check reads the callback's own "
             + "body - a lambda's, or the one a method group names - and follows what that body names and "
             + "what it runs without naming, to a bounded depth: the static methods, the constructors, the "
-            + "user-defined operators and conversions, and any member - a method, a property or an indexer "
-            + "accessor - called on an instance the expression makes right there. What a callee whose body "
-            + "has no source here reads, and what an instance member computes on a receiver the call did "
-            + "not make, are still invisible, so it staying silent is not proof that the callback is "
-            + "state-free.",
+            + "user-defined operators and conversions, the extension methods it calls in instance form - "
+            + "which are static methods however they are spelled - and any member - a method, a property "
+            + "or an indexer accessor - called on an instance the expression makes right there. What a "
+            + "callee whose body has no source here reads, and what an instance member computes on a "
+            + "receiver the call did not make, are still invisible, so it staying silent is not proof "
+            + "that the callback is state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -107,8 +108,12 @@ public static class DiagnosticDescriptors
             + "constructor - its own body, the constructor it chains to, the base constructor it runs "
             + "without saying so, and the instance field and property initialisers that run with it - and "
             + "a user-defined operator or conversion, which the source spells as punctuation or, for an "
-            + "implicit conversion, as nothing at all. An instance member is walked on those same terms "
-            + "when the expression makes the instance it runs on: an object creation names the exact type "
+            + "implicit conversion, as nothing at all. An extension method the body calls in instance "
+            + "form is walked too, because writing value.Shift() rather than Extensions.Shift(value) "
+            + "changes only the spelling: the method that runs is static, and every value it reads - the "
+            + "receiver included - is an argument the call site passed it, so following it asks nothing "
+            + "about an instance. An instance member is walked on those same terms when the expression "
+            + "makes the instance it runs on: an object creation names the exact type "
             + "it makes, so the member the call binds to is the member that runs, and what that instance "
             + "carries came from the constructor and initialisers the walk already reads. A property or "
             + "indexer contributes the accessor the reference actually runs - the getter for a read, the "

@@ -623,7 +623,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        walked.Add(group.OriginalDefinition);
+        walked.Add((group.ReducedFrom ?? group).OriginalDefinition);
 
         if (GetBody(context, group) is not { } groupBody)
         {
@@ -709,13 +709,13 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     MethodKind: MethodKind.Ordinary or MethodKind.LocalFunction
                         or MethodKind.ReducedExtension
                 } called
-                && (called.IsStatic || CreatesItsReceiver(context, model, name)))
+                && (RunsAStaticMethod(called) || CreatesItsReceiver(context, model, name)))
             {
                 FollowCall(
                     context,
                     called,
                     name,
-                    called.IsStatic ? "static method" : "method",
+                    RunsAStaticMethod(called) ? "static method" : "method",
                     depth,
                     walked,
                     report);
@@ -744,6 +744,29 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             report(name, kind, symbol!, reason);
         }
     }
+
+    /// <summary>
+    /// Whether the method a call runs is static, whatever the call site spells it as.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An extension method written in instance form - <c>value.Shift()</c> - binds to a reduced symbol
+    /// whose <see cref="ISymbol.IsStatic"/> is <see langword="false"/>, so reading that alone left a body
+    /// the author wrote, and could put any static read into, behind nothing more than a dot: the
+    /// staticness gate said no, and the receiver gate could not say yes either, because the receiver is a
+    /// value the callback was handed rather than one it made.
+    /// </para>
+    /// <para>
+    /// Following it asks nothing about a receiver, which is what separates it from the instance members
+    /// this rule stops at. What runs is <see cref="IMethodSymbol.ReducedFrom"/>, a static method whose
+    /// every parameter - the receiver included - is an argument the call site passes, so the walk is
+    /// reading a static body over its own arguments, exactly as it does for the same call written as
+    /// <c>Extensions.Shift(value)</c>. Answering the two spellings differently would have made the rule
+    /// one an author escapes by adding a dot.
+    /// </para>
+    /// </remarks>
+    private static bool RunsAStaticMethod(IMethodSymbol method)
+        => method.IsStatic || method.ReducedFrom is { IsStatic: true };
 
     /// <summary>
     /// Follows the member an expression invokes without naming it.
@@ -950,7 +973,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (!walked.Add(called.OriginalDefinition))
+        // Keyed on the method that declares the body rather than on the symbol the call site bound to, so
+        // an extension reached in both its spellings is walked - and reported - once.
+        if (!walked.Add((called.ReducedFrom ?? called).OriginalDefinition))
             return;
 
         if (GetBody(context, called) is not { } body)

@@ -3221,6 +3221,164 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// <para>
+    /// An extension method written in instance form is a static method spelled as if it were not. Roslyn
+    /// hands the call site a reduced symbol whose <c>IsStatic</c> is false, so the staticness gate skipped
+    /// it, and the receiver gate could not admit it either: the receiver is the value the callback was
+    /// handed, not one it made. That put a static body the author can write and the walk never reads behind
+    /// nothing more than a dot.
+    /// </para>
+    /// <para>
+    /// Following it needs no receiver reasoning at all, which is what separates this from the bound below.
+    /// The method the call runs is <c>ReducedFrom</c>, a static method whose every parameter - the receiver
+    /// included - is an argument the call site passes, so there is no instance whose contents the rule
+    /// would have to know.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingASourceExtensionThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class RectExtensions
+            {
+                public static Rect Shift(this Rect value)
+                    => new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => value.Shift(),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the extension is a static method, so the read inside it is one the walk can reach without "
+            + "knowing anything about the receiver");
+    }
+
+    /// <remarks>
+    /// The same call written the way it is declared. Both spellings run the one method, so a rule that
+    /// answered them differently would be a rule an author escapes by adding a dot.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingASourceExtensionInStaticFormThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class RectExtensions
+            {
+                public static Rect Shift(this Rect value)
+                    => new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => RectExtensions.Shift(value),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
+    }
+
+    /// <remarks>
+    /// The other side of the same reach. An extension body that reads only what the call site passed it has
+    /// nothing in it to report, and following extensions must not turn one into a diagnostic.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingASourceExtensionOverItsArguments_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class RectExtensions
+            {
+                public static Rect Inflate(this Rect value, float amount)
+                    => new Rect(value.X - amount, value.Y - amount, value.Width, value.Height);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => value.Inflate(2f),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "an extension reading only its own parameters answers the same way twice");
+    }
+
+    /// <remarks>
+    /// The documented bound, reached through the new spelling: a callee with no source here stops the walk
+    /// without reporting, because the rule did read the callback and this is a bound on an inspected one.
+    /// Answering otherwise would report every callback that names a LINQ operator.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAnExtensionWithNoSource_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            namespace External.Library
+            {
+                using Beutl.Graphics;
+
+                public static class RectExtensions
+                {
+                    public static float Offset;
+
+                    public static Rect Shift(this Rect value)
+                        => new Rect(value.X + Offset, value.Y, value.Width, value.Height);
+                }
+            }
+            """,
+            """
+            using External.Library;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => value.Shift(),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nothing of that body is in this compilation, so the walk stops where it always stops");
+    }
+
+    /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// definition's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.
