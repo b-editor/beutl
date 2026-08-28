@@ -22,8 +22,10 @@ namespace Beutl.Graphics.Rendering;
 /// <remarks>
 /// The callback runs during execution, long after <see cref="RenderNode.Process(RenderNodeContext)"/> returned, so
 /// it must not capture the recording context or any handle obtained from it. Declare it as a static lambda over the
-/// four parameters: the engine folds the callback's definition into the description's identity, so a closure or an
-/// instance method group mints a new identity every frame and defeats the persistent render cache.
+/// four parameters. The callback reaches execution through the state channel, so capturing does not change the
+/// description's identity - which is exactly why it is unsafe: a captured per-frame value shapes pixels without
+/// <see cref="RenderNode.MarkChanged"/> observing it, so the node reports itself clean while its output is stale.
+/// BESG003 rejects a capturing callback here.
 /// </remarks>
 public delegate void PaintedSourceDraw<TState>(
     ImmediateCanvas canvas,
