@@ -77,9 +77,11 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.PublicApiContractTests/DeclaredPlannerTraitContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/DeclaredResourceAddressingContractTests.cs"] = 1,
             ["tests/Beutl.PublicApiContractTests/FilterEffectCompatibilityContractTests.cs"] = 5,
+            ["tests/Beutl.PublicApiContractTests/FilterEffectLoweringSeamContractTests.cs"] = 5,
             ["tests/Beutl.PublicApiContractTests/GeometryAuthoringContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/OpaqueSourceCallStateContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/OrphanedTargetEffectContractTests.cs"] = 2,
+            ["tests/Beutl.PublicApiContractTests/PaintedSourceAuthoringContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/RenderNodeAuthoringContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/RenderNodeRendererContractTests.cs"] = 1,
             ["tests/Beutl.PublicApiContractTests/RenderScaleMappingContractTests.cs"] = 7,
@@ -207,7 +209,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 247, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 254, s_testOverrideBaseline, overrides);
         }
     }
 
