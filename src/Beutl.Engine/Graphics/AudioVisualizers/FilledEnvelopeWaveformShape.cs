@@ -29,7 +29,7 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
         private float _lastCornerRadius = -1f;
         private SKPathEffect? _cornerEffect;
 
-        internal override void Render(
+        protected internal override void Render(
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> mins,

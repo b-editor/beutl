@@ -32,7 +32,7 @@ public sealed partial class DotsWaveformShape : WaveformShape
         private SKPath? _path;
         private SKPaint? _paint;
 
-        internal override void Render(
+        protected internal override void Render(
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> mins,

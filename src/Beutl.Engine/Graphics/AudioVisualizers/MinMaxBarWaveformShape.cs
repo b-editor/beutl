@@ -28,7 +28,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
         private SKPaint? _paint;
         private SKPath? _path;
 
-        internal override void Render(
+        protected internal override void Render(
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> mins,

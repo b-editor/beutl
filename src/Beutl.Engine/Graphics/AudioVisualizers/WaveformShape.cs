@@ -16,7 +16,7 @@ public abstract partial class WaveformShape : EngineObject
         /// 波形を描画する。mins / maxs は各スロットの最小値・最大値（-1..1、gain 未適用）。
         /// Shape 実装側で gain の適用と -1..1 へのクランプを行う。
         /// </summary>
-        internal abstract void Render(
+        protected internal abstract void Render(
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> mins,

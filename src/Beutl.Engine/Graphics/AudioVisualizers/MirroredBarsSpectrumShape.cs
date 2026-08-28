@@ -19,7 +19,7 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
 
     public new partial class Resource
     {
-        internal override void Render(
+        protected internal override void Render(
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
