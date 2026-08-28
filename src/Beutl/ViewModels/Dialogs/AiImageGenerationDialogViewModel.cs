@@ -387,9 +387,9 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
         _applyingCapabilities = true;
         try
         {
-            IEnumerable<string> aspectRatios = image.AspectRatios.IsDefaultOrEmpty
+            IEnumerable<string> aspectRatios = !image.AspectRatios.IsSpecified
                 ? DefaultAspectRatios
-                : image.AspectRatios;
+                : image.AspectRatios.Values;
             Replace(
                 AspectRatioOptions,
                 aspectRatios.Select(value => new AiImageAspectRatioOption(value)));
@@ -397,9 +397,9 @@ public sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDispos
                 AspectRatioOptions.FirstOrDefault(option => option == _chosenAspectRatio)
                 ?? GetSuggestedAspectRatio(AspectRatioOptions, _editViewModel?.Scene.FrameSize);
 
-            IEnumerable<string> backgrounds = image.Backgrounds.IsDefaultOrEmpty
+            IEnumerable<string> backgrounds = !image.Backgrounds.IsSpecified
                 ? DefaultBackgrounds
-                : image.Backgrounds;
+                : image.Backgrounds.Values;
             Replace(
                 BackgroundOptions,
                 backgrounds.Select(value => new AiImageBackgroundOption(value)));

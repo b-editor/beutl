@@ -134,17 +134,25 @@ public class AiModelCatalogTests
             ("video.generate", [Model("a/model", null, "low", isDefault: true)])));
 
         // A server that publishes no shapes is one this client asked before they
-        // existed; the dialog then offers what it always offered.
-        Assert.That(catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video, Is.Null);
+        // existed; typed Unspecified dimensions preserve that unrestricted state.
+        AiVideoModelCapabilities video =
+            catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(video.Resolutions.IsSpecified, Is.False);
+            Assert.That(video.AspectRatios.IsSpecified, Is.False);
+            Assert.That(video.DurationsSeconds.IsSpecified, Is.False);
+            Assert.That(video.CanServeAnything(), Is.True);
+        }
     }
 
     [Test]
     public void Capabilities_RuleOutAModelThatSharesNothingWithTheDialog()
     {
         var hailuo = new AiVideoModelCapabilities(
-            AiVideoCapabilityDimension<int>.Supported([5, 6]),
-            AiVideoCapabilityDimension<string>.Supported(["2K"]),
-            AiVideoCapabilityDimension<string>.Supported(["16:9"]),
+            AiCapabilityDimension<int>.Supported([5, 6]),
+            AiCapabilityDimension<string>.Supported(["2K"]),
+            AiCapabilityDimension<string>.Supported(["16:9"]),
             SupportsAudio: true,
             SupportsSeed: false);
 
@@ -153,9 +161,9 @@ public class AiModelCatalogTests
             Assert.That(hailuo.CanServeAnything(), Is.True);
             // Nothing left after narrowing means every request naming it would
             // be refused, so offering it is worse than hiding it.
-            Assert.That((hailuo with { Resolutions = AiVideoCapabilityDimension<string>.Unsupported }).CanServeAnything(), Is.False);
-            Assert.That((hailuo with { AspectRatios = AiVideoCapabilityDimension<string>.Unsupported }).CanServeAnything(), Is.False);
-            Assert.That((hailuo with { DurationsSeconds = AiVideoCapabilityDimension<int>.Unsupported }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { Resolutions = AiCapabilityDimension<string>.Unsupported }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { AspectRatios = AiCapabilityDimension<string>.Unsupported }).CanServeAnything(), Is.False);
+            Assert.That((hailuo with { DurationsSeconds = AiCapabilityDimension<int>.Unsupported }).CanServeAnything(), Is.False);
             Assert.That(AiVideoModelCapabilities.Unrestricted.CanServeAnything(), Is.True);
         }
     }
@@ -163,15 +171,15 @@ public class AiModelCatalogTests
     [Test]
     public void CapabilityDimensions_NormalizeDefaultAndCompareByValue()
     {
-        AiVideoCapabilityDimension<string> omitted = default;
-        AiVideoCapabilityDimension<string> first =
-            AiVideoCapabilityDimension<string>.Supported(["720p", "1080p"]);
-        AiVideoCapabilityDimension<string> second =
-            AiVideoCapabilityDimension<string>.Supported(["720p", "1080p"]);
+        AiCapabilityDimension<string> omitted = default;
+        AiCapabilityDimension<string> first =
+            AiCapabilityDimension<string>.Supported(["720p", "1080p"]);
+        AiCapabilityDimension<string> second =
+            AiCapabilityDimension<string>.Supported(["720p", "1080p"]);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(omitted, Is.EqualTo(AiVideoCapabilityDimension<string>.Unspecified));
+            Assert.That(omitted, Is.EqualTo(AiCapabilityDimension<string>.Unspecified));
             Assert.That(omitted.Values, Is.Empty);
             Assert.That(first, Is.EqualTo(second));
             Assert.That(first.GetHashCode(), Is.EqualTo(second.GetHashCode()));
@@ -323,6 +331,83 @@ public class AiModelCatalogTests
     }
 
     [Test]
+    public void Catalog_TreatsExplicitlyEmptyVideoOperationShapeAsUnsupported()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.VideoGeneration.Value] = new()
+                {
+                    Models = [VideoModel(
+                        "empty/operation",
+                        durations: [4],
+                        resolutions: ["720p"],
+                        aspectRatios: ["16:9"],
+                        audio: true,
+                        seed: true)],
+                    Resolutions = [],
+                    AspectRatios = [],
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        AiVideoModelCapabilities video =
+            catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(video.Resolutions, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(video.AspectRatios, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(video.CanServeAnything(), Is.False);
+        }
+    }
+
+    [Test]
+    public void Catalog_AppliesVideoOperationDimensionsWhenModelFieldsAreAllNull()
+    {
+        AiModelDescriptionResponse model = Model("legacy/video", null, "low", true);
+        AiModelCatalog empty = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.VideoGeneration.Value] = new()
+                {
+                    Models = [model],
+                    Resolutions = [],
+                    AspectRatios = [],
+                },
+            }.ToImmutableDictionary(),
+        });
+        AiModelCatalog offered = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.VideoGeneration.Value] = new()
+                {
+                    Models = [model],
+                    Resolutions = ["720p"],
+                    AspectRatios = ["16:9"],
+                },
+            }.ToImmutableDictionary(),
+        });
+        AiModelCatalog omitted = AiModelMapper.ToModel(Capabilities(
+            (AiOperations.VideoGeneration.Value, [model])));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(empty.ModelsFor(AiOperations.VideoGeneration)[0].Video!.CanServeAnything(), Is.False);
+            Assert.That(offered.ModelsFor(AiOperations.VideoGeneration)[0].Video!.Resolutions.Values,
+                Is.EqualTo(new[] { "720p" }));
+            Assert.That(offered.ModelsFor(AiOperations.VideoGeneration)[0].Video!.AspectRatios.Values,
+                Is.EqualTo(new[] { "16:9" }));
+            Assert.That(omitted.ModelsFor(AiOperations.VideoGeneration)[0].Video!.Resolutions.IsSpecified,
+                Is.False);
+            Assert.That(omitted.ModelsFor(AiOperations.VideoGeneration)[0].Video!.AspectRatios.IsSpecified,
+                Is.False);
+        }
+    }
+
+    [Test]
     public void Catalog_ReadsWhatEachImageModelWillTake()
     {
         // GPT Image-1 renders 1:1, 3:2 and 2:3 and refuses everything else, so
@@ -343,13 +428,232 @@ public class AiModelCatalogTests
             catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(image.AspectRatios, Is.EqualTo(new[] { "1:1", "3:2", "2:3" }));
+            Assert.That(image.AspectRatios.Values, Is.EqualTo(new[] { "1:1", "3:2", "2:3" }));
             Assert.That(image.SupportsSeed, Is.False);
             Assert.That(image.MaxReferenceImages, Is.EqualTo(4));
             // The model publishes three and the operation takes the same three.
             Assert.That(
-                image.Backgrounds,
+                image.Backgrounds.Values,
                 Is.EqualTo(new[] { "auto", "opaque", "transparent" }));
+        }
+    }
+
+    [Test]
+    public void Catalog_DistinguishesNullAndEmptyImageDimensions()
+    {
+        AiModelDescriptionResponse omitted = new()
+        {
+            Id = "omitted/image",
+            IsDefault = false,
+            Seed = false,
+            Resolution = false,
+        };
+        AiModelDescriptionResponse empty = new()
+        {
+            Id = "empty/image",
+            IsDefault = false,
+            AspectRatios = [],
+            Backgrounds = [],
+        };
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [omitted, empty],
+                    AspectRatios = ["1:1"],
+                    Backgrounds = ["auto"],
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        AiImageModelCapabilities omittedResult =
+            catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        AiImageModelCapabilities emptyResult =
+            catalog.ModelsFor(AiOperations.ImageGeneration)[1].Image!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(omittedResult.AspectRatios.IsSpecified, Is.True);
+            Assert.That(omittedResult.AspectRatios.Values, Is.EqualTo(new[] { "1:1" }));
+            Assert.That(omittedResult.Backgrounds.IsSpecified, Is.True);
+            Assert.That(omittedResult.Backgrounds.Values, Is.EqualTo(new[] { "auto" }));
+            Assert.That(omittedResult.SupportsSeed, Is.False);
+            Assert.That(omittedResult.SupportsResolution, Is.False);
+            Assert.That(emptyResult.AspectRatios, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(emptyResult.Backgrounds, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(emptyResult.CanServeAnything(false), Is.False);
+        }
+    }
+
+    [Test]
+    public void Catalog_AppliesImageOperationDimensionsWhenModelFieldsAreAllNull()
+    {
+        AiModelDescriptionResponse model = Model("legacy/image", null, "low", true);
+        AiModelCatalog empty = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [model],
+                    AspectRatios = [],
+                    Backgrounds = [],
+                },
+            }.ToImmutableDictionary(),
+        });
+        AiModelCatalog offered = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [model],
+                    AspectRatios = ["1:1"],
+                    Backgrounds = ["auto"],
+                },
+            }.ToImmutableDictionary(),
+        });
+        AiModelCatalog omitted = AiModelMapper.ToModel(Capabilities(
+            (AiOperations.ImageGeneration.Value, [model])));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(empty.ModelsFor(AiOperations.ImageGeneration)[0].Image!.CanServeAnything(false), Is.False);
+            Assert.That(offered.ModelsFor(AiOperations.ImageGeneration)[0].Image!.AspectRatios.Values,
+                Is.EqualTo(new[] { "1:1" }));
+            Assert.That(offered.ModelsFor(AiOperations.ImageGeneration)[0].Image!.Backgrounds.Values,
+                Is.EqualTo(new[] { "auto" }));
+            Assert.That(omitted.ModelsFor(AiOperations.ImageGeneration)[0].Image!.AspectRatios.IsSpecified,
+                Is.False);
+            Assert.That(omitted.ModelsFor(AiOperations.ImageGeneration)[0].Image!.Backgrounds.IsSpecified,
+                Is.False);
+        }
+    }
+
+    [Test]
+    public void Catalog_LeavesImageDimensionUnspecifiedWhenOperationIsOmitted()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [ImageModel(
+                        "image/model",
+                        aspectRatios: ["16:9"],
+                        backgrounds: ["auto"],
+                        seed: true,
+                        maxReferenceImages: 1)],
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        AiImageModelCapabilities image =
+            catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(image.AspectRatios.Values, Is.EqualTo(new[] { "16:9" }));
+            Assert.That(image.Backgrounds.Values, Is.EqualTo(new[] { "auto" }));
+        }
+    }
+
+    [Test]
+    public void Catalog_TreatsExplicitlyEmptyImageOperationDimensionsAsUnsupported()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [new AiModelDescriptionResponse
+                    {
+                        Id = "empty/operation",
+                        IsDefault = false,
+                        Seed = false,
+                    }],
+                    AspectRatios = [],
+                    Backgrounds = [],
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        AiImageModelCapabilities image =
+            catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(image.AspectRatios, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(image.Backgrounds, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(image.CanServeAnything(false), Is.False);
+        }
+    }
+
+    [Test]
+    public void Catalog_HidesImageModelWhenDimensionsDoNotOverlap()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [ImageModel(
+                        "image/model",
+                        aspectRatios: ["16:9"],
+                        backgrounds: ["transparent"],
+                        seed: true,
+                        maxReferenceImages: 1)],
+                    AspectRatios = ["1:1"],
+                    Backgrounds = ["opaque"],
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        AiImageModelCapabilities image =
+            catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(image.AspectRatios, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(image.Backgrounds, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
+            Assert.That(image.CanServeAnything(false), Is.False);
+        }
+    }
+
+    [Test]
+    public void Catalog_RecognizesImageModelWithOnlySeedOrResolution()
+    {
+        AiModelDescriptionResponse seedOnly = new()
+        {
+            Id = "seed-only",
+            IsDefault = false,
+            Seed = false,
+        };
+        AiModelDescriptionResponse resolutionOnly = new()
+        {
+            Id = "resolution-only",
+            IsDefault = false,
+            Resolution = false,
+        };
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.ImageGeneration.Value] = new()
+                {
+                    Models = [seedOnly, resolutionOnly],
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.ModelsFor(AiOperations.ImageGeneration), Has.Length.EqualTo(2));
+            Assert.That(catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!.SupportsSeed, Is.False);
+            Assert.That(catalog.ModelsFor(AiOperations.ImageGeneration)[1].Image!.SupportsResolution, Is.False);
+            Assert.That(catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!.AspectRatios.IsSpecified, Is.False);
+            Assert.That(catalog.ModelsFor(AiOperations.ImageGeneration)[1].Image!.Backgrounds.IsSpecified, Is.False);
         }
     }
 
@@ -357,8 +661,8 @@ public class AiModelCatalogTests
     public void ImageCapabilities_RuleOutAModelAnEditCannotHandAPictureTo()
     {
         var noReferences = new AiImageModelCapabilities(
-            ["1:1"],
-            Backgrounds: ["auto"],
+            AiCapabilityDimension<string>.Supported(["1:1"]),
+            Backgrounds: AiCapabilityDimension<string>.Supported(["auto"]),
             SupportsSeed: true,
             MaxReferenceImages: 0);
 
@@ -368,8 +672,24 @@ public class AiModelCatalogTests
             // Every edit sends the picture being edited.
             Assert.That(noReferences.CanServeAnything(true), Is.False);
             Assert.That(
-                (noReferences with { AspectRatios = [] }).CanServeAnything(false),
+                (noReferences with
+                {
+                    AspectRatios = AiCapabilityDimension<string>.Unsupported,
+                }).CanServeAnything(false),
                 Is.False);
+        }
+    }
+
+    [Test]
+    public void ImageCapabilities_UnrestrictedHasNoContradictoryEmptyDimensions()
+    {
+        AiImageModelCapabilities unrestricted = AiImageModelCapabilities.Unrestricted;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(unrestricted.CanServeAnything(false), Is.True);
+            Assert.That(unrestricted.AspectRatios.IsSpecified, Is.False);
+            Assert.That(unrestricted.Backgrounds.IsSpecified, Is.False);
         }
     }
 

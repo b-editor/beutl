@@ -62,19 +62,16 @@ public enum AiModelCostTier
 }
 
 /// <summary>
-/// What one video model will take. Published per model because it differs per
-/// model: MiniMax H3 renders only at 2K and refuses anything under five
-/// seconds, while Veo 3.1 takes 4, 6 or 8 seconds at 720p or 1080p. An empty
-/// list is the server explicitly saying the model accepts no value in that
-/// dimension. An unspecified dimension means the provider omitted it and leaves
-/// the dialog offering its compatible defaults.
+/// One dimension of values a model accepts. Unspecified means the provider
+/// omitted the dimension, Unsupported means it explicitly accepts no value,
+/// and Supported carries the accepted values.
 /// </summary>
-public readonly struct AiVideoCapabilityDimension<T> : IEquatable<AiVideoCapabilityDimension<T>>
+public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimension<T>>
     where T : notnull
 {
     private readonly ImmutableArray<T> _values;
 
-    private AiVideoCapabilityDimension(ImmutableArray<T> values, bool isSpecified)
+    private AiCapabilityDimension(ImmutableArray<T> values, bool isSpecified)
     {
         _values = values;
         IsSpecified = isSpecified;
@@ -84,18 +81,18 @@ public readonly struct AiVideoCapabilityDimension<T> : IEquatable<AiVideoCapabil
 
     public bool IsSpecified { get; }
 
-    public static AiVideoCapabilityDimension<T> Unspecified => default;
+    public static AiCapabilityDimension<T> Unspecified => default;
 
-    public static AiVideoCapabilityDimension<T> Supported(IEnumerable<T> values)
+    public static AiCapabilityDimension<T> Supported(IEnumerable<T> values)
     {
         ArgumentNullException.ThrowIfNull(values);
         return new(values.ToImmutableArray(), true);
     }
 
-    public static AiVideoCapabilityDimension<T> Unsupported { get; } =
+    public static AiCapabilityDimension<T> Unsupported { get; } =
         new([], true);
 
-    public bool Equals(AiVideoCapabilityDimension<T> other)
+    public bool Equals(AiCapabilityDimension<T> other)
     {
         if (IsSpecified != other.IsSpecified)
             return false;
@@ -103,7 +100,7 @@ public readonly struct AiVideoCapabilityDimension<T> : IEquatable<AiVideoCapabil
     }
 
     public override bool Equals(object? obj)
-        => obj is AiVideoCapabilityDimension<T> other && Equals(other);
+        => obj is AiCapabilityDimension<T> other && Equals(other);
 
     public override int GetHashCode()
     {
@@ -118,13 +115,13 @@ public readonly struct AiVideoCapabilityDimension<T> : IEquatable<AiVideoCapabil
     }
 
     public static bool operator ==(
-        AiVideoCapabilityDimension<T> left,
-        AiVideoCapabilityDimension<T> right)
+        AiCapabilityDimension<T> left,
+        AiCapabilityDimension<T> right)
         => left.Equals(right);
 
     public static bool operator !=(
-        AiVideoCapabilityDimension<T> left,
-        AiVideoCapabilityDimension<T> right)
+        AiCapabilityDimension<T> left,
+        AiCapabilityDimension<T> right)
         => !left.Equals(right);
 }
 
@@ -229,9 +226,9 @@ public readonly struct AiCaptionTranslationLimits : IEquatable<AiCaptionTranslat
 }
 
 public sealed record AiVideoModelCapabilities(
-    AiVideoCapabilityDimension<int> DurationsSeconds,
-    AiVideoCapabilityDimension<string> Resolutions,
-    AiVideoCapabilityDimension<string> AspectRatios,
+    AiCapabilityDimension<int> DurationsSeconds,
+    AiCapabilityDimension<string> Resolutions,
+    AiCapabilityDimension<string> AspectRatios,
     bool SupportsAudio,
     bool SupportsSeed,
     bool SupportsFirstFrame = true,
@@ -239,9 +236,9 @@ public sealed record AiVideoModelCapabilities(
 {
     public static AiVideoModelCapabilities Unrestricted { get; } =
         new(
-            AiVideoCapabilityDimension<int>.Unspecified,
-            AiVideoCapabilityDimension<string>.Unspecified,
-            AiVideoCapabilityDimension<string>.Unspecified,
+            AiCapabilityDimension<int>.Unspecified,
+            AiCapabilityDimension<string>.Unspecified,
+            AiCapabilityDimension<string>.Unspecified,
             true,
             true);
 
@@ -261,17 +258,22 @@ public sealed record AiVideoModelCapabilities(
 /// What one image model will take. GPT Image-1 renders 1:1, 3:2 and 2:3 and
 /// refuses everything else; the backgrounds differ per model as well, and only
 /// some take a seed or accept a picture to work from — which every edit
-/// depends on.
+/// depends on. Aspect ratios and backgrounds use <see cref="AiCapabilityDimension{T}"/>
+/// so omitted, explicitly empty and narrowed lists remain distinct.
 /// </summary>
 public sealed record AiImageModelCapabilities(
-    ImmutableArray<string> AspectRatios,
-    ImmutableArray<string> Backgrounds,
+    AiCapabilityDimension<string> AspectRatios,
+    AiCapabilityDimension<string> Backgrounds,
     bool SupportsSeed,
     int MaxReferenceImages,
     bool SupportsResolution = true)
 {
     public static AiImageModelCapabilities Unrestricted { get; } =
-        new([], [], true, AiRequestLimits.MaxImageReferences);
+        new(
+            AiCapabilityDimension<string>.Unspecified,
+            AiCapabilityDimension<string>.Unspecified,
+            true,
+            AiRequestLimits.MaxImageReferences);
 
     /// <summary>
     /// False for a model that shares no shape with what the server accepts, or
@@ -290,12 +292,13 @@ public sealed record AiImageModelCapabilities(
         bool requiresReferenceImages,
         bool requiresResolution = false,
         string? requiredBackground = null)
-        => !AspectRatios.IsDefaultOrEmpty
+        => (!AspectRatios.IsSpecified || !AspectRatios.Values.IsEmpty)
+           && (!Backgrounds.IsSpecified || !Backgrounds.Values.IsEmpty)
            && (!requiresReferenceImages || MaxReferenceImages > 0)
            && (!requiresResolution || SupportsResolution)
            && (requiredBackground is not { Length: > 0 } background
-               || Backgrounds.IsDefaultOrEmpty
-               || Backgrounds.Contains(background));
+               || !Backgrounds.IsSpecified
+               || Backgrounds.Values.Contains(background));
 }
 
 public sealed record AiModelOption(
@@ -1545,7 +1548,7 @@ internal static class AiModelMapper
             response.Operations
                 .Select(pair => new KeyValuePair<AiOperationId, ImmutableArray<AiModelOption>>(
                     new AiOperationId(pair.Key),
-                    ToModelOptions(pair.Value)))
+                    ToModelOptions(new AiOperationId(pair.Key), pair.Value)))
                 .Where(pair => !pair.Value.IsDefaultOrEmpty),
             // A models list the server sent and left empty. A server that sends
             // none at all is another thing entirely, and stays absent here.
@@ -1589,67 +1592,50 @@ internal static class AiModelMapper
                 : AiRequestLimits.MaxTranslationRequestBytes);
     }
 
-    // Null for every operation but image, where the server publishes nothing of
-    // the sort. The ratios are narrowed to the operation's own list, so a shape
-    // the server would refuse never reaches a dialog.
-    private static AiImageModelCapabilities? ToImageCapabilities(
+    // Called only for image operations. A model with no fields of its own still
+    // inherits the operation dimensions; explicit operation emptiness remains
+    // Unsupported rather than being widened to client defaults.
+    private static AiImageModelCapabilities ToImageCapabilities(
         AiModelDescriptionResponse model,
         AiOperationCapabilityResponse capability)
     {
-        if (model.AspectRatios is null
-            && model.Backgrounds is null
-            && model.MaxReferenceImages is null)
-        {
-            return null;
-        }
-
         return new AiImageModelCapabilities(
-            NarrowToOperation(
+            NarrowDimension(
                 model.AspectRatios is { } aspectRatios
-                    ? [.. aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value))]
-                    : [],
+                    ? AiCapabilityDimension<string>.Supported(
+                        aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value)))
+                    : AiCapabilityDimension<string>.Unspecified,
                 capability.AspectRatios),
-            NarrowToOperation(
+            NarrowDimension(
                 model.Backgrounds is { } backgrounds
-                    ? [.. backgrounds.Where(value => !string.IsNullOrWhiteSpace(value))]
-                    : [],
+                    ? AiCapabilityDimension<string>.Supported(
+                        backgrounds.Where(value => !string.IsNullOrWhiteSpace(value)))
+                    : AiCapabilityDimension<string>.Unspecified,
                 capability.Backgrounds),
             model.Seed ?? true,
             model.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences,
             model.Resolution ?? true);
     }
 
-    // Null for every operation but video, where the server publishes nothing of
-    // the sort. A video model that publishes none of the five reads the same as
-    // one this client asked about before they existed: unrestricted.
-    private static AiVideoModelCapabilities? ToVideoCapabilities(
+    // Called only for video generation. Omitted model fields inherit operation
+    // dimensions, while omitted operation fields remain Unspecified.
+    private static AiVideoModelCapabilities ToVideoCapabilities(
         AiModelDescriptionResponse model,
         AiOperationCapabilityResponse capability)
     {
-        if (model.DurationsSeconds is null
-            && model.Resolutions is null
-            && model.AspectRatios is null
-            && model.Audio is null
-            && model.Seed is null
-            && model.FirstFrame is null
-            && model.LastFrame is null)
-        {
-            return null;
-        }
-
         return Narrow(
             new AiVideoModelCapabilities(
                 model.DurationsSeconds is { } durations
-                    ? AiVideoCapabilityDimension<int>.Supported(durations)
-                    : AiVideoCapabilityDimension<int>.Unspecified,
+                    ? AiCapabilityDimension<int>.Supported(durations)
+                    : AiCapabilityDimension<int>.Unspecified,
                 model.Resolutions is { } resolutions
-                    ? AiVideoCapabilityDimension<string>.Supported(
+                    ? AiCapabilityDimension<string>.Supported(
                         resolutions.Where(value => !string.IsNullOrWhiteSpace(value)))
-                    : AiVideoCapabilityDimension<string>.Unspecified,
+                    : AiCapabilityDimension<string>.Unspecified,
                 model.AspectRatios is { } aspectRatios
-                    ? AiVideoCapabilityDimension<string>.Supported(
+                    ? AiCapabilityDimension<string>.Supported(
                         aspectRatios.Where(value => !string.IsNullOrWhiteSpace(value)))
-                    : AiVideoCapabilityDimension<string>.Unspecified,
+                    : AiCapabilityDimension<string>.Unspecified,
                 model.Audio ?? true,
                 model.Seed ?? true,
                 model.FirstFrame ?? true,
@@ -1658,6 +1644,7 @@ internal static class AiModelMapper
     }
 
     private static ImmutableArray<AiModelOption> ToModelOptions(
+        AiOperationId operation,
         AiOperationCapabilityResponse capability)
     {
         if (capability.Models is not { IsDefaultOrEmpty: false } models)
@@ -1672,8 +1659,13 @@ internal static class AiModelMapper
                     : model.DisplayName.Trim(),
                 ToCostTier(model.CostTier),
                 model.IsDefault,
-                ToVideoCapabilities(model, capability),
-                ToImageCapabilities(model, capability)))
+                operation == AiOperations.VideoGeneration
+                    ? ToVideoCapabilities(model, capability)
+                    : null,
+                operation == AiOperations.ImageGeneration
+                    || operation.Value.StartsWith("image.edit.", StringComparison.Ordinal)
+                    ? ToImageCapabilities(model, capability)
+                    : null))
             .ToImmutableArray();
     }
 
@@ -1684,44 +1676,33 @@ internal static class AiModelMapper
         AiVideoModelCapabilities model,
         AiOperationCapabilityResponse capability)
     {
-        AiVideoCapabilityDimension<int> durations = !model.DurationsSeconds.IsSpecified
+        AiCapabilityDimension<int> durations = !model.DurationsSeconds.IsSpecified
             ? model.DurationsSeconds
-            : AiVideoCapabilityDimension<int>.Supported(model.DurationsSeconds.Values.Where(seconds =>
+            : AiCapabilityDimension<int>.Supported(model.DurationsSeconds.Values.Where(seconds =>
                 seconds >= (capability.MinDurationSeconds ?? int.MinValue)
                 && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue)));
         return model with
         {
             DurationsSeconds = durations,
-            Resolutions = NarrowVideoDimension(model.Resolutions, capability.Resolutions),
-            AspectRatios = NarrowVideoDimension(model.AspectRatios, capability.AspectRatios),
+            Resolutions = NarrowDimension(model.Resolutions, capability.Resolutions),
+            AspectRatios = NarrowDimension(model.AspectRatios, capability.AspectRatios),
         };
     }
 
-    private static AiVideoCapabilityDimension<string> NarrowVideoDimension(
-        AiVideoCapabilityDimension<string> model,
+    private static AiCapabilityDimension<string> NarrowDimension(
+        AiCapabilityDimension<string> model,
         ImmutableArray<string>? operation)
     {
-        if (operation is not { IsDefaultOrEmpty: false } offered)
+        if (operation is null)
             return model;
+        if (operation.Value.IsEmpty)
+            return AiCapabilityDimension<string>.Unsupported;
+        ImmutableArray<string> offered = operation.Value;
         if (!model.IsSpecified)
-            return AiVideoCapabilityDimension<string>.Supported(offered);
+            return AiCapabilityDimension<string>.Supported(offered);
         if (model.Values.IsEmpty)
-            return AiVideoCapabilityDimension<string>.Unsupported;
-        return AiVideoCapabilityDimension<string>.Supported(offered.Where(model.Values.Contains));
-    }
-
-    // A model that publishes nothing takes whatever the operation accepts, so
-    // what comes back is always the list to offer rather than a hint that one
-    // has to be guessed at. Empty then means the two share nothing.
-    private static ImmutableArray<string> NarrowToOperation(
-        ImmutableArray<string> model,
-        ImmutableArray<string>? operation)
-    {
-        if (operation is not { IsDefaultOrEmpty: false } offered)
-            return model;
-        if (model.IsDefaultOrEmpty)
-            return offered;
-        return [.. offered.Where(model.Contains)];
+            return AiCapabilityDimension<string>.Unsupported;
+        return AiCapabilityDimension<string>.Supported(offered.Where(model.Values.Contains));
     }
 
     // An unrecognized tier is reported as none rather than guessed at: the
