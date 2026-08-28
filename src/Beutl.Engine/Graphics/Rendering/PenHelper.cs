@@ -5,8 +5,32 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-internal static class PenHelper
+/// <summary>
+/// Computes the bounds convention the engine's own stroked render nodes follow.
+/// </summary>
+/// <remarks>
+/// The built-in rectangle, geometry, image, and video render nodes size their declared output through these
+/// helpers. A node authored outside the engine that declares its own stroked bounds has to use them too, otherwise
+/// its bounds disagree with what the engine measures for the same rectangle and pen, and the surrounding pipeline
+/// clips or over-allocates against a footprint the node never meant.
+/// </remarks>
+public static class PenHelper
 {
+    /// <summary>Inflates a fill rectangle to cover the stroke a pen paints around it.</summary>
+    /// <param name="rect">The rectangle the fill occupies.</param>
+    /// <param name="pen">The stroking pen, or <see langword="null"/> for an unstroked shape.</param>
+    /// <returns>
+    /// <paramref name="rect"/> inflated by the part of the stroke that falls outside the fill, plus the pen's
+    /// offset when it is positive; <paramref name="rect"/> unchanged when <paramref name="pen"/> is
+    /// <see langword="null"/>.
+    /// </returns>
+    /// <remarks>
+    /// The inflation follows <see cref="Pen.Resource.StrokeAlignment"/>: an inside-aligned stroke stays within the
+    /// fill and adds nothing, a centred stroke adds half its thickness, and an outside-aligned stroke adds its full
+    /// thickness. This is the value to pass as the output bounds of a painted source, and it deliberately ignores
+    /// stroke caps — a shape whose stroke has open ends adds those separately with
+    /// <see cref="CalculateBoundsWithStrokeCap(Rect, Pen.Resource)"/>.
+    /// </remarks>
     public static Rect GetBounds(Rect rect, Pen.Resource? pen)
     {
         if (pen != null)
@@ -28,6 +52,18 @@ internal static class PenHelper
         return rect;
     }
 
+    /// <summary>Gets how far a stroke of the given thickness reaches outside the shape it outlines.</summary>
+    /// <param name="align">Where the stroke sits relative to the fill edge.</param>
+    /// <param name="thickness">The pen's thickness.</param>
+    /// <returns>
+    /// Zero for <see cref="StrokeAlignment.Inside"/>, half of <paramref name="thickness"/> for
+    /// <see cref="StrokeAlignment.Center"/>, and all of it for <see cref="StrokeAlignment.Outside"/>.
+    /// </returns>
+    /// <remarks>
+    /// This is the scalar behind <see cref="GetBounds(Rect, Pen.Resource)"/>. Hit testing uses it directly: a node
+    /// that decides whether a point lands on its stroke inflates and deflates by this distance, so that its hit
+    /// region agrees with the bounds it declared.
+    /// </remarks>
     public static float GetRealThickness(StrokeAlignment align, float thickness)
     {
         return align switch
@@ -39,6 +75,18 @@ internal static class PenHelper
         };
     }
 
+    /// <summary>Inflates bounds to cover the caps a pen paints at the open ends of a stroke.</summary>
+    /// <param name="rect">The bounds to extend.</param>
+    /// <param name="pen">The stroking pen, or <see langword="null"/> for an unstroked shape.</param>
+    /// <returns>
+    /// <paramref name="rect"/> unchanged for <see cref="StrokeCap.Flat"/>, for a zero-thickness pen, and for no pen;
+    /// inflated by half the thickness for <see cref="StrokeCap.Round"/> and by the full thickness for
+    /// <see cref="StrokeCap.Square"/>.
+    /// </returns>
+    /// <remarks>
+    /// Apply this on top of <see cref="GetBounds(Rect, Pen.Resource)"/> only for an open figure, whose stroke has
+    /// ends to cap. A closed shape has none, so inflating it here would over-declare its footprint.
+    /// </remarks>
     public static Rect CalculateBoundsWithStrokeCap(Rect rect, Pen.Resource? pen)
     {
         if (pen == null || MathUtilities.IsZero(pen.Thickness)) return rect;
@@ -52,7 +100,7 @@ internal static class PenHelper
         };
     }
 
-    public static void ConfigureStrokePaint(
+    internal static void ConfigureStrokePaint(
         Pen.Resource pen,
         SKPaint paint, Size size,
         float scale = 1f)
@@ -209,7 +257,7 @@ internal static class PenHelper
         }
     }
 
-    public static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds, float scale = 1f)
+    internal static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds, float scale = 1f)
     {
         scale = float.IsFinite(scale) && scale > 0f ? scale : 1f;
         SKPath? offsetFillPath = CreateOffsetPath(fillPath, pen, bounds, scale);

@@ -5,7 +5,27 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-internal delegate void PaintedSourceDraw<TState>(
+/// <summary>
+/// Paints one source fragment's content onto the canvas the engine hands it during execution.
+/// </summary>
+/// <typeparam name="TState">The type of the caller-supplied state the callback paints from.</typeparam>
+/// <param name="canvas">
+/// The canvas the fragment paints into. It is already positioned so that the coordinates the node used to
+/// declare its output bounds are the coordinates the callback draws in.
+/// </param>
+/// <param name="fill">The resolved fill brush, or <see langword="null"/> when the source paints no interior.</param>
+/// <param name="pen">The resolved stroke pen, or <see langword="null"/> when the source paints no outline.</param>
+/// <param name="state">
+/// The state the node handed to
+/// <see cref="RenderNodeContext.PaintedSource{TState}(TState, PaintedSourceDraw{TState}, Brush.Resource, Pen.Resource, Rect, RenderHitTestContract, RenderScaleContract, bool, RenderDeviceGridSensitivity, bool, IEnumerable{RenderResource}, Thickness)"/>.
+/// </param>
+/// <remarks>
+/// The callback runs during execution, long after <see cref="RenderNode.Process(RenderNodeContext)"/> returned, so
+/// it must not capture the recording context or any handle obtained from it. Declare it as a static lambda over the
+/// four parameters: the engine folds the callback's definition into the description's identity, so a closure or an
+/// instance method group mints a new identity every frame and defeats the persistent render cache.
+/// </remarks>
+public delegate void PaintedSourceDraw<TState>(
     ImmediateCanvas canvas,
     Brush.Resource? fill,
     Pen.Resource? pen,
@@ -529,7 +549,71 @@ public sealed class RenderNodeContext
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
-    internal RenderFragmentHandle PaintedSource<TState>(
+    /// <summary>
+    /// Records a source fragment that paints itself with a fill brush and a stroke pen through an
+    /// <see cref="ImmediateCanvas"/>.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state handed back to <paramref name="draw"/> unchanged.</typeparam>
+    /// <param name="state">
+    /// The state the callback paints from. Treat it as immutable once recorded: the callback runs later, so a value
+    /// mutated after this call changes what the fragment paints without the engine noticing.
+    /// </param>
+    /// <param name="draw">
+    /// A non-null painting callback. Declare it as a static lambda so it carries no per-frame identity; see
+    /// <see cref="PaintedSourceDraw{TState}"/>.
+    /// </param>
+    /// <param name="fill">
+    /// The fill brush the callback receives, or <see langword="null"/> for an unfilled source. A non-null brush is
+    /// borrowed for the request, so the caller keeps ownership of it.
+    /// </param>
+    /// <param name="pen">
+    /// The stroke pen the callback receives, or <see langword="null"/> for an unstroked source. A non-null pen is
+    /// borrowed for the request, so the caller keeps ownership of it.
+    /// </param>
+    /// <param name="outputBounds">
+    /// The finite, non-empty bounds the callback paints within, in the node's own coordinate space. Compute stroked
+    /// bounds with <see cref="PenHelper.GetBounds(Rect, Pen.Resource)"/> so they follow the same stroke-alignment and
+    /// offset convention as the built-in shape nodes.
+    /// </param>
+    /// <param name="hitTest">An initialized hit-test contract describing which points the source claims.</param>
+    /// <param name="scale">
+    /// An initialized scale contract. Use <see cref="RenderScaleContract.Vector"/> for content the callback can
+    /// re-paint at any density, and a materializing contract for content that is only correct at its working scale.
+    /// </param>
+    /// <param name="directReplayAtExactIntegerReduction">
+    /// Whether the source may still be replayed directly when the surrounding transform reduces it by an exact
+    /// integer factor. Leave it <see langword="false"/> unless re-painting at the reduced size is what the source
+    /// wants; the default routes such a reduction through an intermediate so the downsample is filtered.
+    /// </param>
+    /// <param name="deviceGridSensitivity">
+    /// Whether the painted pixels depend on where the device pixel grid falls. Keep the
+    /// <see cref="RenderDeviceGridSensitivity.PhaseDependent"/> default for analytically anti-aliased content, and
+    /// declare <see cref="RenderDeviceGridSensitivity.Insensitive"/> only when a sub-pixel shift of the grid cannot
+    /// change the output.
+    /// </param>
+    /// <param name="supportsDirectDstOut">
+    /// Whether the source may be painted straight into a destination-out composite instead of an isolated layer.
+    /// Set it to <see langword="false"/> when the callback paints overlapping coverage that would double up.
+    /// </param>
+    /// <param name="resources">
+    /// Optional additional declared resources this source depends on, on top of the fill and the pen. Every entry
+    /// must already belong to the active request family.
+    /// </param>
+    /// <param name="rasterOutset">
+    /// Extra padding, in the node's own coordinate space, that the rasterizer adds around
+    /// <paramref name="outputBounds"/> so filtering or anti-aliasing that spills past the declared bounds is not
+    /// clipped. Leave it default when the callback paints strictly inside its bounds.
+    /// </param>
+    /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
+    /// <remarks>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to that
+    /// call. This is the authoring entry point the built-in shape and image nodes use, and it does two things a
+    /// hand-rolled <see cref="OpaqueSource{TState}(OpaqueRenderCall{TState})"/> cannot do for itself: it keeps the
+    /// callback's identity static so the description can be replayed straight onto the destination canvas, and it
+    /// withdraws that direct-replay fast path when the fill or the pen resolves to a brush that itself draws, which
+    /// has to be materialized first.
+    /// </remarks>
+    public RenderFragmentHandle PaintedSource<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,
         Brush.Resource? fill,
@@ -1323,7 +1407,33 @@ public sealed class RenderNodeContext
         return new RenderFragmentMetadata(reference.RecordedBounds, reference.RecordedEffectiveScale);
     }
 
-    internal bool TryCalculateRecordedOutputExtent(
+    /// <summary>
+    /// Attempts to compute the finite region that a set of already-recorded fragments covers on the target.
+    /// </summary>
+    /// <param name="fragments">
+    /// A non-null list of handles borrowed from the active transaction. Unlike
+    /// <see cref="TryCalculateFiniteIsolationDomain(out Rect)"/>, which always measures the node's own inputs, this
+    /// measures whichever fragments the node names — typically ones it has just recorded itself.
+    /// </param>
+    /// <param name="extent">
+    /// When this method returns <see langword="true"/>, the union of every value-producing fragment's recorded
+    /// bounds with the resolved bounds of every target write those fragments perform; otherwise
+    /// <see cref="Rect.Empty"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when every value-producing fragment has concrete recording metadata and every target
+    /// write resolves to a finite region; <see langword="false"/> when any of them is still symbolic.
+    /// </returns>
+    /// <remarks>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call. A node that has recorded a sub-graph and now has to size something around it — a clip, a layer, a
+    /// backdrop read — uses this to learn whether that sub-graph's footprint is knowable at recording time. A
+    /// returned extent of zero width or height means the fragments cover nothing. A <see langword="false"/> result
+    /// is not an error: it says the footprint is only known once the enclosing target is resolved, so the node must
+    /// fall back on a target-resolved construct such as
+    /// <see cref="OwningTargetLayer(IReadOnlyList{RenderFragmentHandle})"/> instead of a finite rectangle.
+    /// </remarks>
+    public bool TryCalculateRecordedOutputExtent(
         IReadOnlyList<RenderFragmentHandle> fragments,
         out Rect extent)
     {
