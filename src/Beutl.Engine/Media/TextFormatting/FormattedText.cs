@@ -28,7 +28,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
-    private List<SKPathGeometry.Resource> _pathList = [];
+    private List<Geometry.Resource> _pathList = [];
     private readonly ScaledTextCache _scaledCache;
 
     public FormattedText()
@@ -53,7 +53,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         _scaledCache.Dispose();
         (_textBlob, _fillPath, _strokePath).DisposeAll();
-        foreach (SKPathGeometry.Resource? resource in _pathList)
+        foreach (Geometry.Resource? resource in _pathList)
         {
             resource?.Dispose();
         }
@@ -294,22 +294,23 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     /// this run's origin, so a caller can draw the glyphs one by one instead of as a single blob.
     /// </summary>
     /// <returns>
-    /// One entry per shaped glyph, in visual order. Shaping is not a character mapping: a surrogate pair
-    /// or a ligature collapses into a single glyph, so the entries do not line up index-for-index with
-    /// <see cref="Text"/>. A glyph that has no outline, such as a space, still occupies an entry.
+    /// A borrowed span with one entry per shaped glyph, in visual order. Shaping is not a character
+    /// mapping: a surrogate pair or a ligature collapses into a single glyph, so the entries do not line
+    /// up index-for-index with <see cref="Text"/>. A glyph that has no outline, such as a space, still
+    /// occupies an entry.
     /// </returns>
     /// <remarks>
-    /// The entries are borrowed, not handed over. This instance owns them and rewrites the same list on
-    /// every measure, so the caller must not dispose them and must not keep them past the next measure of
-    /// this <see cref="FormattedText"/>: assigning <see cref="Text"/>, <see cref="Size"/> or any other
-    /// measured property replaces the outlines in place and truncates the list, and <see cref="Dispose"/>
-    /// releases them. Copy anything that has to outlive that.
+    /// The span is valid only until the next measure of this <see cref="FormattedText"/> — assigning
+    /// <see cref="Text"/>, <see cref="Size"/> or any other measured property re-measures the run — or
+    /// until <see cref="Dispose"/>. The entries are engine-owned and must not be disposed by the caller.
+    /// To keep a geometry beyond the span, replay it into your own geometry with
+    /// <see cref="Geometry.Resource.ApplyTo(IGeometryContext)"/>.
     /// </remarks>
     /// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
-    public IReadOnlyList<Geometry.Resource> ToGeometries()
+    public ReadOnlySpan<Geometry.Resource> ToGeometries()
     {
         MeasureAndSetField();
-        return _pathList;
+        return CollectionsMarshal.AsSpan(_pathList);
     }
 
     private void Measure()
@@ -346,7 +347,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         var fillPath = new SKPath();
         Span<ushort> glyphs = run.Glyphs;
         Span<SKPoint> positions = run.Positions;
-        Span<SKPathGeometry.Resource> pathList = default;
+        Span<Geometry.Resource> pathList = default;
         if (updatePathList)
         {
             // SetCount truncates trailing entries without disposing them; release them first so their
@@ -378,9 +379,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 {
                     tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
 
-                    ref SKPathGeometry.Resource? exist = ref pathList[i]!;
+                    ref Geometry.Resource? exist = ref pathList[i]!;
                     exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
-                    exist.SetSKPath(tmp, false);
+                    // The list is typed as Geometry.Resource so ToGeometries can hand out a well-typed
+                    // span; every entry is minted right here, so it is always an SKPathGeometry.Resource.
+                    ((SKPathGeometry.Resource)exist).SetSKPath(tmp, false);
                 }
                 else
                 {
@@ -389,9 +392,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             }
             else if (updatePathList)
             {
-                ref SKPathGeometry.Resource? exist = ref pathList[i]!;
+                ref Geometry.Resource? exist = ref pathList[i]!;
                 exist ??= new SKPathGeometry().ToResource(CompositionContext.Default);
-                exist.SetSKPath(tmp, false);
+                ((SKPathGeometry.Resource)exist).SetSKPath(tmp, false);
             }
         }
 

@@ -102,8 +102,10 @@ public class FormattedTextDisposalTests
     public void Dispose_ReleasesPathListResources()
     {
         FormattedText ft = CreateText("AB");
-        IReadOnlyList<Geometry.Resource> geometries = ft.ToGeometries();
-        Assert.That(geometries.Count, Is.GreaterThan(0));
+        // ToGeometries() hands out a borrowed span that cannot outlive the Dispose below, so snapshot the
+        // engine-owned references (not the outlines) while the borrow is still valid.
+        Geometry.Resource[] geometries = ft.ToGeometries().ToArray();
+        Assert.That(geometries, Has.Length.GreaterThan(0));
 
         ft.Dispose();
 
@@ -120,7 +122,7 @@ public class FormattedTextDisposalTests
     public void Dispose_DisposesOwnedGlyphPaths()
     {
         FormattedText ft = CreateText("AB");
-        IReadOnlyList<Geometry.Resource> geometries = ft.ToGeometries();
+        Geometry.Resource[] geometries = ft.ToGeometries().ToArray();
 
         // The per-glyph SKPath is owned separately from the resource's cached render path; capture those
         // handles so we can assert they were released by Dispose.
@@ -146,9 +148,9 @@ public class FormattedTextDisposalTests
     {
         FormattedText ft = CreateText("ABCDE");
 
-        // ToGeometries() returns the live _pathList; capture the long count before any shrink.
-        IReadOnlyList<Geometry.Resource> longGeometries = ft.ToGeometries();
-        int longCount = longGeometries.Count;
+        // ToGeometries() borrows the live _pathList; snapshot the references before any shrink.
+        Geometry.Resource[] longGeometries = ft.ToGeometries().ToArray();
+        int longCount = longGeometries.Length;
         // Font shaping is environment-dependent, so gate the glyph-count facts on Assume, not Assert.
         Assume.That(longCount, Is.GreaterThan(2), "Need more glyphs than the shrunk text to exercise truncation.");
 
@@ -156,13 +158,13 @@ public class FormattedTextDisposalTests
         int shortCount;
         using (FormattedText probe = CreateText("AB"))
         {
-            shortCount = probe.ToGeometries().Count;
+            shortCount = probe.ToGeometries().Length;
         }
 
         Assume.That(shortCount, Is.LessThan(longCount), "Shrink must actually reduce the glyph count.");
 
-        // Snapshot the trailing resources before the shrink: SetCount truncates _pathList in place,
-        // so they become unreachable through it afterwards.
+        // The trailing resources become unreachable through the borrow once SetCount truncates
+        // _pathList in place, so they are read out of the pre-shrink snapshot.
         List<Geometry.Resource> trailingResources = longGeometries.Skip(shortCount).ToList();
         Assert.That(trailingResources, Has.Count.EqualTo(longCount - shortCount));
 
@@ -180,7 +182,7 @@ public class FormattedTextDisposalTests
         // Shrink the text and force a re-measure -> MeasureCore truncates _pathList.
         ft.Text = "AB";
         _ = ft.Bounds;
-        Assert.That(ft.ToGeometries().Count, Is.EqualTo(shortCount), "Re-measure should have shrunk the live _pathList.");
+        Assert.That(ft.ToGeometries().Length, Is.EqualTo(shortCount), "Re-measure should have shrunk the live _pathList.");
 
         foreach (Geometry.Resource r in trailingResources)
         {
@@ -201,16 +203,16 @@ public class FormattedTextDisposalTests
     {
         FormattedText ft = CreateText("ABCDE");
 
-        // ToGeometries() returns the live _pathList; capture the long count before any shrink.
-        IReadOnlyList<Geometry.Resource> longGeometries = ft.ToGeometries();
-        int longCount = longGeometries.Count;
+        // ToGeometries() borrows the live _pathList; snapshot the references before any shrink.
+        Geometry.Resource[] longGeometries = ft.ToGeometries().ToArray();
+        int longCount = longGeometries.Length;
         // Font shaping is environment-dependent, so gate the glyph-count facts on Assume, not Assert.
         Assume.That(longCount, Is.GreaterThan(2), "Need more glyphs than the shrunk text to exercise truncation.");
 
         int shortCount;
         using (FormattedText probe = CreateText("AB"))
         {
-            shortCount = probe.ToGeometries().Count;
+            shortCount = probe.ToGeometries().Length;
         }
 
         Assume.That(shortCount, Is.GreaterThan(0), "Shrunk text must still produce glyphs.");
@@ -225,8 +227,8 @@ public class FormattedTextDisposalTests
         ft.Text = "AB";
         _ = ft.Bounds;
 
-        IReadOnlyList<Geometry.Resource> shrunk = ft.ToGeometries();
-        Assert.That(shrunk.Count, Is.EqualTo(shortCount), "Re-measure should have shrunk the live _pathList.");
+        Geometry.Resource[] shrunk = ft.ToGeometries().ToArray();
+        Assert.That(shrunk, Has.Length.EqualTo(shortCount), "Re-measure should have shrunk the live _pathList.");
         for (int i = 0; i < shortCount; i++)
         {
             Assert.That(ReferenceEquals(shrunk[i], survivors[i]), Is.True,
@@ -240,8 +242,8 @@ public class FormattedTextDisposalTests
         ft.Text = "ABCDE";
         Assert.DoesNotThrow(() => _ = ft.Bounds, "Re-measure after grow-back must not touch a disposed resource.");
 
-        IReadOnlyList<Geometry.Resource> regrown = ft.ToGeometries();
-        Assert.That(regrown.Count, Is.EqualTo(longCount), "Re-measure should have regrown the live _pathList.");
+        Geometry.Resource[] regrown = ft.ToGeometries().ToArray();
+        Assert.That(regrown, Has.Length.EqualTo(longCount), "Re-measure should have regrown the live _pathList.");
         foreach (Geometry.Resource r in regrown)
         {
             Assert.That(r.IsDisposed, Is.False, "Regrown entry must be live (no disposed resource resurrected).");
