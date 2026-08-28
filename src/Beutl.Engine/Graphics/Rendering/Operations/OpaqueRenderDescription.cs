@@ -219,7 +219,7 @@ internal sealed class OpaqueRenderDescription
             valueCardinality,
             scale,
             deviceGridSensitivity,
-            execute,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             inputReadbacks,
             resources);
 
@@ -315,8 +315,10 @@ internal sealed class OpaqueRenderDescription
         ThrowIfUndefined(deviceGridSensitivity);
         object definitionFingerprint = new EngineOpaqueDefinition(
             RenderBackendBoundary.None,
-            execute,
-            directReplay,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
+            directReplay is null
+                ? null
+                : RenderDescriptionValidation.StructuralIdentityOfExecution(directReplay),
             directReplayAtExactIntegerReduction);
         Action<EngineDirectRenderSession>? boundDirectReplay = directReplay is null
             ? null
@@ -368,7 +370,7 @@ internal sealed class OpaqueRenderDescription
         ThrowIfUndefined(deviceGridSensitivity);
         object definitionFingerprint = new EngineOpaqueDefinition(
             backendBoundary,
-            execute,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             DirectReplay: null,
             DirectReplayAtExactIntegerReduction: false);
 
@@ -1799,8 +1801,8 @@ internal readonly record struct OpaqueRenderStructuralIdentity(
 
 internal sealed record EngineOpaqueDefinition(
     RenderBackendBoundary BackendBoundary,
-    Delegate Execute,
-    Delegate? DirectReplay,
+    object Execute,
+    object? DirectReplay,
     bool DirectReplayAtExactIntegerReduction);
 
 internal static class RenderDescriptionValidation
@@ -1900,14 +1902,42 @@ internal static class RenderDescriptionValidation
     /// </para>
     /// <para>
     /// This is confined to the callbacks <see cref="ValidatePureMetadataCallback"/> gates. An execution
-    /// callback carries no such promise - the request-local overloads exist so that one may close over a
-    /// recording - so what it closed over still separates it.
+    /// callback carries no such promise, so <see cref="StructuralIdentityOfExecution"/> reads its target
+    /// before deciding the same way.
     /// </para>
     /// <para>
     /// <see cref="Delegate.Method"/> is cached by the runtime, so reading it allocates nothing.
     /// </para>
     /// </remarks>
     public static MethodInfo StructuralIdentityOf(Delegate callback) => callback.Method;
+
+    /// <summary>What an execution callback contributes to the structural identity of the operation holding it.</summary>
+    /// <remarks>
+    /// <para>
+    /// The method when the callback's target is the <see cref="RenderNode"/> that declared it, and the
+    /// delegate otherwise. A metadata callback can take the method unconditionally because the engine holds
+    /// it to being a pure function of its arguments and can therefore ignore what it reads. No such promise
+    /// covers an execution callback, so what it closed over has to keep separating it - which is what the
+    /// request-local overloads rest on: their callback closes over a recording, arrives with a compiler
+    /// display class as its target, and keeps the fresh per-recording identity that bars it from a later
+    /// request's cache lookup.
+    /// </para>
+    /// <para>
+    /// A node is not something the callback closed over. It is the one target
+    /// <see cref="RenderIdentityKeyValidator"/> admits, it is re-read on every recording rather than
+    /// snapshotted at one, and what it holds is governed by <see cref="RenderNode.MarkChanged"/> - the same
+    /// contract that already governs the state a non-capturing callback is handed, and the one BESG005
+    /// reports an unmarked write against. So it belongs on the request-data side of the split the plan key
+    /// draws: two nodes of one type share the shape of the work and re-run it over their own values, exactly
+    /// as they already do for the metadata callbacks those nodes declare.
+    /// </para>
+    /// <para>
+    /// A static callback is unaffected either way: the compiler caches one delegate per declaration, so the
+    /// delegate was already as stable as the method.
+    /// </para>
+    /// </remarks>
+    public static object StructuralIdentityOfExecution(Delegate callback)
+        => callback.Target is RenderNode ? callback.Method : callback;
 
     public static IReadOnlyList<RenderResource> CopyResources(
         IEnumerable<RenderResource>? resources,

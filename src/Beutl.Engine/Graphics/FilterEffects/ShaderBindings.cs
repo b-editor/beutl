@@ -235,7 +235,9 @@ internal sealed class ShaderBindingBuilder
         ArgumentNullException.ThrowIfNull(bind);
         _uniforms.Add(new ShaderUniformBinding(
             name,
-            new CustomUniformStructuralKey(typeof(T), bind),
+            new CustomUniformStructuralKey(
+                typeof(T),
+                RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
             readsExecutionContext: true,
             (writer, context) => bind(writer, value, context),
             static _ => { }));
@@ -276,7 +278,9 @@ internal sealed class ShaderBindingBuilder
             name,
             resource,
             coordinateSpace,
-            new ResourceBindingStructuralKey(typeof(T), bind),
+            new ResourceBindingStructuralKey(
+                typeof(T),
+                RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
             (writer, value, context) => bind(writer, (T)value, context),
             use => resource.Registry.Use(resource, value =>
             {
@@ -325,7 +329,9 @@ internal sealed class ShaderBindingBuilder
             name,
             resource,
             coordinateSpace,
-            new ResourceBindingStructuralKey(typeof(T), bind),
+            new ResourceBindingStructuralKey(
+                typeof(T),
+                RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
             (writer, raw, context) => bind(writer, (T)raw, value, context),
             use => resource.Registry.Use(resource, raw =>
             {

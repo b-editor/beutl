@@ -151,7 +151,7 @@ internal sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            execute,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             resources,
             isValueReplayMap: false,
             transformSpace,
@@ -217,7 +217,8 @@ internal sealed class TargetScopeDescription
             scale,
             deviceGridSensitivity,
             deviceGridMapping,
-            new EngineValueReplayMapDefinition(execute),
+            new EngineValueReplayMapDefinition(
+                RenderDescriptionValidation.StructuralIdentityOfExecution(execute)),
             resources,
             isValueReplayMap: true,
             // A value replay map is lowered into the value graph, which only holds together when the
@@ -349,7 +350,7 @@ public sealed class TargetScopeSession
     }
 }
 
-internal sealed record EngineValueReplayMapDefinition(Delegate Execute);
+internal sealed record EngineValueReplayMapDefinition(object Execute);
 
 internal sealed class RawTargetScopeDescription
 {

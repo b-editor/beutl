@@ -103,7 +103,7 @@ public sealed class OpaqueRenderDefinition<TState>
             _valueCardinality,
             _scale,
             _deviceGridSensitivity,
-            definitionFingerprint: _execute,
+            definitionFingerprint: RenderDescriptionValidation.StructuralIdentityOfExecution(_execute),
             inputReadbacks: _inputReadbacks,
             resources: RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
@@ -229,7 +229,7 @@ public sealed class TargetScopeDefinition<TState>
             _scale,
             _deviceGridSensitivity,
             _deviceGridMapping,
-            definitionFingerprint: _execute,
+            definitionFingerprint: RenderDescriptionValidation.StructuralIdentityOfExecution(_execute),
             resources: RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
                 bindings,
@@ -355,7 +355,7 @@ public sealed class TargetCommandDefinition<TState>
             _hitTest,
             _access,
             _inputReadbacks,
-            definitionFingerprint: _execute,
+            definitionFingerprint: RenderDescriptionValidation.StructuralIdentityOfExecution(_execute),
             inputDemand: _inputDemand,
             resources: RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
@@ -453,7 +453,7 @@ public sealed class RawTargetScopeDefinition<TState>
             _bounds,
             _hitTest,
             _scale,
-            _execute,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(_execute),
             RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
                 bindings,
@@ -553,7 +553,7 @@ public sealed class RawTargetCommandDefinition<TState>
                 nameof(_execute)),
             _queryBounds,
             _hitTest,
-            _execute,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(_execute),
             RenderDescriptionValidation.ValidateResourceBindings(
                 _resourceSlots,
                 bindings,

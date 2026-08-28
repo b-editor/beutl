@@ -101,6 +101,22 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Action<RawTargetCommandSession, TState> execute,
                     RenderBoundsContract bounds) => null!;
             }
+
+            public sealed class ImmediateCanvas { }
+
+            public sealed class RenderFragmentHandle { }
+
+            public delegate void PaintedSourceDraw<TState>(ImmediateCanvas canvas, TState state);
+
+            public sealed class RenderNodeContext
+            {
+                public RenderFragmentHandle PaintedSource<TState>(
+                    TState state,
+                    PaintedSourceDraw<TState> draw,
+                    RenderBoundsContract bounds) => null!;
+
+                public void PublishMappedInputs(Func<RenderFragmentHandle, RenderFragmentHandle> mapper) { }
+            }
         }
 
         namespace Beutl.Graphics.Effects
@@ -111,6 +127,18 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             public sealed class ShaderDefinitionBuilder<TState>
             {
                 public void Uniform<T>(string name, Func<TState, T> value) { }
+            }
+
+            public sealed class ShaderUniformWriter { }
+
+            public sealed class ShaderExecutionContext { }
+
+            public sealed class ShaderBindingBuilder
+            {
+                public void Uniform<T>(
+                    string name,
+                    T value,
+                    Action<ShaderUniformWriter, T, ShaderExecutionContext> bind) { }
             }
 
             public sealed class GeometrySession { }
@@ -3240,6 +3268,143 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                         static value => value);
             }
             """);
+
+    /// <remarks>
+    /// A drawing callback and the mapping declared beside it are decided by one rule, so an author cannot
+    /// find that one argument of a call reports what the next argument accepts.
+    /// </remarks>
+    [Test]
+    public void ADrawCallbackClosingOverALocal_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class PaintingNode : RenderNode
+            {
+                public void Record(RenderNodeContext context)
+                {
+                    float offset = 4f;
+                    context.PaintedSource(
+                        0,
+                        (canvas, state) => Consume(offset),
+                        RenderBoundsContract.Create(static value => value, static value => value));
+                }
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a drawing callback is retained and re-run exactly as a definition's execute is, so a local it "
+            + "reads lets one plan key stand for two different drawings");
+    }
+
+    [Test]
+    public void ADrawCallbackReadingOnlyTheDeclaringNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class PaintingNode : RenderNode
+            {
+                public float Offset { get; private set; }
+
+                public void Record(RenderNodeContext context)
+                    => context.PaintedSource(
+                        0,
+                        (canvas, state) => Consume(Offset),
+                        RenderBoundsContract.Create(static value => value, static value => value));
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG003"),
+            "the node the drawing is written inside is the one reader both paths admit");
+    }
+
+    /// <remarks>
+    /// A shader binder is retained by the description and keyed by which declaration it is, so it takes the
+    /// same answer as a drawing callback rather than the answer its enclosing type would give.
+    /// </remarks>
+    [Test]
+    public void AShaderBinderReadingOnlyTheDeclaringNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics.Effects;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ScalingNode : RenderNode
+            {
+                public float Scale { get; private set; }
+
+                public void Declare(ShaderBindingBuilder bindings)
+                    => bindings.Uniform("amount", 1f, (writer, value, context) => Consume(value * Scale));
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG003"));
+    }
+
+    [Test]
+    public void AShaderBinderClosingOverALocal_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics.Effects;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ScalingNode : RenderNode
+            {
+                public void Declare(ShaderBindingBuilder bindings)
+                {
+                    float scale = 2f;
+                    bindings.Uniform("amount", 1f, (writer, value, context) => Consume(value * scale));
+                }
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// What naming one method rather than its type leaves out. A recording context's input mapper runs
+    /// while the call is being made and is never retained, so nothing keys a plan by it and there is no
+    /// second answer for a captured value to produce.
+    /// </remarks>
+    [Test]
+    public void ACapturingInputMapperOnTheSameContext_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class MappingNode : RenderNode
+            {
+                public void Record(RenderNodeContext context)
+                {
+                    RenderFragmentHandle replacement = null!;
+                    context.PublishMappedInputs(input => replacement);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG003"));
+    }
 
     /// <summary>
     /// Compiles the contract stubs and <paramref name="librarySource"/> into an assembly, then analyzes

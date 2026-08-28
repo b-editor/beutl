@@ -78,6 +78,18 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Rendering.RawTargetCommandDefinition",
         "Beutl.Graphics.Effects.GeometryDefinition");
 
+    /// <remarks>
+    /// One method rather than its whole type, because the type declares both kinds. A recording context's
+    /// painted source retains its draw callback exactly as a definition builder retains its execute, and
+    /// declares its hit test in the same argument list - so leaving it out let one call report the mapping
+    /// and stay silent about the drawing beside it. Its other delegate-taking member, the input mapper, is
+    /// invoked while the call is being made and never retained, which is the shape this rule has nothing to
+    /// say about.
+    /// </remarks>
+    private static readonly ImmutableHashSet<string> s_contractMethods = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "Beutl.Graphics.Rendering.RenderNodeContext.PaintedSource");
+
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(
             DiagnosticDescriptors.CapturingMetadataCallback,
@@ -101,9 +113,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         // Name rather than ToDisplayString: a generic builder displays with its type arguments, and the
         // rule is about the builder, not about what it was constructed with.
-        if (method.ContainingType is not { } containingType
-            || !s_contractTypes.Contains(
-                containingType.ContainingNamespace.ToDisplayString() + "." + containingType.Name))
+        if (method.ContainingType is not { } containingType)
+            return;
+
+        string typeName = containingType.ContainingNamespace.ToDisplayString() + "." + containingType.Name;
+        if (!s_contractTypes.Contains(typeName)
+            && !s_contractMethods.Contains(typeName + "." + method.Name))
         {
             return;
         }

@@ -108,7 +108,7 @@ internal sealed class GeometryDescription
                 nameof(render)),
             bounds,
             hitTest,
-            render,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(render),
             requiresReadback,
             inputDemand,
             resources);

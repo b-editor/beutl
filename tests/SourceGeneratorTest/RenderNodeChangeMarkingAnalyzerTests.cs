@@ -31,6 +31,8 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             public sealed class RenderNodeContext
             {
                 public void Publish(Rect bounds) { }
+
+                public void PaintedSource(System.Action<Rect> draw) { }
             }
 
             public abstract class RenderNode
@@ -1086,6 +1088,39 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Is.Empty,
             "the mark covers an element write as it covers a whole-field assignment");
+    }
+
+    /// <remarks>
+    /// What holds an execution callback that reads its own node to one answer. Such a callback is written
+    /// inside Process, so the node state it reads is state Process reads, and an unmarked write to that
+    /// state is reported on exactly the terms a value handed through call state is - which is the whole of
+    /// why reading the node directly costs no guarantee that spelling the same read as call state keeps.
+    /// </remarks>
+    [Test]
+    public void StateReadOnlyInsideAnExecutionCallback_IsStateProcessReads()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DrawingNode : RenderNode
+            {
+                private float _offset;
+
+                public void SetOffset(float value) => _offset = value;
+
+                public override void Process(RenderNodeContext context)
+                    => context.PaintedSource(bounds => Consume(_offset));
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a node that only the drawing reads is still read by Process, so forgetting the mark is "
+            + "reported rather than left to a replayed recording");
     }
 
     private static ImmutableArray<Diagnostic> Analyze(string source)

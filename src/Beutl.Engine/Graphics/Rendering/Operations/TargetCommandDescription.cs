@@ -85,7 +85,7 @@ internal sealed class TargetCommandDescription
             hitTest,
             access,
             inputReadbacks,
-            execute,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             inputDemand,
             resources);
 

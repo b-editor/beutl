@@ -896,8 +896,12 @@ describes, and nothing at runtime notices.
   `RenderScaleContract`, `RenderInputDemandContract`, `OpaqueRenderBoundsContract` and
   `TargetCaptureScaleContract`, and on the definition builders `OpaqueRenderDefinition`,
   `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
-  `RawTargetCommandDefinition` and `GeometryDefinition`. The analyzer ships only to projects that
-  reference `Beutl.Engine.SourceGenerators`, so an out-of-tree author never sees it.
+  `RawTargetCommandDefinition` and `GeometryDefinition`. The rule reaches the shader binding builders and
+  `RenderNodeContext.PaintedSource` on the same terms, so the drawing and the hit test declared in one
+  argument list answer alike; `PaintedSource` is named as a method rather than through its type because the
+  context's other delegate-taking member, the input mapper, runs while the call is being made and is never
+  retained. The analyzer ships only to projects that reference `Beutl.Engine.SourceGenerators`, so an
+  out-of-tree author never sees it.
 - **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`,
   but it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or
   get-only property only when the value is provably fixed: the getter reduces to one returned expression
@@ -960,9 +964,29 @@ This is what lets a callback read the `RenderNode` that declares it without cost
 node-reading lambda is a different delegate per node. It also means a method group over a value-typed
 receiver, which boxes a fresh target on every conversion, no longer defeats reuse.
 
-An *execution* callback is unchanged and still keys on the delegate. The engine holds a metadata callback to
-being a pure function of its arguments and can therefore ignore what it reads; it makes no such promise
-about an execution callback, and the request-local overloads exist so one may close over a recording.
+An *execution* callback — the `draw` of a painted source, a shader binding's `bind`, and the `execute` a
+definition builder retains — keys on its `MethodInfo` when the delegate's target is the `RenderNode` that
+declares it, and on the delegate otherwise. The engine holds a metadata callback to being a pure function of
+its arguments and can therefore ignore what it reads unconditionally; it makes no such promise about an
+execution callback, so what that callback closed over still has to separate it. A node is not something the
+callback closed over: it is the one target the identity validator admits, it is re-read on every recording
+rather than snapshotted at one, and what it holds is governed by `RenderNode.MarkChanged` — the same
+contract that already governs the state a non-capturing callback is handed. So it lands on the request-data
+side of the split, and two nodes of one type share the shape of the work and re-run it over their own
+values.
+
+The request-local overloads are untouched by that, and deliberately: they exist so a callback may close over
+a recording, and the fresh per-recording identity that bars their output from a later request's cache lookup
+*is* the delegate. Such a closure arrives with a compiler display class as its target, which is not a node,
+so it keeps being separated by the delegate exactly as before.
+
+What this does **not** change is the coherence contract. A recording whose node reports no change may be
+replayed instead of re-recorded, and an execution callback reading its node then produces pixels for the
+current node behind metadata recorded for the old one. That is the same author error a state-passing
+callback turns into a stale frame, reported by the same rule: a read written inside `Process` is a read
+`Process` makes, whether it happens directly or inside the callback, so BESG005 reports an unmarked write to
+it either way. Nothing else looks — the recording cross-check deliberately does not compare callback state,
+and the recorded-answer cross-check covers forward bounds and scale only.
 
 ## `EffectiveScale.Unbounded` is a field, not a get-only property
 
