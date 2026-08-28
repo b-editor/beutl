@@ -294,7 +294,7 @@ internal sealed class OpaqueRenderDescription
     /// The callback is assembled by a shared recorder helper and reaches request-scoped resources and a
     /// recorded paint plan, neither of which can be part of a persistent identity, so the declared identity is
     /// hand-verified against what the helper draws with. The shape is reachable from outside the engine through
-    /// <see cref="RenderNodeContext.PaintedSource{TState}"/>, whose caller-supplied draw callback is held purely by
+    /// <see cref="PaintedSourceDefinition{TState}"/>, whose caller-supplied draw callback is held purely by
     /// BESG003 rather than by the shape being unreachable.
     /// </remarks>
     internal static OpaqueRenderDescription CreateEngineSource<TState>(
@@ -307,7 +307,7 @@ internal sealed class OpaqueRenderDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         bool directReplayAtExactIntegerReduction = false,
         bool supportsDirectDstOut = true,
-        IEnumerable<RenderResource>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null)
         where TState : notnull
     {
         ArgumentNullException.ThrowIfNull(execute);
@@ -340,7 +340,7 @@ internal sealed class OpaqueRenderDescription
             deviceGridSensitivity,
             definitionFingerprint,
             Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
-            BindInternalResources(resources),
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             RenderBackendBoundary.None,
             boundDirectReplay,
             supportsDirectDstOut && directReplay is not null,

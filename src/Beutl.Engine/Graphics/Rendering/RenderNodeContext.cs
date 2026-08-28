@@ -17,7 +17,7 @@ namespace Beutl.Graphics.Rendering;
 /// <param name="pen">The resolved stroke pen, or <see langword="null"/> when the source paints no outline.</param>
 /// <param name="state">
 /// The state the node handed to
-/// <see cref="RenderNodeContext.PaintedSource{TState}(TState, PaintedSourceDraw{TState}, Brush.Resource, Pen.Resource, Rect, RenderHitTestContract, RenderScaleContract, bool, RenderDeviceGridSensitivity, bool, IEnumerable{RenderResource}, Thickness)"/>.
+/// <see cref="PaintedSourceDefinition{TState}.Call(TState, Brush.Resource, Pen.Resource, OpaqueRenderBoundsContract, IEnumerable{RenderResourceBinding})"/>.
 /// </param>
 /// <remarks>
 /// The callback runs during execution, long after <see cref="RenderNode.Process(RenderNodeContext)"/> returned, so
@@ -609,13 +609,12 @@ public sealed class RenderNodeContext
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
     /// <remarks>
     /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to that
-    /// call. This is the authoring entry point the built-in shape and image nodes use, and it does two things a
-    /// hand-rolled <see cref="OpaqueSource{TState}(OpaqueRenderCall{TState})"/> cannot do for itself: it keeps the
-    /// callback's identity static so the description can be replayed straight onto the destination canvas, and it
-    /// withdraws that direct-replay fast path when the fill or the pen resolves to a brush that itself draws, which
-    /// has to be materialized first.
+    /// call. This is the engine-side overload: it exists for <paramref name="directReplayAtExactIntegerReduction"/>,
+    /// which names a planner fast path an out-of-tree node has no model of and cannot decide for itself.
+    /// Everything else it does is reachable through <see cref="PaintedSourceDefinition{TState}"/>, and that is what
+    /// a node outside the engine records with.
     /// </remarks>
-    public RenderFragmentHandle PaintedSource<TState>(
+    internal RenderFragmentHandle PaintedSource<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,
         Brush.Resource? fill,
@@ -633,29 +632,80 @@ public sealed class RenderNodeContext
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
+
+        return PaintedSourceCore(
+            state,
+            draw,
+            fill,
+            pen,
+            OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
+            hitTest,
+            scale,
+            directReplayAtExactIntegerReduction,
+            deviceGridSensitivity,
+            supportsDirectDstOut,
+            RenderDescriptionValidation.CopyResources(resources, nameof(resources))
+                .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
+                .ToArray());
+    }
+
+    /// <summary>Records a painted-source call.</summary>
+    /// <param name="call">
+    /// A non-null call binding a <see cref="PaintedSourceDefinition{TState}"/> to this recording's state, fill,
+    /// pen, bounds, and resource tokens.
+    /// </param>
+    /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
+    /// <remarks>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call.
+    /// </remarks>
+    public RenderFragmentHandle PaintedSource<TState>(PaintedSourceCall<TState> call)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        PaintedSourceDefinition<TState> definition = call.Definition;
+        return PaintedSourceCore(
+            call.State,
+            definition.Draw,
+            call.Fill,
+            call.Pen,
+            call.Bounds,
+            definition.HitTest,
+            definition.Scale,
+            directReplayAtExactIntegerReduction: false,
+            definition.DeviceGridSensitivity,
+            definition.PaintsNonOverlappingCoverage,
+            call.Bindings);
+    }
+
+    private RenderFragmentHandle PaintedSourceCore<TState>(
+        TState state,
+        PaintedSourceDraw<TState> draw,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        OpaqueRenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        bool directReplayAtExactIntegerReduction,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        bool supportsDirectDstOut,
+        IReadOnlyList<RenderResourceBinding> declaredBindings)
+    {
         GetTransaction();
 
-        var declaredResources = new List<RenderResource>(
-            RenderDescriptionValidation.CopyResources(resources, nameof(resources)));
-        RenderResource<Brush.Resource>? fillResource = null;
-        RenderResource<Pen.Resource>? penResource = null;
+        var bindings = new List<RenderResourceBinding>(declaredBindings);
         if (fill is not null)
-        {
-            fillResource = Borrow(fill);
-            declaredResources.Add(fillResource);
-        }
+            bindings.Add(RenderResourceBinding.CreateEngineBinding(Borrow(fill)));
         if (pen is not null)
-        {
-            penResource = Borrow(pen);
-            declaredResources.Add(penResource);
-        }
+            bindings.Add(RenderResourceBinding.CreateEngineBinding(Borrow(pen)));
 
         var source = new PlainPaintedSource<TState>(
             state,
             draw,
             fill,
             pen,
-            declaredResources
+            bindings
+                .Select(static binding => binding.Resource)
                 .DistinctBy(static resource => resource.SlotIdentity)
                 .ToArray());
         // Both callbacks are static, so the description's identity is the pair of definitions rather than
@@ -668,13 +718,13 @@ public sealed class RenderNodeContext
             state: source,
             execute: static (session, source) => source.Execute(session),
             directReplay: directReplay,
-            bounds: OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
+            bounds: bounds,
             hitTest: hitTest,
             scale: scale,
             directReplayAtExactIntegerReduction: directReplayAtExactIntegerReduction,
             deviceGridSensitivity: deviceGridSensitivity,
             supportsDirectDstOut: supportsDirectDstOut,
-            resources: declaredResources);
+            resources: bindings);
         return OpaqueSource(description);
     }
 

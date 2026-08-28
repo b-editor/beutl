@@ -41,6 +41,7 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
                 Assert.That(exportedTypes, Does.Not.Contain(effectItemType), effectItemType);
         });
         AssertContextCallSurface(typeof(RenderNodeContext), "OpaqueSource", typeof(OpaqueRenderCall<>));
+        AssertContextCallSurface(typeof(RenderNodeContext), "PaintedSource", typeof(PaintedSourceCall<>));
         AssertContextCallSurface(typeof(RenderNodeContext), "OpaqueMap", typeof(OpaqueRenderCall<>));
         AssertContextCallSurface(typeof(RenderNodeContext), "OpaqueCombine", typeof(OpaqueRenderCall<>));
         AssertContextCallSurface(typeof(RenderNodeContext), "OpaqueExpand", typeof(OpaqueRenderCall<>));

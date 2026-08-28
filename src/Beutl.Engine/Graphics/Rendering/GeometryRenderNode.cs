@@ -6,6 +6,18 @@ namespace Beutl.Graphics.Rendering;
 public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
+    private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
+    private static readonly RenderResourceSlot<GeometryHitTestState> s_hitTestSlot = new();
+
+    private static readonly PaintedSourceDefinition<Geometry.Resource> s_definition =
+        PaintedSourceDefinition<Geometry.Resource>.Create(
+            static (canvas, fill, pen, state) => canvas.DrawGeometry(state, fill, pen),
+            RenderHitTestContract.FromSlot(
+                s_hitTestSlot,
+                static (state, point) => state.HitTest(point)),
+            RenderScaleContract.Vector,
+            resources: [s_geometrySlot, s_hitTestSlot]);
+
     public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
 
     public bool Update(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
@@ -46,20 +58,15 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         var hitTestState = new GeometryHitTestState(geometry, fill, pen);
         RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(hitTestState);
 
-        context.Publish(context.PaintedSource(
-            state: geometry,
-            draw: static (canvas, fill, pen, state) =>
-                canvas.DrawGeometry(state, fill, pen),
-            fill: fill,
-            pen: pen,
-            outputBounds: bounds,
-            hitTest: RenderHitTestContract.FromResource(
-                hitTestResource,
-                static (state, point) => state.HitTest(point)),
-            scale: RenderScaleContract.Vector,
-            resources: DeferredOpaqueSource.Resources(
-                geometryResource,
-                hitTestResource)));
+        context.Publish(context.PaintedSource(s_definition.Call(
+            geometry,
+            fill,
+            pen,
+            OpaqueRenderBoundsContract.Source(bounds),
+            [
+                s_geometrySlot.Bind(geometryResource),
+                s_hitTestSlot.Bind(hitTestResource),
+            ])));
     }
 
     protected override void OnDispose(bool disposing)

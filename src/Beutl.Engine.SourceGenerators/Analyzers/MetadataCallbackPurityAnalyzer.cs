@@ -72,6 +72,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         // invoked once while the definition is built and never retained, and the callbacks it registers
         // reach the rule through ShaderDefinitionBuilder above.
         "Beutl.Graphics.Rendering.OpaqueRenderDefinition",
+        "Beutl.Graphics.Rendering.PaintedSourceDefinition",
         "Beutl.Graphics.Rendering.TargetScopeDefinition",
         "Beutl.Graphics.Rendering.TargetCommandDefinition",
         "Beutl.Graphics.Rendering.RawTargetScopeDefinition",

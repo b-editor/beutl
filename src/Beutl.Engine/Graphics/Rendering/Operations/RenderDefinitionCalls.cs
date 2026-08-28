@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using Beutl.Media;
+
+namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// Defines the fixed shape of an opaque render operation.
@@ -142,6 +144,194 @@ public sealed class OpaqueRenderCall<TState>
     public TState State { get; }
 
     internal OpaqueRenderDescription Description { get; }
+}
+
+/// <summary>
+/// Defines the fixed shape of a painted source operation - a source that paints itself with a fill brush and a
+/// stroke pen through an <see cref="ImmediateCanvas"/>.
+/// </summary>
+/// <typeparam name="TState">The per-recording state supplied by a <see cref="PaintedSourceCall{TState}"/>.</typeparam>
+/// <remarks>
+/// <para>
+/// A definition contains only operation shape: its painting callback, its metadata contracts, and the resource
+/// slots a call binds. Values that affect pixels belong to a call. When those values change, the owning
+/// <see cref="RenderNode"/> must call <see cref="RenderNode.MarkChanged"/> before its next request.
+/// </para>
+/// <para>
+/// The bounds contract is the one place a painted source departs from <see cref="OpaqueRenderDefinition{TState}"/>,
+/// which holds its bounds as shape. What a painted source publishes is measured from the pen the same recording
+/// supplies - <see cref="PenHelper.GetBounds(Rect, Pen.Resource)"/> over the painted rectangle - so a definition
+/// holding it would have to be rebuilt whenever the pen moved, and no node could keep a <see langword="static"/>
+/// <see langword="readonly"/> one. Carrying it on the call costs no plan: a bounds contract contributes only its
+/// kind to the structural identity.
+/// </para>
+/// <para>
+/// This is what the built-in shape and image nodes record through, and it does two things a hand-rolled
+/// <see cref="OpaqueRenderDefinition{TState}"/> cannot do for itself: it keeps the callback's identity static so
+/// the description can be replayed straight onto the destination canvas, and it withdraws that direct-replay
+/// fast path when the fill or the pen resolves to a brush that itself draws, which has to be materialized first.
+/// </para>
+/// </remarks>
+public sealed class PaintedSourceDefinition<TState>
+    where TState : notnull
+{
+    private PaintedSourceDefinition(
+        PaintedSourceDraw<TState> draw,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity,
+        bool paintsNonOverlappingCoverage,
+        IReadOnlyList<RenderResourceSlot> resourceSlots)
+    {
+        Draw = draw;
+        HitTest = hitTest;
+        Scale = scale;
+        DeviceGridSensitivity = deviceGridSensitivity;
+        PaintsNonOverlappingCoverage = paintsNonOverlappingCoverage;
+        ResourceSlots = resourceSlots;
+    }
+
+    /// <summary>Creates an immutable painted-source definition.</summary>
+    /// <param name="draw">
+    /// A non-null painting callback. Declare it as a static lambda so it carries no per-frame identity; see
+    /// <see cref="PaintedSourceDraw{TState}"/>.
+    /// </param>
+    /// <param name="hitTest">An initialized hit-test contract describing which points the source claims.</param>
+    /// <param name="scale">
+    /// An initialized scale contract. Use <see cref="RenderScaleContract.Vector"/> for content the callback can
+    /// re-paint at any density, and a materializing contract for content that is only correct at its working scale.
+    /// </param>
+    /// <param name="deviceGridSensitivity">
+    /// Whether the painted pixels depend on where the device pixel grid falls. Keep the
+    /// <see cref="RenderDeviceGridSensitivity.PhaseDependent"/> default for analytically anti-aliased content, and
+    /// declare <see cref="RenderDeviceGridSensitivity.Insensitive"/> only when a sub-pixel shift of the grid cannot
+    /// change the output.
+    /// </param>
+    /// <param name="paintsNonOverlappingCoverage">
+    /// Whether the callback covers each pixel it paints at most once. That is what lets the source be painted
+    /// straight into a destination-out composite instead of into an isolated layer first: coverage that doubles
+    /// up would erase twice. Declare it <see langword="false"/> for a callback that strokes or fills over its own
+    /// output - a waveform, a scatter, a path drawn in overlapping segments. The engine consults it only when the
+    /// source is replayable at all: a fill or a pen that resolves to a brush which itself draws is materialized
+    /// into its own layer regardless of what is declared here.
+    /// </param>
+    /// <param name="resources">
+    /// The resource addresses this source reads, on top of the fill and the pen a call supplies. Each is bound to
+    /// a request-scoped token by the call, and a hit test reaches one through
+    /// <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>.
+    /// </param>
+    public static PaintedSourceDefinition<TState> Create(
+        PaintedSourceDraw<TState> draw,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        bool paintsNonOverlappingCoverage = true,
+        IEnumerable<RenderResourceSlot>? resources = null)
+    {
+        ArgumentNullException.ThrowIfNull(draw);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        if (!Enum.IsDefined(deviceGridSensitivity))
+            throw new ArgumentOutOfRangeException(nameof(deviceGridSensitivity));
+
+        return new PaintedSourceDefinition<TState>(
+            draw,
+            hitTest,
+            scale,
+            deviceGridSensitivity,
+            paintsNonOverlappingCoverage,
+            RenderDescriptionValidation.CopyResourceSlots(resources, nameof(resources)));
+    }
+
+    /// <summary>Binds this operation shape to the values and resources for one recording.</summary>
+    /// <param name="state">
+    /// The state the callback paints from. Treat it as immutable once recorded: the callback runs later, so a
+    /// value mutated after this call changes what the fragment paints without the engine noticing.
+    /// </param>
+    /// <param name="fill">
+    /// The fill brush the callback receives, or <see langword="null"/> for an unfilled source. A non-null brush is
+    /// borrowed for the request, so the caller keeps ownership of it.
+    /// </param>
+    /// <param name="pen">
+    /// The stroke pen the callback receives, or <see langword="null"/> for an unstroked source. A non-null pen is
+    /// borrowed for the request, so the caller keeps ownership of it.
+    /// </param>
+    /// <param name="bounds">
+    /// A source bounds contract over the finite, non-empty rectangle the callback paints within, in the node's own
+    /// coordinate space. Build it with <see cref="OpaqueRenderBoundsContract.Source(Rect, Thickness)"/>, measuring
+    /// the rectangle with <see cref="PenHelper.GetBounds(Rect, Pen.Resource)"/> so it follows the same
+    /// stroke-alignment and offset convention as the built-in shape nodes, and give it a raster outset when
+    /// filtering or anti-aliasing spills past what the source publishes.
+    /// </param>
+    /// <param name="bindings">
+    /// One request-scoped token per resource slot the definition declares, each produced by
+    /// <see cref="RenderResourceSlot{T}.Bind(RenderResource{T})"/>.
+    /// </param>
+    public PaintedSourceCall<TState> Call(
+        TState state,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        OpaqueRenderBoundsContract bounds,
+        IEnumerable<RenderResourceBinding>? bindings = null)
+        => new(this, state, fill, pen, bounds, bindings);
+
+    internal PaintedSourceDraw<TState> Draw { get; }
+
+    internal RenderHitTestContract HitTest { get; }
+
+    internal RenderScaleContract Scale { get; }
+
+    internal RenderDeviceGridSensitivity DeviceGridSensitivity { get; }
+
+    internal bool PaintsNonOverlappingCoverage { get; }
+
+    internal IReadOnlyList<RenderResourceSlot> ResourceSlots { get; }
+}
+
+/// <summary>Binds one painted-source definition to one recording's values and resource tokens.</summary>
+public sealed class PaintedSourceCall<TState>
+    where TState : notnull
+{
+    internal PaintedSourceCall(
+        PaintedSourceDefinition<TState> definition,
+        TState state,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        OpaqueRenderBoundsContract bounds,
+        IEnumerable<RenderResourceBinding>? bindings)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(bounds);
+        bounds.ThrowIfIncompatible(OpaqueRenderTopology.Source, nameof(bounds));
+        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds.TransformBounds([]), nameof(bounds));
+
+        Definition = definition;
+        State = state;
+        Fill = fill;
+        Pen = pen;
+        Bounds = bounds;
+        Bindings = RenderDescriptionValidation.ValidateResourceBindings(
+            definition.ResourceSlots,
+            bindings,
+            nameof(bindings));
+    }
+
+    /// <summary>Gets the immutable operation shape.</summary>
+    public PaintedSourceDefinition<TState> Definition { get; }
+
+    /// <summary>Gets the state supplied for this recording.</summary>
+    public TState State { get; }
+
+    /// <summary>Gets the fill brush supplied for this recording, or <see langword="null"/>.</summary>
+    public Brush.Resource? Fill { get; }
+
+    /// <summary>Gets the stroke pen supplied for this recording, or <see langword="null"/>.</summary>
+    public Pen.Resource? Pen { get; }
+
+    /// <summary>Gets the bounds contract supplied for this recording.</summary>
+    public OpaqueRenderBoundsContract Bounds { get; }
+
+    internal IReadOnlyList<RenderResourceBinding> Bindings { get; }
 }
 
 /// <summary>Defines the fixed shape of a guarded target-scope operation.</summary>
