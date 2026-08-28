@@ -158,7 +158,7 @@ public class Renderer : IRenderer
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
         }
 
-        float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
+        float outputScale = RenderScaleUtilities.SanitizeOutputScale(renderScale);
         float maxScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;

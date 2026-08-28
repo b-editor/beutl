@@ -136,7 +136,7 @@ internal sealed class RenderRequestOptions
     }
 
     private static float SanitizeOutputScale(float outputScale)
-        => float.IsFinite(outputScale) && outputScale > 0 ? outputScale : 1;
+        => RenderScaleUtilities.SanitizeOutputScale(outputScale);
 
     private static void ValidateTargetDomain(Rect? targetDomain)
     {

@@ -172,8 +172,7 @@ public static class ObjectTemplatePreviewRenderer
             MathF.Min(PreviewWidth / bounds.Width, PreviewHeight / bounds.Height),
             float.Epsilon,
             MaxPreviewScale);
-        if (!float.IsFinite(scale) || scale <= 0f)
-            scale = 1f;
+        scale = RenderScaleUtilities.SanitizeOutputScale(scale);
 
         PixelRect rect = PixelRect.FromRect(bounds, scale);
         if (rect.Width <= 0 || rect.Height <= 0)

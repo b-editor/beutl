@@ -379,6 +379,31 @@ public class SelectedDrawableRenderTests
         });
     }
 
+    [AvaloniaTest]
+    public async Task Selected_drawable_records_the_sanitized_output_scale_for_an_invalid_request()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-invalid-scale");
+
+        foreach (float requested in new[] { float.NaN, 0f, -2f })
+        {
+            var capture = new SelectedDrawableScaleCaptureFullTargetDrawable();
+
+            using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(capture, requested);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    capture.ObservedOutputScales,
+                    Is.EqualTo(new[] { 1f }),
+                    $"recording context for outputScale {requested}");
+                Assert.That(bitmap.Width, Is.EqualTo(320), $"width for outputScale {requested}");
+                Assert.That(bitmap.Height, Is.EqualTo(240), $"height for outputScale {requested}");
+            });
+        }
+    }
+
     private static (RenderNodeMeasurement, RenderNodeRasterization) RenderSelectedDrawable(
         Drawable drawable,
         PixelSize frameSize)
@@ -439,4 +464,21 @@ internal sealed partial class SelectedDrawableScaleCaptureDrawable : Drawable
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
     }
+}
+
+internal sealed partial class SelectedDrawableScaleCaptureFullTargetDrawable : Drawable
+{
+    public List<float> ObservedOutputScales { get; } = [];
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        ObservedOutputScales.Add(context.OutputScale);
+        base.Render(context, resource);
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        => Size.Empty;
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+        => context.Clear(Colors.CornflowerBlue);
 }

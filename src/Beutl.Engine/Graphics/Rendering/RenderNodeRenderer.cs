@@ -1034,7 +1034,7 @@ public sealed class RenderNodeRenderer : IDisposable
     }
 
     private static float SanitizeOutputScale(float outputScale)
-        => float.IsFinite(outputScale) && outputScale > 0 ? outputScale : 1;
+        => RenderScaleUtilities.SanitizeOutputScale(outputScale);
 
     private static void ValidateTargetDomain(Rect? domain)
     {

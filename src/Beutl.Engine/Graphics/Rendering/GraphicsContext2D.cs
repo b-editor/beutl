@@ -27,8 +27,11 @@ public sealed class GraphicsContext2D(
     /// <summary>The logical viewport size (float, not rounded to device pixels).</summary>
     public Size Size => canvasSize;
 
-    /// <summary>The output scale <c>s_out</c> this context was built for.</summary>
-    public float OutputScale => outputScale;
+    /// <summary>
+    /// The output scale <c>s_out</c> this context was built for, normalized by
+    /// <see cref="RenderScaleUtilities.SanitizeOutputScale"/> so it is always a usable density.
+    /// </summary>
+    public float OutputScale { get; } = RenderScaleUtilities.SanitizeOutputScale(outputScale);
 
     internal Action<RenderNode>? OnUntracked { get; set; }
 

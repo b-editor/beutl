@@ -104,6 +104,18 @@ public static class RenderScaleUtilities
 
     private const int RasterApronPixels = 2;
 
+    /// <summary>
+    /// The output density <c>s_out</c> a caller asked for, or 1 when that is not a density.
+    /// </summary>
+    /// <remarks>
+    /// A recording context and the request that executes what it recorded have to agree on this number:
+    /// a drawable may size or branch its recorded graph on the density it is given, so a graph recorded
+    /// for one density and executed at another is incoherent. Both sides normalize here so neither can
+    /// be given a value the other rejects.
+    /// </remarks>
+    public static float SanitizeOutputScale(float outputScale)
+        => float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
+
     public static float SanitizeMaxWorkingScale(float maxWorkingScale)
         => float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
             ? float.PositiveInfinity
@@ -123,8 +135,7 @@ public static class RenderScaleUtilities
         float outputScale,
         float maxWorkingScale = float.PositiveInfinity)
     {
-        if (!float.IsFinite(outputScale) || outputScale <= 0f)
-            outputScale = 1f;
+        outputScale = SanitizeOutputScale(outputScale);
 
         float supply = outputScale;
         foreach (EffectiveScale input in inputs)
