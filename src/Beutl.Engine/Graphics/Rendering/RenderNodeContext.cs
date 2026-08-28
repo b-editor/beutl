@@ -115,7 +115,30 @@ public sealed class RenderNodeContext
         return true;
     }
 
-    internal bool TryCalculateFiniteIsolationDomain(out Rect domain)
+    /// <summary>
+    /// Attempts to compute the finite target domain that covers everything the current inputs put on the target.
+    /// </summary>
+    /// <param name="domain">
+    /// When this method returns <see langword="true"/>, the union of every value-contributing input's recorded
+    /// bounds with the resolved bounds of every target write the inputs perform; otherwise
+    /// <see cref="Rect.Empty"/>.
+    /// </param>
+    /// <returns>
+    /// <see langword="true"/> when every value-contributing input has concrete recording metadata and every
+    /// input's target write resolves to a finite region; <see langword="false"/> when any of them is still
+    /// symbolic.
+    /// </returns>
+    /// <remarks>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call. A node that isolates its inputs into an off-screen layer uses this to choose between the finite
+    /// <see cref="Layer(IReadOnlyList{RenderFragmentHandle}, Rect, bool)"/> and
+    /// <see cref="OwningTargetLayer(IReadOnlyList{RenderFragmentHandle})"/>, whose domain is instead resolved from
+    /// the enclosing target after recording. Unlike <see cref="TryCalculateInputBounds"/>, this accounts for target
+    /// writes, so an input that clears or paints target pixels still yields a finite domain whenever the surrounding
+    /// scopes bound that write. A returned domain of zero width or height means the inputs cover nothing, and the
+    /// node can pass through instead of isolating.
+    /// </remarks>
+    public bool TryCalculateFiniteIsolationDomain(out Rect domain)
     {
         VerifyActive();
         Rect result = default;
@@ -1283,7 +1306,18 @@ public sealed class RenderNodeContext
         Exception primaryFailure)
         => GetTransaction().RollbackResourcesAndCapture(resources, primaryFailure);
 
-    internal RenderFragmentMetadata GetRecordedMetadataHint(RenderFragmentHandle fragment)
+    /// <summary>Reads the recording-time bounds and supply density already recorded for one fragment.</summary>
+    /// <param name="fragment">A non-null handle borrowed from the active transaction.</param>
+    /// <returns>The fragment's recorded bounds paired with the density at which it can supply values.</returns>
+    /// <remarks>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call. This is a hint, not a guarantee: it reports what recording knows so far and never forces
+    /// resolution, so a fragment whose metadata is still symbolic reports the conservative values recorded up to
+    /// this point rather than its final ones. Use it to size or order work while recording; use
+    /// <see cref="TryCalculateInputBounds"/> when the node must instead know whether concrete metadata exists at
+    /// all.
+    /// </remarks>
+    public RenderFragmentMetadata GetRecordedMetadataHint(RenderFragmentHandle fragment)
     {
         RenderFragmentReference reference = GetTransaction().GetReference(fragment);
         return new RenderFragmentMetadata(reference.RecordedBounds, reference.RecordedEffectiveScale);
@@ -1324,7 +1358,18 @@ public sealed class RenderNodeContext
         return true;
     }
 
-    internal Rect CalculateRecordedInputBoundsHint()
+    /// <summary>Unions the recorded bounds of every current input.</summary>
+    /// <returns>
+    /// The union of each input's recorded bounds, or <see cref="Rect.Empty"/> when the node has no inputs.
+    /// </returns>
+    /// <remarks>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call. This always returns a rectangle, where <see cref="TryCalculateInputBounds"/> reports failure for a
+    /// symbolic input, so the result is a best-effort hint: it describes only recorded <em>value</em> bounds and
+    /// therefore does not cover a full-target write. A node scoping its inputs by this rectangle must first ask
+    /// <see cref="HasSymbolicInputTargetWrite"/> whether such a write exists.
+    /// </remarks>
+    public Rect CalculateRecordedInputBoundsHint()
     {
         NodeRecordingTransaction transaction = GetTransaction();
         Rect result = default;
@@ -1340,12 +1385,21 @@ public sealed class RenderNodeContext
     /// Gets whether a recorded input writes target pixels that
     /// <see cref="CalculateRecordedInputBoundsHint"/> does not describe.
     /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when at least one input performs a target write with no recording-time extent.
+    /// </returns>
     /// <remarks>
-    /// A node that scopes its inputs by their recorded value bounds has to ask this first: a full-target
-    /// write contributes no value bounds, so scoping by them alone turns the whole scope empty and drops the
-    /// write. Such a node scopes by <see cref="TargetRegion.Full"/> instead.
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call. This is the predicate that picks the region for
+    /// <see cref="TargetLayerScope(IReadOnlyList{RenderFragmentHandle}, TargetRegion)"/>. A node that scopes its
+    /// inputs by their recorded value bounds has to ask this first: a full-target write contributes no value
+    /// bounds, so scoping by them alone turns the whole scope empty and drops the write. Answer
+    /// <see langword="true"/> with <see cref="TargetRegion.Full"/> and <see langword="false"/> with
+    /// <see cref="TargetRegion.Region(Rect)"/> over <see cref="CalculateRecordedInputBoundsHint"/>. Passing
+    /// <see cref="TargetRegion.Full"/> unconditionally is not a safe shortcut — it makes bounds-dependent
+    /// downstream work measure against the whole target.
     /// </remarks>
-    internal bool HasSymbolicInputTargetWrite()
+    public bool HasSymbolicInputTargetWrite()
     {
         NodeRecordingTransaction transaction = GetTransaction();
         foreach (RenderFragmentHandle input in _inputs)

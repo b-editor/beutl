@@ -46,6 +46,66 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     /// </remarks>
     protected virtual RenderScaleContract? GetWorkingScaleContract() => null;
 
+    /// <summary>
+    /// Gets whether an effect input must be isolated into an off-screen layer before the effect consumes it.
+    /// </summary>
+    /// <param name="input">A non-null effect input recorded for the current <see cref="Process"/> call.</param>
+    /// <returns><see langword="true"/> to isolate the input set before lowering.</returns>
+    /// <remarks>
+    /// The base implementation isolates exactly when an input cannot be consumed as a materialized value
+    /// (<see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/>). Every input is asked, and the node isolates when
+    /// any of them answers <see langword="true"/>, so an override may widen isolation — an effect that must always
+    /// read flattened pixels, for instance — but must never narrow it. Answering <see langword="false"/> for an
+    /// input the base implementation would isolate hands the effect a fragment it cannot sample. Add conditions to
+    /// the base answer; do not replace it.
+    /// </remarks>
+    protected virtual bool RequiresInputIsolation(RenderFragmentHandle input)
+        => !input.CanBeUsedAsValueInput;
+
+    /// <summary>Isolates the effect inputs into the single fragment the effect then consumes.</summary>
+    /// <param name="context">The active recording context for the current <see cref="Process"/> call.</param>
+    /// <param name="inputs">The non-null, non-empty ordered effect inputs to isolate.</param>
+    /// <param name="isolationDomain">
+    /// The finite domain resolved by <see cref="RenderNodeContext.TryCalculateFiniteIsolationDomain"/>, or
+    /// <see cref="Rect.Invalid"/> when no finite domain was resolved.
+    /// </param>
+    /// <returns>A non-null single fragment standing in for every entry of <paramref name="inputs"/>.</returns>
+    /// <remarks>
+    /// Called only when <see cref="RequiresInputIsolation"/> selected isolation. The base implementation records a
+    /// finite <see cref="RenderNodeContext.Layer(IReadOnlyList{RenderFragmentHandle}, Rect, bool)"/> over the
+    /// domain, and falls back to
+    /// <see cref="RenderNodeContext.OwningTargetLayer(IReadOnlyList{RenderFragmentHandle})"/> when the domain is
+    /// <see cref="Rect.Invalid"/>. An override may re-scope or wrap that isolation, but the returned fragment must
+    /// still represent <em>all</em> of <paramref name="inputs"/>: it becomes the effect's only view of them, so an
+    /// input dropped here is dropped from the rendered result. It must also be value-eligible, because the effect
+    /// samples it.
+    /// </remarks>
+    protected virtual RenderFragmentHandle IsolateInputs(
+        RenderNodeContext context,
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        Rect isolationDomain)
+        => isolationDomain.IsInvalid
+            ? context.OwningTargetLayer(inputs)
+            : context.Layer(inputs, isolationDomain);
+
+    /// <summary>Publishes the lowered effect result as this node's output.</summary>
+    /// <param name="context">The active recording context for the current <see cref="Process"/> call.</param>
+    /// <param name="lowered">The non-null ordered fragments the effect lowered to.</param>
+    /// <remarks>
+    /// The final step of <see cref="Process"/>, called once after every effect item has been lowered. The base
+    /// implementation publishes the fragments unchanged through
+    /// <see cref="RenderNodeContext.PublishRange(IEnumerable{RenderFragmentHandle})"/>. An override may present
+    /// them differently first — inside its own
+    /// <see cref="RenderNodeContext.TargetLayerScope(IReadOnlyList{RenderFragmentHandle}, TargetRegion)"/>, a
+    /// further layer, or an added operation — but it must publish the result of doing so. A fragment that is
+    /// neither published nor dropped fails recording, and publishing nothing renders the effect away entirely.
+    /// An override re-presents <paramref name="lowered"/>; it never discards it.
+    /// </remarks>
+    protected virtual void PublishLoweredResult(
+        RenderNodeContext context,
+        IReadOnlyList<RenderFragmentHandle> lowered)
+        => context.PublishRange(lowered);
+
     public override void Process(RenderNodeContext context)
     {
         if (FilterEffect is not { } effectSnapshot || !effectSnapshot.Resource.IsEnabled)
@@ -62,7 +122,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             ? inputBounds
             : context.CalculateRecordedInputBoundsHint();
         IReadOnlyList<RenderFragmentHandle> effectInputs = context.Inputs;
-        bool requiresInputIsolation = effectInputs.Any(static input => !input.CanBeUsedAsValueInput);
+        bool requiresInputIsolation = effectInputs.Any(input => RequiresInputIsolation(input));
         bool hasFiniteIsolationDomain = false;
         Rect isolationDomain = default;
         RenderFragmentMetadata[] authorInputMetadata;
@@ -131,9 +191,13 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             FilterEffectWorkingScalePolicy resolvedWorkingScalePolicy = GetOrCreateWorkingScalePolicy();
             if (requiresInputIsolation)
             {
-                effectInputs = hasFiniteIsolationDomain
-                    ? [context.Layer(effectInputs, isolationDomain)]
-                    : [context.OwningTargetLayer(effectInputs)];
+                effectInputs =
+                [
+                    IsolateInputs(
+                        context,
+                        effectInputs,
+                        hasFiniteIsolationDomain ? isolationDomain : Rect.Invalid),
+                ];
             }
 
             IReadOnlyList<RenderFragmentHandle> current = effectInputs;
@@ -244,7 +308,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             }
 
             FlushEffectItems();
-            context.PublishRange(current);
+            PublishLoweredResult(context, current);
             recordingContext.TransferResources();
         }
         finally
