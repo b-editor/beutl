@@ -28,14 +28,15 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
         private SKPaint? _paint;
         private SKPath? _path;
 
-        protected internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill)
+        protected internal override void Render(in WaveformRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> mins = context.Mins;
+            ReadOnlySpan<float> maxs = context.Maxs;
+            float gain = context.Gain;
+            Brush.Resource fill = context.Fill;
+
             int barCount = mins.Length;
             if (barCount == 0) return;
 

@@ -29,12 +29,13 @@ public sealed partial class LineSpectrumShape : SpectrumShape
         private float _lastCornerRadius = -1f;
         private SKPathEffect? _cornerEffect;
 
-        protected internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+        protected internal override void Render(in SpectrumRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> normalizedBars = context.NormalizedBars;
+            Brush.Resource fill = context.Fill;
+
             int barCount = normalizedBars.Length;
             if (barCount < 2) return;
 

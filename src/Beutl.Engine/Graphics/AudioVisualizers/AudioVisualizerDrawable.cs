@@ -72,13 +72,50 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         public Sound.Resource? Source => _source;
 
+        /// <summary>
+        /// Gets the pooled buffer the composed samples live in.
+        /// </summary>
+        /// <remarks>
+        /// The engine owns this array: it is reused across frames, grown in place, and only its first
+        /// <see cref="CachedSampleLength"/> entries are meaningful. It stays internal for that reason —
+        /// <see cref="CachedSampleSpan"/> is the supported way for a subclass to read the samples.
+        /// </remarks>
         internal float[] CachedSamples => _cachedSamples;
-        internal int CachedSampleLength => _cachedSampleLength;
-        internal int CachedSampleRate => _cachedSampleRate;
-        internal TimeSpan CachedStart => _cachedStart;
-        internal TimeSpan CachedDuration => _cachedDuration;
-        internal int ComposerSampleRate => _composer?.SampleRate ?? DefaultComposerSampleRate;
-        internal ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
+
+        /// <summary>
+        /// Gets the number of valid samples in the cache. Zero means there is nothing to draw.
+        /// </summary>
+        protected internal int CachedSampleLength => _cachedSampleLength;
+
+        /// <summary>
+        /// Gets the sample rate the cached samples were composed at, or zero while the cache is empty.
+        /// </summary>
+        protected int CachedSampleRate => _cachedSampleRate;
+
+        /// <summary>
+        /// Gets the start of the time window the cached samples cover.
+        /// </summary>
+        protected TimeSpan CachedStart => _cachedStart;
+
+        /// <summary>
+        /// Gets the length of the time window the cached samples cover.
+        /// </summary>
+        protected TimeSpan CachedDuration => _cachedDuration;
+
+        /// <summary>
+        /// Gets the rate the visualizer's own composer runs at, which is available before any source has
+        /// been composed and so can size the window <see cref="ComputeSampleWindow"/> asks for.
+        /// </summary>
+        protected int ComposerSampleRate => _composer?.SampleRate ?? DefaultComposerSampleRate;
+
+        /// <summary>
+        /// Gets the composed samples, mixed down to mono.
+        /// </summary>
+        /// <remarks>
+        /// The span borrows the engine's pooled buffer, so it is valid only for the duration of the call
+        /// that reads it; copy out whatever has to outlive that call.
+        /// </remarks>
+        protected ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
 
         partial void PostUpdate(AudioVisualizerDrawable obj, CompositionContext context)
         {

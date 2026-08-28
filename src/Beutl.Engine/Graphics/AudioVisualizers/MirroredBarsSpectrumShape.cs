@@ -19,12 +19,13 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
 
     public new partial class Resource
     {
-        protected internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+        protected internal override void Render(in SpectrumRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> normalizedBars = context.NormalizedBars;
+            Brush.Resource fill = context.Fill;
+
             int barCount = normalizedBars.Length;
             if (barCount == 0) return;
 
