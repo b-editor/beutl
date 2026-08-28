@@ -164,18 +164,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle particle = ref particles[i];
-            if (!particle.IsAlive)
+            if (!IsVisibleParticle(in particle, out float scale, out float opacity))
                 continue;
-
-            float scale = particle.CurrentSize / 10f;
-            float opacity = particle.CurrentOpacity / 100f;
-            if (!float.IsFinite(scale)
-                || !float.IsFinite(opacity)
-                || scale <= 0
-                || opacity <= 0)
-            {
-                continue;
-            }
 
             float rotation = particle.Rotation * MathF.PI / 180f;
             Matrix transform = Matrix.CreateTranslation(-center.X, -center.Y)
@@ -205,6 +195,27 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     }
 
     /// <summary>
+    /// Whether a particle reaches the canvas at all, and the scale and opacity it reaches it with.
+    /// </summary>
+    /// <remarks>
+    /// The bounds loop and the drawing loop must decide this identically. The union is what the layer buffer is
+    /// allocated from, so a particle the bounds loop counts but the drawing loop skips - a fully faded one, which
+    /// <see cref="ParticleEmitter.EndOpacityMultiplier"/> drives every particle towards - buys buffer for pixels
+    /// that never appear. A non-finite value is rejected rather than merely a non-positive one, because
+    /// <c>NaN &lt;= 0</c> is false and a NaN would otherwise reach the union as an unbounded coordinate.
+    /// </remarks>
+    private static bool IsVisibleParticle(in Particle particle, out float scale, out float opacity)
+    {
+        scale = particle.CurrentSize / 10f;
+        opacity = particle.CurrentOpacity / 100f;
+        return particle.IsAlive
+               && float.IsFinite(scale)
+               && float.IsFinite(opacity)
+               && scale > 0
+               && opacity > 0;
+    }
+
+    /// <summary>
     /// The union of the axis-aligned extents each live particle draws into.
     /// </summary>
     /// <remarks>
@@ -222,11 +233,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle particle = ref particles[i];
-            if (!particle.IsAlive)
-                continue;
-
-            float scale = particle.CurrentSize / 10f;
-            if (!float.IsFinite(scale) || scale <= 0)
+            if (!IsVisibleParticle(in particle, out float scale, out _))
                 continue;
 
             float radians = particle.Rotation * MathF.PI / 180f;
