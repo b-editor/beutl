@@ -16,6 +16,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Text shaping needs a font that is present whatever the host has installed, so the run does not
+         depend on a system typeface. Linked rather than copied so only one binary lives in the repo. -->
+    <EmbeddedResource Include="..\Beutl.UnitTests\Assets\Font\Roboto-Regular.ttf" LogicalName="Beutl.PublicApiContractTests.Roboto-Regular.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <!-- Beutl.Extensibility.Sdk ships the generator to plugin authors as an analyzer; match that shape so the
          authoring contract is exercised the way an out-of-tree plugin compiles. -->

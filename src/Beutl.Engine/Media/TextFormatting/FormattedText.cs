@@ -289,7 +289,24 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return font;
     }
 
-    internal IReadOnlyList<Geometry.Resource> ToGeometies()
+    /// <summary>
+    /// Gets the outline of every shaped glyph of <see cref="Text"/>, each already positioned relative to
+    /// this run's origin, so a caller can draw the glyphs one by one instead of as a single blob.
+    /// </summary>
+    /// <returns>
+    /// One entry per shaped glyph, in visual order. Shaping is not a character mapping: a surrogate pair
+    /// or a ligature collapses into a single glyph, so the entries do not line up index-for-index with
+    /// <see cref="Text"/>. A glyph that has no outline, such as a space, still occupies an entry.
+    /// </returns>
+    /// <remarks>
+    /// The entries are borrowed, not handed over. This instance owns them and rewrites the same list on
+    /// every measure, so the caller must not dispose them and must not keep them past the next measure of
+    /// this <see cref="FormattedText"/>: assigning <see cref="Text"/>, <see cref="Size"/> or any other
+    /// measured property replaces the outlines in place and truncates the list, and <see cref="Dispose"/>
+    /// releases them. Copy anything that has to outlive that.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+    public IReadOnlyList<Geometry.Resource> ToGeometries()
     {
         MeasureAndSetField();
         return _pathList;
