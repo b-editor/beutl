@@ -766,7 +766,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         vulkanDest.MarkContentsUnknown();
 
-        vulkanDest.TransitionTo(ImageLayout.ColorAttachmentOptimal);
+        // The destination is wrapped for Skia without a further transition, so it has to land in the
+        // layout that wrap declares.
+        vulkanDest.TransitionTo(VulkanTexture2D.SkiaInteropLayout);
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);

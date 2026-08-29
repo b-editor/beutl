@@ -80,6 +80,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void OpacityDescription_ExplicitSpirvReportsNonExactSkiaHandoff()
     {
         GpuTestEnvironment.EnsureAvailable();

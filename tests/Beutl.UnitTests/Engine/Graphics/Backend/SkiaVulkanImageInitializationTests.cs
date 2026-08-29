@@ -55,6 +55,61 @@ public class SkiaVulkanImageInitializationTests
         });
     }
 
+    /// <remarks>
+    /// Skia emits its first barrier out of the layout <see cref="GRVkImageInfo.ImageLayout"/> names, and a
+    /// barrier out of Undefined is licensed to discard the image's contents. A fresh image is Undefined at
+    /// the instant of the wrap, but the allocation clear the backend records is submitted before Skia ever
+    /// runs, so describing that instant hands Skia a licence to throw the clear away — which Mesa takes,
+    /// and which returned non-finite pixels for 266 shots of the differential corpus. The wrap has to
+    /// describe the hand-off instead.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void SkiaImageInfo_DeclaresTheHandOffLayout_NotTheLayoutAtTheMomentOfTheWrap()
+    {
+        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
+        if (context.Backend != GraphicsBackend.Vulkan)
+            Assert.Ignore("Skia renders through Metal on the composite backend, so it is handed no Vulkan layout.");
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D texture = context.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
+            var vulkanTexture = (VulkanTexture2D)texture;
+            FieldInfo layoutField = typeof(VulkanTexture2D).GetField(
+                "_currentLayout",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            Assert.That(
+                (ImageLayout)layoutField.GetValue(vulkanTexture)!,
+                Is.EqualTo(ImageLayout.Undefined),
+                "A fresh image starts undefined; what matters is how it is described, not how it is found.");
+
+            Assert.Multiple(() =>
+            {
+                // Not a restatement of the equality below: that one pins the coupling to the constant,
+                // this one pins the property the corruption violated, and survives an edit to the constant.
+                Assert.That(
+                    (ImageLayout)vulkanTexture.CreateSkiaImageInfo().ImageLayout,
+                    Is.Not.EqualTo(ImageLayout.Undefined),
+                    "A barrier out of Undefined may discard the image's contents, and the backend submits "
+                    + "the allocation clear before Skia runs.");
+
+                Assert.That(
+                    (ImageLayout)vulkanTexture.CreateSkiaImageInfo().ImageLayout,
+                    Is.EqualTo(VulkanTexture2D.SkiaInteropLayout),
+                    "Declaring the layout found at the wrap hands Skia a barrier that may discard the clear.");
+
+                vulkanTexture.PrepareForSkiaRendering();
+
+                Assert.That(
+                    (ImageLayout)layoutField.GetValue(vulkanTexture)!,
+                    Is.EqualTo(VulkanTexture2D.SkiaInteropLayout),
+                    "The declaration is only truthful because the hand-off puts the image in that layout "
+                    + "before Skia's commands run.");
+            });
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]

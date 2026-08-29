@@ -42,7 +42,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         _metalTexture = ExportMetalTexture();
 
         // Transition to initial layout
-        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+        TransitionTo(SkiaInteropLayout);
     }
 
     private static void* CreateExportInfo()
@@ -83,7 +83,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
     public override void PrepareForSkiaRendering()
     {
         bool requiresWait = RequiresVulkanToSkiaHandoff
-            || _currentLayout != ImageLayout.ColorAttachmentOptimal;
+            || _currentLayout != SkiaInteropLayout;
         base.PrepareForSkiaRendering();
         if (requiresWait)
         {

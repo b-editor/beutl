@@ -44,6 +44,7 @@ public class RenderTargetVulkanTests
     }
 
     [Test]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Create_Snapshot_ProducesSizedBitmap()
     {
         VulkanTestEnvironment.EnsureAvailable();

@@ -52,11 +52,33 @@ One category is held back: `TestCategories.KnownVulkanSkiaLayoutInterop`, declar
 assemblies on it. `RenderTarget` builds its
 `SKSurface` once and Skia tracks that image's layout from there, while `VulkanTexture2D` tracks the same
 image separately as the backend transitions it — so the two records drift and a barrier eventually names an
-`oldLayout` the image has left. Closing that needs a way to read back or command the layout Skia holds,
-which SkiaSharp 3.119 does not expose. Those tests run normally in the ordinary suite; only the
-validation job skips them, so the gate still covers everything else. Tracked as
+`oldLayout` the image has left. Closing that needs a way to read back or command the layout Skia holds, and
+no SkiaSharp release exposes one: `GRBackendRenderTarget` takes a `GRVkImageInfo` in its constructor and
+never gives it back, and the native C ABI has no Vulkan layout or mutable-state entry point at all — it
+carries a GL framebuffer-info getter with no Vulkan counterpart. Native Skia does have
+`GrBackendRenderTargets::GetVkImageInfo` and `SetVkImageLayout`, so closing this means contributing the C
+ABI and the binding upstream, not upgrading the package. Those tests run normally in the ordinary suite;
+only the validation job skips them, so the gate still covers everything else. Tracked as
 [#2263](https://github.com/b-editor/beutl/issues/2263); drop the exclusion from
 `.github/workflows/dotnet.yml` once the interop keeps one record.
+
+Do not "fix" a member of this category by narrowing what the wrap declares. `GRVkImageInfo.ImageLayout`
+describes the moment Skia's commands *run*, not the moment the wrap is built: a render target reaches
+`VulkanTexture2D.SkiaInteropLayout` through `PrepareForSkiaRendering`, which also submits the backend work
+recorded before it. A sampling-only hand-off (`PrepareForSkiaSampling`) submits without transitioning, so
+the backend can leave the image elsewhere — that residue is this drift, and it is what these tests report.
+Declaring the layout found at the wrap instead silences them, because a transition out of `Undefined` is
+always legal, while licensing the driver to discard the allocation clear: that is what returned non-finite
+pixels for 266 shots of the differential corpus on Mesa.
+`SkiaImageInfo_DeclaresTheHandOffLayout_NotTheLayoutAtTheMomentOfTheWrap` pins it.
+
+Two members of the category do not merely stay excluded — they went from passing to failing when the
+declaration stopped hiding the drift: `ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary`
+(reports `SHADER_READ_ONLY_OPTIMAL`) and `NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot`
+(reports `TRANSFER_DST_OPTIMAL`). They are recorded here so the exclusion is not read as covering only
+what it covered before: the category now absorbs live regressions, not just a known limitation, and #2263
+is what removes both. Measured on Intel/Mesa: 12 tests pass with the drift masked and fail with it
+reported, and none of the 12 fails a pixel assertion.
 
 The same missing API caps what `VulkanContext`'s Skia image allocation hook can promise, on a path that is
 *not* in that category. Ganesh allocates its own filter and scratch images through the intercepted

@@ -262,6 +262,47 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         return pixelData;
     }
 
+    /// <summary>
+    /// The layout the wrap declares, and the one <see cref="PrepareForSkiaRendering"/> establishes before
+    /// Skia draws.
+    /// </summary>
+    /// <remarks>
+    /// The wrap describes a moment that has not arrived yet: a render target reaches this layout through
+    /// <see cref="PrepareForSkiaRendering"/>, which also submits whatever the backend recorded before it,
+    /// and a texture wrapped after a backend pass is already here from the blit that filled it. A
+    /// sampling-only hand-off (<see cref="PrepareForSkiaSampling"/>) submits without transitioning, so the
+    /// backend can leave the image elsewhere - that residue is the drift tracked as b-editor/beutl#2263,
+    /// not a licence to narrow what the wrap declares.
+    /// </remarks>
+    internal const ImageLayout SkiaInteropLayout = ImageLayout.ColorAttachmentOptimal;
+
+    /// <summary>
+    /// Builds the description Skia is handed for this image.
+    /// </summary>
+    /// <remarks>
+    /// Skia takes <see cref="GRVkImageInfo.ImageLayout"/> as the starting point for its own tracking and
+    /// emits its first barrier out of it, and a barrier out of Undefined is licensed to discard the image's
+    /// contents outright - which is what turned a freshly cleared target into non-finite pixels on Mesa,
+    /// where the driver takes that licence. Declaring the layout the image happens to be in at the moment
+    /// of the wrap therefore describes the wrong moment: the image is still Undefined then, and the
+    /// allocation clear that follows is submitted before Skia runs. Declare the hand-off layout instead.
+    /// </remarks>
+    internal GRVkImageInfo CreateSkiaImageInfo() => new()
+    {
+        Image = _image.Handle,
+        Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
+        ImageTiling = (uint)ImageTiling.Optimal,
+        ImageLayout = (uint)SkiaInteropLayout,
+        Format = (uint)_format.ToVulkanFormat(),
+        ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+                                 ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
+        SampleCount = 1,
+        LevelCount = 1,
+        CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
+        Protected = false,
+        SharingMode = (uint)SharingMode.Exclusive
+    };
+
     public virtual SKSurface CreateSkiaSurface()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -274,27 +315,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             return SKSurface.Create(info);
         }
 
-        var vkImageInfo = new GRVkImageInfo
-        {
-            Image = _image.Handle,
-            Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
-            ImageTiling = (uint)ImageTiling.Optimal,
-            // The layout the image is actually in, not the one it is usually in. Skia takes this as the
-            // starting point for its own tracking and barriers, so declaring a layout the image has not
-            // reached tells it to skip a transition it needs - and, when the image was just cleared, to
-            // treat contents as undefined that are not.
-            ImageLayout = (uint)_currentLayout,
-            Format = (uint)_format.ToVulkanFormat(),
-            ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                                     ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
-            SampleCount = 1,
-            LevelCount = 1,
-            CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
-            Protected = false,
-            SharingMode = (uint)SharingMode.Exclusive
-        };
-
-        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
+        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, CreateSkiaImageInfo());
 
         var grContext = _context.SkiaContext;
         var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
@@ -328,9 +349,9 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public virtual void PrepareForSkiaRendering()
     {
-        bool requiresSubmission = _currentLayout != ImageLayout.ColorAttachmentOptimal
+        bool requiresSubmission = _currentLayout != SkiaInteropLayout
             || RequiresVulkanToSkiaHandoff;
-        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+        TransitionTo(SkiaInteropLayout);
         if (requiresSubmission)
         {
             _context.FlushCommands(waitForCompletion: false);

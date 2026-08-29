@@ -48,6 +48,16 @@ public interface ITexture2D : IDisposable
     /// <summary>
     /// Creates a SkiaSharp surface that can render to this texture.
     /// </summary>
+    /// <remarks>
+    /// The wrap describes the texture to Skia, which takes that description as the starting point for its
+    /// own tracking and emits its first barrier from it. The caller must therefore put the texture into
+    /// the hand-off state before Skia records against the returned surface - through
+    /// <see cref="PrepareForSkiaRendering"/>, or a backend pass that leaves it there. The wrap itself does
+    /// not settle it, because on a backend that batches its commands the transition would have to be
+    /// submitted here, ahead of the submission the caller is still building. Writing to the texture
+    /// through the backend after the wrap describes it wrongly too, and on a Vulkan backend a barrier out
+    /// of an undefined layout is permitted to discard what was written.
+    /// </remarks>
     /// <returns>A SkiaSharp surface.</returns>
     SKSurface CreateSkiaSurface();
 

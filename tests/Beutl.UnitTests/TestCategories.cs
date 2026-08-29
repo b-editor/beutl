@@ -18,7 +18,12 @@ internal static class TestCategories
     /// </para>
     /// <para>
     /// This is a pre-existing defect in the Skia interop, not in what these tests assert, and closing it
-    /// needs a way to read back or command the layout Skia holds — which SkiaSharp 3.119 does not expose.
+    /// needs a way to read back or command the layout Skia holds. No SkiaSharp release exposes one:
+    /// <c>GRBackendRenderTarget</c> takes a <c>GRVkImageInfo</c> in its constructor and never gives it back,
+    /// and the native C ABI has no Vulkan layout or mutable-state entry point at all — it carries a GL
+    /// framebuffer-info getter with no Vulkan counterpart. Native Skia does have
+    /// <c>GrBackendRenderTargets::GetVkImageInfo</c> and <c>SetVkImageLayout</c>, so closing this means
+    /// contributing the C ABI and the binding upstream, not upgrading the package.
     /// Until then the validation job skips this category so the gate still covers everything else; the tests
     /// themselves run normally in the ordinary suite. Tracked as b-editor/beutl#2263, which is also where
     /// the condition for deleting this category is recorded.
