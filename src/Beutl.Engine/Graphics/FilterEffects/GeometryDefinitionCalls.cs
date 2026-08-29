@@ -4,6 +4,7 @@ namespace Beutl.Graphics.Effects;
 
 /// <summary>Defines the fixed shape of a deferred geometry operation.</summary>
 /// <typeparam name="TState">The per-recording state supplied by a <see cref="GeometryCall{TState}"/>.</typeparam>
+/// <inheritdoc cref="OpaqueRenderDefinition{TState}" path="/remarks"/>
 public sealed class GeometryDefinition<TState>
     where TState : notnull
 {

@@ -336,6 +336,7 @@ public sealed class PaintedSourceCall<TState>
 
 /// <summary>Defines the fixed shape of a guarded target-scope operation.</summary>
 /// <typeparam name="TState">The per-recording state supplied by a <see cref="TargetScopeCall{TState}"/>.</typeparam>
+/// <inheritdoc cref="OpaqueRenderDefinition{TState}" path="/remarks"/>
 public sealed class TargetScopeDefinition<TState>
     where TState : notnull
 {
@@ -462,6 +463,7 @@ public sealed class TargetScopeCall<TState>
 
 /// <summary>Defines the fixed shape of a guarded target-command operation.</summary>
 /// <typeparam name="TState">The per-recording state supplied by a <see cref="TargetCommandCall{TState}"/>.</typeparam>
+/// <inheritdoc cref="OpaqueRenderDefinition{TState}" path="/remarks"/>
 public sealed class TargetCommandDefinition<TState>
     where TState : notnull
 {
@@ -589,6 +591,12 @@ public sealed class TargetCommandCall<TState>
 /// <remarks>
 /// Raw target work is intentionally never eligible for persistent output reuse. Its definition still declares
 /// metadata and resource slots so the invocation can be validated before execution.
+/// <para>
+/// Metadata is part of that shape: the bounds, hit-test, and scale contracts answer before any call
+/// supplies state, so an operation whose extent or density is itself a per-recording value builds its
+/// definition inside <see cref="RenderNode.Process"/> rather than holding one. Nothing is lost by that,
+/// because a plan is keyed by the shape of the work and not by the values a recording carries.
+/// </para>
 /// </remarks>
 public sealed class RawTargetScopeDefinition<TState>
     where TState : notnull
@@ -686,6 +694,12 @@ public sealed class RawTargetScopeCall<TState>
 /// <remarks>
 /// Raw target work is intentionally never eligible for persistent output reuse. Its definition still declares
 /// metadata and resource slots so the invocation can be validated before execution.
+/// <para>
+/// Metadata is part of that shape: the bounds, hit-test, and scale contracts answer before any call
+/// supplies state, so an operation whose extent or density is itself a per-recording value builds its
+/// definition inside <see cref="RenderNode.Process"/> rather than holding one. Nothing is lost by that,
+/// because a plan is keyed by the shape of the work and not by the values a recording carries.
+/// </para>
 /// </remarks>
 public sealed class RawTargetCommandDefinition<TState>
     where TState : notnull

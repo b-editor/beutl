@@ -134,6 +134,43 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         });
     }
 
+    /// <remarks>
+    /// The list above is read as the family's roster, so a Definition type added without a line there is a
+    /// type nobody checks. This fails when the exported set stops matching, which is the only way a reader
+    /// can trust the roster is complete. <see cref="PaintedSourceDefinition{TState}"/> is listed here but
+    /// not above on purpose: its bounds are measured from the pen the call supplies, so its Call carries
+    /// them rather than taking the uniform (state, bindings) shape the other seven share.
+    /// </remarks>
+    [Test]
+    public void TheDefinitionFamily_HasNoMemberOutsideTheCheckedRoster()
+    {
+        string[] roster =
+        [
+            "Beutl.Graphics.Effects.GeometryDefinition`1",
+            "Beutl.Graphics.Effects.ShaderDefinition`1",
+            "Beutl.Graphics.Rendering.OpaqueRenderDefinition`1",
+            "Beutl.Graphics.Rendering.PaintedSourceDefinition`1",
+            "Beutl.Graphics.Rendering.RawTargetCommandDefinition`1",
+            "Beutl.Graphics.Rendering.RawTargetScopeDefinition`1",
+            "Beutl.Graphics.Rendering.TargetCommandDefinition`1",
+            "Beutl.Graphics.Rendering.TargetScopeDefinition`1",
+        ];
+
+        string[] exported = typeof(RenderNode).Assembly
+            .GetExportedTypes()
+            .Where(static type => type.Name.EndsWith("Definition`1", StringComparison.Ordinal))
+            .Select(static type => type.FullName!)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.That(
+            exported,
+            Is.EqualTo(roster),
+            "A Definition type joined or left the public surface. Add it to DefinitionsAndCalls_"
+            + "AreTheExternalRecordingSurface, give it the fixed-metadata remark the family carries, and "
+            + "list it here.");
+    }
+
     [Test]
     public void DisableRenderCache_IsReachableByAnOutOfTreeNode()
     {

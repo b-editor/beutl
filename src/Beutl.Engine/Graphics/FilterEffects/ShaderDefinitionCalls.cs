@@ -6,10 +6,18 @@ namespace Beutl.Graphics.Effects;
 /// <summary>Defines the fixed source, metadata, and binding shape of a shader operation.</summary>
 /// <typeparam name="TState">The per-recording values supplied by <see cref="ShaderCall{TState}"/>.</typeparam>
 /// <remarks>
+/// <para>
 /// A definition is reusable operation shape. A call supplies the values and request-scoped resource bindings for one
 /// recording. When any pixel-affecting call state changes, the owning <see cref="RenderNode"/> must call
 /// <see cref="RenderNode.MarkChanged"/> before the next request. Value providers and execution binders must be
 /// non-capturing so every changing value is read from the call state.
+/// </para>
+/// <para>
+/// Reusable does not extend to metadata. The bounds and input-demand contracts answer before any call supplies
+/// state, so an operation whose extent or density is itself a per-recording value builds its definition inside
+/// <see cref="RenderNode.Process"/> rather than holding one. Nothing is lost by that, because a plan is keyed by
+/// the shape of the work and not by the values a recording carries.
+/// </para>
 /// </remarks>
 public sealed class ShaderDefinition<TState>
     where TState : notnull
