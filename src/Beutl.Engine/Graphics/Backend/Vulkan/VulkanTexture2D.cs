@@ -274,15 +274,19 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             return SKSurface.Create(info);
         }
 
+        // Put the image in the layout we are about to declare, rather than declaring whichever one it
+        // happens to be in. Skia takes this as the starting point for its own tracking and emits its
+        // first barrier from it, so declaring Undefined - where a fresh image sits - licences the driver
+        // to discard the contents on that barrier. Intel's Mesa driver takes that licence and the frame
+        // comes back non-finite; AMD and SwiftShader happen to preserve it. Transitioning first keeps the
+        // declaration honest without handing Skia a layout that permits a discard.
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+
         var vkImageInfo = new GRVkImageInfo
         {
             Image = _image.Handle,
             Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
             ImageTiling = (uint)ImageTiling.Optimal,
-            // The layout the image is actually in, not the one it is usually in. Skia takes this as the
-            // starting point for its own tracking and barriers, so declaring a layout the image has not
-            // reached tells it to skip a transition it needs - and, when the image was just cleared, to
-            // treat contents as undefined that are not.
             ImageLayout = (uint)_currentLayout,
             Format = (uint)_format.ToVulkanFormat(),
             ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
