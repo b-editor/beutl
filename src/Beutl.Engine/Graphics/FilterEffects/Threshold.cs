@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
@@ -59,6 +60,28 @@ public sealed partial class Threshold : FilterEffect
                 bindings.Uniform("threshold", r.Value / 100f);
                 bindings.Uniform("smoothness", r.Smoothness / 100f);
                 bindings.Uniform("strength", r.Strength / 100f);
-            }));
+            },
+            CreatesAlphaFromATransparentPixel(r) ? RenderHitTestContract.OutputBounds : null));
+    }
+
+    /// <remarks>
+    /// The entry point returns <c>half4(t)</c>, so <c>t</c> is the output alpha as well as the colour: at the
+    /// settings where a fully transparent pixel leaves with a non-zero <c>t</c>, the stage paints where its
+    /// input covers nothing, and a hit test forwarded to that input would miss pixels the viewer can see.
+    /// This evaluates the entry point itself at the luma a transparent premultiplied pixel carries - zero -
+    /// rather than restating it as an inequality on the properties: the answer turns over at exactly the
+    /// parameter boundaries a restatement gets wrong, and it has to keep tracking the SkSL above.
+    /// </remarks>
+    private static bool CreatesAlphaFromATransparentPixel(Resource r)
+    {
+        float threshold = r.Value / 100f;
+        float smoothness = r.Smoothness / 100f;
+        float lower = threshold - (smoothness * 0.5f);
+        float upper = threshold + (smoothness * 0.5f);
+        float x = (0f - lower) / (upper - lower);
+        // Written out rather than clamped so a degenerate lower == upper keeps the NaN the shader produces.
+        float t = x < 0f ? 0f : x > 1f ? 1f : x;
+        t = t * t * (3f - (2f * t));
+        return !(t * (r.Strength / 100f) <= 0f);
     }
 }

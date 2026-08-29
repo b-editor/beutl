@@ -57,28 +57,43 @@ public sealed class ShaderDefinition<TState>
     /// <summary>Creates a current-pixel shader definition.</summary>
     /// <param name="source">SkSL defining exactly one <c>half4 apply(half4 color)</c> entry point.</param>
     /// <param name="bindings">The fixed uniform and resource binding shape, or <see langword="null"/> for none.</param>
+    /// <param name="hitTest">
+    /// The fixed CPU hit test for the pixels this stage produces, or <see langword="null"/> to forward the
+    /// question to the input unchanged. A stage that only rewrites the pixels it was handed needs nothing here.
+    /// A stage whose entry point can return a non-zero alpha for a fully transparent <c>color</c> has to declare
+    /// one, because it paints where its input covers nothing and the forwarded question would answer for the
+    /// input's coverage instead - missing every pixel the stage added.
+    /// </param>
     public static ShaderDefinition<TState> CurrentPixel(
         string source,
-        Action<ShaderDefinitionBuilder<TState>>? bindings = null)
-        => new(
+        Action<ShaderDefinitionBuilder<TState>>? bindings = null,
+        RenderHitTestContract? hitTest = null)
+    {
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
+
+        return new ShaderDefinition<TState>(
             ShaderDescriptionKind.CurrentPixel,
             new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
             RenderBoundsContract.Identity,
             RenderInputDemandContract.Unchanged,
             SKShaderTileMode.Decal,
-            hitTest: null,
+            hitTest,
             bindings);
+    }
 
     /// <summary>Creates a current-pixel shader definition from an already parsed source.</summary>
     /// <param name="source">A non-null <see cref="ShaderDescriptionKind.CurrentPixel"/> source.</param>
     /// <param name="bindings">The fixed uniform and resource binding shape, or <see langword="null"/> for none.</param>
+    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderDefinitionBuilder{TState}}, RenderHitTestContract?)" path="/param[@name='hitTest']"/>
     public static ShaderDefinition<TState> CurrentPixel(
         SkslSource source,
-        Action<ShaderDefinitionBuilder<TState>>? bindings = null)
+        Action<ShaderDefinitionBuilder<TState>>? bindings = null,
+        RenderHitTestContract? hitTest = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source.Kind != ShaderDescriptionKind.CurrentPixel)
             throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
 
         return new ShaderDefinition<TState>(
             ShaderDescriptionKind.CurrentPixel,
@@ -86,7 +101,7 @@ public sealed class ShaderDefinition<TState>
             RenderBoundsContract.Identity,
             RenderInputDemandContract.Unchanged,
             SKShaderTileMode.Decal,
-            hitTest: null,
+            hitTest,
             bindings);
     }
 
@@ -182,7 +197,7 @@ public sealed class ShaderDefinition<TState>
         };
 
         return _kind == ShaderDescriptionKind.CurrentPixel
-            ? ShaderDescription.CurrentPixel(_source, apply)
+            ? ShaderDescription.CurrentPixel(_source, apply, _hitTest, resourceBindings)
             : ShaderDescription.WholeSource(
                 _source,
                 _bounds,

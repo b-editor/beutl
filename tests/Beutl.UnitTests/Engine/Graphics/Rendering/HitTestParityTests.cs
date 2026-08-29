@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -50,5 +51,58 @@ public class HitTestParityTests
             Assert.That(insideAtScale, Is.True, "inside point should hit");
             Assert.That(outsideAtScale, Is.False, "outside point should miss");
         });
+    }
+
+    // A current-pixel stage answers a hit test by forwarding it to its input, which is exactly right for the
+    // stages that only recolour the pixels they were handed and far more accurate than testing the output
+    // rectangle. Threshold is the one built-in whose entry point can return alpha for a fully transparent
+    // pixel: it returns half4(t) without consulting the input alpha, so below Value = Smoothness / 2 it fills
+    // the whole output with visible mid-grey that the forwarded test would refuse to hit. The other two cases
+    // are the half that has to keep failing - a stage that claims its output rectangle unconditionally would
+    // satisfy the first assertion while hitting thin air everywhere else.
+    [Test]
+    public void ACurrentPixelStage_HitsWhatItPaintsAndNotWhatItLeavesTransparent()
+    {
+        var corner = new Point(2, 2);
+        var painting = new Threshold
+        {
+            Value = { CurrentValue = 0 },
+            Smoothness = { CurrentValue = 50 },
+            Strength = { CurrentValue = 100 },
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                HitFilteredEllipse(painting, corner),
+                Is.True,
+                "the corner carries a visible half-opaque grey here, so it has to be selectable");
+            Assert.That(
+                HitFilteredEllipse(new Threshold(), corner),
+                Is.False,
+                "at the defaults the same corner stays fully transparent");
+            Assert.That(
+                HitFilteredEllipse(new Invert(), corner),
+                Is.False,
+                "an alpha-preserving stage adds no coverage, so it answers with its input's");
+        });
+    }
+
+    private static bool HitFilteredEllipse(FilterEffect effect, Point point)
+    {
+        using var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+        node.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    OutputScale = 1f,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                },
+            });
+        return renderer.HitTest(point);
     }
 }

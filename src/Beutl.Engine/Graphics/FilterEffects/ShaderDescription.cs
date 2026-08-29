@@ -167,6 +167,16 @@ internal sealed class ShaderDescription
     /// An optional callback invoked immediately to declare bindings, or <see langword="null"/> to declare none.
     /// Binder callbacks registered by the builder are deferred until execution.
     /// </param>
+    /// <param name="hitTest">
+    /// The CPU hit test for the pixels this stage produces, or <see langword="null"/> to forward the question to
+    /// the input unchanged. A stage that only rewrites the pixels it was handed needs nothing here: the input
+    /// answers for exactly the pixels the stage produced. A stage whose source can return a non-zero alpha for a
+    /// fully transparent input paints outside what the input covers, so forwarding would miss visible pixels.
+    /// </param>
+    /// <param name="hitTestResources">
+    /// The slot-addressed resources a declared <paramref name="hitTest"/> resolves against, or
+    /// <see langword="null"/> when it reads none.
+    /// </param>
     /// <returns>An immutable deferred shader description.</returns>
     /// <remarks>
     /// The description declares identity bounds and no independent scale change. A stage recorded directly through
@@ -183,8 +193,14 @@ internal sealed class ShaderDescription
     /// </exception>
     internal static ShaderDescription CurrentPixel(
         string source,
-        Action<ShaderBindingBuilder>? bindings = null)
-        => CurrentPixel(new SkslSource(source, ShaderDescriptionKind.CurrentPixel), bindings);
+        Action<ShaderBindingBuilder>? bindings = null,
+        RenderHitTestContract? hitTest = null,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
+        => CurrentPixel(
+            new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
+            bindings,
+            hitTest,
+            hitTestResources);
 
     /// <summary>
     /// Creates a current-pixel stage from a source that was already normalized and validated.
@@ -195,10 +211,13 @@ internal sealed class ShaderDescription
     /// </remarks>
     internal static ShaderDescription CurrentPixel(
         SkslSource source,
-        Action<ShaderBindingBuilder>? bindings)
+        Action<ShaderBindingBuilder>? bindings,
+        RenderHitTestContract? hitTest = null,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         if (source.Kind != ShaderDescriptionKind.CurrentPixel)
             throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
 
         return new ShaderDescription(
             ShaderDescriptionKind.CurrentPixel,
@@ -208,19 +227,23 @@ internal sealed class ShaderDescription
             RenderInputDemandContract.Unchanged,
             bindings,
             SKShaderTileMode.Decal,
-            hitTest: null,
-            hitTestResources: []);
+            hitTest,
+            hitTestResources ?? []);
     }
 
     /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
+    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
     internal static ShaderDescription CurrentPixel(
         SkslSource source,
         SpirvShaderLowering spirvLowering,
-        Action<ShaderBindingBuilder>? bindings)
+        Action<ShaderBindingBuilder>? bindings,
+        RenderHitTestContract? hitTest = null,
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         ArgumentNullException.ThrowIfNull(spirvLowering);
         if (source.Kind != ShaderDescriptionKind.CurrentPixel)
             throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
+        hitTest?.ThrowIfUninitialized(nameof(hitTest));
 
         return new ShaderDescription(
             ShaderDescriptionKind.CurrentPixel,
@@ -230,8 +253,8 @@ internal sealed class ShaderDescription
             RenderInputDemandContract.Unchanged,
             bindings,
             SKShaderTileMode.Decal,
-            hitTest: null,
-            hitTestResources: []);
+            hitTest,
+            hitTestResources ?? []);
     }
 
     /// <summary>Creates a materializing shader stage that may sample arbitrary upstream locations.</summary>
