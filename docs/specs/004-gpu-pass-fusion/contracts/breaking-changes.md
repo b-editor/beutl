@@ -585,6 +585,7 @@ correctly passes nothing, which is the default.
 - `MaterializedDrawableBrush.Image` transfers to the `BrushConstructor` that requested it; the constructor disposes it once the tile shader is built, or once the fill fails, so a materializer returns a fresh image per call and never caches, shares, or disposes one.
 - `Own` transfers one disposable resource to the request family; `Borrow` leaves the raw resource with its external owner.
 - Definition slots and call bindings declare how deferred callbacks access resources; callbacks borrow session inputs, canvases, and declared resources only for callback duration.
+- A call-state value handed to a deferred binder is read once, at the call - but reading a reference does not copy what it points at. A reference-typed value is borrowed on the same terms as the resource beside it: its pixel-affecting contents must stay read-only until the request executes, because the binder runs after the whole recording pass.
 - Deferred outputs remain executor-owned until publication or discard.
 - A recording or execution failure publishes no partial output; cleanup continues best-effort without replacing the primary exception.
 

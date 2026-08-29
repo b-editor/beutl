@@ -363,8 +363,17 @@ public sealed class ShaderDefinitionBuilder<TState>
     /// <param name="value">Reads the binder's value out of the call state once per recording.</param>
     /// <param name="bind">Produces the child shader from the leased resource and that value.</param>
     /// <remarks>
+    /// <para>
     /// Both callbacks must not capture values; use <see langword="static"/> callbacks. <paramref name="value"/> is
-    /// read when the call is made, so the binder sees that recording's value even if the state changes afterwards.
+    /// read when the call is made, so a later assignment to the state is not observed: the binder sees what that
+    /// recording read.
+    /// </para>
+    /// <para>
+    /// What is read once is the value, not what a reference points at. A <typeparamref name="TValue"/> that is a
+    /// reference is borrowed for the same duration the leased <typeparamref name="T"/> beside it is, so its
+    /// pixel-affecting contents must stay read-only until the request executes - the binder runs after the whole
+    /// recording pass, and mutating an array it was handed changes pixels the call already declared.
+    /// </para>
     /// </remarks>
     public void Resource<T, TValue>(
         string name,
