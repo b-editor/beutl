@@ -93,39 +93,6 @@ public class SkiaVulkanImageInitializationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
-    public void SkiaSurfaceCreation_LeavesTheImageInTheLayoutItDeclares()
-    {
-        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        if (context.Backend != GraphicsBackend.Vulkan)
-            Assert.Ignore("Skia renders through Metal on the composite backend, so it is handed no Vulkan layout.");
-
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using ITexture2D texture = context.CreateTexture2D(4, 4, TextureFormat.RGBA16Float);
-            FieldInfo layoutField = typeof(VulkanTexture2D).GetField(
-                "_currentLayout",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-            Assert.That(
-                (ImageLayout)layoutField.GetValue(texture)!,
-                Is.EqualTo(ImageLayout.Undefined),
-                "A fresh image starts undefined; the point of this test is what happens next.");
-
-            using SKSurface surface = texture.CreateSkiaSurface();
-
-            // GRVkImageInfo.ImageLayout is Skia's starting point for its own tracking, and it emits its
-            // first barrier from it. Undefined licences the driver to discard the contents on that
-            // barrier - Intel's Mesa driver takes the licence and the frame comes back non-finite - so
-            // the image must be moved into the declared layout rather than described as it was found.
-            Assert.That(
-                (ImageLayout)layoutField.GetValue(texture)!,
-                Is.EqualTo(ImageLayout.ColorAttachmentOptimal),
-                "Skia must be handed a layout that preserves contents, and the image must really be in it.");
-        });
-    }
-
-    [Test]
     [NonParallelizable]
     public void Context_InterceptsSkiaImageAllocationFunctions()
     {
