@@ -207,6 +207,11 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ui:InfoBar IsClosable="False"
+                            IsOpen="{CompiledBinding IsNodeCacheEnabled.Value}"
+                            Message="{x:Static lang:SettingsStrings.NodeCacheWarning}"
+                            Severity="Warning" />
+
                 <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.NodeCacheMaxPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <NumericUpDown MinWidth="250"

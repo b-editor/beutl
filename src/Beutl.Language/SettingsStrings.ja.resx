@@ -264,6 +264,10 @@
     <value>最小ピクセル数</value>
     <comment/>
   </data>
+  <data name="NodeCacheWarning" xml:space="preserve">
+    <value>ノードキャッシュを有効にすると、プレビューの描画結果が変わることがあります。アニメーション中はほとんど効果がなく、かえって遅くなる場合があります。書き出しは常にキャッシュを使わないため、プレビューと書き出しの結果が一致しないことがあります。</value>
+    <comment/>
+  </data>
   <data name="SwapTimelineScrollDirection" xml:space="preserve">
     <value>タイムラインのスクロール方向を入れ替える</value>
     <comment/>
