@@ -50,22 +50,34 @@ public sealed partial class TransformEffect : FilterEffect
             {
                 context.CustomEffect((mat, originPoint), static (data, effectContext) =>
                 {
-                    effectContext.ForEach((_, target) =>
+                    for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
+                        EffectTarget target = effectContext.Targets[i];
                         Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
                         Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
                         Matrix offset2 = Matrix.CreateTranslation(origin);
                         Matrix m1 = -offset1 * data.mat * offset1;
                         Matrix m2 = -offset2 * data.mat * offset2;
 
-                        EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
+                        // An empty box here is the transform's answer, not the allocation failure below:
+                        // handing the source back would show the layer untransformed.
+                        Rect newBounds = target.Bounds.TransformToDeliveredAABB(m1, effectContext.TargetDomain);
+                        if (newBounds.IsEmpty)
+                        {
+                            effectContext.Targets.RemoveAt(i);
+                            target.Dispose();
+                            i--;
+                            continue;
+                        }
+
+                        EffectTarget newTarget = effectContext.CreateTarget(newBounds);
                         if (newTarget.IsEmpty)
                         {
                             newTarget.Dispose();
-                            return target;
+                            continue;
                         }
 
-                        using var canvas = effectContext.Open(newTarget);
+                        using (ImmediateCanvas canvas = effectContext.Open(newTarget))
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))
                         {
@@ -73,9 +85,9 @@ public sealed partial class TransformEffect : FilterEffect
                             target.Draw(canvas);
                         }
 
+                        effectContext.Targets[i] = newTarget;
                         target.Dispose();
-                        return newTarget;
-                    });
+                    }
                 });
             }
         }

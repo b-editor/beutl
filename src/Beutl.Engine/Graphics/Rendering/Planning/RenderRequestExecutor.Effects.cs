@@ -345,7 +345,8 @@ internal sealed partial class RenderRequestExecutor
                                 source),
                             _drawableBrushMaterializer,
                             useExecutorManagedCanvas: true,
-                            renderTargetLeaseSession: _targets);
+                            renderTargetLeaseSession: _targets,
+                            targetDomain: _options.TargetDomain);
                         activator.Apply(effectContext);
                         activator.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);

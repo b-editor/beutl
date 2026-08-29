@@ -94,7 +94,8 @@ public partial class DelayAnimationEffect : FilterEffect
                         effectContext.DeviceGridOffset,
                         effectContext.DrawableBrushMaterializer,
                         effectContext.UsesExecutorManagedCanvas,
-                        effectContext.RenderTargetLeaseSession);
+                        effectContext.RenderTargetLeaseSession,
+                        targetDomain: effectContext.TargetDomain);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

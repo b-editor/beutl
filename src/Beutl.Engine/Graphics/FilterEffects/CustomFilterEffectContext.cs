@@ -27,7 +27,8 @@ public class CustomFilterEffectContext
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        int? maxBufferDimension = null)
+        int? maxBufferDimension = null,
+        Rect? targetDomain = null)
     {
         if (!Enum.IsDefined(intent))
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The render intent is invalid.");
@@ -48,6 +49,7 @@ public class CustomFilterEffectContext
         OutputScale = outputScale;
         WorkingScale = workingScale;
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
+        TargetDomain = targetDomain;
         Intent = intent;
         Purpose = purpose;
         _drawableBrushMaterializer = drawableBrushMaterializer;
@@ -69,6 +71,26 @@ public class CustomFilterEffectContext
 
     /// <summary>Working-scale ceiling forwarded into canvases from <see cref="Open"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// Gets the finite logical region the request delivers its output to, or <see langword="null"/> when
+    /// the request declares none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the request-level value <see cref="RenderNodeContext.TargetDomain"/> reports, carried through
+    /// unchanged rather than mapped into the coordinates of the targets this callback holds. An effect nested
+    /// under a transform therefore sees a domain offset from its own space.
+    /// </para>
+    /// <para>
+    /// Feed it to <see cref="Rect.TransformToDeliveredAABB"/> when bounding a matrix applied to a target.
+    /// That union only ever widens the box <see cref="Rect.TransformToAABB(Matrix, float)"/> alone returns, so
+    /// an offset domain costs buffer area and never content; what it buys is the perspective case, where the
+    /// plain box collapses to <see cref="Rect.Empty"/> for a rectangle whose front sliver stays nearer than
+    /// <see cref="Rect.DefaultNearPlane"/> — pixels the rasterizer still draws.
+    /// </para>
+    /// </remarks>
+    public Rect? TargetDomain { get; }
 
     /// <summary>
     /// Gets the largest device extent an allocation from this context may have, on both axes.

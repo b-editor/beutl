@@ -19,6 +19,7 @@ public sealed class FilterEffectActivator : IDisposable
     private readonly bool _useExecutorManagedCanvas;
     private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
     private readonly int? _maxBufferDimension;
+    private readonly Rect? _targetDomain;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
@@ -36,7 +37,8 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer,
         float outputScale = 1f,
         float workingScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
+        float maxWorkingScale = float.PositiveInfinity,
+        Rect? targetDomain = null)
         : this(
             targets,
             builder,
@@ -51,7 +53,8 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas: false,
             renderTargetLeaseSession: null,
-            maxBufferDimension: null)
+            maxBufferDimension: null,
+            targetDomain)
     {
     }
 
@@ -67,7 +70,8 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        int? maxBufferDimension = null)
+        int? maxBufferDimension = null,
+        Rect? targetDomain = null)
         : this(
             targets,
             builder,
@@ -82,7 +86,8 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
-            maxBufferDimension)
+            maxBufferDimension,
+            targetDomain)
     {
     }
 
@@ -99,7 +104,8 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer = null,
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
-        int? maxBufferDimension = null)
+        int? maxBufferDimension = null,
+        Rect? targetDomain = null)
         : this(
             targets,
             builder,
@@ -114,7 +120,8 @@ public sealed class FilterEffectActivator : IDisposable
             drawableBrushMaterializer,
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
-            maxBufferDimension)
+            maxBufferDimension,
+            targetDomain)
     {
     }
 
@@ -132,7 +139,8 @@ public sealed class FilterEffectActivator : IDisposable
         DrawableBrushMaterializer? drawableBrushMaterializer,
         bool useExecutorManagedCanvas,
         RenderTargetLeaseSession? renderTargetLeaseSession,
-        int? maxBufferDimension)
+        int? maxBufferDimension,
+        Rect? targetDomain)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
@@ -160,6 +168,7 @@ public sealed class FilterEffectActivator : IDisposable
         _drawableBrushMaterializer = drawableBrushMaterializer;
         _useExecutorManagedCanvas = useExecutorManagedCanvas;
         _renderTargetLeaseSession = renderTargetLeaseSession;
+        _targetDomain = targetDomain;
         if (!ownsProgramCache)
         {
             _injectedProgramAcquirer = acquireProgram
@@ -697,7 +706,8 @@ public sealed class FilterEffectActivator : IDisposable
                             _drawableBrushMaterializer,
                             _useExecutorManagedCanvas,
                             _renderTargetLeaseSession,
-                            _maxBufferDimension);
+                            _maxBufferDimension,
+                            _targetDomain);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -779,7 +789,8 @@ public sealed class FilterEffectActivator : IDisposable
             GetProgramAcquirer(),
             _drawableBrushMaterializer,
             _useExecutorManagedCanvas,
-            _renderTargetLeaseSession);
+            _renderTargetLeaseSession,
+            targetDomain: _targetDomain);
 
         activator.Apply(context);
         activator.Flush(false);

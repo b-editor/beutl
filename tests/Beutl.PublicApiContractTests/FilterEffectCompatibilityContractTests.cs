@@ -52,6 +52,7 @@ public sealed class FilterEffectCompatibilityContractTests
             typeof(float),
             typeof(float),
             typeof(float),
+            typeof(Rect?),
         ];
         System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectActivator)
             .GetConstructors()
