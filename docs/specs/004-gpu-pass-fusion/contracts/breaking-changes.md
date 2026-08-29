@@ -569,6 +569,14 @@ using var activator = new FilterEffectActivator(
     drawableBrushMaterializer: materializer);
 ```
 
+A further trailing optional `Rect? targetDomain` carries the region the request delivers, which
+`CustomFilterEffectContext.TargetDomain` exposes to the effects the activator runs. It is what lets a
+transform declare `Rect.TransformToDeliveredAABB` rather than the pragmatic box, so a direct host that
+omits it keeps the pragmatic bounds: a perspective transform straddling the camera plane then declares a
+box that clips the wedge the rasterizer still draws, or declares nothing at all and drops the target. A
+host that renders into a known frame should pass that frame; one with no output clip to be exact against
+correctly passes nothing, which is the default.
+
 ## Ownership summary
 
 - `RenderNodeContext.Inputs` and every `RenderFragmentHandle` are borrowed, transaction-scoped values; authors never dispose or retain them.
