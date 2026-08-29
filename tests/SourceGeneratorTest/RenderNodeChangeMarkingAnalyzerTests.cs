@@ -1123,6 +1123,257 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "reported rather than left to a replayed recording");
     }
 
+    /// <remarks>
+    /// <para>
+    /// The guard rail against the fix proposed for the method-group false negative: making
+    /// <c>MarkChanged</c> count only when it is the callee of an invocation. Marking is thread-confined
+    /// today - see the comment on <c>RenderNode.MarkChanged</c> - so marshalling the mark onto the recording
+    /// thread is a plausible way to write it, and that fix reports this correct node.
+    /// </para>
+    /// <para>
+    /// A rule that wanted the real gap - a method group that is genuinely never invoked, pinned by
+    /// <see cref="AMarkNamedButNeverInvoked_IsAKnownGapTheRuleMisses"/> - has to tell this shape apart from
+    /// it rather than reject both.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AMutatorHandingTheMarkToAScheduler_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Threading.Tasks;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ScheduledNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Task.Run(MarkChanged);
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "handing the mark to a scheduler is still marking, and a rule that demanded an invocation "
+            + "would reject it");
+    }
+
+    /// <remarks>
+    /// The same guard rail one step closer to the gap: the method group is stored in a delegate and then
+    /// invoked through it, so the mark does run, but the name <c>MarkChanged</c> never appears as the callee
+    /// of an invocation. Requiring one reports this node too.
+    /// </remarks>
+    [Test]
+    public void AMutatorInvokingTheMarkThroughADelegate_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DeferredNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Action mark = MarkChanged;
+                    mark();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the mark runs, so the node is correct, however the invocation is spelled");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The guard rail against the fix proposed for the abstract-base false negative: scanning inherited
+    /// members for unmarked assignments. This is the shape <c>BrushRenderNode</c> and the six nodes deriving
+    /// from it are written in - a protected helper on the base assigns and reports whether anything changed,
+    /// and the derived override marks once for the whole update - and that fix reports every one of them.
+    /// </para>
+    /// <para>
+    /// Excusing the base helper needs the rule to look at its callers, not at what it can itself reach, which
+    /// is a wider excuse on a public extension point than the gap it closes. The gap this leaves is pinned by
+    /// <see cref="AnUnmarkedMutatorOnABaseType_IsAKnownGapTheRuleMisses"/>; the two differ only in whether the
+    /// derived caller marks, which is the line any such fix has to draw.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void ABaseHelperWhoseDerivedCallerMarks_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShapeRenderNode : RenderNode
+            {
+                protected ShapeRenderNode(Rect bounds) => Bounds = bounds;
+
+                protected Rect Bounds { get; private set; }
+
+                protected bool Update(Rect bounds)
+                {
+                    if (Bounds == bounds)
+                        return false;
+
+                    Bounds = bounds;
+                    return true;
+                }
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode
+            {
+                private float _radius;
+
+                public BoxRenderNode(Rect bounds, float radius)
+                    : base(bounds)
+                {
+                    _radius = radius;
+                }
+
+                public bool Update(Rect bounds, float radius)
+                {
+                    bool changed = Update(bounds);
+                    if (_radius != radius)
+                    {
+                        _radius = radius;
+                        changed = true;
+                    }
+
+                    if (changed)
+                        MarkChanged();
+
+                    return changed;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                    context.Publish(new Rect(_radius, 0, 0, 0));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the derived update marks for the whole change, so neither half of it is a node going stale");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// A known gap, recorded so it is visible rather than endorsed. The base helper assigns state the derived
+    /// node's <c>Process</c> reads and nobody marks, so this node does go stale - the rule is silent because
+    /// the member scan reads only <c>type.GetMembers()</c>, and the analysis stops at the base because a type
+    /// with no <c>Process</c> of its own reads no state at all.
+    /// </para>
+    /// <para>
+    /// Closing it was measured and declined: the obvious fix reports the correct shape pinned by
+    /// <see cref="ABaseHelperWhoseDerivedCallerMarks_IsNotReported"/> twelve times over in this repository
+    /// alone. A later fix that tells the two apart <em>should</em> make this case report; flipping this test
+    /// to <c>Does.Contain("BESG005")</c> is then the right response, and is the point of writing it down.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AnUnmarkedMutatorOnABaseType_IsAKnownGapTheRuleMisses()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShapeRenderNode : RenderNode
+            {
+                protected Rect Bounds { get; private set; }
+
+                protected void UpdateBounds(Rect bounds) => Bounds = bounds;
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode
+            {
+                public void Update(Rect bounds) => UpdateBounds(bounds);
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "this node really does go stale; the silence is a recorded limit of the rule, not a verdict "
+            + "that the node is correct");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The other known gap, recorded on the same terms. Naming <c>MarkChanged</c> clears the member whether
+    /// or not the delegate is ever invoked, so this node goes stale and the rule says nothing.
+    /// </para>
+    /// <para>
+    /// Closing it by demanding an invocation was measured and declined: it reports the correct shapes pinned
+    /// by <see cref="AMutatorHandingTheMarkToAScheduler_IsNotReported"/> and
+    /// <see cref="AMutatorInvokingTheMarkThroughADelegate_IsNotReported"/>. A later fix that tells a
+    /// discarded method group from a marshalled one <em>should</em> make this case report.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AMarkNamedButNeverInvoked_IsAKnownGapTheRuleMisses()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ForgetfulNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Action mark = MarkChanged;
+                    Discard(mark);
+                }
+
+                private static void Discard(Action callback) { }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the mark never runs, so this node really does go stale; the silence is a recorded limit of "
+            + "the rule, not a verdict that the node is correct");
+    }
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CreateCompilation(source);

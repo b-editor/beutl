@@ -399,7 +399,9 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         /// <para>
         /// Path-insensitive by design: one call anywhere in the member, or in a method of the same type it
         /// calls, clears every assignment in that member. A mutation on a branch that skips the mark is
-        /// therefore missed, which is the direction this rule errs in.
+        /// therefore missed, which is the direction this rule errs in. Naming <c>MarkChanged</c> clears the
+        /// member as much as calling it does, so handing the method group to a scheduler or storing it in a
+        /// delegate counts: the suppression is by symbol, not by invocation.
         /// </para>
         /// </remarks>
         public bool MarksChanged(IMethodSymbol method)
