@@ -2182,6 +2182,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
     <value>フレーム指定（任意）</value>
   </data>
+  <data name="AiPendingRequest" xml:space="preserve">
+    <value>保留中の AI リクエスト</value>
+  </data>
+  <data name="AiRecoverRequest" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="AiAbandonRequest" xml:space="preserve">
+    <value>破棄</value>
+  </data>
   <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
     <value>文字起こしまたは字幕の読み込みを行うと、ここにキューが並びます。</value>
   </data>

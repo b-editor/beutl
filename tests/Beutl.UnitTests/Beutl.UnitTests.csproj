@@ -55,6 +55,7 @@
     <Compile Include="..\..\src\Beutl\Models\BufferedPlayerWaitGate.cs" Link="Models\Linked\BufferedPlayerWaitGate.cs" />
     <Compile Include="..\..\src\Beutl\Services\AI\CaptionDraftStore.cs" Link="Services\AI\Linked\CaptionDraftStore.cs" />
     <Compile Include="..\..\src\Beutl\Services\AI\AiRequestKey.cs" Link="Services\AI\Linked\AiRequestKey.cs" />
+    <Compile Include="..\..\src\Beutl\Services\AI\FileAiRequestRecoveryStore.cs" Link="Services\AI\Linked\FileAiRequestRecoveryStore.cs" />
     <Compile Include="..\..\src\Beutl\Services\AI\AiUploadBytes.cs" Link="Services\AI\Linked\AiUploadBytes.cs" />
     <Compile Include="..\..\src\Beutl\Services\AI\AiOutstandingRequests.cs" Link="Services\AI\Linked\AiOutstandingRequests.cs" />
   </ItemGroup>

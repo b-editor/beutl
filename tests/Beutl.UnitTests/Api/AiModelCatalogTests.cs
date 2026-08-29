@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
+using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
+using Beutl.Language;
 using Moq;
 using NUnit.Framework;
 
@@ -14,6 +16,77 @@ namespace Beutl.UnitTests.Api;
 /// </summary>
 public class AiModelCatalogTests
 {
+    [TestCase("", false, TestName = "Omitted image model dimension is unspecified")]
+    [TestCase("\"aspectRatios\":null", false, TestName = "Null image model dimension is unspecified")]
+    [TestCase("\"aspectRatios\":[]", true, TestName = "Empty image model dimension is unsupported")]
+    public void CapabilityJson_PreservesOmittedNullAndEmptyImageModelDimensions(string dimensionJson, bool unsupported)
+    {
+        string model = "{\"id\":\"m\"" + (string.IsNullOrEmpty(dimensionJson) ? "" : "," + dimensionJson) + "}";
+        string json = "{\"operations\":{\"image.generate\":{\"models\":[" + model + "]}}}";
+        AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        AiImageModelCapabilities image = AiModelMapper.ToModel(response).ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        Assert.That(
+            image.AspectRatios,
+            Is.EqualTo(unsupported
+                ? AiCapabilityDimension<string>.Unsupported
+                : AiCapabilityDimension<string>.Unspecified));
+    }
+
+    [TestCase("", false, TestName = "Omitted image operation dimension is unspecified")]
+    [TestCase("\"aspectRatios\":null", false, TestName = "Null image operation dimension is unspecified")]
+    [TestCase("\"aspectRatios\":[]", true, TestName = "Empty image operation dimension is unsupported")]
+    public void CapabilityJson_PreservesOmittedNullAndEmptyImageOperationDimensions(string dimensionJson, bool unsupported)
+    {
+        string operationProperties = string.IsNullOrEmpty(dimensionJson) ? "" : dimensionJson + ",";
+        string json = "{\"operations\":{\"image.generate\":{" + operationProperties + "\"models\":[{\"id\":\"m\"}]}}}";
+        AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        AiImageModelCapabilities image = AiModelMapper.ToModel(response).ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        Assert.That(
+            image.AspectRatios,
+            Is.EqualTo(unsupported
+                ? AiCapabilityDimension<string>.Unsupported
+                : AiCapabilityDimension<string>.Unspecified));
+    }
+
+    [TestCase("", false, TestName = "Omitted video model dimension is unspecified")]
+    [TestCase("\"resolutions\":null", false, TestName = "Null video model dimension is unspecified")]
+    [TestCase("\"resolutions\":[]", true, TestName = "Empty video model dimension is unsupported")]
+    public void CapabilityJson_PreservesOmittedNullAndEmptyVideoModelDimensions(string dimensionJson, bool unsupported)
+    {
+        string model = "{\"id\":\"m\"" + (string.IsNullOrEmpty(dimensionJson) ? "" : "," + dimensionJson) + "}";
+        string json = "{\"operations\":{\"video.generate\":{\"models\":[" + model + "]}}}";
+        AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        AiVideoModelCapabilities video = AiModelMapper.ToModel(response).ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        Assert.That(
+            video.Resolutions,
+            Is.EqualTo(unsupported
+                ? AiCapabilityDimension<string>.Unsupported
+                : AiCapabilityDimension<string>.Unspecified));
+    }
+
+    [TestCase("", false, TestName = "Omitted video operation dimension is unspecified")]
+    [TestCase("\"resolutions\":null", false, TestName = "Null video operation dimension is unspecified")]
+    [TestCase("\"resolutions\":[]", true, TestName = "Empty video operation dimension is unsupported")]
+    public void CapabilityJson_PreservesOmittedNullAndEmptyVideoOperationDimensions(string dimensionJson, bool unsupported)
+    {
+        string operationProperties = string.IsNullOrEmpty(dimensionJson) ? "" : dimensionJson + ",";
+        string json = "{\"operations\":{\"video.generate\":{" + operationProperties + "\"models\":[{\"id\":\"m\"}]}}}";
+        AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        AiVideoModelCapabilities video = AiModelMapper.ToModel(response).ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        Assert.That(
+            video.Resolutions,
+            Is.EqualTo(unsupported
+                ? AiCapabilityDimension<string>.Unsupported
+                : AiCapabilityDimension<string>.Unspecified));
+    }
     [Test]
     public void Catalog_ReadsTheModelsAndTheirRelativeCost()
     {
@@ -705,38 +778,55 @@ public class AiModelCatalogTests
             .Callback<AiImageGenerationRequest, CancellationToken>((request, _) => sent = request)
             .ReturnsAsync(() => null!);
 
+        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+            ("image.generate", [
+                Model("cheap/model", null, "low", isDefault: true),
+                Model("dear/model", null, "high", isDefault: false),
+            ])));
         var handler = new AiImageJobRetryHandler(
             images.Object,
-            Mock.Of<IAiEntitlementService>(),
+            EntitlementService(),
             AvailabilityService(),
-            ModelCatalogService(AiModelMapper.ToModel(Capabilities(
-                ("image.generate", [
-                    Model("cheap/model", null, "low", isDefault: true),
-                    Model("dear/model", null, "high", isDefault: false),
-                ])))));
+            ModelCatalogService(catalog),
+            RetryContext());
 
-        Assert.DoesNotThrowAsync(() => handler.RetryAsync(
-            ImageJob("dear/model"),
-            CancellationToken.None));
+        Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
         // Not the default, which is cheaper and would produce a different picture.
         Assert.That(sent!.Model!.Value.Value, Is.EqualTo("dear/model"));
     }
 
     [Test]
-    public void Retry_RefusesAModelTheServerNoLongerOffers()
+    public async Task Retry_RefusesAModelTheServerNoLongerOffers()
     {
+        var images = new Mock<IAiImageGenerationService>();
+        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+            ("image.generate", [Model("cheap/model", null, "low", isDefault: true)])));
         var handler = new AiImageJobRetryHandler(
-            Mock.Of<IAiImageGenerationService>(),
-            Mock.Of<IAiEntitlementService>(),
+            images.Object,
+            EntitlementService(),
             AvailabilityService(),
-            ModelCatalogService(AiModelMapper.ToModel(Capabilities(
-                ("image.generate", [Model("cheap/model", null, "low", isDefault: true)])))));
+            ModelCatalogService(catalog),
+            RetryContext());
 
         // Quietly rerunning on the default would charge the default's price for
         // a model the user never chose.
-        Assert.ThrowsAsync<AiModelUnavailableException>(() => handler.RetryAsync(
-            ImageJob("withdrawn/model"),
-            CancellationToken.None));
+        AiJob job = ImageJob("withdrawn/model");
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(
+            job,
+            CancellationToken.None);
+        await using AiJobRetryPreparationResult prepared = await handler.PrepareAsync(
+            job,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(preflight.CanSubmit, Is.False);
+            Assert.That(prepared.IsReady, Is.False);
+            Assert.That(prepared.Explanation, Is.EqualTo(Strings.AiModelUnavailable));
+        }
+        images.Verify(service => service.GenerateAsync(
+            It.IsAny<AiImageGenerationRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
@@ -751,16 +841,33 @@ public class AiModelCatalogTests
 
         var handler = new AiImageJobRetryHandler(
             images.Object,
-            Mock.Of<IAiEntitlementService>(),
+            EntitlementService(),
             AvailabilityService(),
-            ModelCatalogService(AiModelCatalog.Empty));
+            ModelCatalogService(AiModelCatalog.Empty),
+            RetryContext());
 
         // An empty catalog says nothing about any model, and the server has the
         // last word; refusing here would break reruns whenever the capabilities
         // endpoint is unreachable.
-        Assert.DoesNotThrowAsync(() => handler.RetryAsync(
-            ImageJob("dear/model"),
-            CancellationToken.None));
+        Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
+    }
+
+    private static async Task RunRetryAsync(IAiJobRetryHandler handler, AiJob job)
+    {
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(job, CancellationToken.None);
+        if (!preflight.CanSubmit)
+            throw new InvalidOperationException("Retry preflight blocked the request.");
+        AiJobRetryPreparationResult prepared = await handler.PrepareAsync(job, CancellationToken.None);
+        await using (prepared)
+        {
+            if (!prepared.IsReady)
+                throw new InvalidOperationException("Retry preparation blocked the request.");
+            IAiJobRetryPreparation preparation = prepared.TakePreparation();
+            await using (preparation)
+            {
+                await preparation.ExecuteAsync(CancellationToken.None);
+            }
+        }
     }
 
     private static AiJob ImageJob(string model) => new(
@@ -883,6 +990,23 @@ public class AiModelCatalogTests
         return mock.Object;
     }
 
+    private static IAiEntitlementService EntitlementService()
+    {
+        var mock = new Mock<IAiEntitlementService>();
+        mock
+            .Setup(service => service.RefreshAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AiEntitlements(
+                "pro",
+                "active",
+                null,
+                null,
+                false,
+                true,
+                new AiBalance(new AiMonthlyUsage(0, 100, false), 100, false),
+                new AiOperationAvailability([])));
+        return mock.Object;
+    }
+
     private static IAiModelCatalogService ModelCatalogService(AiModelCatalog catalog)
     {
         var mock = new Mock<IAiModelCatalogService>();
@@ -891,4 +1015,10 @@ public class AiModelCatalogTests
             .ReturnsAsync(catalog);
         return mock.Object;
     }
+
+    private static AiRetryAttemptContext RetryContext()
+        => new(
+            new InMemoryAiRetryKeyStore(),
+            () => new AiAuthenticatedRequestIdentity("test-account", User: null),
+            allowSyntheticIdentity: true);
 }

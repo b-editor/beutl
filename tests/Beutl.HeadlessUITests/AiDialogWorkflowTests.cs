@@ -3779,7 +3779,8 @@ public sealed class AiDialogWorkflowTests
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiImageGenerationService>(),
             clients.GetResource<IAuthenticatedContentService>(),
-            editor);
+            editor,
+            AiRetryTestContext.CreateForm());
 
     private static AiImageEditDialogViewModel CreateImageEditDialog(
         BeutlApiApplication clients,
@@ -3791,7 +3792,8 @@ public sealed class AiDialogWorkflowTests
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiImageEditingService>(),
             clients.GetResource<IAuthenticatedContentService>(),
-            editor);
+            editor,
+            AiRetryTestContext.CreateForm());
 
     private static AiVideoGenerationDialogViewModel CreateVideoGenerationDialog(
         BeutlApiApplication clients,
@@ -3805,7 +3807,8 @@ public sealed class AiDialogWorkflowTests
             clients.GetResource<IAuthenticatedContentService>(),
             clients.GetResource<IAiJobKindRegistry>(),
             clients.GetResource<IAiJobMonitor>(),
-            editor);
+            editor,
+            AiRetryTestContext.CreateForm());
 
     private static AiSubtitleDialogViewModel CreateSubtitleDialog(
         BeutlApiApplication clients,

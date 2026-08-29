@@ -22,7 +22,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
+internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -34,13 +34,16 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageEditingService _images;
     private readonly IAuthenticatedContentService _content;
-    private readonly AiRequestKey _requestKey = new();
+    private readonly AiRequestKey _requestKey;
+    private readonly AiRequestRecoveryContext? _requestRecoveryContext;
     // The model the outstanding name was built from. A refresh that withdraws
     // that model would otherwise rebuild the name around whatever the picker
     // fell back to, and the job the first attempt paid for would be left behind.
     // 決着していない名前ごとに、その依頼が何を名乗ったか。1 件だけ覚えていると、
     // 別の依頼を出した時点で前の依頼のモデルを忘れ、戻ってきたときに買い直す。
     private readonly AiOutstandingRequests _outstanding = new();
+    private AiPendingAttempt? _selectedRecovery;
+    private readonly ReactivePropertySlim<int> _recoveryRevision = new();
     // 抱えている名前が変わったことを画面へ伝えるためだけの数。どの task に
     // 名前が残っているかは _outstanding が知っている。
     private readonly ReactivePropertySlim<int> _outstandingRevision = new();
@@ -51,14 +54,15 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     private Task? _disposeTask;
     private AsyncOperationLifetime.Operation? _runningRequest;
 
-    public AiImageEditDialogViewModel(
+    internal AiImageEditDialogViewModel(
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService modelCatalog,
         IAiPlanCoordinator aiPlanCoordinator,
         IAiImageEditingService images,
         IAuthenticatedContentService content,
-        EditViewModel? editViewModel = null)
+        EditViewModel? editViewModel,
+        AiRequestRecoveryContext requestRecoveryContext)
     {
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _availability = availability ?? throw new ArgumentNullException(nameof(availability));
@@ -68,6 +72,10 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         _images = images ?? throw new ArgumentNullException(nameof(images));
         _content = content ?? throw new ArgumentNullException(nameof(content));
         _editViewModel = editViewModel;
+        _requestRecoveryContext = requestRecoveryContext;
+        _requestKey = new(
+            recoveryContext: requestRecoveryContext,
+            operation: "image.edit");
         Usage = new AiUsageViewModel(_entitlements.Entitlements).DisposeWith(_disposables);
         // Every edit hands the model the picture being edited, so one that takes
         // no reference image is registered and unusable however the request is
@@ -128,9 +136,6 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             .DisposeWith(_disposables);
         // Each task is a separate operation with its own models, so the list
         // has to follow the task rather than be read once.
-        SelectedTask
-            .Subscribe(task => _ = ReloadModelsAsync(task))
-            .DisposeWith(_disposables);
         // Only the list this screen already has. A task whose list is not
         // here yet has to be fetched even while its own request is waiting to be
         // collected — without it the screen has no model to send and the paid
@@ -141,6 +146,9 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         ModelPicker.CanReload = requested =>
             ModelPicker.Operation != requested
             || !HoldsNameFor(SelectedTask.Value.Value);
+        SelectedTask
+            .Subscribe(task => _ = ReloadModelsAsync(task))
+            .DisposeWith(_disposables);
         RequiresPrompt = SelectedTask
             .Select(task => task.Value is "restyle" or "remove_object" or "outpaint")
             .ToReadOnlyReactivePropertySlim()
@@ -233,6 +241,19 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
         StopEditing = new ReactiveCommand(IsEditing);
         StopEditing.Subscribe(() => _runningRequest?.Cancel()).DisposeWith(_disposables);
 
+        RecoverSelectedAttempt = new ReactiveCommand();
+        RecoverSelectedAttempt.Subscribe(() =>
+        {
+            if (SelectedRecoveryAttempt!.Value is { } attempt)
+                TryRecoverPendingAttempt(attempt);
+        }).DisposeWith(_disposables);
+        AbandonSelectedAttempt = new ReactiveCommand();
+        AbandonSelectedAttempt.Subscribe(() =>
+        {
+            if (SelectedRecoveryAttempt!.Value is { } attempt)
+                AbandonPendingAttempt(attempt);
+        }).DisposeWith(_disposables);
+
         OpenAiPlan = new ReactiveCommand();
         OpenAiPlan.Subscribe(aiPlanCoordinator.OpenAiPlan).DisposeWith(_disposables);
 
@@ -261,6 +282,19 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             .ToReadOnlyReactivePropertySlim(true)
             .DisposeWith(_disposables);
 
+        SelectedRecoveryAttempt = new ReactivePropertySlim<AiPendingAttempt?>()
+            .DisposeWith(_disposables);
+        RecoveryAttempts = _recoveryRevision
+            .Select(_ => (IReadOnlyList<AiPendingAttempt>)GetPendingRecoveryAttempts())
+            .ToReadOnlyReactivePropertySlim(Array.Empty<AiPendingAttempt>())
+            .DisposeWith(_disposables);
+        RecoveryAvailable = RecoveryAttempts
+            .Select(attempts => attempts.Count != 0)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        if (_requestRecoveryContext is not null)
+            _requestRecoveryContext.IdentityChanged += OnIdentityChanged;
+
         CoreObject? selectedObject = editViewModel?.GetService<IEditorSelection>()?.SelectedObject.Value;
         SourceFilePath.Value = GetSelectedImageSourcePath(selectedObject);
         _sourceElementId = selectedObject is Element selectedElement
@@ -268,6 +302,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             : null;
 
         _ = LoadEntitlementsAsync();
+        TryAutoRecoverSingleAttempt();
     }
 
     public IReadOnlyList<AiImageEditTaskOption> Tasks { get; }
@@ -318,6 +353,20 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     /// so a wrong task or picture must be recoverable without closing the tab.
     /// </summary>
     public ReactiveCommand StopEditing { get; }
+
+    /// <summary>Pending image-edit attempts that can be explicitly recovered or abandoned.</summary>
+    internal IReadOnlyList<AiPendingAttempt> PendingRecoveryAttempts
+        => GetPendingRecoveryAttempts();
+
+    internal ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt { get; }
+
+    internal ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts { get; }
+
+    internal ReadOnlyReactivePropertySlim<bool> RecoveryAvailable { get; }
+
+    internal ReactiveCommand RecoverSelectedAttempt { get; }
+
+    internal ReactiveCommand AbandonSelectedAttempt { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
@@ -396,6 +445,10 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             SourceFilePath.Dispose();
             Prompt.Dispose();
             Error.Dispose();
+            if (_requestRecoveryContext is not null)
+                _requestRecoveryContext.IdentityChanged -= OnIdentityChanged;
+            _requestKey.Dispose();
+            _recoveryRevision.Dispose();
             _outstandingRevision.Dispose();
             _disposables.Dispose();
         });
@@ -414,6 +467,162 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             .FirstOrDefault(File.Exists);
     }
 
+    private IReadOnlyList<AiPendingAttempt> GetPendingRecoveryAttempts()
+    {
+        try
+        {
+            return _requestKey.PendingAttempts(new AiOperationId("image.edit"));
+        }
+        catch (InvalidDataException ex)
+        {
+            _logger.LogError(ex, "Failed to read image-edit recovery attempts.");
+            return Array.Empty<AiPendingAttempt>();
+        }
+    }
+
+    private void TryAutoRecoverSingleAttempt()
+    {
+        IReadOnlyList<AiPendingAttempt> attempts = GetPendingRecoveryAttempts();
+        if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
+        {
+            if (!TryRecoverPendingAttempt(attempts[0]))
+                SelectedRecoveryAttempt.Value = null;
+        }
+
+        _recoveryRevision.Value++;
+    }
+
+    private void OnIdentityChanged()
+    {
+        string? account = _requestKey.CurrentAccountId;
+        if (_selectedRecovery is not { } selected
+            || StringComparer.Ordinal.Equals(selected.AccountId, account))
+        {
+            if (_selectedRecovery is null && account is not null)
+                TryAutoRecoverSingleAttempt();
+            _recoveryRevision.Value++;
+            return;
+        }
+
+        _runningRequest?.Cancel();
+        _selectedRecovery = null;
+        SelectedRecoveryAttempt.Value = null;
+        SourceFilePath.Value = null;
+        Prompt.Value = string.Empty;
+        _sourceElementId = null;
+        OriginalImage.Value?.Dispose();
+        OriginalImage.Value = null;
+        ResultImage.Value?.Dispose();
+        ResultImage.Value = null;
+        ModelPicker.ReconcileRecoveryModels();
+        _recoveryRevision.Value++;
+    }
+
+    internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
+    {
+        if (_requestKey.CurrentAccountId is not { } account
+            || !StringComparer.Ordinal.Equals(account, attempt.AccountId))
+        {
+            Error.Value = Strings.AiAuthenticationRequired;
+            return false;
+        }
+        if (!attempt.HasCanonicalForm
+            || !attempt.Operation.StartsWith("image.edit.", StringComparison.Ordinal)
+            || attempt.Form?.Task is not { } task
+            || !string.Equals(attempt.Operation, $"image.edit.{task}", StringComparison.Ordinal))
+        {
+            Error.Value = Strings.AiResultUnavailable;
+            return false;
+        }
+
+        IReadOnlyList<string> paths;
+        try
+        {
+            paths = _requestKey.ResolveSources(attempt);
+        }
+        catch (InvalidDataException ex)
+        {
+            _logger.LogWarning(ex, "Image-edit recovery source is unavailable.");
+            Error.Value = Strings.AiResultUnavailable;
+            return false;
+        }
+
+        if (paths.Count != 1 || attempt.EffectiveSources.Count != 1)
+        {
+            Error.Value = Strings.AiResultUnavailable;
+            return false;
+        }
+
+        try
+        {
+            _ = _requestKey.ReadSourceBytes(attempt.EffectiveSources[0]);
+        }
+        catch (InvalidDataException ex)
+        {
+            _logger.LogWarning(ex, "Image-edit recovery source changed.");
+            Error.Value = Strings.AiResultUnavailable;
+            return false;
+        }
+
+        AiImageEditTaskOption? taskOption = Tasks.FirstOrDefault(option => option.Value == task);
+        if (taskOption is null)
+        {
+            Error.Value = Strings.AiResultUnavailable;
+            return false;
+        }
+
+        SelectedTask.Value = taskOption;
+        Prompt.Value = attempt.Form!.Prompt ?? string.Empty;
+        if (attempt.Form.OutpaintExpansionPercent is { } percent
+            && OutpaintExpansionOptions.FirstOrDefault(option => option.Percent == percent) is { } expansion)
+            SelectedOutpaintExpansion.Value = expansion;
+        _sourceElementId = attempt.Form.SourceElementId;
+
+        SourceFilePath.Value = paths[0];
+        _selectedRecovery = attempt;
+        SelectedRecoveryAttempt.Value = attempt;
+        _recoveryRevision.Value++;
+        SelectRecoveredModel();
+        return true;
+    }
+
+    internal void AbandonPendingAttempt(AiPendingAttempt attempt)
+    {
+        try
+        {
+            _requestKey.Abandon(attempt);
+            if (_selectedRecovery is { } selected
+                && selected.AccountId == attempt.AccountId
+                && selected.Operation == attempt.Operation
+                && selected.Fingerprint == attempt.Fingerprint)
+            {
+                _selectedRecovery = null;
+                SelectedRecoveryAttempt.Value = null;
+                ModelPicker.ReconcileRecoveryModels();
+            }
+
+            _recoveryRevision.Value++;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or AuthenticationRequiredException)
+        {
+            _logger.LogWarning(ex, "Failed to abandon image-edit recovery attempt.");
+            Error.Value = Strings.AiResultUnavailable;
+        }
+    }
+
+    private AiModelId? ModelForRequest(AiModelId? selected)
+        => _selectedRecovery is { } attempt
+            ? attempt.Model is { } model ? new AiModelId(model) : null
+            : selected;
+
+    private void SelectRecoveredModel()
+    {
+        if (_selectedRecovery?.Model is not { } model)
+            return;
+        AiModelId id = new(model);
+        ModelPicker.Selected.Value = ModelPicker.Options.FirstOrDefault(option => option.Id == id);
+    }
+
     // The model a request should carry: the one the outstanding name was built
     // from while there is one, and the picker's otherwise.
     // Only this one request is settled. Retiring the whole run instead would
@@ -422,6 +631,14 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     {
         _requestKey.Retire(name);
         Forget(name);
+        if (_selectedRecovery is { } selected
+            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+        {
+            _selectedRecovery = null;
+            SelectedRecoveryAttempt.Value = null;
+            ModelPicker.ReconcileRecoveryModels();
+            _recoveryRevision.Value++;
+        }
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = ReloadModelsAsync(SelectedTask.Value);
@@ -433,6 +650,14 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     {
         _requestKey.Withdraw(name);
         Forget(name);
+        if (_selectedRecovery is { } selected
+            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+        {
+            _selectedRecovery = null;
+            SelectedRecoveryAttempt.Value = null;
+            ModelPicker.ReconcileRecoveryModels();
+            _recoveryRevision.Value++;
+        }
     }
 
     private void Forget(AiRequestName name)
@@ -450,13 +675,18 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
     // Each of the five is its own operation with its own models and its own
     // price, so a name outstanding on one says nothing about another.
     private bool HoldsNameFor(string task)
-        => _outstanding.Any(request => IsFor(request, task));
+    {
+        AiOperationId operation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
+        return _outstanding.Any(request => IsFor(request, task))
+            || _requestKey.HasPersistedFor(operation);
+    }
 
     private AiModelId? ModelOfOutstandingRequestFor(string task)
         => _outstanding.TryFind(request => IsFor(request, task), out string?[] held)
             && held[ModelPartIndex] is { } model
                 ? new AiModelId(model)
-                : null;
+                : _requestKey.PreferredPersistedModel(
+                    AiOperations.ImageEdit(new AiImageEditTaskId(task)));
 
     private IReadOnlyList<AiModelId> ModelsOfOutstandingRequestsFor(AiOperationId operation)
         => _outstanding.All()
@@ -464,6 +694,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 && AiOperations.ImageEdit(new AiImageEditTaskId(task)) == operation)
             .Select(request => request[ModelPartIndex])
             .OfType<string>()
+            .Concat(_requestKey.PersistedModels(operation).Select(model => model.Value))
             .Distinct(StringComparer.Ordinal)
             .Select(model => new AiModelId(model))
             .ToArray();
@@ -481,11 +712,16 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             await _entitlements.RefreshAsync(operation.CancellationToken);
             // Never under an outstanding name: the model the picker lands on is
             // part of what names the request waiting to be collected.
-            if (!HoldsNameFor(SelectedTask.Value.Value))
+            if (!ModelPicker.IsLoaded.Value || !HoldsNameFor(SelectedTask.Value.Value))
             {
+                AiOperationId requested = AiOperations.ImageEdit(
+                    new AiImageEditTaskId(SelectedTask.Value.Value));
                 await ModelPicker.LoadAsync(
-                    AiOperations.ImageEdit(new AiImageEditTaskId(SelectedTask.Value.Value)),
+                    requested,
+                    _requestKey.PreferredPersistedModel(requested),
+                    _requestKey.HasExplicitNullPersistedModel(requested),
                     operation.CancellationToken);
+                SelectRecoveredModel();
             }
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
@@ -547,7 +783,10 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                 // モデルに合わせる。今この口座で払えるモデルに落ち着かせると、
                 // 送り直したものが別の依頼になり、支払い済みのものへ届かない。
                 ModelOfOutstandingRequestFor(task.Value),
+                _requestKey.HasExplicitNullPersistedModel(
+                    AiOperations.ImageEdit(new AiImageEditTaskId(task.Value))),
                 operation.CancellationToken);
+            SelectRecoveredModel();
         }
         catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
@@ -638,8 +877,16 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             // the expanded canvas is sent under a name derived from the picture
             // it was made from — never the temporary file's own, which is named
             // for uniqueness on disk and would differ on every attempt.
-            string uploadName = Path.GetFileName(filePath);
-            if (task == "outpaint")
+            string uploadName = _selectedRecovery?.Form?.SourceIsPrepared == true
+                && _selectedRecovery.Form.SourceName is { } preparedName
+                ? preparedName
+                : Path.GetFileName(filePath);
+            bool recoveredPreparedSource = _selectedRecovery?.Form?.SourceIsPrepared == true;
+            if (task == "outpaint" && recoveredPreparedSource)
+            {
+                prompt = $"Extend the image naturally into the transparent canvas while preserving the original center. {prompt}";
+            }
+            if (task == "outpaint" && !recoveredPreparedSource)
             {
                 preparedFilePath = PrepareOutpaintSource(
                     filePath,
@@ -654,10 +901,17 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             // is the expanded canvas, not the picture it was made from: two
             // different sources and expansions can expand to the same canvas,
             // and naming the source would ask for the same work twice.
-            byte[] uploadBytes = await AiUploadBytes.ReadWithinAsync(
-                uploadPath,
-                AiRequestLimits.MaxImageUploadBytes,
-                operation.CancellationToken);
+            AiRequestRecoverySource? recoveredSource = _selectedRecovery?.Form?.SourceIsPrepared == true
+                ? _selectedRecovery.EffectiveSources.FirstOrDefault(source => source.Role == "image")
+                : null;
+            if (recoveredSource?.Name is { } recoveredName)
+                uploadName = recoveredName;
+            byte[] uploadBytes = recoveredSource is not null
+                ? _requestKey.ReadSourceBytes(recoveredSource)
+                : await AiUploadBytes.ReadWithinAsync(
+                    uploadPath,
+                    AiRequestLimits.MaxImageUploadBytes,
+                    operation.CancellationToken);
             AiOperationId editOperation = AiOperations.ImageEdit(new AiImageEditTaskId(task));
             // Only the model the picker is currently showing for this task; a
             // selection left over from another task belongs to another
@@ -677,12 +931,45 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             // される——一覧が空だった頃に出した依頼は、いまの画面では言い表せ
             // ないので、履歴から回収する。
             AiModelId? model =
-                ModelPicker.Operation == editOperation ? ModelPicker.SelectedModel : null;
+                ModelPicker.Operation == editOperation ? ModelForRequest(ModelPicker.SelectedModel) : null;
             requestParts[ModelPartIndex] = model?.Value;
-            AiRequestName name = _requestKey.NameFor(requestParts);
+            AiRequestFormSnapshot form = new(
+                Prompt: Prompt.Value,
+                Task: task,
+                OutpaintExpansionPercent: outpaintExpansionPercent,
+                SourceName: uploadName,
+                SourceIsPrepared: task == "outpaint",
+                SourceElementId: _sourceElementId);
+            AiRequestRecoverySource recoverySource = task == "outpaint" && _requestKey.HasDurableRecovery
+                ? _requestKey.CreateDurableSource(
+                    "image",
+                    uploadName,
+                    uploadBytes,
+                    _sourceElementId)
+                : FileAiRequestRecoveryStore.CreateExternalSource(
+                    "image",
+                    filePath,
+                    uploadName,
+                    uploadBytes,
+                    _sourceElementId);
+            if (_selectedRecovery is { } selected
+                && !_requestKey.MatchesPending(selected, requestParts))
+            {
+                _requestKey.CleanupUncommittedSources([recoverySource]);
+                operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
+                return;
+            }
+            AiRequestName name = _requestKey.NameFor(requestParts, form, [recoverySource]);
             issued = name;
             _outstanding.Remember(name, requestParts);
             _outstandingRevision.Value++;
+            using IDisposable authenticatedScope = _requestKey.EnterAuthenticatedScope(name);
+            using AiRequestRecoveryLease? claim = _requestKey.TryClaim(name);
+            if (_requestKey.HasDurableRecovery && claim is null)
+            {
+                operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
+                return;
+            }
 
             // Before it goes out. A name that ends here reached nothing.
             try
@@ -698,7 +985,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
                     throw new AiUsageLimitExceededException();
                 }
             }
-            catch
+            catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
             {
                 WithdrawRequestName(name);
                 throw;
@@ -707,6 +994,7 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
             AiImageResult response;
             try
             {
+                _requestKey.MarkClaimDispatched(claim);
                 response = await _images.EditAsync(
                     new AiImageEditRequest(
                         AiUploadSource.FromBytes(uploadName, uploadBytes),
@@ -982,12 +1270,12 @@ public sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, 
 
 }
 
-public sealed record AiImageEditTaskOption(string Value, string DisplayName)
+internal sealed record AiImageEditTaskOption(string Value, string DisplayName)
 {
     public override string ToString() => DisplayName;
 }
 
-public sealed record AiImageComparisonMode(
+internal sealed record AiImageComparisonMode(
     string Value,
     string DisplayName,
     bool ShowOriginal,
@@ -996,7 +1284,7 @@ public sealed record AiImageComparisonMode(
     public override string ToString() => DisplayName;
 }
 
-public sealed record AiOutpaintExpansionOption(int Percent)
+internal sealed record AiOutpaintExpansionOption(int Percent)
 {
     public override string ToString() => $"{Percent}%";
 }

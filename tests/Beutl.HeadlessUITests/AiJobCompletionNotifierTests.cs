@@ -206,7 +206,8 @@ public sealed class AiJobCompletionNotifierTests
             new UnusedVideoService(),
             new UnusedEntitlementService(),
             new UnusedAvailabilityService(),
-            new UnusedModelCatalogService());
+            new UnusedModelCatalogService(),
+            AiRetryTestContext.Create());
 
     private static AiJobResultHandlerRegistry CreateBuiltInResultHandlers()
         => new(BuiltInAiJobResultHandlers.Create());

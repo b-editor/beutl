@@ -2188,6 +2188,15 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
     <value>Frame guidance (optional)</value>
   </data>
+  <data name="AiPendingRequest" xml:space="preserve">
+    <value>Pending AI request</value>
+  </data>
+  <data name="AiRecoverRequest" xml:space="preserve">
+    <value>Recover</value>
+  </data>
+  <data name="AiAbandonRequest" xml:space="preserve">
+    <value>Abandon</value>
+  </data>
   <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
     <value>Transcribe or import captions, and the cues appear here.</value>
   </data>

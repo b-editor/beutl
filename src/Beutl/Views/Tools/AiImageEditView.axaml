@@ -4,6 +4,7 @@
              xmlns:btl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:ai="using:Beutl.Services.AI"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
@@ -15,6 +16,30 @@
              mc:Ignorable="d">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
+            <Border Padding="8"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    CornerRadius="4"
+                    IsVisible="{CompiledBinding RecoveryAvailable.Value}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{x:Static lang:Strings.AiPendingRequest}" TextWrapping="Wrap" />
+                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiPendingRequest}"
+                              ItemsSource="{CompiledBinding RecoveryAttempts.Value}"
+                              SelectedItem="{CompiledBinding SelectedRecoveryAttempt.Value}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="ai:AiPendingAttempt">
+                                <TextBlock Text="{CompiledBinding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Margin="0,0,6,0"
+                                Command="{CompiledBinding RecoverSelectedAttempt}"
+                                Content="{x:Static lang:Strings.AiRecoverRequest}" />
+                        <Button Command="{CompiledBinding AbandonSelectedAttempt}"
+                                Content="{x:Static lang:Strings.AiAbandonRequest}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
             <StackPanel Spacing="4">
                 <TextBlock Text="{x:Static lang:Strings.AiEditSourceImage}" />
                 <Grid ColumnDefinitions="*,Auto">

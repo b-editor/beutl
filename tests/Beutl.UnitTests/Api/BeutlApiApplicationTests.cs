@@ -309,6 +309,27 @@ public sealed class BeutlApiApplicationTests
     }
 
     [Test]
+    public async Task AuthenticatedRequestScopeRejectsAccountSwitchBeforeDispatch()
+    {
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        AuthenticatedUser first = SetAuthenticatedUser(app, "first-user", "first-token");
+        using IDisposable scope = AiAuthenticatedRequestScope.Enter(first);
+        SetAuthenticatedUser(app, "second-user", "second-token");
+        bool invoked = false;
+
+        Assert.ThrowsAsync<AuthenticationRequiredException>(() =>
+            app.SendAuthenticatedAsync(
+                (_, _) =>
+                {
+                    invoked = true;
+                    return Task.FromResult(1);
+                },
+                CancellationToken.None));
+        Assert.That(invoked, Is.False);
+    }
+
+    [Test]
     public async Task Dispose_CancelsActiveAuthenticatedRequestAndDisposesAiCapabilities()
     {
         using var httpClient = new HttpClient();
@@ -334,7 +355,7 @@ public sealed class BeutlApiApplicationTests
             await service.RefreshAsync(CancellationToken.None));
     }
 
-    private static void SetAuthenticatedUser(
+    private static AuthenticatedUser SetAuthenticatedUser(
         BeutlApiApplication app,
         string userId,
         string token)
@@ -358,6 +379,7 @@ public sealed class BeutlApiApplicationTests
             "_authenticatedUser",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
+        return user;
     }
 
     private static void RegisterResource<T>(BeutlApiApplication app, T resource)

@@ -91,20 +91,177 @@ public interface IAiJobRefreshHandler
     Task RefreshAsync(AiJob job, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// The resource-free result of checking whether a failed AI job may be retried.
+/// </summary>
+/// <remarks>
+/// A preflight is only an estimate for presentation. It must not reserve
+/// balance, create a durable idempotency key, or retain a lease. Call
+/// <see cref="IAiJobRetryHandler.PrepareAsync"/> immediately before asking the
+/// user to pay or dispatching a retry.
+/// </remarks>
 public sealed record AiJobRetryPreflight(
     bool IsAvailable,
     bool CanSubmit,
     string Explanation);
 
+/// <summary>
+/// Owns a retry prepared by a concrete handler. A preparation captures the
+/// handler and durable request identity that produced it, so replacing an
+/// extension after preparation cannot redirect the request to a different
+/// implementation.
+/// </summary>
+/// <remarks>
+/// <see cref="ExecuteAsync"/> is single-use. Dispose is idempotent; disposing
+/// before execution abandons the unconsumed preparation, while disposing after
+/// execution is a no-op because the handler owns the terminal/ambiguous outcome.
+/// The host retains the originating job-kind descriptor lease until
+/// <see cref="ExecuteAsync"/> completes, then always calls
+/// <see cref="IAsyncDisposable.DisposeAsync"/>. An implementation that keeps
+/// using extension-owned resources after cancellation must keep its returned
+/// task incomplete until that work has drained; returning earlier permits the
+/// extension to unload while its background work is still running.
+/// </remarks>
+public interface IAiJobRetryPreparation : IAsyncDisposable
+{
+    /// <summary>
+    /// Executes the prepared retry exactly once. Task completion is the
+    /// lifetime boundary after which the originating descriptor may unload.
+    /// </summary>
+    /// <param name="cancellationToken">
+    /// Stops the host's request to wait. Implementations may finish already
+    /// dispatched paid work, but must not complete this task until all use of
+    /// extension-owned resources has ended.
+    /// </param>
+    Task ExecuteAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// The outcome of preparing a retry. A blocked result has no owned resource;
+/// a ready result owns exactly one preparation until it is taken or disposed.
+/// </summary>
+public sealed class AiJobRetryPreparationResult : IAsyncDisposable
+{
+    private readonly bool _isReady;
+    private readonly string _explanation;
+    private IAiJobRetryPreparation? _preparation;
+    private int _disposed;
+
+    private AiJobRetryPreparationResult(
+        bool isReady,
+        string explanation,
+        IAiJobRetryPreparation? preparation)
+    {
+        _isReady = isReady;
+        _explanation = explanation;
+        _preparation = preparation;
+    }
+
+    public bool IsReady => _isReady;
+
+    /// <summary>
+    /// The user-facing reason when preparation is blocked. This is empty for a
+    /// ready result.
+    /// </summary>
+    public string Explanation => _explanation;
+
+    /// <summary>Creates a result that cannot be dispatched.</summary>
+    public static AiJobRetryPreparationResult Blocked(string explanation)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(explanation);
+        return new AiJobRetryPreparationResult(
+            isReady: false,
+            explanation,
+            preparation: null);
+    }
+
+    /// <summary>Creates a result owning the supplied preparation.</summary>
+    public static AiJobRetryPreparationResult Ready(IAiJobRetryPreparation preparation)
+    {
+        ArgumentNullException.ThrowIfNull(preparation);
+        return new AiJobRetryPreparationResult(
+            isReady: true,
+            explanation: string.Empty,
+            preparation);
+    }
+
+    /// <summary>
+    /// Transfers ownership of the preparation to the caller. This succeeds
+    /// once for a ready result and throws for blocked, disposed, or already
+    /// transferred results.
+    /// </summary>
+    public IAiJobRetryPreparation TakePreparation()
+    {
+        if (!_isReady)
+            throw new InvalidOperationException("A blocked retry has no preparation.");
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        return Interlocked.Exchange(ref _preparation, null)
+            ?? throw new InvalidOperationException("The retry preparation was already taken.");
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
+        IAiJobRetryPreparation? preparation = Interlocked.Exchange(ref _preparation, null);
+        if (preparation is not null)
+            await preparation.DisposeAsync();
+    }
+}
+
+/// <summary>
+/// A prepared retry can no longer be executed because its durable identity,
+/// account, or generation changed before dispatch.
+/// </summary>
+public sealed class AiJobRetryPreparationRejectedException : AiException
+{
+    public AiJobRetryPreparationRejectedException(Exception? innerException = null)
+        : base(
+            "The prepared AI retry is no longer valid. Start a new confirmation.",
+            innerException)
+    {
+    }
+}
+
+/// <summary>
+/// The retry store could not be read or updated while preparing a request.
+/// </summary>
+public sealed class AiJobRetryPreparationUnavailableException : AiException
+{
+    public AiJobRetryPreparationUnavailableException(Exception? innerException = null)
+        : base(
+            "The AI retry could not be prepared right now. Try again later.",
+            innerException,
+            isTransient: true)
+    {
+    }
+}
+
 public interface IAiJobRetryHandler
 {
+    /// <summary>Determines whether this handler supports retrying the job.</summary>
     bool CanRetry(AiJob job, AiJobStatusSemantics status);
 
+    /// <summary>
+    /// Returns a resource-free presentation estimate. This method must not
+    /// allocate an idempotency key or retain request ownership.
+    /// </summary>
     ValueTask<AiJobRetryPreflight> GetPreflightAsync(
         AiJob job,
         CancellationToken cancellationToken);
 
-    Task RetryAsync(
+    /// <summary>
+    /// Revalidates the request immediately before dispatch and returns either
+    /// a blocked reason or an owned, handler-bound preparation.
+    /// </summary>
+    /// <remarks>
+    /// The caller disposes the result on every path. A ready result retains
+    /// ownership until <see cref="AiJobRetryPreparationResult.TakePreparation"/>
+    /// transfers it exactly once.
+    /// </remarks>
+    ValueTask<AiJobRetryPreparationResult> PrepareAsync(
         AiJob job,
         CancellationToken cancellationToken);
 }

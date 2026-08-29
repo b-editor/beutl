@@ -365,12 +365,20 @@ public class BeutlApiApplication : IAsyncDisposable
             GetResource<AiJobChangeNotifier>()));
         Register(() => new AuthenticatedContentService(this));
         Register(() => new AiJobClient(this));
+        Register(() => new AiRetryAttemptContext(
+            new FileAiRetryKeyStore(Path.Combine(
+                BeutlEnvironment.GetHomeDirectoryPath(),
+                "ai")),
+            () => AuthenticatedUser.Value is { } user
+                ? new AiAuthenticatedRequestIdentity(user.Profile.Id, user)
+                : null));
         Register<IAiJobKindRegistry>(() => AiJobKindRegistry.CreateBuiltIn(
             GetResource<IAiImageGenerationService>(),
             GetResource<IAiVideoService>(),
             GetResource<IAiEntitlementService>(),
             GetResource<IAiOperationAvailabilityService>(),
             GetResource<IAiModelCatalogService>(),
+            GetResource<AiRetryAttemptContext>(),
             GetResource<IExtensionRegistry>()));
         Register(() => new AiJobMonitor(
             this,
@@ -474,6 +482,7 @@ public class BeutlApiApplication : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(send);
         cancellationToken.ThrowIfCancellationRequested();
+        expectedUser ??= AiAuthenticatedRequestScope.Current;
 
         using AuthenticatedSessionContext context = await CreateAuthenticatedSessionAsync(
                 expectedUser,

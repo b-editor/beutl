@@ -41,6 +41,8 @@ public sealed class AiJobCenterViewModel : IDisposable
     private string? _snapshotError;
     private AiJobConfirmationAction _confirmationAction;
     private AiJobItemViewModel? _confirmationItem;
+    private IAiJobKindLease? _confirmationLease;
+    private IAiJobRetryHandler? _confirmationHandler;
     private long _confirmationRevision;
     private bool _isDisposed;
 
@@ -133,9 +135,12 @@ public sealed class AiJobCenterViewModel : IDisposable
         if (!item.CanRetry || IsDisposed)
             return;
 
+        ReleaseConfirmationResources();
         long revision = Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.Retry;
         _confirmationItem = item;
+        _confirmationLease = null;
+        _confirmationHandler = null;
         ConfirmationTitle.Value = Strings.AiJobCenter_RetryTitle;
         ConfirmationMessage.Value = Strings.AiJobCenter_CheckingRetryCost;
         ConfirmationActionText.Value = Strings.AiJobCenter_Retry;
@@ -143,17 +148,86 @@ public sealed class AiJobCenterViewModel : IDisposable
         IsConfirmationLoading.Value = true;
         IsConfirmationOpen.Value = true;
 
-        AiJobRetryPreflight estimate = await GetRetryEstimateAsync(item);
-        if (revision != Volatile.Read(ref _confirmationRevision) || IsDisposed)
-            return;
+        IAiJobKindLease? lease = null;
+        try
+        {
+            if (!_jobKinds.TryAcquire(item.Job.Kind, out lease))
+            {
+                SetOperationError(Strings.AiPricingUnavailable);
+                return;
+            }
 
-        ConfirmationMessage.Value = estimate.IsAvailable
-            ? string.Join(
-                Environment.NewLine,
-                Strings.AiJobCenter_RetryConfirmation,
-                estimate.Explanation)
-            : estimate.Explanation;
-        CanConfirm.Value = estimate.CanSubmit;
+            AiJobKindDescriptor descriptor = lease.Descriptor;
+            AiJobStatusSemantics status = descriptor.StatusResolver.Resolve(item.Job.Status);
+            if (descriptor.RetryHandler is not { } retryHandler
+                || !retryHandler.CanRetry(item.Job, status))
+            {
+                SetOperationError(Strings.AiPricingUnavailable);
+                return;
+            }
+
+            _confirmationLease = lease;
+            _confirmationHandler = retryHandler;
+            AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
+                item.Job,
+                _lifetimeCts.Token);
+            if (revision != Volatile.Read(ref _confirmationRevision)
+                || IsDisposed
+                || !ReferenceEquals(_confirmationLease, lease))
+            {
+                return;
+            }
+
+            ConfirmationMessage.Value = estimate.IsAvailable
+                ? string.Join(
+                    Environment.NewLine,
+                    Strings.AiJobCenter_RetryConfirmation,
+                    estimate.Explanation)
+                : estimate.Explanation;
+            CanConfirm.Value = estimate.CanSubmit;
+            if (!estimate.CanSubmit)
+            {
+                ReleaseConfirmationResources();
+                lease = null;
+            }
+        }
+        catch (AuthenticationRequiredException)
+        {
+            SetOperationError(Strings.AiAuthenticationRequired);
+            ReleaseConfirmationResources();
+            lease = null;
+        }
+        catch (AiJobRetryPreparationRejectedException)
+        {
+            SetOperationError(Strings.AiResultUnavailable);
+            ReleaseConfirmationResources();
+            lease = null;
+        }
+        catch (AiJobRetryPreparationUnavailableException)
+        {
+            SetOperationError(Strings.AiPricingUnavailable);
+            ReleaseConfirmationResources();
+            lease = null;
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+            ReleaseConfirmationResources();
+            lease = null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to refresh authoritative pricing before retrying AI job {JobId}", item.Id);
+            SetOperationError(Strings.AiPricingUnavailable);
+            ReleaseConfirmationResources();
+            lease = null;
+        }
+        finally
+        {
+            if (lease is not null && !ReferenceEquals(_confirmationLease, lease))
+            {
+                lease.Dispose();
+            }
+        }
         IsConfirmationLoading.Value = false;
     }
 
@@ -163,6 +237,7 @@ public sealed class AiJobCenterViewModel : IDisposable
         if (!item.CanDelete || IsDisposed)
             return;
 
+        ReleaseConfirmationResources();
         Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.Delete;
         _confirmationItem = item;
@@ -184,7 +259,24 @@ public sealed class AiJobCenterViewModel : IDisposable
             : normalized[..maximumLength].TrimEnd() + "…";
     }
 
-    internal void CancelConfirmation()
+    private void ReleaseConfirmationResources()
+    {
+        IAiJobKindLease? lease = Interlocked.Exchange(ref _confirmationLease, null);
+        _confirmationHandler = null;
+        if (lease is not null)
+        {
+            try
+            {
+                lease.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to release an AI retry confirmation lease");
+            }
+        }
+    }
+
+    private void ClearConfirmationState()
     {
         Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.None;
@@ -194,20 +286,33 @@ public sealed class AiJobCenterViewModel : IDisposable
         CanConfirm.Value = false;
     }
 
+    internal void CancelConfirmation()
+    {
+        ClearConfirmationState();
+        ReleaseConfirmationResources();
+    }
+
     internal async Task ConfirmPendingActionAsync()
     {
         if (!CanConfirm.Value || _confirmationItem is not { } item)
             return;
 
         AiJobConfirmationAction action = _confirmationAction;
-        CancelConfirmation();
+        IAiJobKindLease? lease = Interlocked.Exchange(ref _confirmationLease, null);
+        IAiJobRetryHandler? handler = _confirmationHandler;
+        _confirmationHandler = null;
+        ClearConfirmationState();
         switch (action)
         {
             case AiJobConfirmationAction.Retry:
-                await RetryJobAsync(item);
+                await RetryJobAsync(item, lease, handler);
                 break;
             case AiJobConfirmationAction.Delete:
+                lease?.Dispose();
                 await DeleteJobAsync(item);
+                break;
+            default:
+                lease?.Dispose();
                 break;
         }
     }
@@ -250,18 +355,32 @@ public sealed class AiJobCenterViewModel : IDisposable
     }
 
     public async Task RetryJobAsync(AiJobItemViewModel item)
+        => await RetryJobAsync(item, confirmedLease: null, confirmedHandler: null);
+
+    private async Task RetryJobAsync(
+        AiJobItemViewModel item,
+        IAiJobKindLease? confirmedLease,
+        IAiJobRetryHandler? confirmedHandler)
     {
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanRetry)
+        {
+            confirmedLease?.Dispose();
             return;
+        }
 
         using IDisposable? operation = TryBeginOperation(item);
         if (operation is null)
+        {
+            confirmedLease?.Dispose();
             return;
+        }
+
+        IAiJobKindLease? lease = confirmedLease;
 
         try
         {
-            if (!_jobKinds.TryAcquire(item.Job.Kind, out IAiJobKindLease? lease))
+            if (lease is null && !_jobKinds.TryAcquire(item.Job.Kind, out lease))
             {
                 SetOperationError(Strings.AiPricingUnavailable);
                 return;
@@ -271,23 +390,43 @@ public sealed class AiJobCenterViewModel : IDisposable
             {
                 AiJobKindDescriptor descriptor = lease.Descriptor;
                 AiJobStatusSemantics status = descriptor.StatusResolver.Resolve(item.Job.Status);
-                if (descriptor.RetryHandler is not { } retryHandler
+                IAiJobRetryHandler? retryHandler = confirmedHandler ?? descriptor.RetryHandler;
+                if (retryHandler is null
                     || !retryHandler.CanRetry(item.Job, status))
                 {
                     SetOperationError(Strings.AiPricingUnavailable);
                     return;
                 }
 
-                AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
-                    item.Job,
-                    _lifetimeCts.Token);
-                if (!estimate.CanSubmit)
+                if (confirmedLease is null)
                 {
-                    SetOperationError(estimate.Explanation);
-                    return;
+                    AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
+                        item.Job,
+                        _lifetimeCts.Token);
+                    if (!estimate.CanSubmit)
+                    {
+                        SetOperationError(estimate.Explanation);
+                        return;
+                    }
                 }
 
-                await retryHandler.RetryAsync(item.Job, _lifetimeCts.Token);
+                AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
+                    item.Job,
+                    _lifetimeCts.Token);
+                await using (prepared)
+                {
+                    if (!prepared.IsReady)
+                    {
+                        SetOperationError(prepared.Explanation);
+                        return;
+                    }
+
+                    IAiJobRetryPreparation preparation = prepared.TakePreparation();
+                    await using (preparation)
+                    {
+                        await preparation.ExecuteAsync(_lifetimeCts.Token);
+                    }
+                }
             }
 
             if (!IsDisposed)
@@ -301,6 +440,21 @@ public sealed class AiJobCenterViewModel : IDisposable
         catch (AiUsageLimitExceededException)
         {
             SetOperationError(Strings.AiUsageLimitExceeded);
+        }
+        catch (AiJobRetryPreparationRejectedException)
+        {
+            // The durable key or authenticated account changed after the
+            // dialog preflight. Require the user to start a fresh confirmation
+            // instead of silently creating a new paid request.
+            SetOperationError(Strings.AiResultUnavailable);
+        }
+        catch (AuthenticationRequiredException)
+        {
+            SetOperationError(Strings.AiAuthenticationRequired);
+        }
+        catch (AiJobRetryPreparationUnavailableException)
+        {
+            SetOperationError(Strings.AiPricingUnavailable);
         }
         catch (Exception ex)
         {
@@ -341,6 +495,16 @@ public sealed class AiJobCenterViewModel : IDisposable
         {
             SetOperationError(Strings.AiAuthenticationRequired);
             return new AiJobRetryPreflight(false, false, Strings.AiAuthenticationRequired);
+        }
+        catch (AiJobRetryPreparationRejectedException)
+        {
+            SetOperationError(Strings.AiResultUnavailable);
+            return new AiJobRetryPreflight(false, false, Strings.AiResultUnavailable);
+        }
+        catch (AiJobRetryPreparationUnavailableException)
+        {
+            SetOperationError(Strings.AiPricingUnavailable);
+            return RetryUnavailable();
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -409,6 +573,7 @@ public sealed class AiJobCenterViewModel : IDisposable
         }
 
         _lifetimeCts.Cancel();
+        CancelConfirmation();
         _disposables.Dispose();
         foreach (AiJobItemViewModel job in _jobs)
         {

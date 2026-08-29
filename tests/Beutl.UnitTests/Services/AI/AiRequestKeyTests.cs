@@ -1,4 +1,5 @@
-﻿using Beutl.Services.AI;
+﻿using Beutl.Api.Services;
+using Beutl.Services.AI;
 
 namespace Beutl.UnitTests.Services.AI;
 
@@ -198,4 +199,407 @@ public sealed class AiRequestKeyTests
 
         Assert.That(resumed.NameFor(2, "a chunk").Key, Is.EqualTo(original.Key));
     }
+
+    [TestCase("image.generate", null)]
+    [TestCase("video.generate", null)]
+    [TestCase("image.edit", "upscale")]
+    public void DurableNameSurvivesARecreatedRequestKey(
+        string operation,
+        string? editTask)
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var firstStore = new FileAiRequestRecoveryStore(directory);
+            var first = new AiRequestKey(
+                recoveryContext: RecoveryContext(firstStore, () => "account"),
+                operation: operation);
+            string?[] parts = editTask is null ? ["prompt"] : [editTask, "prompt"];
+            AiRequestName issued = first.NameFor(parts);
+
+            var restarted = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: operation);
+            AiRequestName recovered = restarted.NameFor(parts);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(recovered.Key, Is.EqualTo(issued.Key));
+                Assert.That(recovered.IsRepeat, Is.True);
+                if (editTask is not null)
+                {
+                    Assert.That(
+                        File.ReadAllText(Path.Combine(directory, "ai-request-recovery.json")),
+                        Does.Contain($"image.edit.{editTask}"));
+                }
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void RetireRemovesTheIssuingAccountAfterAnAccountSwitch()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            string? account = "account-a";
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => account),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("prompt");
+            account = "account-b";
+            AiRequestName issuedForB = key.NameFor("prompt");
+            Assert.That(issuedForB.Key, Is.Not.EqualTo(issued.Key));
+
+            key.Retire(issued);
+
+            var accountA = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account-a"),
+                operation: "image.generate");
+            var accountB = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account-b"),
+                operation: "image.generate");
+            Assert.Multiple(() =>
+            {
+                Assert.That(accountA.NameFor("prompt").Key, Is.Not.EqualTo(issued.Key));
+                Assert.That(accountB.NameFor("prompt").Key, Is.EqualTo(issuedForB.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void AccountSwitchBeforeSendFailsWithoutDeletingTheIssuedRecovery()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            string? account = "account-a";
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => account),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("prompt");
+            account = "account-b";
+
+            Assert.Throws<AuthenticationRequiredException>(() =>
+                key.EnterAuthenticatedScope(issued));
+
+            var accountA = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account-a"),
+                operation: "image.generate");
+            Assert.That(accountA.NameFor("prompt").Key, Is.EqualTo(issued.Key));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void StoreFailureDoesNotPublishAnInMemoryOutstandingName()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            string lockPath = Path.Combine(directory, "ai-request-recovery.json.lock");
+            using (var lease = new FileStream(
+                       lockPath,
+                       FileMode.OpenOrCreate,
+                       FileAccess.ReadWrite,
+                       FileShare.None))
+            {
+                Assert.Throws<InvalidDataException>(() => key.NameFor("prompt"));
+                Assert.That(key.HasOutstandingName.Value, Is.False);
+            }
+
+            AiRequestName issued = key.NameFor("prompt");
+            Assert.Multiple(() =>
+            {
+                Assert.That(issued.IsRepeat, Is.False);
+                Assert.That(key.HasOutstandingName.Value, Is.True);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void RetireLeavesOtherDurableRequestNamesRecoverable()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            AiRequestName first = key.NameFor("first");
+            AiRequestName second = key.NameFor("second");
+            key.Retire(second);
+
+            var restarted = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            Assert.Multiple(() =>
+            {
+                Assert.That(restarted.NameFor("first").Key, Is.EqualTo(first.Key));
+                Assert.That(restarted.NameFor("first").IsRepeat, Is.True);
+                Assert.That(restarted.NameFor("second").Key, Is.Not.EqualTo(second.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void RestartedKeySettlingOneDurableRequestKeepsGateAndOtherModel()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var first = new AiRequestKey(
+                recoveryContext: RecoveryContext(new FileAiRequestRecoveryStore(directory), () => "account"),
+                operation: "image.generate");
+            string?[] firstParts = ["p1", "", "", "", "model-a"];
+            string?[] secondParts = ["p2", "", "", "", "model-b"];
+            AiRequestName firstName = first.NameFor(firstParts);
+            _ = first.NameFor(secondParts);
+
+            var restarted = new AiRequestKey(
+                recoveryContext: RecoveryContext(new FileAiRequestRecoveryStore(directory), () => "account"),
+                operation: "image.generate");
+            AiRequestName materialized = restarted.NameFor(firstParts);
+            restarted.Retire(materialized);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restarted.HasOutstandingName.Value, Is.True);
+                Assert.That(restarted.PersistedModels(AiOperations.ImageGeneration),
+                    Does.Contain(new AiModelId("model-b")));
+                Assert.That(materialized.Key, Is.EqualTo(firstName.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void RetireAllRemovesEveryDurableIdentityBeforeResettingMemory()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            AiRequestName first = key.NameFor("first");
+            AiRequestName second = key.NameFor("second");
+
+            key.Retire();
+
+            var restarted = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            Assert.Multiple(() =>
+            {
+                Assert.That(restarted.NameFor("first").Key, Is.Not.EqualTo(first.Key));
+                Assert.That(restarted.NameFor("second").Key, Is.Not.EqualTo(second.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void DurableRecoveryOpensCommandGateButOnlyExactFingerprintIsRepeat()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var first = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            AiRequestName paid = first.NameFor("paid prompt");
+
+            var restarted = new AiRequestKey(
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            bool gateWasOpen = restarted.HasOutstandingName.Value;
+            AiRequestName unrelated = restarted.NameFor("another prompt");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(gateWasOpen, Is.True);
+                Assert.That(unrelated.IsRepeat, Is.False);
+                Assert.That(unrelated.Key, Is.Not.EqualTo(paid.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void ExplicitAbandonAdvancesGenerationAndLeavesOtherAccountUntouched()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            string? account = "account-a";
+            var store = new FileAiRequestRecoveryStore(directory);
+            var keyA = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => account),
+                operation: "image.generate");
+            AiRequestName abandoned = keyA.NameFor("same");
+            account = "account-b";
+            var keyB = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => account),
+                operation: "image.generate");
+            AiRequestName other = keyB.NameFor("same");
+
+            account = "account-a";
+            AiPendingAttempt pendingA = store.PendingFor("account-a", "image.generate").Single();
+            keyA.Abandon(pendingA);
+            AiRequestName next = keyA.NameFor("same");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(next.Key, Is.Not.EqualTo(abandoned.Key));
+                Assert.That(next.IsRepeat, Is.False);
+                Assert.That(store.Find("account-b", "image.generate", pendingA.Fingerprint)?.Key,
+                    Is.EqualTo(other.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void StaleRetireAndWithdrawCannotDeleteNewGeneration()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            string? account = "account";
+            var store = new FileAiRequestRecoveryStore(directory);
+            var first = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => account),
+                operation: "image.generate");
+            AiRequestName oldName = first.NameFor("same");
+            var stale = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => account),
+                operation: "image.generate");
+            _ = stale.NameFor("same");
+            AiPendingAttempt oldAttempt = store.PendingFor("account", "image.generate").Single();
+            first.Abandon(oldAttempt);
+            AiRequestName currentName = first.NameFor("same");
+
+            AiRequestName materializedOld = new(oldName.Key, true);
+            stale.Retire(materializedOld);
+            stale.Withdraw(materializedOld);
+
+            Assert.That(store.Find("account", "image.generate", oldAttempt.Fingerprint)?.Key,
+                Is.EqualTo(currentName.Key));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void AbandonGenerationSurvivesAProcessRestartWithTheSameSeed()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var first = new AiRequestKey(
+                seed: "stable-seed",
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            AiRequestName oldName = first.NameFor("same");
+            AiPendingAttempt pending = first.PendingAttempts(AiOperations.ImageGeneration).Single();
+            first.Abandon(pending);
+
+            var restarted = new AiRequestKey(
+                seed: "stable-seed",
+                recoveryContext: RecoveryContext(
+                    new FileAiRequestRecoveryStore(directory),
+                    () => "account"),
+                operation: "image.generate");
+            AiRequestName next = restarted.NameFor("same");
+            Assert.Multiple(() =>
+            {
+                Assert.That(next.Key, Is.Not.EqualTo(oldName.Key));
+                Assert.That(next.IsRepeat, Is.False);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static string CreateTemporaryDirectory()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            "Beutl.UnitTests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        return directory;
+    }
+
+    private static AiRequestRecoveryContext RecoveryContext(
+        FileAiRequestRecoveryStore store,
+        Func<string?> accountProvider)
+        => new(
+            store,
+            () => accountProvider() is { } account
+                ? new AiAuthenticatedRequestIdentity(account, User: null)
+                : null);
 }

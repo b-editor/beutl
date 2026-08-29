@@ -203,8 +203,49 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// <summary>What the request should carry. Null asks the server for its default.</summary>
     public AiModelId? SelectedModel => Selected.Value?.Id;
 
+    /// <summary>
+    /// Drops models retained only for recovery once their durable request is
+    /// gone, and moves the selection back to a model in the current catalog.
+    /// </summary>
+    internal void ReconcileRecoveryModels()
+    {
+        if (_loadedCatalog is not { } catalog)
+            return;
+
+        ImmutableArray<AiModelOption> registered = catalog.ModelsFor(Operation);
+        HashSet<AiModelId> registeredIds = registered
+            .Select(model => model.Id)
+            .ToHashSet();
+        HashSet<AiModelId> retainedIds = (KeepOffered?.Invoke(Operation) ?? [])
+            .ToHashSet();
+        for (int index = Options.Count - 1; index >= 0; index--)
+        {
+            AiModelId id = Options[index].Id;
+            if (!registeredIds.Contains(id) && !retainedIds.Contains(id))
+                Options.RemoveAt(index);
+        }
+
+        HasChoice.Value = Options.Count > 1;
+        if (Selected.Value is { } selected
+            && registeredIds.Contains(selected.Id)
+            && Options.Any(option => option.Id == selected.Id))
+        {
+            return;
+        }
+
+        Selected.Value = Options.FirstOrDefault(option =>
+                registeredIds.Contains(option.Id) && option.IsAvailable)
+            ?? Options.FirstOrDefault(option => registeredIds.Contains(option.Id));
+    }
+
     public Task LoadAsync(AiOperationId operation, CancellationToken cancellationToken)
-        => LoadAsync(operation, null, cancellationToken);
+        => LoadAsync(operation, null, false, cancellationToken);
+
+    public Task LoadAsync(
+        AiOperationId operation,
+        AiModelId? preferred,
+        CancellationToken cancellationToken)
+        => LoadAsync(operation, preferred, preferredSpecified: preferred is not null, cancellationToken);
 
     /// <summary>
     /// Loads the list and lands on <paramref name="preferred"/> when it is
@@ -219,6 +260,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
     public async Task LoadAsync(
         AiOperationId operation,
         AiModelId? preferred,
+        bool preferredSpecified,
         CancellationToken cancellationToken)
     {
         if (Volatile.Read(ref _disposed) != 0)
@@ -236,7 +278,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         int generation = Interlocked.Increment(ref _loadGeneration);
         try
         {
-            await LoadCoreAsync(operation, preferred, generation, cancellationToken);
+            await LoadCoreAsync(operation, preferred, preferredSpecified, generation, cancellationToken);
         }
         finally
         {
@@ -253,6 +295,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
     private async Task LoadCoreAsync(
         AiOperationId operation,
         AiModelId? preferred,
+        bool preferredSpecified,
         int generation,
         CancellationToken cancellationToken)
     {
@@ -275,7 +318,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
             return;
 
         AiEntitlements? entitlements = _entitlements.Entitlements.Value;
-        if (preferred is null
+        if (!preferredSpecified
+            && preferred is null
             && Operation == operation
             && ReferenceEquals(_loadedCatalog, catalog)
             && ReferenceEquals(_loadedEntitlements, entitlements))
@@ -291,7 +335,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
 
         // The choice already made, kept when it is still on offer: a reload is
         // not a reason to move it.
-        AiModelId? keep = preferred ?? SelectedModel;
+        AiModelId? keep = preferredSpecified ? preferred : (preferred ?? SelectedModel);
         // Models the catalog no longer lists that an uncollected request was
         // sent with. The server answers such a request before it looks at
         // whether the model is still offered, so each one stays on the list,
@@ -340,11 +384,13 @@ internal sealed class AiModelPickerViewModel : IDisposable
             || catalog.OffersNoModel(operation);
         // Start on the first model the account can actually pay for, falling
         // back to the server's default so the picker is never empty.
-        Selected.Value = (keep is { } wanted
-                             ? Options.FirstOrDefault(option => option.Id == wanted)
-                             : null)
-                         ?? Options.FirstOrDefault(option => option.IsAvailable)
-                         ?? Options.FirstOrDefault();
+        Selected.Value = preferredSpecified && preferred is null
+            ? null
+            : (keep is { } wanted
+                ? Options.FirstOrDefault(option => option.Id == wanted)
+                : null)
+              ?? Options.FirstOrDefault(option => option.IsAvailable)
+              ?? Options.FirstOrDefault();
     }
 
     public void Dispose()

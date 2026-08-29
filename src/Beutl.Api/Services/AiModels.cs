@@ -66,6 +66,14 @@ public enum AiModelCostTier
 /// omitted the dimension, Unsupported means it explicitly accepts no value,
 /// and Supported carries the accepted values.
 /// </summary>
+/// <remarks>
+/// <see langword="default"/> is identical to <see cref="Unspecified"/>.
+/// Both unspecified and unsupported dimensions expose an empty <see cref="Values"/>
+/// array; use <see cref="IsSpecified"/> to distinguish them. Calling
+/// <see cref="Supported(IEnumerable{T})"/> with an empty sequence produces the
+/// same value as <see cref="Unsupported"/>. Equality compares the specified
+/// state and, for a specified dimension, the values in order.
+/// </remarks>
 public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimension<T>>
     where T : notnull
 {
@@ -77,21 +85,30 @@ public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimensi
         IsSpecified = isSpecified;
     }
 
+    /// <summary>Gets the accepted values. Unspecified and unsupported dimensions return an empty array.</summary>
     public ImmutableArray<T> Values => _values.IsDefault ? [] : _values;
 
+    /// <summary>Gets whether the server explicitly described this dimension.</summary>
+    /// <remarks><see langword="false"/> means <see cref="Unspecified"/>; <see langword="true"/> with no values means <see cref="Unsupported"/>.</remarks>
     public bool IsSpecified { get; }
 
+    /// <summary>Gets the default dimension, meaning that the server did not specify support.</summary>
     public static AiCapabilityDimension<T> Unspecified => default;
 
+    /// <summary>Creates a dimension containing the values accepted by a model.</summary>
+    /// <param name="values">The accepted values, in provider order. An empty sequence means explicitly unsupported.</param>
+    /// <returns>A specified dimension whose <see cref="Values"/> are a defensive immutable copy.</returns>
     public static AiCapabilityDimension<T> Supported(IEnumerable<T> values)
     {
         ArgumentNullException.ThrowIfNull(values);
         return new(values.ToImmutableArray(), true);
     }
 
+    /// <summary>Gets the explicitly unsupported dimension.</summary>
     public static AiCapabilityDimension<T> Unsupported { get; } =
         new([], true);
 
+    /// <summary>Compares two dimensions by specified state and, when specified, ordered values.</summary>
     public bool Equals(AiCapabilityDimension<T> other)
     {
         if (IsSpecified != other.IsSpecified)
@@ -99,9 +116,11 @@ public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimensi
         return !IsSpecified || Values.SequenceEqual(other.Values);
     }
 
+    /// <summary>Determines whether this dimension equals another object.</summary>
     public override bool Equals(object? obj)
         => obj is AiCapabilityDimension<T> other && Equals(other);
 
+    /// <summary>Returns a hash code based on specified state and ordered values.</summary>
     public override int GetHashCode()
     {
         var hash = new HashCode();
@@ -114,11 +133,13 @@ public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimensi
         return hash.ToHashCode();
     }
 
+    /// <summary>Determines whether two dimensions are equal.</summary>
     public static bool operator ==(
         AiCapabilityDimension<T> left,
         AiCapabilityDimension<T> right)
         => left.Equals(right);
 
+    /// <summary>Determines whether two dimensions differ.</summary>
     public static bool operator !=(
         AiCapabilityDimension<T> left,
         AiCapabilityDimension<T> right)

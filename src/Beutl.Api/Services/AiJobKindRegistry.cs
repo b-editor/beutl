@@ -68,12 +68,13 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
         AttachExtensionProvider(extensionProvider);
     }
 
-    public static AiJobKindRegistry CreateBuiltIn(
+    internal static AiJobKindRegistry CreateBuiltIn(
         IAiImageGenerationService images,
         IAiVideoService videos,
         IAiEntitlementService entitlements,
         IAiOperationAvailabilityService availability,
         IAiModelCatalogService models,
+        AiRetryAttemptContext retryContext,
         IExtensionProvider? extensionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(images);
@@ -81,6 +82,7 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(entitlements);
         ArgumentNullException.ThrowIfNull(availability);
         ArgumentNullException.ThrowIfNull(models);
+        ArgumentNullException.ThrowIfNull(retryContext);
 
         var registry = new AiJobKindRegistry();
         foreach (AiJobKindDescriptor descriptor in BuiltInAiJobKinds.Create(
@@ -88,7 +90,8 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
                      videos,
                      entitlements,
                      availability,
-                     models))
+                     models,
+                     retryContext))
         {
             registry._ownedRegistrations.Add((Registration)registry.Register(descriptor));
         }

@@ -817,7 +817,9 @@ public sealed class AiCompactPresentationTests
             clients.GetResource<IAiModelCatalogService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiImageGenerationService>(),
-            clients.GetResource<IAuthenticatedContentService>());
+            clients.GetResource<IAuthenticatedContentService>(),
+            editViewModel: null,
+            requestRecoveryContext: AiRetryTestContext.CreateForm());
 
     private static AiImageEditDialogViewModel CreateImageEditDialog(BeutlApiApplication clients)
         => new(
@@ -826,7 +828,9 @@ public sealed class AiCompactPresentationTests
             clients.GetResource<IAiModelCatalogService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiImageEditingService>(),
-            clients.GetResource<IAuthenticatedContentService>());
+            clients.GetResource<IAuthenticatedContentService>(),
+            editViewModel: null,
+            requestRecoveryContext: AiRetryTestContext.CreateForm());
 
     private static AiVideoGenerationDialogViewModel CreateVideoGenerationDialog(BeutlApiApplication clients)
         => new(
@@ -837,7 +841,9 @@ public sealed class AiCompactPresentationTests
             clients.GetResource<IAiVideoService>(),
             clients.GetResource<IAuthenticatedContentService>(),
             clients.GetResource<IAiJobKindRegistry>(),
-            clients.GetResource<IAiJobMonitor>());
+            clients.GetResource<IAiJobMonitor>(),
+            editViewModel: null,
+            requestRecoveryContext: AiRetryTestContext.CreateForm());
 
     private static AiSubtitleDialogViewModel CreateSubtitleDialog(BeutlApiApplication clients)
         => new(

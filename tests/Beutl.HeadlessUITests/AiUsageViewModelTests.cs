@@ -18,14 +18,16 @@ public sealed class AiUsageViewModelTests
         await TestReset.ResetShellAsync();
         Beutl.Api.BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
         await using var viewModel = new AiVideoGenerationDialogViewModel(
-            clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
-            clients.GetResource<IAiModelCatalogService>(),
-            new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
-            clients.GetResource<IAiVideoService>(),
-            clients.GetResource<IAuthenticatedContentService>(),
-            clients.GetResource<IAiJobKindRegistry>(),
-            clients.GetResource<IAiJobMonitor>());
+                clients.GetResource<IAiEntitlementService>(),
+                clients.GetResource<IAiOperationAvailabilityService>(),
+                clients.GetResource<IAiModelCatalogService>(),
+                new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
+                clients.GetResource<IAiVideoService>(),
+                clients.GetResource<IAuthenticatedContentService>(),
+                clients.GetResource<IAiJobKindRegistry>(),
+                clients.GetResource<IAiJobMonitor>(),
+                editViewModel: null,
+                requestRecoveryContext: AiRetryTestContext.CreateForm());
 
         using (Assert.EnterMultipleScope())
         {

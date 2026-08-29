@@ -303,5 +303,7 @@ public sealed class AiPromptLibraryPresentationTests
             clients.GetResource<IAiModelCatalogService>(),
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiImageGenerationService>(),
-            clients.GetResource<IAuthenticatedContentService>());
+            clients.GetResource<IAuthenticatedContentService>(),
+            editViewModel: null,
+            requestRecoveryContext: AiRetryTestContext.CreateForm());
 }

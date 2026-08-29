@@ -1,8 +1,10 @@
 ﻿using System.Collections.ObjectModel;
+using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.AgentHost;
 using Beutl.Api;
+using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
@@ -34,6 +36,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly AiJobResultHandlerRegistry _aiJobResultHandlers;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
+    private readonly AiRequestRecoveryContext _aiRequestRecoveryContext;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
     private readonly AiJobCompletionNotifier _aiJobCompletionNotifier;
     private readonly Action<BeutlApiApplication> _shutdownHandoff;
@@ -76,6 +79,17 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _aiRequestRecoveryContext = new AiRequestRecoveryContext(
+            new FileAiRequestRecoveryStore(Path.Combine(
+                BeutlEnvironment.GetHomeDirectoryPath(),
+                "ai")),
+            () => _beutlClients.AuthenticatedUser.Value is { } user
+                ? new AiAuthenticatedRequestIdentity(user.Profile.Id, user)
+                : null,
+            _beutlClients.AuthenticatedUser.Select<AuthenticatedUser?, AiAuthenticatedRequestIdentity?>
+                (user => user is { } authenticated
+                    ? new AiAuthenticatedRequestIdentity(authenticated.Profile.Id, authenticated)
+                    : null));
         _aiPlanCoordinator = new AiPlanCoordinator(
             _beutlClients.GetResource<IAiEntitlementService>());
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
@@ -185,7 +199,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageGenerationService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
-            editViewModel);
+            editViewModel,
+            _aiRequestRecoveryContext);
 
     internal AiImageEditDialogViewModel CreateAiImageEditToolViewModel(EditViewModel editViewModel)
         => new(
@@ -195,7 +210,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _aiPlanCoordinator,
             _beutlClients.GetResource<IAiImageEditingService>(),
             _beutlClients.GetResource<IAuthenticatedContentService>(),
-            editViewModel);
+            editViewModel,
+            _aiRequestRecoveryContext);
 
     internal AiSubtitleDialogViewModel CreateAiSubtitleToolViewModel(EditViewModel? editViewModel)
     {
@@ -234,7 +250,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _beutlClients.GetResource<IAuthenticatedContentService>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             _beutlClients.GetResource<IAiJobMonitor>(),
-            editViewModel);
+            editViewModel,
+            _aiRequestRecoveryContext);
 
     public Startup RunStartupTask()
     {
@@ -283,6 +300,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         {
             _logger.LogError(ex, "Failed to stop the agent host during shutdown.");
         }
+        _aiRequestRecoveryContext.Dispose();
 
         try
         {

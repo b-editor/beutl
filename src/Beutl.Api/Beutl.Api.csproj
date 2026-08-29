@@ -40,6 +40,8 @@
          widening the extension API surface. -->
     <InternalsVisibleTo Include="Beutl.UnitTests" />
     <InternalsVisibleTo Include="Beutl.Editor" />
+    <!-- Headless integration tests exercise the internal authenticated retry seam. -->
+    <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
   </ItemGroup>
 
 </Project>

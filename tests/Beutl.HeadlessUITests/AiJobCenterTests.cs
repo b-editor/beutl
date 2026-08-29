@@ -42,7 +42,8 @@ public sealed class AiJobCenterTests
             new UnusedVideoService(),
             new UnusedEntitlementService(),
             new UnusedAvailabilityService(),
-            new UnusedModelCatalogService());
+            new UnusedModelCatalogService(),
+            AiRetryTestContext.Create());
         _resultHandlers = new AiJobResultHandlerRegistry(BuiltInAiJobResultHandlers.Create());
     }
 
@@ -547,7 +548,7 @@ public sealed class AiJobCenterTests
                     availabilityBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
                     return JsonResponse(
                         HttpStatusCode.OK,
-                        availabilityRequests < 3
+                            availabilityRequests < 2
                             ? """{ "available": true }"""
                             : """{ "available": false }""");
                 case "/api/v3/ai/jobs":
@@ -582,9 +583,9 @@ public sealed class AiJobCenterTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(availabilityRequests, Is.EqualTo(3));
+            Assert.That(availabilityRequests, Is.EqualTo(2));
             Assert.That(retryRequests, Is.Zero);
-            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiUsageLimitExceeded));
+            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiEstimatedUsageInsufficient));
             Assert.That(
                 availabilityBodies,
                 Is.All.EqualTo("""{"operation":"video.generate","durationSeconds":8}"""));
@@ -673,6 +674,82 @@ public sealed class AiJobCenterTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task RetryConfirmationPinsOriginatingHandlerAcrossReplacementAndCancel()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-retry-lifetime");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
+            "/api/v3/ai/jobs" => JsonResponse(
+                HttpStatusCode.OK,
+                """{ "jobs": [], "nextCursor": null }"""),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
+        using var viewModel = CreateJobCenter(editor, clients);
+
+        var original = new CustomRetryHandler();
+        var replacement = new CustomRetryHandler();
+        IAiJobKindRegistration originalRegistration = registry.Register(
+            RetryDescriptor("vendor.replace", original));
+        using var item = new AiJobItemViewModel(
+            CreateJob(
+                kind: "vendor.replace",
+                status: "retryable",
+                inputParams: ParseInput("""{ "prompt": "Pinned retry" }"""),
+                canRetry: true),
+            registry,
+            _resultHandlers);
+
+        await viewModel.RequestRetryConfirmationAsync(item);
+        Assert.That(viewModel.CanConfirm.Value, Is.True);
+        Task retirement = originalRegistration.DisposeAsync().AsTask();
+        Assert.That(retirement.IsCompleted, Is.False);
+        await using IAiJobKindRegistration replacementRegistration = registry.Register(
+            RetryDescriptor("vendor.replace", replacement));
+
+        await viewModel.ConfirmPendingActionAsync();
+        await retirement.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(original.RetryCount, Is.EqualTo(1));
+            Assert.That(replacement.RetryCount, Is.Zero);
+        });
+
+        var canceledOriginal = new CustomRetryHandler();
+        var canceledReplacement = new CustomRetryHandler();
+        IAiJobKindRegistration canceledRegistration = registry.Register(
+            RetryDescriptor("vendor.cancel", canceledOriginal));
+        using var canceledItem = new AiJobItemViewModel(
+            CreateJob(
+                kind: "vendor.cancel",
+                status: "retryable",
+                inputParams: ParseInput("""{ "prompt": "Canceled retry" }"""),
+                canRetry: true),
+            registry,
+            _resultHandlers);
+
+        await viewModel.RequestRetryConfirmationAsync(canceledItem);
+        Assert.That(viewModel.CanConfirm.Value, Is.True);
+        Task canceledRetirement = canceledRegistration.DisposeAsync().AsTask();
+        Assert.That(canceledRetirement.IsCompleted, Is.False);
+        await using IAiJobKindRegistration canceledReplacementRegistration = registry.Register(
+            RetryDescriptor("vendor.cancel", canceledReplacement));
+
+        viewModel.CancelConfirmation();
+        await canceledRetirement.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(canceledOriginal.RetryCount, Is.Zero);
+            Assert.That(canceledReplacement.RetryCount, Is.Zero);
+        });
+    }
+
     private static void AssertAction(Button? button, string accessibleName)
     {
         Assert.That(button, Is.Not.Null);
@@ -685,6 +762,24 @@ public sealed class AiJobCenterTests
 
     private AiJobItemViewModel CreateItem(AiJob job)
         => new(job, _jobKinds, _resultHandlers);
+
+    private static AiJobKindDescriptor RetryDescriptor(
+        string kind,
+        IAiJobRetryHandler retryHandler)
+        => new(
+            new AiJobKindId(kind),
+            new AiJobStatusMap(
+            [
+                KeyValuePair.Create(
+                    new AiJobStatusId("retryable"),
+                    new AiJobStatusSemantics(
+                        true,
+                        false,
+                        new AiJobOutcomeId("vendor.retryable"))),
+            ]))
+        {
+            RetryHandler = retryHandler,
+        };
 
     [AvaloniaTest]
     public async Task ViewModel_ShowsTheGeneratedPictureBesideItsPrompt()
@@ -1047,16 +1142,39 @@ public sealed class AiJobCenterTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(new AiJobRetryPreflight(true, true, "No additional charge"));
+            return ValueTask.FromResult(new AiJobRetryPreflight(
+                true,
+                true,
+                "No additional charge"));
         }
 
-        public Task RetryAsync(
+        public ValueTask<AiJobRetryPreparationResult> PrepareAsync(
             AiJob job,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            RetryCount++;
-            return Task.CompletedTask;
+            return ValueTask.FromResult<AiJobRetryPreparationResult>(
+                AiJobRetryPreparationResult.Ready(new CustomRetryPreparation(this)));
+        }
+
+        private sealed class CustomRetryPreparation(CustomRetryHandler owner)
+            : IAiJobRetryPreparation
+        {
+            private int _executed;
+
+            public Task ExecuteAsync(CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Interlocked.Exchange(ref _executed, 1) != 0)
+                    throw new InvalidOperationException("The retry preparation was already executed.");
+                owner.RetryCount++;
+                return Task.CompletedTask;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                return ValueTask.CompletedTask;
+            }
         }
     }
 
