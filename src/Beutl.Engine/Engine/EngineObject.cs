@@ -380,6 +380,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
 
         private EngineObject? _original;
+        private bool _isEnabled;
 
         public int Version { get; set; }
 
@@ -408,7 +409,27 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// </remarks>
         protected virtual int FoldChildVersions(int seed) => seed;
 
-        public bool IsEnabled { get; set; }
+        /// <summary>
+        /// Whether the engine acts on this resource at all.
+        /// </summary>
+        /// <remarks>
+        /// The setter moves <see cref="Version"/> for the same reason the generated ones do: a detached
+        /// resource never reconciles, so assigning the property is the only way it ever changes, and the
+        /// render node's recording is replayed until <see cref="EffectiveVersion"/> says otherwise. The guard
+        /// mirrors <see cref="CompareAndUpdate{TValue}"/> so that storing the value already held stays free,
+        /// and <see cref="Update"/> writes the field directly so reconciling keeps deciding on its own
+        /// whether the change is worth a version.
+        /// </remarks>
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set
+            {
+                if (_isEnabled == value) return;
+                _isEnabled = value;
+                Version++;
+            }
+        }
 
         public bool IsDisposed { get; private set; }
 
@@ -424,9 +445,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
-            if (IsEnabled != obj.IsEnabled)
+            if (_isEnabled != obj.IsEnabled)
             {
-                IsEnabled = obj.IsEnabled;
+                _isEnabled = obj.IsEnabled;
                 if (!updateOnly)
                 {
                     Version++;

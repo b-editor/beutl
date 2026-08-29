@@ -3,6 +3,7 @@ using System.Reflection;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
@@ -262,6 +263,71 @@ public sealed class DetachedResourceAuthoringContractTests
         segment.To = new Point(40, 15);
 
         Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)));
+    }
+
+    /// <remarks>
+    /// A detached resource never reconciles, so a setter is the only thing that can move its version, and
+    /// every cache keyed on it - the render node's recording included - keeps replaying what it built before
+    /// until one does. <c>IsEnabled</c> is declared by hand on the base rather than generated, which is how
+    /// it came to be the one setter that stood still.
+    /// </remarks>
+    [Test]
+    public void EnablingADetachedResource_MovesItsEffectiveVersion()
+    {
+        using var detached = new Blur.Resource();
+        int whileDisabled = detached.EffectiveVersion;
+
+        detached.IsEnabled = true;
+
+        Assert.That(detached.EffectiveVersion, Is.Not.EqualTo(whileDisabled),
+            "enabling a detached resource must invalidate what was recorded while it was disabled");
+    }
+
+    [Test]
+    public void DisablingADetachedResource_MovesItsEffectiveVersion()
+    {
+        using var detached = new Blur.Resource { IsEnabled = true };
+        int whileEnabled = detached.EffectiveVersion;
+
+        detached.IsEnabled = false;
+
+        Assert.That(detached.EffectiveVersion, Is.Not.EqualTo(whileEnabled),
+            "disabling a detached resource must invalidate what was recorded while it was enabled");
+    }
+
+    /// <remarks>
+    /// The control for the two above: a generated setter already moves the version, so a run where all three
+    /// pass tells them apart from a run where nothing here can fail.
+    /// </remarks>
+    [Test]
+    public void MutatingAGeneratedPropertyOfADetachedResource_MovesItsEffectiveVersion()
+    {
+        using var detached = new Blur.Resource { Sigma = new Size(4, 4) };
+        int beforeMutation = detached.EffectiveVersion;
+
+        detached.Sigma = new Size(12, 12);
+
+        Assert.That(detached.EffectiveVersion, Is.Not.EqualTo(beforeMutation));
+    }
+
+    /// <remarks>
+    /// Reconciling writes the backing field instead of going through the setter, so a resource just built
+    /// from an engine object still reports the version a cache reads as never yet invalidated. Going through
+    /// the setter would move it on every first build, because <c>IsEnabled</c> starts <see langword="true"/>
+    /// on the object and <see langword="false"/> on the resource and the two therefore always differ.
+    /// </remarks>
+    [Test]
+    public void BuildingAResourceFromAnEnabledObject_LeavesItsVersionUnmoved()
+    {
+        var blur = new Blur();
+
+        using var attached = blur.ToResource(CompositionContext.Default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(attached.IsEnabled, Is.True);
+            Assert.That(attached.Version, Is.Zero);
+        }
     }
 
     private static Pen.Resource DetachedPen(float thickness)
