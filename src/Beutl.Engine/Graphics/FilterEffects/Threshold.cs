@@ -23,7 +23,15 @@ public sealed partial class Threshold : FilterEffect
             float luma = dot(rgb, LUMA);
             float lower = threshold - smoothness * 0.5;
             float upper = threshold + smoothness * 0.5;
-            float t = smoothstep(lower, upper, luma);
+
+            // A band that collapses to zero width divides by zero inside smoothstep, and equal edges are
+            // undefined in the shading languages: Skia's CPU backend returns NaN there and Metal returns 0,
+            // so the value has to be written out rather than left to the backend. The band is centred on the
+            // threshold, so a band of any positive width evaluates to exactly 0.5 at the threshold; the
+            // collapsed band keeps that value and steps hard on either side of it.
+            float t = upper > lower
+                ? smoothstep(lower, upper, luma)
+                : (luma < threshold ? 0.0 : (luma > threshold ? 1.0 : 0.5));
 
             t = mix(luma, t, strength);
             return half4(t);
@@ -70,18 +78,27 @@ public sealed partial class Threshold : FilterEffect
     /// input covers nothing, and a hit test forwarded to that input would miss pixels the viewer can see.
     /// This evaluates the entry point itself at the luma a transparent premultiplied pixel carries - zero -
     /// rather than restating it as an inequality on the properties: the answer turns over at exactly the
-    /// parameter boundaries a restatement gets wrong, and it has to keep tracking the SkSL above.
+    /// parameter boundaries a restatement gets wrong, and it has to keep tracking the SkSL above, degenerate
+    /// band included.
     /// </remarks>
     private static bool CreatesAlphaFromATransparentPixel(Resource r)
     {
+        const float luma = 0f;
         float threshold = r.Value / 100f;
         float smoothness = r.Smoothness / 100f;
         float lower = threshold - (smoothness * 0.5f);
         float upper = threshold + (smoothness * 0.5f);
-        float x = (0f - lower) / (upper - lower);
-        // Written out rather than clamped so a degenerate lower == upper keeps the NaN the shader produces.
-        float t = x < 0f ? 0f : x > 1f ? 1f : x;
-        t = t * t * (3f - (2f * t));
+        float t;
+        if (upper > lower)
+        {
+            float x = Math.Clamp((luma - lower) / (upper - lower), 0f, 1f);
+            t = x * x * (3f - (2f * x));
+        }
+        else
+        {
+            t = luma < threshold ? 0f : luma > threshold ? 1f : 0.5f;
+        }
+
         return !(t * (r.Strength / 100f) <= 0f);
     }
 }
