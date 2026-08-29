@@ -168,8 +168,21 @@ public class RenderTarget : IDisposable
                 width,
                 height,
                 textureRef);
-            if (!result.HasTransparentContents)
-                result.ClearToTransparent();
+            try
+            {
+                if (!result.HasTransparentContents)
+                    result.ClearToTransparent();
+            }
+            catch
+            {
+                // The clear submits to the device, so it is the step that fails when the device is
+                // already lost - the one time a caller retries every frame. Degrading to null without
+                // releasing what the target owns strands a surface and an image per attempt until a
+                // finalizer runs, which is the worst moment to be leaking device memory.
+                result.Dispose();
+                throw;
+            }
+
             return result;
         }
         catch
