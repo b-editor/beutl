@@ -340,6 +340,41 @@ public class SelectedDrawableRenderTests
         }
     }
 
+    /// <remarks>
+    /// A subtree that reads the whole target cannot be measured without a domain, so the export falls back
+    /// to one. Falling back to the frame alone reinstates the crop the feature exists to avoid: the frame
+    /// is a hard output clip, so a backdrop grouped with content past the edge - a blurred backdrop, an
+    /// element carried out by a transform - saved as the frame with that content sliced off, silently.
+    /// </remarks>
+    [AvaloniaTest]
+    public async Task Full_target_drawable_grouped_with_off_frame_content_keeps_that_content()
+    {
+        GpuTestGate.EnsureAvailable();
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditor("selected-drawable-full-target-off-frame");
+        var group = new DrawableGroup();
+        group.Children.Add(new SelectedDrawableFullTargetDrawable());
+        group.Children.Add(new RectShape
+        {
+            Width = { CurrentValue = 48 },
+            Height = { CurrentValue = 32 },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            Transform = { CurrentValue = new TranslateTransform(400, 300) },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
+        });
+
+        PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(group);
+        using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(group);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(measuredSize, Is.EqualTo(new PixelSize(448, 332)));
+            Assert.That(bitmap.Width, Is.EqualTo(448));
+            Assert.That(bitmap.Height, Is.EqualTo(332));
+        });
+    }
+
     [AvaloniaTest]
     public async Task Nested_scene_selected_drawable_records_the_requested_output_scale()
     {

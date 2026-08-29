@@ -2171,11 +2171,22 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     /// resolves its region from the target, but never narrower than the drawable itself.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A request's target domain is a hard output clip, so exporting against the scene frame cropped an
     /// element hanging over the edge and produced nothing at all for one entirely outside it - neither of
     /// which is what "save this element as an image" means. Measuring without a domain first asks the
-    /// drawable how much room it actually takes. A subtree that genuinely needs an owning domain says so by
-    /// throwing, and keeps the frame.
+    /// drawable how much room it actually takes.
+    /// </para>
+    /// <para>
+    /// A subtree that reads the whole target - a backdrop, say - cannot answer that question: it says so by
+    /// throwing, because the extent it would report is the domain it was not given. Keeping only the frame
+    /// there reinstates the crop this method exists to avoid, and a backdrop carried past the frame edge by
+    /// a transform loses the export entirely. Ask again with the frame and read
+    /// <see cref="RenderNodeMeasurement.QueryBounds"/> instead: the domain clips
+    /// <see cref="RenderNodeMeasurement.OutputBounds"/> but not the region the subtree asked to read, so
+    /// that is the content extent, and it stays finite - an unbounded full-target read contributes to the
+    /// output it fills, never to what it queries.
+    /// </para>
     /// </remarks>
     internal static Rect? ResolveSelectedDrawableDomain(
         RenderNodeRenderer renderer,
@@ -2192,7 +2203,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
         catch (RenderTargetDomainRequiredException)
         {
-            return frameDomain;
+            if (frameDomain is not { } frame)
+                return null;
+
+            Rect queried = renderer.Measure(request with { TargetDomain = frame }).QueryBounds;
+            return queried.IsInvalid || queried.IsEmpty ? frame : frame.Union(queried);
         }
     }
 
