@@ -276,7 +276,8 @@ public partial class MosaicEffect : FilterEffect
             RenderBoundsContract.Identity,
             static bindings => bindings.Uniform(
                 "tileSize",
-                static tileSize => new Vector2(tileSize.Width, tileSize.Height)));
+                static tileSize => new Vector2(tileSize.Width, tileSize.Height),
+                static (writer, tileSize, context) => writer.Set(tileSize * context.WorkingScale)));
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
@@ -290,6 +291,15 @@ The definition callback must be pure and non-capturing: its `MethodInfo` is the 
 identity, so two frames that differ only in `tileSize` reuse one compiled program. If several effects share
 one source, parse it once with `SkslSource.WholeSource(...)` or `SkslSource.CurrentPixel(...)` and pass the
 result to the matching factory instead of the raw string.
+
+Note the third argument to `Uniform`. A `WholeSource` shader reads `fragCoord` in **output-device pixels**,
+while every property an author types — a tile size, a radius, an offset — is a **logical** length. Binding
+one straight through makes the effect's appearance track the render density: the same mosaic shows coarser
+tiles in a 2x preview than in the exported frame. Any uniform the shader compares against `fragCoord` has to
+be multiplied by `ShaderExecutionContext.WorkingScale` in a binder, which is why the built-in `MosaicEffect`
+scales both its tile size and its origin. A uniform that never meets `fragCoord` — a colour, a blend
+amount — needs no binder and takes the two-argument overload. Getting this wrong is invisible at scale 1,
+so it survives to export.
 
 ### The `CustomEffect` fallback
 
