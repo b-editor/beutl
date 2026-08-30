@@ -3098,6 +3098,291 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A receiver the expression did not make can still be one this rule reads the making of: a readonly
+    /// field whose one initialiser is an object creation names the exact type it makes as surely as writing
+    /// the creation at the call site does, and no constructor can put a different instance there. A
+    /// stateless helper kept as a singleton clears the static field rule on its own - readonly, and a
+    /// sealed class carrying no instance state - so before this the mutable static its method reads was
+    /// reported by nothing at all.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAMethodOnAStaticReadonlyStatelessHelperThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Helpers
+            {
+                public static readonly Shifter Shared = new Shifter();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a singleton held in a readonly field is an instance whose exact type and whose making are "
+            + "both readable, so the body it runs is the body that runs");
+    }
+
+    /// <remarks>
+    /// The same helper held by the node instead of by a static class, which is the shape the capture rule
+    /// admits: the lambda reads nothing but its own node, so BESG003 is silent by design, and what the node
+    /// holds is where a mutable static could sit with neither rule looking at it.
+    /// </remarks>
+    [Test]
+    public void ANodeLambdaCallingAReadonlyFieldHelperThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Shifter _shifter = new Shifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            _shifter.Shift(value.X), value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG003"),
+            "the lambda reads its own node and nothing else, which is the one reader the capture rule "
+            + "admits");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "admitting the node is a permission to read the node, not a permission to reach a mutable "
+            + "static through a helper the node holds");
+    }
+
+    /// <remarks>
+    /// What an instance carries came from its constructor, so a constructor reading a mutable static is the
+    /// same impurity as a method reading one - and the method called on that instance hands the captured
+    /// value back without naming the static anywhere the walk over the callback could see it. The rule
+    /// already reads the constructor of a creation written at the call site, which it reaches as an
+    /// expression of the body; a creation held in a readonly field is written where the walk never goes, so
+    /// following the receiver has to carry the constructor with it or the two spellings answer differently.
+    /// </remarks>
+    [Test]
+    public void ANodeLambdaCallingAReadonlyFieldHelperWhoseConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                private readonly float _offset;
+
+                public Shifter() => _offset = Settings.Offset;
+
+                public float Shift(float value) => value + _offset;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Shifter _shifter = new Shifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            _shifter.Shift(value.X), value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the constructor is where the mutable static entered the instance, and a method reading only "
+            + "its own field still answers differently between two recordings because of it");
+    }
+
+    /// <remarks>
+    /// readonly fixes the reference against everything except the declaring type's own constructors, so the
+    /// initialiser is only the whole story where none of them writes the field. Here the constructor puts a
+    /// subclass there whose override reads nothing, so the body the walk would follow is not the body that
+    /// runs and reporting it would be a diagnostic about code the callback never reaches.
+    /// </remarks>
+    [Test]
+    public void ANodeLambdaCallingAReadonlyFieldHelperAConstructorReplaces_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class Shifter
+            {
+                public virtual float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal sealed class QuietShifter : Shifter
+            {
+                public override float Shift(float value) => value;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Shifter _shifter = new Shifter();
+
+                public ShiftedNode() => _shifter = new QuietShifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            _shifter.Shift(value.X), value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG004"),
+            "a constructor that writes the field puts an instance there the initialiser does not name, so "
+            + "the initialiser is not evidence of what the callback runs");
+    }
+
+    /// <remarks>
+    /// The rule follows the member the call binds to, and that is chosen by the declared type of the
+    /// expression. A creation written at the call site is its own declared type, but a field declared as a
+    /// base of what its initialiser makes is not: the walk would read the base body the override replaces,
+    /// and report a read the instance in that field never makes. So the exact type is what clears the gate.
+    /// </remarks>
+    [Test]
+    public void ANodeLambdaCallingAReadonlyFieldDeclaredAsABaseOfWhatItHolds_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class Shifter
+            {
+                public virtual float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal sealed class QuietShifter : Shifter
+            {
+                public override float Shift(float value) => value;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Shifter _shifter = new QuietShifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            _shifter.Shift(value.X), value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG004"),
+            "the call binds against the field's declared type, so the body the walk would read is not the "
+            + "override the created instance runs");
+    }
+
+    /// <remarks>
+    /// The field has to be one the callback reaches on its own. A field read off a receiver the callback
+    /// was handed is that receiver's state, and following it is the walk into the engine behind a session
+    /// or a canvas that this rule stops at - the very thing the parameter case above pins - so a readonly
+    /// field of a handed-in object is no more followed than the object is.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAMethodOnAReadonlyFieldOfAReceiverItWasHanded_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal sealed class Toolbox
+            {
+                public readonly Shifter Shifter = new Shifter();
+            }
+
+            internal static class Author
+            {
+                private static float Apply(Toolbox toolbox, float value) => toolbox.Shifter.Shift(value);
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Apply(new Toolbox(), value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the callback did not make this receiver, and what it holds in a readonly field is still its "
+            + "own state and not something read off the call site");
+    }
+
+    /// <remarks>
     /// A conditional access spells its receiver once, at the head of the chain, so the name beside the call
     /// carries none of its own. That is a different syntax shape and not a different rule: the object
     /// creation guarding the chain is still made right there, so the exact type and everything the instance

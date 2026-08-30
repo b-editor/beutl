@@ -17,9 +17,9 @@ public sealed class TextOutlineAuthoringContractTests
     [OneTimeSetUp]
     public void RegisterTestFont()
     {
-        using Stream? stream = typeof(TextOutlineAuthoringContractTests).Assembly
-            .GetManifestResourceStream("Beutl.PublicApiContractTests.Roboto-Regular.ttf");
-        Assert.That(stream, Is.Not.Null, "The linked contract-test font must be embedded.");
+        using Stream stream = typeof(TextOutlineAuthoringContractTests).Assembly
+                .GetManifestResourceStream("Beutl.PublicApiContractTests.Roboto-Regular.ttf")
+            ?? throw new AssertionException("The linked contract-test font must be embedded.");
         FontManager.Instance.AddFont(stream);
         Assert.That(FontManager.Instance.GetTypefaces(new FontFamily(FontFamilyName)), Is.Not.Empty);
     }

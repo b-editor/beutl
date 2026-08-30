@@ -17,10 +17,18 @@ public static class ExportSupersampling
     }
 
     /// <summary>Whether the supersampled surface fits the per-axis buffer limit on both axes.</summary>
-    public static bool FitsBufferLimit(
-        PixelSize frameSize, int factor, int maxDimension = RenderScaleUtilities.MaxBufferDimension)
+    /// <param name="maxDimension">
+    /// The limit to fit, or <see langword="null"/> for what the device can attach.
+    /// </param>
+    /// <remarks>
+    /// The default is the device's limit rather than the engine ceiling: a warning taken against the ceiling
+    /// clears an export the device then refuses mid-render, and on a device that attaches 8192 that is every
+    /// 4K frame past 2x.
+    /// </remarks>
+    public static bool FitsBufferLimit(PixelSize frameSize, int factor, int? maxDimension = null)
     {
+        int limit = maxDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
         (long width, long height) = GetRenderSize(frameSize, factor);
-        return width <= maxDimension && height <= maxDimension;
+        return width <= limit && height <= limit;
     }
 }

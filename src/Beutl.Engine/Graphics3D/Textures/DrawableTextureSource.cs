@@ -39,10 +39,15 @@ public sealed partial class DrawableTextureSource : TextureSource
         internal Rect TextureDomain
             => new(0, 0, TextureWidth, TextureHeight);
 
+        /// <remarks>
+        /// The density this reports is the one <see cref="GetTexture"/> allocates at, so it is clamped to
+        /// what the device can attach rather than to the engine ceiling: the target is created here rather
+        /// than leased from the pool, so nothing else measures the device before the allocation reaches it.
+        /// </remarks>
         internal float ResolveDensity(float density)
         {
             float sanitizedDensity = RenderScaleUtilities.SanitizeOutputScale(density);
-            return RenderScaleUtilities.ClampWorkingScaleToBufferBudget(
+            return RenderScaleUtilities.ClampWorkingScaleToDeviceBufferBudget(
                 TextureDomain,
                 sanitizedDensity);
         }

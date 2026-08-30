@@ -48,6 +48,8 @@ internal enum RenderTargetSamplingIntentKind : byte
 
 public class RenderTarget : IDisposable
 {
+    private static Func<IGraphicsContext?> s_allocationContext = GraphicsContextFactory.GetOrCreateShared;
+
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
@@ -131,6 +133,38 @@ public class RenderTarget : IDisposable
     internal static IGraphicsContext? ResolveCreationContext(IGraphicsContext? sharedContext)
         => CreateAttachesToGraphicsContext ? sharedContext : null;
 
+    /// <summary>
+    /// The context <see cref="Create"/> would attach a new target to, building one where none is installed
+    /// yet, or <see langword="null"/> when it would raster that target on the CPU instead.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ResolveCreationContext"/> answers out of a context a caller already holds, which before any
+    /// GPU work has happened is none at all - and a budget taken from that measures against the engine
+    /// ceiling while the allocation right behind it builds a device that may attach less. This asks the same
+    /// question <see cref="Create"/> does, so the two cannot answer differently.
+    /// <para>
+    /// The dispatcher test is <see cref="Threading.Dispatcher.CheckAccess"/> on the render thread rather than
+    /// <see cref="CreateAttachesToGraphicsContext"/>: the latter holds on any dispatcher, and building the
+    /// shared context off the render thread is what <c>GetOrCreateShared</c> refuses.
+    /// </para>
+    /// </remarks>
+    internal static IGraphicsContext? ResolveCreationContextForAllocation()
+        => RenderThread.Dispatcher.CheckAccess() ? s_allocationContext() : null;
+
+    /// <summary>Installs <paramref name="replacement"/> as the context creator, reporting what it replaced.</summary>
+    /// <remarks>
+    /// The production creator builds a real device on whatever GPU the suite runs on, so standing in for it
+    /// is the only way to pin a sub-ceiling device - and a refusal taken before the allocator is reached
+    /// cannot be observed any other way, because nothing allocates for it to have refused.
+    /// </remarks>
+    internal static Func<IGraphicsContext?> ExchangeAllocationContext(Func<IGraphicsContext?> replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        Func<IGraphicsContext?> previous = s_allocationContext;
+        s_allocationContext = replacement;
+        return previous;
+    }
+
     public static RenderTarget? Create(int width, int height)
     {
         try
@@ -143,7 +177,7 @@ public class RenderTarget : IDisposable
             if (CreateAttachesToGraphicsContext)
             {
                 RenderThread.Dispatcher.VerifyAccess();
-                context = GraphicsContextFactory.GetOrCreateShared();
+                context = s_allocationContext();
             }
 
             SKSurface? surface = context != null

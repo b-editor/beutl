@@ -44,11 +44,13 @@ public static class RenderScaleUtilities
     /// <para>
     /// A buffer allocated off a dispatcher never reaches that device at all - <see cref="RenderTarget.Create"/>
     /// rasters it on the CPU - so the shared context applies only where that allocation would attach to it.
+    /// Where it does, the context is the one that allocation would build rather than whichever is installed
+    /// now: before any GPU work there is none installed, and answering the engine ceiling there admits a
+    /// buffer the device built moments later cannot attach.
     /// </para>
     /// </remarks>
     public static int ResolveMaxBufferDimension()
-        => ResolveMaxBufferDimension(
-            RenderTarget.ResolveCreationContext(Backend.GraphicsContextFactory.SharedContext));
+        => ResolveMaxBufferDimension(RenderTarget.ResolveCreationContextForAllocation());
 
     /// <summary>
     /// <see cref="ResolveMaxBufferDimension()"/> against a named context rather than the shared one.

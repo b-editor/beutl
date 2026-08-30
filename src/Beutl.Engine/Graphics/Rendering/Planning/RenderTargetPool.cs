@@ -308,10 +308,16 @@ internal sealed class RenderTargetPool : IDisposable
         // Asking Create itself is what keeps the budget and the allocation from answering differently.
         // BeginImplicitRequest names a context in place of the live one, and a request bound to it has to be
         // measured against the device it named rather than against whichever context is live now.
-        return RenderTarget.ResolveCreationContext(
-            request.ContextIdentity is ImplicitContextBinding binding
-                ? binding.Context
-                : GraphicsContextFactory.SharedContext);
+        IGraphicsContext? named = request.ContextIdentity is ImplicitContextBinding binding
+            ? binding.Context
+            : GraphicsContextFactory.SharedContext;
+
+        // A request opened before any GPU work has happened names nothing, because nothing was installed to
+        // name - but Create still builds a device there, and one that attaches less than the engine ceiling
+        // would then be asked for a buffer it cannot make. Building it here is what Create does anyway.
+        return named is not null
+            ? RenderTarget.ResolveCreationContext(named)
+            : RenderTarget.ResolveCreationContextForAllocation();
     }
 
     /// <summary>Whether <paramref name="request"/> is bound to a destination that has no graphics context.</summary>

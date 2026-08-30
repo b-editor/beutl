@@ -179,10 +179,7 @@ public class Renderer : IRenderer
                 RenderTarget? actualSurface = null;
                 try
                 {
-                    actualSurface = surface
-                        ?? RenderTarget.Create(DeviceSize.Width, DeviceSize.Height)
-                        ?? throw new InvalidOperationException(
-                            $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
+                    actualSurface = surface ?? CreateRootSurface(DeviceSize);
                     if (actualSurface.Width != DeviceSize.Width || actualSurface.Height != DeviceSize.Height)
                     {
                         throw new ArgumentException(
@@ -211,6 +208,25 @@ public class Renderer : IRenderer
 
             throw;
         }
+    }
+
+    /// <summary>Allocates the root output surface, refusing an extent the device cannot attach.</summary>
+    /// <remarks>
+    /// Nothing upstream bounds this one: an intermediate is clamped by the working-scale policy and then
+    /// leased through the pool, which measures the device before it allocates, while the root is
+    /// <c>ceil(FrameSize * s_out)</c> handed straight to the allocator. Asking the same budget here is what
+    /// stops an over-scaled export from reaching the driver as an attachment it may answer with undefined
+    /// behaviour rather than a failed allocation, and it names the limit the way a pooled refusal does.
+    /// </remarks>
+    private static RenderTarget CreateRootSurface(PixelSize deviceSize)
+    {
+        int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension();
+        if (!RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension))
+            throw RenderTargetPool.CreateAllocationFailure(deviceSize, maxDimension);
+
+        return RenderTarget.Create(deviceSize.Width, deviceSize.Height)
+               ?? throw new InvalidOperationException(
+                   $"Could not create a canvas of this size. (width: {deviceSize.Width}, height: {deviceSize.Height})");
     }
 
     ~Renderer()

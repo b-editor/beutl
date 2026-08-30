@@ -702,24 +702,31 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             ISymbol? symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
 
-            // A static method, or one called on an instance the call makes right there. Only these three
-            // kinds, because an operator, a conversion and a constructor reach the walk through
-            // FollowUnnamedInvocation instead.
+            // A static method, or one called on an instance whose creation this rule can point at. Only
+            // these three kinds, because an operator, a conversion and a constructor reach the walk
+            // through FollowUnnamedInvocation instead.
             if (symbol is IMethodSymbol
                 {
                     MethodKind: MethodKind.Ordinary or MethodKind.LocalFunction
                         or MethodKind.ReducedExtension
-                } called
-                && (RunsAStaticMethod(called) || CreatesItsReceiver(context, model, name)))
+                } called)
             {
-                FollowCall(
-                    context,
-                    called,
-                    name,
-                    RunsAStaticMethod(called) ? "static method" : "method",
-                    depth,
-                    walked,
-                    report);
+                bool runsStatic = RunsAStaticMethod(called);
+
+                // A static method has no receiver to read, so the follow is not even asked for.
+                if (runsStatic
+                    || FollowReceiverCreation(context, model, name, depth, walked, report))
+                {
+                    FollowCall(
+                        context,
+                        called,
+                        name,
+                        runsStatic ? "static method" : "method",
+                        depth,
+                        walked,
+                        report);
+                }
+
                 continue;
             }
 
@@ -865,7 +872,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (!CreatesItsReceiver(context, model, reference))
+        if (!FollowReceiverCreation(context, model, reference, depth, walked, report))
             return;
 
         if (RunsGetter(access) && property.GetMethod is { } getter)
@@ -876,35 +883,293 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Whether the call makes the instance it runs on, right there in the expression.
+    /// Walks the creation that made the instance the call runs on, and says whether there was one this
+    /// rule could point at.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This is the whole of what an instance member has to clear, and both halves of it are read off the
-    /// call site. An object creation names the exact type it makes, so the member the call binds to is the
-    /// member that runs even when it is virtual; and the instance carries only what its constructor and
-    /// initialisers put there, which is what the constructor walk already reads. Nothing has to be known
-    /// about a receiver held anywhere else, which is the identity this rule does not model.
+    /// This is the whole of what an instance member has to clear, and what clears it is an object creation
+    /// this rule can point at. An object creation names the exact type it makes, so the member the call
+    /// binds to is the member that runs even when it is virtual; and the instance carries only what its
+    /// constructor and initialisers put there. Nothing has to be known about a receiver held anywhere else,
+    /// which is the identity this rule does not model.
     /// </para>
     /// <para>
-    /// A receiver the call did not make is where the walk stops, and the reason is not only that it cannot
-    /// be identified. The callbacks under this rule are handed the objects they work through - a session, a
-    /// canvas, a context - so walking a member called on one of those is walking the engine behind it, and
-    /// the mutable statics a render backend keeps say nothing about whether the callback answers the same
-    /// way twice. Following them reported the whole backend and would have taught authors to suppress the
-    /// id.
+    /// The creation is walked and not merely identified, because "carries only what its constructor put
+    /// there" is a reason to read that constructor rather than to trust it. A constructor that reads a
+    /// mutable static is exactly the impurity this rule is for, and the member called on the instance hands
+    /// the captured value back without naming the static anywhere the walk over the callback would see it.
+    /// A creation written at the call site is already reached as an expression of the body, so following it
+    /// here is what makes a helper held in a field answer the same as one made in the expression; walking
+    /// it from both places costs nothing, the constructor being keyed in the same walked set.
+    /// </para>
+    /// <para>
+    /// The creation does not have to be written in the expression. A readonly field, and a local written
+    /// once where it is declared, name one creation and can never name another, so the type they hold is as
+    /// exactly known as the type spelled at the call - and a helper kept in a field is how a callback most
+    /// naturally reaches one. Two things have to be checked that a creation at the call site answers for
+    /// itself. The initialiser has to be the whole story: readonly leaves the declaring type's constructors
+    /// free to put a different instance there, so a field one of them writes is not followed. And the
+    /// creation has to make the declared type exactly, because the member is bound against the declaration
+    /// rather than against the instance: a field declared as a base of what it holds would have the walk
+    /// read the body an override replaces, and report a read the instance never makes.
+    /// </para>
+    /// <para>
+    /// A receiver the callback was handed is where the walk stops, and the reason is not only that it
+    /// cannot be identified. The callbacks under this rule are handed the objects they work through - a
+    /// session, a canvas, a context - so walking a member called on one of those is walking the engine
+    /// behind it, and the mutable statics a render backend keeps say nothing about whether the callback
+    /// answers the same way twice. Following them reported the whole backend and would have taught authors
+    /// to suppress the id. That is why a parameter is not resolved here, and why a field is followed only
+    /// where the callback reaches it on its own - a bare name, <c>this</c>, or a static reached through its
+    /// type - and never as the state of some receiver the callback did not make.
     /// </para>
     /// </remarks>
-    private static bool CreatesItsReceiver(
+    private static bool FollowReceiverCreation(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode reference,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (GetReceiverCreation(context, model, reference) is not { } made)
+            return false;
+
+        if (made.Model.GetSymbolInfo(made.Creation, context.CancellationToken).Symbol
+            is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+        {
+            FollowConstructor(context, constructor, reference, depth, walked, report);
+        }
+
+        return true;
+    }
+
+    /// <returns>
+    /// The object creation that made the instance the call runs on, and the model that binds it, or
+    /// <see langword="null"/> when this rule cannot point at one.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// A type parameter is left out on purpose: <c>new T()</c> makes whatever T was substituted with, so
+    /// the member found on the constraint is not necessarily the member that runs.
+    /// </para>
+    /// <para>
+    /// The exact type is required rather than an assignable one, and that is the last of the three things
+    /// a creation written at the call site answers for itself. The member the call binds to is chosen by
+    /// the type of the expression, so a field declared as a base of what its initialiser makes would have
+    /// the walk read the body an override replaces, and report a read the instance never makes.
+    /// </para>
+    /// </remarks>
+    private static (ExpressionSyntax Creation, SemanticModel Model)? GetReceiverCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
         SyntaxNode reference)
     {
-        // A type parameter is left out on purpose: new T() makes whatever T was substituted with, so the
-        // member found on the constraint is not necessarily the member that runs.
-        return GetReceiver(reference) is { } receiver
-            && StripParentheses(receiver) is BaseObjectCreationExpressionSyntax creation
-            && model.GetTypeInfo(creation, context.CancellationToken).Type is INamedTypeSymbol;
+        if (GetReceiver(reference) is not { } receiver)
+            return null;
+
+        ExpressionSyntax expression = StripParentheses(receiver);
+        (ExpressionSyntax Creation, SemanticModel Model)? made =
+            expression is BaseObjectCreationExpressionSyntax written
+                ? (written, model)
+                : GetHeldCreation(context, model, expression);
+
+        if (made is not { } creation
+            || creation.Model.GetTypeInfo(creation.Creation, context.CancellationToken).Type
+                is not INamedTypeSymbol created)
+        {
+            return null;
+        }
+
+        return SymbolEqualityComparer.Default.Equals(
+            created, model.GetTypeInfo(receiver, context.CancellationToken).Type)
+            ? creation
+            : null;
+    }
+
+    /// <returns>
+    /// The object creation a member holding one instance for good was given, and the model that binds it,
+    /// or <see langword="null"/> when the expression names no such member.
+    /// </returns>
+    /// <remarks>
+    /// One hop and no chain: the member has to be given a creation itself, not a name for a member that was
+    /// given one. A chain would have to answer for every hop what this answers for one - that nothing can
+    /// put a second instance there - and each hop it could not read would be a type assumed rather than
+    /// known.
+    /// </remarks>
+    private static (ExpressionSyntax Creation, SemanticModel Model)? GetHeldCreation(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        ExpressionSyntax expression)
+    {
+        if (expression is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+            return null;
+
+        ISymbol? symbol = model.GetSymbolInfo(expression, context.CancellationToken).Symbol;
+        ExpressionSyntax? initializer = symbol switch
+        {
+            IFieldSymbol { IsReadOnly: true } field
+                when ReachesFieldOnItsOwn(context, model, expression, field)
+                    && !IsWrittenInAConstructor(context, field)
+                => GetFieldInitializer(context, field),
+
+            ILocalSymbol local => GetUnreassignedLocalInitializer(context, local),
+
+            // A parameter, a settable field, a property, a method group: each is a receiver whose making
+            // this rule was not shown, and the walk stops at every one of them.
+            _ => null,
+        };
+
+        if (initializer is null)
+            return null;
+
+        SemanticModel initializerModel = GetSemanticModel(context, initializer.SyntaxTree);
+        ExpressionSyntax value = StripParentheses(initializer);
+        return value is BaseObjectCreationExpressionSyntax ? (value, initializerModel) : null;
+    }
+
+    /// <returns>
+    /// Whether the callback reaches the field without going through a receiver of its own.
+    /// </returns>
+    /// <remarks>
+    /// A field read off another instance is that instance's state, and following it is exactly the walk
+    /// into the engine behind a handed-in session or canvas that this rule stops at. A bare name, an
+    /// explicit <c>this</c>, and a static reached through the type that declares it carry no such instance.
+    /// </remarks>
+    private static bool ReachesFieldOnItsOwn(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        ExpressionSyntax reference,
+        IFieldSymbol field)
+    {
+        if (reference is not MemberAccessExpressionSyntax access)
+            return true;
+
+        ExpressionSyntax qualifier = StripParentheses(access.Expression);
+
+        return field.IsStatic
+            ? model.GetSymbolInfo(qualifier, context.CancellationToken).Symbol is ITypeSymbol
+            : qualifier is ThisExpressionSyntax;
+    }
+
+    /// <remarks>
+    /// readonly stops every assignment outside the declaring type's constructors, so those are the whole of
+    /// what has to be read, and one write in any of them means the instance the callback reaches is not the
+    /// one the initialiser made. A primary constructor is declared by the type and can write no field of
+    /// it, so it is skipped rather than read: taking its declaration would put every method body of the
+    /// type inside a constructor's span.
+    /// </remarks>
+    private static bool IsWrittenInAConstructor(SyntaxNodeAnalysisContext context, IFieldSymbol field)
+    {
+        INamedTypeSymbol type = field.OriginalDefinition.ContainingType;
+
+        foreach (IMethodSymbol constructor in type.InstanceConstructors.Concat(type.StaticConstructors))
+        {
+            foreach (SyntaxReference declaration in constructor.OriginalDefinition.DeclaringSyntaxReferences)
+            {
+                if (declaration.GetSyntax(context.CancellationToken) is ConstructorDeclarationSyntax syntax
+                    && IsWrittenWithin(context, syntax, field))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <returns>
+    /// The declaration's initialiser when nothing else writes the local, or <see langword="null"/> when it
+    /// has no initialiser or is assigned again.
+    /// </returns>
+    /// <remarks>
+    /// A local cannot carry the readonly modifier, so what stands in its place is the assignment list: a
+    /// local written once, where it is declared, names the same instance everywhere it is read. The scope
+    /// searched is the member the declaration is written in, which is as far as a local can be reached at
+    /// all.
+    /// </remarks>
+    private static ExpressionSyntax? GetUnreassignedLocalInitializer(
+        SyntaxNodeAnalysisContext context,
+        ILocalSymbol local)
+    {
+        foreach (SyntaxReference declaration in local.DeclaringSyntaxReferences)
+        {
+            if (declaration.GetSyntax(context.CancellationToken)
+                is not VariableDeclaratorSyntax { Initializer.Value: { } value } declarator)
+            {
+                continue;
+            }
+
+            SyntaxNode scope = declarator.FirstAncestorOrSelf<MemberDeclarationSyntax>()
+                ?? declarator.SyntaxTree.GetRoot(context.CancellationToken);
+
+            if (!IsWrittenWithin(context, scope, local))
+                return value;
+        }
+
+        return null;
+    }
+
+    /// <returns>Whether anything in <paramref name="scope"/> writes <paramref name="symbol"/>.</returns>
+    /// <remarks>
+    /// Every form of a write counts, because each one replaces the instance a name stands for: an
+    /// assignment, a deconstruction naming it as one of its targets, an argument passed by reference, and
+    /// an increment, which a user-defined operator makes reachable on a receiver too.
+    /// </remarks>
+    private static bool IsWrittenWithin(SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol symbol)
+    {
+        SemanticModel model = GetSemanticModel(context, scope.SyntaxTree);
+        ISymbol declared = symbol.OriginalDefinition;
+
+        foreach (SyntaxNode node in scope.DescendantNodes())
+        {
+            foreach (ExpressionSyntax written in GetWriteTargets(node))
+            {
+                ISymbol? target = model.GetSymbolInfo(written, context.CancellationToken).Symbol;
+                if (SymbolEqualityComparer.Default.Equals(target?.OriginalDefinition, declared))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<ExpressionSyntax> GetWriteTargets(SyntaxNode node)
+    {
+        switch (node)
+        {
+            // A deconstruction writes the elements of the tuple on its left and not the tuple itself.
+            case AssignmentExpressionSyntax { Left: TupleExpressionSyntax tuple }:
+                foreach (ArgumentSyntax element in tuple.Arguments)
+                    yield return element.Expression;
+
+                break;
+
+            case AssignmentExpressionSyntax assignment:
+                yield return assignment.Left;
+
+                break;
+
+            case ArgumentSyntax argument when !argument.RefKindKeyword.IsKind(SyntaxKind.None):
+                yield return argument.Expression;
+
+                break;
+
+            case PrefixUnaryExpressionSyntax prefix
+                when prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                    || prefix.IsKind(SyntaxKind.PreDecrementExpression):
+                yield return prefix.Operand;
+
+                break;
+
+            case PostfixUnaryExpressionSyntax postfix
+                when postfix.IsKind(SyntaxKind.PostIncrementExpression)
+                    || postfix.IsKind(SyntaxKind.PostDecrementExpression):
+                yield return postfix.Operand;
+
+                break;
+        }
     }
 
     /// <returns>

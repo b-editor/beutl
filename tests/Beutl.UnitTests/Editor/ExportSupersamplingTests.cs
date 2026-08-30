@@ -48,14 +48,20 @@ public class ExportSupersamplingTests
     [TestCase(2160, 4100, 4, false)] // ...and the height axis alone, too
     public void FitsBufferLimit_AgainstEngineLimit(int w, int h, int factor, bool expected)
     {
-        Assert.That(ExportSupersampling.FitsBufferLimit(new PixelSize(w, h), factor), Is.EqualTo(expected));
+        Assert.That(
+            ExportSupersampling.FitsBufferLimit(
+                new PixelSize(w, h), factor, RenderScaleUtilities.MaxBufferDimension),
+            Is.EqualTo(expected));
     }
 
+    // The default is what the running machine's device can attach, which on a device below the engine
+    // ceiling is a smaller number - so the expectation is that limit, not the constant.
     [Test]
-    public void FitsBufferLimit_DefaultLimit_IsTheEngineConstant()
+    public void FitsBufferLimit_DefaultLimit_IsWhatTheDeviceCanAttach()
     {
-        var atLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1080);
-        var overLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension + 1, 1080);
+        int resolved = RenderScaleUtilities.ResolveMaxBufferDimension();
+        var atLimit = new PixelSize(resolved, 1080);
+        var overLimit = new PixelSize(resolved + 1, 1080);
 
         Assert.That(ExportSupersampling.FitsBufferLimit(atLimit, 1), Is.True);
         Assert.That(ExportSupersampling.FitsBufferLimit(overLimit, 1), Is.False);

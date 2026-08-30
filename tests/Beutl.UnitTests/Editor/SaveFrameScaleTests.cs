@@ -56,14 +56,20 @@ public class SaveFrameScaleTests
     [TestCase(4100, 2160, 4f, false)] // width axis alone exceeds: 16400 > 16384
     public void FitsBufferLimit_AgainstEngineLimit(int w, int h, float scale, bool expected)
     {
-        Assert.That(SaveFrameScale.FitsBufferLimit(new PixelSize(w, h), scale), Is.EqualTo(expected));
+        Assert.That(
+            SaveFrameScale.FitsBufferLimit(
+                new PixelSize(w, h), scale, RenderScaleUtilities.MaxBufferDimension),
+            Is.EqualTo(expected));
     }
 
+    // The default is what the running machine's device can attach, which on a device below the engine
+    // ceiling is a smaller number - so the expectation is that limit, not the constant.
     [Test]
-    public void FitsBufferLimit_DefaultLimit_IsTheEngineConstant()
+    public void FitsBufferLimit_DefaultLimit_IsWhatTheDeviceCanAttach()
     {
-        var atLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1080);
-        var overLimit = new PixelSize(RenderScaleUtilities.MaxBufferDimension + 1, 1080);
+        int resolved = RenderScaleUtilities.ResolveMaxBufferDimension();
+        var atLimit = new PixelSize(resolved, 1080);
+        var overLimit = new PixelSize(resolved + 1, 1080);
 
         Assert.That(SaveFrameScale.FitsBufferLimit(atLimit, 1f), Is.True);
         Assert.That(SaveFrameScale.FitsBufferLimit(overLimit, 1f), Is.False);

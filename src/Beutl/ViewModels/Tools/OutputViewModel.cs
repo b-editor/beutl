@@ -87,12 +87,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         SupersampleWarning = SupersampleFactor
             .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
             {
-                if (ExportSupersampling.FitsBufferLimit(frameSize, factor)) return null;
+                int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension();
+                if (ExportSupersampling.FitsBufferLimit(frameSize, factor, maxDimension)) return null;
 
                 (long width, long height) = ExportSupersampling.GetRenderSize(frameSize, factor);
                 return string.Format(
                     MessageStrings.SupersamplingExceedsMaxRenderSize,
-                    Math.Max(1, factor), width, height, RenderScaleUtilities.MaxBufferDimension);
+                    Math.Max(1, factor), width, height, maxDimension);
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);

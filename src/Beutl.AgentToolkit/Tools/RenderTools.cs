@@ -2107,29 +2107,32 @@ public sealed class RenderTools(
 
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         PixelSize frameSize = scene.FrameSize;
+
+        // The device's limit rather than the engine ceiling: a scale this admits is one the render is about
+        // to hand the allocator, and a device below the ceiling refuses it there instead.
+        int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension();
         double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
         double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);
-        if (requestedWidth <= RenderScaleUtilities.MaxBufferDimension
-            && requestedHeight <= RenderScaleUtilities.MaxBufferDimension)
+        if (requestedWidth <= maxDimension && requestedHeight <= maxDimension)
         {
             return normalizedScale;
         }
 
         double maximumScaleLimit = Math.Min(
             frameSize.Width > 0
-                ? RenderScaleUtilities.MaxBufferDimension / (double)frameSize.Width
+                ? maxDimension / (double)frameSize.Width
                 : double.PositiveInfinity,
             frameSize.Height > 0
-                ? RenderScaleUtilities.MaxBufferDimension / (double)frameSize.Height
+                ? maxDimension / (double)frameSize.Height
                 : double.PositiveInfinity);
         float maximumScale = (float)maximumScaleLimit;
-        while (!RootOutputExtentFits(frameSize, maximumScale))
+        while (!RootOutputExtentFits(frameSize, maximumScale, maxDimension))
         {
             maximumScale = MathF.BitDecrement(maximumScale);
         }
 
         float nextScale = MathF.BitIncrement(maximumScale);
-        while (float.IsFinite(nextScale) && RootOutputExtentFits(frameSize, nextScale))
+        while (float.IsFinite(nextScale) && RootOutputExtentFits(frameSize, nextScale, maxDimension))
         {
             maximumScale = nextScale;
             nextScale = MathF.BitIncrement(maximumScale);
@@ -2140,16 +2143,16 @@ public sealed class RenderTools(
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             $"{toolName} renderScale {normalizedScale.ToString("G9", CultureInfo.InvariantCulture)} requests an output extent of {requestedExtent} pixels. "
-            + $"Each output axis is limited to {RenderScaleUtilities.MaxBufferDimension} pixels; "
+            + $"Each output axis is limited to {maxDimension} pixels; "
             + $"the maximum usable renderScale for frame {frameSize.Width}x{frameSize.Height} is {maximumScaleText}.",
             "renderScale",
             $"Use renderScale <= {maximumScaleText} for this frame size."));
     }
 
-    private static bool RootOutputExtentFits(PixelSize frameSize, float renderScale)
+    private static bool RootOutputExtentFits(PixelSize frameSize, float renderScale, int maxDimension)
     {
-        return GetRootDeviceExtent(frameSize.Width, renderScale) <= RenderScaleUtilities.MaxBufferDimension
-               && GetRootDeviceExtent(frameSize.Height, renderScale) <= RenderScaleUtilities.MaxBufferDimension;
+        return GetRootDeviceExtent(frameSize.Width, renderScale) <= maxDimension
+               && GetRootDeviceExtent(frameSize.Height, renderScale) <= maxDimension;
     }
 
     private static float GetRootDeviceExtent(int logicalExtent, float renderScale)

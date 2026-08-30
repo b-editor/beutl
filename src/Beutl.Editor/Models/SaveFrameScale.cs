@@ -22,11 +22,18 @@ public static class SaveFrameScale
     }
 
     /// <summary>Whether the scaled surface fits the per-axis buffer limit on both axes.</summary>
-    public static bool FitsBufferLimit(
-        PixelSize frameSize, float scale, int maxDimension = RenderScaleUtilities.MaxBufferDimension)
+    /// <param name="maxDimension">
+    /// The limit to fit, or <see langword="null"/> for what the device can attach.
+    /// </param>
+    /// <remarks>
+    /// The default is the device's limit rather than the engine ceiling: a dialog that validates against the
+    /// ceiling enables a save the device then refuses mid-render.
+    /// </remarks>
+    public static bool FitsBufferLimit(PixelSize frameSize, float scale, int? maxDimension = null)
     {
+        int limit = maxDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
         (long width, long height) = GetRenderSize(frameSize, scale);
-        return width <= maxDimension && height <= maxDimension;
+        return width <= limit && height <= limit;
     }
 
     /// <summary>Whether the scaled surface is at least 1 px on each axis.</summary>

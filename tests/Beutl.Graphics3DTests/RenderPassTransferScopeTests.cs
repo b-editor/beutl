@@ -68,6 +68,34 @@ public sealed class RenderPassTransferScopeTests
         }
         """;
 
+    /// <summary>Builds its own fullscreen triangle, so a pipeline using it declares no vertex input.</summary>
+    private const string FullscreenVertexShader = """
+        #version 450
+
+        layout(location = 0) out vec2 fragCoord;
+
+        void main() {
+            vec2 positions[3] = vec2[](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+            vec2 uvs[3] = vec2[](vec2(0.0, 0.0), vec2(2.0, 0.0), vec2(0.0, 2.0));
+            gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+            fragCoord = uvs[gl_VertexIndex];
+        }
+        """;
+
+    /// <summary>Declares binding 0 as a uniform buffer, where <see cref="PassthroughFragmentShader"/>
+    /// declares it as a combined image sampler, so the two descriptor set layouts differ.</summary>
+    private const string UniformTintFragmentShader = """
+        #version 450
+
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(binding = 0) uniform Tint { vec4 color; } tint;
+
+        void main() {
+            outColor = tint.color;
+        }
+        """;
+
     // Past VulkanRenderPass3D's 128-byte push-constant limit, so SetPushConstants rejects it.
     [StructLayout(LayoutKind.Sequential, Size = 192)]
     private struct OversizedPushConstants
@@ -430,6 +458,153 @@ public sealed class RenderPassTransferScopeTests
                 + "readback maps memory the copy has not reached.");
 
             renderPass.End();
+            context.WaitIdle();
+        });
+    }
+
+    /// <remarks>
+    /// <see cref="IRenderPass3D"/> is <see cref="IDisposable"/> and <see cref="IGraphicsContext"/> hands one
+    /// out, so a caller that owns its own pass can reach dispose from a path that never runs
+    /// <see cref="IRenderPass3D.End"/> - an early return or a throw under a <c>using</c>. The scope claimed
+    /// at <see cref="IRenderPass3D.Begin"/> belongs to the whole context rather than to the pass, so a
+    /// disposed pass that keeps it rejects every later Begin on that context and sends every later transfer
+    /// through a suspend on an object whose render pass handles are already gone.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void DisposingAPassThatIsStillRecording_ReleasesTheRenderPassScope()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using ITexture2D abandonedColor = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D abandoned = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using IFramebuffer3D abandonedFramebuffer = context.CreateFramebuffer3D(
+                abandoned,
+                [abandonedColor],
+                null);
+
+            // What an out-of-tree `using IRenderPass3D` looks like when its body returns early or throws:
+            // the scope was claimed by Begin, and dispose is the only thing left to release it.
+            abandoned.Begin(abandonedFramebuffer, [Colors.Transparent]);
+            abandoned.Dispose();
+
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
+
+            Assert.That(
+                () => renderPass.Begin(framebuffer, [Colors.Transparent]),
+                Throws.Nothing,
+                "A disposed pass must give up the context-wide render-pass scope it claimed, or no later "
+                + "pass on this context can begin.");
+
+            uint[] payload = [0x11223344u, 0x55667788u];
+            ulong size = (ulong)(payload.Length * sizeof(uint));
+            using IBuffer source = context.CreateBuffer(
+                size,
+                BufferUsage.TransferSource,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            using IBuffer destination = context.CreateBuffer(
+                size,
+                BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
+                MemoryProperty.DeviceLocal);
+            source.Upload<uint>(payload);
+
+            var afterDispose = new List<VulkanCommandPoolEvent>();
+            using (VulkanCommandPool.Observe(afterDispose.Add))
+            {
+                context.CopyBuffer(source, destination, size);
+            }
+
+            renderPass.End();
+            context.WaitIdle();
+
+            Assert.That(
+                afterDispose.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                Is.Zero,
+                "The transfer must split the pass that is really recording. A stale owner left behind by "
+                + "dispose diverts it into a suspend on a destroyed pass instead.");
+        });
+    }
+
+    /// <remarks>
+    /// A descriptor set and a pipeline layout reach <c>vkCmdBindDescriptorSets</c> as unrelated handles, and
+    /// neither carries what it was declared with, so binding a set against a pipeline whose layout does not
+    /// describe it is undefined behaviour rather than a validation message - on MoltenVK it takes the process
+    /// down. Only the managed layer knows which pipeline a set was allocated from, so only it can reject the
+    /// mismatch.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ADescriptorSetAllocatedFromAnotherPipeline_IsRejectedByBindDescriptorSet()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
+            byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
+            byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);
+
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
+
+            // Binding 0 is a combined image sampler in one layout and a uniform buffer in the other, so a set
+            // allocated from either describes nothing the other's pipeline layout declares.
+            using IPipeline3D sampledPipeline = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                sampledSpirv,
+                [new DescriptorBinding(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+            using IPipeline3D tintedPipeline = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                tintedSpirv,
+                [new DescriptorBinding(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)],
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+
+            using IDescriptorSet sampledSet = context.CreateDescriptorSet(
+                sampledPipeline,
+                [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
+            using IDescriptorSet tintedSet = context.CreateDescriptorSet(
+                tintedPipeline,
+                [new DescriptorPoolSize(DescriptorType.UniformBuffer, 1)]);
+
+            using ITexture2D sourceTexture = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using ISampler sampler = context.CreateSampler();
+            using IBuffer tintBuffer = context.CreateBuffer(
+                256,
+                BufferUsage.UniformBuffer,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            sampledSet.UpdateTexture(0, sourceTexture, sampler);
+            tintedSet.UpdateBuffer(0, tintBuffer);
+
+            renderPass.Begin(framebuffer, [Colors.Transparent]);
+            try
+            {
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(
+                        () => renderPass.BindDescriptorSet(sampledPipeline, tintedSet),
+                        Throws.ArgumentException,
+                        "a set allocated from another pipeline's descriptor set layout must not reach "
+                        + "vkCmdBindDescriptorSets, which cannot tell it from a set this pipeline describes");
+                    Assert.That(
+                        () => renderPass.BindDescriptorSet(sampledPipeline, sampledSet),
+                        Throws.Nothing,
+                        "the control: a set allocated from this pipeline still binds");
+                }
+            }
+            finally
+            {
+                renderPass.End();
+            }
+
             context.WaitIdle();
         });
     }

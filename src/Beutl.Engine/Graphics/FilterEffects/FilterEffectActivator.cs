@@ -10,6 +10,11 @@ internal delegate ProgramCacheLease<CachedSkRuntimeEffect> SkRuntimeEffectProgra
     EffectTarget target,
     string source);
 
+/// <summary>
+/// Allocates its own intermediates from the process-wide shared graphics context when constructed
+/// through its public constructor, so a caller-supplied <see cref="IRenderTargetFactory"/> is honoured
+/// only where the effect runs through <see cref="RenderNodeRenderer"/>.
+/// </summary>
 public sealed class FilterEffectActivator : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");

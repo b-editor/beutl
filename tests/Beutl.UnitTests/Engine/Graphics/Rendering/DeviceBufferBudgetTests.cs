@@ -5,7 +5,10 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics3D;
+using Beutl.Helpers;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.Threading;
 
 using Moq;
@@ -529,6 +532,123 @@ public sealed class DeviceBufferBudgetTests
     }
 
     /// <summary>
+    /// A request opened before any GPU work has happened pins no context, because there is none installed to
+    /// pin. The allocation behind it still builds one, so the budget has to ask for the device that
+    /// allocation will get rather than fall back to the engine ceiling.
+    /// </summary>
+    [Test]
+    public void ABudgetTakenBeforeTheFirstDevice_MeasuresAgainstTheDeviceTheAllocationWillBuild()
+    {
+        var pastTheDevice = new PixelSize(DeviceBudget + 1, 1);
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        (bool pinnedNothing, bool refuses, int budget) = WithAllocationDevice(device.Object, () =>
+            RenderThread.Dispatcher.Invoke(() =>
+            {
+                // Nothing installed is the state this case is about, and the suite cannot assume it: any
+                // earlier test may have left a real device behind. Standing in for the installed state is
+                // what makes the fixture reach the un-pinned branch on every machine.
+                InstalledGraphics live = GraphicsContextFactory.ExchangeInstalledGraphics(
+                    new InstalledGraphics(null, null, null, FailedToInitialize: false));
+                try
+                {
+                    using var pool = new RenderTargetPool(factory: null);
+                    using RenderTargetPoolRequest request = pool.BeginRequest();
+                    bool absent = GraphicsContextFactory.SharedContext is null;
+                    bool refused = pool.ExceedsBufferBudget(request, pastTheDevice, out int resolved);
+                    return (absent, refused, resolved);
+                }
+                finally
+                {
+                    GraphicsContextFactory.ExchangeInstalledGraphics(live);
+                }
+            }));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pinnedNothing, Is.True, "the fixture must open the request with no context installed");
+            Assert.That(
+                budget,
+                Is.EqualTo(DeviceBudget),
+                "the engine ceiling here would let through an attachment the device about to be built cannot make");
+            Assert.That(refuses, Is.True);
+            AssertNeverAttached(device);
+        });
+    }
+
+    /// <summary>
+    /// The root output surface is <c>ceil(FrameSize * s_out)</c> and is allocated directly rather than
+    /// through the pool, so nothing else can bound it: it has to refuse for itself, naming the same limit a
+    /// pooled refusal names.
+    /// </summary>
+    [Test]
+    public void ARootSurfacePastTheDevicesLimit_IsRefusedBeforeItReachesTheAllocator()
+    {
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        Exception? refusal = WithAllocationDevice(device.Object, () =>
+        {
+            try
+            {
+                // Within the engine ceiling and past what this device can attach, so only the device's own
+                // limit is left to refuse it.
+                using var renderer = new Renderer(DeviceBudget + 1, 1, RenderIntent.Delivery);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                // The construction runs through Dispatcher.Invoke, which reports whatever it caught as the
+                // aggregate of a faulted task.
+                return ex is AggregateException aggregate ? aggregate.Flatten().InnerException : ex;
+            }
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                refusal,
+                Is.InstanceOf<InvalidOperationException>()
+                    .With.Message.Contains(DeviceBudget.ToString()),
+                "the root surface must report the limit it could not fit, as a pooled refusal does");
+            AssertNeverAttached(device);
+        });
+    }
+
+    /// <summary>
+    /// The export and save-frame dialogs pre-validate the root surface before any rendering starts. Measuring
+    /// that against the engine ceiling admits a size the device then refuses, so the user is told the export
+    /// is fine and the render fails afterwards.
+    /// </summary>
+    [Test]
+    public void RootSurfacePreValidation_FollowsTheDeviceRatherThanTheEngineCeiling()
+    {
+        // 4K at 4x is 15360x8640: inside the engine ceiling, past a device that tops out at 8192.
+        var frame = new PixelSize(3840, 2160);
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        (bool supersampleFitsCeiling,
+            bool supersampleFitsDevice,
+            bool saveFrameFitsCeiling,
+            bool saveFrameFitsDevice) = WithAllocationDevice(device.Object, () =>
+            RenderThread.Dispatcher.Invoke(() => (
+                ExportSupersampling.FitsBufferLimit(frame, 4, RenderScaleUtilities.MaxBufferDimension),
+                ExportSupersampling.FitsBufferLimit(frame, 4),
+                SaveFrameScale.FitsBufferLimit(frame, 4f, RenderScaleUtilities.MaxBufferDimension),
+                SaveFrameScale.FitsBufferLimit(frame, 4f))));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                supersampleFitsCeiling,
+                Is.True,
+                "the fixture must clear the engine ceiling, or the two budgets are indistinguishable");
+            Assert.That(saveFrameFitsCeiling, Is.True);
+            Assert.That(supersampleFitsDevice, Is.False);
+            Assert.That(saveFrameFitsDevice, Is.False);
+        });
+    }
+
+    /// <summary>
     /// An effect item allocates at what the device can attach, which on a device below the engine ceiling is
     /// less than the density the plan - and therefore a cache key - was built from. Nothing may be stored
     /// under a key whose pixels do not exist at that density, so such a segment must not be a cache
@@ -635,11 +755,34 @@ public sealed class DeviceBufferBudgetTests
         => new RenderRequestCompiler().Compile(request, new RenderRequestRecorder(request).Record(node));
 
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
+        => MockAttaching(maxAttachmentDimension).Object;
+
+    private static Mock<IGraphicsContext> MockAttaching(int maxAttachmentDimension)
     {
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
         context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
-        return context.Object;
+        return context;
     }
+
+    /// <summary>Runs <paramref name="body"/> with <paramref name="device"/> as the context an allocation builds.</summary>
+    private static T WithAllocationDevice<T>(IGraphicsContext device, Func<T> body)
+    {
+        Func<IGraphicsContext?> previous = RenderTarget.ExchangeAllocationContext(() => device);
+        try
+        {
+            return body();
+        }
+        finally
+        {
+            RenderTarget.ExchangeAllocationContext(previous);
+        }
+    }
+
+    private static void AssertNeverAttached(Mock<IGraphicsContext> device)
+        => device.Verify(
+            c => c.CreateTexture2D(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<TextureFormat>()),
+            Times.Never,
+            "an attachment the device cannot make must never reach the allocator");
 
     private sealed class OverBudgetSourceNode : RenderNode
     {

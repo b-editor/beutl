@@ -23,7 +23,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     private Silk.NET.Vulkan.Buffer _boundVertexBuffer;
     private Silk.NET.Vulkan.Buffer _boundIndexBuffer;
     private DescriptorSet _boundDescriptorSet;
-    private PipelineLayout _boundDescriptorSetLayout;
+    private PipelineLayout _boundDescriptorSetPipelineLayout;
     private PipelineLayout _pushConstantLayout;
     private uint _pushConstantSize;
     private bool _inRenderPass;
@@ -391,7 +391,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     /// </remarks>
     bool IVulkanRenderPassSuspension.TrySuspend()
     {
-        if (!_inRenderPass || _suspended || _currentFramebuffer is null)
+        // Dispose already gives up the scope, so a disposed pass should never be reached as its owner. The
+        // check stays because the cost of being wrong is recording an end and a begin against render pass
+        // handles that have been destroyed, which no layer below this one can diagnose.
+        if (_disposed || !_inRenderPass || _suspended || _currentFramebuffer is null)
             return false;
 
         _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
@@ -458,7 +461,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             vk.CmdBindDescriptorSets(
                 _currentCommandBuffer,
                 PipelineBindPoint.Graphics,
-                _boundDescriptorSetLayout,
+                _boundDescriptorSetPipelineLayout,
                 0,
                 1,
                 &set,
@@ -500,7 +503,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _boundVertexBuffer = default;
         _boundIndexBuffer = default;
         _boundDescriptorSet = default;
-        _boundDescriptorSetLayout = default;
+        _boundDescriptorSetPipelineLayout = default;
         _pushConstantLayout = default;
         _pushConstantSize = 0;
     }
@@ -575,6 +578,21 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
     }
 
+    /// <remarks>
+    /// <c>vkCmdBindDescriptorSets</c> takes the set and the pipeline layout as unrelated handles, and neither
+    /// carries the declarations it was built from, so a set allocated from a layout the pipeline does not
+    /// declare is undefined behaviour the driver need not diagnose - on MoltenVK it takes the process down.
+    /// This rejects it on layout handle identity, which is stricter than Vulkan's own rule that two
+    /// identically defined layouts are interchangeable: a set is allocated from exactly one pipeline's
+    /// layout here, and admitting a cross-pipeline bind would mean comparing declarations the managed layer
+    /// does not fully hold - <see cref="VulkanDescriptorBindingTable"/> keeps the binding numbers, types, and
+    /// counts a write has to be checked against, but not the stage flags that also decide whether two
+    /// layouts are identically defined. Being over-strict costs a legal bind an argument error the caller
+    /// can act on; being under-strict costs the process.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="descriptorSet"/> was allocated from a different pipeline's descriptor set layout.
+    /// </exception>
     public void BindDescriptorSet(IPipeline3D pipeline, IDescriptorSet descriptorSet)
     {
         if (!_inRenderPass)
@@ -584,9 +602,18 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
         var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
         var vulkanDescriptorSet = _context.RequireOwned<VulkanDescriptorSet>(descriptorSet, nameof(descriptorSet));
+        if (vulkanDescriptorSet.Layout.Handle != vulkanPipeline.DescriptorSetLayoutHandle.Handle)
+        {
+            throw new ArgumentException(
+                "The descriptor set was allocated from a different pipeline's descriptor set layout, so the "
+                + "pipeline layout it would be bound against does not describe it. Allocate the set from the "
+                + "pipeline it is bound with.",
+                nameof(descriptorSet));
+        }
+
         var set = vulkanDescriptorSet.Handle;
         _boundDescriptorSet = set;
-        _boundDescriptorSetLayout = vulkanPipeline.PipelineLayoutHandle;
+        _boundDescriptorSetPipelineLayout = vulkanPipeline.PipelineLayoutHandle;
         _context.Vk.CmdBindDescriptorSets(
             _currentCommandBuffer,
             PipelineBindPoint.Graphics,
@@ -656,6 +683,23 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     {
         if (_disposed) return;
         _disposed = true;
+
+        // A caller can own its pass - IRenderPass3D is IDisposable and the context hands one out - so dispose
+        // is reachable from a path that never ran End: an early return or a throw under a `using`. The scope
+        // Begin claimed belongs to the context rather than to this object, so a disposed pass that keeps it
+        // rejects every later Begin on that context and sends every later transfer through a suspend on this
+        // object, whose render pass handles are being destroyed just below.
+        if (_inRenderPass)
+        {
+            if (!_suspended)
+                _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
+
+            _context.EndRenderPassScope(this);
+            _inRenderPass = false;
+            _suspended = false;
+            _currentFramebuffer = null;
+            ForgetRecordedState();
+        }
 
         RenderPass renderPass = _renderPass;
         RenderPass resumeRenderPass = _resumeRenderPass;

@@ -10,7 +10,7 @@ BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation
 
 The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
 
-The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining thirty each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352`, `5ade9db14`, `9226be071`, `85667b924`, `60b51d110`, `5c6bac032`, `28d79bc87`, `e82717596`, `263c47e31`, `bd624508e`, `bc79b7f32`, `a3497c49c` and `58de18981`, documented in the sections below. All thirty-two contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
+The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining thirty-seven each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352`, `5ade9db14`, `9226be071`, `85667b924`, `60b51d110`, `5c6bac032`, `28d79bc87`, `e82717596`, `263c47e31`, `bd624508e`, `bc79b7f32`, `a3497c49c`, `6b28e5c23`, `2e4d07f77`, `e267d512c`, `3de2f06f7`, `2ff37dd66`, `020e4bfe9`, `c5836f92e` and `333127aa1`, documented in the sections below. All thirty-nine contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
 
 `main` is squash-only, so the single commit that lands there is built from the pull request's title and body, not from any of those messages. The footer that reaches changelog tooling is therefore the one in the **pull request description**; a branch full of correctly footed commits does not supply it. Keep a `BREAKING CHANGE:` footer in the description that names `Beutl.Engine` and summarises the migrations below, and update it whenever a new breaking commit is added to the branch.
 
@@ -530,35 +530,11 @@ The same rule applies to `CubeMesh`, `PlaneMesh`, `SphereMesh`, and `ModelMesh`:
 
 ## Render intent, brushes, and allocation behavior
 
-`Renderer` and `ImmediateCanvas` gain a trailing optional `RenderIntent` that defaults to `RenderIntent.Preview`. Existing call sites still compile, but delivery hosts must opt in explicitly so an intermediate allocation failure throws instead of dropping content:
+`Renderer`, `ImmediateCanvas`, `SceneRenderer`, `BrushConstructor` and `FilterEffectActivator` take `RenderIntent` — and `BrushConstructor` and `FilterEffectActivator` also take `DrawableBrushMaterializer?` — as required arguments, not trailing optional ones. Neither can be reached by dropping a trailing argument, so a host cannot inherit preview semantics or a transparent `DrawableBrush` by omission. See "A render host states what its output is for" below for the signatures and the migration.
 
-```csharp
-using var renderer = new Renderer(
-    width,
-    height,
-    renderScale,
-    maxWorkingScale,
-    intent: RenderIntent.Delivery);
-```
+Positional callers must be updated: the materializer sits directly after `intent`, ahead of the optional scale parameters. Custom `IRenderTargetFactory` implementations must drop `GetMaximumDimension`. `RenderScaleUtilities.MaxBufferDimension` is the engine's own axis ceiling and still bounds a buffer no device attaches; where an allocation does attach, `ResolveMaxBufferDimension()` answers with what that device reports instead, which on the bundled software fallback is lower.
 
-`BrushConstructor` has the final signature shape `(bounds, brush, blendMode, scale, maxWorkingScale, intent, drawableBrushMaterializer)`. Its allocation-failure policy no longer infers delivery from `float.IsPositiveInfinity(MaxWorkingScale)`; it uses `Intent`. Because `intent` defaults to `Preview`, an old delivery-oriented call such as `new BrushConstructor(bounds, brush, mode, scale, float.PositiveInfinity)` still compiles but changes from fail-fast to transparent degradation. Migrate it explicitly:
-
-```csharp
-var constructor = new BrushConstructor(
-    bounds,
-    brush,
-    blendMode,
-    scale,
-    maxWorkingScale,
-    intent: RenderIntent.Delivery,
-    drawableBrushMaterializer: materializer);
-```
-
-The trailing `DrawableBrushMaterializer` is optional for source compatibility, but a `DrawableBrush` painted without one degrades to transparent. Prefer `ImmediateCanvas.CreateBrushConstructor(...)` when painting through a canvas because it carries the canvas density, working-scale ceiling, intent, and runtime materializer. A direct host that supports drawable brushes must provide a materializer; otherwise the missing nested content is intentional degraded output.
-
-Positional callers after `intent` must be updated for the trailing materializer parameter. Custom `IRenderTargetFactory` implementations must drop `GetMaximumDimension`; the current hard axis bound remains `RenderScaleUtilities.MaxBufferDimension`.
-
-`FilterEffectActivator`'s public constructor takes the same trailing optional `DrawableBrushMaterializer?` for the same reason: the activator is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
+`FilterEffectActivator`'s public constructor requires the same `DrawableBrushMaterializer?` for the same reason: the activator is a direct host, and it forwards the materializer into every `CustomFilterEffectContext` it opens. Without one, a `DrawableBrush` used as a displacement map (or any other brush a custom effect paints) degrades to transparent, which for a displacement map silently turns the effect into a no-op:
 
 ```csharp
 using var activator = new FilterEffectActivator(
@@ -942,7 +918,7 @@ describes, and nothing at runtime notices.
 
 Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: what a
 callee with no source in the compilation reads stays invisible to all of them, and so does what an instance
-member computes on a receiver the call did not make.
+member computes on a receiver whose creation the rule cannot point at.
 
 ## A recording is replayed while it is still valid
 
