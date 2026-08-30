@@ -114,11 +114,25 @@ public partial class ColorShift : FilterEffect
                || AlphaOffset != default;
 
         /// <remarks>
-        /// The entry point evaluates <c>src</c> at <c>fragCoord</c> minus each channel's own offset and takes
-        /// one channel from each result, so the points it reads for one output pixel are exactly those four
-        /// translations of it, and the pixel carries something wherever any of them did. Alpha alone would not
-        /// answer this: it comes from <c>alphaOffset</c> only, so a colour offset paints a channel over a
-        /// transparent pixel, and premultiplied compositing adds that colour to whatever is behind it.
+        /// <para>
+        /// The entry point evaluates <c>src</c> at <c>fragCoord</c> minus each channel's own offset, so the
+        /// points it reads for one output pixel are exactly those four translations of it and no others.
+        /// Decal sampling makes a translation that misses the input contribute nothing, which is what bounds
+        /// this to the four footprints rather than to the output rectangle. Alpha alone would not answer it:
+        /// alpha comes from <c>alphaOffset</c> only, so a colour offset paints a channel over a transparent
+        /// pixel, and premultiplied compositing adds that colour to whatever is behind it.
+        /// </para>
+        /// <para>
+        /// What the entry point takes from each of those points is one channel, so whether the pixel carries
+        /// anything depends on the input's colour there and not only on whether the input covered it: over an
+        /// input whose green is zero, a green-only shift lands on covered input and still writes nothing. A
+        /// hit test cannot see that. <see cref="RenderHitTestInput"/> answers coverage and never a sample, and
+        /// the same coverage arises from an input that would paint the pixel and one that would not, so no
+        /// test built on it can separate the two. Between claiming a point the stage left clear and missing
+        /// one it painted, this claims: the rule is that a stage must answer for the pixels it produced.
+        /// The over-claim is bounded by the four translated footprints and costs a click landing on the
+        /// element where a zero channel left the result transparent.
+        /// </para>
         /// </remarks>
         public bool HitTest(RenderHitTestContext context, Point point)
             => ReadsCoveredInput(context, point, RedOffset)

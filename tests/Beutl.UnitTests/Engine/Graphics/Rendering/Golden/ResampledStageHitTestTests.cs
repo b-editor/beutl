@@ -24,11 +24,17 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 public sealed class ResampledStageHitTestTests
 {
     private const int Size = 100;
+    private const int LargeSize = 300;
 
     // Narrower than the surface, so a horizontal shift carries content into pixels the input never covered
     // and vacates pixels it did.
     private static readonly Rect s_shiftContent = new(0, 0, 60, 100);
     private static readonly Rect s_tileContent = new(0, 0, Size, Size);
+
+    // A domain three times the input, with the input offset inside it: a coordinate can then be well outside
+    // the stage and still be one the request is asked about.
+    private static readonly Rect s_largeDomain = new(0, 0, LargeSize, LargeSize);
+    private static readonly Rect s_offsetContent = new(Size, Size, Size, Size);
 
     [TestCaseSource(nameof(ColorShiftCases))]
     [Category("GpuPassFusionGpu")]
@@ -225,7 +231,357 @@ public sealed class ResampledStageHitTestTests
                     Is.EqualTo(HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), point)),
                     $"MosaicEffect changed its answer at {point} when the output scale became {outputScale}");
             }
+
+            // The clamped edge and the rectangle just outside the stage are where the two new bounds decide
+            // the answer, and both are expressed in logical coordinates that no output density may move.
+            foreach (Point point in new Point[] { new(92, 50), new(50, 92), new(100, 50), new(50, 100) })
+            {
+                Assert.That(
+                    HitTest(
+                        s_tileContent, Mosaic(20, RelativePoint.Center), point, fullBleed: true,
+                        outputScale: outputScale),
+                    Is.EqualTo(
+                        HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), point, fullBleed: true)),
+                    $"MosaicEffect changed its answer at {point} when the output scale became {outputScale}");
+            }
         });
+    }
+
+    /// <remarks>
+    /// The tile grid is defined over the whole plane, so the entry point's mapping alone answers for points the
+    /// stage never wrote: it names a sample for any coordinate, and clamped sampling then reads the input's edge
+    /// there. What stops that is the surface itself - the entry point runs only for fragments of this stage's
+    /// own output, so outside it the stage wrote nothing whatever the grid says. The target domain here is three
+    /// times the input and the input sits inside it, so a point can be far outside the stage and still be a
+    /// coordinate the request asks about.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void MosaicEffect_OutsideItsOwnOutput_ClaimsNothing()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var far = new Point(0, 0);
+            using Bitmap rendered = Render(
+                s_offsetContent, Mosaic(20, RelativePoint.Center), fullBleed: true, surface: LargeSize,
+                targetDomain: s_largeDomain);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    Painted(rendered, (int)far.X, (int)far.Y),
+                    Is.False,
+                    "the mosaic covers (100, 100)-(200, 200), so the far corner of the surface stays clear");
+                Assert.That(
+                    HitTest(
+                        s_offsetContent, Mosaic(20, RelativePoint.Center), far, fullBleed: true,
+                        targetDomain: s_largeDomain),
+                    Is.False,
+                    "so the contract must not clamp the far corner's sample into the input and claim it");
+            });
+        });
+    }
+
+    /// <remarks>
+    /// A tile whose centre sample lands exactly on the input's right or bottom edge is the case the engine's
+    /// half-open rule decides: <see cref="RectangleRenderNode"/> answers over
+    /// <see cref="Rect.ContainsExclusive"/>, so a sample clamped to <see cref="Rect.Right"/> itself falls
+    /// outside the input that the clamp is supposed to read. The shader has no such gap - clamped sampling reads
+    /// the edge texel - so the contract has to clamp to the last coordinate the input still answers for.
+    /// </remarks>
+    [TestCase(92f, 50f, TestName = "MosaicEffect_ATileCentreOnTheRightEdge_ReadsTheEdgeAndHits")]
+    [TestCase(50f, 92f, TestName = "MosaicEffect_ATileCentreOnTheBottomEdge_ReadsTheEdgeAndHits")]
+    [Category("GpuPassFusionGpu")]
+    public void MosaicEffect_ATileCentreOnTheExclusiveEdge_ReadsTheEdgeAndHits(float x, float y)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var edge = new Point(x, y);
+            using Bitmap rendered = Render(s_tileContent, Mosaic(20, RelativePoint.Center), fullBleed: true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    Painted(rendered, (int)edge.X, (int)edge.Y),
+                    Is.True,
+                    "the tile's centre sample clamps onto the edge of a full-bleed input, which is opaque");
+                Assert.That(
+                    HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), edge, fullBleed: true),
+                    Is.True,
+                    "so the hit test has to land inside the input rather than on its exclusive edge");
+            });
+        });
+    }
+
+    /// <summary>
+    /// Pins that the coordinate the clamp produces is one the input itself answers for, not merely that the
+    /// stage happens to hit.
+    /// </summary>
+    /// <remarks>
+    /// The tile holding x = 92 under a centred origin has its centre at 100, the right edge of a 100-wide
+    /// input. <see cref="RectangleRenderNode"/> rejects that coordinate and accepts every one below it, so the
+    /// clamp is only right if it produces the greatest coordinate the input still accepts.
+    /// </remarks>
+    [Test]
+    public void TheExclusiveEdge_IsTheLastCoordinateTheInputAnswersFor()
+    {
+        var input = new Rect(0, 0, Size, Size);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                input.ContainsExclusive(new Point(input.Right, 50)),
+                Is.False,
+                "the engine's content rule is bottom-right exclusive");
+            Assert.That(
+                input.ContainsExclusive(new Point(float.BitDecrement(input.Right), 50)),
+                Is.True,
+                "and the float below the right edge is inside it, so a clamp has that coordinate to aim at");
+            Assert.That(
+                input.ContainsExclusive(new Point(50, float.BitDecrement(input.Bottom))),
+                Is.True,
+                "the bottom edge behaves the same way");
+        });
+    }
+
+    /// <summary>
+    /// Pins the coordinate the clamp hands the input, not merely that the stage ends up hitting.
+    /// </summary>
+    /// <remarks>
+    /// Under a centred origin the tile holding x = 92 has its centre at 100, the right edge of a 100-wide
+    /// input, while y = 50 belongs to a tile whose centre at 60 needs no clamping at all. The input is asked
+    /// here with <see cref="RectangleRenderNode"/>'s own rule, so the assertion is that the clamp produces a
+    /// coordinate that rule accepts - the last <see langword="float"/> below the edge - rather than the edge
+    /// it rejects or some distance short of it.
+    /// </remarks>
+    [Test]
+    public void MosaicEffect_ClampsOntoTheLastCoordinateTheInputAnswersFor()
+    {
+        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center));
+        var asked = new List<Point>();
+        var input = new RenderHitTestInput(
+            s_tileContent,
+            point =>
+            {
+                asked.Add(point);
+                return s_tileContent.ContainsExclusive(point);
+            });
+
+        bool hit = contract.Evaluate(
+            s_tileContent, [input], Array.Empty<RenderResourceBinding>(), new Point(92, 50));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(asked, Has.Count.EqualTo(1), "the stage reads its input once, at the tile's centre");
+            Assert.That(
+                asked[0].X,
+                Is.EqualTo(float.BitDecrement(s_tileContent.Right)),
+                "the centre at the right edge is clamped to the last coordinate inside the input");
+            Assert.That(
+                asked[0].Y,
+                Is.EqualTo(60f),
+                "the vertical centre is already inside, so the clamp leaves it alone");
+            Assert.That(hit, Is.True, "and that coordinate is one the input's own rule accepts");
+        });
+    }
+
+    /// <summary>
+    /// Pins that an input with no area is answered with a miss rather than an inverted clamp range.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// No render tree reaches this: the stage maps its input's bounds through to its own, so an input with no
+    /// area gives the stage no output either and the bounds gate above answers first. It is still the
+    /// contract's own precondition - <see cref="RenderHitTestInput"/> accepts any finite non-negative
+    /// rectangle, and a clamp whose upper end is the last coordinate below an edge has no range at all when
+    /// there is no coordinate below it. <see cref="Math.Clamp(float, float, float)"/> throws on such a range,
+    /// so the contract is asked here directly, over an input that says yes to everything and covers nothing.
+    /// </para>
+    /// <para>
+    /// Both axes are exercised, because each contributes its own end of the range.
+    /// </para>
+    /// </remarks>
+    [TestCase(50f, 0f, 0f, 100f, TestName = "MosaicEffect_OverAnInputWithNoWidth_Misses")]
+    [TestCase(0f, 50f, 100f, 0f, TestName = "MosaicEffect_OverAnInputWithNoHeight_Misses")]
+    public void MosaicEffect_OverAnInputWithNoArea_Misses(float x, float y, float width, float height)
+    {
+        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center));
+        var input = new RenderHitTestInput(new Rect(x, y, width, height), static _ => true);
+
+        Assert.That(
+            () => contract.Evaluate(
+                s_tileContent, [input], Array.Empty<RenderResourceBinding>(), new Point(50, 50)),
+            Is.False,
+            "an input covering no area carries nothing for any tile to sample");
+    }
+
+    /// <summary>Reads back the hit-test contract the effect recorded, so it can be asked directly.</summary>
+    private static RenderHitTestContract ShaderContractOf(FilterEffect effect)
+    {
+        using var context = new FilterEffectContext(s_tileContent);
+        effect.ApplyTo(context, (FilterEffect.Resource)effect.ToResource(CompositionContext.Default));
+        ShaderDescription description = context.GetOrderedItems()
+            .OfType<FEItem_Shader>()
+            .Single()
+            .Description;
+        return description.HitTest
+               ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
+    }
+
+    /// <summary>
+    /// The class regression 1 belongs to: a declared contract may answer only for the fragment it describes.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="RenderHitTestContract.Custom"/> applies no bounds gate of its own, so every contract that
+    /// resolves a coordinate rather than forwarding one - anything that clamps, wraps or folds - can answer
+    /// outside the rectangle its stage wrote. That is not a property of one effect, so it is asserted here over
+    /// the stages as a set and over a grid rather than at a chosen point.
+    /// </remarks>
+    [TestCaseSource(nameof(OutsideOutputCases))]
+    public void TheContracts_NeverAnswerOutsideTheFragmentsOwnOutput(
+        Func<FilterEffect> effect,
+        Rect content,
+        bool fullBleed)
+    {
+        Rect bounds = OutputBounds(content, effect(), fullBleed, s_largeDomain);
+        Assert.That(bounds.Width, Is.GreaterThan(0), "the stage has to describe some output to be bounded by");
+
+        var claimed = new List<Point>();
+        for (float x = 0; x < LargeSize; x += 7)
+        {
+            for (float y = 0; y < LargeSize; y += 7)
+            {
+                var point = new Point(x, y);
+                if (bounds.Contains(point))
+                    continue;
+
+                if (HitTest(content, effect(), point, fullBleed, targetDomain: s_largeDomain))
+                    claimed.Add(point);
+            }
+        }
+
+        Assert.That(
+            claimed,
+            Is.Empty,
+            $"the stage wrote only {bounds}, so it must not answer for points outside it");
+    }
+
+    /// <summary>
+    /// Records why <see cref="ColorShift"/>'s contract cannot be made exact, over an input whose selected
+    /// channel is zero.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The entry point takes one channel from each of four samples, so what a pixel carries depends on the
+    /// input's colour there and not only on whether the input covered it. A hit test can ask an input only
+    /// whether it covers a point - <see cref="RenderHitTestInput"/> exposes coverage, never a sample - so the
+    /// two inputs below are indistinguishable to the contract while the stage paints one and not the other:
+    /// pure red under a green-only shift leaves the arriving pixel empty, pure green under the same shift
+    /// paints it.
+    /// </para>
+    /// <para>
+    /// The contract therefore has one answer to give for two different outcomes, and the rule that it may not
+    /// miss a point the stage painted decides which: it claims the point. What that costs is recorded here so
+    /// the over-claim stays bounded by the four translated footprints and does not grow.
+    /// </para>
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ColorShift_OverANonWhiteInput_CannotDistinguishAZeroChannelFromANonZeroOne()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var arrived = new Point(70, 50);
+            ColorShift GreenOnly() => Shift(default, Right(20), default, default);
+
+            using Bitmap overRed = Render(
+                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Red);
+            using Bitmap overGreen = Render(
+                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Lime);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    Painted(overRed, (int)arrived.X, (int)arrived.Y),
+                    Is.False,
+                    "a green-only shift over a red input carries a zero green channel, so the pixel stays empty");
+                Assert.That(
+                    Painted(overGreen, (int)arrived.X, (int)arrived.Y),
+                    Is.True,
+                    "the same shift over a green input paints it, from input coverage the contract cannot tell apart");
+                Assert.That(
+                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Red),
+                    Is.EqualTo(
+                        HitTest(
+                            s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Lime)),
+                    "so no coverage-only contract can answer both, and it must answer the painted one");
+                Assert.That(
+                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Red),
+                    Is.True,
+                    "which makes the red case an over-claim the contract accepts rather than miss the green one");
+            });
+        });
+    }
+
+    /// <remarks>
+    /// The over-claim above is bounded: it reaches only where some channel's sample lands on the input. A point
+    /// past every translated footprint is still a miss over a non-white input, which is what keeps the contract
+    /// from degenerating into the output rectangle.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ColorShift_OverANonWhiteInput_StillMissesWhereNoChannelLanded()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var beyond = new Point(90, 50);
+            ColorShift GreenOnly() => Shift(default, Right(20), default, default);
+            using Bitmap rendered = Render(
+                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Red);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    Painted(rendered, (int)beyond.X, (int)beyond.Y),
+                    Is.False,
+                    "x = 90 is past both the input and its shifted copy");
+                Assert.That(
+                    HitTest(s_shiftContent, GreenOnly(), beyond, fullBleed: true, fill: Brushes.Resource.Red),
+                    Is.False,
+                    "so the contract misses it whatever colour the input carries");
+            });
+        });
+    }
+
+    private static IEnumerable<TestCaseData> OutsideOutputCases()
+    {
+        yield return Case(
+            "Mosaic_Centre", static () => Mosaic(20, RelativePoint.Center), s_offsetContent, true);
+        yield return Case(
+            "Mosaic_Absolute",
+            static () => Mosaic(20, new RelativePoint(0, 0, RelativeUnit.Absolute)),
+            s_offsetContent,
+            true);
+        yield return Case(
+            "Mosaic_UnalignedTile", static () => Mosaic(7, RelativePoint.Center), s_offsetContent, false);
+        yield return Case(
+            "ColorShift_AllChannels",
+            static () => Shift(Right(20), Right(20), Right(20), Right(20)),
+            s_offsetContent,
+            false);
+        yield return Case(
+            "ColorShift_AlphaOnly",
+            static () => Shift(default, default, default, Right(20)),
+            s_offsetContent,
+            true);
+
+        static TestCaseData Case(string name, Func<FilterEffect> effect, Rect content, bool fullBleed)
+            => new TestCaseData(effect, content, fullBleed)
+                .SetName($"TheContracts_NeverAnswerOutsideTheFragmentsOwnOutput_{name}");
     }
 
     private static IEnumerable<TestCaseData> ColorShiftCases()
@@ -301,23 +657,44 @@ public sealed class ResampledStageHitTestTests
         FilterEffect effect,
         Point point,
         bool fullBleed = false,
-        float outputScale = 1f)
+        float outputScale = 1f,
+        Rect? targetDomain = null,
+        Brush.Resource? fill = null)
     {
-        using RenderNode root = BuildTree(content, effect, fullBleed);
-        using var renderer = new RenderNodeRenderer(root, Options(outputScale));
+        using RenderNode root = BuildTree(content, effect, fullBleed, fill);
+        using var renderer = new RenderNodeRenderer(root, Options(outputScale, targetDomain));
         return renderer.HitTest(point);
     }
 
-    private static Bitmap Render(Rect content, FilterEffect effect, bool fullBleed = false)
+    /// <summary>The rectangle the request resolved for the stage - the extent it may answer for.</summary>
+    private static Rect OutputBounds(
+        Rect content,
+        FilterEffect effect,
+        bool fullBleed = false,
+        Rect? targetDomain = null,
+        Brush.Resource? fill = null)
     {
-        using RenderTarget target = RenderTarget.Create(Size, Size)
+        using RenderNode root = BuildTree(content, effect, fullBleed, fill);
+        using var renderer = new RenderNodeRenderer(root, Options(targetDomain: targetDomain));
+        return renderer.Measure().OutputBounds;
+    }
+
+    private static Bitmap Render(
+        Rect content,
+        FilterEffect effect,
+        bool fullBleed = false,
+        int surface = Size,
+        Rect? targetDomain = null,
+        Brush.Resource? fill = null)
+    {
+        using RenderTarget target = RenderTarget.Create(surface, surface)
             ?? throw new InvalidOperationException("Could not allocate the resampling render target.");
         using var canvas = new ImmediateCanvas(
-            target, RenderIntent.Preview, 1f, logicalSize: new Size(Size, Size));
+            target, RenderIntent.Preview, 1f, logicalSize: new Size(surface, surface));
         canvas.Clear(Colors.Transparent);
 
-        using (RenderNode root = BuildTree(content, effect, fullBleed))
-        using (var renderer = new RenderNodeRenderer(root, Options()))
+        using (RenderNode root = BuildTree(content, effect, fullBleed, fill))
+        using (var renderer = new RenderNodeRenderer(root, Options(targetDomain: targetDomain)))
         {
             renderer.Render(canvas);
         }
@@ -325,22 +702,29 @@ public sealed class ResampledStageHitTestTests
         return target.Snapshot();
     }
 
-    private static RenderNode BuildTree(Rect content, FilterEffect effect, bool fullBleed)
+    private static RenderNode BuildTree(
+        Rect content,
+        FilterEffect effect,
+        bool fullBleed,
+        Brush.Resource? fill = null)
     {
+        Brush.Resource brush = fill ?? Brushes.Resource.White;
+        RenderNode leaf = fullBleed
+            ? new RectangleRenderNode(content, brush, null)
+            : new EllipseRenderNode(content, brush, null);
+
         var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
-        node.AddChild(fullBleed
-            ? new RectangleRenderNode(content, Brushes.Resource.White, null)
-            : (RenderNode)new EllipseRenderNode(content, Brushes.Resource.White, null));
+        node.AddChild(leaf);
         return node;
     }
 
-    private static RenderNodeRendererOptions Options(float outputScale = 1f)
+    private static RenderNodeRendererOptions Options(float outputScale = 1f, Rect? targetDomain = null)
         => new()
         {
             DefaultRequest = new RenderNodeRenderRequest
             {
                 Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(0, 0, Size, Size),
+                TargetDomain = targetDomain ?? new Rect(0, 0, Size, Size),
                 OutputScale = outputScale,
                 MaxWorkingScale = outputScale,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
