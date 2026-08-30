@@ -293,4 +293,48 @@ public static class EngineObjectHelper
             })
             .DistinctUntilChanged(t => t.Version);
     }
+
+    /// <summary>
+    /// Follows a source of engine objects, observing whichever object it currently holds as a versioned
+    /// resource and letting go of the previous object's as the source moves on.
+    /// </summary>
+    /// <remarks>
+    /// The source is free to hold nothing, so the published handle is nullable: while there is no object the
+    /// result reports <see langword="null"/> rather than going quiet, which is what leaves a subscriber
+    /// showing that absence instead of whatever the previous object last published.
+    /// </remarks>
+    public static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
+        this IObservable<T?> source,
+        IObservable<TimeSpan> time,
+        Func<T, CompositionContext, TResource> createResource)
+        where T : EngineObject
+        where TResource : EngineObject.Resource
+    {
+        return source.SwitchToEngineVersionedResource(time, createResource, RenderThread.Dispatcher);
+    }
+
+    /// <param name="renderDispatcher">
+    /// The dispatcher that owns the resource. Only a test passes anything but the render thread's, which is
+    /// the one shared dispatcher a test must not shut down.
+    /// </param>
+    /// <inheritdoc cref="SwitchToEngineVersionedResource{T, TResource}(IObservable{T}, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
+    internal static IObservable<EngineResourceHandle<TResource>?> SwitchToEngineVersionedResource<T, TResource>(
+        this IObservable<T?> source,
+        IObservable<TimeSpan> time,
+        Func<T, CompositionContext, TResource> createResource,
+        Dispatcher renderDispatcher)
+        where T : EngineObject
+        where TResource : EngineObject.Resource
+    {
+        return source.Select(ObserveResource).Switch();
+
+        IObservable<EngineResourceHandle<TResource>?> ObserveResource(T? obj)
+        {
+            if (obj is null)
+                return Observable.ReturnThenNever<EngineResourceHandle<TResource>?>(null);
+
+            return obj.SubscribeEngineVersionedResource(time, createResource, renderDispatcher)
+                .Select(handle => (EngineResourceHandle<TResource>?)handle);
+        }
+    }
 }

@@ -3849,6 +3849,266 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Does.Not.Contain("BESG003"));
     }
 
+    /// <remarks>
+    /// <para>
+    /// An event is a delegate field whose value is a subscriber list, and += and -= are its assignments.
+    /// Reading that list back is only legal inside the declaring type, which is exactly where a callback
+    /// written beside the event sits, so the narrowness of the language rule is no protection here.
+    /// </para>
+    /// <para>
+    /// Nothing about the callback changes when a subscriber is added: the delegate is the same method, the
+    /// plan key is the same key, and the bounds this hands back are different.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReadingAStaticEventDeclaredBesideIt_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static event Action Changed;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => Changed is null ? value : new Rect(0f, 0f, 1f, 1f),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a subscriber added anywhere in the program changes what this callback answers while the "
+            + "delegate the plan is keyed by stays the same method");
+    }
+
+    /// <remarks>
+    /// The shape that carries the hazard past the declaring type. The callback itself may be written
+    /// anywhere - only the helper the walk follows into has to sit beside the event - so "you can only
+    /// read an event from inside its own type" bounds where the read is written, not where it is reached
+    /// from.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingAHelperThatReadsAStaticEvent_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static event Action Changed;
+
+                public static bool IsExpanded() => Changed is not null;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => Settings.IsExpanded() ? new Rect(0f, 0f, 1f, 1f) : value,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the walk follows the static method, and the read it finds there is the same read whatever "
+            + "type the callback was written in");
+    }
+
+    /// <remarks>
+    /// The write side, which needs no declaring type at all: += binds from anywhere. A mutable static field
+    /// is reported wherever the callback names it, assignment included, and an event is the same state
+    /// under a keyword.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaSubscribingToAStaticEvent_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static event Action Changed;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Settings.Changed += static () => { };
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a callback that rewrites static state on every evaluation is the impurity this rule is for, "
+            + "whichever side of the += the state sits on");
+    }
+
+    /// <remarks>
+    /// The same state one indirection out, and the reachable one: a static readonly singleton needs no
+    /// declaring-type relationship to the callback at all. A source type's member list carries the event
+    /// and its accessors and not the delegate field the compiler writes behind them, so a type whose whole
+    /// mutable state is an event used to pass the immutability walk that the identical state spelled as
+    /// <c>private Action _changed;</c> fails.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReachingAStaticReadonlyHelperWhoseOnlyStateIsAnEvent_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Notifier
+            {
+                public event Action Changed;
+
+                public float Shift(float value) => Changed is null ? value : value + 1f;
+            }
+
+            internal static class Helpers
+            {
+                public static readonly Notifier Shared = new Notifier();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "readonly fixes which Notifier this is and not what it holds, and what it holds is a "
+            + "subscriber list any += rewrites");
+    }
+
+    /// <remarks>
+    /// The negative control for the field-like case: an event declared with its own accessors has no
+    /// backing field, so a type carrying nothing but one carries no state, and reporting it would be the
+    /// rule reading the keyword rather than the storage. Whatever such accessors do write is a field the
+    /// walk already sees.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReachingAStaticReadonlyHelperWhoseEventHasNoBackingField_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Notifier
+            {
+                public event Action Changed { add { } remove { } }
+
+                public float Shift(float value) => value + 1f;
+            }
+
+            internal static class Helpers
+            {
+                public static readonly Notifier Shared = new Notifier();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "an event with written accessors stores nothing of its own, so this helper carries no more "
+            + "state than a stateless one");
+    }
+
+    /// <remarks>
+    /// The negative control for the naming: nameof reaches the event without reading the list, exactly as
+    /// it already does for a mutable static field.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaNamingAStaticEventInsideNameof_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static event Action Changed;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            nameof(Changed).Length, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nameof spells the member and reads nothing of it");
+    }
+
+    /// <remarks>
+    /// The negative control for the scope: this rule is about static state, and an event the node itself
+    /// declares is the node's own, which BESG003 admits a callback reading and which change marking
+    /// re-records. Reporting it here would take back the one reader both rules are built around.
+    /// </remarks>
+    [Test]
+    public void ANodeLambdaReadingAnEventItsOwnNodeDeclares_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class NotifyingNode : RenderNode
+            {
+                public event Action Changed;
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => Changed is null ? value : new Rect(0f, 0f, 1f, 1f),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the node the callback is written inside is the one reader both rules admit, and an event of "
+            + "its own is no more static than a field of its own");
+    }
+
     /// <summary>
     /// Compiles the contract stubs and <paramref name="librarySource"/> into an assembly, then analyzes
     /// <paramref name="source"/> against it rather than against the stubs as source.

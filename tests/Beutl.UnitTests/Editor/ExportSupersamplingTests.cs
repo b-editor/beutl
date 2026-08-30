@@ -54,12 +54,12 @@ public class ExportSupersamplingTests
             Is.EqualTo(expected));
     }
 
-    // The default is what the running machine's device can attach, which on a device below the engine
-    // ceiling is a smaller number - so the expectation is that limit, not the constant.
+    // Read through the same resolver the default uses. ResolveMaxBufferDimension answers the engine ceiling
+    // off the render dispatcher by design, so it would expect a limit this check never applies.
     [Test]
     public void FitsBufferLimit_DefaultLimit_IsWhatTheDeviceCanAttach()
     {
-        int resolved = RenderScaleUtilities.ResolveMaxBufferDimension();
+        int resolved = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
         var atLimit = new PixelSize(resolved, 1080);
         var overLimit = new PixelSize(resolved + 1, 1080);
 

@@ -35,6 +35,11 @@ internal sealed class EngineResourceGate
 /// what makes two handles over the same resource compare unequal once it has changed. It is not re-checked
 /// on read: a read sees whatever the resource holds at that moment, consistently.
 /// </para>
+/// <para>
+/// The gate records only the owning subscription's release, which is the end of the resource tree, not of any
+/// one resource in it. A rebuild releases a child the moment it drops it, so every entry point re-checks the
+/// resource it is about to lend as well.
+/// </para>
 /// </remarks>
 public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResourceHandle<TResource>>
     where TResource : EngineObject.Resource
@@ -71,7 +76,7 @@ public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResour
 
         lock (_gate.SyncRoot)
         {
-            if (_gate.IsReleased)
+            if (IsGone)
                 return false;
 
             read(_resource);
@@ -92,7 +97,7 @@ public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResour
 
         lock (_gate.SyncRoot)
         {
-            return _gate.IsReleased ? fallback : read(_resource);
+            return IsGone ? fallback : read(_resource);
         }
     }
 
@@ -100,9 +105,17 @@ public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResour
     /// Reaches a resource this one owns and hands it back behind the same gate.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A child is released with its parent, so it belongs behind the parent's gate rather than one of its
     /// own. <paramref name="select"/> runs with the owner held off, because reaching a child is itself a
     /// read.
+    /// </para>
+    /// <para>
+    /// A child is also released well before its parent: a rebuild that replaces or drops one disposes it on
+    /// the spot, leaving the gate open and this handle pointing at nothing. It reads as empty from then on,
+    /// while a projection whose child the rebuild kept goes on reading - a version bump alone must not
+    /// invalidate one, or every unrelated edit to the parent would blank the projection for a frame.
+    /// </para>
     /// </remarks>
     public EngineResourceHandle<TChild>? Project<TChild>(Func<TResource, TChild?> select)
         where TChild : EngineObject.Resource
@@ -113,13 +126,18 @@ public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResour
 
         lock (_gate.SyncRoot)
         {
-            if (_gate.IsReleased)
+            if (IsGone)
                 return null;
 
             TChild? child = select(_resource);
-            return child is null ? null : new EngineResourceHandle<TChild>(_gate, child, Version);
+            return child is null || child.IsDisposed
+                ? null
+                : new EngineResourceHandle<TChild>(_gate, child, Version);
         }
     }
+
+    /// <summary>Whether the resource behind this handle is gone. Call under <see cref="EngineResourceGate.SyncRoot"/>.</summary>
+    private bool IsGone => _gate!.IsReleased || _resource!.IsDisposed;
 
     public bool Equals(EngineResourceHandle<TResource> other)
     {

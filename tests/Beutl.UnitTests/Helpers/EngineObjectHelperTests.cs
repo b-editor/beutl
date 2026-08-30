@@ -282,6 +282,206 @@ public class EngineObjectHelperTests
         }
     }
 
+    // Project hands back a handle onto a child the parent owns, and the parent's rebuild disposes that child
+    // the moment CompareAndUpdateObject or CompareAndUpdateList replaces or drops it. The gate only records
+    // the subscription's final release, so a projection that tracked nothing else stayed "live" and lent out
+    // a resource that had already been released - Geometry.Resource answers a read of one with
+    // ObjectDisposedException, and the generated PostDispose overrides have freed its native handles by then.
+    [Test]
+    public void A_projected_handle_reads_as_empty_once_its_child_is_replaced()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var projected = new ManualResetEventSlim();
+        using var replaced = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        ReplacingParentResource? parent = null;
+        EngineResourceHandle<CountingResource>? staleChild = null;
+        CountingResource? firstChild = null;
+        IDisposable? subscription = null;
+
+        try
+        {
+            subscription = probe
+                .SubscribeEngineVersionedResource<ProbeObject, ReplacingParentResource>(
+                    time,
+                    (_, _) => parent = new ReplacingParentResource(),
+                    dispatcher)
+                .Subscribe(h =>
+                {
+                    // Only the dispatcher thread publishes, so the rebuild's own publication cannot race the
+                    // projection below for these fields.
+                    if (!projected.IsSet)
+                    {
+                        staleChild = h.Project(r => r.Child);
+                        staleChild!.Value.Read(c => firstChild = c);
+                        projected.Set();
+                        return;
+                    }
+
+                    replaced.Set();
+                });
+
+            Assert.That(projected.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+            // The resource now exists, so this tick takes the Update path, which drops the child the
+            // projection above points at and installs a fresh one in its place.
+            time.OnNext(TimeSpan.FromSeconds(1));
+            Assert.That(replaced.Wait(TimeSpan.FromSeconds(30)), Is.True, "the replacement was never published");
+            Assert.That(firstChild!.IsDisposed, Is.True, "the rebuild kept the original child");
+
+            bool wasRead = staleChild!.Value.Read(_ => Assert.Fail("a released child was handed to a reader"));
+            Assert.That(wasRead, Is.False, "the projected handle still reported itself live");
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            parent?.Dispose();
+        }
+    }
+
+    // Most rebuilds move the parent's version without touching any one child - a shape's pen changing leaves
+    // its geometry alone. Invalidating every projection on a version bump would be the cheap way to close the
+    // case above, and it would cost the path editor a frame of its overlay every time anything else about the
+    // shape moved, so a projection whose child survived has to keep reading.
+    [Test]
+    public void A_projected_handle_survives_a_rebuild_that_keeps_its_child()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var projected = new ManualResetEventSlim();
+        using var rebuilt = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        RetainingParentResource? parent = null;
+        EngineResourceHandle<CountingResource>? child = null;
+        IDisposable? subscription = null;
+
+        try
+        {
+            subscription = probe
+                .SubscribeEngineVersionedResource<ProbeObject, RetainingParentResource>(
+                    time,
+                    (_, _) => parent = new RetainingParentResource(),
+                    dispatcher)
+                .Subscribe(h =>
+                {
+                    if (!projected.IsSet)
+                    {
+                        child = h.Project(r => r.Child);
+                        projected.Set();
+                        return;
+                    }
+
+                    rebuilt.Set();
+                });
+
+            Assert.That(projected.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+            time.OnNext(TimeSpan.FromSeconds(1));
+            Assert.That(rebuilt.Wait(TimeSpan.FromSeconds(30)), Is.True, "the rebuild was never published");
+
+            CountingResource? observed = null;
+            bool wasRead = child!.Value.Read(c => observed = c);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(wasRead, Is.True, "the projected handle reported itself empty");
+                Assert.That(observed, Is.SameAs(parent!.Child));
+            });
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            parent?.Dispose();
+        }
+    }
+
+    // The editors that follow a selection bind to a source that holds nothing whenever nothing is selected.
+    // A switch that merely stopped publishing there would leave the previous selection's handle standing as
+    // the current value, so the empty case has to publish its own absence.
+    [Test]
+    public void A_source_holding_no_object_publishes_an_empty_handle()
+    {
+        var source = new BehaviorSubject<ProbeObject?>(null);
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        var published = new List<EngineResourceHandle<CountingResource>?>();
+
+        try
+        {
+            using (source
+                       .SwitchToEngineVersionedResource<ProbeObject, CountingResource>(
+                           time,
+                           (_, _) => new CountingResource(),
+                           dispatcher)
+                       .Subscribe(published.Add))
+            {
+                Assert.That(published, Has.Count.EqualTo(1));
+                Assert.That(published[0], Is.Null);
+            }
+        }
+        finally
+        {
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+        }
+    }
+
+    // Moving off an object has to take its resource with it. The subscription that owns the resource is the
+    // only thing holding it, and the dispatcher keeps rebuilding it on every tick for as long as that
+    // subscription lives, so a switch that left it subscribed would go on paying for an object nobody is
+    // looking at.
+    [Test]
+    public void Moving_the_source_off_an_object_publishes_an_empty_handle_and_releases_its_resource()
+    {
+        var probe = new ProbeObject();
+        var source = new BehaviorSubject<ProbeObject?>(probe);
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var published = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        CountingResource? created = null;
+        EngineResourceHandle<CountingResource>? latest = null;
+
+        try
+        {
+            using (source
+                       .SwitchToEngineVersionedResource<ProbeObject, CountingResource>(
+                           time,
+                           (_, _) => created = new CountingResource(),
+                           dispatcher)
+                       .Subscribe(h =>
+                       {
+                           latest = h;
+                           if (h.HasValue)
+                               published.Set();
+                       }))
+            {
+                Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+                source.OnNext(null);
+
+                Assert.That(latest, Is.Null, "the empty source kept publishing the previous object's handle");
+                Assert.That(
+                    () => created!.IsDisposed, Is.True.After(30_000, 50),
+                    "the resource outlived the object the source moved off");
+            }
+        }
+        finally
+        {
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            created?.Dispose();
+        }
+    }
+
     [SuppressResourceClassGeneration]
     private sealed class ProbeObject : EngineObject;
 
@@ -361,6 +561,52 @@ public class EngineObjectHelperTests
             {
                 Items.Add(i);
             }
+        }
+    }
+
+    // Stands in for CompareAndUpdateObject's replace path: the dropped child is disposed and a fresh one takes
+    // its place, all inside the Update the subscription runs under its gate.
+    private sealed class ReplacingParentResource : EngineObject.Resource
+    {
+        public CountingResource Child { get; private set; } = new();
+
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+
+            CountingResource dropped = Child;
+            Child = new CountingResource();
+            Version++;
+            dropped.Dispose();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                Child.Dispose();
+
+            base.Dispose(disposing);
+        }
+    }
+
+    // The other half of that contract: a rebuild that moves the parent's version while the child it owns
+    // stays exactly where it was.
+    private sealed class RetainingParentResource : EngineObject.Resource
+    {
+        public CountingResource Child { get; } = new();
+
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+            Version++;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                Child.Dispose();
+
+            base.Dispose(disposing);
         }
     }
 }

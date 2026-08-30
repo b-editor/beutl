@@ -1502,6 +1502,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             IPropertySymbol { IsStatic: true } property => DescribeUnprovenGetter(context, property),
 
+            // An event is a delegate field whose value is its subscriber list, and += and -= are its
+            // assignments. Reading that list back is legal only inside the declaring type - where a
+            // callback written beside the event, and any helper the walk follows into it, both sit -
+            // while writing it binds from anywhere, so the one case covers both spellings.
+            IEventSymbol { IsStatic: true } =>
+                ("static event", "a static event holds a subscriber list that any += or -= "
+                    + "anywhere rewrites, so what the callback reads off it, or does to it, can "
+                    + "differ between two recordings while the plan key stays the same"),
+
             _ => null,
         };
     }
@@ -1739,6 +1748,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         {
             foreach (ISymbol member in current.GetMembers())
             {
+                // A field-like event is a delegate field that is not readonly, written by the compiler
+                // and left out of a source type's member list, which carries the event and its
+                // accessors in its place. Asking about fields alone therefore let a type whose whole
+                // mutable state is an event pass for one carrying none, while the same state spelled
+                // as a plain delegate field failed. An event declared with its own accessors stores
+                // nothing of itself, and whatever those accessors do write is a field this loop sees.
+                if (member is IEventSymbol { IsStatic: false, AddMethod.IsImplicitlyDeclared: true })
+                    return false;
+
                 // An auto-property's backing field is implicitly declared and is still part of the value,
                 // so every instance field counts regardless of how it was written.
                 if (member is not IFieldSymbol { IsStatic: false } field)

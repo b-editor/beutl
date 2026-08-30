@@ -47,11 +47,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
             .DisposeWith(_disposables);
 
         GeometryResource = PathGeometry
-            .Select(d =>
-                d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(h => (EngineResourceHandle<PathGeometry.Resource>?)h) ??
-                Observable.ReturnThenNever<EngineResourceHandle<PathGeometry.Resource>?>(null))
-            .Switch()
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

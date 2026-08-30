@@ -56,11 +56,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .DisposeWith(_disposables);
 
         var drawableResource = Drawable
-            .Select(d =>
-                d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(h => (EngineResourceHandle<Drawable.Resource>?)h) ??
-                Observable.ReturnThenNever<EngineResourceHandle<Drawable.Resource>?>(null))
-            .Switch()
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
             .Publish(null).RefCount();
 
         GeometryResource = drawableResource
