@@ -196,7 +196,17 @@ public sealed class PaintedSourceDefinition<TState>
     /// A non-null painting callback. Declare it as a static lambda so it carries no per-frame identity; see
     /// <see cref="PaintedSourceDraw{TState}"/>.
     /// </param>
-    /// <param name="hitTest">An initialized hit-test contract describing which points the source claims.</param>
+    /// <param name="hitTest">
+    /// An initialized hit-test contract describing which points the source claims. A claim that differs between
+    /// recordings still has a fixed shape: bind what it varies with to a slot the definition declares and read it
+    /// through <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>, which
+    /// resolves against the bindings of the call being tested, or give
+    /// <see cref="RenderHitTestContract.Custom(Func{RenderHitTestContext, Point, bool})"/> an instance method of the
+    /// <see cref="RenderNode"/> that declares it and read the node's own properties. The second route does not cost
+    /// a second plan: a metadata callback contributes which declaration it is and nothing about the instance it
+    /// reads, so a definition rebuilt each recording inside <see cref="RenderNode.Process"/> is still served by the
+    /// plan the previous one compiled.
+    /// </param>
     /// <param name="scale">
     /// An initialized scale contract. Use <see cref="RenderScaleContract.Vector"/> for content the callback can
     /// re-paint at any density, and a materializing contract for content that is only correct at its working scale.
