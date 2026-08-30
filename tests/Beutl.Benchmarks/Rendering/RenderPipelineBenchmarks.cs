@@ -203,8 +203,13 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
 
         return new RenderPipelineBenchmarkCounterRecord
         {
-            SchemaVersion = 3,
+            SchemaVersion = 4,
             CaseName = _scene.Name,
+            FusionMode = RenderPipelineBenchmarkConfig.GetFusionMode().ToString(),
+            Fingerprint = Beutl.Evidence.RenderEvidenceFingerprint.TryCapture(
+                GraphicsContextFactory.SharedContext,
+                out string? fingerprintUnavailableReason),
+            FingerprintUnavailableReason = fingerprintUnavailableReason,
             Seed = _scene.Seed,
             Width = setup.Width,
             Height = setup.Height,
@@ -325,10 +330,26 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderPipelineBenchmarkSceneDefinition scene,
         IReadOnlyDictionary<string, long> counters)
     {
-        if (scene.Name == "ShaderOpacityShader"
-            && counters.GetValueOrDefault("FusedShaderRunExecutions") < 1)
+        // The primary workload has to prove which shape it actually ran, because a paired SC-008 run measures
+        // it in both: with fusion on it must fuse, and with fusion off it must not. Asserting only the fused
+        // shape would make the workload unable to supply its own baseline, and asserting neither would let a
+        // silently unfused run be reported as the feature's timing.
+        FusionMode fusionMode = RenderPipelineBenchmarkConfig.GetFusionMode();
+        if (scene.Name == "ShaderOpacityShader")
         {
-            throw new InvalidOperationException("The primary workload did not execute its fused three-stage chain.");
+            long fusedRuns = counters.GetValueOrDefault("FusedShaderRunExecutions");
+            if (fusionMode == FusionMode.Enabled && fusedRuns < 1)
+            {
+                throw new InvalidOperationException(
+                    "The primary workload did not execute its fused three-stage chain.");
+            }
+
+            if (fusionMode == FusionMode.Disabled && fusedRuns != 0)
+            {
+                throw new InvalidOperationException(
+                    "The primary workload fused its three-stage chain while fusion was disabled, so it cannot "
+                    + "serve as an unfused baseline.");
+            }
         }
 
         // Built-in spatial filters may replay directly, but a whole-source shader still splits shader runs.
@@ -430,6 +451,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                 OutputScale = 1,
                 MaxWorkingScale = 1,
                 CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(scene.HasStaticPrefixCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+                FusionMode = RenderPipelineBenchmarkConfig.GetFusionMode(),
             },
         };
 
@@ -946,7 +968,14 @@ internal sealed class BenchmarkStructuralToggleNode : ContainerRenderNode, IFram
 
     public void Apply(RenderPipelineBenchmarkFrameState state)
     {
+        if (_variant == state.StructuralVariant)
+            return;
+
         _variant = state.StructuralVariant;
+
+        // Without this the recording cache reuses the previous shader description and the declared structural
+        // change never reaches the output, which the scene's own animation-mode check then rejects.
+        MarkChanged();
     }
 
     public override void Process(RenderNodeContext context)
@@ -1083,6 +1112,20 @@ internal sealed class RenderPipelineBenchmarkCounterRecord
 
     public int SchemaVersion { get; init; }
     public string CaseName { get; init; } = string.Empty;
+
+    /// <summary>Which side of a paired run produced this record.</summary>
+    public string FusionMode { get; init; } = string.Empty;
+
+    /// <summary>The machine, device, driver and build identity this run was measured on.</summary>
+    /// <remarks>
+    /// A paired analysis refuses to accept two runs whose comparability keys differ, so this is the field that
+    /// stops drift between machines from being read as an effect. It is nullable because a benchmark must not
+    /// fail for want of a fingerprint; the analyzer then reports the run as not comparable.
+    /// </remarks>
+    public Beutl.Evidence.RenderEvidenceFingerprint? Fingerprint { get; init; }
+
+    public string? FingerprintUnavailableReason { get; init; }
+
     public int Seed { get; init; }
     public int Width { get; init; }
     public int Height { get; init; }

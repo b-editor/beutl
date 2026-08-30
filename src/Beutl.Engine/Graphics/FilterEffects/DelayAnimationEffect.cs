@@ -83,19 +83,8 @@ public partial class DelayAnimationEffect : FilterEffect
                     using var singleTargets = new EffectTargets();
                     singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
-                    using var activator = new FilterEffectActivator(
-                        singleTargets,
-                        builder,
-                        effectContext.Intent,
-                        effectContext.Purpose,
-                        effectContext.OutputScale,
-                        effectContext.WorkingScale,
-                        effectContext.MaxWorkingScale,
-                        effectContext.DeviceGridOffset,
-                        effectContext.DrawableBrushMaterializer,
-                        effectContext.UsesExecutorManagedCanvas,
-                        effectContext.RenderTargetLeaseSession,
-                        targetDomain: effectContext.TargetDomain);
+                    using FilterEffectActivator activator =
+                        effectContext.CreateActivator(singleTargets, builder);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

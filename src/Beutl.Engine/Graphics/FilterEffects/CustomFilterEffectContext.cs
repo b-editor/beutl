@@ -673,6 +673,54 @@ public class CustomFilterEffectContext
         canvas.DrawableBrushMaterializer = _drawableBrushMaterializer;
         return canvas;
     }
+
+    /// <summary>
+    /// Creates a <see cref="FilterEffectActivator"/> that belongs to the render this callback is running
+    /// inside, so a nested filter pipeline allocates its intermediates from the same place
+    /// <see cref="Targets"/> came from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="FilterEffectActivator"/>'s public constructor builds a <i>standalone</i> activator, which
+    /// allocates from the process-wide shared graphics context because it has no render to belong to. That is
+    /// the wrong answer inside a custom effect: when the caller configured a
+    /// <see cref="RenderNodeRendererOptions.TargetFactory"/>, <see cref="Targets"/> holds surfaces the shared
+    /// allocator knows nothing about, and a standalone activator's flush buffer would meet them inside a
+    /// single draw — two graphics contexts in one flush. Mint the activator here instead of constructing one.
+    /// </para>
+    /// <para>
+    /// The returned activator carries this context's intent, purpose, output and working scales,
+    /// working-scale ceiling, device grid offset, buffer budget, target domain and drawable-brush
+    /// materializer, none of which the public constructor can be handed from out-of-tree code.
+    /// </para>
+    /// <para>
+    /// The caller owns the result and disposes it; <paramref name="builder"/> and <paramref name="targets"/>
+    /// stay the caller's too. Pass <see cref="EffectTargets.Clone"/> when the callback still needs
+    /// <see cref="Targets"/> after the nested pipeline runs.
+    /// </para>
+    /// </remarks>
+    /// <param name="targets">The targets the nested pipeline reads and replaces.</param>
+    /// <param name="builder">The Skia filter builder the nested pipeline accumulates into.</param>
+    public FilterEffectActivator CreateActivator(EffectTargets targets, SKImageFilterBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(builder);
+
+        return new FilterEffectActivator(
+            targets,
+            builder,
+            Intent,
+            Purpose,
+            OutputScale,
+            WorkingScale,
+            MaxWorkingScale,
+            _deviceGridOffset,
+            _drawableBrushMaterializer,
+            _useExecutorManagedCanvas,
+            _renderTargetLeaseSession,
+            _maxBufferDimension,
+            TargetDomain);
+    }
 }
 
 internal sealed class NativeFilterTextureLease : IDisposable

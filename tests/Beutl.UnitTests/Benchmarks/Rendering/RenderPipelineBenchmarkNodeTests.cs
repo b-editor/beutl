@@ -40,6 +40,31 @@ public sealed class RenderPipelineBenchmarkNodeTests
         });
     }
 
+    /// <summary>
+    /// Regression: the toggle node changed which shader it publishes without marking itself changed, so the
+    /// recording cache replayed the previous description and every setup frame produced identical pixels. The
+    /// scene's own animation-mode check then rejected the run, and all three sides of a paired SC-008 run lost
+    /// this workload.
+    /// </summary>
+    [Test]
+    [NonParallelizable]
+    public void StructuralToggle_ChangesItsOutputWhenTheDeclaredVariantFlips()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            using var session = new RenderPipelineBenchmarkSession("StructuralToggle");
+
+            // The setup plan spans frames 0, 1, 7, 8, 9, which crosses the eight-frame variant boundary, and
+            // WarmAndVerify rejects a scene that declares an animation but renders one distinct output.
+            Assert.That(session.WarmAndVerify, Throws.Nothing);
+
+            _ = session.RenderMeasuredFrame();
+            RenderPipelineBenchmarkCounterRecord record = session.CreateCounterRecord();
+            Assert.That(record.OutputSha256, Is.Not.Empty);
+        });
+    }
+
     [Test]
     public void CustomEffectScenes_ShareSpatialSourceAndDeclareExactTopology()
     {

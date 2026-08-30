@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
@@ -13,9 +14,18 @@ internal static class GpuPassFusionSameProcessParityHarness
     public const double MaximumAaEdgeChannelError = 0.02;
     public const double MaximumAaEdgeMeanError = 0.02;
 
+    /// <param name="render">Renders the workload once per fusion mode, returning independently owned images.</param>
+    /// <param name="aaEdgeRegion">The antialiased crop the edge-band bounds apply to, when the workload has one.</param>
+    /// <param name="caseName">
+    /// Names this comparison in the SC-007 evidence manifest. Defaults to the running test's full name, so a
+    /// workload is recorded whether or not its author remembered the evidence run.
+    /// </param>
+    /// <param name="outputScale">The output scale the workload rendered at, recorded alongside its metrics.</param>
     public static GpuPassFusionParityResult AssertParity(
         Func<FusionMode, Bitmap> render,
-        PixelRect? aaEdgeRegion = null)
+        PixelRect? aaEdgeRegion = null,
+        string? caseName = null,
+        double outputScale = 1.0)
     {
         ArgumentNullException.ThrowIfNull(render);
 
@@ -43,6 +53,21 @@ internal static class GpuPassFusionSameProcessParityHarness
             RgbaMaximumError edgeMaximum =
                 ImageMetrics.EdgeBandMaximumAbsoluteErrorPerChannel(disabledCrop, enabledCrop);
             aaEdge = new GpuPassFusionAaParityMetrics(cropMetrics, edgeMeanError, edgeMaximum);
+        }
+
+        var result = new GpuPassFusionParityResult(fullImage, aaEdge);
+
+        // Recorded before the assertions: an evidence run exists to say what the numbers were, and a manifest
+        // that silently omits every workload that missed its threshold would report only the good news.
+        if (GpuPassFusionParityEvidence.IsRecording)
+        {
+            GpuPassFusionParityEvidence.Record(
+                caseName ?? TestContext.CurrentContext.Test.FullName,
+                outputScale,
+                disabled.Width,
+                disabled.Height,
+                result,
+                aaEdgeRegion);
         }
 
         using (Assert.EnterMultipleScope())
@@ -74,7 +99,7 @@ internal static class GpuPassFusionSameProcessParityHarness
             }
         }
 
-        return new GpuPassFusionParityResult(fullImage, aaEdge);
+        return result;
     }
 
     private static GpuPassFusionParityMetrics Measure(Bitmap disabled, Bitmap enabled)

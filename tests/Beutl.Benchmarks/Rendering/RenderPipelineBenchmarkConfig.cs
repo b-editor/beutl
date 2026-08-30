@@ -6,6 +6,8 @@ using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Loggers;
 
+using Beutl.Graphics.Rendering;
+
 namespace Beutl.Benchmarks.Rendering;
 
 /// <summary>
@@ -17,6 +19,14 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
     public const string ArtifactsPathEnvironmentVariable = "BEUTL_RENDER_BENCHMARK_ARTIFACTS";
 
     public const string CountersPathEnvironmentVariable = "BEUTL_RENDER_BENCHMARK_COUNTERS";
+
+    /// <summary>Selects the renderer's fusion mode, so one binary can supply both sides of a paired run.</summary>
+    /// <remarks>
+    /// Accepts <c>Enabled</c> (the default) or <c>Disabled</c>. A run with fusion disabled is this branch's
+    /// renderer with the optimizer switched off, which is a weaker baseline than the pre-feature renderer;
+    /// <see cref="Beutl.Evidence.PairedBenchmarkManifest.ComparisonMode"/> records which one produced a manifest.
+    /// </remarks>
+    public const string FusionModeEnvironmentVariable = "BEUTL_RENDER_BENCHMARK_FUSION_MODE";
 
 
     public const int SetupWarmupFrameCount = 5;
@@ -75,6 +85,18 @@ internal sealed class RenderPipelineBenchmarkConfig : ManualConfig
                 CountersPathEnvironmentVariable,
                 Path.Combine(root, "render-pipeline-counters"));
         }
+    }
+
+    /// <summary>The fusion mode this process measures, defaulting to the production <c>Enabled</c>.</summary>
+    public static FusionMode GetFusionMode()
+    {
+        string? value = Environment.GetEnvironmentVariable(FusionModeEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(value))
+            return FusionMode.Enabled;
+        return Enum.TryParse(value, ignoreCase: true, out FusionMode mode) && Enum.IsDefined(mode)
+            ? mode
+            : throw new InvalidOperationException(
+                $"{FusionModeEnvironmentVariable} must be 'Enabled' or 'Disabled', not '{value}'.");
     }
 
     public static string GetCountersPath()

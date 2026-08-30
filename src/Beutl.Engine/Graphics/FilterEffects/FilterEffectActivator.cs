@@ -11,10 +11,21 @@ internal delegate ProgramCacheLease<CachedSkRuntimeEffect> SkRuntimeEffectProgra
     string source);
 
 /// <summary>
-/// Allocates its own intermediates from the process-wide shared graphics context when constructed
-/// through its public constructor, so a caller-supplied <see cref="IRenderTargetFactory"/> is honoured
-/// only where the effect runs through <see cref="RenderNodeRenderer"/>.
+/// Applies a recorded <see cref="FilterEffectContext"/> to a set of <see cref="EffectTargets"/>.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The public constructor builds a <i>standalone</i> activator, which allocates its own intermediates from
+/// the process-wide shared graphics context. That is the right answer only when the activator belongs to no
+/// render — there is no caller allocation policy to honour.
+/// </para>
+/// <para>
+/// Inside a custom effect callback there is one, so call
+/// <see cref="CustomFilterEffectContext.CreateActivator"/> instead of constructing an activator: it carries
+/// the running render's lease session, and so allocates through a caller-supplied
+/// <see cref="IRenderTargetFactory"/> rather than drawing factory-made inputs into a shared-context buffer.
+/// </para>
+/// </remarks>
 public sealed class FilterEffectActivator : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
