@@ -264,8 +264,7 @@ public class RenderTarget : IDisposable
         VerifyAccess();
         PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
         var result = CreateSnapshotBitmap();
-        ReadPixelsInto(result);
-        return result;
+        return ReadInto(result);
     }
 
     /// <summary>
@@ -286,7 +285,30 @@ public class RenderTarget : IDisposable
             BitmapColorType.Alpha8,
             BitmapAlphaType.Premul,
             BitmapColorSpace.LinearSrgb);
-        ReadPixelsInto(result);
+        return ReadInto(result);
+    }
+
+    /// <summary>
+    /// Fills a bitmap this method owns, releasing it if the readback fails.
+    /// </summary>
+    /// <remarks>
+    /// A failed readback is a device-loss symptom, and a caller that snapshots per frame retries it per
+    /// frame. Propagating without releasing leaves one full-frame native bitmap behind per attempt for a
+    /// finalizer to find, which is the worst moment to be holding them. <see cref="SnapshotInto(Bitmap)"/>
+    /// does not go through here: its destination belongs to the caller, who keeps it either way.
+    /// </remarks>
+    private Bitmap ReadInto(Bitmap result)
+    {
+        try
+        {
+            ReadPixelsInto(result);
+        }
+        catch
+        {
+            result.Dispose();
+            throw;
+        }
+
         return result;
     }
 
