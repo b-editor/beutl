@@ -359,9 +359,12 @@ public sealed class CurrentPixelFilterEffectTests
     /// threshold and divides by zero inside it. Equal edges are undefined in the shading languages, and the
     /// backends disagree: Skia's CPU backend answers NaN and Metal answers 0. Because the entry point returns
     /// <c>half4(t)</c>, a NaN is written into alpha as well, so every pixel whose luma lands on the threshold
-    /// leaves the stage non-finite. The cases below are the three exact landings a user can reach: a zero
-    /// threshold over a transparent premultiplied pixel, the shipped defaults over a pixel whose
-    /// premultiplied luma is exactly 0.5, and a full threshold over white.
+    /// leaves the stage non-finite. The cases below are the landings that are exact on every backend: a zero
+    /// threshold over a transparent premultiplied pixel, and a full threshold over white. An interior
+    /// threshold is reachable too, but only by hunting a colour whose premultiplied linear luma lands on it,
+    /// and such a colour only lands where it was hunted - the sRGB-to-linear conversion is free to round
+    /// differently per backend, and one F16 ulp off the threshold takes the hard-step branch instead of the
+    /// boundary these cases are about.
     /// </remarks>
     [TestCaseSource(nameof(CollapsedThresholdBandCases))]
     public void Threshold_ACollapsedBand_IsFiniteAndKeepsTheThresholdValue(float value, SKColor input)
@@ -399,7 +402,9 @@ public sealed class CurrentPixelFilterEffectTests
     /// threshold. Pinning that across the smoothness range is what makes 0.5 the collapsed band's value
     /// rather than a fresh choice: the alternative hard step - <c>step(threshold, luma)</c>, which is 1 -
     /// would make the output jump as the slider crosses zero, and at Value = 0 it would turn every fully
-    /// transparent pixel the stage covers opaque white.
+    /// transparent pixel the stage covers opaque white. Value = 0 is also the landing this drives from,
+    /// because that is the case the sentence above argues about and because a transparent premultiplied
+    /// pixel carries luma 0 on every backend.
     /// </remarks>
     [TestCase(0f)]
     [TestCase(1f)]
@@ -409,12 +414,12 @@ public sealed class CurrentPixelFilterEffectTests
     {
         var effect = new Threshold
         {
-            Value = { CurrentValue = 50 },
+            Value = { CurrentValue = 0 },
             Smoothness = { CurrentValue = smoothness },
         };
 
-        // Premultiplying this colour lands every linear channel on exactly 0.5, so its luma is the threshold.
-        (_, float[] after) = Render(effect, new SKColor(219, 219, 219, 180));
+        // A fully transparent premultiplied pixel carries luma 0, which is exactly this threshold.
+        (_, float[] after) = Render(effect, new SKColor(0, 0, 0, 0));
 
         AssertPixel(
             after,
@@ -510,11 +515,10 @@ public sealed class CurrentPixelFilterEffectTests
 
     private static IEnumerable<TestCaseData> CollapsedThresholdBandCases()
     {
+        // Smoothness already ships at 0, so the band is collapsed as delivered and one drag of the Value
+        // slider to either end of its range is the whole distance between the defaults and this singularity.
         yield return new TestCaseData(0f, new SKColor(0, 0, 0, 0))
             .SetName("Threshold_ACollapsedBand_IsFiniteAndKeepsTheThresholdValue_TransparentPixelAtZero");
-        // Premultiplying this colour lands every linear channel on exactly 0.5, the shipped Value = 50.
-        yield return new TestCaseData(50f, new SKColor(219, 219, 219, 180))
-            .SetName("Threshold_ACollapsedBand_IsFiniteAndKeepsTheThresholdValue_Defaults");
         yield return new TestCaseData(100f, new SKColor(255, 255, 255, 255))
             .SetName("Threshold_ACollapsedBand_IsFiniteAndKeepsTheThresholdValue_WhiteAtFull");
     }
