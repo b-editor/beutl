@@ -314,7 +314,30 @@ A renderer maintainer compares the redesign with its current-main baseline using
 
   **Status: reproducible; the pre-feature comparison is not met.** SC-008 is written against a pre-feature baseline and this tree cannot supply one: a cross-build paired run needs a benchmark harness that compiles against both engine builds, and no ancestor of this branch carries one. `--mode fusion` therefore measures this branch's renderer with the fusion optimizer disabled against the same renderer with it enabled — a real paired measurement of the optimization, but a strictly weaker claim, which the manifest records in `comparisonMode`. `--mode worktree --baseline-ref <ref>` performs the literal comparison and checks the ref up front, reporting exactly what is missing rather than measuring something else. The performance improvement is therefore **still not asserted as a met acceptance criterion** for this feature, and is not a merge gate; what changed is that it is now computed by a committed analyzer into a committed artifact instead of reported once in conversation.
 
-  The committed `evidence/sc-008-paired-benchmark-manifest.json` is one run of `--mode fusion` across all sixteen workloads on an Apple M3, and it records `overallAcceptancePassed: false`. That is the gate working rather than the measurement failing: `LayerCustomEffect`'s baseline-repeat 95% interval `[0.8825, 0.9340]` does not contain 1.0, so the machine itself moved between the two baseline runs, and the rule that every case must clear the repeat gate before pooling refuses the whole run. The per-case ratios it records — `ShaderOpacityShader` at `0.760` with a 95% interval of `[0.678, 0.773]` — are informative but are **not** an accepted result and must not be cited as one. Reproducing an accepted run needs a machine that is otherwise idle.
+  The committed `evidence/sc-008-paired-benchmark-manifest.json` is one run of `--mode fusion` across all
+  sixteen workloads on an Apple M3, and it records `overallAcceptancePassed: false`. That is the gate working
+  rather than the measurement failing: four workloads - `MixedSpatialColor`,
+  `MultipleDrawablesTargetDependencies`, `ShaderOpacityShaderBarrier` and `SpatialNodeChain` - moved between
+  the two baseline runs, three of them control barriers, so the rule that every case must clear the repeat
+  gate before pooling refuses the whole run. The primary workload is not among them: `ShaderOpacityShader`
+  repeats stably at `0.9989` and measures `0.8011` with a 95% interval of `[0.6860, 0.8272]`, entirely below
+  one. Those per-case ratios are informative but are **not** an accepted result and must not be cited as one.
+
+  A second run on different hardware - a six-core Linux machine, otherwise idle, Intel Vulkan - did not
+  accept either, and refused harder: nine of sixteen workloads failed the repeat gate there, `ShaderOpacityShader`
+  among them. Three failed on both machines (`MixedSpatialColor`, `ShaderOpacityShaderBarrier`,
+  `SpatialNodeChain`), which points at those workloads rather than at either machine. Some repeat ratios are
+  far outside anything ambient load explains - `StaticPrefixAnimatedTail` at `2.5342`, `MixedSpatialColor` at
+  `0.5530` - so the fifteen-sample median the criterion specifies is not stable for every workload in this
+  corpus, and no amount of machine quietness will make it so. Closing SC-008 therefore needs either those
+  workloads' variance understood and reduced, or a deliberate decision about the corpus the criterion is
+  measured over; it is not a matter of finding a quieter machine.
+
+  What both runs agree on is the primary workload: `0.8011` with `[0.6860, 0.8272]` on the M3 and `0.7435`
+  with `[0.7013, 0.7599]` on the Linux machine, both entirely below one. That agreement across two devices,
+  two drivers and two runs is the strongest performance evidence this branch carries, and it is still not an
+  accepted SC-008 result.
+
 - **SC-009**: In every injected failure phase, every planner-owned target, program, recorded resource, session, deferred input, or recording handle is discharged exactly once by release/disposal or documented cache-ownership transfer after request teardown; a secondary cleanup fault does not replace the primary failure.
 - **SC-010**: Every planner-controlled execution-shape claim is proven by direct compiled-plan assertions plus the applicable execution probe and component statistics, and every failure-matrix case ends with no active request-owned target, program, resource, session, or handle. No acceptance criterion depends on a separate request-wide diagnostic subsystem.
 - **SC-011**: All applicable engine, public API contract, no-preferred-GPU, and feature-003 regression tests pass with no change to the freshly recorded allocation-failure behavior.
