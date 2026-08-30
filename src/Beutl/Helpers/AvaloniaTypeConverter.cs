@@ -410,6 +410,13 @@ public static class AvaloniaTypeConverter
                     return;
                 // An update already in flight is still recording from the resource, so it has to settle
                 // first even during shutdown; only work that never starts can be written off.
+                // A shutdown landing mid-update makes this refusal permanent: the update is suspended on
+                // the hop to the UI thread, and its continuation returns to a queue the stopped dispatcher
+                // never drains. Only process exit reaches that state: the hop needs a rasterization, which
+                // RenderTarget.Create grants on RenderThread.Dispatcher alone, and the sole caller that
+                // stops that one is UnhandledExceptionHandler.PrivateExit. A render dispatcher that could
+                // stop while the app ran on would have to retake this from ShutdownFinished, as
+                // DispatcherCleanup already does for the release itself.
                 if (_runningUpdates > 0)
                     return;
                 // The ShutdownStarted event is one-shot, so a dispatcher that stopped before this handler

@@ -281,6 +281,11 @@ public partial class SourceVideo : IThumbnailsProvider
             {
                 // Shutdown is terminal. A queued render-thread cleanup can no longer execute, so do
                 // not await it forever or dispose thread-affine resources from the caller thread.
+                // The strip's renderer, node, and source resource are dropped undisposed here. Only
+                // process exit reaches that: every production caller passes RenderThread.Dispatcher, and
+                // the sole caller that stops that one is UnhandledExceptionHandler.PrivateExit. A
+                // dispatcher that could stop while the app ran on would have to release them from
+                // ShutdownFinished - raised on its own thread, idle by then - rather than write them off.
             }
         }
         finally
