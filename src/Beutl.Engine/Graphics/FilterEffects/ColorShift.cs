@@ -54,13 +54,13 @@ public partial class ColorShift : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        var boundsState = new ColorShiftBoundsState(
+        var offsets = new ColorShiftOffsets(
             r.RedOffset,
             r.GreenOffset,
             r.BlueOffset,
             r.AlphaOffset);
         RenderBoundsContract bounds = RenderBoundsContract.Create(
-            boundsState,
+            offsets,
             static (state, bounds) => state.TransformBounds(bounds),
             static (state, bounds) => state.GetRequiredInputBounds(bounds));
 
@@ -74,7 +74,12 @@ public partial class ColorShift : FilterEffect
                 BindOffset(bindings, "blueOffset", r.BlueOffset);
                 BindOffset(bindings, "alphaOffset", r.AlphaOffset);
             },
-            SKShaderTileMode.Decal));
+            SKShaderTileMode.Decal,
+            hitTest: offsets.MovesContent
+                ? RenderHitTestContract.Custom(
+                    offsets,
+                    static (state, context, point) => state.HitTest(context, point))
+                : null));
     }
 
     private static void BindOffset(ShaderBindingBuilder bindings, string name, PixelPoint value)
@@ -91,12 +96,54 @@ public partial class ColorShift : FilterEffect
         ShaderExecutionContext context)
         => writer.Set(value * context.WorkingScale);
 
-    private readonly record struct ColorShiftBoundsState(
+    private readonly record struct ColorShiftOffsets(
         PixelPoint RedOffset,
         PixelPoint GreenOffset,
         PixelPoint BlueOffset,
         PixelPoint AlphaOffset)
     {
+        /// <remarks>
+        /// Every offset at zero makes the entry point read the pixel it writes, which is what forwarding the
+        /// query to the input already answers - and forwarding answers it through the input's own rule, which
+        /// no contract stated here can be more exact than.
+        /// </remarks>
+        public bool MovesContent
+            => RedOffset != default
+               || GreenOffset != default
+               || BlueOffset != default
+               || AlphaOffset != default;
+
+        /// <remarks>
+        /// The entry point evaluates <c>src</c> at <c>fragCoord</c> minus each channel's own offset and takes
+        /// one channel from each result, so the points it reads for one output pixel are exactly those four
+        /// translations of it, and the pixel carries something wherever any of them did. Alpha alone would not
+        /// answer this: it comes from <c>alphaOffset</c> only, so a colour offset paints a channel over a
+        /// transparent pixel, and premultiplied compositing adds that colour to whatever is behind it.
+        /// </remarks>
+        public bool HitTest(RenderHitTestContext context, Point point)
+            => ReadsCoveredInput(context, point, RedOffset)
+               || ReadsCoveredInput(context, point, GreenOffset)
+               || ReadsCoveredInput(context, point, BlueOffset)
+               || ReadsCoveredInput(context, point, AlphaOffset);
+
+        private static bool ReadsCoveredInput(
+            RenderHitTestContext context,
+            Point point,
+            PixelPoint offset)
+        {
+            // Decal sampling leaves everything outside the input transparent, so an input that misses the
+            // translated point contributes nothing there.
+            Point source = point - offset.ToPoint(1);
+            IReadOnlyList<RenderHitTestInput> inputs = context.Inputs;
+            for (int index = 0; index < inputs.Count; index++)
+            {
+                if (inputs[index].HitTest(source))
+                    return true;
+            }
+
+            return false;
+        }
+
         public Rect TransformBounds(Rect bounds)
             => bounds.Translate(RedOffset.ToPoint(1))
                 .Union(bounds.Translate(GreenOffset.ToPoint(1)))

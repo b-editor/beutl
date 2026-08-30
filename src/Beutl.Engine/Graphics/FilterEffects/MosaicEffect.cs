@@ -65,7 +65,10 @@ public partial class MosaicEffect : FilterEffect
                         BindAbsoluteOrigin);
                 }
             },
-            SKShaderTileMode.Clamp));
+            SKShaderTileMode.Clamp,
+            hitTest: RenderHitTestContract.Custom(
+                new MosaicSampling(r.TileSize, r.Origin),
+                static (state, context, point) => state.HitTest(context, point))));
     }
 
     private static void BindScaledVector(
@@ -106,5 +109,68 @@ public partial class MosaicEffect : FilterEffect
         writer.Set(new Vector2(
             (value.X + semanticOrigin.X) * context.WorkingScale,
             (value.Y + semanticOrigin.Y) * context.WorkingScale));
+    }
+
+    /// <summary>Answers a hit test the way the entry point resolves a fragment: at its tile's centre.</summary>
+    /// <remarks>
+    /// <para>
+    /// The entry point discards <c>fragCoord</c> and returns <c>src</c> at the centre of the tile holding it,
+    /// so what a pixel carries is what the input covered at that centre and nothing about what it covered at
+    /// the pixel. Both directions of that are reachable with one ordinary shape: a tile straddling an edge
+    /// paints its whole area wherever its centre is covered, and erases its whole area wherever the centre is
+    /// not. Forwarding the query unchanged answers for the input's coverage instead, which disagrees on both.
+    /// </para>
+    /// <para>
+    /// Unlike a stage that only sometimes relocates content, this one has no setting that stops it: the grid
+    /// exists at every tile size. The contract is therefore unconditional, and it costs no precision to be so -
+    /// it restates the entry point's own mapping rather than widening anything to the output rectangle.
+    /// </para>
+    /// </remarks>
+    private readonly record struct MosaicSampling(Size TileSize, RelativePoint Origin)
+    {
+        public bool HitTest(RenderHitTestContext context, Point point)
+        {
+            Point origin = ResolveOrigin(context.OutputBounds);
+            var sample = new Point(
+                SampleCoordinate(point.X, origin.X, TileSize.Width),
+                SampleCoordinate(point.Y, origin.Y, TileSize.Height));
+
+            IReadOnlyList<RenderHitTestInput> inputs = context.Inputs;
+            for (int index = 0; index < inputs.Count; index++)
+            {
+                RenderHitTestInput input = inputs[index];
+                if (input.HitTest(ClampToBounds(sample, input.Bounds)))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <remarks>
+        /// The uniform binders express the same origin in the shader's device coordinates, where it is snapped
+        /// to whole composition-device pixels. A hit test is asked in logical coordinates and must answer the
+        /// same at every scale, so it is resolved here without that snap; the two can therefore disagree
+        /// within one device pixel of a tile edge, which is where the tile a point belongs to is ambiguous
+        /// anyway.
+        /// </remarks>
+        private Point ResolveOrigin(Rect outputBounds)
+            => outputBounds.Position + (Origin.Unit == RelativeUnit.Relative
+                ? new Vector(
+                    Origin.Point.X * outputBounds.Width,
+                    Origin.Point.Y * outputBounds.Height)
+                : new Vector(Origin.Point.X, Origin.Point.Y));
+
+        private static float SampleCoordinate(float value, float origin, float tile)
+            => (MathF.Floor((value - origin) / tile) * tile) + (tile * 0.5f) + origin;
+
+        /// <remarks>
+        /// The stage samples with <see cref="SKShaderTileMode.Clamp"/>, so a tile whose centre falls outside
+        /// the input reads the input's edge rather than transparency, and the pixels of that tile are painted
+        /// with whatever the edge carries.
+        /// </remarks>
+        private static Point ClampToBounds(Point point, Rect bounds)
+            => new(
+                Math.Clamp(point.X, bounds.Left, bounds.Right),
+                Math.Clamp(point.Y, bounds.Top, bounds.Bottom));
     }
 }
