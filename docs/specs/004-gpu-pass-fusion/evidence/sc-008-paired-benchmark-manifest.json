@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "analyzedAtUtc": "2026-08-30T14:35:51.4472260\u002B00:00",
+  "analyzedAtUtc": "2026-08-30T14:45:15.8684840\u002B00:00",
   "comparisonMode": "in-tree-fusion-disabled-baseline-vs-fusion-enabled-feature",
   "bootstrapSeed": 20040719,
   "bootstrapIterations": 100000,
@@ -29,27 +29,27 @@
     "label": "baseline-a",
     "runDirectoryName": "baseline-a",
     "benchmarkDotNetResultFile": "results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-full.json",
-    "benchmarkDotNetResultSha256": "2976941cb1185e5a2bc2528c65319421aa52b4c95d5060c89bc2b5fe106c5e5a",
+    "benchmarkDotNetResultSha256": "1642ba2a8f32c16632d09fe9408729a71bb8b861501566749ca969aaefc816a9",
     "counterFileSha256": {
-      "BlurCustomBlur.json": "e326c4f12aca09d4b8a939befe75e8e78d25ee246dd19a4464a8eb9e3525d4ea",
-      "LayerCustomEffect.json": "d9acbd2bbfe0b83b76a250da1d30cfbd9439163cd2ae72e2e5514c2edeac1a96",
-      "LongInvariantChain.json": "500e5c3eb4c3fd6df61b1f48eeb331b2c546f83dd0f5aae4b60e7789564f8b4f",
-      "MixedSpatialColor.json": "26abaeaca52040d2aa7355495e914d0f041242112767aec3d655b70c5b1287f3",
-      "MultipleDrawablesTargetDependencies.json": "63a9eee926860b4cabd1ed4c244055b30ed3098a0cfca8d741077f4c258f2556",
-      "NoEffectControl.json": "99cf5946fc14e5e79d1dab0b0bc4fd42f226261478e53296a319e60911f1f8d6",
-      "ParameterOnlyAnimation.json": "0adf672863467dd4c7fead7ab6b99ada9390b20952511abf20245fb0e9f22dbe",
-      "ShaderOpacityShader.json": "8e6f2714a3b12931165dfb9f20a5c4293d96f4ddc3227eb7588c2cf7fb825992",
-      "ShaderOpacityShaderBarrier.json": "7b60887c327d170872b87a67822ed184bb0a0f0e9349c9b4f45e28cdef918422",
-      "SingleShader.json": "0cb4035b413ec5c1998a47e635a5f986afbc159dcc140736dda9550802ca0854",
-      "SmallObjectFixedOverhead.json": "cf4e8430322a5a60f59e74edb0c584401bdf2d365e1fa8ef555f69bbf718195d",
-      "SpatialGroupChain.json": "43dbc96bef0fa4562524c3e92366b956219c3898cefbc733a2f7402e2daf5147",
-      "SpatialNodeChain.json": "47c1c3c2450468d6effe9cfd7c53a400a029c31782b09cbd95c49e97afbd2ce9",
-      "StaticPrefixAnimatedTail.json": "fa3deef809558876d8dc3bac41b2ee4b28ef9c54c2735b2487fc406a6541f72a",
-      "StaticSpatialPrefixAnimatedBlurTail.json": "a8d6adb1edd7ecbc230f105705bc1363e39540e7a468b07dd8c532b096ef8353",
-      "StructuralToggle.json": "ff9eccf9a2ca1fe4617e56368b0c370a45d4393d1ae9e54c108d17aba4167fd9"
+      "BlurCustomBlur.json": "ef159e6cfe295da33c6765e34e05a9445d18d42b6c57d3616e76e8846b5e0cb6",
+      "LayerCustomEffect.json": "03e6a0d857004c67904f6696064baa84090fad89d55ed01bfbb7365eae60307a",
+      "LongInvariantChain.json": "10e53a18f9301160b91de345b5696bcc5e349329afd786c08e7f6f3f5176ba2d",
+      "MixedSpatialColor.json": "21643f36592cb211c284bcdf22356d1cd7b0a69b8f48a50e80c53cf3af724846",
+      "MultipleDrawablesTargetDependencies.json": "cd8fdab2703a4cb1ee8eaeef1862fd6db175d30db68712fbf9840c88abf436f5",
+      "NoEffectControl.json": "623e9b85141b509d7e3cf3f659225845521ce72487d629fb0763fcd8b972ed41",
+      "ParameterOnlyAnimation.json": "2dee42d71e18b629a5bbdfb28f6b516556984c916ddb59844e917f6a90697afa",
+      "ShaderOpacityShader.json": "c794d80b387c75ab22daeca687705362536d2c56a592862889fc1e84bdc14044",
+      "ShaderOpacityShaderBarrier.json": "2ce8abcc43e1ad69cebf13a58c1eb6b6fb6c414e5b3425e781104c220c06beda",
+      "SingleShader.json": "0640f27a61b1b5130d710d2b4d561551cdb32ae80d2574156af240a4033915fc",
+      "SmallObjectFixedOverhead.json": "cd0a1c9fd958a40efcd84313ac2ebc8a541aab9dbd4744c56e411f18ddae11f9",
+      "SpatialGroupChain.json": "eea4b0a5bfddddde2b5d755752dfdabad261412761c7d66d39107ef1342e56ac",
+      "SpatialNodeChain.json": "df42708bf002932cffb482c9cdc9e2ffb6509989a7eb4fd1afa3f118567ee1ed",
+      "StaticPrefixAnimatedTail.json": "fb43571a834461eec969c926c16f9dad85e539d304558cc2d58276a8a0ce152d",
+      "StaticSpatialPrefixAnimatedBlurTail.json": "3a5cf4c6dbd3008729f10b2f469ada2bb641e1b99394b50f02d979569344e7e4",
+      "StructuralToggle.json": "46bd365546300337d2628026ef686ae4488d8e7c9a04286c4ae5dfc5d1e91d8d"
     },
-    "engineAssemblyVersion": "2.99.99\u002B6c4547def1e7e288c6527a6b98402296c3ed3d6c",
-    "engineSourceRevision": "6c4547def1e7e288c6527a6b98402296c3ed3d6c",
+    "engineAssemblyVersion": "2.99.99\u002B699afb471cac4fe2c423cf74fb6dcebb48bfd493",
+    "engineSourceRevision": "699afb471cac4fe2c423cf74fb6dcebb48bfd493",
     "fusionMode": "Disabled",
     "comparabilityKey": "cf2317c09d222f4216b5aea4f4ab6691f923da6642ff7920f76e2c30ed49dfcd"
   },
@@ -57,27 +57,27 @@
     "label": "feature",
     "runDirectoryName": "feature",
     "benchmarkDotNetResultFile": "results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-full.json",
-    "benchmarkDotNetResultSha256": "bb93e9511abaf877204bb4d911476740363cd30b59dda14ed9e025a7d97a0400",
+    "benchmarkDotNetResultSha256": "481b4391e9c1f37710cb56538a528214270ed301d15808917e93204eb246e581",
     "counterFileSha256": {
-      "BlurCustomBlur.json": "1270e35ba72b056930d41ec922f7f4bb322a57239d57c332f23fa6a9ca354022",
-      "LayerCustomEffect.json": "2ca69c69d0fae844fd05a82096c971949f4d8b2cd257840897e6edb18c7da658",
-      "LongInvariantChain.json": "74f5462557f54c84b8fa82462e471440234dc6010316456549a4fe764f4badd3",
-      "MixedSpatialColor.json": "4749d6fcd05c18a748560b5b73d73417087be2df759dd21a6a14ad391289489d",
-      "MultipleDrawablesTargetDependencies.json": "ca39f6e9f1cd44cc927ed829ded9c58e43aa518979e8fb118e64093e22e35cf8",
-      "NoEffectControl.json": "340d43059e91df33f99ad31cb24704df0b110529105cddef5b5f33d593f5a6e2",
-      "ParameterOnlyAnimation.json": "6d7ee0fb9d1c13266dd8ae5c3f9276a8c8f42b1d981521a228ed26f698e28daf",
-      "ShaderOpacityShader.json": "51fa9d0f5b042d21890a4ade91e621b4e4a058d9f3e2a09b8da4d6d783e1aafa",
-      "ShaderOpacityShaderBarrier.json": "e1b6c866500951d7a9950df432c7a9595c8cf84a8dff438c3c5827f091300f11",
-      "SingleShader.json": "3e285ccf221b1eee78da83cae7a2de20fe2c00135c179705856b7efd4bf4aeaf",
-      "SmallObjectFixedOverhead.json": "df9cc56911a60ee59ea9b6fb21a22e7ef6535907e94176f6273a1463c1ca63f4",
-      "SpatialGroupChain.json": "6900a17dd4c093c5a031708aa785adb4f1abe4abf91685af9ef61a01e22a8303",
-      "SpatialNodeChain.json": "32b0bc0749528da233f499569aa553ba8ea4b8aed4e5b23227c31937e20a0763",
-      "StaticPrefixAnimatedTail.json": "4845c075b639d611530123e1e200450d35d66213524387ad16be76127a0f74d4",
-      "StaticSpatialPrefixAnimatedBlurTail.json": "e25f84aae2310b4b41e9c5cd6f0ea92afbc61c7ac4bea2a77e472e1b35a5300a",
-      "StructuralToggle.json": "7ecd4ad193acd0daed7acd85fb5d78c0b6cb6980f8bbd7e5cea84f5a64c911ff"
+      "BlurCustomBlur.json": "bfb32583bb3a49479daf071619e2873ff26de043f22c0063ceba485df3f0d588",
+      "LayerCustomEffect.json": "cbd63dfad473101511a26f126b38adfc470ea90fa361fe56a358d16f732b3899",
+      "LongInvariantChain.json": "553aee1517d024c78e68ea0e759084a6f0f4bff02d4a155fd9466edbd7bec734",
+      "MixedSpatialColor.json": "b2ce8866c6cc51818854b9fc737a971bb1fae5eee4adc30e5a16845533659146",
+      "MultipleDrawablesTargetDependencies.json": "0d88c1f0e979c8b02e90ec24d593fcea1cda502eb24b1105e1ca56ad83a88fce",
+      "NoEffectControl.json": "d1f0323fe749af52bf00de21db8f0faf073b4feec5ebbcb3c3bdf92ec8807e72",
+      "ParameterOnlyAnimation.json": "caedab1813ecfda55488c91e21576194ca2572855ba973bfb3eaa1df4f78d9b2",
+      "ShaderOpacityShader.json": "9ed8c47963ba6069e69d64239cf013dc5e8c9d66f6ab520ddea4cca0c293bedd",
+      "ShaderOpacityShaderBarrier.json": "349d05415a438f1859bf50a8c1133836aa8628bc3f1cf108dec97b0bfead28cc",
+      "SingleShader.json": "4c0b36ee0bdd35fd651e7f11ba34f7139c95ee68727b087a49d47b5107a8b883",
+      "SmallObjectFixedOverhead.json": "7410f4913ece36d6ba8145790519690d0461d27008b57d3e8fe16769c3533d4a",
+      "SpatialGroupChain.json": "0940a21704b1bd7ce0ea0a3e03c412856adc5c4b19fdc4bc7b97a7a821cfc00b",
+      "SpatialNodeChain.json": "a07e7f65850ddddc8a3c5c2f19c3684d6ef464cbbb6fa297fc2f29c063944ac1",
+      "StaticPrefixAnimatedTail.json": "d1cb7bb554113d21cc7976d9c5d0a0e93d0fea71494994d7b2d59aec0c2700a3",
+      "StaticSpatialPrefixAnimatedBlurTail.json": "e77155d7f85d5d90f88eadd161a3ab328d1e3600e54963da2e7115c6e92a8579",
+      "StructuralToggle.json": "5da60c2ab7d2a63977ecdc7012e2054a155c214ca48d3370f9ccd51157bc4cb7"
     },
-    "engineAssemblyVersion": "2.99.99\u002B6c4547def1e7e288c6527a6b98402296c3ed3d6c",
-    "engineSourceRevision": "6c4547def1e7e288c6527a6b98402296c3ed3d6c",
+    "engineAssemblyVersion": "2.99.99\u002B699afb471cac4fe2c423cf74fb6dcebb48bfd493",
+    "engineSourceRevision": "699afb471cac4fe2c423cf74fb6dcebb48bfd493",
     "fusionMode": "Enabled",
     "comparabilityKey": "cf2317c09d222f4216b5aea4f4ab6691f923da6642ff7920f76e2c30ed49dfcd"
   },
@@ -85,27 +85,27 @@
     "label": "baseline-b",
     "runDirectoryName": "baseline-b",
     "benchmarkDotNetResultFile": "results/Beutl.Benchmarks.Rendering.RenderPipelineBenchmarks-report-full.json",
-    "benchmarkDotNetResultSha256": "eaa51fa278b24a211ac43d0b624a547b456e62c2a4fbbbc34be5c08747c90a1a",
+    "benchmarkDotNetResultSha256": "6686d80f8d5603fefe0b1c81dbeb743f4999b98a8598703a0788af6feccf1a2c",
     "counterFileSha256": {
-      "BlurCustomBlur.json": "e326c4f12aca09d4b8a939befe75e8e78d25ee246dd19a4464a8eb9e3525d4ea",
-      "LayerCustomEffect.json": "d9acbd2bbfe0b83b76a250da1d30cfbd9439163cd2ae72e2e5514c2edeac1a96",
-      "LongInvariantChain.json": "500e5c3eb4c3fd6df61b1f48eeb331b2c546f83dd0f5aae4b60e7789564f8b4f",
-      "MixedSpatialColor.json": "26abaeaca52040d2aa7355495e914d0f041242112767aec3d655b70c5b1287f3",
-      "MultipleDrawablesTargetDependencies.json": "63a9eee926860b4cabd1ed4c244055b30ed3098a0cfca8d741077f4c258f2556",
-      "NoEffectControl.json": "99cf5946fc14e5e79d1dab0b0bc4fd42f226261478e53296a319e60911f1f8d6",
-      "ParameterOnlyAnimation.json": "0adf672863467dd4c7fead7ab6b99ada9390b20952511abf20245fb0e9f22dbe",
-      "ShaderOpacityShader.json": "8e6f2714a3b12931165dfb9f20a5c4293d96f4ddc3227eb7588c2cf7fb825992",
-      "ShaderOpacityShaderBarrier.json": "7b60887c327d170872b87a67822ed184bb0a0f0e9349c9b4f45e28cdef918422",
-      "SingleShader.json": "0cb4035b413ec5c1998a47e635a5f986afbc159dcc140736dda9550802ca0854",
-      "SmallObjectFixedOverhead.json": "cf4e8430322a5a60f59e74edb0c584401bdf2d365e1fa8ef555f69bbf718195d",
-      "SpatialGroupChain.json": "43dbc96bef0fa4562524c3e92366b956219c3898cefbc733a2f7402e2daf5147",
-      "SpatialNodeChain.json": "47c1c3c2450468d6effe9cfd7c53a400a029c31782b09cbd95c49e97afbd2ce9",
-      "StaticPrefixAnimatedTail.json": "fa3deef809558876d8dc3bac41b2ee4b28ef9c54c2735b2487fc406a6541f72a",
-      "StaticSpatialPrefixAnimatedBlurTail.json": "a8d6adb1edd7ecbc230f105705bc1363e39540e7a468b07dd8c532b096ef8353",
-      "StructuralToggle.json": "ff9eccf9a2ca1fe4617e56368b0c370a45d4393d1ae9e54c108d17aba4167fd9"
+      "BlurCustomBlur.json": "ef159e6cfe295da33c6765e34e05a9445d18d42b6c57d3616e76e8846b5e0cb6",
+      "LayerCustomEffect.json": "03e6a0d857004c67904f6696064baa84090fad89d55ed01bfbb7365eae60307a",
+      "LongInvariantChain.json": "10e53a18f9301160b91de345b5696bcc5e349329afd786c08e7f6f3f5176ba2d",
+      "MixedSpatialColor.json": "21643f36592cb211c284bcdf22356d1cd7b0a69b8f48a50e80c53cf3af724846",
+      "MultipleDrawablesTargetDependencies.json": "cd8fdab2703a4cb1ee8eaeef1862fd6db175d30db68712fbf9840c88abf436f5",
+      "NoEffectControl.json": "623e9b85141b509d7e3cf3f659225845521ce72487d629fb0763fcd8b972ed41",
+      "ParameterOnlyAnimation.json": "2dee42d71e18b629a5bbdfb28f6b516556984c916ddb59844e917f6a90697afa",
+      "ShaderOpacityShader.json": "c794d80b387c75ab22daeca687705362536d2c56a592862889fc1e84bdc14044",
+      "ShaderOpacityShaderBarrier.json": "2ce8abcc43e1ad69cebf13a58c1eb6b6fb6c414e5b3425e781104c220c06beda",
+      "SingleShader.json": "0640f27a61b1b5130d710d2b4d561551cdb32ae80d2574156af240a4033915fc",
+      "SmallObjectFixedOverhead.json": "cd0a1c9fd958a40efcd84313ac2ebc8a541aab9dbd4744c56e411f18ddae11f9",
+      "SpatialGroupChain.json": "eea4b0a5bfddddde2b5d755752dfdabad261412761c7d66d39107ef1342e56ac",
+      "SpatialNodeChain.json": "df42708bf002932cffb482c9cdc9e2ffb6509989a7eb4fd1afa3f118567ee1ed",
+      "StaticPrefixAnimatedTail.json": "fb43571a834461eec969c926c16f9dad85e539d304558cc2d58276a8a0ce152d",
+      "StaticSpatialPrefixAnimatedBlurTail.json": "3a5cf4c6dbd3008729f10b2f469ada2bb641e1b99394b50f02d979569344e7e4",
+      "StructuralToggle.json": "46bd365546300337d2628026ef686ae4488d8e7c9a04286c4ae5dfc5d1e91d8d"
     },
-    "engineAssemblyVersion": "2.99.99\u002B6c4547def1e7e288c6527a6b98402296c3ed3d6c",
-    "engineSourceRevision": "6c4547def1e7e288c6527a6b98402296c3ed3d6c",
+    "engineAssemblyVersion": "2.99.99\u002B699afb471cac4fe2c423cf74fb6dcebb48bfd493",
+    "engineSourceRevision": "699afb471cac4fe2c423cf74fb6dcebb48bfd493",
     "fusionMode": "Disabled",
     "comparabilityKey": "cf2317c09d222f4216b5aea4f4ab6691f923da6642ff7920f76e2c30ed49dfcd"
   },
@@ -148,8 +148,8 @@
     "skiaSharpManagedVersion": "3.119.4\u002Brelease-3.119.4.f568ac94dd768ef9a2f593537cfde2dd0d348ef5.f568ac94dd768ef9a2f593537cfde2dd0d348ef5",
     "skiaSharpNativeVersion": "119.0",
     "silkNetVulkanVersion": "2.23.0\u002B94605142f7b7bd6e69c9201e8e721d245c69eb7e",
-    "beutlEngineAssemblyVersion": "2.99.99\u002B6c4547def1e7e288c6527a6b98402296c3ed3d6c",
-    "beutlEngineSourceRevision": "6c4547def1e7e288c6527a6b98402296c3ed3d6c",
+    "beutlEngineAssemblyVersion": "2.99.99\u002B699afb471cac4fe2c423cf74fb6dcebb48bfd493",
+    "beutlEngineSourceRevision": "699afb471cac4fe2c423cf74fb6dcebb48bfd493",
     "comparabilityKey": "cf2317c09d222f4216b5aea4f4ab6691f923da6642ff7920f76e2c30ed49dfcd"
   },
   "cases": {
@@ -158,56 +158,56 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 2728521,
-      "baselineFirstRunMedianNanoseconds": 2721125,
-      "baselineRepeatMedianNanoseconds": 2735917,
-      "baselineRepeatMedianRatio": 1.0054359869539253,
+      "baselineMedianNanoseconds": 2760042,
+      "baselineFirstRunMedianNanoseconds": 2734583,
+      "baselineRepeatMedianNanoseconds": 2787459,
+      "baselineRepeatMedianRatio": 1.0193360377066631,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9751667567408716,
-        "upper": 1.0499793284027745
+        "lower": 0.9885126826207762,
+        "upper": 1.0544672522754461
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0499793284027745,
+      "baselineRepeatSymmetricToleranceFactor": 1.0544672522754461,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9523997024981407,
-        "upper": 1.0499793284027745
+        "lower": 0.9483461888855148,
+        "upper": 1.0544672522754461
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 2723292,
-      "medianRatio": 0.9980835771467399,
+      "featureMedianNanoseconds": 2952750,
+      "medianRatio": 1.0698206766418772,
       "confidenceInterval95": {
-        "lower": 0.9694591696187606,
-        "upper": 1.0282761462474803
+        "lower": 1.0237973704089414,
+        "upper": 1.1682653042932687
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": false,
-      "noRegressionWithinBaselineRepeatTolerance": true
+      "noRegressionWithinBaselineRepeatTolerance": false
     },
     "LayerCustomEffect": {
       "baselineSampleCount": 30,
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1823667,
-      "baselineFirstRunMedianNanoseconds": 1868084,
-      "baselineRepeatMedianNanoseconds": 1688125,
-      "baselineRepeatMedianRatio": 0.9036665374790427,
+      "baselineMedianNanoseconds": 1845146,
+      "baselineFirstRunMedianNanoseconds": 1938709,
+      "baselineRepeatMedianNanoseconds": 1817167,
+      "baselineRepeatMedianRatio": 0.937307765115858,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.8824556827553726,
-        "upper": 0.9340184079491481
+        "lower": 0.9125961887943264,
+        "upper": 1.0182537149146946
       },
-      "baselineRepeatConfidenceContainsOne": false,
-      "baselineRepeatSymmetricToleranceFactor": 1.133201382847474,
+      "baselineRepeatConfidenceContainsOne": true,
+      "baselineRepeatSymmetricToleranceFactor": 1.0957749027213743,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.8824556827553725,
-        "upper": 1.133201382847474
+        "lower": 0.9125961887943264,
+        "upper": 1.0957749027213743
       },
-      "baselineRepeatStable": false,
-      "featureMedianNanoseconds": 1815416,
-      "medianRatio": 0.9954755994378359,
+      "baselineRepeatStable": true,
+      "featureMedianNanoseconds": 1859750,
+      "medianRatio": 1.0079148208326063,
       "confidenceInterval95": {
-        "lower": 0.9673658986846609,
-        "upper": 1.0669498236268087
+        "lower": 0.943983501462337,
+        "upper": 1.0359881804925382
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": false,
@@ -218,26 +218,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 2075562.5,
-      "baselineFirstRunMedianNanoseconds": 1997708,
-      "baselineRepeatMedianNanoseconds": 2123000,
-      "baselineRepeatMedianRatio": 1.0627178746843884,
+      "baselineMedianNanoseconds": 2050874.5,
+      "baselineFirstRunMedianNanoseconds": 2035833,
+      "baselineRepeatMedianNanoseconds": 2065916,
+      "baselineRepeatMedianRatio": 1.0147767523171105,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.8657524333123399,
-        "upper": 1.1151796642643579
+        "lower": 0.9182514792955573,
+        "upper": 1.1073650459910342
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.1550646137649692,
+      "baselineRepeatSymmetricToleranceFactor": 1.1073650459910342,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.8657524333123398,
-        "upper": 1.1550646137649692
+        "lower": 0.9030445774139926,
+        "upper": 1.1073650459910342
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 946250,
-      "medianRatio": 0.4559005088981902,
+      "featureMedianNanoseconds": 1058042,
+      "medianRatio": 0.5158979742543973,
       "confidenceInterval95": {
-        "lower": 0.4349766851093819,
-        "upper": 0.535675562403698
+        "lower": 0.45965058039461343,
+        "upper": 0.5587725506251119
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": false,
@@ -248,26 +248,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1898666.5,
-      "baselineFirstRunMedianNanoseconds": 1921541,
-      "baselineRepeatMedianNanoseconds": 1802458,
-      "baselineRepeatMedianRatio": 0.9380273436788494,
+      "baselineMedianNanoseconds": 1904854,
+      "baselineFirstRunMedianNanoseconds": 2062208,
+      "baselineRepeatMedianNanoseconds": 1673250,
+      "baselineRepeatMedianRatio": 0.8113876000868971,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.8732766013589287,
-        "upper": 1.0649676277127849
+        "lower": 0.7875626289419393,
+        "upper": 0.8794816414686825
       },
-      "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.145112554766581,
+      "baselineRepeatConfidenceContainsOne": false,
+      "baselineRepeatSymmetricToleranceFactor": 1.2697402889005314,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.8732766013589287,
-        "upper": 1.145112554766581
+        "lower": 0.7875626289419393,
+        "upper": 1.2697402889005314
       },
-      "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1618083,
-      "medianRatio": 0.8522207559884792,
+      "baselineRepeatStable": false,
+      "featureMedianNanoseconds": 1638834,
+      "medianRatio": 0.8603462522587033,
       "confidenceInterval95": {
-        "lower": 0.8160890139404016,
-        "upper": 0.9310012888717374
+        "lower": 0.8090510336315951,
+        "upper": 0.9387157797051789
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": true,
@@ -278,26 +278,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1729417,
-      "baselineFirstRunMedianNanoseconds": 1725584,
-      "baselineRepeatMedianNanoseconds": 1733250,
-      "baselineRepeatMedianRatio": 1.0044425539411586,
+      "baselineMedianNanoseconds": 1788875,
+      "baselineFirstRunMedianNanoseconds": 1812833,
+      "baselineRepeatMedianNanoseconds": 1729458,
+      "baselineRepeatMedianRatio": 0.9540084497579203,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9487822115647555,
-        "upper": 1.08245621149497
+        "lower": 0.9026290565010313,
+        "upper": 0.9774945917127539
       },
-      "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.08245621149497,
+      "baselineRepeatConfidenceContainsOne": false,
+      "baselineRepeatSymmetricToleranceFactor": 1.1078748161248202,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9238248987632576,
-        "upper": 1.08245621149497
+        "lower": 0.9026290565010313,
+        "upper": 1.1078748161248202
       },
-      "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1704833,
-      "medianRatio": 0.9857848049371551,
+      "baselineRepeatStable": false,
+      "featureMedianNanoseconds": 1769208,
+      "medianRatio": 0.9890059394871078,
       "confidenceInterval95": {
-        "lower": 0.9524793672405383,
-        "upper": 1.0170696710884972
+        "lower": 0.9718487152961608,
+        "upper": 1.0217809856229707
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": true,
@@ -308,26 +308,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 824792,
-      "baselineFirstRunMedianNanoseconds": 800958,
-      "baselineRepeatMedianNanoseconds": 837125,
-      "baselineRepeatMedianRatio": 1.0451546772739644,
+      "baselineMedianNanoseconds": 898104,
+      "baselineFirstRunMedianNanoseconds": 836916,
+      "baselineRepeatMedianNanoseconds": 920625,
+      "baselineRepeatMedianRatio": 1.1000207906169794,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9441782589008351,
-        "upper": 1.0914421553090332
+        "lower": 0.8998433595044113,
+        "upper": 1.1564179443610212
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0914421553090332,
+      "baselineRepeatSymmetricToleranceFactor": 1.1564179443610212,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9162189632641209,
-        "upper": 1.0914421553090332
+        "lower": 0.864739262198625,
+        "upper": 1.1564179443610212
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 796125,
-      "medianRatio": 0.965243358325493,
+      "featureMedianNanoseconds": 945000,
+      "medianRatio": 1.0522166697843456,
       "confidenceInterval95": {
-        "lower": 0.9296509634746632,
-        "upper": 1.0042986338128521
+        "lower": 0.9924939075317167,
+        "upper": 1.1522633744855968
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": true,
@@ -338,26 +338,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1313104,
-      "baselineFirstRunMedianNanoseconds": 1313500,
-      "baselineRepeatMedianNanoseconds": 1312167,
-      "baselineRepeatMedianRatio": 0.9989851541682527,
+      "baselineMedianNanoseconds": 1299562.5,
+      "baselineFirstRunMedianNanoseconds": 1321875,
+      "baselineRepeatMedianNanoseconds": 1295917,
+      "baselineRepeatMedianRatio": 0.9803627423167849,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9739230476145118,
-        "upper": 1.021934964028777
+        "lower": 0.9646666666666667,
+        "upper": 1.0598575655545353
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0267751671442216,
+      "baselineRepeatSymmetricToleranceFactor": 1.0598575655545353,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9739230476145118,
-        "upper": 1.0267751671442216
+        "lower": 0.9435230096006186,
+        "upper": 1.0598575655545353
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1011459,
-      "medianRatio": 0.7702809526130451,
+      "featureMedianNanoseconds": 1011083,
+      "medianRatio": 0.7780179868224883,
       "confidenceInterval95": {
-        "lower": 0.6894209171513014,
-        "upper": 0.7838480083579737
+        "lower": 0.7379601352285438,
+        "upper": 0.7951832173316341
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": false,
@@ -368,26 +368,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1306625,
-      "baselineFirstRunMedianNanoseconds": 1307333,
-      "baselineRepeatMedianNanoseconds": 1301458,
-      "baselineRepeatMedianRatio": 0.9955061181810603,
+      "baselineMedianNanoseconds": 1295708.5,
+      "baselineFirstRunMedianNanoseconds": 1296791,
+      "baselineRepeatMedianNanoseconds": 1295375,
+      "baselineRepeatMedianRatio": 0.9989080738530727,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9831352403191282,
-        "upper": 1.0119446071458456
+        "lower": 0.9412184615384616,
+        "upper": 1.039463141025641
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0171540587594006,
+      "baselineRepeatSymmetricToleranceFactor": 1.0624525982686925,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9831352403191282,
-        "upper": 1.0171540587594006
+        "lower": 0.9412184615384617,
+        "upper": 1.0624525982686925
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 992459,
-      "medianRatio": 0.759559169616378,
+      "featureMedianNanoseconds": 1038042,
+      "medianRatio": 0.8011385276858182,
       "confidenceInterval95": {
-        "lower": 0.6783972458640146,
-        "upper": 0.7726910895318942
+        "lower": 0.6860299141175336,
+        "upper": 0.8271923846330411
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": false,
@@ -398,26 +398,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1388166,
-      "baselineFirstRunMedianNanoseconds": 1390416,
-      "baselineRepeatMedianNanoseconds": 1385916,
-      "baselineRepeatMedianRatio": 0.9967635585321227,
+      "baselineMedianNanoseconds": 1414958,
+      "baselineFirstRunMedianNanoseconds": 1439417,
+      "baselineRepeatMedianNanoseconds": 1402959,
+      "baselineRepeatMedianRatio": 0.9746716899967139,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9519935041023694,
-        "upper": 1.014109059095718
+        "lower": 0.9524454677240556,
+        "upper": 0.9934967923367607
       },
-      "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0504273355760927,
+      "baselineRepeatConfidenceContainsOne": false,
+      "baselineRepeatSymmetricToleranceFactor": 1.0499288766522032,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9519935041023695,
-        "upper": 1.0504273355760927
+        "lower": 0.9524454677240556,
+        "upper": 1.0499288766522032
       },
-      "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1115958,
-      "medianRatio": 0.8039081781285523,
+      "baselineRepeatStable": false,
+      "featureMedianNanoseconds": 1145833,
+      "medianRatio": 0.8098000081981231,
       "confidenceInterval95": {
-        "lower": 0.7883817813437766,
-        "upper": 0.8165459635423261
+        "lower": 0.7913274511413853,
+        "upper": 0.8267590257714376
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": true,
@@ -428,26 +428,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 878208,
-      "baselineFirstRunMedianNanoseconds": 965708,
-      "baselineRepeatMedianNanoseconds": 852167,
-      "baselineRepeatMedianRatio": 0.8824271933130926,
+      "baselineMedianNanoseconds": 969895.5,
+      "baselineFirstRunMedianNanoseconds": 963791,
+      "baselineRepeatMedianNanoseconds": 973708,
+      "baselineRepeatMedianRatio": 1.0102895752294845,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.8616646537324939,
-        "upper": 1.0069516343736133
+        "lower": 0.8732088024564995,
+        "upper": 1.1475207855562903
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.1605442972138587,
+      "baselineRepeatSymmetricToleranceFactor": 1.1475207855562903,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.8616646537324939,
-        "upper": 1.1605442972138587
+        "lower": 0.8714439098505952,
+        "upper": 1.1475207855562903
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 976791,
-      "medianRatio": 1.1122547278093573,
+      "featureMedianNanoseconds": 977042,
+      "medianRatio": 1.0073683195766967,
       "confidenceInterval95": {
-        "lower": 0.9996127533238673,
-        "upper": 1.1534635518455232
+        "lower": 0.9723596115643551,
+        "upper": 1.130715111071607
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": false,
@@ -458,26 +458,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1133416.5,
-      "baselineFirstRunMedianNanoseconds": 1135000,
-      "baselineRepeatMedianNanoseconds": 1098292,
-      "baselineRepeatMedianRatio": 0.9676581497797356,
+      "baselineMedianNanoseconds": 1123395.5,
+      "baselineFirstRunMedianNanoseconds": 1126584,
+      "baselineRepeatMedianNanoseconds": 1120167,
+      "baselineRepeatMedianRatio": 0.9943040199399246,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9562581935106077,
-        "upper": 1.0011769293612998
+        "lower": 0.9527822152848067,
+        "upper": 1.0138481731294156
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0457426736693443,
+      "baselineRepeatSymmetricToleranceFactor": 1.0495577939614238,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9562581935106076,
-        "upper": 1.0457426736693443
+        "lower": 0.9527822152848067,
+        "upper": 1.0495577939614238
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 749792,
-      "medianRatio": 0.6615326316495305,
+      "featureMedianNanoseconds": 782708,
+      "medianRatio": 0.6967341421609754,
       "confidenceInterval95": {
-        "lower": 0.6556461552756001,
-        "upper": 0.703927824843217
+        "lower": 0.6846896551724138,
+        "upper": 0.7061941464393467
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": false,
@@ -488,26 +488,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1377020.5,
-      "baselineFirstRunMedianNanoseconds": 1381833,
-      "baselineRepeatMedianNanoseconds": 1362375,
-      "baselineRepeatMedianRatio": 0.9859187036349545,
+      "baselineMedianNanoseconds": 1416291.5,
+      "baselineFirstRunMedianNanoseconds": 1451000,
+      "baselineRepeatMedianNanoseconds": 1403833,
+      "baselineRepeatMedianRatio": 0.9674934527911785,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.8848798682363799,
-        "upper": 1.0534102540243788
+        "lower": 0.8790032606867664,
+        "upper": 1.0823672004856766
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.130096904558425,
+      "baselineRepeatSymmetricToleranceFactor": 1.1376522075910147,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.88487986823638,
-        "upper": 1.130096904558425
+        "lower": 0.8790032606867664,
+        "upper": 1.1376522075910147
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1338458,
-      "medianRatio": 0.9719956965056076,
+      "featureMedianNanoseconds": 1425667,
+      "medianRatio": 1.006619753066371,
       "confidenceInterval95": {
-        "lower": 0.8938857447152814,
-        "upper": 1.045089161969879
+        "lower": 0.9360802737533089,
+        "upper": 1.0693148003103972
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": false,
@@ -518,26 +518,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1465375,
-      "baselineFirstRunMedianNanoseconds": 1434500,
-      "baselineRepeatMedianNanoseconds": 1564667,
-      "baselineRepeatMedianRatio": 1.0907403276402927,
+      "baselineMedianNanoseconds": 1357041.5,
+      "baselineFirstRunMedianNanoseconds": 1481958,
+      "baselineRepeatMedianNanoseconds": 1334000,
+      "baselineRepeatMedianRatio": 0.9001604633869515,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9981625561733768,
-        "upper": 1.148650054847619
+        "lower": 0.8449938823529412,
+        "upper": 0.9743921604881205
       },
-      "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.148650054847619,
+      "baselineRepeatConfidenceContainsOne": false,
+      "baselineRepeatSymmetricToleranceFactor": 1.1834405205578933,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.8705871695036491,
-        "upper": 1.148650054847619
+        "lower": 0.8449938823529413,
+        "upper": 1.1834405205578933
       },
-      "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1422958,
-      "medianRatio": 0.9710538258125053,
+      "baselineRepeatStable": false,
+      "featureMedianNanoseconds": 1507708,
+      "medianRatio": 1.1110257129203491,
       "confidenceInterval95": {
-        "lower": 0.9066357250456487,
-        "upper": 1.0510188605023696
+        "lower": 0.9948740931040888,
+        "upper": 1.1695158928247609
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": false,
@@ -548,26 +548,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1395104,
-      "baselineFirstRunMedianNanoseconds": 1395208,
-      "baselineRepeatMedianNanoseconds": 1393042,
-      "baselineRepeatMedianRatio": 0.998447543305371,
+      "baselineMedianNanoseconds": 1419104.5,
+      "baselineFirstRunMedianNanoseconds": 1423791,
+      "baselineRepeatMedianNanoseconds": 1402334,
+      "baselineRepeatMedianRatio": 0.9849296701552405,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9874805796969365,
-        "upper": 1.022052402848793
+        "lower": 0.9532876875183164,
+        "upper": 1.0040179498460184
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.022052402848793,
+      "baselineRepeatSymmetricToleranceFactor": 1.0490012753687077,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9784234127454466,
-        "upper": 1.022052402848793
+        "lower": 0.9532876875183164,
+        "upper": 1.0490012753687077
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 1023375,
-      "medianRatio": 0.7335474631281969,
+      "featureMedianNanoseconds": 1022625,
+      "medianRatio": 0.720612893553646,
       "confidenceInterval95": {
-        "lower": 0.6941806987016463,
-        "upper": 0.8005528425984323
+        "lower": 0.6991999764430886,
+        "upper": 0.7661646397704369
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": false,
@@ -578,26 +578,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 2806063,
-      "baselineFirstRunMedianNanoseconds": 2821792,
-      "baselineRepeatMedianNanoseconds": 2758750,
-      "baselineRepeatMedianRatio": 0.9776588777627834,
+      "baselineMedianNanoseconds": 2903583.5,
+      "baselineFirstRunMedianNanoseconds": 2691250,
+      "baselineRepeatMedianNanoseconds": 2909042,
+      "baselineRepeatMedianRatio": 1.0809259637714816,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9421349909805581,
-        "upper": 1.05342097051022
+        "lower": 0.940648992464752,
+        "upper": 1.1662564565550653
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.0614190212373038,
+      "baselineRepeatSymmetricToleranceFactor": 1.1662564565550653,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9421349909805581,
-        "upper": 1.0614190212373038
+        "lower": 0.8574443420050507,
+        "upper": 1.1662564565550653
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 2844000,
-      "medianRatio": 1.013519653692736,
+      "featureMedianNanoseconds": 3018333,
+      "medianRatio": 1.0395199586993107,
       "confidenceInterval95": {
-        "lower": 0.9691517726787388,
-        "upper": 1.0777001322704873
+        "lower": 0.9485804611742787,
+        "upper": 1.2387956585599924
       },
       "confidenceIntervalEntirelyBelowOne": false,
       "isControlOrBarrierGateCase": false,
@@ -608,26 +608,26 @@
       "baselineFirstRunSampleCount": 15,
       "baselineRepeatSampleCount": 15,
       "featureSampleCount": 15,
-      "baselineMedianNanoseconds": 1291812.5,
-      "baselineFirstRunMedianNanoseconds": 1299625,
-      "baselineRepeatMedianNanoseconds": 1284166,
-      "baselineRepeatMedianRatio": 0.9881050302972011,
+      "baselineMedianNanoseconds": 1304708.5,
+      "baselineFirstRunMedianNanoseconds": 1337583,
+      "baselineRepeatMedianNanoseconds": 1296875,
+      "baselineRepeatMedianRatio": 0.9695660007640647,
       "baselineRepeatConfidenceInterval95": {
-        "lower": 0.9367238860482103,
-        "upper": 1.030850955153744
+        "lower": 0.9320303962366564,
+        "upper": 1.0183225985200588
       },
       "baselineRepeatConfidenceContainsOne": true,
-      "baselineRepeatSymmetricToleranceFactor": 1.067550443513013,
+      "baselineRepeatSymmetricToleranceFactor": 1.0729263809826275,
       "baselineRepeatSymmetricToleranceInterval": {
-        "lower": 0.9367238860482103,
-        "upper": 1.067550443513013
+        "lower": 0.9320303962366563,
+        "upper": 1.0729263809826275
       },
       "baselineRepeatStable": true,
-      "featureMedianNanoseconds": 895625,
-      "medianRatio": 0.6933088199719386,
+      "featureMedianNanoseconds": 996875,
+      "medianRatio": 0.7640595581311841,
       "confidenceInterval95": {
-        "lower": 0.6736831113549314,
-        "upper": 0.7176819394115201
+        "lower": 0.6889928139437228,
+        "upper": 0.7871390240087918
       },
       "confidenceIntervalEntirelyBelowOne": true,
       "isControlOrBarrierGateCase": false,
