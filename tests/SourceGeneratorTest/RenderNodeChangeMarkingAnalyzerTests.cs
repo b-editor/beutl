@@ -669,8 +669,8 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             """);
 
         Assert.That(
-            diagnostics.Select(static d => d.Id),
-            Does.Contain("BESG005"),
+            diagnostics.Where(static d => d.GetMessage().Contains("'DriftingNode.Update'")),
+            Is.Not.Empty,
             "the inherited override is the body that records, whatever else on the node shares its name");
     }
 
@@ -710,7 +710,9 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
     /// <remarks>
     /// Finding the real override must not turn every node carrying an overload into a report: this one marks,
-    /// and the inherited body is read only to learn what marking had to cover.
+    /// and the inherited body is read only to learn what marking had to cover. The inherited state is
+    /// reached through a setter that marks, which is the fix the declaration shape recommends - a protected
+    /// field would be reported where the base declares it, whatever the derived node does with it.
     /// </remarks>
     [Test]
     public void ADerivedNodeWithAnUnrelatedProcessOverloadThatMarks_IsNotReported()
@@ -721,7 +723,17 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
             internal abstract class PublishingNode : RenderNode
             {
-                protected Rect Bounds;
+                private Rect _bounds;
+
+                protected Rect Bounds
+                {
+                    get => _bounds;
+                    set
+                    {
+                        _bounds = value;
+                        MarkChanged();
+                    }
+                }
 
                 public override void Process(RenderNodeContext context)
                 {
@@ -738,7 +750,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
                 public void Update(Rect bounds)
                 {
                     Bounds = bounds;
-                    MarkChanged();
                 }
             }
             """);
@@ -836,6 +847,210 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG005"),
             "a setter anyone outside the node can call changes what Process reads with no mark anywhere");
+    }
+
+    /// <remarks>
+    /// The same shape under a different keyword. A field-like event's accessors are synthesized, so there
+    /// is no body for the assignment shape to read, and += binds from wherever the event is visible - so a
+    /// subscriber added from outside changes what Process reads with nothing inside the node to report.
+    /// </remarks>
+    [Test]
+    [TestCase("public event System.Action Invalidated;")]
+    [TestCase("protected event System.Action Invalidated;")]
+    [TestCase("internal event System.Action Invalidated;")]
+    public void APublicFieldLikeEventProcessReads_IsReported(string declaration)
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal class DriftingNode : RenderNode
+            {
+                {{declaration}}
+
+                public override void Process(RenderNodeContext context)
+                {
+                    if (Invalidated is not null)
+                        context.Publish(default);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "an event anyone outside the node can subscribe to changes what Process reads with no mark "
+            + "anywhere");
+    }
+
+    /// <remarks>
+    /// A field code outside the node can assign is the same declaration hazard as a synthesized setter and
+    /// wants the same answer: there is no accessor body to hold the mark and no assignment inside the type
+    /// to report. Reporting the auto-property and not this was the rule disagreeing with itself about which
+    /// member kinds its own second shape is for.
+    /// </remarks>
+    [Test]
+    [TestCase("public Rect Bounds;")]
+    [TestCase("protected Rect Bounds;")]
+    [TestCase("internal Rect Bounds;")]
+    public void APublicFieldProcessReads_IsReported(string declaration)
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal class DriftingNode : RenderNode
+            {
+                {{declaration}}
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a field anyone outside the node can assign changes what Process reads with no mark anywhere");
+    }
+
+    /// <remarks>
+    /// The fix the diagnostic recommends, and the event counterpart of a setter that marks: accessors with
+    /// bodies put the mark on the path every subscription takes, and the delegate field they write is then
+    /// no different from any other marked state.
+    /// </remarks>
+    [Test]
+    public void AnEventWithAccessorsThatMark_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Action? _invalidated;
+
+                public event Action? Invalidated
+                {
+                    add
+                    {
+                        _invalidated += value;
+                        MarkChanged();
+                    }
+                    remove
+                    {
+                        _invalidated -= value;
+                        MarkChanged();
+                    }
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    if (_invalidated is not null)
+                        context.Publish(default);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// A private event is reachable only from the node's own code, which is exactly what the assignment
+    /// shape already reads - the subscription below is a write it finds and a mark it accepts. Reporting
+    /// the declaration too would report the same state twice and reject this node.
+    /// </remarks>
+    [Test]
+    public void APrivateEventProcessReads_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private event Action? Invalidated;
+
+                public void Subscribe(Action handler)
+                {
+                    Invalidated += handler;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    if (Invalidated is not null)
+                        context.Publish(default);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// readonly stops every assignment outside the declaring type's constructors, and a constructor runs
+    /// before there is a recording to invalidate - the same reason an init accessor is not reported.
+    /// </remarks>
+    [Test]
+    public void AReadonlyFieldProcessReads_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                public readonly Rect Bounds;
+
+                public WellBehavedNode(Rect bounds) => Bounds = bounds;
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The read set is what makes a mutation matter, for an event as much as for a property: a subscriber
+    /// list no Process reads can be rewritten from anywhere without a frame noticing.
+    /// </remarks>
+    [Test]
+    public void AnEventProcessNeverReads_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class QuietNode : RenderNode
+            {
+                private Rect _drawn;
+
+                public event Action? Invalidated;
+
+                public void Update(Rect bounds)
+                {
+                    _drawn = bounds;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_drawn);
+                }
+            }
+            """);
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
     /// <remarks>

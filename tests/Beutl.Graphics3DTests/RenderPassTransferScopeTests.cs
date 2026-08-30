@@ -608,4 +608,91 @@ public sealed class RenderPassTransferScopeTests
             context.WaitIdle();
         });
     }
+
+    /// <remarks>
+    /// A draw resolves the bound descriptor set through the layout of the pipeline it uses, but the binding
+    /// was programmed against whatever layout reached <c>vkCmdBindDescriptorSets</c>. Neither handle carries
+    /// its own declarations, so a pipeline that declares binding 0 as a uniform buffer reading a set
+    /// programmed as a combined image sampler is <c>VUID-vkCmdDraw-None-08600</c> - undefined behaviour the
+    /// driver need not diagnose rather than a validation message, and on MoltenVK it takes the process down.
+    ///
+    /// Neither bind below is rejectable on its own: the spec lets a set be bound without having bound a
+    /// particular pipeline first, or with a different one bound, so the pair only becomes wrong once a draw
+    /// makes one pipeline the one that reads the set. That is why the check lives on the draw, and why the
+    /// control has to show that a coherently bound set still draws rather than being swept up with it.
+    /// </remarks>
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void ADescriptorSetBoundUnderAnotherPipelinesLayout_IsRejectedByDraw()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
+            byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
+            byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);
+
+            using ITexture2D sourceTexture = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            byte[] white = new byte[Width * Height * 4];
+            Array.Fill(white, (byte)0xFF);
+            sourceTexture.Upload(white);
+
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
+            using ISampler sampler = context.CreateSampler();
+
+            // Binding 0 is a combined image sampler in one layout and a uniform buffer in the other, so
+            // neither pipeline's layout can be compatible for set 0 with the other's.
+            using IPipeline3D sampledPipeline = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                sampledSpirv,
+                [new DescriptorBinding(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+            using IPipeline3D tintedPipeline = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                tintedSpirv,
+                [new DescriptorBinding(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)],
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+
+            using IDescriptorSet sampledSet = context.CreateDescriptorSet(
+                sampledPipeline,
+                [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
+            sampledSet.UpdateTexture(0, sourceTexture, sampler);
+
+            renderPass.Begin(framebuffer, [Colors.Transparent]);
+            try
+            {
+                renderPass.BindDescriptorSet(sampledPipeline, sampledSet);
+                renderPass.BindPipeline(tintedPipeline);
+
+                // Deliberately not inside an Assert.EnterMultipleScope: a draw that fails to throw here is
+                // already recorded, and continuing would record and submit more work behind it.
+                Assert.That(
+                    () => renderPass.Draw(3),
+                    Throws.InvalidOperationException,
+                    "a draw whose pipeline layout does not describe the bound descriptor set must not reach "
+                    + "vkCmdDraw, which cannot tell it from a coherently bound one");
+
+                renderPass.BindPipeline(sampledPipeline);
+                renderPass.BindDescriptorSet(sampledPipeline, sampledSet);
+                Assert.That(
+                    () => renderPass.Draw(3),
+                    Throws.Nothing,
+                    "the control: a set bound under the layout of the pipeline that reads it still draws, so "
+                    + "the check rejects the mismatch rather than every draw that has a set bound");
+            }
+            finally
+            {
+                renderPass.End();
+            }
+
+            context.WaitIdle();
+        });
+    }
 }

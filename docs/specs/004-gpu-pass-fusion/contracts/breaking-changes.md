@@ -8,7 +8,7 @@ BREAKING CHANGE: public callback authoring now uses immutable `*Definition<TStat
 
 BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation signal, and it is read-only: a node raises it by calling `RenderNode.MarkChanged()` when its pixel-, metadata-, or topology-affecting state changes. No public API accepts caller-supplied cache identity, resource content metadata, or a manual operation fingerprint.
 
-The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
+The affected public surface is mostly in `Beutl.Engine`, plus `Beutl.ProjectSystem`'s `SceneRenderer`, which now takes its render intent as a required argument, and `Beutl.Editor.Components`' engine-resource subscription, which is app-internal and so is recorded under "App-internal changes" at the end rather than among the plugin migrations. In-tree consumers in `Beutl.Editor`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.AgentToolkit`, the application, and the test/benchmark hosts have already migrated, but out-of-tree render-node, filter-effect, geometry, mesh, renderer, target-factory, brush-construction, and graphics-backend code must apply the recipes below. Anything implementing `IGraphicsContext`, `IRenderPass3D`, or the other backend interfaces has to be recompiled even where its own source is unchanged, because those contracts gained members and lost a default.
 
 The branch records the public break in `35e7f28b0` (`refactor(engine)!: record then plan the render pipeline and fuse GPU passes`) and the later target-factory/brush additions in `699332cc5` (`feat(engine)!: expose drawable-brush materialization and the cache opt-out`). The remaining forty each carry their own footer as well: `999ad728f`, `991f49e70`, `ee507067d`, `2974a6073`, `6dfd0f2d3`, `66cd2dc4c`, `7e2d928b5`, `48318a60f`, `70479b19f`, `a619d8046`, `3c33795ab`, `d53b155e8`, `449e71258`, `c8314e40f`, `6857dfa98`, `def8dcb1b`, `66dc0486b`, `c9ab89352`, `5ade9db14`, `9226be071`, `85667b924`, `60b51d110`, `5c6bac032`, `28d79bc87`, `e82717596`, `263c47e31`, `bd624508e`, `bc79b7f32`, `a3497c49c`, `6b28e5c23`, `2e4d07f77`, `e267d512c`, `3de2f06f7`, `2ff37dd66`, `020e4bfe9`, `c5836f92e`, `333127aa1`, `564b0bc94`, `61b86a1eb` and `f9980af33`, documented in the sections below. All forty-two contain a literal `BREAKING CHANGE:` footer, so no history rewrite is required. Keep this list and the count current when a new `!` commit lands on the branch; a squash merge takes its footer from the pull request description, not from these messages, so the description is the only place the changelog reads.
 
@@ -375,12 +375,13 @@ using var activator = new FilterEffectActivator(
     builder,
     RenderIntent.Delivery,
     RenderRequestPurpose.Frame,
+    materializer,
     outputScale,
     workingScale,
     maxWorkingScale);
 ```
 
-The public constructor requires `RenderIntent` and `RenderRequestPurpose` before the optional scale arguments. A working-scale ceiling no longer infers either classification. `FilterEffectStageFallbackExecutor` is an internal execution path for typed Shader/Geometry suffixes after opaque work; it is not a public authoring API and does not make `ApplyTo` obsolete.
+The public constructor requires `RenderIntent`, `RenderRequestPurpose` and a `DrawableBrushMaterializer?` before the optional scale arguments. A working-scale ceiling no longer infers either classification. `FilterEffectStageFallbackExecutor` is an internal execution path for typed Shader/Geometry suffixes after opaque work; it is not a public authoring API and does not make `ApplyTo` obsolete.
 
 ### EffectTarget and SKSLShader migration
 
@@ -887,34 +888,60 @@ describes, and nothing at runtime notices.
   context's other delegate-taking member, the input mapper, runs while the call is being made and is never
   retained. The analyzer ships only to projects that reference `Beutl.Engine.SourceGenerators`, so an
   out-of-tree author never sees it.
-- **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`,
-  but it can reach a static field or property. The rule accepts a `const`, and a `static readonly` field or
-  get-only property only when the value is provably fixed: the getter reduces to one returned expression
+- **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`, but
+  it can reach a static field, property, or event. The rule accepts a `const`, and a `static readonly` field
+  or get-only property only when the value is provably fixed: the getter reduces to one returned expression
   and that expression is a compile-time constant, `default`, or a `static readonly` field whose type holds
-  nothing writable, walked eight levels through readonly structs and sealed classes. Everything else is
-  reported, including a member whose source is not available. It reads the callback's own body whether that
-  body is a lambda's or the one a method group names, and follows the static methods that body names eight
-  levels deep, reporting a longer chain rather than accepting it; a method group whose body has no source
-  in the compilation is reported, because that body is the whole of the callback. The same walk enters what
-  a body runs without naming: a constructor - its chained and base constructors and the instance
-  initialisers that run with it included - and a user-defined operator or conversion. It follows an instance
-  member on those same terms when the expression makes the instance it runs on: an object creation names the
-  exact type it makes, and what that instance carries came from the constructor the walk already reads. A
-  property or indexer contributes the accessor the reference actually runs - the getter for a read, the
-  setter for an assignment. A receiver the call did not make is where it stops, because these callbacks are
-  handed the objects they work through and following a member called on one of those walks the render
-  backend behind it. Migration: copy the
-  value into a `static readonly` of an immutable type, or pass it as call state; declare a method group's
-  method where the rule can read it, or write the callback as a `static` lambda at the call site.
+  nothing writable, walked eight levels through readonly structs and sealed classes. That walk counts a
+  field-like event as the non-readonly delegate field it stands for — Roslyn leaves that field out of a source
+  type's member list, so a type whose only mutable state was an event used to pass as carrying none while the
+  same state spelled as a delegate field did not — and a `static readonly` helper whose type declares one is
+  reported accordingly; an event the helper declares with its own accessors holds nothing of itself, and
+  whatever those accessors do write is a field the same walk already sees. A static event the callback names
+  is judged by how the event is written. A field-like one is reported wherever the callback names it, on
+  either side of the `+=`, because its value is a subscriber list that any registration anywhere rewrites, so
+  what the callback reads off it, or does to it, can differ between two recordings while the plan key stays
+  the same. One with its own accessors is read through the accessor the `+=` or `-=` actually runs, exactly as
+  a property is read through the accessor a reference runs: accessors that store nothing are accepted, and
+  accessors that write a mutable static are reported for that write. One whose accessors have no source in
+  this compilation is reported, because metadata carries real accessors whether the author wrote them or the
+  compiler did and nothing there tells the two apart. Everything else is reported, including a member whose
+  source is not available. It reads the callback's own body whether that body is a lambda's or the one a
+  method group names, and follows the static methods that body names eight levels deep, reporting a longer
+  chain rather than accepting it; a method group whose body has no source in the compilation is reported,
+  because that body is the whole of the callback. The same walk enters what a body runs without naming: a
+  constructor - its chained and base constructors and the instance initialisers that run with it included -
+  and a user-defined operator or conversion. It follows an instance member on those same terms when it can
+  point at the object creation that made the receiver, because an object creation names the exact type it
+  makes and so the member the call binds to is the member that runs. Three creations qualify: the one written
+  at the call site; the one initialising a `readonly` field the callback reaches on its own — named directly,
+  or through one hop of a get-only property whose getter names that field and nothing else — that no
+  constructor of the declaring type writes; and the one initialising a local nothing assigns again. The two
+  held forms count only where the creation makes the declared type exactly, because a field declared as a base
+  of what it holds would have the walk read a body an override replaces. That creation is followed into its
+  constructor only where the creation is written inside the body being walked: one that ran earlier — a field
+  initialiser — froze one value into one instance before the callback was ever handed over and has no later
+  recording to answer differently at, which is the same reason BESG005 exempts a constructor. The members
+  called on the instance are walked either way. A property or indexer contributes the accessor the reference
+  actually runs - the getter for a read, the setter for an assignment. A receiver the call did not make is
+  where it stops, because these callbacks are handed the objects they work through and following a member
+  called on one of those walks the render backend behind it. Migration: copy the value into a `static
+  readonly` of an immutable type that carries no subscriber list, or pass it as call state; declare a method
+  group's method where the rule can read it, or write the callback as a `static` lambda at the call site.
 - **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. It reports
-  two shapes: an assignment written inside the node's own type with no reachable `MarkChanged()`, and an
-  auto-property the node declares whose setter is neither `private` nor `init` — because such a setter is
-  synthesized and is assigned by whoever holds the node, so there is no body to read and no assignment inside
-  the type to find, and the node goes stale anyway. Migration for the second: give the setter a body that
-  assigns and calls `MarkChanged()`, or narrow it to `private` or `init` so only the node's own code can
-  assign it. This is the
-  static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
-  Debug-only and compares a replayed recording against a live one.
+  two shapes: an assignment written inside the node's own type with no reachable `MarkChanged()`, and a member
+  the node declares that code outside it can write — an auto-property whose setter is neither `private` nor
+  `init`, a field-like event that is not `private`, or a field that is neither `private` nor `readonly`. A
+  public field whose value `Process` reads, and a public field-like event it reads, are reported on the same
+  footing as a public auto-property: none of the three has a body for the first shape to read and none is
+  assigned inside the type for it to find, because the write is made by whoever holds the node, and the node
+  goes stale anyway. Migration for the second shape is at the declaration. Give the setter a body that assigns
+  and calls `MarkChanged()`; give the event `add` and `remove` accessors that subscribe and call
+  `MarkChanged()`; replace the field with a property whose setter marks. Or narrow the member instead — to
+  `private` or `init` for the setter, `private` for the event, `private` or `readonly` for the field — so that
+  only the node's own code, which the first shape does read, can write it. This is the static half of the
+  recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is Debug-only and
+  compares a replayed recording against a live one.
 
 Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: what a
 callee with no source in the compilation reads stays invisible to all of them, and so does what an instance
@@ -1019,3 +1046,69 @@ synthesized setter, so nothing marks the node when its holder assigns one, and a
 assignment could be replayed after it. BESG005 names two fixes — give the setter a body that marks, or
 narrow it so only the node's own code can assign it — and these four take the second, which leaves `Update`
 as their only writer and the single `MarkChanged()` it already made as their only invalidation.
+
+## App-internal changes
+
+`Beutl.Editor.Components` is part of the application rather than of the published surface: it is absent from
+the `NuGetPack` list in `nukebuild/Build.cs` and from the assemblies `Beutl.Extensibility.Sdk`
+auto-references, it sets no `PackageId`, and no packed project references it. Its consumers are `src/Beutl`
+and Beutl's own test hosts. What follows is therefore a migration for in-repo callers; a plugin author cannot
+reference these types and has nothing to apply.
+
+### A subscribed engine resource is lent, not published
+
+`Beutl.Editor.Components`' `EngineObjectHelper.SubscribeEngineVersionedResource` published
+`IObservable<(TResource Resource, int Version)>`, and `PathGeometryControl.GeometryResourceProperty` was the
+`StyledProperty<(PathGeometry.Resource Resource, int Version)?>` that carried it. Creation, update and
+disposal of a subscribed resource all run on the render dispatcher, which makes that dispatcher a writer
+every subscriber thread races. The resource is subscription-private rather than shared with the renderer, so
+the hazard was not contention with rendering: a rebuild replaces the entries of the lists the resource owns
+and disposes the ones it drops, so a UI reader walking `Figures` or `Segments` could meet a list that rebuild
+was midway through replacing, or a child it had already disposed. Editing a path while the preview is live
+reached it.
+
+Both now carry `EngineResourceHandle<TResource>`, a `readonly struct` that never hands the resource out.
+`Read` and `Project` take the same gate the dispatcher holds across create, update and dispose, and the gate
+records the release, so a handle that outlives its subscription reads as empty instead of reaching a released
+resource:
+
+```csharp
+// before
+IObservable<(Drawable.Resource Resource, int Version)> resources =
+    drawable.SubscribeEngineVersionedResource(time, (o, c) => o.ToResource(c));
+resources.Subscribe(t => Draw(t.Resource));
+
+StyledProperty<(PathGeometry.Resource Resource, int Version)?> GeometryResourceProperty;
+
+// after - Read holds the resource's owner off for the length of the callback
+IObservable<EngineResourceHandle<Drawable.Resource>> resources =
+    drawable.SubscribeEngineVersionedResource(time, (o, c) => o.ToResource(c));
+resources.Subscribe(h => h.Read(Draw));
+
+StyledProperty<EngineResourceHandle<PathGeometry.Resource>?> GeometryResourceProperty;
+```
+
+The reading members are `bool Read(Action<TResource>)`,
+`TResult Read<TResult>(Func<TResource, TResult>, TResult)` and
+`EngineResourceHandle<TChild>? Project<TChild>(Func<TResource, TChild?>)`, alongside `int Version`; the
+struct is `IEquatable<EngineResourceHandle<TResource>>` and defines `==` and `!=`. When the resource is gone
+`Read` answers `false`, its projecting overload answers its fallback, and `Project` answers `null`. A reader
+that smuggles the resource out of a `Read` callback is back to racing the rebuild, and anything inside one
+that waits on the render dispatcher deadlocks. The handle's constructor is internal, so a subscription - or a
+projection off one - is the only thing that mints one.
+
+`Project` reaches a resource the subscribed one owns and hands it back behind the same gate, because a child
+is released with its parent rather than under a gate of its own; a subscriber that used to select a child out
+of the published tuple selects it there instead. It re-checks the child it is about to lend, so a projection
+whose child a rebuild has replaced reads as empty while one whose child the rebuild kept goes on reading - a
+version bump alone must not blank a projection, or every unrelated edit to the parent would.
+
+`Version` is the resource's version as of the publication that produced the handle, and it is what makes two
+handles over the same resource compare unequal once it has changed, so a distinct-until-changed subscriber
+still sees the rebuild. It is not re-checked on a read: a read sees whatever the resource holds at that
+moment, consistently.
+
+Migration: move the work that used the resource inside a `Read` rather than around it - `t.Resource` becomes
+the callback's parameter and `t.Version` becomes `handle.Version` - and replace a select over the published
+resource with `Project`. A caller that stored the old tuple and read it later was already unsafe against the
+rebuild, and now fails closed.

@@ -615,6 +615,62 @@ public sealed class DeviceBufferBudgetTests
     }
 
     /// <summary>
+    /// The render-target factory is public and runs wherever a plugin's filter effect, drawable or render
+    /// node does, so an extent past what the device can attach has to be refused inside it rather than by
+    /// whichever caller happened to route through it.
+    /// </summary>
+    /// <remarks>
+    /// A driver does not report that attachment as a failure: SwiftShader builds a framebuffer wider than
+    /// its own limit and returns success, MoltenVK aborts the process on a Metal assertion. Neither reaches
+    /// the factory's catch, so the target coming back null proves nothing on its own - the assertion is
+    /// that the allocator was never asked.
+    /// </remarks>
+    [Test]
+    public void ADirectCreatePastTheDevicesLimit_IsRefusedBeforeItReachesTheAllocator()
+    {
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        // Within the engine ceiling and past what this device can attach, so only the device's own limit is
+        // left to refuse it. The dispatcher is what makes the factory attach rather than raster.
+        RenderTarget? created = WithAllocationDevice(
+            device.Object,
+            () => RenderThread.Dispatcher.Invoke(() => RenderTarget.Create(DeviceBudget + 1, 1)));
+        created?.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.Null, "a refused allocation must not hand back a target");
+            AssertNeverAttached(device);
+        });
+    }
+
+    /// <summary>
+    /// The negative control for the refusal above: off the render dispatcher the same call rasters on the
+    /// CPU, which no device's attachment limit bounds, so it has to keep allocating the extent it always
+    /// did.
+    /// </summary>
+    [Test]
+    public void ADirectCreateOffTheDispatcher_IsStillAllocatedPastTheDevicesLimit()
+    {
+        Assert.That(Dispatcher.Current, Is.Null, "the case only arises off a dispatcher");
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        RenderTarget? created = WithAllocationDevice(
+            device.Object,
+            () => RenderTarget.Create(DeviceBudget + 1, 1));
+
+        using (created)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(created, Is.Not.Null, "a CPU raster answers to no device's attachment limit");
+                Assert.That(created!.Width, Is.EqualTo(DeviceBudget + 1));
+                AssertNeverAttached(device);
+            });
+        }
+    }
+
+    /// <summary>
     /// The export and save-frame dialogs pre-validate the root surface before any rendering starts. Measuring
     /// that against the engine ceiling admits a size the device then refuses, so the user is told the export
     /// is fine and the render fails afterwards.

@@ -3192,15 +3192,14 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
-    /// What an instance carries came from its constructor, so a constructor reading a mutable static is the
-    /// same impurity as a method reading one - and the method called on that instance hands the captured
-    /// value back without naming the static anywhere the walk over the callback could see it. The rule
-    /// already reads the constructor of a creation written at the call site, which it reaches as an
-    /// expression of the body; a creation held in a readonly field is written where the walk never goes, so
-    /// following the receiver has to carry the constructor with it or the two spellings answer differently.
+    /// A readonly field's initialiser runs once, before the callback is ever handed over, so whatever the
+    /// constructor read is frozen into the one instance every recording sees - which is the same value at
+    /// both, however the static moved in between. That is the reason BESG005 exempts a constructor too, and
+    /// reading this one anyway had the two rules disagreeing about the same constructor. The member called
+    /// on the instance is still walked: it runs per invocation and can read a static that has moved.
     /// </remarks>
     [Test]
-    public void ANodeLambdaCallingAReadonlyFieldHelperWhoseConstructorReadsAMutableStatic_IsReported()
+    public void ANodeLambdaCallingAReadonlyFieldHelperWhoseConstructorReadsAMutableStatic_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using Beutl.Graphics;
@@ -3234,9 +3233,284 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
         Assert.That(
             diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG004"),
+            "the constructor ran once before the first recording, so what it read is the same value at "
+            + "every recording and cannot be what makes the callback answer differently");
+    }
+
+    /// <remarks>
+    /// The same frozen value one indirection out, and the shape a singleton is usually written in. Nothing
+    /// about a <c>static readonly</c> holder makes its constructor run again, so the walk that reads it is
+    /// reading code that ran before the plan existed. The member called on the singleton is a different
+    /// question and still walked -
+    /// <c>AStaticLambdaCallingAMethodOnAStaticReadonlyStatelessHelperThatReadsAMutableStatic</c> above is
+    /// what that costs.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReachingASingletonWhoseConstructorReadsAMutableStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                private readonly float _offset;
+
+                public Shifter() => _offset = Settings.Offset;
+
+                public float Shift(float value) => value + _offset;
+            }
+
+            internal static class Helpers
+            {
+                public static readonly Shifter Shared = new Shifter();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Not.Contain("BESG004"),
+            "a value the static initialiser froze before the first recording is the same value at the "
+            + "second, whatever the static it was read from does in between");
+    }
+
+    /// <remarks>
+    /// The positive control the narrowing above has to leave standing: a creation written in the callback
+    /// runs its constructor every time the callback does, so a mutable static read there is read afresh at
+    /// each recording.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCreatingAHelperWhoseConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                private readonly float _offset;
+
+                public Shifter() => _offset = Settings.Offset;
+
+                public float Shift(float value) => value + _offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            new Shifter().Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
             Does.Contain("BESG004"),
-            "the constructor is where the mutable static entered the instance, and a method reading only "
-            + "its own field still answers differently between two recordings because of it");
+            "the constructor runs inside the callback, so the static it reads is read again at every "
+            + "recording");
+    }
+
+    /// <remarks>
+    /// A local written once where it is declared names one creation, and that creation is written in the
+    /// callback body, so its constructor runs per invocation exactly as one spelled at the call site does.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaHoldingAHelperInALocalWhoseConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                private readonly float _offset;
+
+                public Shifter() => _offset = Settings.Offset;
+
+                public float Shift(float value) => value + _offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Shifter shifter = new Shifter();
+                            return new Rect(shifter.Shift(value.X), value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the creation the local names is written inside the callback, so its constructor runs again "
+            + "at every recording");
+    }
+
+    /// <remarks>
+    /// <c>DescribeUnprovenGetter</c> accepts this getter as a fixed instance of a stateless type, so the
+    /// property itself is not reported - and refusing the same field here left the helper's body the one
+    /// reach the rule cleared and then never read. One hop and no chain: the getter can answer with no
+    /// other expression, and the field is put the whole of the test it would be put naming it directly.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaReachingAHelperThroughAGetOnlyPropertyAlias_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Helpers
+            {
+                private static readonly Shifter s_shared = new Shifter();
+
+                public static Shifter Shared => s_shared;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the getter hands back the field and nothing else, so the instance the call runs on is as "
+            + "exactly known as one the expression makes");
+    }
+
+    /// <remarks>
+    /// The negative control for the hop: following the alias must report what the helper reads and not the
+    /// helper's existence. This one reads nothing, and the getter was already accepted before the hop.
+    /// </remarks>
+    [Test]
+    public void AGetOnlyPropertyAliasToAStatelessHelper_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + 1f;
+            }
+
+            internal static class Helpers
+            {
+                private static readonly Shifter s_shared = new Shifter();
+
+                public static Shifter Shared => s_shared;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the hop is a way to reach a body, not a reason to report one");
+    }
+
+    /// <remarks>
+    /// The bound on the hop: a settable field can hold a second instance, so the initialiser is not
+    /// evidence of what the getter hands back and the helper's body is not the body that runs. The getter
+    /// is still reported for that same reason, which is the one diagnostic this shape earns.
+    /// </remarks>
+    [Test]
+    public void AGetOnlyPropertyAliasToASettableField_IsNotFollowed()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Shifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal static class Helpers
+            {
+                private static Shifter s_shared = new Shifter();
+
+                public static Shifter Shared => s_shared;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Helpers.Shared.Shift(value.X), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.GetMessage()),
+            Has.Exactly(1).Contains("the static property 'Helpers.Shared'"),
+            "the getter is reported because a settable field can answer with a second instance");
+
+        Assert.That(
+            diagnostics,
+            Has.Exactly(1).Items,
+            "and that is the whole of it: the helper's body is not the body the getter was shown to run");
     }
 
     /// <remarks>
@@ -3959,6 +4233,133 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Does.Contain("BESG004"),
             "a callback that rewrites static state on every evaluation is the impurity this rule is for, "
             + "whichever side of the += the state sits on");
+    }
+
+    /// <remarks>
+    /// The bound on the write side: an event written with its own accessors keeps nothing of itself, so
+    /// what a subscription does is whatever the accessor body does - here nothing at all. The rule reads
+    /// that body rather than the keyword, exactly as it reads a property through the accessor a reference
+    /// runs, and as the immutability walk already reads such an event as storing nothing.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaSubscribingToANoOpCustomStaticEvent_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static event Action Changed { add { } remove { } }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Settings.Changed += static () => { };
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "an accessor that stores nothing leaves no subscriber list for a later += to differ by");
+    }
+
+    /// <remarks>
+    /// The positive control for reading the accessor rather than the keyword: an event whose accessors do
+    /// store the handler is reported for the field they store it in, which is the state the field-like
+    /// spelling stands for said out loud.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaSubscribingToACustomStaticEventWhoseAccessorWritesAStaticDelegate_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                private static Action s_handlers;
+
+                public static event Action Changed
+                {
+                    add => s_handlers += value;
+                    remove => s_handlers -= value;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Settings.Changed += static () => { };
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the accessor writes a mutable static delegate, which is the same subscriber list a field-like "
+            + "event holds and the same hazard under a different spelling");
+    }
+
+    /// <remarks>
+    /// An event declared in a referenced assembly is reported for the reason a getter with no source is:
+    /// metadata carries real accessors whether the author wrote them or the compiler did, so nothing there
+    /// tells the two apart, and reading unread accessors as storing nothing would clear every static event
+    /// in every assembly this compilation references.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaSubscribingToAStaticEventFromAnotherAssembly_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeWithLibrary(
+            """
+            using System;
+
+            namespace Outside;
+
+            public static class Settings
+            {
+                public static event Action Changed { add { } remove { } }
+            }
+            """,
+            """
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using Outside;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Settings.Changed += static () => { };
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the accessors have no source here, so whether a subscription is stored cannot be seen, and "
+            + "silence would say the rule looked when it looked at nothing");
     }
 
     /// <remarks>

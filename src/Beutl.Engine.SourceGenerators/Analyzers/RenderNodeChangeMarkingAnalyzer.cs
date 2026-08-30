@@ -21,16 +21,17 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 /// <para>
 /// What a rule can decide here is bounded, and the bound is the point rather than an apology for it. This
 /// reports two shapes, both about state the node's <c>Process</c> reads: an assignment written in the node's
-/// own type to an instance field or auto-property, or to an element of one, and an auto-property the node
-/// declares whose setter anyone outside it can call. Those are the shapes authors write, and a rule that
-/// guessed past them on a public extension point would be suppressed wholesale and then protect nothing.
-/// The runtime cross-check in <c>Beutl.Engine</c> is what covers the rest; silence here is not a proof.
+/// own type to an instance field or auto-property, or to an element of one, and a member the node declares -
+/// an auto-property, a field-like event, or a field - that anyone outside it can write. Those are the shapes
+/// authors write, and a rule that guessed past them on a public extension point would be suppressed
+/// wholesale and then protect nothing. The runtime cross-check in <c>Beutl.Engine</c> is what covers the
+/// rest; silence here is not a proof.
 /// </para>
 /// <para>
 /// The second shape is asked at the declaration because there is nowhere else to ask it. A synthesized
-/// setter has no body to read, and the assignment that runs it is written by whoever holds the node, in code
-/// this rule is not looking at - so both halves of the first shape are missing while the node still goes
-/// stale.
+/// setter, a field-like event's accessors and a field have no body to read, and the write is made by whoever
+/// holds the node, in code this rule is not looking at - so both halves of the first shape are missing while
+/// the node still goes stale.
 /// </para>
 /// <para>
 /// An assignment inside <c>Process</c>, or inside a method <c>Process</c> calls, is deliberately not
@@ -115,23 +116,23 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Reports an auto-property of this node that code outside it can assign, and whose <c>Process</c> reads
-    /// the value.
+    /// Reports a member of this node that code outside it can write, and whose value <c>Process</c> reads.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A setter the compiler synthesizes has no body anywhere, so the walk over member bodies above yields
-    /// nothing for it, and nobody inside the node writes the property either: the assignment is written by
-    /// whoever holds the node, in code this rule is not looking at. Both halves of the shape that reports an
-    /// assignment are therefore absent, and the node is stale from the moment the assignment lands.
+    /// A synthesized setter, a field-like event's accessors and a field have no body anywhere, so the walk
+    /// over member bodies above yields nothing for them, and nobody inside the node writes them either: the
+    /// write is made by whoever holds the node, in code this rule is not looking at. Both halves of the shape
+    /// that reports an assignment are therefore absent, and the node is stale from the moment the write
+    /// lands.
     /// </para>
     /// <para>
     /// So this half is asked at the declaration rather than at a call site, and it is the declaration the
-    /// author can fix: give the setter a body that marks, or narrow it until only the node's own code -
+    /// author can fix: give the member a body that marks, or narrow it until only the node's own code -
     /// which the assignment shape does read - can reach it.
     /// </para>
     /// <para>
-    /// Only a property the node's own type declares, so that a node inheriting one is not reported a second
+    /// Only a member the node's own type declares, so that a node inheriting one is not reported a second
     /// time at the same location; the type that declares it is the type analyzed for it.
     /// </para>
     /// </remarks>
@@ -142,48 +143,86 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     {
         foreach (ISymbol member in type.GetMembers())
         {
-            if (member is not IPropertySymbol property
-                || !readState.Contains(property)
-                || GetExternallyWritableSetter(property) is not { } setter)
-            {
+            if (!readState.Contains(member) || GetExternalWrite(member) is not { } write)
                 continue;
-            }
 
             context.ReportDiagnostic(Diagnostic.Create(
                 DiagnosticDescriptors.UnmarkedRenderNodeMutation,
-                setter.Locations.FirstOrDefault()
-                    ?? property.Locations.FirstOrDefault()
-                    ?? Location.None,
+                write.Location,
                 type.Name,
-                property.Name + ".set",
-                property.Name,
-                MarkFromTheSetter));
+                write.Writer,
+                member.Name,
+                write.Fix));
         }
     }
 
+    /// <summary>How code outside the node writes a member of it, and what the author can do about it.</summary>
+    private readonly record struct ExternalWrite(string Writer, string Fix, Location Location);
+
     /// <returns>
-    /// The setter code outside the node can call, or <see langword="null"/> when there is none.
+    /// The write code outside the node can make, or <see langword="null"/> when there is none.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// An init accessor runs only while the object is being made, which is before there is a recording to
-    /// invalidate - the same reason a constructor assignment is not reported. A private setter is reachable
-    /// only from the node's own code, and every assignment written there is already read by the shape above,
-    /// which also accepts the ones that mark; reporting the declaration too would reject a node that marks
-    /// on every path into it. A setter with a body of its own is likewise the shape above, reported where
-    /// the value actually changes.
+    /// invalidate - the same reason a constructor assignment is not reported, and the same reason a readonly
+    /// field is not one of these writes. A private member is reachable only from the node's own code, and
+    /// every write made there is already read by the assignment shape, which also accepts the ones that
+    /// mark; reporting the declaration too would reject a node that marks on every path into it.
+    /// </para>
+    /// <para>
+    /// A property setter with a body of its own, and an event whose accessors have bodies, are likewise the
+    /// assignment shape, reported where the value actually changes.
+    /// </para>
     /// </remarks>
-    private static IMethodSymbol? GetExternallyWritableSetter(IPropertySymbol property)
-        => IsAutoProperty(property)
-            && property.SetMethod is { IsInitOnly: false } setter
-            && setter.DeclaredAccessibility != Accessibility.Private
-                ? setter
-                : null;
+    private static ExternalWrite? GetExternalWrite(ISymbol member) => member switch
+    {
+        IPropertySymbol property when IsAutoProperty(property)
+            && property.SetMethod is
+            {
+                IsInitOnly: false,
+                DeclaredAccessibility: not Accessibility.Private,
+            } setter
+            => new ExternalWrite(
+                property.Name + ".set",
+                MarkFromTheSetter,
+                setter.Locations.FirstOrDefault() ?? property.Locations.FirstOrDefault() ?? Location.None),
+
+        // += and -= are the assignments of the delegate field a field-like event stands for, and they bind
+        // from wherever the event is visible.
+        IEventSymbol { DeclaredAccessibility: not Accessibility.Private } @event when IsFieldLikeEvent(@event)
+            => new ExternalWrite(
+                @event.Name + ".add",
+                MarkFromTheAccessors,
+                @event.Locations.FirstOrDefault() ?? Location.None),
+
+        IFieldSymbol
+        {
+            IsReadOnly: false,
+            AssociatedSymbol: null,
+            DeclaredAccessibility: not Accessibility.Private,
+        } field
+            => new ExternalWrite(
+                field.Name,
+                NarrowTheField,
+                field.Locations.FirstOrDefault() ?? Location.None),
+
+        _ => null,
+    };
 
     private const string CallMarkChanged = "Call MarkChanged() where the value changes";
 
     private const string MarkFromTheSetter =
         "Give the setter a body that assigns the value and calls MarkChanged(), or make it private or "
         + "init-only so that only this node's own code can assign it";
+
+    private const string MarkFromTheAccessors =
+        "Give the event add and remove accessors that subscribe and call MarkChanged(), or make it private "
+        + "so that only this node's own code can subscribe to it";
+
+    private const string NarrowTheField =
+        "Make the field private or readonly so that code outside this node cannot assign it, or replace it "
+        + "with a property whose setter assigns the value and calls MarkChanged()";
 
     /// <summary>Whether every accessor of <paramref name="property"/> is one the compiler synthesizes.</summary>
     /// <remarks>
@@ -213,6 +252,14 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         return property.DeclaringSyntaxReferences.Length > 0;
     }
+
+    /// <summary>Whether the accessors of <paramref name="event"/> are ones the compiler synthesizes.</summary>
+    /// <remarks>
+    /// The event counterpart of <see cref="IsAutoProperty"/>, asked of the accessor rather than of the
+    /// declaration because a field-like event declares no accessor syntax to read.
+    /// </remarks>
+    private static bool IsFieldLikeEvent(IEventSymbol @event)
+        => @event.AddMethod is { IsImplicitlyDeclared: true };
 
     private static bool IsDisposalOverride(IMethodSymbol method, INamedTypeSymbol renderNodeType)
         => method.Name == DisposeCallbackName && OverridesRenderNodeMember(method, renderNodeType);
@@ -363,7 +410,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return visited.ToImmutable();
         }
 
-        /// <summary>The instance fields and auto-properties the given bodies read.</summary>
+        /// <summary>The instance state the given bodies read.</summary>
         public ImmutableHashSet<ISymbol> CollectReadInstanceState(ImmutableHashSet<ISymbol> methods)
         {
             var read = ImmutableHashSet.CreateBuilder<ISymbol>(SymbolEqualityComparer.Default);
@@ -495,6 +542,11 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 // A hand-written property is skipped: its setter body assigns the backing field, and that
                 // assignment is what gets reported instead - once, where the value actually changes.
                 IPropertySymbol property => IsAutoProperty(property),
+
+                // A field-like event's subscriber list lives in a delegate field a source type's member
+                // list leaves out, so the event is the only name this walk can track that field by. An
+                // event with accessors is skipped for the reason a hand-written property is.
+                IEventSymbol @event => IsFieldLikeEvent(@event),
                 _ => false,
             };
         }

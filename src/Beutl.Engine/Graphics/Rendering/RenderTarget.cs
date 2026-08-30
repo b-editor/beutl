@@ -165,6 +165,15 @@ public class RenderTarget : IDisposable
         return previous;
     }
 
+    /// <summary>
+    /// Allocates a render target, or answers <see langword="null"/> when it cannot be made.
+    /// </summary>
+    /// <remarks>
+    /// Attaching one is bounded by what the device can attach; rastering one on the CPU is not, and which
+    /// of the two runs is <see cref="CreateAttachesToGraphicsContext"/>. A caller that wants the limit
+    /// named rather than a bare refusal measures against <see cref="RenderScaleUtilities.FitsBufferBudget"/>
+    /// itself first, as the renderer and the target pool do.
+    /// </remarks>
     public static RenderTarget? Create(int width, int height)
     {
         try
@@ -180,10 +189,26 @@ public class RenderTarget : IDisposable
                 context = s_allocationContext();
             }
 
-            SKSurface? surface = context != null
-                ? CreateSharedSurface(context, width, height, out sharedTexture)
-                : SKSurface.Create(new SKImageInfo(
+            SKSurface? surface;
+            if (context != null)
+            {
+                // A driver does not report an over-limit attachment as a failed allocation: SwiftShader
+                // builds a framebuffer past its own limit and answers success, MoltenVK aborts the process
+                // on a Metal assertion. Neither reaches the catch below, so the extent has to be refused
+                // before the allocator is asked. The budget is taken from this context rather than from
+                // ResolveMaxBufferDimension(), which would resolve a second one that may answer differently.
+                var deviceSize = new PixelSize(width, height);
+                int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension(context);
+                if (!RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension))
+                    return null;
+
+                surface = CreateSharedSurface(context, width, height, out sharedTexture);
+            }
+            else
+            {
+                surface = SKSurface.Create(new SKImageInfo(
                     width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+            }
 
             if (surface == null)
                 return null;

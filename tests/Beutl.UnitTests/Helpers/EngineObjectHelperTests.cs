@@ -482,6 +482,249 @@ public class EngineObjectHelperTests
         }
     }
 
+    // A dispatcher runs a cleanup requested from its own thread inline rather than queueing it, and the lock
+    // the gate hands readers is re-entrant, so a subscriber that disposes its subscription from inside a read
+    // on the owning dispatcher walks straight back into the gate it is already holding. Releasing there frees
+    // the resource the reader above still has in hand - the read goes on running against a disposed resource,
+    // which is exactly what the handle exists to prevent.
+    [Test]
+    public void Disposing_the_subscription_from_inside_a_read_leaves_the_resource_alive_until_the_read_ends()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var published = new ManualResetEventSlim();
+        using var readFinished = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        EngineResourceHandle<CountingResource>? handle = null;
+        CountingResource? created = null;
+        IDisposable? subscription = null;
+        bool wasRead = false;
+        bool disposedOnEntry = true;
+        bool disposedAcrossTheRelease = true;
+        bool disposedOnceTheReadEnded = false;
+
+        try
+        {
+            subscription = probe
+                .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
+                    time,
+                    (_, _) => created = new CountingResource(),
+                    dispatcher)
+                .Subscribe(h =>
+                {
+                    // Only the dispatcher thread publishes, so a later rebuild cannot race the read below
+                    // for this field.
+                    if (published.IsSet)
+                        return;
+
+                    handle = h;
+                    published.Set();
+                });
+
+            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+            // On the dispatcher's own thread, which is what makes the release run inline instead of queueing.
+            dispatcher.Dispatch(() =>
+            {
+                wasRead = handle!.Value.Read(r =>
+                {
+                    disposedOnEntry = r.IsDisposed;
+                    subscription!.Dispose();
+                    disposedAcrossTheRelease = r.IsDisposed;
+                });
+
+                disposedOnceTheReadEnded = created!.IsDisposed;
+                readFinished.Set();
+            });
+
+            Assert.That(readFinished.Wait(TimeSpan.FromSeconds(30)), Is.True, "the read never finished");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(wasRead, Is.True, "the handle reported itself empty");
+                Assert.That(disposedOnEntry, Is.False, "the resource was already gone when the read started");
+                Assert.That(
+                    disposedAcrossTheRelease, Is.False,
+                    "the release ran under the reader and disposed the resource it was still holding");
+                Assert.That(
+                    disposedOnceTheReadEnded, Is.True,
+                    "the reader left without running the release it had held off");
+                Assert.That(
+                    created!.DisposeCalls, Is.EqualTo(1),
+                    "the deferred release ran on top of one that had already happened");
+            });
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            created?.Dispose();
+        }
+    }
+
+    // The control for the case above: off the owning dispatcher the release is queued rather than run inline,
+    // so it reaches the gate as an ordinary contender and blocks on the lock the reader holds. Nothing is
+    // deferred here, and nothing may be disposed early either - which is what pins the fix to the re-entrant
+    // path rather than to releases in general.
+    [Test]
+    public void Disposing_the_subscription_off_the_dispatcher_waits_for_the_reader_at_the_gate()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var published = new ManualResetEventSlim();
+        using var disposeReturned = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        EngineResourceHandle<CountingResource>? handle = null;
+        CountingResource? created = null;
+        IDisposable? subscription = null;
+        bool disposeReturnedInTime = false;
+        bool disposedInsideTheRead = true;
+
+        try
+        {
+            subscription = probe
+                .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
+                    time,
+                    (_, _) => created = new CountingResource(),
+                    dispatcher)
+                .Subscribe(h =>
+                {
+                    if (published.IsSet)
+                        return;
+
+                    handle = h;
+                    published.Set();
+                });
+
+            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+            IDisposable toDispose = subscription;
+            var disposer = new Thread(() =>
+            {
+                toDispose.Dispose();
+                disposeReturned.Set();
+            });
+
+            // This thread is neither the dispatcher's nor the disposer's, so the read below holds the gate
+            // while the queued release waits for it.
+            bool wasRead = handle!.Value.Read(r =>
+            {
+                disposer.Start();
+                disposeReturnedInTime = disposeReturned.Wait(TimeSpan.FromSeconds(30));
+                disposedInsideTheRead = r.IsDisposed;
+            });
+            Assert.That(disposer.Join(TimeSpan.FromSeconds(30)), Is.True);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(wasRead, Is.True, "the handle reported itself empty");
+                Assert.That(disposeReturnedInTime, Is.True, "the off-thread dispose never returned");
+                Assert.That(
+                    disposedInsideTheRead, Is.False,
+                    "the queued release reached the resource while a reader was holding the gate");
+            });
+
+            Assert.That(
+                () => created!.IsDisposed, Is.True.After(30_000, 50),
+                "the queued release never reached the resource");
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            created?.Dispose();
+        }
+    }
+
+    // The deferred release runs from the reader's own stack, long after ReleaseResource's try/catch has
+    // returned, so nothing upstream is left to contain a throwing Dispose. On the render thread that would
+    // unwind the loop - the same hazard A_throwing_resource_dispose_does_not_take_the_render_thread_down
+    // pins on the non-deferred path - and it would strike inside a reader that did nothing wrong.
+    //
+    // Resource.Dispose() sets IsDisposed only after Dispose(true) returns, so a resource whose release threw
+    // stays undisposed. The evidence that the deferred release actually ran is the call count, not the flag.
+    [Test]
+    public void A_throwing_dispose_deferred_behind_a_reader_stays_out_of_the_read()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var published = new ManualResetEventSlim();
+        using var readFinished = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        EngineResourceHandle<ThrowingCountingResource>? handle = null;
+        ThrowingCountingResource? created = null;
+        IDisposable? subscription = null;
+        Exception? escaped = null;
+        bool wasRead = false;
+
+        try
+        {
+            subscription = probe
+                .SubscribeEngineVersionedResource<ProbeObject, ThrowingCountingResource>(
+                    time,
+                    (_, _) => created = new ThrowingCountingResource(),
+                    dispatcher)
+                .Subscribe(h =>
+                {
+                    if (published.IsSet)
+                        return;
+
+                    handle = h;
+                    published.Set();
+                });
+
+            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
+
+            // On the dispatcher's own thread, so the release runs inline and defers to this reader.
+            dispatcher.Dispatch(() =>
+            {
+                try
+                {
+                    wasRead = handle!.Value.Read(_ => subscription!.Dispose());
+                }
+                catch (Exception ex)
+                {
+                    // Caught rather than left to unwind: an escaping exception would take the dispatcher's
+                    // loop with it and the assertions below would never be reached.
+                    escaped = ex;
+                }
+
+                readFinished.Set();
+            });
+
+            Assert.That(readFinished.Wait(TimeSpan.FromSeconds(30)), Is.True, "the read never finished");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(escaped, Is.Null, "the deferred release threw into the reader");
+                Assert.That(wasRead, Is.True, "the handle reported itself empty");
+                Assert.That(
+                    created!.DisposeCalls, Is.EqualTo(1),
+                    "the deferred release never reached the resource");
+                Assert.That(
+                    created.IsDisposed, Is.False,
+                    "Resource.Dispose() sets IsDisposed only after Dispose(true) returns");
+            });
+
+            using var stillAlive = new ManualResetEventSlim();
+            dispatcher.Dispatch(stillAlive.Set);
+            Assert.That(
+                stillAlive.Wait(TimeSpan.FromSeconds(30)), Is.True,
+                "the dispatcher stopped taking work after the deferred release");
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+        }
+    }
+
     [SuppressResourceClassGeneration]
     private sealed class ProbeObject : EngineObject;
 
@@ -493,6 +736,26 @@ public class EngineObjectHelperTests
         {
             if (disposing)
                 throw new InvalidOperationException("this resource refuses to be released");
+        }
+    }
+
+    // Both halves of the throwing case at once. The call count is the only trace a deferred release leaves,
+    // because Resource.Dispose() never reaches IsDisposed when Dispose(true) throws.
+    private sealed class ThrowingCountingResource : EngineObject.Resource
+    {
+        private int _disposeCalls;
+
+        public int DisposeCalls => Volatile.Read(ref _disposeCalls);
+
+        // The base finalizer routes here too, and it does run for this resource: a throwing Dispose never
+        // reaches GC.SuppressFinalize. Only the explicit release may throw.
+        protected override void Dispose(bool disposing)
+        {
+            if (!disposing)
+                return;
+
+            Interlocked.Increment(ref _disposeCalls);
+            throw new InvalidOperationException("this resource refuses to be released");
         }
     }
 

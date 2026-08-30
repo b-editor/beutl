@@ -692,7 +692,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             if (node is not SimpleNameSyntax name)
             {
-                FollowUnnamedInvocation(context, model, node, depth, walked, report);
+                FollowUnnamedInvocation(context, model, body, node, depth, walked, report);
                 continue;
             }
 
@@ -715,7 +715,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
                 // A static method has no receiver to read, so the follow is not even asked for.
                 if (runsStatic
-                    || FollowReceiverCreation(context, model, name, depth, walked, report))
+                    || FollowReceiverCreation(context, model, body, name, depth, walked, report))
                 {
                     FollowCall(
                         context,
@@ -737,6 +737,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 FollowPropertyAccess(
                     context,
                     model,
+                    body,
                     instanceProperty,
                     name,
                     GetAccessExpression(name),
@@ -746,11 +747,49 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
+            // An event written with its own accessors keeps nothing of itself: what += and -= do with the
+            // handler is in the accessor body, which is read there, exactly as a property is read through
+            // the accessor a reference runs. A field-like event has no body anywhere and is the subscriber
+            // list itself, which the branch below reports.
+            if (symbol is IEventSymbol { IsStatic: true } staticEvent
+                && GetRunAccessor(staticEvent, GetAccessExpression(name)) is { } accessor)
+            {
+                FollowCall(context, accessor, name, "event", depth, walked, report);
+                continue;
+            }
+
             if (DescribeUnprovenStaticState(context, symbol) is not (string kind, string reason))
                 continue;
 
             report(name, kind, symbol!, reason);
         }
+    }
+
+    /// <returns>
+    /// The accessor body a subscription runs, or <see langword="null"/> when there is none this rule can
+    /// read - a field-like event, an event whose source is not in this compilation, or a reference that is
+    /// neither a <c>+=</c> nor a <c>-=</c>.
+    /// </returns>
+    /// <remarks>
+    /// An event declared elsewhere is deliberately not routed here: its accessors are real methods whether
+    /// the author wrote them or the compiler did, so nothing in metadata tells the two apart, and reading a
+    /// no-source body as "stores nothing" would clear every static event in every referenced assembly. That
+    /// is the position the static property rule already takes for a getter it cannot read.
+    /// </remarks>
+    private static IMethodSymbol? GetRunAccessor(IEventSymbol @event, ExpressionSyntax access)
+    {
+        if (@event.AddMethod is not { IsImplicitlyDeclared: false }
+            || @event.DeclaringSyntaxReferences.Length == 0
+            || access.Parent is not AssignmentExpressionSyntax assignment
+            || assignment.Left != access)
+        {
+            return null;
+        }
+
+        if (assignment.IsKind(SyntaxKind.AddAssignmentExpression))
+            return @event.AddMethod;
+
+        return assignment.IsKind(SyntaxKind.SubtractAssignmentExpression) ? @event.RemoveMethod : null;
     }
 
     /// <summary>
@@ -789,6 +828,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static void FollowUnnamedInvocation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
+        SyntaxNode body,
         SyntaxNode node,
         int depth,
         HashSet<ISymbol> walked,
@@ -801,7 +841,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             if (model.GetSymbolInfo(element, context.CancellationToken).Symbol
                 is IPropertySymbol { IsStatic: false } indexer)
             {
-                FollowPropertyAccess(context, model, indexer, element, element, depth, walked, report);
+                FollowPropertyAccess(context, model, body, indexer, element, element, depth, walked, report);
             }
 
             return;
@@ -865,6 +905,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static void FollowPropertyAccess(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
+        SyntaxNode body,
         IPropertySymbol property,
         SyntaxNode reference,
         ExpressionSyntax access,
@@ -872,7 +913,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (!FollowReceiverCreation(context, model, reference, depth, walked, report))
+        if (!FollowReceiverCreation(context, model, body, reference, depth, walked, report))
             return;
 
         if (RunsGetter(access) && property.GetMethod is { } getter)
@@ -895,13 +936,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// which is the identity this rule does not model.
     /// </para>
     /// <para>
-    /// The creation is walked and not merely identified, because "carries only what its constructor put
-    /// there" is a reason to read that constructor rather than to trust it. A constructor that reads a
-    /// mutable static is exactly the impurity this rule is for, and the member called on the instance hands
-    /// the captured value back without naming the static anywhere the walk over the callback would see it.
-    /// A creation written at the call site is already reached as an expression of the body, so following it
-    /// here is what makes a helper held in a field answer the same as one made in the expression; walking
-    /// it from both places costs nothing, the constructor being keyed in the same walked set.
+    /// The constructor is walked only where the creation is written inside <paramref name="body"/>, the
+    /// body this walk is reading. There it runs once per run of that body, so a constructor reading a
+    /// mutable static is exactly the impurity this rule is for: the member called on the instance hands the
+    /// captured value back without naming the static anywhere the walk would see it. A creation written
+    /// outside the body - a field initialiser - ran before the callback was ever handed over and made one
+    /// instance for good, and BESG005 already exempts a constructor for that reason: a value frozen before
+    /// the first recording cannot answer differently at the second. Members called on the instance are
+    /// walked either way, because those do run per invocation.
     /// </para>
     /// <para>
     /// The creation does not have to be written in the expression. A readonly field, and a local written
@@ -928,6 +970,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static bool FollowReceiverCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
+        SyntaxNode body,
         SyntaxNode reference,
         int depth,
         HashSet<ISymbol> walked,
@@ -936,14 +979,19 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         if (GetReceiverCreation(context, model, reference) is not { } made)
             return false;
 
-        if (made.Model.GetSymbolInfo(made.Creation, context.CancellationToken).Symbol
-            is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+        if (RunsWith(body, made.Creation)
+            && made.Model.GetSymbolInfo(made.Creation, context.CancellationToken).Symbol
+                is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
         {
             FollowConstructor(context, constructor, reference, depth, walked, report);
         }
 
         return true;
     }
+
+    /// <summary>Whether <paramref name="expression"/> runs every time <paramref name="body"/> does.</summary>
+    private static bool RunsWith(SyntaxNode body, ExpressionSyntax expression)
+        => expression.SyntaxTree == body.SyntaxTree && body.Span.Contains(expression.Span);
 
     /// <returns>
     /// The object creation that made the instance the call runs on, and the model that binds it, or
@@ -993,10 +1041,19 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// or <see langword="null"/> when the expression names no such member.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// One hop and no chain: the member has to be given a creation itself, not a name for a member that was
     /// given one. A chain would have to answer for every hop what this answers for one - that nothing can
     /// put a second instance there - and each hop it could not read would be a type assumed rather than
     /// known.
+    /// </para>
+    /// <para>
+    /// A get-only property whose getter names one such field and nothing else is that field spelled
+    /// differently rather than a second hop: the getter can answer with no other expression, and the field
+    /// still answers for itself under the same test. That spelling is the one <c>DescribeUnprovenGetter</c>
+    /// already accepts as a fixed instance of a stateless type, so refusing it here left the helper's own
+    /// body the single reach this rule cleared and then never read.
+    /// </para>
     /// </remarks>
     private static (ExpressionSyntax Creation, SemanticModel Model)? GetHeldCreation(
         SyntaxNodeAnalysisContext context,
@@ -1009,15 +1066,17 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ISymbol? symbol = model.GetSymbolInfo(expression, context.CancellationToken).Symbol;
         ExpressionSyntax? initializer = symbol switch
         {
-            IFieldSymbol { IsReadOnly: true } field
-                when ReachesFieldOnItsOwn(context, model, expression, field)
-                    && !IsWrittenInAConstructor(context, field)
+            IFieldSymbol field when HoldsOneCreation(context, model, expression, field)
                 => GetFieldInitializer(context, field),
 
             ILocalSymbol local => GetUnreassignedLocalInitializer(context, local),
 
-            // A parameter, a settable field, a property, a method group: each is a receiver whose making
-            // this rule was not shown, and the walk stops at every one of them.
+            IPropertySymbol { SetMethod: null } property
+                when ReachesMemberOnItsOwn(context, model, expression, property)
+                => GetAliasedFieldInitializer(context, property),
+
+            // A parameter, a settable field, a property that computes, a method group: each is a receiver
+            // whose making this rule was not shown, and the walk stops at every one of them.
             _ => null,
         };
 
@@ -1030,25 +1089,74 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     }
 
     /// <returns>
-    /// Whether the callback reaches the field without going through a receiver of its own.
+    /// Whether <paramref name="field"/> was given one instance that nothing can replace, reached by a
+    /// callback on its own.
     /// </returns>
-    /// <remarks>
-    /// A field read off another instance is that instance's state, and following it is exactly the walk
-    /// into the engine behind a handed-in session or canvas that this rule stops at. A bare name, an
-    /// explicit <c>this</c>, and a static reached through the type that declares it carry no such instance.
-    /// </remarks>
-    private static bool ReachesFieldOnItsOwn(
+    private static bool HoldsOneCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
         ExpressionSyntax reference,
         IFieldSymbol field)
+        => field.IsReadOnly
+           && ReachesMemberOnItsOwn(context, model, reference, field)
+           && !IsWrittenInAConstructor(context, field);
+
+    /// <returns>
+    /// The initialiser of the field a get-only property hands straight back, or <see langword="null"/> when
+    /// its getter is any other shape.
+    /// </returns>
+    /// <remarks>
+    /// The field is put the whole of the test it would be put naming it directly, read against the getter's
+    /// own model, so routing the reach through the property makes it neither stricter nor looser - the same
+    /// terms on which <c>IsProvenConstant</c> accepts a static readonly field behind a getter.
+    /// </remarks>
+    private static ExpressionSyntax? GetAliasedFieldInitializer(
+        SyntaxNodeAnalysisContext context,
+        IPropertySymbol property)
+    {
+        foreach (SyntaxReference declaration in property.DeclaringSyntaxReferences)
+        {
+            if (declaration.GetSyntax(context.CancellationToken) is not PropertyDeclarationSyntax syntax
+                || GetInvariantCandidate(syntax) is not { } candidate)
+            {
+                continue;
+            }
+
+            ExpressionSyntax named = StripParentheses(candidate);
+            if (named is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+                continue;
+
+            SemanticModel getterModel = GetSemanticModel(context, named.SyntaxTree);
+            if (getterModel.GetSymbolInfo(named, context.CancellationToken).Symbol is IFieldSymbol field
+                && HoldsOneCreation(context, getterModel, named, field))
+            {
+                return GetFieldInitializer(context, field);
+            }
+        }
+
+        return null;
+    }
+
+    /// <returns>
+    /// Whether the callback reaches the member without going through a receiver of its own.
+    /// </returns>
+    /// <remarks>
+    /// A member read off another instance is that instance's state, and following it is exactly the walk
+    /// into the engine behind a handed-in session or canvas that this rule stops at. A bare name, an
+    /// explicit <c>this</c>, and a static reached through the type that declares it carry no such instance.
+    /// </remarks>
+    private static bool ReachesMemberOnItsOwn(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        ExpressionSyntax reference,
+        ISymbol member)
     {
         if (reference is not MemberAccessExpressionSyntax access)
             return true;
 
         ExpressionSyntax qualifier = StripParentheses(access.Expression);
 
-        return field.IsStatic
+        return member.IsStatic
             ? model.GetSymbolInfo(qualifier, context.CancellationToken).Symbol is ITypeSymbol
             : qualifier is ThisExpressionSyntax;
     }
@@ -1502,14 +1610,23 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             IPropertySymbol { IsStatic: true } property => DescribeUnprovenGetter(context, property),
 
-            // An event is a delegate field whose value is its subscriber list, and += and -= are its
-            // assignments. Reading that list back is legal only inside the declaring type - where a
-            // callback written beside the event, and any helper the walk follows into it, both sit -
-            // while writing it binds from anywhere, so the one case covers both spellings.
+            // An event whose accessors this rule can read is routed to those accessors before this is
+            // asked, so only these two reach here. Metadata says nothing about which of the two an event
+            // declared elsewhere is, and reading its unread accessors as storing nothing would clear every
+            // static event in every referenced assembly.
+            IEventSymbol { IsStatic: true, DeclaringSyntaxReferences.IsEmpty: true } =>
+                ("static event", "its accessors have no source in this compilation, so what a subscription "
+                    + "does with the handler cannot be seen, and an event that stores it holds a subscriber "
+                    + "list any += or -= anywhere rewrites"),
+
+            // A field-like event is the delegate field its subscriber list lives in, and += and -= are that
+            // field's assignments. Reading the list back is legal only inside the declaring type - where a
+            // callback written beside the event, and any helper the walk follows into it, both sit - while
+            // writing it binds from anywhere, so the one case covers both spellings.
             IEventSymbol { IsStatic: true } =>
-                ("static event", "a static event holds a subscriber list that any += or -= "
-                    + "anywhere rewrites, so what the callback reads off it, or does to it, can "
-                    + "differ between two recordings while the plan key stays the same"),
+                ("static event", "a field-like static event is the delegate field its subscriber list lives "
+                    + "in, and any += or -= anywhere rewrites that list, so what the callback reads off it, "
+                    + "or does to it, can differ between two recordings while the plan key stays the same"),
 
             _ => null,
         };

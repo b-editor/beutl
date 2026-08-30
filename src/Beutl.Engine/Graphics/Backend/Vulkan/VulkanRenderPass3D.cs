@@ -625,12 +625,46 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             null);
     }
 
+    /// <remarks>
+    /// A draw reads a descriptor set through the layout of the pipeline it uses, but the binding was
+    /// programmed against whatever layout reached <c>vkCmdBindDescriptorSets</c>, and neither handle carries
+    /// the declarations it was built from. Drawing with a pipeline whose layout is not compatible for that
+    /// set violates <c>VUID-vkCmdDraw-None-08600</c>: the shader reads through declarations the binding was
+    /// never programmed against, which is undefined behaviour the driver need not diagnose - on MoltenVK it
+    /// takes the process down. Only this layer knows which pipeline programmed the binding, so only it can
+    /// reject the pair.
+    ///
+    /// The pair is checked here rather than in <see cref="BindDescriptorSet"/> because a bind is not what
+    /// makes it wrong: the spec lets a set be bound without having bound a particular pipeline first, or
+    /// with a different one bound, so the mismatch only exists once a draw makes some pipeline the one that
+    /// reads the set. A set that was never bound is left alone - a pipeline that declares no descriptor
+    /// bindings draws correctly without one.
+    /// </remarks>
+    private void ValidateDrawState()
+    {
+        if (_currentPipeline is not { } pipeline)
+        {
+            throw new InvalidOperationException("No pipeline bound");
+        }
+
+        if (_boundDescriptorSet.Handle != 0
+            && _boundDescriptorSetPipelineLayout.Handle != pipeline.PipelineLayoutHandle.Handle)
+        {
+            throw new InvalidOperationException(
+                "The bound descriptor set was programmed against a different pipeline's layout than the one "
+                + "this draw reads it through, so the shader would resolve it against declarations it was "
+                + "never written for. Bind the descriptor set with the pipeline that draws with it.");
+        }
+    }
+
     public void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
     {
         if (!_inRenderPass)
         {
             throw new InvalidOperationException("Render pass not begun");
         }
+
+        ValidateDrawState();
 
         _context.Vk.CmdDrawIndexed(_currentCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
@@ -641,6 +675,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         {
             throw new InvalidOperationException("Render pass not begun");
         }
+
+        ValidateDrawState();
 
         _context.Vk.CmdDraw(_currentCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
     }

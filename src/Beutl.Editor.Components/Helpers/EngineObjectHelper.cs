@@ -44,38 +44,6 @@ public static class EngineObjectHelper
             .Select(t => property.GetValue(new CompositionContext(t.Second)));
     }
 
-    public static IObservable<TResource> SubscribeEngineResource<T, TResource>(
-        this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
-        where T : EngineObject
-        where TResource : EngineObject.Resource
-    {
-        var renderContext = new CompositionContext(TimeSpan.Zero);
-        TResource? resource = null;
-        return Observable.FromEventPattern(
-                h => obj.Edited += h,
-                h => obj.Edited -= h)
-            .Select(_ => Unit.Default)
-            .Publish(Unit.Default).RefCount()
-            .CombineLatest(time)
-            .Select(t =>
-            {
-                renderContext.Time = t.Second;
-                if (resource == null)
-                {
-                    resource = createResource(obj, renderContext);
-                }
-                else
-                {
-                    bool updateOnly = false;
-                    resource.Update(obj, renderContext, ref updateOnly);
-                }
-
-                return (resource, resource.Version);
-            })
-            .DistinctUntilChanged(t => t.Version)
-            .Select(t => t.resource);
-    }
-
     /// <summary>
     /// Observes <paramref name="obj"/> as a versioned resource whose creation, update, and disposal all run on
     /// the render dispatcher, and publishes it as a handle the subscriber has to read through.
@@ -116,6 +84,7 @@ public static class EngineObjectHelper
                 CancellationToken token = cts.Token;
                 TResource? resource = null;
                 var resourceGate = new EngineResourceGate();
+                resourceGate.SetRelease(DisposeResource);
                 var gate = new object();
                 int runningUpdates = 0;
                 bool workCancelled = false;
@@ -179,7 +148,7 @@ public static class EngineObjectHelper
                                     CancelPendingWork();
                                     try
                                     {
-                                        DisposeResourceUnderGate();
+                                        resourceGate.Release();
                                     }
                                     catch (Exception disposeFailure)
                                     {
@@ -260,7 +229,7 @@ public static class EngineObjectHelper
                     // Dispose here would take the render thread down with it.
                     try
                     {
-                        DisposeResourceUnderGate();
+                        resourceGate.Release();
                     }
                     catch (Exception disposeFailure)
                     {
@@ -273,21 +242,16 @@ public static class EngineObjectHelper
                     cts.Dispose();
                 }
 
-                // Marking the gate released before the teardown is what leaves an already-published handle
-                // reporting itself empty rather than reaching a disposed resource.
-                void DisposeResourceUnderGate()
+                // The gate runs this under its own lock, and holds it back while a reader is inside.
+                void DisposeResource()
                 {
-                    lock (resourceGate.SyncRoot)
+                    try
                     {
-                        resourceGate.IsReleased = true;
-                        try
-                        {
-                            resource?.Dispose();
-                        }
-                        finally
-                        {
-                            resource = null;
-                        }
+                        resource?.Dispose();
+                    }
+                    finally
+                    {
+                        resource = null;
                     }
                 }
             })
