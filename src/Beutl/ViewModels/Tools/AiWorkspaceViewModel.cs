@@ -8,7 +8,7 @@ using Icon = FluentIcons.Common.Icon;
 namespace Beutl.ViewModels.Tools;
 
 /// <summary>Identifies one page of the AI tool tab, and is what a saved dock layout remembers.</summary>
-public enum AiWorkspaceSection
+internal enum AiWorkspaceSection
 {
     ImageGeneration,
     ImageEdit,
@@ -23,16 +23,19 @@ public enum AiWorkspaceSection
 /// something else while a page nobody opens never talks to the server. Pages
 /// belong to their own tab: a second tab is a second workbench, not a mirror.
 /// </summary>
-public sealed class AiWorkspaceSectionViewModel : IDisposable
+internal sealed class AiWorkspaceSectionViewModel : IAsyncDisposable
 {
-    private readonly Func<IDisposable> _create;
-    private IDisposable? _content;
+    private readonly Func<IAsyncDisposable> _create;
+    private readonly object _disposeGate = new();
+    private IAsyncDisposable? _content;
+    private Task? _disposeTask;
+    private bool _disposed;
 
     internal AiWorkspaceSectionViewModel(
         AiWorkspaceSection id,
         string displayName,
         Icon icon,
-        Func<IDisposable> create)
+        Func<IAsyncDisposable> create)
     {
         Id = id;
         DisplayName = displayName;
@@ -48,12 +51,57 @@ public sealed class AiWorkspaceSectionViewModel : IDisposable
 
     internal object? Content => _content;
 
-    internal object EnsureContent() => _content ??= _create();
-
-    public void Dispose()
+    internal object EnsureContent()
     {
-        _content?.Dispose();
-        _content = null;
+        lock (_disposeGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _content ??= _create();
+        }
+    }
+
+    public ValueTask DisposeAsync() => new(BeginDisposeAsync());
+
+    private Task BeginDisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            _disposed = true;
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        IAsyncDisposable? content;
+        lock (_disposeGate)
+        {
+            content = _content;
+            _content = null;
+        }
+
+        if (content is not null)
+            await content.DisposeAsync();
     }
 }
 
@@ -62,16 +110,18 @@ public sealed class AiWorkspaceSectionViewModel : IDisposable
 /// everything else off the tab strip; they are pages of this one tab now, and a
 /// second tab can be opened when two of them are needed at once.
 /// </summary>
-public sealed class AiWorkspaceViewModel : IToolContext
+internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly AiWorkspaceSectionViewModel[] _sections;
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private bool _disposed;
 
-    public AiWorkspaceViewModel(
+    internal AiWorkspaceViewModel(
         EditViewModel editViewModel,
-        Func<AiWorkspaceSection, IDisposable> createPage)
+        Func<AiWorkspaceSection, IAsyncDisposable> createPage)
     {
         ArgumentNullException.ThrowIfNull(editViewModel);
         ArgumentNullException.ThrowIfNull(createPage);
@@ -127,9 +177,9 @@ public sealed class AiWorkspaceViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; }
 
-    public IReadOnlyList<AiWorkspaceSectionViewModel> Sections => _sections;
+    internal IReadOnlyList<AiWorkspaceSectionViewModel> Sections => _sections;
 
-    public ReactivePropertySlim<AiWorkspaceSectionViewModel?> SelectedSection { get; }
+    internal ReactivePropertySlim<AiWorkspaceSectionViewModel?> SelectedSection { get; }
 
     public ReadOnlyReactivePropertySlim<object?> ActiveContent { get; }
 
@@ -137,8 +187,9 @@ public sealed class AiWorkspaceViewModel : IToolContext
     /// Brings a page to the front of this tab and hands back its view model,
     /// building it if this is the first look at that page.
     /// </summary>
-    public object Show(AiWorkspaceSection section)
+    internal object Show(AiWorkspaceSection section)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         AiWorkspaceSectionViewModel target = _sections.First(item => item.Id == section);
         SelectedSection.Value = target;
         return target.EnsureContent();
@@ -175,17 +226,44 @@ public sealed class AiWorkspaceViewModel : IToolContext
         }
     }
 
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
+    public ValueTask DisposeAsync() => new(BeginDisposeAsync());
 
-        _disposed = true;
+    private Task BeginDisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            _disposed = true;
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
         _disposables.Dispose();
         IsSelected.Dispose();
-        foreach (AiWorkspaceSectionViewModel section in _sections)
-        {
-            section.Dispose();
-        }
+        Task[] disposals = _sections
+            .Select(section => section.DisposeAsync().AsTask())
+            .ToArray();
+        await Task.WhenAll(disposals);
     }
 }

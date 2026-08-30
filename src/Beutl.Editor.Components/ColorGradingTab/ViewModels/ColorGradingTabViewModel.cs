@@ -136,11 +136,13 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         return _editorContext.GetService(serviceType);
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         ClearEditors();
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public void ReadFromJson(JsonObject json)
     {
@@ -225,9 +227,9 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         return ctx;
     }
 
-    private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
+    private async void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        _editorContext.CloseToolTab(this);
+        await _editorContext.CloseToolTabAsync(this);
     }
 
     private void ClearEditors()

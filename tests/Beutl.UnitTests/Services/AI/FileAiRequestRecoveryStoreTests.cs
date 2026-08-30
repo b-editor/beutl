@@ -103,6 +103,19 @@ public sealed class FileAiRequestRecoveryStoreTests
     }
 
     [Test]
+    public void NullContentHashFailsClosedWithoutNullReferenceException()
+    {
+        File.WriteAllText(Path.Combine(_directory, "ai-request-recovery.json"), """
+            {"version":1,"records":[{"AccountId":"account","Operation":"image.edit.upscale","Fingerprint":"fingerprint","Key":"key","Model":null,"Form":null,"Sources":[{"Role":"image","Path":"/tmp/source.png","Name":"source.png","ContentHash":null,"Length":1,"DurableFile":null,"ElementId":null}]}]}
+            """);
+        var store = new FileAiRequestRecoveryStore(_directory);
+
+        Exception? exception = Assert.Throws<InvalidDataException>(
+            () => store.Find("account", "image.edit.upscale", "fingerprint"));
+        Assert.That(exception, Is.Not.TypeOf<NullReferenceException>());
+    }
+
+    [Test]
     public void OversizeInvalidAndLockContentionFailClosed()
     {
         string path = Path.Combine(_directory, "ai-request-recovery.json");
@@ -271,6 +284,7 @@ public sealed class FileAiRequestRecoveryStoreTests
         AiRequestRecoverySource orphan = first.CreateDurableSource("frame", "frame.png", [4, 5, 6]);
         string orphanPath = Path.Combine(first.SourceDirectory, orphan.DurableFile!);
         File.SetLastWriteTimeUtc(orphanPath, DateTime.UtcNow.AddHours(-2));
+        File.SetLastWriteTimeUtc(orphanPath + ".pending", DateTime.UtcNow.AddHours(-2));
         var retainedSource = first.CreateDurableSource("frame", "retained.png", [7, 8, 9]);
         string retainedPath = Path.Combine(first.SourceDirectory, retainedSource.DurableFile!);
         first.WriteOrGet(new AiPendingAttempt(
@@ -283,12 +297,51 @@ public sealed class FileAiRequestRecoveryStoreTests
             [retainedSource]));
         File.SetLastWriteTimeUtc(retainedPath, DateTime.UtcNow.AddHours(-2));
 
+        first.Dispose();
         _ = new FileAiRequestRecoveryStore(_directory);
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(orphanPath), Is.False);
             Assert.That(File.Exists(retainedPath), Is.True);
         });
+    }
+
+    [Test]
+    public void RestartSweepDeletesOldSourceAndStoreTempsWithoutTouchingPublishedSource()
+    {
+        var store = new FileAiRequestRecoveryStore(_directory);
+        AiRequestRecoverySource source = store.CreateDurableSource("frame", "kept.png", [1, 2, 3]);
+        store.WriteOrGet(new AiPendingAttempt(
+            "account", "video.generate", "kept", "kept-key", null,
+            new AiRequestFormSnapshot(DurationSeconds: 4), [source]));
+        string staleSourceTemp = Path.Combine(store.SourceDirectory, "orphan.src.abc.tmp");
+        File.WriteAllText(staleSourceTemp, "partial");
+        File.SetLastWriteTimeUtc(staleSourceTemp, DateTime.UtcNow.AddHours(-2));
+        string staleStoreTemp = Path.Combine(_directory, "ai-request-recovery.json.abc.tmp");
+        File.WriteAllText(staleStoreTemp, "partial");
+        File.SetLastWriteTimeUtc(staleStoreTemp, DateTime.UtcNow.AddHours(-2));
+
+        _ = new FileAiRequestRecoveryStore(_directory);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(staleSourceTemp), Is.False);
+            Assert.That(File.Exists(staleStoreTemp), Is.False);
+            Assert.That(File.Exists(Path.Combine(store.SourceDirectory, source.DurableFile!)), Is.True);
+        });
+    }
+
+    [Test]
+    public void RestartOrphanSweepDeletesOldMarkerWithoutPublishedSource()
+    {
+        var store = new FileAiRequestRecoveryStore(_directory);
+        string marker = Path.Combine(store.SourceDirectory, "crashed.src.pending");
+        File.WriteAllText(marker, "crashed-before-publish");
+        File.SetLastWriteTimeUtc(marker, DateTime.UtcNow.AddHours(-2));
+
+        _ = new FileAiRequestRecoveryStore(_directory);
+
+        Assert.That(File.Exists(marker), Is.False);
     }
 
     [Test]
@@ -329,22 +382,46 @@ public sealed class FileAiRequestRecoveryStoreTests
             attempt.AccountId,
             attempt.Operation,
             attempt.Fingerprint,
-            attempt.Key);
+            attempt.Key)!;
         first.MarkDispatched();
-        using AiRequestRecoveryLease second = secondStore.Claim(
+        AiRequestRecoveryLease? second = secondStore.Claim(
             attempt.AccountId,
             attempt.Operation,
             attempt.Fingerprint,
             attempt.Key);
-        Assert.That(secondStore.Abandon(attempt), Is.False);
+        Assert.That(second, Is.Null);
         Assert.That(firstStore.TrySettle(
             attempt.AccountId,
             attempt.Operation,
             attempt.Fingerprint,
-            attempt.Key), Is.False);
+            attempt.Key,
+            first.OwnerToken,
+            first.Generation), Is.True);
         first.Dispose();
-        Assert.That(secondStore.Abandon(attempt), Is.False,
-            "The competing claim remains the dispatch fence until it expires.");
+        Assert.That(secondStore.Abandon(attempt), Is.False);
+    }
+
+    [Test]
+    public void ClaimRejectsLiveOwnerAfterRemovingAllStaleClaims()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var store = new FileAiRequestRecoveryStore(_directory, () => now);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "multi-claim", "current-key", null,
+            new AiRequestFormSnapshot(Prompt: "multi"));
+        store.WriteOrGet(attempt);
+        string claimsPath = Path.Combine(_directory, "ai-request-recovery-claims.json");
+        string expiry = now.AddMinutes(15).ToString("O");
+        File.WriteAllText(claimsPath, $$"""
+            {"version":1,"claims":[
+              {"AccountId":"account","Operation":"image.generate","Fingerprint":"multi-claim","Key":"stale-key","Generation":99,"OwnerToken":"stale-owner","ExpiresAt":"{{expiry}}","Dispatched":false},
+              {"AccountId":"account","Operation":"image.generate","Fingerprint":"multi-claim","Key":"current-key","Generation":0,"OwnerToken":"live-owner","ExpiresAt":"{{expiry}}","Dispatched":true}
+            ]}
+            """);
+
+        Assert.That(store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key), Is.Null);
+        now = now.AddMinutes(16);
+        Assert.That(store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key), Is.Not.Null);
     }
 
     [Test]
@@ -359,8 +436,139 @@ public sealed class FileAiRequestRecoveryStoreTests
             null,
             new AiRequestFormSnapshot(Prompt: "video"));
         store.WriteOrGet(attempt);
-        using (store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)) { }
+        using (store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!) { }
         Assert.That(store.Abandon(attempt), Is.True);
+    }
+
+    [Test]
+    public void DispatchedClaimRenewalExtendsFenceAndExpiredOwnerCanBeReclaimed()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var store = new FileAiRequestRecoveryStore(_directory, () => now);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "renewal", "renewal-key", null,
+            new AiRequestFormSnapshot(Prompt: "renewal"));
+        store.WriteOrGet(attempt);
+        using AiRequestRecoveryLease claim = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(claim.MarkDispatched(), Is.True);
+
+        now = now.AddMinutes(10);
+        Assert.That(claim.Renew(), Is.True);
+        Assert.That(store.Abandon(attempt), Is.False);
+
+        now = now.AddMinutes(16);
+        Assert.That(store.Abandon(attempt), Is.True);
+    }
+
+    [Test]
+    public void RenewedDispatchedClaimWinsPastOriginalTtlAgainstAnotherStore()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var firstStore = new FileAiRequestRecoveryStore(_directory, () => now);
+        var secondStore = new FileAiRequestRecoveryStore(_directory, () => now);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "renewed-race", "renewed-key", null,
+            new AiRequestFormSnapshot(Prompt: "renewed"));
+        firstStore.WriteOrGet(attempt);
+        using AiRequestRecoveryLease owner = firstStore.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(owner.MarkDispatched(), Is.True);
+
+        now = now.AddMinutes(14);
+        Assert.That(owner.Renew(), Is.True);
+        now = now.AddMinutes(2); // Past the original 15-minute claim lifetime.
+        Assert.That(secondStore.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key),
+            Is.Null);
+        Assert.That(secondStore.Abandon(attempt), Is.False);
+
+        now = now.AddMinutes(14);
+        Assert.That(secondStore.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key),
+            Is.Not.Null);
+    }
+
+    [Test]
+    public void StaleOwnerCannotRenewAfterGenerationChanges()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var first = new FileAiRequestRecoveryStore(_directory, () => now);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "stale-renewal", "stale-key", null,
+            new AiRequestFormSnapshot(Prompt: "stale"));
+        first.WriteOrGet(attempt);
+        using AiRequestRecoveryLease claim = first.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(claim.MarkDispatched(), Is.True);
+        now = now.AddMinutes(16);
+        Assert.That(first.Abandon(attempt), Is.True);
+        Assert.That(claim.Renew(), Is.False);
+    }
+
+    [Test]
+    public void DispatchFencePersistenceFailureFailsClosed()
+    {
+        var store = new FileAiRequestRecoveryStore(_directory);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "dispatch-failure", "dispatch-key", null,
+            new AiRequestFormSnapshot(Prompt: "dispatch"));
+        store.WriteOrGet(attempt);
+        using AiRequestRecoveryLease claim = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        File.Delete(Path.Combine(_directory, "ai-request-recovery-claims.json"));
+        Assert.That(claim.MarkDispatched(), Is.False);
+        Assert.That(claim.IsDispatched, Is.False);
+    }
+
+    [Test]
+    public void DispatchedClaimRemainsFenceAfterDisposeUntilExpiry()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var store = new FileAiRequestRecoveryStore(_directory, () => now);
+        var attempt = new AiPendingAttempt("account", "image.generate", "dispose-fence", "dispose-key", null, new AiRequestFormSnapshot(Prompt: "fence"));
+        store.WriteOrGet(attempt);
+        AiRequestRecoveryLease claim = store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(claim.MarkDispatched(), Is.True);
+        claim.Dispose();
+        Assert.That(store.Abandon(attempt), Is.False);
+        now = now.AddMinutes(16);
+        Assert.That(store.Abandon(attempt), Is.True);
+    }
+
+    [Test]
+    public void ReleasedClaimCannotBeDispatched()
+    {
+        var store = new FileAiRequestRecoveryStore(_directory);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "released-dispatch", "released-key", null,
+            new AiRequestFormSnapshot(Prompt: "released"));
+        store.WriteOrGet(attempt);
+        AiRequestRecoveryLease claim = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        claim.Dispose();
+
+        Assert.That(claim.MarkDispatched(), Is.False);
+        Assert.That(store.Abandon(attempt), Is.True);
+    }
+
+    [Test]
+    public void ConcurrentDispatchCallsPublishOneFence()
+    {
+        var store = new FileAiRequestRecoveryStore(_directory);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "concurrent-dispatch", "concurrent-key", null,
+            new AiRequestFormSnapshot(Prompt: "concurrent"));
+        store.WriteOrGet(attempt);
+        using AiRequestRecoveryLease claim = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+
+        bool[] results = new bool[16];
+        Parallel.For(0, results.Length, index => results[index] = claim.MarkDispatched());
+
+        Assert.That(results, Has.All.True);
+        Assert.That(claim.IsDispatched, Is.True);
+        Assert.That(store.Abandon(attempt), Is.False);
     }
 
     [Test]

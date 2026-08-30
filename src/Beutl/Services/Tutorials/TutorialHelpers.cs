@@ -17,14 +17,13 @@ public static class TutorialHelpers
         return editorService.SelectedTabItem.Value?.Context.Value as EditViewModel;
     }
 
-    public static bool OpenLibraryTabIfNeeded(EditorService editorService)
+    public static async Task<bool> OpenLibraryTabIfNeeded(EditorService editorService)
     {
         var editVm = GetEditViewModel(editorService);
         if (editVm == null) return false;
 
         var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel(editVm);
-        editVm.OpenToolTab(tab);
-        return true;
+        return await editVm.OpenToolTabAsync(tab);
     }
 
     public static async Task<bool> EnsureProjectAsync(ProjectService projectService, EditorService editorService, string projectName = "Tutorial")

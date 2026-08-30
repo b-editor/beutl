@@ -399,28 +399,31 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         }
     }
 
-    private bool TryPublish(Action publication)
+    private bool TryPublish(Operation operation, Action publication)
     {
         ArgumentNullException.ThrowIfNull(publication);
-        lock (_gate)
+        lock (operation.PublicationGate)
         {
-            if (_stopping)
-                return false;
+            lock (_gate)
+            {
+                if (_stopping || !operation.CanPublish)
+                    return false;
 
-            // This increment is the publication's linearization point. Shutdown may close
-            // admission immediately afterward; the callback runs outside the lock and may
-            // overlap shutdown, but disposal cannot finish until this decrement observes it.
-            _activePublications++;
-        }
+                // This increment is the publication's linearization point. The operation
+                // gate remains held through the callback, so ClosePublication cannot return
+                // until an already-admitted callback has completed.
+                _activePublications++;
+            }
 
-        try
-        {
-            publication();
-            return true;
-        }
-        finally
-        {
-            ExitPublication();
+            try
+            {
+                publication();
+                return true;
+            }
+            finally
+            {
+                ExitPublication();
+            }
         }
     }
 
@@ -485,7 +488,9 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     internal sealed class Operation : IDisposable
     {
         private readonly CancellationTokenSource _cancellation;
+        internal object PublicationGate { get; } = new();
         private AsyncOperationLifetime? _owner;
+        private int _publicationClosed;
 
         internal Operation(AsyncOperationLifetime owner, CancellationTokenSource cancellation)
         {
@@ -501,7 +506,22 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         /// once admitted, it is included in shutdown draining even if it throws.
         /// </summary>
         public bool TryPublish(Action publication)
-            => _owner?.TryPublish(publication) == true;
+            => _owner?.TryPublish(this, publication) == true;
+
+        internal bool CanPublish => Volatile.Read(ref _publicationClosed) == 0;
+
+        /// <summary>
+        /// Permanently closes publication for this operation without removing
+        /// it from shutdown draining. Used when an account/session changes
+        /// while non-cooperative remote work may still complete.
+        /// </summary>
+        public void ClosePublication()
+        {
+            Interlocked.Exchange(ref _publicationClosed, 1);
+            lock (PublicationGate)
+            {
+            }
+        }
 
         public void Cancel()
         {
@@ -523,6 +543,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         public void Dispose()
         {
+            // Stop new admission without waiting for an already-running
+            // publication. The owner's publication count keeps that callback
+            // in the lifetime drain until it returns.
+            Interlocked.Exchange(ref _publicationClosed, 1);
             if (Interlocked.Exchange(ref _owner, null) is not { } owner)
                 return;
 

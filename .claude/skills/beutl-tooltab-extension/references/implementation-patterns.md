@@ -55,7 +55,7 @@ public sealed class SimpleContext : IToolContext
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(
         $"{Strings.SimpleTab} {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
-    public void Dispose() { }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     public object? GetService(Type t) => null;
     public void ReadFromJson(JsonObject j) { }
     public void WriteToJson(JsonObject j) { }
@@ -97,10 +97,11 @@ public sealed class SelectionAwareViewModel : IToolContext
 
     // ... IToolContext implementation ...
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
         CurrentSelection.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
 ```
@@ -252,7 +253,7 @@ public sealed class HiddenTabExtension : ToolTabExtension
 }
 
 // Open the tab from code
-public void OpenHiddenTab(IEditorContext editorContext)
+public async ValueTask OpenHiddenTabAsync(IEditorContext editorContext)
 {
     var extension = ExtensionProvider.Current.AllExtensions
         .OfType<HiddenTabExtension>()
@@ -260,7 +261,7 @@ public void OpenHiddenTab(IEditorContext editorContext)
 
     if (extension?.TryCreateContext(editorContext, out var context) == true)
     {
-        editorContext.OpenToolTab(context);
+        await editorContext.OpenToolTabAsync(context);
     }
 }
 ```

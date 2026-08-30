@@ -83,7 +83,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         }
     }
 
-    private void EditAnimation_Click(object? sender, RoutedEventArgs e)
+    private async void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
@@ -99,7 +99,7 @@ public sealed partial class PropertyEditorMenu : UserControl
                 ?? new GraphEditorTabViewModel(editViewModel);
             anmTimelineTabViewModel.Element.Value = element;
             anmTimelineTabViewModel.Select(animation);
-            editViewModel.OpenToolTab(anmTimelineTabViewModel);
+            await editViewModel.OpenToolTabAsync(anmTimelineTabViewModel);
         }
     }
 

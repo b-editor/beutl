@@ -137,7 +137,7 @@ public sealed class AiFormRecoveryTests
             null,
             new AiRequestFormSnapshot(Prompt: "video", DurationSeconds: 4, Resolution: "720p", AspectRatio: "16:9")));
 
-        using var handler = new NotFoundHandler();
+        using var handler = new RecoveryCatalogHandler();
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         using var context = new AiRequestRecoveryContext(
@@ -149,12 +149,17 @@ public sealed class AiFormRecoveryTests
         await using var generation = CreateGeneration(app, context);
         await using var edit = CreateEdit(app, context);
         await using var video = CreateVideo(app, context);
+        await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value
+            && video.SelectedRecoveryAttempt.Value is not null);
         Assert.Multiple(() =>
         {
             Assert.That(generation.Prompt.Value, Is.EqualTo("generation"));
             Assert.That(edit.Prompt.Value, Is.EqualTo("edit"));
             Assert.That(edit.SourceFilePath.Value, Is.EqualTo(sourcePath));
             Assert.That(video.Prompt.Value, Is.EqualTo("video"));
+            Assert.That(video.ModelPicker.SelectedModel, Is.Null,
+                "An explicit default-model recovery must not display a current named model.");
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.False);
         });
 
         account = "account-b";
@@ -167,6 +172,7 @@ public sealed class AiFormRecoveryTests
             Assert.That(edit.SourceFilePath.Value, Is.Null);
             Assert.That(video.SelectedRecoveryAttempt.Value, Is.Null);
             Assert.That(video.Prompt.Value, Is.Empty);
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.True);
         });
 
         account = "account-a";
@@ -176,6 +182,8 @@ public sealed class AiFormRecoveryTests
             Assert.That(generation.SelectedRecoveryAttempt.Value?.Key, Is.EqualTo("gen-key"));
             Assert.That(edit.SelectedRecoveryAttempt.Value?.Key, Is.EqualTo("edit-key"));
             Assert.That(video.SelectedRecoveryAttempt.Value?.Key, Is.EqualTo("video-key"));
+            Assert.That(video.ModelPicker.SelectedModel, Is.Null);
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.False);
         });
 
         Directory.Delete(root, recursive: true);
@@ -310,6 +318,12 @@ public sealed class AiFormRecoveryTests
             Assert.That(generation.CanGenerate.Value, Is.True, $"generation Error={generation.Error.Value}");
             Assert.That(edit.CanEdit.Value, Is.True, $"edit Error={edit.Error.Value}");
             Assert.That(video.CanGenerate.Value, Is.True, $"video Error={video.Error.Value}");
+            Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(generation.ModelPicker.SelectedModel?.Value, Is.EqualTo("old-image"));
+            Assert.That(edit.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(edit.ModelPicker.SelectedModel?.Value, Is.EqualTo("old-edit"));
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(video.ModelPicker.SelectedModel?.Value, Is.EqualTo("old-video"));
         });
         await generation.Generate.ExecuteAsync();
         await edit.Edit.ExecuteAsync();
@@ -365,6 +379,8 @@ public sealed class AiFormRecoveryTests
             Assert.That(video.DurationOptions.Any(option => option.Seconds == 8), Is.False);
             Assert.That(video.ResolutionOptions.Any(option => option.Value == "1080p"), Is.False);
             Assert.That(video.AspectRatioOptions.Any(option => option.Value == "9:16"), Is.False);
+            Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.True);
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.True);
         });
 
         Directory.Delete(root, recursive: true);
@@ -421,6 +437,8 @@ public sealed class AiFormRecoveryTests
             Assert.That(video.DurationOptions.Any(option => option.Seconds == 8), Is.True);
             Assert.That(video.ResolutionOptions.Any(option => option.Value == "1080p"), Is.True);
             Assert.That(video.AspectRatioOptions.Any(option => option.Value == "9:16"), Is.True);
+            Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.False);
         });
 
         generation.AbandonPendingAttempt(generation.SelectedRecoveryAttempt.Value!);
@@ -433,10 +451,145 @@ public sealed class AiFormRecoveryTests
             Assert.That(video.DurationOptions.Any(option => option.Seconds == 8), Is.False);
             Assert.That(video.ResolutionOptions.Any(option => option.Value == "1080p"), Is.False);
             Assert.That(video.AspectRatioOptions.Any(option => option.Value == "9:16"), Is.False);
+            Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.True);
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.True);
             Assert.That(store.PendingFor("test-user", "image.generate"), Is.Empty);
             Assert.That(store.PendingFor("test-user", "video.generate"), Is.Empty);
         });
 
+        Directory.Delete(root, recursive: true);
+    }
+
+    [AvaloniaTest]
+    public async Task AccountSwitchRejectsLateNonCooperativeImageResult()
+    {
+        string root = Path.Combine(
+            Path.GetTempPath(),
+            "Beutl.HeadlessUITests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string? account = "account-a";
+        var store = new FileAiRequestRecoveryStore(root);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new LateAccountSwitchHandler(started, release, s_png);
+        using var client = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://beutl.beditor.net"),
+        };
+        await using var app = new BeutlApiApplication(client, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var context = new AiRequestRecoveryContext(
+            store,
+            () => account is { } value
+                ? new AiAuthenticatedRequestIdentity(value, User: null)
+                : null);
+        await using var generation = CreateGeneration(app, context);
+        await WaitUntilAsync(() => generation.Usage.HasSnapshot.Value
+            && generation.ModelPicker.IsLoaded.Value);
+        generation.Prompt.Value = "Account A secret";
+        await WaitUntilAsync(() => generation.CanGenerate.Value);
+
+        Task operation = generation.Generate.ExecuteAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        account = "account-b";
+        context.RefreshIdentity();
+        generation.Prompt.Value = "Account B prompt";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generation.IsGenerating.Value, Is.False);
+            Assert.That(generation.ResultImage.Value, Is.Null);
+            Assert.That(generation.PreviewImage.Value, Is.Null);
+            Assert.That(generation.Error.Value, Is.Null);
+        });
+
+        release.TrySetResult();
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generation.Prompt.Value, Is.EqualTo("Account B prompt"));
+            Assert.That(generation.IsGenerating.Value, Is.False);
+            Assert.That(generation.ResultImage.Value, Is.Null);
+            Assert.That(generation.PreviewImage.Value, Is.Null);
+            Assert.That(generation.Error.Value, Is.Null);
+            Assert.That(store.PendingFor("account-a", "image.generate"), Has.Count.EqualTo(1));
+            Assert.That(store.PendingFor("account-b", "image.generate"), Is.Empty);
+        });
+
+        Directory.Delete(root, recursive: true);
+    }
+
+    [AvaloniaTest]
+    public async Task AccountSwitchClosesPublicationBeforeSynchronousCancellationCallbacks()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "Beutl.HeadlessUITests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string? account = "account-a";
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new LateAccountSwitchHandler(started, release, s_png);
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
+        await using var app = new BeutlApiApplication(client, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var context = new AiRequestRecoveryContext(
+            new FileAiRequestRecoveryStore(root),
+            () => account is { } value
+                ? new AiAuthenticatedRequestIdentity(value, User: null)
+                : null);
+        await using var generation = CreateGeneration(app, context);
+        await WaitUntilAsync(() => generation.Usage.HasSnapshot.Value && generation.ModelPicker.IsLoaded.Value);
+        generation.Prompt.Value = "old account prompt";
+        await WaitUntilAsync(() => generation.CanGenerate.Value);
+
+        Task request = generation.Generate.ExecuteAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        FieldInfo field = typeof(AiImageGenerationDialogViewModel).GetField(
+            "_runningRequest", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var running = (IdentityOperationLifetime.Operation)field.GetValue(generation)!;
+        bool published = true;
+        using CancellationTokenRegistration registration = running.CancellationToken.Register(() =>
+            published = running.TryPublish(() => generation.Prompt.Value = "stale callback"));
+
+        account = "account-b";
+        context.RefreshIdentity();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(published, Is.False);
+            Assert.That(generation.Prompt.Value, Is.Empty);
+            Assert.That(generation.ResultImage.Value, Is.Null);
+        });
+        release.TrySetResult();
+        await request.WaitAsync(TimeSpan.FromSeconds(5));
+        Directory.Delete(root, recursive: true);
+    }
+
+    [AvaloniaTest]
+    public async Task ManualRecoverySelectionRestoresSavedModelWhenMultipleAttemptsExist()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "Beutl.HeadlessUITests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string sourcePath = Path.Combine(root, "source.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        var store = new FileAiRequestRecoveryStore(root);
+        AiRequestRecoverySource source = FileAiRequestRecoveryStore.CreateExternalSource("reference-0", sourcePath, "source.png", s_png);
+        store.WriteOrGet(new AiPendingAttempt("test-user", "image.generate", "model-a", "key-a", "model-a", new AiRequestFormSnapshot(Prompt: "A"), [source]));
+        store.WriteOrGet(new AiPendingAttempt("test-user", "image.generate", "model-b", "key-b", "model-b", new AiRequestFormSnapshot(Prompt: "B"), [source]));
+        using var handler = new RecoveryCatalogHandler();
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
+        await using var app = new BeutlApiApplication(client, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var context = NewContext(store, "test-user");
+        await using var generation = CreateGeneration(app, context);
+        await WaitUntilAsync(() => generation.ModelPicker.Options.Count > 0);
+        Assert.That(generation.SelectedRecoveryAttempt.Value, Is.Null);
+        generation.ModelPicker.Selected.Value = generation.ModelPicker.Options.LastOrDefault();
+        AiPendingAttempt saved = store.Find("test-user", "image.generate", "model-a")!;
+        Assert.That(generation.TryRecoverPendingAttempt(saved), Is.True);
+        Assert.That(generation.ModelPicker.SelectedModel?.Value, Is.EqualTo("model-a"));
+        Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.False);
         Directory.Delete(root, recursive: true);
     }
 
@@ -491,6 +644,32 @@ public sealed class AiFormRecoveryTests
                 RequestMessage = request,
                 Content = new StringContent("{}"),
             });
+    }
+
+    private sealed class RecoveryCatalogHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            string path = request.RequestUri?.AbsolutePath ?? string.Empty;
+            return Task.FromResult(path switch
+            {
+                "/api/v3/user/entitlements" => Json(RecoveryEntitlementsJson()),
+                "/api/v3/ai/capabilities" => Json(RecoveryCapabilitiesJson()),
+                _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    RequestMessage = request,
+                    Content = new StringContent("{}"),
+                },
+            });
+        }
+
+        private static HttpResponseMessage Json(string body)
+            => new(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
     }
 
     private static AiRequestRecoveryContext NewContext(FileAiRequestRecoveryStore store, string account)
@@ -601,6 +780,53 @@ public sealed class AiFormRecoveryTests
                         Headers = { ContentType = new MediaTypeHeaderValue("image/png") },
                     },
                 };
+            return new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent("{}"),
+            };
+        }
+
+        private static HttpResponseMessage Json(string body)
+            => new(HttpStatusCode.OK)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
+    }
+
+    private sealed class LateAccountSwitchHandler(
+        TaskCompletionSource started,
+        TaskCompletionSource release,
+        byte[] content) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            string path = request.RequestUri?.AbsolutePath ?? string.Empty;
+            if (path == "/api/v3/user/entitlements")
+                return Json(RecoveryEntitlementsJson());
+            if (path == "/api/v3/ai/capabilities")
+                return Json(RecoveryCapabilitiesJson());
+            if (path == "/api/v3/user/ai-availability")
+                return Json("{\"available\":true}");
+            if (path == "/api/v3/ai/images")
+            {
+                started.TrySetResult();
+                await release.Task;
+                return Json(
+                    "{\"jobId\":\"late-account-job\",\"fileId\":\"late-account-file\","
+                    + "\"url\":\"https://beutl.beditor.net/api/contents/late-account-file\"}");
+            }
+            if (path == "/api/contents/late-account-file")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(content)
+                    {
+                        Headers = { ContentType = new MediaTypeHeaderValue("image/png") },
+                    },
+                };
+            }
             return new HttpResponseMessage(HttpStatusCode.NotFound)
             {
                 Content = new StringContent("{}"),

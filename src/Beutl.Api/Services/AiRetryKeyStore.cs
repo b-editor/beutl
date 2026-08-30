@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -146,14 +148,17 @@ internal sealed class FileAiRetryKeyStore : IAiRetryKeyStore
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly string _directory;
     private string LockPath => _path + ".lock";
 
     public FileAiRetryKeyStore(string storageDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageDirectory);
-        Directory.CreateDirectory(storageDirectory);
-        RestrictDirectory(storageDirectory);
-        _path = Path.Combine(Path.GetFullPath(storageDirectory), "retry-keys.json");
+        _directory = Path.GetFullPath(storageDirectory);
+        Directory.CreateDirectory(_directory);
+        RestrictDirectory(_directory);
+        _path = Path.Combine(_directory, "retry-keys.json");
+        SweepTemporaryFiles();
     }
 
     public string GetOrCreate(AiJob job, string accountId, out bool isRepeat)
@@ -931,10 +936,10 @@ internal sealed class FileAiRetryKeyStore : IAiRetryKeyStore
         string temporary = _path + $".{Guid.NewGuid():N}.tmp";
         try
         {
-            File.WriteAllBytes(temporary, bytes);
-            RestrictFile(temporary);
-            File.Move(temporary, _path, overwrite: true);
+            WritePrivateBytes(temporary, bytes);
+            AtomicReplace(temporary, _path, overwrite: true);
             RestrictFile(_path);
+            EnsureDirectorySynced(_directory);
         }
         finally
         {
@@ -967,6 +972,43 @@ internal sealed class FileAiRetryKeyStore : IAiRetryKeyStore
         }
 
         throw new AiRetryStoreUnavailableException("Retry key store is in use.", last);
+    }
+
+    private void SweepTemporaryFiles()
+    {
+        try
+        {
+            DateTime cutoff = DateTime.UtcNow - TimeSpan.FromHours(1);
+            foreach (string path in Directory.EnumerateFiles(_directory, "retry-keys.json.*.tmp"))
+            {
+                if (File.GetLastWriteTimeUtc(path) < cutoff
+                    && !IsFileLocked(path))
+                {
+                    try { File.Delete(path); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private static bool IsFileLocked(string path)
+    {
+        try
+        {
+            using FileStream stream = new(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 
     private static long GetGeneration(StoreData data, string identity)
@@ -1059,6 +1101,73 @@ internal sealed class FileAiRetryKeyStore : IAiRetryKeyStore
 
     private static bool IsPrintable(string value)
         => value.Length is > 0 and <= 255 && value.All(c => c is >= '\x20' and <= '\x7e');
+
+    private static void WritePrivateBytes(string path, ReadOnlySpan<byte> bytes)
+    {
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+            Options = FileOptions.WriteThrough | FileOptions.SequentialScan,
+        };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        using FileStream stream = new(path, options);
+        stream.Write(bytes);
+        stream.Flush(flushToDisk: true);
+        RestrictFile(path);
+    }
+
+    private static void AtomicReplace(string temporary, string destination, bool overwrite)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.Move(temporary, destination, overwrite);
+            return;
+        }
+        const uint replace = 0x1;
+        const uint writeThrough = 0x8;
+        if (!MoveFileEx(temporary, destination, writeThrough | (overwrite ? replace : 0)))
+            throw new IOException("Atomic retry-store replacement failed.", new Win32Exception(Marshal.GetLastWin32Error()));
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool MoveFileEx(string existingFileName, string newFileName, uint flags);
+
+    /// <summary>
+    /// Unix directory fsync closes the rename durability window. Windows has
+    /// no portable directory fsync; file bytes are flushed and rename is
+    /// atomic, while directory-entry persistence remains filesystem-defined.
+    /// </summary>
+    private static void EnsureDirectorySynced(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        int fd = UnixOpen(path, 0);
+        if (fd < 0)
+            throw new IOException($"Unable to open directory for durability sync (errno {Marshal.GetLastWin32Error()}).");
+        try
+        {
+            if (UnixFsync(fd) != 0)
+                throw new IOException($"Unable to fsync directory (errno {Marshal.GetLastWin32Error()}).");
+        }
+        finally
+        {
+            if (UnixClose(fd) != 0)
+                throw new IOException($"Unable to close synced directory (errno {Marshal.GetLastWin32Error()}).");
+        }
+    }
+
+    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
+    private static extern int UnixOpen(string path, int flags);
+
+    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    private static extern int UnixFsync(int fd);
+
+    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+    private static extern int UnixClose(int fd);
 
     private static void ValidateAccount(string accountId)
     {

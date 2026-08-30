@@ -85,7 +85,8 @@
                 <ComboBox HorizontalAlignment="Stretch"
                           AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
                           ItemsSource="{CompiledBinding ModelPicker.Options}"
-                          SelectedItem="{CompiledBinding ModelPicker.Selected.Value}" />
+                          SelectedItem="{CompiledBinding ModelPicker.Selected.Value}"
+                          IsEnabled="{CompiledBinding ModelPicker.IsSelectionEnabled.Value}" />
             </StackPanel>
 
             <!--  Hidden for a model that publishes no background of its own: there is

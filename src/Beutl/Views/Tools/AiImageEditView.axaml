@@ -71,7 +71,8 @@
                 <ComboBox HorizontalAlignment="Stretch"
                           AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
                           ItemsSource="{CompiledBinding ModelPicker.Options}"
-                          SelectedItem="{CompiledBinding ModelPicker.Selected.Value}" />
+                          SelectedItem="{CompiledBinding ModelPicker.Selected.Value}"
+                          IsEnabled="{CompiledBinding ModelPicker.IsSelectionEnabled.Value}" />
             </StackPanel>
 
             <StackPanel IsVisible="{CompiledBinding RequiresPrompt.Value}" Spacing="4">

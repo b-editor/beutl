@@ -161,17 +161,13 @@ public sealed partial class MacWindow : Window
         {
             var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
 
-            menuItem.Click += (s, e) =>
+            menuItem.Click += async (s, e) =>
             {
                 if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
                     && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
                     && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    await editorContext.OpenToolTabAsync(toolContext);
                 }
             };
 
@@ -219,8 +215,21 @@ public sealed partial class MacWindow : Window
                             new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
                             out IEditorContext? context))
                     {
-                        selectedTab.Context.Value.Dispose();
-                        selectedTab.Context.Value = context;
+                        try
+                        {
+                            if (!await selectedTab.ReplaceContextAsync(context))
+                            {
+                                NotificationService.ShowInformation(
+                                    title: MessageStrings.ContextNotCreated,
+                                    message: MessageStrings.OperationFailed);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            NotificationService.ShowError(
+                                MessageStrings.ContextNotCreated,
+                                ex.Message);
+                        }
                     }
                     else
                     {

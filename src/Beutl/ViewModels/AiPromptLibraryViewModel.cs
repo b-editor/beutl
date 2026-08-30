@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
+using Beutl.Api.Services;
 using Beutl.Language;
 using Beutl.Services.AI;
 using Reactive.Bindings;
@@ -17,6 +18,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly IPromptLibrary _library;
+    private readonly AiRequestRecoveryContext? _recoveryContext;
     private readonly PromptTaskKind _taskKind;
     private readonly Func<string> _getPrompt;
     private readonly Action<string> _applyPrompt;
@@ -27,12 +29,15 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         PromptTaskKind taskKind,
         Func<string> getPrompt,
         Action<string> applyPrompt,
-        IPromptLibrary? library = null)
+        IPromptLibrary? library = null,
+        AiRequestRecoveryContext? recoveryContext = null)
     {
         _taskKind = taskKind;
         _getPrompt = getPrompt ?? throw new ArgumentNullException(nameof(getPrompt));
         _applyPrompt = applyPrompt ?? throw new ArgumentNullException(nameof(applyPrompt));
-        _library = library ?? PromptLibraryProvider.Current;
+        _recoveryContext = recoveryContext;
+        _library = library ?? PromptLibraryProvider.For(
+            recoveryContext ?? throw new ArgumentNullException(nameof(recoveryContext)));
         Templates = new ReadOnlyObservableCollection<AiPromptChoice>(_templates);
         History = new ReadOnlyObservableCollection<AiPromptChoice>(_history);
 
@@ -52,6 +57,8 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         }).DisposeWith(_disposables);
 
         Refresh();
+        if (_recoveryContext is not null)
+            _recoveryContext.IdentityChanged += RefreshForIdentity;
     }
 
     /// <summary>Named prompts the account keeps, newest and pinned first.</summary>
@@ -91,12 +98,15 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         if (string.IsNullOrWhiteSpace(prompt))
             return;
 
-        _library.Record(_taskKind, prompt);
+        try { _library.Record(_taskKind, prompt); }
+        catch (AuthenticationRequiredException) { return; }
         Refresh();
     }
 
     public void Dispose()
     {
+        if (_recoveryContext is not null)
+            _recoveryContext.IdentityChanged -= RefreshForIdentity;
         IsHistoryOpen.Dispose();
         TemplateName.Dispose();
         HasTemplates.Dispose();
@@ -156,6 +166,10 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         {
             Error.Value = Strings.AiPromptTemplateInvalid;
         }
+        catch (AuthenticationRequiredException)
+        {
+            Error.Value = Strings.AiAuthenticationRequired;
+        }
     }
 
     private void Refresh()
@@ -190,6 +204,40 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
 
         HasTemplates.Value = _templates.Count > 0;
         HasHistory.Value = _history.Count > 0;
+    }
+
+    private void RefreshForIdentity()
+    {
+        // Clear the previous account before touching the new account's store.
+        // A corrupt or unavailable destination must never leave the old
+        // account's prompt text visible in the new session.
+        _templates.Clear();
+        _history.Clear();
+        HasTemplates.Value = false;
+        HasHistory.Value = false;
+        IsHistoryOpen.Value = false;
+        TemplateName.Value = string.Empty;
+        Error.Value = null;
+        try
+        {
+            Refresh();
+        }
+        catch (InvalidDataException ex)
+        {
+            // IdentityChanged is multicast and the dialog must still clear its
+            // previous account's form even when this account's library is corrupt.
+            System.Diagnostics.Trace.TraceWarning(
+                "Failed to read prompt library during account switch: {0}",
+                ex.Message);
+        }
+        catch (Exception ex) when (ex is AuthenticationRequiredException
+            or IOException
+            or UnauthorizedAccessException)
+        {
+            Error.Value = ex is AuthenticationRequiredException
+                ? Strings.AiAuthenticationRequired
+                : Strings.AiResultUnavailable;
+        }
     }
 
     // A history entry has no name, so its first line stands in for one.

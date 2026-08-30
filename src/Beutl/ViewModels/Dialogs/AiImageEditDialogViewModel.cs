@@ -26,6 +26,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
+    private readonly IdentityOperationLifetime _identityOperations = new();
     private readonly object _disposeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiImageEditDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
@@ -52,7 +53,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     private bool _modelsRequireResolution;
     private string? _modelsRequiredBackground;
     private Task? _disposeTask;
-    private AsyncOperationLifetime.Operation? _runningRequest;
+    private IdentityOperationLifetime.Operation? _runningRequest;
 
     internal AiImageEditDialogViewModel(
         IAiEntitlementService entitlements,
@@ -95,7 +96,8 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.ImageEdit,
                 () => Prompt.Value,
-                prompt => Prompt.Value = prompt)
+                prompt => Prompt.Value = prompt,
+                recoveryContext: requestRecoveryContext)
             .DisposeWith(_disposables);
 
         Tasks =
@@ -398,6 +400,16 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     internal AiPromptLibraryViewModel PromptLibrary { get; }
 
+    // Test seams remain unset in production; the null path below uses the
+    // current Avalonia storage provider and result importer.
+    internal Func<CancellationToken, Task<string?>>? SourceFilePicker { get; set; }
+
+    internal Func<CancellationToken, Task<AiSaveFileDestination?>>? SaveFilePicker { get; set; }
+
+    internal Func<Bitmap, AiResultImportOptions, CancellationToken, Task<ElementAddResult>>?
+        ResultImporter
+    { get; set; }
+
     public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
 
     public ReactivePropertySlim<string?> Error { get; } = new();
@@ -405,6 +417,9 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     public void Dispose() => _ = BeginDisposeAsync();
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
+
+    private IdentityOperationLifetime.Operation? TryEnterIdentityOperation()
+        => _identityOperations.TryEnter(_operations);
 
     private Task BeginDisposeAsync()
     {
@@ -452,6 +467,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             _outstandingRevision.Dispose();
             _disposables.Dispose();
         });
+        _identityOperations.Dispose();
     }
 
     internal static string? GetSelectedImageSourcePath(CoreObject? selectedObject)
@@ -486,7 +502,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
         {
             if (!TryRecoverPendingAttempt(attempts[0]))
-                SelectedRecoveryAttempt.Value = null;
+                ClearActiveRecovery();
         }
 
         _recoveryRevision.Value++;
@@ -495,27 +511,24 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     private void OnIdentityChanged()
     {
         string? account = _requestKey.CurrentAccountId;
-        if (_selectedRecovery is not { } selected
-            || StringComparer.Ordinal.Equals(selected.AccountId, account))
+        _identityOperations.Switch(() =>
         {
-            if (_selectedRecovery is null && account is not null)
-                TryAutoRecoverSingleAttempt();
+            _runningRequest = null;
+            IsEditing.Value = false;
+            ClearActiveRecovery();
+            SourceFilePath.Value = null;
+            Prompt.Value = string.Empty;
+            _sourceElementId = null;
+            OriginalImage.Value?.Dispose();
+            OriginalImage.Value = null;
+            ResultImage.Value?.Dispose();
+            ResultImage.Value = null;
+            Error.Value = null;
+            ModelPicker.ReconcileRecoveryModels();
             _recoveryRevision.Value++;
-            return;
-        }
-
-        _runningRequest?.Cancel();
-        _selectedRecovery = null;
-        SelectedRecoveryAttempt.Value = null;
-        SourceFilePath.Value = null;
-        Prompt.Value = string.Empty;
-        _sourceElementId = null;
-        OriginalImage.Value?.Dispose();
-        OriginalImage.Value = null;
-        ResultImage.Value?.Dispose();
-        ResultImage.Value = null;
-        ModelPicker.ReconcileRecoveryModels();
-        _recoveryRevision.Value++;
+        });
+        if (account is not null)
+            TryAutoRecoverSingleAttempt();
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -579,8 +592,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         _sourceElementId = attempt.Form.SourceElementId;
 
         SourceFilePath.Value = paths[0];
-        _selectedRecovery = attempt;
-        SelectedRecoveryAttempt.Value = attempt;
+        ActivateRecovery(attempt);
         _recoveryRevision.Value++;
         SelectRecoveredModel();
         return true;
@@ -596,8 +608,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                 && selected.Operation == attempt.Operation
                 && selected.Fingerprint == attempt.Fingerprint)
             {
-                _selectedRecovery = null;
-                SelectedRecoveryAttempt.Value = null;
+                ClearActiveRecovery();
                 ModelPicker.ReconcileRecoveryModels();
             }
 
@@ -615,10 +626,29 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             ? attempt.Model is { } model ? new AiModelId(model) : null
             : selected;
 
+    private void ActivateRecovery(AiPendingAttempt attempt)
+    {
+        _selectedRecovery = attempt;
+        SelectedRecoveryAttempt.Value = attempt;
+        ModelPicker.IsSelectionEnabled.Value = false;
+    }
+
+    private void ClearActiveRecovery()
+    {
+        _selectedRecovery = null;
+        SelectedRecoveryAttempt.Value = null;
+        ModelPicker.IsSelectionEnabled.Value = true;
+    }
+
     private void SelectRecoveredModel()
     {
-        if (_selectedRecovery?.Model is not { } model)
+        if (_selectedRecovery is not { } recovery)
             return;
+        if (recovery.Model is not { } model)
+        {
+            ModelPicker.Selected.Value = null;
+            return;
+        }
         AiModelId id = new(model);
         ModelPicker.Selected.Value = ModelPicker.Options.FirstOrDefault(option => option.Id == id);
     }
@@ -634,8 +664,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
-            _selectedRecovery = null;
-            SelectedRecoveryAttempt.Value = null;
+            ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             _recoveryRevision.Value++;
         }
@@ -653,8 +682,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
-            _selectedRecovery = null;
-            SelectedRecoveryAttempt.Value = null;
+            ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             _recoveryRevision.Value++;
         }
@@ -704,7 +732,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private async Task LoadEntitlementsAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         try
@@ -769,7 +797,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private async Task ReloadModelsAsync(AiImageEditTaskOption task)
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         // Read by the picker's filter, which runs while the list below loads.
@@ -799,9 +827,20 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     public async Task SelectSourceFileAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
+        if (SourceFilePicker is { } picker)
+        {
+            string? path = await picker(operation.CancellationToken);
+            if (path is not null)
+                operation.TryPublish(() =>
+                {
+                    _sourceElementId = null;
+                    SourceFilePath.Value = path;
+                });
+            return;
+        }
         if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
             { MainWindow: { } window })
             return;
@@ -844,7 +883,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private async Task EditCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (SourceFilePath.Value is not { } filePath)
@@ -1115,7 +1154,8 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         }
         finally
         {
-            _runningRequest = null;
+            if (ReferenceEquals(_runningRequest, operation))
+                _runningRequest = null;
             operation.TryPublish(() => IsEditing.Value = false);
             if (preparedFilePath is not null)
             {
@@ -1165,10 +1205,12 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private async Task AddToSceneCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (_editViewModel == null || ResultImage.Value?.Value is not { } bitmap)
+            return;
+        if (!operation.IsCurrent)
             return;
 
         try
@@ -1179,17 +1221,26 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                 .Select(item => item.ZIndex)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
-            var importer = new AiResultImporter(
-                _editViewModel.Scene,
-                _editViewModel.GetRequiredService<IElementAdder>());
-            ElementAddResult result = await importer.ImportImageAsync(
-                bitmap,
-                new AiResultImportOptions(
-                    start,
-                    TimeSpan.FromSeconds(5),
-                    layer,
-                    Strings.AiImageEdit),
-                operation.CancellationToken);
+            AiResultImportOptions options = new(
+                start,
+                TimeSpan.FromSeconds(5),
+                layer,
+                Strings.AiImageEdit);
+            ElementAddResult result;
+            if (ResultImporter is { } importer)
+            {
+                result = await importer(bitmap, options, operation.CancellationToken);
+            }
+            else
+            {
+                var defaultImporter = new AiResultImporter(
+                    _editViewModel.Scene,
+                    _editViewModel.GetRequiredService<IElementAdder>());
+                result = await defaultImporter.ImportImageAsync(
+                    bitmap,
+                    options,
+                    operation.CancellationToken);
+            }
 
             if (result.Failure is LockedElementLayerFailure)
             {
@@ -1226,35 +1277,49 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private async Task SaveToFileCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         using Ref<Bitmap>? resultImage = AiResultImageLease.Acquire(ResultImage.Value);
         if (resultImage?.Value is not { } bitmap)
             return;
 
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window })
-            return;
+        AiSaveFileDestination? destination;
+        if (SaveFilePicker is { } picker)
+        {
+            destination = await picker(operation.CancellationToken);
+        }
+        else
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+                { MainWindow: { } window }
+                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+                return;
+            FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+            options.SuggestedFileName = $"AI Edit {DateTime.Now:yyyy-MM-dd HHmmss}";
+            options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
+            options.DefaultExtension = "png";
+            IStorageFile? file = await storage.SaveFilePickerAsync(options);
+            destination = file is null
+                ? null
+                : new AiSaveFileDestination(
+                    file.Path.LocalPath,
+                    _ => file.OpenWriteAsync());
+        }
 
-        if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
-            return;
-
-        FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
-        options.SuggestedFileName = $"AI Edit {DateTime.Now:yyyy-MM-dd HHmmss}";
-        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
-        options.DefaultExtension = "png";
-
-        IStorageFile? file = await storage.SaveFilePickerAsync(options);
-        if (file == null)
+        if (destination is null || !operation.IsCurrent)
             return;
 
         try
         {
-            await using Stream stream = await file.OpenWriteAsync();
-            operation.CancellationToken.ThrowIfCancellationRequested();
-            stream.SetLength(0);
-            bitmap.Save(stream, EncodedImageFormat.Png);
+            await using Stream stream = await destination.OpenWriteAsync(operation.CancellationToken);
+            if (!operation.TryPublish(() =>
+                {
+                    operation.CancellationToken.ThrowIfCancellationRequested();
+                    stream.SetLength(0);
+                    bitmap.Save(stream, EncodedImageFormat.Png);
+                }))
+                return;
             operation.TryPublish(() =>
                 NotificationService.ShowSuccess(Strings.AiImageEdit, Strings.AiImageSaved));
         }

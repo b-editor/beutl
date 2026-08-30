@@ -22,7 +22,7 @@ public partial class InlineAnimationLayerHeader : UserControl
         });
     }
 
-    private void OpenTab_Click(object? sender, RoutedEventArgs e)
+    private async void OpenTab_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is InlineAnimationLayerViewModel viewModel
             && viewModel.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfAnimation })
@@ -34,7 +34,7 @@ public partial class InlineAnimationLayerHeader : UserControl
                 ?? new GraphEditorTabViewModel(editorContext);
             anmTimelineViewModel.Element.Value = viewModel.Element.Model;
             anmTimelineViewModel.Select(kfAnimation);
-            editorContext.OpenToolTab(anmTimelineViewModel);
+            await editorContext.OpenToolTabAsync(anmTimelineViewModel);
         }
     }
 

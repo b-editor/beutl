@@ -414,6 +414,37 @@ public sealed class AiRetryKeyStoreTests
 #pragma warning restore CA1416
     }
 
+    [Test]
+    public void RestartSweepsOnlyOldRetryStoreTemporaryFiles()
+    {
+        string stale = Path.Combine(_directory, "retry-keys.json.abc.tmp");
+        string fresh = Path.Combine(_directory, "retry-keys.json.def.tmp");
+        File.WriteAllText(stale, "stale");
+        File.WriteAllText(fresh, "fresh");
+        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddHours(-2));
+
+        _ = new FileAiRetryKeyStore(_directory);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(stale), Is.False);
+            Assert.That(File.Exists(fresh), Is.True);
+        });
+    }
+
+    [Test]
+    public void RestartDoesNotDeleteAnOldRetryTempStillHeldOpen()
+    {
+        string path = Path.Combine(_directory, "retry-keys.json.held.tmp");
+        File.WriteAllText(path, "in-progress");
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddHours(-2));
+        using FileStream held = new(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        _ = new FileAiRetryKeyStore(_directory);
+
+        Assert.That(File.Exists(path), Is.True);
+    }
+
     private static AiJob Job(string id, string prompt) => new(
         new AiJobId(id),
         AiJobKinds.Image,

@@ -83,6 +83,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
             .DisposeWith(_disposables);
         IsLoaded = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
+        IsSelectionEnabled = new ReactivePropertySlim<bool>(true)
+            .DisposeWith(_disposables);
         Label = Strings.AiModel;
         Observable
             .Interval(s_reloadInterval, AvaloniaScheduler.Instance)
@@ -199,6 +201,8 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// all, which is how it behaved before models could be chosen.
     /// </remarks>
     public ReactivePropertySlim<bool> IsLoaded { get; }
+
+    internal ReactivePropertySlim<bool> IsSelectionEnabled { get; }
 
     /// <summary>What the request should carry. Null asks the server for its default.</summary>
     public AiModelId? SelectedModel => Selected.Value?.Id;

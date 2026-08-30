@@ -13,6 +13,7 @@ using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services.Captions;
 using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -31,6 +32,97 @@ public sealed class AiDialogWorkflowTests
 {
     private static readonly byte[] s_png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    [AvaloniaTest]
+    public async Task ImageEdit_SourcePickerResultFromPreviousIdentityIsIgnored()
+    {
+        await TestReset.ResetShellAsync();
+        string account = "account-a";
+        using var context = CreateIdentityContext(() => account);
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageEditDialog(clients, context: context);
+        var picker = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.SourceFilePicker = _ => picker.Task;
+
+        Task command = viewModel.SelectSourceFileCommand.ExecuteAsync();
+        await Task.Yield();
+        account = "account-b";
+        context.RefreshIdentity();
+        picker.SetResult(Path.Combine(Path.GetTempPath(), "stale-edit-source.png"));
+        await command;
+
+        Assert.That(viewModel.SourceFilePath.Value, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_ReferencePickerResultFromPreviousIdentityIsIgnored()
+    {
+        await TestReset.ResetShellAsync();
+        string account = "account-a";
+        using var context = CreateIdentityContext(() => account);
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients, context: context);
+        var picker = new TaskCompletionSource<IReadOnlyList<string>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.ReferenceImagePicker = _ => picker.Task;
+
+        Task command = viewModel.SelectReferenceImage.ExecuteAsync();
+        await Task.Yield();
+        account = "account-b";
+        context.RefreshIdentity();
+        picker.SetResult([Path.Combine(Path.GetTempPath(), "stale-reference.png")]);
+        await command;
+
+        Assert.That(viewModel.ReferenceImages, Is.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task VideoGeneration_FramePickerResultFromPreviousIdentityIsIgnored()
+    {
+        await TestReset.ResetShellAsync();
+        string account = "account-a";
+        using var context = CreateIdentityContext(() => account);
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        await using var viewModel = CreateVideoGenerationDialog(clients, context: context);
+        var picker = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.FramePicker = _ => picker.Task;
+
+        Task command = viewModel.SelectFirstFrame.ExecuteAsync();
+        await Task.Yield();
+        account = "account-b";
+        context.RefreshIdentity();
+        picker.SetResult(Path.Combine(Path.GetTempPath(), "stale-frame.png"));
+        await command;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.FirstFramePath.Value, Is.Null);
+            Assert.That(viewModel.FirstFramePreview.Value, Is.Null);
+        });
+    }
 
     [AvaloniaTest]
     public void ImageSaveLease_SurvivesResultReplacement()
@@ -1307,6 +1399,40 @@ public sealed class AiDialogWorkflowTests
 
         await viewModel.DisposeAsync();
         Assert.That(File.Exists(resultPath), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task VideoGeneration_UnknownStatusKeepsRecoveryKeyForLaterRefresh()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/videos" => UnknownVideoCreate(keys, request),
+            "/api/v3/ai/videos/future-job" => JsonResponse(HttpStatusCode.OK, "{\"jobId\":\"future-job\",\"status\":\"future\"}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        await using var viewModel = CreateVideoGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
+        viewModel.Prompt.Value = "Unknown status recovery";
+
+        await viewModel.Generate.ExecuteAsync();
+        Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+        await viewModel.Generate.ExecuteAsync();
+
+        Assert.That(keys, Has.Count.EqualTo(2));
+        Assert.That(keys[1], Is.EqualTo(keys[0]));
+
+        static HttpResponseMessage UnknownVideoCreate(List<string?> keys, HttpRequestMessage request)
+        {
+            keys.Add(IdempotencyKeyOf(request));
+            return JsonResponse(HttpStatusCode.OK, "{\"jobId\":\"future-job\",\"status\":\"queued\"}");
+        }
     }
 
     [AvaloniaTest]
@@ -2610,7 +2736,7 @@ public sealed class AiDialogWorkflowTests
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
-        using (var first = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes))
+        await using (var first = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes))
         {
             await WaitUntilAsync(() => first.Usage.HasSnapshot.Value);
             first.ResultSegments.Value =
@@ -2624,7 +2750,7 @@ public sealed class AiDialogWorkflowTests
         }
 
         draftStore.FailOnSave = null;
-        using var restored = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes);
+        await using var restored = CreateSubtitleDialog(clients, draftStore: draftStore, draftScopes: scopes);
         await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value && restored.Cues.Count == 1);
         restored.RefreshAvailability();
         await WaitUntilAsync(() => restored.CanTranslate.Value);
@@ -2736,7 +2862,7 @@ public sealed class AiDialogWorkflowTests
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
-        using (var firstDialog = CreateSubtitleDialog(
+        await using (var firstDialog = CreateSubtitleDialog(
                    clients,
                    draftStore: draftStore,
                    draftScopes: scopes))
@@ -2996,7 +3122,7 @@ public sealed class AiDialogWorkflowTests
         try
         {
             var source = new AudioSourceItem("Source", sourcePath, TimeSpan.FromSeconds(1));
-            using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
+            await using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
             {
                 await WaitUntilAsync(() => first.Usage.HasSnapshot.Value);
                 first.SelectedAudioSource.Value = source;
@@ -3009,7 +3135,7 @@ public sealed class AiDialogWorkflowTests
             }
 
             draftStore.FailOnSave = null;
-            using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
+            await using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
             restored.SelectedAudioSource.Value = source;
             await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value);
             restored.RefreshAvailability();
@@ -3069,7 +3195,7 @@ public sealed class AiDialogWorkflowTests
         editor.Scene.Start = TimeSpan.Zero;
         editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
 
-        using (var firstDialog = CreateSubtitleDialog(
+        await using (var firstDialog = CreateSubtitleDialog(
                    clients,
                    editor,
                    draftStore,
@@ -3189,7 +3315,7 @@ public sealed class AiDialogWorkflowTests
             };
         }
 
-        using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
+        await using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
         {
             ConfigureSceneMix(first);
             await WaitUntilAsync(() => first.Usage.HasSnapshot.Value
@@ -3203,7 +3329,7 @@ public sealed class AiDialogWorkflowTests
         }
 
         draftStore.FailOnSave = null;
-        using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
+        await using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
         ConfigureSceneMix(restored);
         await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value
             && restored.SelectedAudioSource.Value?.IsSceneMix == true
@@ -3771,7 +3897,8 @@ public sealed class AiDialogWorkflowTests
 
     private static AiImageGenerationDialogViewModel CreateImageGenerationDialog(
         BeutlApiApplication clients,
-        EditViewModel? editor = null)
+        EditViewModel? editor = null,
+        AiRequestRecoveryContext? context = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
@@ -3780,11 +3907,12 @@ public sealed class AiDialogWorkflowTests
             clients.GetResource<IAiImageGenerationService>(),
             clients.GetResource<IAuthenticatedContentService>(),
             editor,
-            AiRetryTestContext.CreateForm());
+            context ?? AiRetryTestContext.CreateForm());
 
     private static AiImageEditDialogViewModel CreateImageEditDialog(
         BeutlApiApplication clients,
-        EditViewModel? editor = null)
+        EditViewModel? editor = null,
+        AiRequestRecoveryContext? context = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
@@ -3793,11 +3921,12 @@ public sealed class AiDialogWorkflowTests
             clients.GetResource<IAiImageEditingService>(),
             clients.GetResource<IAuthenticatedContentService>(),
             editor,
-            AiRetryTestContext.CreateForm());
+            context ?? AiRetryTestContext.CreateForm());
 
     private static AiVideoGenerationDialogViewModel CreateVideoGenerationDialog(
         BeutlApiApplication clients,
-        EditViewModel? editor = null)
+        EditViewModel? editor = null,
+        AiRequestRecoveryContext? context = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
             clients.GetResource<IAiOperationAvailabilityService>(),
@@ -3808,7 +3937,18 @@ public sealed class AiDialogWorkflowTests
             clients.GetResource<IAiJobKindRegistry>(),
             clients.GetResource<IAiJobMonitor>(),
             editor,
-            AiRetryTestContext.CreateForm());
+            context ?? AiRetryTestContext.CreateForm());
+
+    private static AiRequestRecoveryContext CreateIdentityContext(Func<string?> account)
+        => new(
+            new FileAiRequestRecoveryStore(Path.Combine(
+                Path.GetTempPath(),
+                "Beutl.HeadlessUITests",
+                "ai-identity-switch",
+                Guid.NewGuid().ToString("N"))),
+            () => account() is { } value
+                ? new AiAuthenticatedRequestIdentity(value, User: null)
+                : null);
 
     private static AiSubtitleDialogViewModel CreateSubtitleDialog(
         BeutlApiApplication clients,

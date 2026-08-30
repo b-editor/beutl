@@ -22,10 +22,11 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class AiJobCenterViewModel : IDisposable
+public sealed class AiJobCenterViewModel : IDisposable, IAsyncDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly LifetimeCancellationSource _lifetimeCts = new();
+    private readonly AsyncOperationLifetime _operations = new();
     private readonly object _lifetimeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiJobCenterViewModel>();
     private readonly EditViewModel _editViewModel;
@@ -43,8 +44,11 @@ public sealed class AiJobCenterViewModel : IDisposable
     private AiJobItemViewModel? _confirmationItem;
     private IAiJobKindLease? _confirmationLease;
     private IAiJobRetryHandler? _confirmationHandler;
+    private Task<AiJobRetryPreflight>? _confirmationPreflightTask;
+    private CancellationTokenSource? _confirmationPreflightCts;
     private long _confirmationRevision;
     private bool _isDisposed;
+    private Task? _disposeTask;
 
     internal AiJobCenterViewModel(
         EditViewModel editViewModel,
@@ -131,6 +135,9 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     internal async Task RequestRetryConfirmationAsync(AiJobItemViewModel item)
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return;
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanRetry || IsDisposed)
             return;
@@ -149,6 +156,8 @@ public sealed class AiJobCenterViewModel : IDisposable
         IsConfirmationOpen.Value = true;
 
         IAiJobKindLease? lease = null;
+        Task<AiJobRetryPreflight>? preflightTask = null;
+        CancellationTokenSource? preflightCts = null;
         try
         {
             if (!_jobKinds.TryAcquire(item.Job.Kind, out lease))
@@ -157,34 +166,38 @@ public sealed class AiJobCenterViewModel : IDisposable
                 return;
             }
 
+            _confirmationLease = lease;
+
             AiJobKindDescriptor descriptor = lease.Descriptor;
             AiJobStatusSemantics status = descriptor.StatusResolver.Resolve(item.Job.Status);
             if (descriptor.RetryHandler is not { } retryHandler
                 || !retryHandler.CanRetry(item.Job, status))
             {
                 SetOperationError(Strings.AiPricingUnavailable);
+                ReleaseConfirmationResources();
                 return;
             }
 
-            _confirmationLease = lease;
             _confirmationHandler = retryHandler;
-            AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
+            preflightCts = CancellationTokenSource.CreateLinkedTokenSource(
+                lifetimeOperation.CancellationToken);
+            _confirmationPreflightCts = preflightCts;
+            preflightTask = retryHandler.GetPreflightAsync(
                 item.Job,
-                _lifetimeCts.Token);
-            if (revision != Volatile.Read(ref _confirmationRevision)
-                || IsDisposed
-                || !ReferenceEquals(_confirmationLease, lease))
+                preflightCts.Token).AsTask();
+            _confirmationPreflightTask = preflightTask;
+            AiJobRetryPreflight estimate = await preflightTask;
+            if (ReferenceEquals(_confirmationPreflightTask, preflightTask))
             {
-                return;
+                _confirmationPreflightTask = null;
+                if (ReferenceEquals(_confirmationPreflightCts, preflightCts))
+                {
+                    _confirmationPreflightCts = null;
+                    preflightCts.Dispose();
+                }
             }
-
-            ConfirmationMessage.Value = estimate.IsAvailable
-                ? string.Join(
-                    Environment.NewLine,
-                    Strings.AiJobCenter_RetryConfirmation,
-                    estimate.Explanation)
-                : estimate.Explanation;
-            CanConfirm.Value = estimate.CanSubmit;
+            if (!TryPublishConfirmationPreflight(revision, lease, estimate))
+                return;
             if (!estimate.CanSubmit)
             {
                 ReleaseConfirmationResources();
@@ -193,43 +206,89 @@ public sealed class AiJobCenterViewModel : IDisposable
         }
         catch (AuthenticationRequiredException)
         {
-            SetOperationError(Strings.AiAuthenticationRequired);
-            ReleaseConfirmationResources();
-            lease = null;
+            if (IsCurrentConfirmation(revision, lease))
+            {
+                SetOperationError(Strings.AiAuthenticationRequired);
+                ReleaseConfirmationResources();
+            }
         }
         catch (AiJobRetryPreparationRejectedException)
         {
-            SetOperationError(Strings.AiResultUnavailable);
-            ReleaseConfirmationResources();
-            lease = null;
+            if (IsCurrentConfirmation(revision, lease))
+            {
+                SetOperationError(Strings.AiResultUnavailable);
+                ReleaseConfirmationResources();
+            }
         }
         catch (AiJobRetryPreparationUnavailableException)
         {
-            SetOperationError(Strings.AiPricingUnavailable);
-            ReleaseConfirmationResources();
-            lease = null;
+            if (IsCurrentConfirmation(revision, lease))
+            {
+                SetOperationError(Strings.AiPricingUnavailable);
+                ReleaseConfirmationResources();
+            }
+        }
+        catch (OperationCanceledException) when (preflightCts?.IsCancellationRequested == true)
+        {
+            if (IsCurrentConfirmation(revision, lease))
+                ReleaseConfirmationResources();
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
-            ReleaseConfirmationResources();
-            lease = null;
+            if (IsCurrentConfirmation(revision, lease))
+                ReleaseConfirmationResources();
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to refresh authoritative pricing before retrying AI job {JobId}", item.Id);
-            SetOperationError(Strings.AiPricingUnavailable);
-            ReleaseConfirmationResources();
-            lease = null;
+            if (IsCurrentConfirmation(revision, lease))
+            {
+                _logger.LogDebug(ex, "Failed to refresh authoritative pricing before retrying AI job {JobId}", item.Id);
+                SetOperationError(Strings.AiPricingUnavailable);
+                ReleaseConfirmationResources();
+            }
         }
         finally
         {
-            if (lease is not null && !ReferenceEquals(_confirmationLease, lease))
-            {
-                lease.Dispose();
-            }
+            CompleteConfirmationLoading(revision);
         }
-        IsConfirmationLoading.Value = false;
     }
+
+    private bool TryPublishConfirmationPreflight(
+        long revision,
+        IAiJobKindLease lease,
+        AiJobRetryPreflight estimate)
+    {
+        lock (_lifetimeGate)
+        {
+            if (revision != _confirmationRevision
+                || _isDisposed
+                || !ReferenceEquals(_confirmationLease, lease))
+                return false;
+
+            ConfirmationMessage.Value = estimate.IsAvailable
+                ? string.Join(
+                    Environment.NewLine,
+                    Strings.AiJobCenter_RetryConfirmation,
+                    estimate.Explanation)
+                : estimate.Explanation;
+            CanConfirm.Value = estimate.CanSubmit;
+            return true;
+        }
+    }
+
+    private void CompleteConfirmationLoading(long revision)
+    {
+        lock (_lifetimeGate)
+        {
+            if (revision == _confirmationRevision && !_isDisposed)
+                IsConfirmationLoading.Value = false;
+        }
+    }
+
+    private bool IsCurrentConfirmation(long revision, IAiJobKindLease? lease)
+        => revision == Volatile.Read(ref _confirmationRevision)
+            && !IsDisposed
+            && (lease is null || ReferenceEquals(_confirmationLease, lease));
 
     internal void RequestDeleteConfirmation(AiJobItemViewModel item)
     {
@@ -262,17 +321,71 @@ public sealed class AiJobCenterViewModel : IDisposable
     private void ReleaseConfirmationResources()
     {
         IAiJobKindLease? lease = Interlocked.Exchange(ref _confirmationLease, null);
+        Task<AiJobRetryPreflight>? preflight = Interlocked.Exchange(ref _confirmationPreflightTask, null);
+        CancellationTokenSource? preflightCts = Interlocked.Exchange(
+            ref _confirmationPreflightCts,
+            null);
         _confirmationHandler = null;
+        CancelPreflight(preflightCts);
         if (lease is not null)
         {
-            try
+            if (preflight is { IsCompleted: false })
             {
-                lease.Dispose();
+                _ = DisposeLeaseAfterPreflightAsync(preflight, lease, preflightCts);
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogDebug(ex, "Failed to release an AI retry confirmation lease");
+                DisposeConfirmationLease(lease);
+                preflightCts?.Dispose();
             }
+        }
+        else
+        {
+            preflightCts?.Dispose();
+        }
+    }
+
+    private async Task DisposeLeaseAfterPreflightAsync(
+        Task<AiJobRetryPreflight> preflight,
+        IAiJobKindLease lease,
+        CancellationTokenSource? preflightCts)
+    {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        try
+        {
+            await preflight;
+        }
+        catch
+        {
+        }
+        DisposeConfirmationLease(lease);
+        preflightCts?.Dispose();
+    }
+
+    private void DisposeConfirmationLease(IAiJobKindLease lease)
+    {
+        try
+        {
+            lease.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to release an AI retry confirmation lease");
+        }
+    }
+
+    private void CancelPreflight(CancellationTokenSource? preflightCts)
+    {
+        if (preflightCts is null)
+            return;
+
+        try
+        {
+            preflightCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "AI retry preflight cancellation callback failed");
         }
     }
 
@@ -294,6 +407,9 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     internal async Task ConfirmPendingActionAsync()
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return;
         if (!CanConfirm.Value || _confirmationItem is not { } item)
             return;
 
@@ -319,6 +435,9 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     public async Task DeleteJobAsync(AiJobItemViewModel item)
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return;
         ArgumentNullException.ThrowIfNull(item);
         if (!item.IsTerminal)
             return;
@@ -329,10 +448,10 @@ public sealed class AiJobCenterViewModel : IDisposable
 
         try
         {
-            await _jobClient.DeleteAsync(new AiJobId(item.Id), _lifetimeCts.Token);
+            await _jobClient.DeleteAsync(new AiJobId(item.Id), lifetimeOperation.CancellationToken);
             if (!IsDisposed)
             {
-                await _jobMonitor.RefreshAsync(_lifetimeCts.Token);
+                await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
             }
         }
         catch (AiJobNotFoundException)
@@ -341,7 +460,7 @@ public sealed class AiJobCenterViewModel : IDisposable
             // authoritative list instead of presenting an idempotent delete as a failure.
             if (!IsDisposed)
             {
-                await _jobMonitor.RefreshAsync(_lifetimeCts.Token);
+                await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
             }
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
@@ -362,6 +481,12 @@ public sealed class AiJobCenterViewModel : IDisposable
         IAiJobKindLease? confirmedLease,
         IAiJobRetryHandler? confirmedHandler)
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+        {
+            confirmedLease?.Dispose();
+            return;
+        }
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanRetry)
         {
@@ -402,7 +527,7 @@ public sealed class AiJobCenterViewModel : IDisposable
                 {
                     AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
                         item.Job,
-                        _lifetimeCts.Token);
+                        lifetimeOperation.CancellationToken);
                     if (!estimate.CanSubmit)
                     {
                         SetOperationError(estimate.Explanation);
@@ -412,7 +537,7 @@ public sealed class AiJobCenterViewModel : IDisposable
 
                 AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(
                     item.Job,
-                    _lifetimeCts.Token);
+                    lifetimeOperation.CancellationToken);
                 await using (prepared)
                 {
                     if (!prepared.IsReady)
@@ -424,14 +549,14 @@ public sealed class AiJobCenterViewModel : IDisposable
                     IAiJobRetryPreparation preparation = prepared.TakePreparation();
                     await using (preparation)
                     {
-                        await preparation.ExecuteAsync(_lifetimeCts.Token);
+                        await preparation.ExecuteAsync(lifetimeOperation.CancellationToken);
                     }
                 }
             }
 
             if (!IsDisposed)
             {
-                await _jobMonitor.RefreshAsync(_lifetimeCts.Token);
+                await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
             }
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
@@ -465,6 +590,9 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     internal async Task<AiJobRetryPreflight> GetRetryEstimateAsync(AiJobItemViewModel item)
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return RetryUnavailable();
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanRetry)
             return RetryUnavailable();
@@ -486,7 +614,7 @@ public sealed class AiJobCenterViewModel : IDisposable
 
                 AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
                     item.Job,
-                    _lifetimeCts.Token);
+                    lifetimeOperation.CancellationToken);
                 SetOperationError(estimate.CanSubmit ? null : estimate.Explanation);
                 return estimate;
             }
@@ -520,6 +648,9 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     public async Task AddToSceneAsync(AiJobItemViewModel item)
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return;
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanAddToScene)
             return;
@@ -548,7 +679,7 @@ public sealed class AiJobCenterViewModel : IDisposable
                     if (!resultHandler.CanHandle(item.Job, status))
                         return;
 
-                    await resultHandler.HandleAsync(item.Job, _resultContext, _lifetimeCts.Token);
+                    await resultHandler.HandleAsync(item.Job, _resultContext, lifetimeOperation.CancellationToken);
                 }
             }
         }
@@ -564,60 +695,97 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     public void Dispose()
     {
+        _ = DisposeAsync().AsTask().ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    public ValueTask DisposeAsync()
+    {
         lock (_lifetimeGate)
         {
-            if (_isDisposed)
-                return;
+            if (_disposeTask is not null)
+                return new ValueTask(_disposeTask);
 
             _isDisposed = true;
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return new ValueTask(completion.Task);
         }
+    }
 
-        _lifetimeCts.Cancel();
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
         CancelConfirmation();
-        _disposables.Dispose();
-        foreach (AiJobItemViewModel job in _jobs)
+        try
         {
-            job.Dispose();
+            await _operations.DisposeAsync(
+            cancelAdditionalWork: () =>
+            {
+                try { _lifetimeCts.Cancel(); }
+                catch (Exception ex) { _logger.LogDebug(ex, "AI job center lifetime cancellation callback failed"); }
+            },
+            disposeResources: () =>
+            {
+                _disposables.Dispose();
+                foreach (AiJobItemViewModel job in _jobs) job.Dispose();
+                _jobs.Clear();
+                IsLoading.Dispose();
+                IsInitialLoading.Dispose();
+                IsListLoading.Dispose();
+                IsAuthenticationRequired.Dispose();
+                HasJobs.Dispose();
+                HasMore.Dispose();
+                ShowEmptyState.Dispose();
+                ShowListFooter.Dispose();
+                Error.Dispose();
+                IsConfirmationOpen.Dispose();
+                IsConfirmationLoading.Dispose();
+                CanConfirm.Dispose();
+                ConfirmationTitle.Dispose();
+                ConfirmationMessage.Dispose();
+                ConfirmationActionText.Dispose();
+                _lifetimeCts.Dispose();
+                return ValueTask.CompletedTask;
+            });
+            completion.TrySetResult();
         }
-        _jobs.Clear();
-        IsLoading.Dispose();
-        IsInitialLoading.Dispose();
-        IsListLoading.Dispose();
-        IsAuthenticationRequired.Dispose();
-        HasJobs.Dispose();
-        HasMore.Dispose();
-        ShowEmptyState.Dispose();
-        ShowListFooter.Dispose();
-        Error.Dispose();
-        IsConfirmationOpen.Dispose();
-        IsConfirmationLoading.Dispose();
-        CanConfirm.Dispose();
-        ConfirmationTitle.Dispose();
-        ConfirmationMessage.Dispose();
-        ConfirmationActionText.Dispose();
-        _lifetimeCts.Dispose();
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
     }
 
     private bool IsDisposed => Volatile.Read(ref _isDisposed);
 
     private async Task RefreshJobsAsync(bool append)
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return;
         SetOperationError(null);
         if (append)
         {
-            await _jobMonitor.LoadNextPageAsync(_lifetimeCts.Token);
+            await _jobMonitor.LoadNextPageAsync(lifetimeOperation.CancellationToken);
         }
         else
         {
-            await _jobMonitor.RefreshAsync(_lifetimeCts.Token);
+            await _jobMonitor.RefreshAsync(lifetimeOperation.CancellationToken);
         }
     }
 
     private async Task RefreshEntitlementsAsync()
     {
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
+            return;
         try
         {
-            await _entitlements.RefreshAsync(_lifetimeCts.Token);
+            await _entitlements.RefreshAsync(lifetimeOperation.CancellationToken);
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -718,13 +886,19 @@ public sealed class AiJobCenterViewModel : IDisposable
 
     private async Task LoadPreviewAsync(AiJobItemViewModel item)
     {
-        if (item.ContentUri is not { } contentUri)
+        using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
+        if (lifetimeOperation is null)
             return;
+        if (item.ContentUri is not { } contentUri)
+        {
+            item.ResetPreviewLoadClaim();
+            return;
+        }
 
         try
         {
             using var buffer = new MemoryStream();
-            await _content.CopyToAsync(contentUri, buffer, _lifetimeCts.Token);
+            await _content.CopyToAsync(contentUri, buffer, lifetimeOperation.CancellationToken);
             buffer.Position = 0;
             Bitmap bitmap = Bitmap.FromStream(buffer);
             item.SetPreview(Ref<Bitmap>.Create(bitmap));
@@ -736,6 +910,7 @@ public sealed class AiJobCenterViewModel : IDisposable
         {
             // The card still names the job; only the picture beside it is missing.
             _logger.LogDebug(ex, "Failed to load a preview for AI job {JobId}", item.Id);
+            item.ResetPreviewLoadClaim();
         }
     }
 
@@ -886,15 +1061,10 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
 
     public Ref<Bitmap>? Preview
     {
-        get => _preview;
-        private set
+        get
         {
-            if (ReferenceEquals(_preview, value))
-                return;
-
-            _preview?.Dispose();
-            _preview = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Preview)));
+            lock (_stateGate)
+                return _preview;
         }
     }
 
@@ -932,8 +1102,18 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    internal void ResetPreviewLoadClaim()
+    {
+        lock (_stateGate)
+        {
+            if (!_disposeRequested)
+                _previewRequested = false;
+        }
+    }
+
     internal void SetPreview(Ref<Bitmap>? preview)
     {
+        Ref<Bitmap>? previous;
         lock (_stateGate)
         {
             if (_disposeRequested)
@@ -941,9 +1121,15 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
                 preview?.Dispose();
                 return;
             }
-        }
 
-        Preview = preview;
+            if (ReferenceEquals(_preview, preview))
+                return;
+
+            previous = _preview;
+            _preview = preview;
+            previous?.Dispose();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Preview)));
+        }
     }
 
     internal void Update(AiJob response)
@@ -979,6 +1165,7 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        Ref<Bitmap>? previous;
         lock (_stateGate)
         {
             if (_disposeRequested)
@@ -989,9 +1176,12 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
             {
                 DisposeBusyProperty();
             }
+
+            previous = _preview;
+            _preview = null;
+            previous?.Dispose();
         }
 
-        Preview = null;
     }
 
     private void EndOperation()

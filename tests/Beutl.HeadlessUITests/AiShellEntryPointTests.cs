@@ -96,7 +96,7 @@ public sealed class AiShellEntryPointTests
             AiWorkspaceViewModel first = editor.FindToolTab<AiWorkspaceViewModel>()!;
 
             AiWorkspaceViewModel second = mainViewModel.CreateAiWorkspaceViewModel(editor);
-            Assert.That(editor.OpenToolTab(second), Is.True);
+            Assert.That(await editor.OpenToolTabAsync(second), Is.True);
             HeadlessTestHelpers.Settle();
 
             using (Assert.EnterMultipleScope())
@@ -137,7 +137,7 @@ public sealed class AiShellEntryPointTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-workspace-lazy");
         var built = new List<AiWorkspaceSection>();
-        using var workspace = new AiWorkspaceViewModel(editor, CreatePages(built));
+        await using var workspace = new AiWorkspaceViewModel(editor, CreatePages(built));
 
         object firstLook = workspace.Show(AiWorkspaceSection.Subtitles);
         workspace.Show(AiWorkspaceSection.Jobs);
@@ -167,8 +167,8 @@ public sealed class AiShellEntryPointTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-workspace-independent");
         var built = new List<AiWorkspaceSection>();
-        using var left = new AiWorkspaceViewModel(editor, CreatePages(built));
-        using var right = new AiWorkspaceViewModel(editor, CreatePages(built));
+        await using var left = new AiWorkspaceViewModel(editor, CreatePages(built));
+        await using var right = new AiWorkspaceViewModel(editor, CreatePages(built));
 
         object fromLeft = left.Show(AiWorkspaceSection.Subtitles);
         object fromRight = right.Show(AiWorkspaceSection.Subtitles);
@@ -188,12 +188,12 @@ public sealed class AiShellEntryPointTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-workspace-dispose");
-        using var kept = new AiWorkspaceViewModel(editor, CreatePages([]));
+        await using var kept = new AiWorkspaceViewModel(editor, CreatePages([]));
         var closed = new AiWorkspaceViewModel(editor, CreatePages([]));
         var keptPage = (StubPage)kept.Show(AiWorkspaceSection.Jobs);
         var closedPage = (StubPage)closed.Show(AiWorkspaceSection.Jobs);
 
-        closed.Dispose();
+        await closed.DisposeAsync();
 
         using (Assert.EnterMultipleScope())
         {
@@ -203,20 +203,56 @@ public sealed class AiShellEntryPointTests
     }
 
     [AvaloniaTest]
+    public async Task Workspace_AsyncDisposeAwaitsChildBeforeEditorResources()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-workspace-async-dispose");
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var page = new AsyncStubPage(started, release);
+        await using var workspace = new AiWorkspaceViewModel(editor, _ => page);
+        workspace.Show(AiWorkspaceSection.Jobs);
+
+        Task disposal = workspace.DisposeAsync().AsTask();
+        await started.Task;
+        Assert.That(disposal.IsCompleted, Is.False);
+        release.TrySetResult();
+        await disposal;
+        Assert.That(page.IsDisposed, Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task Workspace_AsyncDisposeStartsAllPagesBeforePropagatingFault()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-workspace-faulting-dispose");
+        var first = new FaultingPage();
+        var second = new SignalingPage();
+        int created = 0;
+        var workspace = new AiWorkspaceViewModel(editor, _ =>
+            created++ == 0 ? first : second);
+        workspace.Show(AiWorkspaceSection.ImageGeneration);
+        workspace.Show(AiWorkspaceSection.ImageEdit);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await workspace.DisposeAsync());
+        Assert.That(second.IsDisposed, Is.True, "all pages must start disposal even when one faults");
+    }
+
+    [AvaloniaTest]
     public async Task Workspace_ReopensOnThePageTheLayoutWasSavedOn()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-workspace-layout");
         var saved = new JsonObject();
 
-        using (var workspace = new AiWorkspaceViewModel(editor, CreatePages([])))
+        await using (var workspace = new AiWorkspaceViewModel(editor, CreatePages([])))
         {
             workspace.Show(AiWorkspaceSection.VideoGeneration);
             workspace.WriteToJson(saved);
         }
 
         var restoredPages = new List<AiWorkspaceSection>();
-        using var restored = new AiWorkspaceViewModel(editor, CreatePages(restoredPages));
+        await using var restored = new AiWorkspaceViewModel(editor, CreatePages(restoredPages));
         restored.ReadFromJson(saved);
 
         using (Assert.EnterMultipleScope())
@@ -268,18 +304,48 @@ public sealed class AiShellEntryPointTests
     private static int CountAiTabs(EditViewModel editor)
         => editor.DockHost.Factory.EnumerateTools().Count(tool => tool.ToolContext is AiWorkspaceViewModel);
 
-    private static Func<AiWorkspaceSection, IDisposable> CreatePages(List<AiWorkspaceSection> built)
+    private static Func<AiWorkspaceSection, IAsyncDisposable> CreatePages(List<AiWorkspaceSection> built)
         => section =>
         {
             built.Add(section);
             return new StubPage();
         };
 
-    private sealed class StubPage : IDisposable
+    private sealed class StubPage : IAsyncDisposable
     {
         public bool IsDisposed { get; private set; }
 
-        public void Dispose() => IsDisposed = true;
+        public ValueTask DisposeAsync() { IsDisposed = true; return ValueTask.CompletedTask; }
+    }
+
+    private sealed class AsyncStubPage(
+        TaskCompletionSource started,
+        TaskCompletionSource release) : IAsyncDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public async ValueTask DisposeAsync()
+        {
+            started.TrySetResult();
+            await release.Task;
+            IsDisposed = true;
+        }
+    }
+
+    private sealed class FaultingPage : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => ValueTask.FromException(new InvalidOperationException("fault"));
+    }
+
+    private sealed class SignalingPage : IAsyncDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            IsDisposed = true;
+            return ValueTask.CompletedTask;
+        }
     }
 
     private static async Task<EditViewModel> OpenEditor(string name)

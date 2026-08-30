@@ -27,11 +27,12 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
+    private readonly IdentityOperationLifetime _identityOperations = new();
     private readonly object _disposeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiImageGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
     private readonly IAiOperationAvailabilityService _availability;
-    private AsyncOperationLifetime.Operation? _runningRequest;
+    private IdentityOperationLifetime.Operation? _runningRequest;
     private readonly IAiModelCatalogService _modelCatalog;
     private readonly IAiPlanCoordinator _aiPlanCoordinator;
     private readonly IAiImageGenerationService _images;
@@ -88,7 +89,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.Image,
                 ComposePrompt,
-                prompt => Prompt.Value = prompt)
+                prompt => Prompt.Value = prompt,
+                recoveryContext: requestRecoveryContext)
             .DisposeWith(_disposables);
 
         Replace(
@@ -398,6 +400,16 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     internal AiPromptLibraryViewModel PromptLibrary { get; }
 
+    // Unset in production: the default branches below use Avalonia storage and
+    // AiResultImporter exactly as the editor does today.
+    internal Func<CancellationToken, Task<IReadOnlyList<string>>>? ReferenceImagePicker { get; set; }
+
+    internal Func<CancellationToken, Task<AiSaveFileDestination?>>? SaveFilePicker { get; set; }
+
+    internal Func<Bitmap, AiResultImportOptions, CancellationToken, Task<ElementAddResult>>?
+        ResultImporter
+    { get; set; }
+
     public ReadOnlyReactivePropertySlim<bool> ShowJoinPro { get; }
 
     public ReactivePropertySlim<string?> Error { get; } = new();
@@ -579,6 +591,9 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
 
+    private IdentityOperationLifetime.Operation? TryEnterIdentityOperation()
+        => _identityOperations.TryEnter(_operations);
+
     private Task BeginDisposeAsync()
     {
         lock (_disposeGate)
@@ -629,6 +644,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
             _recoveryRevision.Dispose();
             _disposables.Dispose();
         });
+        _identityOperations.Dispose();
     }
 
     /// <summary>
@@ -641,7 +657,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task RefreshModelsAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         // A request waiting to be collected is named partly by the model it was
@@ -688,7 +704,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
         {
             if (!TryRecoverPendingAttempt(attempts[0]))
-                SelectedRecoveryAttempt.Value = null;
+                ClearActiveRecovery();
         }
 
         _recoveryRevision.Value++;
@@ -697,30 +713,31 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     private void OnIdentityChanged()
     {
         string? account = _requestKey.CurrentAccountId;
-        if (_selectedRecovery is not { } selected
-            || StringComparer.Ordinal.Equals(selected.AccountId, account))
+        _identityOperations.Switch(() =>
         {
-            if (_selectedRecovery is null && account is not null)
-                TryAutoRecoverSingleAttempt();
+            _runningRequest = null;
+            IsGenerating.Value = false;
+            ClearActiveRecovery();
+            _chosenAspectRatio = null;
+            _chosenBackground = null;
+            _chosenSeed = null;
+            ClearReferenceImagesCore();
+            Prompt.Value = string.Empty;
+            Style.Value = string.Empty;
+            Composition.Value = string.Empty;
+            Exclusions.Value = string.Empty;
+            ResultImage.Value?.Dispose();
+            ResultImage.Value = null;
+            PreviewImage.Value?.Dispose();
+            PreviewImage.Value = null;
+            Error.Value = null;
+            ModelPicker.ReconcileRecoveryModels();
+            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
+            UpdateReferenceImageState();
             _recoveryRevision.Value++;
-            return;
-        }
-
-        _runningRequest?.Cancel();
-        _selectedRecovery = null;
-        SelectedRecoveryAttempt.Value = null;
-        _chosenAspectRatio = null;
-        _chosenBackground = null;
-        _chosenSeed = null;
-        ClearReferenceImagesCore();
-        Prompt.Value = string.Empty;
-        Style.Value = string.Empty;
-        Composition.Value = string.Empty;
-        Exclusions.Value = string.Empty;
-        ModelPicker.ReconcileRecoveryModels();
-        ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        UpdateReferenceImageState();
-        _recoveryRevision.Value++;
+        });
+        if (account is not null)
+            TryAutoRecoverSingleAttempt();
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -819,8 +836,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
             }
         }
 
-        _selectedRecovery = attempt;
-        SelectedRecoveryAttempt.Value = attempt;
+        ActivateRecovery(attempt);
+        SelectRecoveredModel();
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
         UpdateReferenceImageState();
         _recoveryRevision.Value++;
@@ -837,8 +854,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
                 && selected.Operation == attempt.Operation
                 && selected.Fingerprint == attempt.Fingerprint)
             {
-                _selectedRecovery = null;
-                SelectedRecoveryAttempt.Value = null;
+                ClearActiveRecovery();
                 ModelPicker.ReconcileRecoveryModels();
                 ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
                 UpdateReferenceImageState();
@@ -858,10 +874,29 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
             ? attempt.Model is { } model ? new AiModelId(model) : null
             : selected;
 
+    private void ActivateRecovery(AiPendingAttempt attempt)
+    {
+        _selectedRecovery = attempt;
+        SelectedRecoveryAttempt.Value = attempt;
+        ModelPicker.IsSelectionEnabled.Value = false;
+    }
+
+    private void ClearActiveRecovery()
+    {
+        _selectedRecovery = null;
+        SelectedRecoveryAttempt.Value = null;
+        ModelPicker.IsSelectionEnabled.Value = true;
+    }
+
     private void SelectRecoveredModel()
     {
-        if (_selectedRecovery?.Model is not { } model)
+        if (_selectedRecovery is not { } recovery)
             return;
+        if (recovery.Model is not { } model)
+        {
+            ModelPicker.Selected.Value = null;
+            return;
+        }
         AiModelId id = new(model);
         ModelPicker.Selected.Value = ModelPicker.Options.FirstOrDefault(option => option.Id == id);
     }
@@ -877,8 +912,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
-            _selectedRecovery = null;
-            SelectedRecoveryAttempt.Value = null;
+            ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
             UpdateReferenceImageState();
@@ -937,8 +971,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
-            _selectedRecovery = null;
-            SelectedRecoveryAttempt.Value = null;
+            ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
             UpdateReferenceImageState();
@@ -948,7 +981,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task LoadEntitlementsAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         try
@@ -980,7 +1013,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task GenerateCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null
             || !operation.TryPublish(() =>
             {
@@ -1208,7 +1241,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         }
         finally
         {
-            _runningRequest = null;
+            if (ReferenceEquals(_runningRequest, operation))
+                _runningRequest = null;
             operation.TryPublish(() =>
             {
                 IsGenerating.Value = false;
@@ -1223,7 +1257,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     // arrive after the next one started.
     private void ShowPreview(
         AiImagePreview preview,
-        AsyncOperationLifetime.Operation operation)
+        IdentityOperationLifetime.Operation operation)
     {
         Ref<Bitmap> image;
         try
@@ -1251,10 +1285,12 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task AddToSceneCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (_editViewModel == null || ResultImage.Value?.Value is not { } bitmap)
+            return;
+        if (!operation.IsCurrent)
             return;
 
         try
@@ -1265,17 +1301,26 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
                 .Select(item => item.ZIndex)
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
-            var importer = new AiResultImporter(
-                _editViewModel.Scene,
-                _editViewModel.GetRequiredService<IElementAdder>());
-            ElementAddResult result = await importer.ImportImageAsync(
-                bitmap,
-                new AiResultImportOptions(
-                    start,
-                    TimeSpan.FromSeconds(5),
-                    layer,
-                    Strings.AiImageGeneration),
-                operation.CancellationToken);
+            AiResultImportOptions options = new(
+                start,
+                TimeSpan.FromSeconds(5),
+                layer,
+                Strings.AiImageGeneration);
+            ElementAddResult result;
+            if (ResultImporter is { } importer)
+            {
+                result = await importer(bitmap, options, operation.CancellationToken);
+            }
+            else
+            {
+                var defaultImporter = new AiResultImporter(
+                    _editViewModel.Scene,
+                    _editViewModel.GetRequiredService<IElementAdder>());
+                result = await defaultImporter.ImportImageAsync(
+                    bitmap,
+                    options,
+                    operation.CancellationToken);
+            }
 
             if (result.Failure is LockedElementLayerFailure)
             {
@@ -1302,35 +1347,49 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task SaveToFileCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         using Ref<Bitmap>? resultImage = AiResultImageLease.Acquire(ResultImage.Value);
         if (resultImage?.Value is not { } bitmap)
             return;
 
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window })
-            return;
+        AiSaveFileDestination? destination;
+        if (SaveFilePicker is { } picker)
+        {
+            destination = await picker(operation.CancellationToken);
+        }
+        else
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+                { MainWindow: { } window }
+                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+                return;
+            FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+            options.SuggestedFileName = $"AI Image {DateTime.Now:yyyy-MM-dd HHmmss}";
+            options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
+            options.DefaultExtension = "png";
+            IStorageFile? file = await storage.SaveFilePickerAsync(options);
+            destination = file is null
+                ? null
+                : new AiSaveFileDestination(
+                    file.Path.LocalPath,
+                    _ => file.OpenWriteAsync());
+        }
 
-        if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
-            return;
-
-        FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
-        options.SuggestedFileName = $"AI Image {DateTime.Now:yyyy-MM-dd HHmmss}";
-        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
-        options.DefaultExtension = "png";
-
-        IStorageFile? file = await storage.SaveFilePickerAsync(options);
-        if (file == null)
+        if (destination is null || !operation.IsCurrent)
             return;
 
         try
         {
-            using Stream stream = await file.OpenWriteAsync();
-            operation.CancellationToken.ThrowIfCancellationRequested();
-            stream.SetLength(0);
-            bitmap.Save(stream, EncodedImageFormat.Png);
+            using Stream stream = await destination.OpenWriteAsync(operation.CancellationToken);
+            if (!operation.TryPublish(() =>
+                {
+                    operation.CancellationToken.ThrowIfCancellationRequested();
+                    stream.SetLength(0);
+                    bitmap.Save(stream, EncodedImageFormat.Png);
+                }))
+                return;
             operation.TryPublish(() =>
                 NotificationService.ShowSuccess(Strings.AiImageGeneration, Strings.AiImageSaved));
         }
@@ -1346,23 +1405,29 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task SelectReferenceImageAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window }
-            || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+        IReadOnlyList<string> paths;
+        if (ReferenceImagePicker is { } picker)
         {
-            return;
+            paths = await picker(operation.CancellationToken);
         }
-
-        FilePickerOpenOptions options = SharedFilePickerOptions.OpenAiInputImage();
-        options.AllowMultiple = true;
-        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
-        if (files.Count == 0)
+        else
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+                { MainWindow: { } window }
+                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+                return;
+            FilePickerOpenOptions options = SharedFilePickerOptions.OpenAiInputImage();
+            options.AllowMultiple = true;
+            IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(options);
+            paths = files.Select(file => file.Path.LocalPath).ToArray();
+        }
+        if (paths.Count == 0)
             return;
 
-        operation.TryPublish(() => AddReferenceImages(files.Select(file => file.Path.LocalPath)));
+        operation.TryPublish(() => AddReferenceImages(paths));
     }
 
     /// <summary>

@@ -90,7 +90,7 @@ public class AiToolTabCaptureTests
                 $"ai-workspace-{section.Id.ToString().ToLowerInvariant()}.png");
         }
 
-        workspace.Dispose();
+        await workspace.DisposeAsync();
     }
 
     [AvaloniaTest]

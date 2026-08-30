@@ -28,6 +28,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
+    private readonly IdentityOperationLifetime _identityOperations = new();
     private readonly object _disposeGate = new();
     private readonly ILogger _logger = Log.CreateLogger<AiVideoGenerationDialogViewModel>();
     private readonly IAiEntitlementService _entitlements;
@@ -69,7 +70,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     private readonly HashSet<string> _temporaryFilesPendingDeletion = new(StringComparer.Ordinal);
     private readonly object _lifetimeGate = new();
     private CancellationTokenSource? _pollingCts;
-    private AsyncOperationLifetime.Operation? _runningRequest;
+    private IdentityOperationLifetime.Operation? _runningRequest;
     private string? _firstFrameElementId;
     private string? _lastFrameElementId;
     private AiVideoResultSnapshot? _resultSnapshot;
@@ -109,7 +110,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         PromptLibrary = new AiPromptLibraryViewModel(
                 PromptTaskKind.Video,
                 ComposePrompt,
-                prompt => Prompt.Value = prompt)
+                prompt => Prompt.Value = prompt,
+                recoveryContext: requestRecoveryContext)
             .DisposeWith(_disposables);
 
         Replace(
@@ -663,6 +665,16 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     internal Func<CancellationToken, Task<Bitmap>>? CurrentFrameRenderer { get; set; }
 
+    // Null in production. Tests can suspend the picker/importer at a precise
+    // point while changing the authenticated identity.
+    internal Func<CancellationToken, Task<string?>>? FramePicker { get; set; }
+
+    internal Func<CancellationToken, Task<AiSaveFileDestination?>>? SaveFilePicker { get; set; }
+
+    internal Func<string, AiResultImportOptions, CancellationToken, Task<ElementAddResult>>?
+        ResultImporter
+    { get; set; }
+
     internal Func<TimeSpan, CancellationToken, Task> PollDelayAsync { get; set; } = Task.Delay;
 
     internal TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(5);
@@ -676,6 +688,9 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     public void Dispose() => _ = BeginDisposeAsync();
 
     public ValueTask DisposeAsync() => new(BeginDisposeAsync());
+
+    private IdentityOperationLifetime.Operation? TryEnterIdentityOperation()
+        => _identityOperations.TryEnter(_operations);
 
     private Task BeginDisposeAsync()
     {
@@ -757,6 +772,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 DeleteTemporaryFile(path);
             }
         });
+        _identityOperations.Dispose();
     }
 
     /// <summary>
@@ -769,7 +785,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task RefreshModelsAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         // A clip waiting to be collected is named partly by the model it was
@@ -815,7 +831,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
         {
             if (!TryRecoverPendingAttempt(attempts[0]))
-                SelectedRecoveryAttempt.Value = null;
+                ClearActiveRecovery();
         }
 
         _recoveryRevision.Value++;
@@ -824,33 +840,36 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     private void OnIdentityChanged()
     {
         string? account = _requestKey.CurrentAccountId;
-        if (_selectedRecovery is not { } selected
-            || StringComparer.Ordinal.Equals(selected.AccountId, account))
+        _identityOperations.Switch(() =>
         {
-            if (_selectedRecovery is null && account is not null)
-                TryAutoRecoverSingleAttempt();
+            _runningRequest = null;
+            IsGenerating.Value = false;
+            IsWaitingForJob.Value = false;
+            ClearActiveRecovery();
+            _chosenDuration = null;
+            _chosenResolution = null;
+            _chosenAspectRatio = null;
+            _chosenAudio = true;
+            _chosenSeed = null;
+            SetFrameCore(isFirstFrame: true, null, null);
+            SetFrameCore(isFirstFrame: false, null, null);
+            Prompt.Value = string.Empty;
+            Style.Value = string.Empty;
+            Composition.Value = string.Empty;
+            Motion.Value = string.Empty;
+            Exclusions.Value = string.Empty;
+            if (ResultVideoPath.Value is { } resultPath)
+                RequestTemporaryFileDeletion(resultPath);
+            ResultVideoPath.Value = null;
+            _resultSnapshot = null;
+            StatusText.Value = Strings.AiVideoIdle;
+            Error.Value = null;
+            ModelPicker.ReconcileRecoveryModels();
+            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
             _recoveryRevision.Value++;
-            return;
-        }
-
-        _runningRequest?.Cancel();
-        _selectedRecovery = null;
-        SelectedRecoveryAttempt.Value = null;
-        _chosenDuration = null;
-        _chosenResolution = null;
-        _chosenAspectRatio = null;
-        _chosenAudio = true;
-        _chosenSeed = null;
-        SetFrameCore(isFirstFrame: true, null, null);
-        SetFrameCore(isFirstFrame: false, null, null);
-        Prompt.Value = string.Empty;
-        Style.Value = string.Empty;
-        Composition.Value = string.Empty;
-        Motion.Value = string.Empty;
-        Exclusions.Value = string.Empty;
-        ModelPicker.ReconcileRecoveryModels();
-        ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-        _recoveryRevision.Value++;
+        });
+        if (account is not null)
+            TryAutoRecoverSingleAttempt();
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -938,8 +957,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
         SetFrameCore(isFirstFrame: true, firstPath, firstElement);
         SetFrameCore(isFirstFrame: false, lastPath, lastElement);
-        _selectedRecovery = attempt;
-        SelectedRecoveryAttempt.Value = attempt;
+        ActivateRecovery(attempt);
         ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
         _recoveryRevision.Value++;
         SelectRecoveredModel();
@@ -971,8 +989,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 && selected.Operation == attempt.Operation
                 && selected.Fingerprint == attempt.Fingerprint)
             {
-                _selectedRecovery = null;
-                SelectedRecoveryAttempt.Value = null;
+                ClearActiveRecovery();
                 ModelPicker.ReconcileRecoveryModels();
                 ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
             }
@@ -991,10 +1008,29 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             ? attempt.Model is { } model ? new AiModelId(model) : null
             : selected;
 
+    private void ActivateRecovery(AiPendingAttempt attempt)
+    {
+        _selectedRecovery = attempt;
+        SelectedRecoveryAttempt.Value = attempt;
+        ModelPicker.IsSelectionEnabled.Value = false;
+    }
+
+    private void ClearActiveRecovery()
+    {
+        _selectedRecovery = null;
+        SelectedRecoveryAttempt.Value = null;
+        ModelPicker.IsSelectionEnabled.Value = true;
+    }
+
     private void SelectRecoveredModel()
     {
-        if (_selectedRecovery?.Model is not { } model)
+        if (_selectedRecovery is not { } recovery)
             return;
+        if (recovery.Model is not { } model)
+        {
+            ModelPicker.Selected.Value = null;
+            return;
+        }
         AiModelId id = new(model);
         ModelPicker.Selected.Value = ModelPicker.Options.FirstOrDefault(option => option.Id == id);
     }
@@ -1010,8 +1046,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
-            _selectedRecovery = null;
-            SelectedRecoveryAttempt.Value = null;
+            ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
             _recoveryRevision.Value++;
@@ -1030,8 +1065,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
-            _selectedRecovery = null;
-            SelectedRecoveryAttempt.Value = null;
+            ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
             _recoveryRevision.Value++;
@@ -1042,7 +1076,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task LoadEntitlementsAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         try
@@ -1071,28 +1105,34 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task SelectFrameAsync(bool isFirstFrame)
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window }
-            || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+        string? path;
+        if (FramePicker is { } picker)
         {
-            return;
+            path = await picker(operation.CancellationToken);
         }
-
-        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
-            SharedFilePickerOptions.OpenAiVideoFrame());
-        if (files.Count > 0)
+        else
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+                { MainWindow: { } window }
+                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+                return;
+            IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
+                SharedFilePickerOptions.OpenAiVideoFrame());
+            path = files.Count > 0 ? files[0].Path.LocalPath : null;
+        }
+        if (path is not null)
         {
             operation.TryPublish(() =>
-                SetFrameCore(isFirstFrame, files[0].Path.LocalPath, sourceElementId: null));
+                SetFrameCore(isFirstFrame, path, sourceElementId: null));
         }
     }
 
     private async Task CaptureCurrentFrameAsync()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (_editViewModel is null)
@@ -1167,7 +1207,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private void SetFrame(bool isFirstFrame, string? path, string? sourceElementId = null)
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         operation?.TryPublish(() => SetFrameCore(isFirstFrame, path, sourceElementId));
     }
 
@@ -1235,7 +1275,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private void OpenResultCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (ResultVideoPath.Value is not { } path || !File.Exists(path))
@@ -1243,7 +1283,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
         try
         {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "open" });
+            operation.TryPublish(() =>
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "open" }));
         }
         catch (Exception ex)
         {
@@ -1254,7 +1295,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task GenerateCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (!operation.TryPublish(() =>
@@ -1270,6 +1311,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         _runningRequest = operation;
         bool persistedServerJob = false;
         AiRequestName issued = default;
+        AiRequestRecoveryLease? claim = null;
         try
         {
             string prompt = ComposePrompt();
@@ -1389,7 +1431,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             AiRequestName name = _requestKey.NameFor(requestParts, form, recoverySources);
             issued = name;
             using IDisposable authenticatedScope = _requestKey.EnterAuthenticatedScope(name);
-            using AiRequestRecoveryLease? claim = _requestKey.TryClaim(name);
+            claim = _requestKey.TryClaim(name);
             if (_requestKey.HasDurableRecovery && claim is null)
             {
                 operation.TryPublish(() => Error.Value = Strings.AiResultUnavailable);
@@ -1554,7 +1596,12 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         }
         finally
         {
-            _runningRequest = null;
+            // A dispatched request's fence remains durable after disposal, and
+            // AiRequestKey can reacquire that exact owner on an immediate
+            // same-key refresh. Pre-dispatch claims are released normally.
+            claim?.Dispose();
+            if (ReferenceEquals(_runningRequest, operation))
+                _runningRequest = null;
             operation.TryPublish(() => IsGenerating.Value = false);
         }
     }
@@ -1567,7 +1614,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     /// </returns>
     private async Task<bool> PollJobAsync(
         AiJobId jobId,
-        AsyncOperationLifetime.Operation operation,
+        IdentityOperationLifetime.Operation operation,
         AiVideoResultSnapshot pendingSnapshot)
     {
         CancellationTokenSource pollingCts;
@@ -1627,7 +1674,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                     });
                     return true;
                 }
-                if (status.IsTerminal || !status.ShouldPoll)
+                if (status.IsTerminal)
                 {
                     operation.TryPublish(() =>
                     {
@@ -1635,6 +1682,19 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                         Error.Value = AiErrorMessage.Localize(job.Error) ?? Strings.AiProviderError;
                     });
                     return true;
+                }
+
+                if (!status.ShouldPoll)
+                {
+                    // An unknown status is not a terminal outcome. The server may
+                    // have introduced it during a rolling upgrade, so keep the
+                    // request recoverable and require a later history refresh.
+                    operation.TryPublish(() =>
+                    {
+                        StatusText.Value = Strings.AiResultUnavailable;
+                        Error.Value = Strings.AiResultUnavailable;
+                    });
+                    return false;
                 }
 
                 operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
@@ -1668,7 +1728,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     private async Task<string?> DownloadVideoAsync(
         Uri contentUri,
         AiContentMetadata? declaredMetadata,
-        AsyncOperationLifetime.Operation operation)
+        IdentityOperationLifetime.Operation operation)
     {
         string? filePath = null;
         try
@@ -1958,10 +2018,12 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task AddToSceneCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (_editViewModel == null || ResultVideoPath.Value is not { } filePath)
+            return;
+        if (!operation.IsCurrent)
             return;
         using IDisposable fileLease = AcquireTemporaryFileLease(filePath);
 
@@ -1974,17 +2036,26 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 .DefaultIfEmpty(-1)
                 .Max() + 1;
             int durationSeconds = _resultSnapshot?.DurationSeconds ?? SelectedDuration.Value.Seconds;
-            var importer = new AiResultImporter(
-                _editViewModel.Scene,
-                _editViewModel.GetRequiredService<IElementAdder>());
-            ElementAddResult result = await importer.ImportVideoAsync(
-                filePath,
-                new AiResultImportOptions(
-                    start,
-                    TimeSpan.FromSeconds(durationSeconds),
-                    layer,
-                    Strings.AiVideoGeneration),
-                operation.CancellationToken);
+            AiResultImportOptions options = new(
+                start,
+                TimeSpan.FromSeconds(durationSeconds),
+                layer,
+                Strings.AiVideoGeneration);
+            ElementAddResult result;
+            if (ResultImporter is { } importer)
+            {
+                result = await importer(filePath, options, operation.CancellationToken);
+            }
+            else
+            {
+                var defaultImporter = new AiResultImporter(
+                    _editViewModel.Scene,
+                    _editViewModel.GetRequiredService<IElementAdder>());
+                result = await defaultImporter.ImportVideoAsync(
+                    filePath,
+                    options,
+                    operation.CancellationToken);
+            }
 
             if (result.Failure is LockedElementLayerFailure)
             {
@@ -2021,35 +2092,50 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task SaveToFileCore()
     {
-        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
         if (ResultVideoPath.Value is not { } filePath)
             return;
         using IDisposable fileLease = AcquireTemporaryFileLease(filePath);
 
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } window })
-            return;
+        AiSaveFileDestination? destination;
+        if (SaveFilePicker is { } picker)
+        {
+            destination = await picker(operation.CancellationToken);
+        }
+        else
+        {
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+                { MainWindow: { } window }
+                || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
+                return;
+            FilePickerSaveOptions options = SharedFilePickerOptions.SaveVideo();
+            options.SuggestedFileName = $"AI Video {DateTime.Now:yyyy-MM-dd HHmmss}";
+            options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Videos);
+            options.DefaultExtension = Path.GetExtension(filePath).TrimStart('.');
+            IStorageFile? file = await storage.SaveFilePickerAsync(options);
+            destination = file is null
+                ? null
+                : new AiSaveFileDestination(
+                    file.Path.LocalPath,
+                    _ => file.OpenWriteAsync());
+        }
 
-        if (TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
-            return;
-
-        FilePickerSaveOptions options = SharedFilePickerOptions.SaveVideo();
-        options.SuggestedFileName = $"AI Video {DateTime.Now:yyyy-MM-dd HHmmss}";
-        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Videos);
-        options.DefaultExtension = Path.GetExtension(filePath).TrimStart('.');
-
-        IStorageFile? file = await storage.SaveFilePickerAsync(options);
-        if (file == null)
+        if (destination is null || !operation.IsCurrent)
             return;
 
         try
         {
-            await using Stream source = File.OpenRead(filePath);
-            await using Stream destination = await file.OpenWriteAsync();
-            destination.SetLength(0);
-            await source.CopyToAsync(destination, operation.CancellationToken);
+            byte[] bytes = await File.ReadAllBytesAsync(filePath, operation.CancellationToken);
+            await using Stream destinationStream = await destination.OpenWriteAsync(operation.CancellationToken);
+            if (!operation.TryPublish(() =>
+                {
+                    operation.CancellationToken.ThrowIfCancellationRequested();
+                    destinationStream.SetLength(0);
+                    destinationStream.Write(bytes);
+                }))
+                return;
             operation.TryPublish(() =>
                 NotificationService.ShowSuccess(Strings.AiVideoGeneration, Strings.AiVideoSaved));
         }

@@ -89,10 +89,12 @@ public class OutputTabViewModel : IToolContext
         _logger.LogInformation("Items saved successfully.");
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _outputService.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public void WriteToJson(JsonObject json)
     {

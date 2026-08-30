@@ -27,6 +27,90 @@ public sealed class AsyncOperationLifetimeTests
     }
 
     [Test]
+    public async Task IdentitySwitchRejectsLatePublicationAndCancelsItsToken()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using var identity = new IdentityOperationLifetime();
+        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+
+        bool cleared = false;
+        identity.Switch(() => cleared = true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cleared, Is.True);
+            Assert.That(operation.CancellationToken.IsCancellationRequested, Is.True);
+            Assert.That(operation.TryPublish(static () => { }), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task IdentitySwitchWaitsForPublicationAdmittedBeforeTheSwitch()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using var identity = new IdentityOperationLifetime();
+        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
+        {
+            entered.TrySetResult();
+            release.Task.GetAwaiter().GetResult();
+        }));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task switched = Task.Run(() => identity.Switch(static () => { }));
+        await Task.Delay(50);
+        Assert.That(switched.IsCompleted, Is.False);
+        release.TrySetResult();
+
+        Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        await switched.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(operation.TryPublish(static () => { }), Is.False);
+    }
+
+    [Test]
+    public async Task IdentitySwitchClearsWhenCancellationCallbackThrows()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using var identity = new IdentityOperationLifetime();
+        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        using CancellationTokenRegistration registration = operation.CancellationToken.Register(
+            static () => throw new InvalidOperationException("ignored"));
+
+        bool cleared = false;
+        identity.Switch(() => cleared = true);
+
+        Assert.That(cleared, Is.True);
+    }
+
+    [Test]
+    public async Task IdentitySwitchDoesNotWaitForBlockingCancellationCallback()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using var identity = new IdentityOperationLifetime();
+        AsyncOperationLifetime.Operation parent = lifetime.TryEnter()!;
+        using IdentityOperationLifetime.Operation operation = identity.TryEnter(parent)!;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenRegistration registration = operation.CancellationToken.Register(() =>
+        {
+            entered.TrySetResult();
+            release.Task.GetAwaiter().GetResult();
+        });
+
+        bool cleared = false;
+        Task switchTask = Task.Run(() => identity.Switch(() => cleared = true));
+        await switchTask.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(cleared, Is.True);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        release.TrySetResult();
+    }
+
+    [Test]
     public async Task Cancel_StillPublishesSoTheViewModelCanResetItsState()
     {
         await using var lifetime = new AsyncOperationLifetime();
@@ -36,6 +120,95 @@ public sealed class AsyncOperationLifetimeTests
 
         Assert.That(operation.TryPublish(() => { }), Is.True,
             "Cancelling is not shutdown, so the finally block can still clear the running flag.");
+    }
+
+    [Test]
+    public async Task ClosePublicationRejectsLateCallbacksButKeepsOperationInDrain()
+    {
+        var lifetime = new AsyncOperationLifetime();
+        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+
+        operation.ClosePublication();
+        Task disposal = lifetime.DisposeAsync().AsTask();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(operation.TryPublish(static () => { }), Is.False);
+            Assert.That(disposal.IsCompleted, Is.False,
+                "Closing publication must not detach non-cooperative work from teardown draining.");
+        });
+
+        operation.Dispose();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task ClosePublicationDrainsAlreadyAdmittedCallbackBeforeReturning()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
+        {
+            entered.TrySetResult();
+            release.Task.GetAwaiter().GetResult();
+        }));
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task close = Task.Run(operation.ClosePublication);
+        await Task.Delay(50);
+        Assert.That(close.IsCompleted, Is.False);
+        release.TrySetResult();
+        await close.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(operation.TryPublish(static () => { }), Is.False);
+    }
+
+    [Test]
+    public async Task ClosePublicationIsReentrantFromItsOwnCallback()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        var returned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<bool> publication = Task.Run(() => operation.TryPublish(() =>
+        {
+            operation.ClosePublication();
+            returned.TrySetResult();
+        }));
+
+        await returned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(operation.TryPublish(static () => { }), Is.False);
+    }
+
+    [Test]
+    public async Task ConcurrentPublicationsForOneOperationAreSerialized()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+        int active = 0;
+        int maximum = 0;
+        Task<bool>[] publications = Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+            operation.TryPublish(() =>
+            {
+                int current = Interlocked.Increment(ref active);
+                int observed;
+                do
+                {
+                    observed = Volatile.Read(ref maximum);
+                    if (observed >= current)
+                        break;
+                }
+                while (Interlocked.CompareExchange(ref maximum, current, observed) != observed);
+                Thread.Sleep(10);
+                Interlocked.Decrement(ref active);
+            }))).ToArray();
+
+        Assert.That(await Task.WhenAll(publications), Has.All.True);
+        Assert.That(maximum, Is.EqualTo(1));
     }
 
     [Test]
@@ -87,10 +260,10 @@ public sealed class AsyncOperationLifetimeTests
         Task stopping = await stopInvocation.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(stopping.IsCompleted, Is.False);
 
-        // Publication is admitted independently of the operation handle. Its
-        // drain must keep resources alive even when the caller releases the
-        // handle while the callback is still running.
-        operation.Dispose();
+        // Releasing the operation handle must not wait on callback code. The
+        // admitted publication remains counted in the lifetime drain.
+        Task dispose = Task.Run(operation.Dispose);
+        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(stopping.IsCompleted, Is.False);
         releasePublication.TrySetResult();
         Assert.That(await publication.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);

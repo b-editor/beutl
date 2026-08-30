@@ -336,14 +336,36 @@ internal sealed class AiRequestKey : IDisposable
             AiPendingAttempt? current = _recoveryContext.Store.Find(account, operation, request);
             if (current is null || !StringComparer.Ordinal.Equals(current.Key, name.Key))
                 throw new InvalidDataException("AI request recovery attempt is stale.");
-            AiRequestRecoveryLease claim = _recoveryContext.Store.Claim(account, operation, request, name.Key);
+
+            // An unknown result leaves the dispatched fence durable so another
+            // process cannot overlap the provider call. Keep this process's
+            // exact owner on an immediate retry instead of asking the store for
+            // a competing claim that it must (correctly) reject.
+            if (_claims.GetValueOrDefault(name.Key) is { } localClaim
+                && localClaim.WasDispatched)
+            {
+                if (localClaim.Reacquire())
+                    return localClaim;
+
+                // The old owner may have expired and been replaced after a
+                // process restart. Drop only this local handle, then let the
+                // store's owner-token CAS decide whether a fresh claim is safe.
+                _claims.Remove(name.Key);
+            }
+
+            AiRequestRecoveryLease? claim = _recoveryContext.Store.Claim(account, operation, request, name.Key);
+            if (claim is null)
+                return null;
             _claims[name.Key] = claim;
             return claim;
         }
     }
 
     internal void MarkClaimDispatched(AiRequestRecoveryLease? claim)
-        => claim?.MarkDispatched();
+    {
+        if (claim is not null && !claim.MarkDispatched())
+            throw new InvalidDataException("AI recovery dispatch fence could not be persisted.");
+    }
 
     internal AiPendingAttempt? FindPending(
         AiOperationId operation,

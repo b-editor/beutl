@@ -94,9 +94,7 @@ public class ToolTabReuseTests
 
         public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("fake");
 
-        public void Dispose()
-        {
-        }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public object? GetService(Type serviceType) => null;
 
@@ -133,11 +131,14 @@ public class ToolTabReuseTests
             return FindToolTab<T>(_ => true);
         }
 
-        public bool OpenToolTab(IToolContext item) => true;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => new(true);
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public void Dispose()
         {

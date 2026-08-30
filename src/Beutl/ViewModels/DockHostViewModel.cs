@@ -9,14 +9,21 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public class DockHostViewModel : IDisposable, IJsonSerializable
+internal class DockHostViewModel : IAsyncDisposable
 {
     private const int DockVersion = 2;
     private readonly string _sceneId;
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
     private readonly object _disposeGate = new();
+    private readonly SemaphoreSlim _layoutGate = new(1, 1);
     private Task? _disposeTask;
+    private TaskCompletionSource? _layoutTransitionCompletion;
+    private bool _disposing;
+    private bool _layoutTransitioning;
+    private readonly Dictionary<IToolContext, ToolDisposalRegistration> _toolDisposals =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly List<Task> _pendingDockableDisposals = [];
     private bool _layoutInitialized;
 
     // Set only while ApplyLayout is walking a restore, so a failure mid-walk can dispose the tools
@@ -33,6 +40,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _sceneId = sceneId;
         _editViewModel = editViewModel;
         Factory = new BeutlDockFactory(editViewModel);
+        Factory.DisposalTracker = TrackDockableDisposal;
 
         var placeholder = Factory.CreateRootDock();
         placeholder.Id = DockIds.Root;
@@ -40,9 +48,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         Layout = new ReactivePropertySlim<IRootDock>(placeholder);
     }
 
-    public BeutlDockFactory Factory { get; }
+    internal BeutlDockFactory Factory { get; }
 
-    public ReactivePropertySlim<IRootDock> Layout { get; }
+    internal ReactivePropertySlim<IRootDock> Layout { get; }
 
     public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
     {
@@ -64,12 +72,32 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             .FirstOrDefault(ctx => ctx.Extension.GetType() == extensionType);
     }
 
-    public bool OpenToolTab(IToolContext item)
+    public async Task<bool> OpenToolTabAsync(IToolContext item, IToolDock? target = null)
     {
-        return OpenToolTab(item, target: null);
+        ArgumentNullException.ThrowIfNull(item);
+        await _layoutGate.WaitAsync();
+        bool opened = false;
+        bool rejected = false;
+        try
+        {
+            lock (_disposeGate)
+            {
+                rejected = _disposing || _layoutTransitioning;
+                if (!rejected)
+                    opened = OpenToolTabCore(item, target);
+            }
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
+        if (rejected || !opened)
+            await DisposeContextOnceAsync(item);
+        await DrainPendingDockableDisposalsAsync();
+        return opened && !rejected;
     }
 
-    public bool OpenToolTab(IToolContext item, IToolDock? target)
+    private bool OpenToolTabCore(IToolContext item, IToolDock? target)
     {
         _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
@@ -106,71 +134,162 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         }
     }
 
-    public void CloseToolTab(IToolContext item)
+    public async Task CloseToolTabAsync(IToolContext item)
     {
-        _logger.LogInformation("Attempting to close tool tab '{ToolName}' ({SceneId})", item.Extension.Name, _sceneId);
+        ArgumentNullException.ThrowIfNull(item);
+        bool reentrantToolTeardown = ToolContextDisposal.IsActive;
+        await _layoutGate.WaitAsync();
+        BeutlToolDockable? dockable = null;
+        bool rejected;
+        Task? owningTransition = null;
+        ToolDisposalRegistration? disposal = null;
         try
         {
-            var dockable = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
-            if (dockable is null)
+            lock (_disposeGate)
             {
-                item.Dispose();
-                return;
-            }
+                if (_toolDisposals.TryGetValue(item, out disposal))
+                {
+                    rejected = true;
+                    owningTransition = disposal.Completion.Task;
+                    goto Release;
+                }
+                rejected = _disposing || _layoutTransitioning;
+                if (rejected)
+                {
+                    owningTransition = _disposing
+                        ? _disposeTask
+                        : _layoutTransitionCompletion?.Task;
+                }
+                if (rejected)
+                    goto Release;
 
-            Factory.CloseDockable(dockable);
+                _logger.LogInformation("Attempting to close tool tab '{ToolName}' ({SceneId})", item.Extension.Name, _sceneId);
+                try
+                {
+                    dockable = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
+                    if (dockable is not null)
+                    {
+                        disposal = PrepareDockableDisposal(dockable);
+                        Factory.DetachDockable(dockable);
+                    }
+                    else
+                    {
+                        disposal = PrepareContextDisposal(
+                            item,
+                            () => ToolContextDisposal.DisposeAsync(item));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to close tool tab '{ToolName}'. ({SceneId})", item.Extension.Name, _sceneId);
+                }
+            }
+        Release:
+            ;
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.LogError(ex, "Failed to close tool tab '{ToolName}'. ({SceneId})", item.Extension.Name, _sceneId);
+            _layoutGate.Release();
         }
+        if (rejected)
+        {
+            if (!reentrantToolTeardown && owningTransition is not null)
+                await owningTransition;
+            return;
+        }
+        if (disposal is not null)
+        {
+            disposal.Start.TrySetResult();
+            if (!reentrantToolTeardown)
+                await disposal.Completion.Task;
+        }
+        if (!reentrantToolTeardown)
+            await DrainPendingDockableDisposalsAsync();
     }
 
-    public void OpenDefaultTabs()
+    public async Task OpenDefaultTabsAsync()
     {
+        ToolTabExtension[] extensions;
+        await _layoutGate.WaitAsync();
+        try
+        {
+            lock (_disposeGate)
+            {
+                if (_disposing || _layoutTransitioning)
+                    return;
+                EnsureDefaultLayout();
+                extensions = _editViewModel.ExtensionProvider.AllExtensions
+                    .OfType<ToolTabExtension>()
+                    .Where(e => e.OpenByDefault)
+                    .OrderBy(e => (int)e.DefaultAnchor)
+                    .ThenBy(e => e.DefaultOrder)
+                    .ToArray();
+            }
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
+
         _logger.LogInformation("Opening default tabs ({SceneId})", _sceneId);
-
-        EnsureDefaultLayout();
-
-        var fallback = Factory.GetAnchoredDock(DockAnchor.Left) ?? Factory.FindFirstToolDock();
-
-        var extensions = _editViewModel.ExtensionProvider.AllExtensions
-            .OfType<ToolTabExtension>()
-            .Where(e => e.OpenByDefault)
-            .OrderBy(e => (int)e.DefaultAnchor)
-            .ThenBy(e => e.DefaultOrder);
-
         foreach (var ext in extensions)
         {
-            var target = Factory.GetAnchoredDock(ext.DefaultAnchor) ?? fallback;
-            OpenToolTabFromExtension(ext, target);
+            IToolDock? target;
+            await _layoutGate.WaitAsync();
+            try
+            {
+                target = Factory.GetAnchoredDock(ext.DefaultAnchor)
+                    ?? Factory.GetAnchoredDock(DockAnchor.Left)
+                    ?? Factory.FindFirstToolDock();
+            }
+            finally
+            {
+                _layoutGate.Release();
+            }
+            await OpenToolTabFromExtensionAsync(ext, target);
         }
 
-        if (Factory.GetAnchoredDock(DockAnchor.Bottom) is { } bottomDock)
-            bottomDock.ActiveDockable = bottomDock.VisibleDockables?.FirstOrDefault();
-
-        if (Factory.GetAnchoredDock(DockAnchor.Left) is { } leftDock)
-            leftDock.ActiveDockable = leftDock.VisibleDockables?.FirstOrDefault();
-
-        if (Factory.GetAnchoredDock(DockAnchor.Right) is { } rightDock)
-            rightDock.ActiveDockable = rightDock.VisibleDockables?.FirstOrDefault();
+        await _layoutGate.WaitAsync();
+        try
+        {
+            if (Factory.GetAnchoredDock(DockAnchor.Bottom) is { } bottomDock)
+                bottomDock.ActiveDockable = bottomDock.VisibleDockables?.FirstOrDefault();
+            if (Factory.GetAnchoredDock(DockAnchor.Left) is { } leftDock)
+                leftDock.ActiveDockable = leftDock.VisibleDockables?.FirstOrDefault();
+            if (Factory.GetAnchoredDock(DockAnchor.Right) is { } rightDock)
+                rightDock.ActiveDockable = rightDock.VisibleDockables?.FirstOrDefault();
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
     }
 
-    internal bool OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target)
+    internal Task<bool> OpenToolTabFromExtensionAsync(ToolTabExtension ext, IToolDock? target)
+        => OpenToolTabFromExtensionCoreAsync(ext, target);
+
+    private async Task<bool> OpenToolTabFromExtensionCoreAsync(ToolTabExtension ext, IToolDock? target)
     {
-        if (!ext.TryCreateContext(_editViewModel, out IToolContext? tab)
+        bool rejected;
+        await _layoutGate.WaitAsync();
+        try
+        {
+            lock (_disposeGate)
+                rejected = _disposing || _layoutTransitioning;
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
+
+        if (rejected
+            || !ext.TryCreateContext(_editViewModel, out IToolContext? tab)
             || tab is null)
         {
             return false;
         }
 
-        if (OpenToolTab(tab, target))
-        {
-            return true;
-        }
-
-        tab.Dispose();
-        return false;
+        return await OpenToolTabAsync(tab, target);
     }
 
     private void EnsureDefaultLayout()
@@ -182,41 +301,82 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _layoutInitialized = true;
     }
 
-    public void Dispose()
-        => _ = DisposeAsync();
+    public ValueTask DisposeAsync() => new(GetDisposeTask());
 
-    internal Task DisposeAsync()
+    internal Task GetDisposeTask()
     {
+        TaskCompletionSource? completion = null;
+        Task task;
         lock (_disposeGate)
         {
-            return _disposeTask ??= DisposeCoreAsync();
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            _disposing = true;
+            completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            task = completion.Task;
+        }
+
+        _ = CompleteDisposeAsync(completion);
+        return task;
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Dock host disposal failed ({SceneId})", _sceneId);
+            completion.TrySetException(ex);
         }
     }
 
     private async Task DisposeCoreAsync()
     {
-        _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
-        BeutlToolDockable[] dockables = Factory.EnumerateTools().ToArray();
-        foreach (BeutlToolDockable dockable in dockables)
+        Task? transition;
+        lock (_disposeGate)
+            transition = _layoutTransitionCompletion?.Task;
+        if (transition is not null)
+            await transition;
+
+        BeutlToolDockable[] dockables;
+        ToolDisposalRegistration[] disposals;
+        await _layoutGate.WaitAsync();
+        try
         {
-            Factory.CloseDockable(dockable);
+            _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
+            dockables = Factory.EnumerateTools().ToArray();
+            disposals = dockables.Select(PrepareDockableDisposal).ToArray();
+            foreach (BeutlToolDockable dockable in dockables)
+            {
+                Factory.DetachDockable(dockable);
+            }
+        }
+        finally
+        {
+            _layoutGate.Release();
         }
 
-        foreach (BeutlToolDockable dockable in dockables)
+        foreach (ToolDisposalRegistration disposal in disposals)
+            disposal.Start.TrySetResult();
+        for (int i = 0; i < dockables.Length; i++)
         {
             try
             {
-                await dockable.DisposeAsync();
+                await disposals[i].Completion.Task;
             }
             catch (Exception ex)
             {
-                _logger.LogError(
-                    ex,
-                    "Failed to dispose tool tab '{ToolName}'. ({SceneId})",
-                    dockable.ToolContext.Extension.Name,
-                    _sceneId);
+                _logger.LogError(ex, "Failed to dispose tool tab '{ToolName}'. ({SceneId})", dockables[i].ToolContext.Extension.Name, _sceneId);
             }
         }
+        await AwaitAllToolDisposalsAsync();
     }
 
     public void WriteToJson(JsonObject json)
@@ -226,57 +386,77 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         json["DockLayout"] = SaveNode(Layout.Value);
     }
 
-    public void ReadFromJson(JsonObject json)
+    public async Task<bool> ReadFromJsonAsync(JsonObject json)
     {
-        _logger.LogInformation("Reading DockHostViewModel from JSON ({SceneId})", _sceneId);
+        bool applied = await ApplyLayoutCoreAsync(json, restoreToolState: true);
+        if (applied)
+            return true;
 
-        if (IsCurrentVersion(json) &&
-            json.TryGetPropertyValue("DockLayout", out var layoutNode) &&
-            layoutNode is JsonObject layoutObj)
+        bool needsDefaults;
+        await _layoutGate.WaitAsync();
+        try
         {
-            try
-            {
-                var restored = RestoreNode(layoutObj);
-                if (restored is IRootDock rootDock)
-                {
-                    Factory.SetRootDock(rootDock);
-                    Factory.InitLayout(rootDock);
-                    Layout.Value = rootDock;
-                    _layoutInitialized = true;
-                }
-                else
-                {
-                    ResetToDefaultLayout("restored root dock was not an IRootDock");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to restore dock layout, using defaults ({SceneId})", _sceneId);
-                ResetToDefaultLayout("restore threw an exception");
-            }
+            needsDefaults = !Factory.EnumerateTools().Any();
         }
-        else
+        finally
         {
-            _logger.LogInformation(
-                "Dock layout version missing or mismatched, initializing defaults ({SceneId})",
-                _sceneId);
+            _layoutGate.Release();
         }
-
-        if (!Factory.EnumerateTools().Any())
-        {
-            OpenDefaultTabs();
-        }
+        if (needsDefaults)
+            await OpenDefaultTabsAsync();
+        return false;
     }
 
-    public void ResetLayout()
+    public Task ResetLayoutAsync()
     {
-        ResetToDefaultLayout("user requested");
-        OpenDefaultTabs();
+        return ResetLayoutCoreAsync();
+    }
+
+    private async Task ResetLayoutCoreAsync()
+    {
+        BeutlToolDockable[] previousTools;
+        ToolDisposalRegistration[] disposals;
+        TaskCompletionSource transitionCompletion;
+        await _layoutGate.WaitAsync();
+        try
+        {
+            lock (_disposeGate)
+            {
+                if (_disposing || _layoutTransitioning)
+                    return;
+                _layoutTransitioning = true;
+                transitionCompletion = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _layoutTransitionCompletion = transitionCompletion;
+            }
+
+            previousTools = Factory.EnumerateTools().ToArray();
+            disposals = previousTools.Select(PrepareDockableDisposal).ToArray();
+            foreach (BeutlToolDockable tool in previousTools)
+                Factory.DetachDockable(tool);
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
+
+        try
+        {
+            foreach (ToolDisposalRegistration disposal in disposals)
+                disposal.Start.TrySetResult();
+            await DisposeDockablesAsync(previousTools, "reset");
+            await AwaitAllToolDisposalsAsync();
+            await CompleteTransitionWithDefaultLayoutAsync("user requested");
+        }
+        finally
+        {
+            EndLayoutTransition(transitionCompletion);
+        }
     }
 
     /// <summary>
     /// Captures the current layout in the same shape <see cref="WriteToJson"/> writes, for
-    /// <see cref="ApplyLayout"/> to restore later.
+    /// <see cref="ApplyLayoutAsync"/> to restore later.
     /// </summary>
     /// <remarks>
     /// Per-tool state (selected element ids, search text, ...) is dropped; it belongs to the scene
@@ -284,12 +464,16 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     /// </remarks>
     public JsonObject CaptureLayout()
     {
-        EnsureDefaultLayout();
-        return new JsonObject
+        lock (_disposeGate)
         {
-            ["_dockVersion"] = DockVersion,
-            ["DockLayout"] = SaveNode(Layout.Value, includeToolState: false),
-        };
+            ObjectDisposedException.ThrowIf(_disposing, this);
+            EnsureDefaultLayout();
+            return new JsonObject
+            {
+                ["_dockVersion"] = DockVersion,
+                ["DockLayout"] = SaveNode(Layout.Value, includeToolState: false),
+            };
+        }
     }
 
     /// <summary>
@@ -299,85 +483,409 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     /// The outgoing tool contexts are disposed and the incoming layout builds fresh ones against
     /// this editor, so a layout captured elsewhere restores the arrangement only.
     /// </remarks>
-    public bool ApplyLayout(JsonObject layout)
+    public Task<bool> ApplyLayoutAsync(JsonObject layout)
     {
-        _logger.LogInformation("Applying a saved dock layout ({SceneId})", _sceneId);
+        return ApplyLayoutCoreAsync(layout, restoreToolState: false);
+    }
 
-        // Restore first: a malformed preset must not leave the editor without a layout.
-        IRootDock restored;
-        // Collects every tool built during the walk, so a mid-walk failure can dispose them.
-        var built = new List<BeutlToolDockable>();
-        _restoredTools = built;
-        // A saved layout carries no tool state (see CaptureLayout), so the readers must be skipped.
-        _restoringArrangementOnly = true;
+    private async Task<bool> ApplyLayoutCoreAsync(
+        JsonObject layout,
+        bool restoreToolState)
+    {
+        if (!TryCreateLayoutPlan(layout, out LayoutPlan? plan))
+            return false;
+
+        IRootDock? restored = null;
+        List<BeutlToolDockable>? previousTools = null;
+        ToolDisposalRegistration[]? previousDisposals = null;
+        bool transitionActive = false;
+        TaskCompletionSource? transitionCompletion = null;
+        await _layoutGate.WaitAsync();
         try
         {
-            if (!IsCurrentVersion(layout))
+            lock (_disposeGate)
+            {
+                if (_disposing || _layoutTransitioning)
+                    return false;
+                _layoutTransitioning = true;
+                transitionActive = true;
+                transitionCompletion = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _layoutTransitionCompletion = transitionCompletion;
+            }
+
+            previousTools = Factory.EnumerateTools().ToList();
+            previousDisposals = previousTools.Select(PrepareDockableDisposal).ToArray();
+            foreach (BeutlToolDockable tool in previousTools)
+                Factory.DetachDockable(tool);
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
+
+        try
+        {
+            foreach (ToolDisposalRegistration disposal in previousDisposals!)
+                disposal.Start.TrySetResult();
+            await DisposeDockablesAsync(previousTools!, "layout replacement");
+            await AwaitAllToolDisposalsAsync();
+
+            restored = await TryRestoreLayoutAsync(plan!, restoreToolState);
+            if (restored is null)
+            {
+                await CompleteTransitionWithDefaultLayoutAsync("saved layout materialization failed");
+                EndLayoutTransition(transitionCompletion!);
+                transitionActive = false;
+                return false;
+            }
+
+            bool openDefaults;
+            await _layoutGate.WaitAsync();
+            try
+            {
+                Factory.SetRootDock(restored!);
+                Factory.InitLayout(restored!);
+                Layout.Value = restored!;
+                _layoutInitialized = true;
+                openDefaults = !Factory.EnumerateTools().Any();
+                lock (_disposeGate)
+                    _layoutTransitioning = false;
+            }
+            finally
+            {
+                _layoutGate.Release();
+            }
+            if (openDefaults)
+                await OpenDefaultTabsAsync();
+            EndLayoutTransition(transitionCompletion!);
+            transitionActive = false;
+            return true;
+        }
+        finally
+        {
+            if (transitionActive)
+                EndLayoutTransition(transitionCompletion!);
+        }
+    }
+
+    private void EndLayoutTransition(TaskCompletionSource completion)
+    {
+        lock (_disposeGate)
+        {
+            _layoutTransitioning = false;
+            if (ReferenceEquals(_layoutTransitionCompletion, completion))
+                _layoutTransitionCompletion = null;
+        }
+        completion.TrySetResult();
+    }
+
+    private async Task CompleteTransitionWithDefaultLayoutAsync(string reason)
+    {
+        await _layoutGate.WaitAsync();
+        try
+        {
+            ResetToDefaultLayout(reason);
+            lock (_disposeGate)
+                _layoutTransitioning = false;
+        }
+        finally
+        {
+            _layoutGate.Release();
+        }
+        await OpenDefaultTabsAsync();
+    }
+
+    private async Task DisposeDockablesAsync(
+        IEnumerable<BeutlToolDockable> dockables,
+        string operation)
+    {
+        foreach (BeutlToolDockable tool in dockables)
+        {
+            try
+            {
+                await DisposeDockableOnceAsync(tool);
+            }
+            catch (Exception ex)
             {
                 _logger.LogWarning(
-                    "Saved dock layout was written by an incompatible version ({SceneId})", _sceneId);
-                return false;
+                    ex,
+                    "Failed to dispose a tool during {Operation} ({SceneId})",
+                    operation,
+                    _sceneId);
             }
+        }
+    }
 
-            if (!layout.TryGetPropertyValue("DockLayout", out JsonNode? layoutNode)
-                || layoutNode is not JsonObject layoutObj)
+    private bool TryCreateLayoutPlan(JsonObject layout, out LayoutPlan? plan)
+    {
+        plan = null;
+        JsonObject snapshot = (JsonObject)layout.DeepClone();
+        if (!IsCurrentVersion(snapshot)
+            || !snapshot.TryGetPropertyValue("DockLayout", out JsonNode? node)
+            || node is not JsonObject root
+            || !root.TryGetPropertyValueAsJsonValue("$type", out string? rootType)
+            || rootType != "root")
+            return false;
+        if (!ValidateNode(root))
+            return false;
+        plan = new LayoutPlan(snapshot);
+        return true;
+
+        bool ValidateNode(JsonObject obj)
+        {
+            if (!obj.TryGetPropertyValueAsJsonValue("$type", out string? type))
+                return false;
+            return type switch
             {
-                _logger.LogWarning("Saved dock layout has no DockLayout node ({SceneId})", _sceneId);
-                return false;
-            }
+                "splitter" or "player" => true,
+                "tool" => obj["extension"] is JsonObject ext
+                    && ext.TryGetDiscriminator(out Type? extensionType)
+                    && extensionType is not null
+                    && _editViewModel.ExtensionProvider.AllExtensions
+                        .OfType<ToolTabExtension>()
+                        .Any(candidate => candidate.GetType() == extensionType)
+                    && ValidateOptionalString(obj, "id"),
+                "root" => ValidateOptionalString(obj, "id")
+                    && ValidateChildren(obj, "children")
+                    && ValidateChildren(obj, "hidden")
+                    && ValidateChildren(obj, "leftPinned")
+                    && ValidateChildren(obj, "rightPinned")
+                    && ValidateChildren(obj, "topPinned")
+                    && ValidateChildren(obj, "bottomPinned")
+                    && ValidateWindows(obj),
+                "proportional" => ValidateOptionalString(obj, "id")
+                    && ValidateOptionalEnumString(obj, "orientation", "horizontal", "vertical")
+                    && ValidateOptionalDouble(obj, "proportion", nonNegative: true)
+                    && ValidateChildren(obj, "children"),
+                "tool_dock" => ValidateOptionalString(obj, "id")
+                    && ValidateOptionalString(obj, "alignment")
+                    && ValidateOptionalDouble(obj, "proportion", nonNegative: true)
+                    && ValidateOptionalDouble(obj, "minWidth", nonNegative: true)
+                    && ValidateOptionalDouble(obj, "minHeight", nonNegative: true)
+                    && ValidateOptionalInt32(obj, "activeDockableIndex")
+                    && ValidateChildren(obj, "tools"),
+                _ => false,
+            };
+        }
 
-            if (RestoreNode(layoutObj) is not IRootDock rootDock)
-            {
-                _logger.LogWarning("Saved dock layout did not restore to an IRootDock ({SceneId})", _sceneId);
-                DisposeAll(built, "partially restored");
-                return false;
-            }
+        bool ValidateChildren(JsonObject obj, string key)
+        {
+            if (!obj.TryGetPropertyValue(key, out JsonNode? node))
+                return true;
+            return node is null
+                || node is JsonArray array
+                    && array.All(x => x is JsonObject child && ValidateNode(child));
+        }
 
-            restored = rootDock;
+        bool ValidateWindows(JsonObject obj)
+        {
+            if (!obj.TryGetPropertyValue("windows", out JsonNode? node) || node is null)
+                return true;
+            return node is JsonArray windows && windows.All(item =>
+                item is JsonObject window
+                && window["layout"] is JsonObject windowLayout
+                && ValidateNode(windowLayout)
+                && ValidateOptionalDouble(window, "x", nonNegative: false)
+                && ValidateOptionalDouble(window, "y", nonNegative: false)
+                && ValidateOptionalDouble(window, "width", nonNegative: true)
+                && ValidateOptionalDouble(window, "height", nonNegative: true)
+                && ValidateOptionalBoolean(window, "topmost")
+                && ValidateOptionalString(window, "title"));
+        }
+
+        static bool ValidateOptionalString(JsonObject obj, string key)
+            => !obj.TryGetPropertyValue(key, out JsonNode? node)
+                || node is null
+                || node is JsonValue value && value.TryGetValue(out string? _);
+
+        static bool ValidateOptionalEnumString(
+            JsonObject obj,
+            string key,
+            params string[] values)
+        {
+            if (!obj.TryGetPropertyValue(key, out JsonNode? node) || node is null)
+                return true;
+            return node is JsonValue value
+                && value.TryGetValue(out string? text)
+                && text is not null
+                && values.Contains(text, StringComparer.Ordinal);
+        }
+
+        static bool ValidateOptionalDouble(
+            JsonObject obj,
+            string key,
+            bool nonNegative)
+        {
+            if (!obj.TryGetPropertyValue(key, out JsonNode? node) || node is null)
+                return true;
+            return node is JsonValue value
+                && value.TryGetValue(out double number)
+                && double.IsFinite(number)
+                && (!nonNegative || number >= 0);
+        }
+
+        static bool ValidateOptionalInt32(JsonObject obj, string key)
+            => !obj.TryGetPropertyValue(key, out JsonNode? node)
+                || node is null
+                || node is JsonValue value && value.TryGetValue(out int _);
+
+        static bool ValidateOptionalBoolean(JsonObject obj, string key)
+            => !obj.TryGetPropertyValue(key, out JsonNode? node)
+                || node is null
+                || node is JsonValue value && value.TryGetValue(out bool _);
+    }
+
+    private async Task<IRootDock?> TryRestoreLayoutAsync(
+        LayoutPlan plan,
+        bool restoreToolState)
+    {
+        var built = new List<BeutlToolDockable>();
+        IRootDock? result = null;
+        _restoredTools = built;
+        _restoringArrangementOnly = !restoreToolState;
+        try
+        {
+            JsonObject layout = plan.Snapshot;
+            if (!layout.TryGetPropertyValue("DockLayout", out JsonNode? node)
+                || node is not JsonObject obj)
+                return null;
+            result = RestoreNode(obj) as IRootDock;
+            return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to restore a saved dock layout ({SceneId})", _sceneId);
-            DisposeAll(built, "partially restored");
-            return false;
+            _logger.LogWarning(ex, "Failed to materialize saved dock layout ({SceneId})", _sceneId);
+            return null;
         }
         finally
         {
             _restoredTools = null;
             _restoringArrangementOnly = false;
+            if (result is null)
+            {
+                try
+                {
+                    await Task.WhenAll(built.Select(static t => t.DisposeAsync().AsTask()));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to dispose partially restored tools ({SceneId})", _sceneId);
+                }
+                await AwaitAllToolDisposalsAsync();
+            }
         }
-
-        // Dispose after the swap, and directly — CloseDockable would walk the old tree.
-        var previousTools = Factory.EnumerateTools().ToList();
-
-        Factory.SetRootDock(restored);
-        Factory.InitLayout(restored);
-        Layout.Value = restored;
-        _layoutInitialized = true;
-
-        DisposeAll(previousTools, "replaced");
-
-        if (!Factory.EnumerateTools().Any())
-        {
-            OpenDefaultTabs();
-        }
-
-        return true;
     }
 
-    private void DisposeAll(IEnumerable<BeutlToolDockable> tools, string what)
+    private sealed record LayoutPlan(JsonObject Snapshot);
+
+    private async Task DrainPendingDockableDisposalsAsync()
     {
-        foreach (BeutlToolDockable tool in tools)
+        for (; ; )
         {
+            Task[] pending;
+            lock (_disposeGate)
+            {
+                pending = _pendingDockableDisposals.ToArray();
+                _pendingDockableDisposals.Clear();
+            }
+            if (pending.Length == 0)
+                return;
             try
             {
-                tool.Dispose();
+                await Task.WhenAll(pending);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to dispose a {What} tool tab ({SceneId})", what, _sceneId);
+                _logger.LogWarning(ex, "One or more pending dockable disposals failed ({SceneId})", _sceneId);
             }
         }
+    }
+
+    private async Task AwaitAllToolDisposalsAsync()
+    {
+        Task[] disposals;
+        lock (_disposeGate)
+            disposals = _toolDisposals.Values
+                .Select(static registration => registration.Completion.Task)
+                .Distinct()
+                .ToArray();
+        if (disposals.Length == 0)
+            return;
+        try
+        {
+            await Task.WhenAll(disposals);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "One or more tool disposals failed ({SceneId})", _sceneId);
+        }
+    }
+
+    private void TrackDockableDisposal(BeutlToolDockable dockable)
+    {
+        _ = DisposeDockableOnceAsync(dockable);
+    }
+
+    private Task DisposeDockableOnceAsync(BeutlToolDockable dockable)
+    {
+        ToolDisposalRegistration registration = PrepareDockableDisposal(dockable);
+        registration.Start.TrySetResult();
+        return registration.Completion.Task;
+    }
+
+    private Task DisposeContextOnceAsync(IToolContext context)
+    {
+        ToolDisposalRegistration registration = PrepareContextDisposal(
+            context,
+            () => ToolContextDisposal.DisposeAsync(context));
+        registration.Start.TrySetResult();
+        return registration.Completion.Task;
+    }
+
+    private ToolDisposalRegistration PrepareDockableDisposal(BeutlToolDockable dockable)
+        => PrepareContextDisposal(dockable.ToolContext, dockable.DisposeAsync);
+
+    private ToolDisposalRegistration PrepareContextDisposal(
+        IToolContext context,
+        Func<ValueTask> dispose)
+    {
+        lock (_disposeGate)
+        {
+            if (_toolDisposals.TryGetValue(context, out ToolDisposalRegistration? existing))
+                return existing;
+            var registration = new ToolDisposalRegistration(dispose);
+            _toolDisposals.Add(context, registration);
+            _pendingDockableDisposals.Add(registration.Completion.Task);
+            _ = CompleteToolDisposalAsync(registration);
+            return registration;
+        }
+    }
+
+    private static async Task CompleteToolDisposalAsync(
+        ToolDisposalRegistration registration)
+    {
+        await registration.Start.Task.ConfigureAwait(false);
+        try
+        {
+            await registration.Dispose();
+            registration.Completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            registration.Completion.TrySetException(ex);
+        }
+    }
+
+    private sealed class ToolDisposalRegistration(Func<ValueTask> dispose)
+    {
+        public Func<ValueTask> Dispose { get; } = dispose;
+
+        public TaskCompletionSource Start { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Completion { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private static bool IsCurrentVersion(JsonObject json)
@@ -391,17 +899,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private void ResetToDefaultLayout(string reason)
     {
         _logger.LogWarning("Resetting dock layout to defaults ({Reason}, {SceneId})", reason, _sceneId);
-        foreach (var tool in Factory.EnumerateTools().ToList())
-        {
-            try
-            {
-                Factory.CloseDockable(tool);
-            }
-            catch
-            {
-            }
-        }
-
         _layoutInitialized = false;
         EnsureDefaultLayout();
     }
@@ -716,37 +1213,47 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
         if (extension is null) return null;
 
-        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) return null;
+        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx) || ctx is null) return null;
 
-        if (!_restoringArrangementOnly)
+        BeutlToolDockable? dockable = null;
+        try
         {
-            try
+            if (!_restoringArrangementOnly)
             {
-                ctx.ReadFromJson(obj);
+                try
+                {
+                    ctx.ReadFromJson(obj);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to restore tool state for '{ToolType}' ({SceneId})",
+                        extType.FullName,
+                        _sceneId);
+                }
             }
-            catch (Exception ex)
+
+            dockable = new BeutlToolDockable(ctx, _editViewModel);
+            // Registered before anything that can throw — including the id parse just below — so a
+            // failure anywhere after construction can still dispose it.
+            _restoredTools?.Add(dockable);
+
+            if (obj["id"] is JsonValue idValue
+                && idValue.TryGetValue(out string? savedId)
+                && savedId is { Length: > 0 })
             {
-                _logger.LogWarning(
-                    ex,
-                    "Failed to restore tool state for '{ToolType}' ({SceneId})",
-                    extType.FullName,
-                    _sceneId);
+                dockable.Id = savedId;
             }
+
+            return dockable;
         }
-
-        var dockable = new BeutlToolDockable(ctx, _editViewModel);
-        // Registered before anything that can throw — including the id parse just below — so a
-        // failure anywhere after construction can still dispose it.
-        _restoredTools?.Add(dockable);
-
-        if (obj["id"] is JsonValue idValue
-            && idValue.TryGetValue(out string? savedId)
-            && savedId.Length > 0)
+        catch
         {
-            dockable.Id = savedId;
+            if (dockable is null)
+                _ = DisposeContextOnceAsync(ctx);
+            throw;
         }
-
-        return dockable;
     }
 
     private PlayerToolDockable? RestorePlayerDockable()

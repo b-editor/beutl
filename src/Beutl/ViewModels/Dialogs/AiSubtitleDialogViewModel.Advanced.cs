@@ -428,14 +428,16 @@ public sealed partial class AiSubtitleDialogViewModel
         Interlocked.Increment(ref _sceneAudioRevision);
     }
 
-    private async Task TranscribeSelectedSourceAsync(AudioSourceItem source)
+    private async Task TranscribeSelectedSourceAsync(
+        AudioSourceItem source,
+        AsyncOperationLifetime.Operation operationLifetime)
     {
         long captionRevision = Interlocked.Read(ref _captionDocumentRevision);
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
         string? language = SelectedSourceLanguage.Value.Code;
         if (source.IsSceneMix)
         {
-            await TranscribeSceneMixAsync(source, language, draftScopeRevision);
+            await TranscribeSceneMixAsync(source, language, draftScopeRevision, operationLifetime);
             return;
         }
 
@@ -447,7 +449,8 @@ public sealed partial class AiSubtitleDialogViewModel
             filePath,
             language,
             captionRevision,
-            draftScopeRevision);
+            draftScopeRevision,
+            operationLifetime);
     }
 
     private async Task TranscribeSourceFileAsync(
@@ -455,7 +458,8 @@ public sealed partial class AiSubtitleDialogViewModel
         string filePath,
         string? language,
         long captionRevision,
-        long draftScopeRevision)
+        long draftScopeRevision,
+        AsyncOperationLifetime.Operation operationLifetime)
     {
         SourceAudioFingerprint fingerprint = GetSourceAudioFingerprint(filePath);
         // Opening and decoding are the editor's own work, not the server's, and
@@ -701,7 +705,8 @@ public sealed partial class AiSubtitleDialogViewModel
         string? resultLanguage = operation.DetectedLanguage ?? language;
         AiTranscriptionSegment[] mappedSegments = source.MapSegmentsToScene(
             operation.SourceSegments);
-        if (!ReferenceEquals(SelectedAudioSource.Value, source)
+        if (_disposed
+            || !ReferenceEquals(SelectedAudioSource.Value, source)
             || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
             || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
             || !string.Equals(
@@ -712,19 +717,24 @@ public sealed partial class AiSubtitleDialogViewModel
             return;
         }
 
-        _lastCaptionLanguage = resultLanguage;
-        DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
-        ResultSegments.Value = mappedSegments;
-        _pendingSourceTranscription = null;
-        ClearPartialResult();
+        operationLifetime.TryPublish(() =>
+        {
+            _lastCaptionLanguage = resultLanguage;
+            DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
+            ResultSegments.Value = mappedSegments;
+            _pendingSourceTranscription = null;
+            ClearPartialResult();
+        });
     }
 
     private async Task TranscribeSceneMixAsync(
         AudioSourceItem source,
         string? language,
-        long draftScopeRevision)
+        long draftScopeRevision,
+        AsyncOperationLifetime.Operation operationLifetime)
     {
-        if (_editViewModel is null
+        if (_disposed
+            || _editViewModel is null
             || !TryGetSceneRange(out TimeSpan rangeStart, out TimeSpan duration))
         {
             throw new SubtitleInputException(Strings.AiSubtitle_InvalidRange);
@@ -942,10 +952,13 @@ public sealed partial class AiSubtitleDialogViewModel
             return;
         }
 
-        _lastCaptionLanguage = operation.DetectedLanguage ?? language;
-        DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
-        ResultSegments.Value = CloneSegments(operation.Segments);
-        ClearPartialResult();
+        operationLifetime.TryPublish(() =>
+        {
+            _lastCaptionLanguage = operation.DetectedLanguage ?? language;
+            DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
+            ResultSegments.Value = CloneSegments(operation.Segments);
+            ClearPartialResult();
+        });
     }
 
     private async Task WriteSceneMixWaveAsync(
@@ -976,6 +989,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private async Task TranslateCore()
     {
+        using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
+        if (operationLifetime is null)
+            return;
         long captionRevision = Interlocked.Read(ref _captionDocumentRevision);
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
         if (!TryBuildCaptionDocumentCore(out CaptionDocument? document, out _) || document is null)
@@ -988,7 +1004,9 @@ public sealed partial class AiSubtitleDialogViewModel
         TranslationPreview.Value = null;
         TranslatedLineCount.Value = 0;
         using CancellationTokenSource requestCts =
-            CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+            CancellationTokenSource.CreateLinkedTokenSource(
+                operationLifetime.CancellationToken,
+                _lifetimeCts.Token);
         _requestCts = requestCts;
         try
         {
@@ -1118,7 +1136,8 @@ public sealed partial class AiSubtitleDialogViewModel
                             model: runModel,
                             idempotencyKey: name.Key,
                             limits: requestLimits),
-                        new Progress<AiCaptionTranslationSegment>(ShowTranslatedLine),
+                        new Progress<AiCaptionTranslationSegment>(segment =>
+                            operationLifetime.TryPublish(() => ShowTranslatedLine(segment))),
                         RequestToken);
                 }
                 catch (AiProviderErrorException)
@@ -1158,7 +1177,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 RefreshTranslationEstimate();
             }
 
-            if (operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
+            if (_disposed
+                || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
                 || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
                 || !string.Equals(
                     SelectedTargetLanguage.Value.Code,
@@ -1172,26 +1192,29 @@ public sealed partial class AiSubtitleDialogViewModel
                 return;
             }
 
-            _lastCaptionLanguage = targetLanguage;
-            DetectedLanguageText.Value = CreateDetectedLanguageText(targetLanguage);
-            ReplaceCues(BuildTranslationDocument(operation, includeUntranslatedParts: false));
-            ClearPartialResult();
+            operationLifetime.TryPublish(() =>
+            {
+                _lastCaptionLanguage = targetLanguage;
+                DetectedLanguageText.Value = CreateDetectedLanguageText(targetLanguage);
+                ReplaceCues(BuildTranslationDocument(operation, includeUntranslatedParts: false));
+                ClearPartialResult();
+            });
         }
         catch (AuthenticationRequiredException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired));
         }
         catch (AiPlanRequiredException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProRequired);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProRequired));
         }
         catch (AiUsageLimitExceededException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUsageLimitExceeded);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUsageLimitExceeded));
         }
         catch (AiProviderErrorException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError));
         }
         // Reachable because a batch keeps its name across attempts. None of
         // these is a settlement, so the run keeps its names and can be resumed:
@@ -1199,11 +1222,11 @@ public sealed partial class AiSubtitleDialogViewModel
         // that looked like it would start over.
         catch (AiResultUnavailableException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiResultUnavailable);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiResultUnavailable));
         }
         catch (AiRequestInProgressException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress));
         }
         // この実行の名前が、別の依頼のものになっている。残りは新しい名前で。
         catch (AiRequestChangedException)
@@ -1212,7 +1235,7 @@ public sealed partial class AiSubtitleDialogViewModel
             UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } changed)
                 PublishTranslationPartial(changed);
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged));
         }
         catch (AiRequestWasDeletedException)
         {
@@ -1222,21 +1245,21 @@ public sealed partial class AiSubtitleDialogViewModel
             UpdateOutstandingCaptionRequest();
             if (_pendingTranslation is { } deleted)
                 PublishTranslationPartial(deleted);
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted));
         }
         catch (AiModelDoesNotSupportRequestException)
         {
-            SetCaptionErrorIfCurrent(
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(
                 draftScopeRevision,
-                Strings.AiModelDoesNotSupportRequest);
+                Strings.AiModelDoesNotSupportRequest));
         }
         catch (AiModelUnavailableException)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable));
         }
         catch (SubtitleInputException ex)
         {
-            SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message));
         }
         catch (OperationCanceledException) when (IsRequestCanceled)
         {
@@ -1244,16 +1267,19 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to translate subtitles.");
-            SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUnexpectedError);
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUnexpectedError));
         }
         finally
         {
             _requestCts = null;
-            if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
+            operationLifetime.TryPublish(() =>
             {
-                IsTranslating.Value = false;
-                TranslationPreview.Value = null;
-            }
+                if (IsCurrentCaptionDraftScope(draftScopeRevision))
+                {
+                    IsTranslating.Value = false;
+                    TranslationPreview.Value = null;
+                }
+            });
         }
     }
 
@@ -1492,7 +1518,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private CaptionDraftOutcome PublishTranslationPartial(TranslationOperation operation)
     {
-        if (!IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+        if (_disposed || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
             return CaptionDraftOutcome.Superseded;
 
         _pendingTranslation = operation;
@@ -1596,7 +1622,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private CaptionDraftOutcome PublishSceneTranscriptionPartial(SceneTranscriptionOperation operation)
     {
-        if (!IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+        if (_disposed || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
             return CaptionDraftOutcome.Superseded;
 
         _pendingSceneTranscription = operation;
@@ -1709,7 +1735,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private CaptionDraftOutcome PublishSourceTranscriptionPartial(SourceTranscriptionOperation operation)
     {
-        if (!IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+        if (_disposed || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
             return CaptionDraftOutcome.Superseded;
 
         _pendingSourceTranscription = operation;
@@ -2349,6 +2375,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private async Task ImportCaptionsCore()
     {
+        using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
+        if (operationLifetime is null)
+            return;
         IStorageProvider? storage = GetStorageProvider();
         if (storage is null)
             return;
@@ -2372,8 +2401,8 @@ public sealed partial class AiSubtitleDialogViewModel
             }
             await using Stream stream = await files[0].OpenReadAsync();
             using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory, _lifetimeCts.Token);
-            ImportCaptionBytes(memory.ToArray(), codec.Format);
+            await stream.CopyToAsync(memory, operationLifetime.CancellationToken);
+            operationLifetime.TryPublish(() => ImportCaptionBytes(memory.ToArray(), codec.Format));
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -2381,12 +2410,15 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to import captions.");
-            Error.Value = Strings.AiSubtitle_ImportFailed;
+            operationLifetime.TryPublish(() => Error.Value = Strings.AiSubtitle_ImportFailed);
         }
     }
 
     private async Task ExportCaptionsCore()
     {
+        using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
+        if (operationLifetime is null)
+            return;
         if (!TryBuildCaptionDocument(out CaptionDocument? document, out _) || document is null)
             return;
 
@@ -2415,8 +2447,8 @@ public sealed partial class AiSubtitleDialogViewModel
             byte[] bytes = ExportCaptionBytes(codec.Format);
             await using Stream stream = await file.OpenWriteAsync();
             stream.SetLength(0);
-            await stream.WriteAsync(bytes, _lifetimeCts.Token);
-            NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitle_Exported);
+            await stream.WriteAsync(bytes, operationLifetime.CancellationToken);
+            operationLifetime.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitle_Exported));
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
         {
@@ -2424,7 +2456,7 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to export captions.");
-            Error.Value = Strings.AiSubtitle_ExportFailed;
+            operationLifetime.TryPublish(() => Error.Value = Strings.AiSubtitle_ExportFailed);
         }
     }
 
@@ -2560,6 +2592,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void UpdateOutstandingCaptionRequest()
     {
+        if (_disposed)
+            return;
+
         HasOutstandingTranscriptionRequest.Value =
             _pendingSourceTranscription?.RequestKey.HasOutstandingName.Value == true
             || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true
@@ -2682,7 +2717,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void SetCaptionErrorIfCurrent(long revision, string error)
     {
-        if (IsCurrentCaptionDraftScope(revision))
+        if (!_disposed && IsCurrentCaptionDraftScope(revision))
         {
             Error.Value = error;
         }
@@ -2690,7 +2725,8 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void RecordCaptionDraftJob(AiJobId? jobId, long revision)
     {
-        if (jobId is { } value
+        if (!_disposed
+            && jobId is { } value
             && value.Value.Length > 0
             && IsCurrentCaptionDraftScope(revision))
         {
@@ -2909,6 +2945,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ApplyTranscriptionSegments(AiTranscriptionSegment[]? segments)
     {
+        if (_disposed)
+            return;
+
         if (segments is not { Length: > 0 })
         {
             ReplaceCues(new CaptionDocument());
@@ -2924,6 +2963,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void ReplaceCues(CaptionDocument document)
     {
+        if (_disposed)
+            return;
+
         foreach (EditableCaptionCueViewModel cue in _editableCues)
         {
             cue.PropertyChanged -= OnCuePropertyChanged;
@@ -3036,6 +3078,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void RefreshTranslationEstimate()
     {
+        if (_disposed)
+            return;
+
         _translationEstimateRevision.Value++;
     }
 

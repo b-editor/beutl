@@ -1,4 +1,7 @@
-﻿using System.Reactive.Linq;
+﻿using System.ComponentModel;
+using System.Diagnostics;
+using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -103,8 +106,15 @@ internal sealed record AiPendingAttempt(
 internal sealed class AiRequestRecoveryLease : IDisposable
 {
     private readonly FileAiRequestRecoveryStore _store;
-    private int _released;
-    private bool _dispatched;
+    private const int ActiveState = 0;
+    private const int DispatchingState = 1;
+    private const int DispatchedState = 2;
+    private const int ReleasedState = 3;
+    private int _state;
+    private int _everDispatched;
+    private Timer? _renewalTimer;
+    private int _renewing;
+    private static readonly TimeSpan RenewalCadence = TimeSpan.FromMinutes(5);
 
     internal AiRequestRecoveryLease(
         FileAiRequestRecoveryStore store,
@@ -136,19 +146,165 @@ internal sealed class AiRequestRecoveryLease : IDisposable
 
     internal string OwnerToken { get; }
 
-    internal bool IsDispatched => _dispatched;
+    internal bool IsDispatched => Volatile.Read(ref _state) == DispatchedState;
 
-    internal void MarkDispatched() => _dispatched = true;
+    internal bool IsReleased => Volatile.Read(ref _state) == ReleasedState;
+
+    internal bool WasDispatched => Volatile.Read(ref _everDispatched) != 0;
+
+    internal bool MarkDispatched()
+    {
+        while (true)
+        {
+            int state = Volatile.Read(ref _state);
+            if (state == DispatchedState)
+                return true;
+            if (state == DispatchingState)
+            {
+                Thread.Yield();
+                continue;
+            }
+            if (state != ActiveState
+                || Interlocked.CompareExchange(ref _state, DispatchingState, ActiveState) != ActiveState)
+                return false;
+            break;
+        }
+
+        bool persisted;
+        try
+        {
+            persisted = _store.MarkClaimDispatched(this);
+        }
+        catch
+        {
+            Volatile.Write(ref _state, ActiveState);
+            throw;
+        }
+        if (!persisted)
+        {
+            Volatile.Write(ref _state, ActiveState);
+            return false;
+        }
+
+        StartRenewalTimer();
+        Volatile.Write(ref _everDispatched, 1);
+        if (Interlocked.CompareExchange(ref _state, DispatchedState, DispatchingState)
+            != DispatchingState)
+        {
+            Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Extends the durable dispatched fence. Call on a cadence shorter than
+    /// <see cref="FileAiRequestRecoveryStore.ClaimLifetime"/> while provider
+    /// work is active; returns false after expiry, settle, or owner loss.
+    /// </summary>
+    internal bool Renew()
+        => Volatile.Read(ref _state) == DispatchedState
+            && _store.RenewClaim(this);
+
+    /// <summary>
+    /// Reacquires this process's own dispatched fence after an unknown result.
+    /// The owner token is part of the compare-and-swap, so another process can
+    /// never take over through this path.
+    /// </summary>
+    internal bool Reacquire()
+    {
+        int state = Volatile.Read(ref _state);
+        if (Volatile.Read(ref _everDispatched) == 0
+            || state == DispatchingState)
+            return false;
+
+        if (state != DispatchedState
+            && Interlocked.CompareExchange(ref _state, DispatchingState, ReleasedState)
+                != ReleasedState)
+            return false;
+        if (state == DispatchedState
+            && Interlocked.CompareExchange(ref _state, DispatchingState, DispatchedState)
+                != DispatchedState)
+            return false;
+
+        bool reacquired = _store.ReacquireClaim(this);
+        if (reacquired)
+        {
+            Volatile.Write(ref _state, DispatchedState);
+            StartRenewalTimer();
+        }
+        else
+        {
+            Volatile.Write(ref _state, ReleasedState);
+            Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+        }
+        return reacquired;
+    }
+
+    private void StartRenewalTimer()
+    {
+        Timer? timer = _renewalTimer;
+        if (timer is null)
+        {
+            timer = new Timer(
+                static state => ((AiRequestRecoveryLease)state!).RenewTick(),
+                this,
+                Timeout.InfiniteTimeSpan,
+                Timeout.InfiniteTimeSpan);
+            Timer? previous = Interlocked.CompareExchange(ref _renewalTimer, timer, null);
+            if (previous is not null)
+            {
+                timer.Dispose();
+                timer = previous;
+            }
+        }
+        timer.Change(RenewalCadence, RenewalCadence);
+    }
+
+    private void RenewTick()
+    {
+        if (Volatile.Read(ref _state) != DispatchedState
+            || Interlocked.Exchange(ref _renewing, 1) != 0)
+            return;
+        try
+        {
+            if (!Renew())
+                _renewalTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning("AI recovery claim renewal failed: {0}", ex.Message);
+        }
+        finally
+        {
+            Volatile.Write(ref _renewing, 0);
+        }
+    }
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _released, 1) == 0)
-            _store.ReleaseClaim(this, force: false);
+        while (true)
+        {
+            int state = Volatile.Read(ref _state);
+            if (state == ReleasedState)
+                return;
+            if (state == DispatchingState)
+            {
+                Thread.Yield();
+                continue;
+            }
+            if (Interlocked.CompareExchange(ref _state, ReleasedState, state) == state)
+                break;
+        }
+
+        Timer? timer = Interlocked.Exchange(ref _renewalTimer, null);
+        timer?.Dispose();
+        _store.ReleaseClaim(this, force: false);
     }
 }
 
 /// <summary>Atomic, bounded local storage for unresolved metered AI attempts.</summary>
-internal sealed class FileAiRequestRecoveryStore
+internal sealed class FileAiRequestRecoveryStore : IDisposable
 {
     // Keep the version at one so rows written by the previous key-only store
     // remain readable. They are intentionally marked as lacking a form and can
@@ -169,13 +325,17 @@ internal sealed class FileAiRequestRecoveryStore
 
     private readonly object _gate = new();
     private readonly HashSet<string> _newSourceFiles = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FileStream> _pendingPublicationMarkers = new(StringComparer.Ordinal);
     private readonly string _path;
     private readonly string _sourceDirectory;
     private readonly string _generationPath;
     private readonly string _claimPath;
+    private readonly Func<DateTimeOffset> _utcNow;
     private string LockPath => _path + ".lock";
 
-    public FileAiRequestRecoveryStore(string storageDirectory)
+    public FileAiRequestRecoveryStore(
+        string storageDirectory,
+        Func<DateTimeOffset>? utcNow = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageDirectory);
         string fullDirectory = Path.GetFullPath(storageDirectory);
@@ -185,14 +345,26 @@ internal sealed class FileAiRequestRecoveryStore
         _sourceDirectory = Path.Combine(fullDirectory, SourceDirectoryName);
         _generationPath = Path.Combine(fullDirectory, "ai-request-recovery-generations.json");
         _claimPath = Path.Combine(fullDirectory, "ai-request-recovery-claims.json");
+        _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
         Directory.CreateDirectory(_sourceDirectory);
         RestrictDirectory(_sourceDirectory);
+        SweepStoreTemporaryFiles(fullDirectory);
         SweepOrphanedSources();
     }
 
     internal string StoragePath => _path;
 
     internal string SourceDirectory => _sourceDirectory;
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            foreach (FileStream marker in _pendingPublicationMarkers.Values)
+                marker.Dispose();
+            _pendingPublicationMarkers.Clear();
+        }
+    }
 
     internal int GetGeneration(string accountId, string operation, string fingerprint)
     {
@@ -330,16 +502,12 @@ internal sealed class FileAiRequestRecoveryStore
 
             records.Add(attempt);
             Save(records);
-            foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
-            {
-                if (source.DurableFile is { } durable)
-                    _newSourceFiles.Remove(durable);
-            }
+            MarkSourcesCommitted(attempt.EffectiveSources);
             return attempt;
         }
     }
 
-    internal AiRequestRecoveryLease Claim(
+    internal AiRequestRecoveryLease? Claim(
         string accountId,
         string operation,
         string fingerprint,
@@ -360,18 +528,21 @@ internal sealed class FileAiRequestRecoveryStore
 
             int generation = GetGenerationCore(accountId, operation, fingerprint);
             List<AiRequestRecoveryClaim> claims = LoadClaims();
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = _utcNow();
             claims.RemoveAll(claim => claim.ExpiresAt <= now);
-            AiRequestRecoveryClaim? competing = claims.FirstOrDefault(claim =>
+            int removedStale = claims.RemoveAll(claim =>
                 claim.AccountId == accountId
                 && claim.Operation == operation
-                && claim.Fingerprint == fingerprint);
-            if (competing is not null
-                && (competing.Generation != generation
-                    || !StringComparer.Ordinal.Equals(competing.Key, key)))
+                && claim.Fingerprint == fingerprint
+                && (claim.Generation != generation
+                    || !StringComparer.Ordinal.Equals(claim.Key, key)));
+            if (claims.Any(claim => claim.AccountId == accountId
+                && claim.Operation == operation
+                && claim.Fingerprint == fingerprint))
             {
-                claims.Remove(competing);
-                competing = null;
+                if (removedStale > 0)
+                    SaveClaims(claims);
+                return null;
             }
             if (claims.Count >= MaximumClaims)
             {
@@ -389,7 +560,8 @@ internal sealed class FileAiRequestRecoveryStore
                 key,
                 generation,
                 owner,
-                now.Add(ClaimLifetime)));
+                now.Add(ClaimLifetime),
+                Dispatched: false));
             SaveClaims(claims);
             return new AiRequestRecoveryLease(
                 this,
@@ -402,6 +574,80 @@ internal sealed class FileAiRequestRecoveryStore
         }
     }
 
+    /// <summary>Persists the dispatch fence and extends its lease.</summary>
+    internal bool MarkClaimDispatched(AiRequestRecoveryLease claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        lock (_gate)
+        {
+            using FileStream lease = AcquireLock();
+            List<AiRequestRecoveryClaim> claims = LoadClaims();
+            int index = claims.FindIndex(item => MatchesClaim(item, claim));
+            if (index < 0)
+                return false;
+            DateTimeOffset now = _utcNow();
+            AiRequestRecoveryClaim current = claims[index];
+            if (current.ExpiresAt <= now)
+                return false;
+            claims[index] = current with { Dispatched = true, ExpiresAt = now.Add(ClaimLifetime) };
+            SaveClaims(claims);
+            return true;
+        }
+    }
+
+    /// <summary>Renews a live dispatched claim using owner/generation CAS.</summary>
+    internal bool RenewClaim(AiRequestRecoveryLease claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        lock (_gate)
+        {
+            using FileStream lease = AcquireLock();
+            List<AiRequestRecoveryClaim> claims = LoadClaims();
+            int index = claims.FindIndex(item => MatchesClaim(item, claim));
+            if (index < 0)
+                return false;
+            DateTimeOffset now = _utcNow();
+            AiRequestRecoveryClaim current = claims[index];
+            if (!current.Dispatched || current.ExpiresAt <= now)
+                return false;
+            claims[index] = current with { ExpiresAt = now.Add(ClaimLifetime) };
+            SaveClaims(claims);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Renews a dispatched fence using its original owner token, including
+    /// after its TTL elapsed. A competing process may claim an expired fence
+    /// first; in that case the exact-owner match fails closed.
+    /// </summary>
+    internal bool ReacquireClaim(AiRequestRecoveryLease claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        lock (_gate)
+        {
+            using FileStream lease = AcquireLock();
+            List<AiRequestRecoveryClaim> claims = LoadClaims();
+            int index = claims.FindIndex(item => MatchesClaim(item, claim));
+            if (index < 0)
+                return false;
+            AiRequestRecoveryClaim current = claims[index];
+            if (!current.Dispatched)
+                return false;
+            claims[index] = current with { ExpiresAt = _utcNow().Add(ClaimLifetime) };
+            SaveClaims(claims);
+            return true;
+        }
+    }
+
+    private static bool MatchesClaim(AiRequestRecoveryClaim item, AiRequestRecoveryLease claim)
+        => item.AccountId == claim.AccountId
+            && item.Operation == claim.Operation
+            && item.Fingerprint == claim.Fingerprint
+            && item.Generation == claim.Generation
+            && item.Key == claim.Key
+            && item.OwnerToken == claim.OwnerToken;
+
     internal void ReleaseClaim(AiRequestRecoveryLease claim, bool force)
     {
         lock (_gate)
@@ -410,7 +656,7 @@ internal sealed class FileAiRequestRecoveryStore
             {
                 using FileStream lease = AcquireLock();
                 List<AiRequestRecoveryClaim> claims = LoadClaims();
-                int removed = force || !claim.IsDispatched
+                int removed = force || !claim.WasDispatched
                     ? claims.RemoveAll(item =>
                     item.AccountId == claim.AccountId
                     && item.Operation == claim.Operation
@@ -471,7 +717,7 @@ internal sealed class FileAiRequestRecoveryStore
             if (!StringComparer.Ordinal.Equals(existing.Key, attempt.Key))
                 return false;
             List<AiRequestRecoveryClaim> claims = LoadClaims();
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = _utcNow();
             if (claims.Any(claim => claim.AccountId == attempt.AccountId
                 && claim.Operation == attempt.Operation
                 && claim.Fingerprint == attempt.Fingerprint
@@ -526,7 +772,7 @@ internal sealed class FileAiRequestRecoveryStore
             if (existing is null || !StringComparer.Ordinal.Equals(existing.Key, key))
                 return false;
             List<AiRequestRecoveryClaim> claims = LoadClaims();
-            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = _utcNow();
             claims.RemoveAll(claim => claim.ExpiresAt <= now);
             if (claims.Any(claim => claim.AccountId == accountId
                 && claim.Operation == operation
@@ -632,13 +878,40 @@ internal sealed class FileAiRequestRecoveryStore
         string token = $"{Guid.NewGuid():N}.src";
         string destination = Path.Combine(_sourceDirectory, token);
         string temporary = destination + $".{Guid.NewGuid():N}.tmp";
+        string marker = destination + ".pending";
+        bool published = false;
+        FileStream? markerLease = null;
         try
         {
+            // The marker is durable before the source is published. Startup
+            // sweeping therefore cannot mistake a long row-publication stall
+            // for an orphan until the marker lease expires.
+            var markerOptions = new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.ReadWrite,
+                Share = FileShare.None,
+                Options = FileOptions.WriteThrough | FileOptions.SequentialScan,
+            };
+            if (!OperatingSystem.IsWindows())
+                markerOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            markerLease = new FileStream(marker, markerOptions);
+            markerLease.Write(System.Text.Encoding.UTF8.GetBytes(_utcNow().ToString("O")));
+            markerLease.Flush(flushToDisk: true);
+            RestrictFile(marker);
+            EnsureDirectorySynced(_sourceDirectory);
             WritePrivateBytes(temporary, content);
-            File.Move(temporary, destination, overwrite: false);
+            AtomicReplace(temporary, destination, overwrite: false);
+            published = true;
             RestrictFile(destination);
+            EnsureDirectorySynced(_sourceDirectory);
             lock (_gate)
+            {
                 _newSourceFiles.Add(token);
+                _pendingPublicationMarkers[token] = markerLease
+                    ?? throw new IOException("AI recovery source publication marker was lost.");
+                markerLease = null;
+            }
             return new AiRequestRecoverySource(
                 role,
                 Path: null,
@@ -650,7 +923,10 @@ internal sealed class FileAiRequestRecoveryStore
         }
         finally
         {
+            markerLease?.Dispose();
             TryDelete(temporary);
+            if (!published)
+                TryDelete(marker);
         }
     }
 
@@ -700,6 +976,7 @@ internal sealed class FileAiRequestRecoveryStore
                         && _newSourceFiles.Contains(durable))
                     {
                         TryDelete(Path.Combine(_sourceDirectory, durable));
+                        TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
                         _newSourceFiles.Remove(durable);
                     }
                 }
@@ -721,6 +998,9 @@ internal sealed class FileAiRequestRecoveryStore
             if (source.DurableFile is { } durable && !retained.Contains(durable))
             {
                 TryDelete(Path.Combine(_sourceDirectory, durable));
+                if (_pendingPublicationMarkers.Remove(durable, out FileStream? marker))
+                    marker.Dispose();
+                TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
                 _newSourceFiles.Remove(durable);
             }
         }
@@ -731,7 +1011,12 @@ internal sealed class FileAiRequestRecoveryStore
         foreach (AiRequestRecoverySource source in sources)
         {
             if (source.DurableFile is { } durable)
+            {
                 _newSourceFiles.Remove(durable);
+                if (_pendingPublicationMarkers.Remove(durable, out FileStream? marker))
+                    marker.Dispose();
+                TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
+            }
         }
     }
 
@@ -745,15 +1030,67 @@ internal sealed class FileAiRequestRecoveryStore
                 .Where(source => source.DurableFile is not null)
                 .Select(source => source.DurableFile!)
                 .ToHashSet(StringComparer.Ordinal);
-            DateTime now = DateTime.UtcNow;
-            foreach (string path in Directory.EnumerateFiles(_sourceDirectory, "*.src"))
+            DateTime now = _utcNow().UtcDateTime;
+            foreach (string path in Directory.EnumerateFiles(_sourceDirectory))
             {
                 string name = Path.GetFileName(path);
+                if (name.EndsWith(".pending", StringComparison.Ordinal))
+                {
+                    // A crash can happen after the publication marker is
+                    // flushed but before the source rename. There is then no
+                    // `.src` entry below to reclaim the marker. Keep a marker
+                    // while its owner is active or inside the grace period;
+                    // once it is old and unlocked, it is an orphan temp file.
+                    string sourcePath = path[..^".pending".Length];
+                    bool sourceExists = File.Exists(sourcePath);
+                    bool markerLocked = IsMarkerLocked(path);
+                    bool markerIsOld = now - File.GetLastWriteTimeUtc(path) >= OrphanSourceAge;
+                    if (sourceExists)
+                    {
+                        // Once the source is referenced by a durable row, a
+                        // stale marker is no longer needed. This closes the
+                        // crash window between row publication and marker
+                        // deletion without touching an unregistered source.
+                        if (retained.Contains(Path.GetFileName(sourcePath))
+                            && !markerLocked
+                            && markerIsOld)
+                        {
+                            TryDelete(path);
+                        }
+                        continue;
+                    }
+
+                    if (markerLocked || !markerIsOld)
+                    {
+                        continue;
+                    }
+
+                    TryDelete(path);
+                    continue;
+                }
+                if (name.Contains(".src.", StringComparison.Ordinal)
+                    && name.EndsWith(".tmp", StringComparison.Ordinal))
+                {
+                    if (now - File.GetLastWriteTimeUtc(path) >= OrphanSourceAge
+                        && !IsMarkerLocked(path))
+                        TryDelete(path);
+                    continue;
+                }
+                if (!name.EndsWith(".src", StringComparison.Ordinal))
+                    continue;
                 if (retained.Contains(name))
                     continue;
                 DateTime written = File.GetLastWriteTimeUtc(path);
+                string marker = path + ".pending";
+                if (File.Exists(marker)
+                    && (now - File.GetLastWriteTimeUtc(marker) < OrphanSourceAge
+                        || IsMarkerLocked(marker)))
+                    continue;
                 if (now - written >= OrphanSourceAge)
+                {
                     TryDelete(path);
+                    TryDelete(marker);
+                }
             }
         }
         catch (Exception ex) when (ex is IOException
@@ -762,6 +1099,23 @@ internal sealed class FileAiRequestRecoveryStore
         {
             // Recovery is fail-closed. Never sweep when the index could not be
             // read, because a source may still be referenced by a valid row.
+        }
+    }
+
+    private static void SweepStoreTemporaryFiles(string directory)
+    {
+        try
+        {
+            DateTime cutoff = DateTime.UtcNow - OrphanSourceAge;
+            foreach (string path in Directory.EnumerateFiles(directory, "*.json.*.tmp"))
+            {
+                if (File.GetLastWriteTimeUtc(path) < cutoff
+                    && !IsMarkerLocked(path))
+                    TryDelete(path);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
 
@@ -1005,8 +1359,9 @@ internal sealed class FileAiRequestRecoveryStore
         try
         {
             WritePrivateBytes(temporary, bytes);
-            File.Move(temporary, _path, overwrite: true);
+            AtomicReplace(temporary, _path, overwrite: true);
             RestrictFile(_path);
+            EnsureDirectorySynced(Path.GetDirectoryName(_path)!);
         }
         finally
         {
@@ -1147,8 +1502,9 @@ internal sealed class FileAiRequestRecoveryStore
         try
         {
             WritePrivateBytes(temporary, bytes);
-            File.Move(temporary, _generationPath, overwrite: true);
+            AtomicReplace(temporary, _generationPath, overwrite: true);
             RestrictFile(_generationPath);
+            EnsureDirectorySynced(Path.GetDirectoryName(_generationPath)!);
         }
         finally
         {
@@ -1182,6 +1538,18 @@ internal sealed class FileAiRequestRecoveryStore
                 SerializerOptions);
             if (claims is null || claims.Count > MaximumClaims)
                 throw new InvalidDataException("AI recovery claim count exceeds its limit.");
+            HashSet<string> identities = new(StringComparer.Ordinal);
+            foreach (AiRequestRecoveryClaim claim in claims)
+            {
+                ValidateIdentity(claim.AccountId, claim.Operation, claim.Fingerprint);
+                if (!IsPrintable(claim.Key, 255)
+                    || claim.Generation < 0
+                    || !IsPrintable(claim.OwnerToken, 128)
+                    || !identities.Add($"{claim.AccountId}\n{claim.Operation}\n{claim.Fingerprint}\n{claim.OwnerToken}"))
+                {
+                    throw new InvalidDataException("AI recovery claim is invalid or duplicated.");
+                }
+            }
             return claims;
         }
         catch (Exception ex) when (ex is IOException
@@ -1206,8 +1574,9 @@ internal sealed class FileAiRequestRecoveryStore
         try
         {
             WritePrivateBytes(temporary, bytes);
-            File.Move(temporary, _claimPath, overwrite: true);
+            AtomicReplace(temporary, _claimPath, overwrite: true);
             RestrictFile(_claimPath);
+            EnsureDirectorySynced(Path.GetDirectoryName(_claimPath)!);
         }
         finally
         {
@@ -1252,7 +1621,12 @@ internal sealed class FileAiRequestRecoveryStore
             foreach (AiRequestRecoverySource source in attempt.EffectiveSources)
             {
                 if (source.DurableFile is { } durable && !retained.Contains(durable))
+                {
                     TryDelete(Path.Combine(_sourceDirectory, durable));
+                    if (_pendingPublicationMarkers.Remove(durable, out FileStream? marker))
+                        marker.Dispose();
+                    TryDelete(Path.Combine(_sourceDirectory, durable + ".pending"));
+                }
             }
         }
     }
@@ -1283,7 +1657,8 @@ internal sealed class FileAiRequestRecoveryStore
         string Key,
         int Generation,
         string OwnerToken,
-        DateTimeOffset ExpiresAt);
+        DateTimeOffset ExpiresAt,
+        bool Dispatched = false);
 
     private static readonly HashSet<string> FormProperties =
         [
@@ -1430,7 +1805,8 @@ internal sealed class FileAiRequestRecoveryStore
 
         if (source.Path is null && source.DurableFile is null)
             throw new InvalidDataException("AI recovery source has no locator.");
-        if (source.ContentHash.Length != 64
+        if (string.IsNullOrEmpty(source.ContentHash)
+            || source.ContentHash.Length != 64
             || !source.ContentHash.All(Uri.IsHexDigit))
         {
             throw new InvalidDataException("AI recovery source hash is invalid.");
@@ -1500,6 +1876,73 @@ internal sealed class FileAiRequestRecoveryStore
         stream.Flush(flushToDisk: true);
         RestrictFile(path);
     }
+
+    private static void AtomicReplace(string temporary, string destination, bool overwrite)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.Move(temporary, destination, overwrite);
+            return;
+        }
+        const uint replace = 0x1;
+        const uint writeThrough = 0x8;
+        if (!MoveFileEx(temporary, destination, writeThrough | (overwrite ? replace : 0)))
+            throw new IOException("Atomic recovery-file replacement failed.", new Win32Exception(Marshal.GetLastWin32Error()));
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool MoveFileEx(string existingFileName, string newFileName, uint flags);
+
+    /// <summary>
+    /// Flushes directory metadata after rename on Unix. Windows provides no
+    /// portable directory fsync; file contents are flushed and rename is
+    /// atomic, but directory-entry durability is delegated to the filesystem.
+    /// </summary>
+    private static void EnsureDirectorySynced(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        int fd = UnixOpen(path, 0);
+        if (fd < 0)
+            throw new IOException($"Unable to open directory for durability sync (errno {Marshal.GetLastWin32Error()}).");
+        try
+        {
+            if (UnixFsync(fd) != 0)
+                throw new IOException($"Unable to fsync directory (errno {Marshal.GetLastWin32Error()}).");
+        }
+        finally
+        {
+            if (UnixClose(fd) != 0)
+                throw new IOException($"Unable to close synced directory (errno {Marshal.GetLastWin32Error()}).");
+        }
+    }
+
+    private static bool IsMarkerLocked(string path)
+    {
+        try
+        {
+            using FileStream stream = new(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
+    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
+    private static extern int UnixOpen(string path, int flags);
+
+    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    private static extern int UnixFsync(int fd);
+
+    [DllImport("libc", EntryPoint = "close", SetLastError = true)]
+    private static extern int UnixClose(int fd);
 
     private static bool IsWithinDirectory(string path, string directory)
     {
@@ -1625,7 +2068,11 @@ internal sealed class AiRequestRecoveryContext : IDisposable
         return _store.Abandon(attempt);
     }
 
-    public void Dispose() => _identitySubscription?.Dispose();
+    public void Dispose()
+    {
+        _identitySubscription?.Dispose();
+        _store.Dispose();
+    }
 
     public IDisposable Enter(string issuedAccountId)
     {

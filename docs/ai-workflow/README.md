@@ -46,6 +46,7 @@ beutl/
 - [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 8 subagents and 6 hooks
 - [spec-driven-development.md](./spec-driven-development.md) — how to use Spec-Kit
 - [gpl-mit-boundary.md](./gpl-mit-boundary.md) — IPC boundary around `Beutl.FFmpegWorker`
+- [async-editor-context-migration.md](./async-editor-context-migration.md) — migration to awaited editor and tool-context teardown
 - [loop-engineering.md](./loop-engineering.md) — the `/beutl-loop` autonomous board-draining loop, its risk-gated auto-merge, and its guardrails
 
 ## First-run note

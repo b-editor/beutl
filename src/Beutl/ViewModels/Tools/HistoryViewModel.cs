@@ -86,10 +86,12 @@ public sealed class HistoryViewModel : IToolContext
         await _editViewModel.RedoHistoryAsync();
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public object? GetService(Type serviceType)
     {

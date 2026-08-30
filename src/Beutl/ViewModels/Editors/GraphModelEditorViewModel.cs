@@ -83,7 +83,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         }
     }
 
-    public void OpenNodeGraphTab()
+    public async void OpenNodeGraphTab()
     {
         if (this.GetService<IEditorContext>() is not { } editorContext) return;
         if (Value.Value == null) return;
@@ -97,7 +97,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
         tab.Model.Value = Value.Value;
 
-        editorContext.OpenToolTab(tab);
+        await editorContext.OpenToolTabAsync(tab);
     }
 
     protected override void Dispose(bool disposing)

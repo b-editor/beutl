@@ -27,6 +27,88 @@ namespace Beutl.HeadlessUITests;
 public sealed class AiSubtitleAdvancedTests
 {
     [Test]
+    public async Task DisposeAsync_DrainsAdmittedSubtitleOperationAndRejectsLatePublication()
+    {
+        string directory = CreateDraftDirectory();
+        try
+        {
+            var viewModel = CreateTeardownViewModel(directory);
+            await Task.Delay(25);
+            var lifetime = GetOperations(viewModel);
+            AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
+
+            Task first = viewModel.DisposeAsync().AsTask();
+            Task second = viewModel.DisposeAsync().AsTask();
+            Assert.That(second, Is.SameAs(first));
+            Assert.That(first.IsCompleted, Is.False);
+
+            operation.Dispose();
+            await first.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(operation.TryPublish(static () => { }), Is.False);
+            await viewModel.DisposeAsync();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task TranslateCore_NonCooperativeServiceDrainsBeforeSubtitleCleanup()
+    {
+        string directory = CreateDraftDirectory();
+        var translation = new BlockingSubtitleTranslation();
+        try
+        {
+            var viewModel = CreateTeardownViewModel(directory, translation);
+            Assert.That(
+                viewModel.ImportCaptionBytes(
+                    Encoding.UTF8.GetBytes("1\n00:00:00,000 --> 00:00:01,000\nhello\n"),
+                    CaptionFormats.Srt),
+                Is.True);
+            Task translate = (Task)typeof(AiSubtitleDialogViewModel)
+                .GetMethod("TranslateCore", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(viewModel, null)!;
+            await translation.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task disposal = viewModel.DisposeAsync().AsTask();
+            Assert.That(disposal.IsCompleted, Is.False);
+            translation.Release.TrySetResult();
+            await translate.WaitAsync(TimeSpan.FromSeconds(5));
+            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public async Task DisposeAsync_CancellationCallbackFailureStillCleansUp()
+    {
+        string directory = CreateDraftDirectory();
+        try
+        {
+            var viewModel = CreateTeardownViewModel(directory);
+            await Task.Delay(25);
+            AsyncOperationLifetime.Operation operation = GetOperations(viewModel).TryEnter()!;
+            using CancellationTokenRegistration registration = operation.CancellationToken.Register(
+                static () => throw new InvalidOperationException("subtitle cancellation callback failed"));
+
+            Task disposal = viewModel.DisposeAsync().AsTask();
+            operation.Dispose();
+            Assert.That(
+                async () => await disposal.WaitAsync(TimeSpan.FromSeconds(5)),
+                Throws.InstanceOf<InvalidOperationException>());
+            Assert.That(viewModel.DisposeAsync().AsTask(), Is.SameAs(disposal));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
     public void SpeechWave_DownmixesAndResamplesToCompactPcm16()
     {
         const int sampleRate = 48_000;
@@ -427,6 +509,112 @@ public sealed class AiSubtitleAdvancedTests
             CaptionCatalog.CreateDefault("Default"),
             draftStore ?? CaptionDraftStoreProvider.Current,
             scopes ?? Observable.Return<CaptionDraftScope?>(null));
+
+    private static AiSubtitleDialogViewModel CreateTeardownViewModel(
+        string directory,
+        IAiCaptionTranslationService? translation = null)
+        => new(
+            new SubtitleStubEntitlements(),
+            new SubtitleStubAvailability(),
+            new SubtitleStubModelCatalog(),
+            new SubtitleStubPlanCoordinator(),
+            new SubtitleStubTranscription(),
+            translation ?? new SubtitleStubTranslation(),
+            CaptionCatalog.CreateDefault("Default"),
+            new FileCaptionDraftStore(directory),
+            Observable.Return<CaptionDraftScope?>(null));
+
+    private static AsyncOperationLifetime GetOperations(AiSubtitleDialogViewModel viewModel)
+        => (AsyncOperationLifetime)typeof(AiSubtitleDialogViewModel)
+            .GetField("_operations", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(viewModel)!;
+
+    private sealed class SubtitleStubEntitlements : IAiEntitlementService
+    {
+        public IReadOnlyReactiveProperty<AiEntitlements?> Entitlements { get; }
+            = new ReactivePropertySlim<AiEntitlements?>();
+
+        public Task<AiEntitlements?> RefreshAsync(CancellationToken cancellationToken)
+            => Task.FromResult<AiEntitlements?>(null);
+    }
+
+    private sealed class SubtitleStubAvailability : IAiOperationAvailabilityService
+    {
+        public Task<bool> CheckAsync(
+            AiOperationAvailabilityRequest request,
+            CancellationToken cancellationToken)
+            => Task.FromResult(true);
+    }
+
+    private sealed class SubtitleStubModelCatalog : IAiModelCatalogService
+    {
+        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
+            => Task.FromResult(AiModelCatalog.Empty);
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    private sealed class SubtitleStubPlanCoordinator : IAiPlanCoordinator
+    {
+        public void OpenAccountSettings()
+        {
+        }
+
+        public void OpenAiPlan()
+        {
+        }
+
+        public Task RefreshIfPendingAsync(CancellationToken cancellationToken)
+            => Task.CompletedTask;
+    }
+
+    private sealed class SubtitleStubTranscription : IAiTranscriptionService
+    {
+        public Task<AiTranscriptionResponse> TranscribeAsync(
+            AiTranscriptionRequest request,
+            CancellationToken cancellationToken)
+            => Task.FromException<AiTranscriptionResponse>(
+                new InvalidOperationException("not used"));
+    }
+
+    private sealed class SubtitleStubTranslation : IAiCaptionTranslationService
+    {
+        public Task<AiCaptionTranslationResponse> TranslateAsync(
+            AiCaptionTranslationRequest request,
+            CancellationToken cancellationToken)
+            => Task.FromException<AiCaptionTranslationResponse>(
+                new InvalidOperationException("not used"));
+
+        public Task<AiCaptionTranslationResponse> TranslateAsync(
+            AiCaptionTranslationRequest request,
+            IProgress<AiCaptionTranslationSegment>? progress,
+            CancellationToken cancellationToken)
+            => Task.FromException<AiCaptionTranslationResponse>(
+                new InvalidOperationException("not used"));
+    }
+
+    private sealed class BlockingSubtitleTranslation : IAiCaptionTranslationService
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<AiCaptionTranslationResponse> TranslateAsync(
+            AiCaptionTranslationRequest request,
+            CancellationToken cancellationToken)
+            => TranslateAsync(request, progress: null, cancellationToken);
+
+        public async Task<AiCaptionTranslationResponse> TranslateAsync(
+            AiCaptionTranslationRequest request,
+            IProgress<AiCaptionTranslationSegment>? progress,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Release.Task;
+            return new AiCaptionTranslationResponse(null, []);
+        }
+    }
 
     private static void SaveDraft(
         ICaptionDraftStore store,

@@ -15,9 +15,9 @@ namespace Beutl.UnitTests.Editor;
 public class TimelineTabViewModelTests
 {
     [Test]
-    public void DirectRazorModeSet_ClearsActiveTrimMode()
+    public async Task DirectRazorModeSet_ClearsActiveTrimMode()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
         viewModel.IsSlipMode.Value = true;
 
         viewModel.IsRazorMode.Value = true;
@@ -32,9 +32,9 @@ public class TimelineTabViewModelTests
     }
 
     [Test]
-    public void DirectTrimModeSet_ClearsRazorAndOtherTrimModes()
+    public async Task DirectTrimModeSet_ClearsRazorAndOtherTrimModes()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
         viewModel.IsRazorMode.Value = true;
 
         viewModel.IsRollMode.Value = true;
@@ -61,9 +61,9 @@ public class TimelineTabViewModelTests
     // The V/Escape gestures are shared by every Exit* command; the dispatcher relies on
     // CanExecute being true only for the active mode to fall through to the right one.
     [Test]
-    public void CanExecute_ExitCommands_TrueOnlyForActiveMode()
+    public async Task CanExecute_ExitCommands_TrueOnlyForActiveMode()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
         viewModel.IsRollMode.Value = true;
 
         Assert.Multiple(() =>
@@ -76,9 +76,9 @@ public class TimelineTabViewModelTests
     }
 
     [Test]
-    public void CanExecute_ExitCommands_AllFalseWhenNoModeActive()
+    public async Task CanExecute_ExitCommands_AllFalseWhenNoModeActive()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
 
         Assert.Multiple(() =>
         {
@@ -92,9 +92,9 @@ public class TimelineTabViewModelTests
     // A live tracked-layer-top subscription is what closes the loop — without a subscriber the
     // synchronous Height emits reach nothing and no re-entry happens at all.
     [Test]
-    public void CalculateLayerTop_DeepLayer_WithTrackedSubscriber_GrowsWithoutRecursing()
+    public async Task CalculateLayerTop_DeepLayer_WithTrackedSubscriber_GrowsWithoutRecursing()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
         using IDisposable subscription = viewModel.GetTrackedLayerTopObservable(1).Subscribe(_ => { });
 
         double top = viewModel.CalculateLayerTop(2000);
@@ -111,9 +111,9 @@ public class TimelineTabViewModelTests
     // The subscriber's own layer is above the growth, so every new header's height feeds it and
     // it must still end holding the completed sum, not a partial one.
     [Test]
-    public void TrackedLayerTop_DeepSubscriber_EndsWithCompletedSum()
+    public async Task TrackedLayerTop_DeepSubscriber_EndsWithCompletedSum()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
         double observed = double.NaN;
         using IDisposable subscription = viewModel.GetTrackedLayerTopObservable(2000)
             .Subscribe(v => observed = v);
@@ -124,9 +124,9 @@ public class TimelineTabViewModelTests
     }
 
     [Test]
-    public void ToLayerNumber_FarBelowLastHeader_WithTrackedSubscriber_GrowsWithoutRecursing()
+    public async Task ToLayerNumber_FarBelowLastHeader_WithTrackedSubscriber_GrowsWithoutRecursing()
     {
-        using TimelineTabViewModel viewModel = CreateViewModel();
+        await using TimelineTabViewModel viewModel = CreateViewModel();
         using IDisposable subscription = viewModel.GetTrackedLayerTopObservable(1).Subscribe(_ => { });
         double deepOffset = viewModel.CalculateLayerTop(1) * 2000;
 
@@ -184,14 +184,17 @@ public class TimelineTabViewModelTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item)
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item)
         {
-            return false;
+            return new ValueTask<bool>(false);
         }
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class TestTimelineOptionsProvider(Scene scene) : ITimelineOptionsProvider

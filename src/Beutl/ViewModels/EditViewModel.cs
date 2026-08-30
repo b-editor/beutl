@@ -22,6 +22,7 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Dock;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -63,6 +64,9 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
     private readonly HashSet<string> _pendingProxyInvalidations = new(StringComparer.Ordinal);
     private bool _proxyInvalidationScheduled;
     private volatile bool _disposed;
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
+    private readonly Task _restoreTask;
 
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
@@ -181,7 +185,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
 
-        RestoreState();
+        _restoreTask = RestoreStateAsync();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
@@ -601,46 +605,79 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
 
-    public DockHostViewModel DockHost { get; }
+    internal DockHostViewModel DockHost { get; }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
-        Scene scene = Scene;
+        TaskCompletionSource<object?>? completion = null;
+        Task task;
+        bool reentrantToolTeardown = ToolContextDisposal.IsActive;
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+            {
+                return reentrantToolTeardown
+                    ? ValueTask.CompletedTask
+                    : new ValueTask(_disposeTask);
+            }
 
-        // Block any proxy-invalidation flush already posted to the UI thread from running after this
-        // nulls Scene / disposes FrameCacheManager below.
-        _disposed = true;
-        GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        if (scene.Uri is not null)
-            SaveState();
-        _editorSelection.SelectedObject.Value = null;
-        // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
-        DisposeCommandStateNotifier();
-        // Tool contexts can own paid-AI operations that still publish through the editor.
-        // Cancel and drain them before retiring element handlers and the player.
-        await DockHost.DisposeAsync();
-        // Retire and cancel UI-initiated element operations before waiting for handler leases.
-        // Awaiting yields the UI thread so cancellation continuations can release those leases.
-        await _elementAdder.DisposeAsync();
-        await Player.DisposeAsync();
-        _elementNudgeService?.Dispose();
-        _historyMutationPlaybackGuard.Dispose();
-        _disposables.Dispose();
-        IsEnabled.Dispose();
-        Player = null!;
-        BufferStatus = null!;
+            completion = new TaskCompletionSource<object?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            task = completion.Task;
+        }
 
-        // History can retain an undone unsaved element across a save. Once the editor closes and
-        // history is about to be discarded, no live or redoable item may still own this directory.
-        UnsavedSceneStorage.Cleanup(scene.Id);
-        Scene = null!;
-        Commands = null!;
-        HistoryManager.Clear();
-        FrameCacheManager.Value.Dispose();
-        FrameCacheManager.Dispose();
+        _ = DisposeCoreAsync(completion);
+        return reentrantToolTeardown ? ValueTask.CompletedTask : new ValueTask(task);
+    }
 
-        _logger.LogInformation("Disposed EditViewModel ({SceneId}).", SceneId);
+    private async Task DisposeCoreAsync(TaskCompletionSource<object?> completion)
+    {
+        try
+        {
+            _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
+            Scene scene = Scene;
+
+            // Block any proxy-invalidation flush already posted to the UI thread from running after this
+            // nulls Scene / disposes FrameCacheManager below.
+            _disposed = true;
+            GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
+            if (scene.Uri is not null)
+                SaveState();
+            _editorSelection.SelectedObject.Value = null;
+            // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
+            DisposeCommandStateNotifier();
+            // Tool contexts can own paid-AI operations that still publish through the editor.
+            // Cancel and drain them before retiring element handlers and the player.
+            await _restoreTask.ConfigureAwait(false);
+            await DockHost.DisposeAsync();
+            // Retire and cancel UI-initiated element operations before waiting for handler leases.
+            // Awaiting yields the UI thread so cancellation continuations can release those leases.
+            await _elementAdder.DisposeAsync();
+            await Player.DisposeAsync();
+            _elementNudgeService?.Dispose();
+            _historyMutationPlaybackGuard.Dispose();
+            _disposables.Dispose();
+            IsEnabled.Dispose();
+            Player = null!;
+            BufferStatus = null!;
+
+            // History can retain an undone unsaved element across a save. Once the editor closes and
+            // history is about to be discarded, no live or redoable item may still own this directory.
+            UnsavedSceneStorage.Cleanup(scene.Id);
+            Scene = null!;
+            Commands = null!;
+            HistoryManager.Clear();
+            FrameCacheManager.Value.Dispose();
+            FrameCacheManager.Dispose();
+
+            _logger.LogInformation("Disposed EditViewModel ({SceneId}).", SceneId);
+            completion.TrySetResult(null);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)
@@ -655,15 +692,11 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         return FindToolTab<T>(_ => true);
     }
 
-    public bool OpenToolTab(IToolContext item)
-    {
-        return DockHost.OpenToolTab(item);
-    }
+    public ValueTask<bool> OpenToolTabAsync(IToolContext item)
+        => new(DockHost.OpenToolTabAsync(item));
 
-    public void CloseToolTab(IToolContext item)
-    {
-        DockHost.CloseToolTab(item);
-    }
+    public ValueTask CloseToolTabAsync(IToolContext item)
+        => new(DockHost.CloseToolTabAsync(item));
 
     private string ViewStateDirectory()
     {
@@ -721,7 +754,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         json.JsonSave(Path.Combine(viewStateDir, $"{name}.config"));
     }
 
-    private void RestoreState()
+    private async Task RestoreStateAsync()
     {
         string viewStateDir = ViewStateDirectory();
         string name = Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath);
@@ -730,7 +763,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         if (!File.Exists(viewStateFile))
         {
             _logger.LogInformation("No state file found, opening default tabs.");
-            SafeOpenDefaultTabs();
+            await SafeOpenDefaultTabsAsync();
             return;
         }
 
@@ -745,7 +778,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         {
             _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
             QuarantineCorruptViewState(viewStateFile);
-            SafeOpenDefaultTabs();
+            await SafeOpenDefaultTabsAsync();
             return;
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
@@ -754,7 +787,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             // (TOCTOU — another process or a user cleanup). Nothing to protect, so treat
             // this like the no-state-file branch and let SaveState() proceed normally.
             _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be read; opening default tabs ({SceneId}).", viewStateFile, SceneId);
-            SafeOpenDefaultTabs();
+            await SafeOpenDefaultTabsAsync();
             return;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -765,7 +798,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             // overwrite it with the default layout before the user gets a chance to recover.
             _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
             _viewStateSaveSuppressed = true;
-            SafeOpenDefaultTabs();
+            await SafeOpenDefaultTabsAsync();
             return;
         }
 
@@ -780,7 +813,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                 viewStateFile,
                 SceneId);
             QuarantineCorruptViewState(viewStateFile);
-            SafeOpenDefaultTabs();
+            await SafeOpenDefaultTabsAsync();
             return;
         }
 
@@ -849,7 +882,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
             _timelineOptionsProvider.Options.Value = timelineOptions;
 
-            DockHost.ReadFromJson(jsonObject);
+            await DockHost.ReadFromJsonAsync(jsonObject);
 
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
@@ -866,18 +899,18 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             // quarantining a valid file on those would permanently lose the layout.
             _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
             QuarantineCorruptViewState(viewStateFile);
-            SafeOpenDefaultTabs();
+            await SafeOpenDefaultTabsAsync();
         }
     }
 
-    private void SafeOpenDefaultTabs()
+    private async Task SafeOpenDefaultTabsAsync()
     {
         // OpenDefaultTabs runs arbitrary tool-extension code, so swallow recoverable
         // exceptions here — the scene must remain openable even when the
         // default-layout fallback itself fails. OOM / cancellation propagate.
         try
         {
-            DockHost.OpenDefaultTabs();
+            await DockHost.OpenDefaultTabsAsync();
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
         {

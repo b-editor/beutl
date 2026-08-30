@@ -300,8 +300,6 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         {
             _logger.LogError(ex, "Failed to stop the agent host during shutdown.");
         }
-        _aiRequestRecoveryContext.Dispose();
-
         try
         {
             _aiJobCompletionNotifier.Dispose();
@@ -321,6 +319,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         {
             _logger.LogError(ex, "Failed to close the active project during shutdown.");
         }
+
+        // Recovery source publication markers belong to the editor operations
+        // above. Release their cross-process locks only after every tab has
+        // canceled and drained its paid-AI work.
+        _aiRequestRecoveryContext.Dispose();
 
         try
         {
@@ -364,28 +367,28 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         await CompleteShutdownAsync();
     }
 
-    internal void OpenAiJobCenter()
-        => OpenAiWorkspace(AiWorkspaceSection.Jobs);
+    internal async void OpenAiJobCenter()
+        => await OpenAiWorkspaceAsync(AiWorkspaceSection.Jobs);
 
-    internal void OpenAiImageGeneration()
-        => OpenAiWorkspace(AiWorkspaceSection.ImageGeneration);
+    internal async void OpenAiImageGeneration()
+        => await OpenAiWorkspaceAsync(AiWorkspaceSection.ImageGeneration);
 
-    internal void OpenAiImageEdit()
-        => OpenAiWorkspace(AiWorkspaceSection.ImageEdit);
+    internal async void OpenAiImageEdit()
+        => await OpenAiWorkspaceAsync(AiWorkspaceSection.ImageEdit);
 
-    internal void OpenAiSubtitle(AiCaptionHistoryResult? historyResult = null)
+    internal async void OpenAiSubtitle(AiCaptionHistoryResult? historyResult = null)
     {
-        if (OpenAiWorkspace(AiWorkspaceSection.Subtitles) is AiSubtitleDialogViewModel viewModel
+        if (await OpenAiWorkspaceAsync(AiWorkspaceSection.Subtitles) is AiSubtitleDialogViewModel viewModel
             && historyResult is not null)
         {
             viewModel.LoadHistoryResult(historyResult);
         }
     }
 
-    internal void OpenAiVideoGeneration()
-        => OpenAiWorkspace(AiWorkspaceSection.VideoGeneration);
+    internal async void OpenAiVideoGeneration()
+        => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoGeneration);
 
-    private object? OpenAiWorkspace(AiWorkspaceSection section)
+    private async Task<object?> OpenAiWorkspaceAsync(AiWorkspaceSection section)
     {
         if (_editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editorContext)
         {
@@ -402,15 +405,17 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         if (workspace is null)
         {
             workspace = CreateAiWorkspaceViewModel(editorContext);
-            if (!editorContext.OpenToolTab(workspace))
+            if (!await editorContext.OpenToolTabAsync(workspace))
             {
-                workspace.Dispose();
                 return null;
             }
         }
         else
         {
-            editorContext.OpenToolTab(workspace);
+            if (!await editorContext.OpenToolTabAsync(workspace))
+            {
+                return null;
+            }
         }
 
         return workspace.Show(section);
@@ -447,7 +452,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 .FirstOrDefault(section => !shown.Contains(section!.Value));
     }
 
-    private IDisposable CreateAiPage(AiWorkspaceSection section, EditViewModel editViewModel)
+    private IAsyncDisposable CreateAiPage(AiWorkspaceSection section, EditViewModel editViewModel)
         => section switch
         {
             AiWorkspaceSection.ImageGeneration => CreateAiImageGenerationToolViewModel(editViewModel),

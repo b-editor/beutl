@@ -15,7 +15,10 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
+using Beutl.Graphics;
 using Beutl.Language;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
@@ -248,6 +251,58 @@ public sealed class AiJobCenterTests
         Assert.DoesNotThrow(() => operation!.Dispose());
         Assert.That(item.TryBeginOperation(), Is.Null);
         Assert.DoesNotThrow(item.Dispose);
+    }
+
+    [Test]
+    public void Item_PreviewClaimCanBeRetriedAfterTransientFailure()
+    {
+        using var item = CreateItem(CreateJob(
+            kind: "image",
+            status: "succeeded",
+            url: "https://beutl.beditor.net/api/contents/preview"));
+        Assert.That(item.TryClaimPreviewLoad(), Is.True);
+        item.ResetPreviewLoadClaim();
+        Assert.That(item.TryClaimPreviewLoad(), Is.True);
+    }
+
+    [AvaloniaTest]
+    public void Item_DisposeLinearizesPreviewNotificationAndReleasesBitmap()
+    {
+        using var item = CreateItem(CreateJob(
+            kind: "image",
+            status: "succeeded",
+            url: "https://beutl.beditor.net/api/contents/preview"));
+        int notifications = 0;
+        item.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(item.Preview))
+                notifications++;
+        };
+        var bitmap = Ref<Bitmap>.Create(Bitmap.FromStream(new MemoryStream(s_png)));
+        item.SetPreview(bitmap);
+        item.Dispose();
+        Assert.That(notifications, Is.EqualTo(1));
+        Assert.That(item.Preview, Is.Null);
+        Assert.That(bitmap.Value, Is.Null,
+            "Disposal must release the native bitmap owned by the item.");
+    }
+
+    [Test]
+    public void Item_SetPreviewAfterDisposeDisposesIncomingBitmapWithoutNotification()
+    {
+        using var item = CreateItem(CreateJob(kind: "image", status: "succeeded", url: "https://beutl.beditor.net/api/contents/preview"));
+        int notifications = 0;
+        item.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(item.Preview)) notifications++;
+        };
+        item.Dispose();
+        var incoming = Ref<Bitmap>.Create(Bitmap.FromStream(new MemoryStream(s_png)));
+        item.SetPreview(incoming);
+        Assert.That(notifications, Is.Zero);
+        Assert.That(item.Preview, Is.Null);
+        Assert.That(incoming.Value, Is.Null,
+            "A preview delivered after disposal must be released immediately.");
     }
 
     [AvaloniaTest]
@@ -750,6 +805,218 @@ public sealed class AiJobCenterTests
         });
     }
 
+    [AvaloniaTest]
+    public async Task RetryConfirmationWithoutDescriptorStopsLoading()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-missing-descriptor");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        using var item = new AiJobItemViewModel(
+            CreateJob(
+                "vendor.missing",
+                "retryable",
+                ParseInput("{\"prompt\":\"missing\"}"),
+                canRetry: true),
+            clients.GetResource<IAiJobKindRegistry>(),
+            _resultHandlers);
+
+        await viewModel.RequestRetryConfirmationAsync(item);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.IsConfirmationLoading.Value, Is.False);
+            Assert.That(viewModel.CanConfirm.Value, Is.False);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task RetryConfirmationCancellationDrainsSlowPreflightBeforeUnloading()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-slow-preflight");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
+        using var viewModel = CreateJobCenter(editor, clients);
+        var slow = new SlowRetryHandler();
+        await using IAiJobKindRegistration registration = registry.Register(
+            RetryDescriptor("vendor.slow", slow));
+        using var item = new AiJobItemViewModel(
+            CreateJob("vendor.slow", "retryable", ParseInput("{\"prompt\":\"slow\"}"), canRetry: true),
+            registry,
+            _resultHandlers);
+
+        Task confirmation = viewModel.RequestRetryConfirmationAsync(item);
+        await slow.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Task unload = registration.DisposeAsync().AsTask();
+        Assert.That(unload.IsCompleted, Is.False);
+
+        viewModel.CancelConfirmation();
+        Assert.That(unload.IsCompleted, Is.False,
+            "Cancellation must not unload an extension while its preflight is still running.");
+        slow.Release.TrySetResult();
+        await confirmation;
+        await unload.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(slow.CancellationObserved, Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task DisposeAsyncReturnsSamePendingTaskWhilePreflightDrains()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-dispose-idempotent");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
+        using var viewModel = CreateJobCenter(editor, clients);
+        var slow = new SlowRetryHandler();
+        await using IAiJobKindRegistration registration = registry.Register(RetryDescriptor("vendor.dispose", slow));
+        using var item = new AiJobItemViewModel(
+            CreateJob("vendor.dispose", "retryable", ParseInput("{\"prompt\":\"slow\"}"), canRetry: true),
+            registry,
+            _resultHandlers);
+
+        Task confirmation = viewModel.RequestRetryConfirmationAsync(item);
+        await slow.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Task unload = registration.DisposeAsync().AsTask();
+        viewModel.Dispose();
+        Task first = viewModel.DisposeAsync().AsTask();
+        Task second = viewModel.DisposeAsync().AsTask();
+        Assert.That(second, Is.SameAs(first));
+        Assert.That(first.IsCompleted, Is.False);
+        slow.Release.TrySetResult();
+        await confirmation;
+        await first;
+        await unload;
+    }
+
+    [AvaloniaTest]
+    public async Task DisposeAsyncDrainsNonCooperativeResultHandler()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-result-drain");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
+        using var viewModel = CreateJobCenter(editor, clients);
+        var blocking = new BlockingResultHandler();
+        await using IAiJobKindRegistration registration = registry.Register(
+            new AiJobKindDescriptor(new AiJobKindId("vendor.blocking-result"),
+                new AiJobStatusMap([KeyValuePair.Create(new AiJobStatusId("ready"), new AiJobStatusSemantics(true, false, new AiJobOutcomeId("ready")))])));
+        await using IAiJobResultHandlerRegistration resultRegistration = _resultHandlers.Register(
+            new AiJobResultHandlerRegistration(new AiJobResultContribution(new AiJobKindId("vendor.blocking-result"), blocking)));
+        using var item = new AiJobItemViewModel(CreateJob("vendor.blocking-result", "ready", ParseInput("{\"prompt\":\"x\"}"), url: "https://beutl.beditor.net/api/contents/x"), registry, _resultHandlers);
+        Task operation = viewModel.AddToSceneAsync(item);
+        await blocking.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        viewModel.Dispose();
+        Task dispose = viewModel.DisposeAsync().AsTask();
+        Assert.That(dispose.IsCompleted, Is.False);
+        blocking.Release.TrySetResult();
+        await operation;
+        await dispose;
+        await registration.DisposeAsync();
+    }
+
+    [AvaloniaTest]
+    public async Task RetryConfirmationCancelAndDisposeSwallowSynchronousCancellationCallbackErrors()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-throwing-preflight");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
+        using var viewModel = CreateJobCenter(editor, clients);
+        var throwing = new ThrowingCancelRetryHandler();
+        await using IAiJobKindRegistration registration = registry.Register(
+            RetryDescriptor("vendor.throwing-cancel", throwing));
+        using var item = new AiJobItemViewModel(
+            CreateJob("vendor.throwing-cancel", "retryable", ParseInput("{\"prompt\":\"throw\"}"), canRetry: true),
+            registry,
+            _resultHandlers);
+
+        Task confirmation = viewModel.RequestRetryConfirmationAsync(item);
+        await throwing.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.DoesNotThrow(viewModel.CancelConfirmation);
+        throwing.Release.TrySetResult();
+        await confirmation;
+        Assert.DoesNotThrow(viewModel.Dispose);
+        await registration.DisposeAsync();
+    }
+
+
+    [AvaloniaTest]
+    public async Task RetryConfirmationStalePreflightCannotOverwriteReplacement()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-stale-preflight");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
+        using var viewModel = CreateJobCenter(editor, clients);
+        var slow = new SlowRetryHandler();
+        var replacement = new CustomRetryHandler();
+        await using IAiJobKindRegistration slowRegistration = registry.Register(RetryDescriptor("vendor.stale.slow", slow));
+        await using IAiJobKindRegistration replacementRegistration = registry.Register(RetryDescriptor("vendor.stale.fast", replacement));
+        using var first = new AiJobItemViewModel(CreateJob("vendor.stale.slow", "retryable", ParseInput("{\"prompt\":\"first\"}"), canRetry: true), registry, _resultHandlers);
+        using var second = new AiJobItemViewModel(CreateJob("vendor.stale.fast", "retryable", ParseInput("{\"prompt\":\"second\"}"), canRetry: true), registry, _resultHandlers);
+
+        Task firstConfirmation = viewModel.RequestRetryConfirmationAsync(first);
+        await slow.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Task secondConfirmation = viewModel.RequestRetryConfirmationAsync(second);
+        await secondConfirmation;
+        Assert.That(viewModel.CanConfirm.Value, Is.True);
+        Assert.That(viewModel.ConfirmationMessage.Value, Does.Contain("No additional charge"));
+        slow.Release.TrySetResult();
+        await firstConfirmation;
+        Assert.That(viewModel.CanConfirm.Value, Is.True);
+        Assert.That(viewModel.ConfirmationMessage.Value, Does.Contain("No additional charge"));
+        viewModel.CancelConfirmation();
+    }
+
     private static void AssertAction(Button? button, string accessibleName)
     {
         Assert.That(button, Is.Not.Null);
@@ -824,6 +1091,44 @@ public sealed class AiJobCenterTests
             Assert.That(contentRequests, Is.EqualTo(afterFirstLoad),
                 "Polling must not fetch the same picture again.");
         }
+    }
+
+    [AvaloniaTest]
+    public async Task ViewModel_RetriesPreviewAfterTransientDecodeFailure()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-preview-retry");
+        int contentRequests = 0;
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/user/ai-availability" => JsonResponse(
+                HttpStatusCode.OK,
+                """{ "available": true }"""),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted: false)),
+            "/api/contents/file-success" => ++contentRequests == 1
+                ? ByteResponse([0, 1, 2], "image/png")
+                : ByteResponse(s_png, "image/png"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+
+        await WaitUntilAsync(() => viewModel.Jobs.Count == 2);
+        await WaitUntilAsync(() => contentRequests > 0);
+        AiJobItemViewModel completed = viewModel.Jobs.Single(item => item.Id == "job-success");
+        // A subsequent authoritative snapshot may retry a transiently failed
+        // preview because the failed load released its claim.
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot(
+            [completed.Job, viewModel.Jobs.Single(item => item.Id == "job-failed").Job],
+            NextCursor: null,
+            IsLoading: false,
+            Error: null));
+        await WaitUntilAsync(() => completed.Preview is not null);
+
+        Assert.That(contentRequests, Is.GreaterThanOrEqualTo(2));
     }
 
     [AvaloniaTest]
@@ -1175,6 +1480,74 @@ public sealed class AiJobCenterTests
             {
                 return ValueTask.CompletedTask;
             }
+        }
+    }
+
+    private class SlowRetryHandler : IAiJobRetryHandler
+    {
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool CancellationObserved { get; private set; }
+
+        private readonly bool _throwOnCancellation;
+
+        public SlowRetryHandler(bool throwOnCancellation = false)
+        {
+            _throwOnCancellation = throwOnCancellation;
+        }
+
+        public bool CanRetry(AiJob job, AiJobStatusSemantics status) => true;
+
+        public async ValueTask<AiJobRetryPreflight> GetPreflightAsync(
+            AiJob job,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+            {
+                CancellationObserved = true;
+                if (_throwOnCancellation)
+                    throw new InvalidOperationException("synchronous cancellation callback failure");
+            });
+            try
+            {
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                CancellationObserved = true;
+                throw;
+            }
+
+            return new AiJobRetryPreflight(true, true, "slow");
+        }
+
+        public ValueTask<AiJobRetryPreparationResult> PrepareAsync(
+            AiJob job,
+            CancellationToken cancellationToken)
+            => ValueTask.FromResult(AiJobRetryPreparationResult.Blocked("unused"));
+    }
+
+    private sealed class ThrowingCancelRetryHandler : SlowRetryHandler
+    {
+        public ThrowingCancelRetryHandler() : base(throwOnCancellation: true) { }
+    }
+
+    private sealed class BlockingResultHandler : IAiJobResultHandler
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status) => new("Blocking", "Ready", "Open", "1×", false);
+        public AiJobCompletionPresentation? CreateCompletion(AiJob job, AiJobStatusSemantics status, AiJobPresentation presentation) => null;
+        public bool CanHandle(AiJob job, AiJobStatusSemantics status) => true;
+        public async Task HandleAsync(AiJob job, IAiJobResultContext context, CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Release.Task;
         }
     }
 

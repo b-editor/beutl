@@ -22,9 +22,11 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelListConsumer
+public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly AsyncOperationLifetime _operations = new();
+    private readonly object _disposeGate = new();
     private readonly LifetimeCancellationSource _lifetimeCts = new();
     private CancellationTokenSource? _requestCts;
     private readonly ILogger _logger = Log.CreateLogger<AiSubtitleDialogViewModel>();
@@ -40,6 +42,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
     private readonly ICaptionDraftStore _captionDraftStore;
     private readonly IObservable<CaptionDraftScope?> _captionDraftScopes;
     private bool _disposed;
+    private Task? _disposeTask;
 
     internal AiSubtitleDialogViewModel(
         IAiEntitlementService entitlements,
@@ -217,27 +220,56 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
 
     public ReactivePropertySlim<string?> Error { get; } = new();
 
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
+    public void Dispose() => _ = BeginDisposeAsync();
 
-        _disposed = true;
-        _lifetimeCts.Cancel();
-        CaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
-        DisposeCaptionEditing();
-        AudioSources.Dispose();
-        SelectedAudioSource.Dispose();
-        SelectedCaptionTemplate.Dispose();
-        IsTranscribing.Dispose();
-        ResultSegments.Dispose();
-        PartialResultMessage.Dispose();
-        HasPartialResult.Dispose();
-        HasPendingHistoryResult.Dispose();
-        HistoryOverwriteMessage.Dispose();
-        Error.Dispose();
-        _disposables.Dispose();
-        _lifetimeCts.Dispose();
+    public ValueTask DisposeAsync() => new(BeginDisposeAsync());
+
+    private Task BeginDisposeAsync()
+    {
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            _disposed = true;
+            var completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            _ = CompleteDisposeAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await _operations.DisposeAsync(
+                _lifetimeCts.Cancel,
+                () =>
+                {
+                    CaptionTemplates.CollectionChanged -= OnCaptionTemplatesChanged;
+                    DisposeCaptionEditing();
+                    AudioSources.Dispose();
+                    SelectedAudioSource.Dispose();
+                    SelectedCaptionTemplate.Dispose();
+                    IsTranscribing.Dispose();
+                    ResultSegments.Dispose();
+                    PartialResultMessage.Dispose();
+                    HasPartialResult.Dispose();
+                    HasPendingHistoryResult.Dispose();
+                    HistoryOverwriteMessage.Dispose();
+                    Error.Dispose();
+                    _disposables.Dispose();
+                    _lifetimeCts.Dispose();
+                    return ValueTask.CompletedTask;
+                });
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
     }
 
     /// <summary>
@@ -250,6 +282,9 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
 
     private async Task RefreshModelsAsync()
     {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
         // A run waiting to be collected names its unfinished pieces partly by
         // the model it started on. The run itself holds that model, so a reload
         // could not rename them — but moving the picker under a run that is
@@ -265,13 +300,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
             await TranscriptionModelPicker.LoadAsync(
                 AiOperations.Transcription,
                 _restoredTranscriptionModel,
-                _lifetimeCts.Token);
+                operation.CancellationToken);
             await TranslationModelPicker.LoadAsync(
                 AiOperations.CaptionTranslation,
                 _restoredTranslationModel,
-                _lifetimeCts.Token);
+                operation.CancellationToken);
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
         }
         catch (Exception ex)
@@ -282,22 +317,25 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
 
     private async Task LoadEntitlementsAsync()
     {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
         try
         {
-            await _entitlements.RefreshAsync(_lifetimeCts.Token);
+            await _entitlements.RefreshAsync(operation.CancellationToken);
             // A restored run is put back on the model it was named for; without
             // that, its unfinished pieces would be named differently and bought
             // a second time.
             await TranscriptionModelPicker.LoadAsync(
                 AiOperations.Transcription,
                 _restoredTranscriptionModel,
-                _lifetimeCts.Token);
+                operation.CancellationToken);
             await TranslationModelPicker.LoadAsync(
                 AiOperations.CaptionTranslation,
                 _restoredTranslationModel,
-                _lifetimeCts.Token);
+                operation.CancellationToken);
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
         }
         catch (Exception ex)
@@ -364,18 +402,25 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
 
     private async Task TranscribeCore()
     {
-        if (SelectedAudioSource.Value is not { } source)
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
             return;
+        if (SelectedAudioSource.Value is not { } source)
+        {
+            return;
+        }
 
         long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
         Error.Value = null;
         IsTranscribing.Value = true;
         using CancellationTokenSource requestCts =
-            CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+            CancellationTokenSource.CreateLinkedTokenSource(
+                operation.CancellationToken,
+                _lifetimeCts.Token);
         _requestCts = requestCts;
         try
         {
-            await TranscribeSelectedSourceAsync(source);
+            await TranscribeSelectedSourceAsync(source, operation);
         }
         catch (AuthenticationRequiredException)
         {
@@ -448,19 +493,25 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
         finally
         {
             _requestCts = null;
-            if (!_disposed && IsCurrentCaptionDraftScope(draftScopeRevision))
+            operation.TryPublish(() =>
             {
-                IsTranscribing.Value = false;
-            }
+                if (IsCurrentCaptionDraftScope(draftScopeRevision))
+                    IsTranscribing.Value = false;
+            });
         }
     }
 
     private async Task AddToSceneCore()
     {
+        using AsyncOperationLifetime.Operation? operation = _operations.TryEnter();
+        if (operation is null)
+            return;
         if (_editViewModel == null
             || !TryBuildCaptionDocument(out CaptionDocument? document, out _)
             || document is null)
+        {
             return;
+        }
 
         try
         {
@@ -470,15 +521,15 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
                 document,
                 _captionTemplates,
                 SelectedCaptionTemplate.Value.Id,
-                _lifetimeCts.Token);
+                operation.CancellationToken);
 
             if (result.IsSuccess)
             {
-                NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitleAddedToScene);
+                operation.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitleAddedToScene));
             }
             else if (result.FailureId == ElementAddFailureIds.LockedLayer)
             {
-                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+                operation.TryPublish(() => NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked));
             }
             else
             {
@@ -486,13 +537,13 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAiModelLis
                     $"Failed to add caption elements: {result.FailureId}.");
             }
         }
-        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
         {
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to add subtitles to the scene.");
-            Error.Value = Strings.AiUnexpectedError;
+            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
         }
     }
 

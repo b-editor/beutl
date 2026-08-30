@@ -480,6 +480,46 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
+    public void DispatchedRecoveryCanResumeWithTheSameLocalOwner()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var firstStore = new FileAiRequestRecoveryStore(directory);
+            var first = new AiRequestKey(
+                recoveryContext: RecoveryContext(firstStore, () => "account"),
+                operation: "video.generate");
+            AiRequestName issued = first.NameFor("prompt");
+            AiRequestRecoveryLease original = first.TryClaim(issued)!;
+            first.MarkClaimDispatched(original);
+            string owner = original.OwnerToken;
+            original.Dispose();
+            AiPendingAttempt pending = first.PendingAttempts(AiOperations.VideoGeneration).Single();
+
+            var competingStore = new FileAiRequestRecoveryStore(directory);
+            AiRequestRecoveryLease? competing = competingStore.Claim(
+                pending.AccountId, pending.Operation, pending.Fingerprint, issued.Key);
+            Assert.That(competing, Is.Null);
+            Assert.That(competingStore.Abandon(pending), Is.False);
+
+            AiRequestName retry = first.NameFor("prompt");
+            AiRequestRecoveryLease? resumed = first.TryClaim(retry);
+            Assert.That(resumed, Is.Not.Null);
+            Assert.That(resumed!.OwnerToken, Is.EqualTo(owner));
+
+            first.Retire(retry);
+            Assert.That(competingStore.Find(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint), Is.Null);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
     public void ExplicitAbandonAdvancesGenerationAndLeavesOtherAccountUntouched()
     {
         string directory = CreateTemporaryDirectory();
