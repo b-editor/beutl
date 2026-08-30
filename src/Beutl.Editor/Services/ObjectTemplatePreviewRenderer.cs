@@ -145,8 +145,17 @@ public static class ObjectTemplatePreviewRenderer
 
     private static byte[]? RenderDrawable(Drawable drawable)
     {
-        using var resource = drawable.ToResource(CompositionContext.Default);
-        return RenderResources([resource], AvailableSize);
+        Size availableSize = AvailableSize;
+
+        // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, so a
+        // bounds-unknown effect throws here rather than in MeasureBounds, where the fallback below lives.
+        // The domain is the same preview frame the measurement and the render pass compose against.
+        var context = new CompositionContext(TimeSpan.Zero)
+        {
+            TargetDomain = new Rect(default, availableSize)
+        };
+        using var resource = drawable.ToResource(context);
+        return RenderResources([resource], availableSize);
     }
 
     /// <summary>

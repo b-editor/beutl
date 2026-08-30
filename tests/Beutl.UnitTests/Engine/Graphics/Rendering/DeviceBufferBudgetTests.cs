@@ -629,7 +629,7 @@ public sealed class DeviceBufferBudgetTests
         (bool supersampleFitsCeiling,
             bool supersampleFitsDevice,
             bool saveFrameFitsCeiling,
-            bool saveFrameFitsDevice) = WithAllocationDevice(device.Object, () =>
+            bool saveFrameFitsDevice) = WithInstalledDevice(device.Object, () =>
             RenderThread.Dispatcher.Invoke(() => (
                 ExportSupersampling.FitsBufferLimit(frame, 4, RenderScaleUtilities.MaxBufferDimension),
                 ExportSupersampling.FitsBufferLimit(frame, 4),
@@ -645,6 +645,94 @@ public sealed class DeviceBufferBudgetTests
             Assert.That(saveFrameFitsCeiling, Is.True);
             Assert.That(supersampleFitsDevice, Is.False);
             Assert.That(saveFrameFitsDevice, Is.False);
+        });
+    }
+
+    /// <summary>
+    /// Both dialogs evaluate their warning on the Avalonia UI thread, never on the render dispatcher, so the
+    /// pre-validation has to reach the device from off it.
+    /// </summary>
+    [Test]
+    public void RootSurfacePreValidation_FollowsTheDeviceFromOffTheRenderDispatcher()
+    {
+        // 4K at 4x is 15360x8640: inside the engine ceiling, past a device that tops out at 8192.
+        var frame = new PixelSize(3840, 2160);
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        (int allocationLimit, int predicted, bool supersampleFits, bool saveFrameFits) =
+            WithInstalledDevice(device.Object, () => (
+                RenderScaleUtilities.ResolveMaxBufferDimension(),
+                RenderScaleUtilities.PredictRenderThreadMaxBufferDimension(),
+                ExportSupersampling.FitsBufferLimit(frame, 4),
+                SaveFrameScale.FitsBufferLimit(frame, 4f)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dispatcher.Current, Is.Null, "the fixture must ask from where the dialogs ask");
+            Assert.That(
+                allocationLimit,
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                "a buffer allocated here is rastered on the CPU, so the device must still not bound it");
+            Assert.That(
+                predicted,
+                Is.EqualTo(DeviceBudget),
+                "what the render thread will resolve is a different question, and the device answers it");
+            Assert.That(supersampleFits, Is.False);
+            Assert.That(saveFrameFits, Is.False);
+            AssertNeverAttached(device);
+        });
+    }
+
+    /// <summary>
+    /// The prediction is only worth taking because it is the render thread's own answer. Both are read for
+    /// the same installed device, so nothing but the thread they are asked from can separate them.
+    /// </summary>
+    [Test]
+    public void PredictRenderThreadMaxBufferDimension_AnswersWhatTheRenderThreadResolves()
+    {
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+
+        (int predictedOffIt, int resolvedOnIt) = WithInstalledDevice(device.Object, () => (
+            RenderScaleUtilities.PredictRenderThreadMaxBufferDimension(),
+            RenderThread.Dispatcher.Invoke(RenderScaleUtilities.ResolveMaxBufferDimension)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Dispatcher.Current, Is.Null, "the prediction must be taken from off the render thread");
+            Assert.That(resolvedOnIt, Is.EqualTo(DeviceBudget));
+            Assert.That(predictedOffIt, Is.EqualTo(resolvedOnIt));
+            AssertNeverAttached(device);
+        });
+    }
+
+    /// <summary>
+    /// Building a device is render-thread-only, so a predicting caller can only read one that is already
+    /// installed. With none there is nothing to measure, and the engine ceiling is the bound every
+    /// measurement satisfies rather than a device's answer standing in for another's.
+    /// </summary>
+    [Test]
+    public void PredictRenderThreadMaxBufferDimension_BoundsAnUnbuiltDeviceByTheEngineCeiling()
+    {
+        Mock<IGraphicsContext> pastTheCeiling = MockAttaching(RenderScaleUtilities.MaxBufferDimension * 2);
+
+        int withoutADevice = WithInstalledDevice(
+            device: null,
+            RenderScaleUtilities.PredictRenderThreadMaxBufferDimension);
+        int withARoomierDevice = WithInstalledDevice(
+            pastTheCeiling.Object,
+            RenderScaleUtilities.PredictRenderThreadMaxBufferDimension);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                withoutADevice,
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                "nothing is built to measure, so the answer is the bound every measurement satisfies");
+            Assert.That(
+                withARoomierDevice,
+                Is.EqualTo(RenderScaleUtilities.MaxBufferDimension),
+                "and a device that attaches more is still held to the engine's own ceiling");
+            AssertNeverAttached(pastTheCeiling);
         });
     }
 
@@ -762,6 +850,25 @@ public sealed class DeviceBufferBudgetTests
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
         context.SetupGet(c => c.MaxAttachmentDimension).Returns(maxAttachmentDimension);
         return context;
+    }
+
+    /// <summary>Runs <paramref name="body"/> with <paramref name="device"/> installed as the shared context.</summary>
+    /// <remarks>
+    /// A caller that cannot build a device can only read one that is already installed, so this is the state
+    /// such a caller sees - and standing in for it is what forces a sub-ceiling device on any GPU.
+    /// </remarks>
+    private static T WithInstalledDevice<T>(IGraphicsContext? device, Func<T> body)
+    {
+        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+            new InstalledGraphics(device, null, null, FailedToInitialize: false));
+        try
+        {
+            return body();
+        }
+        finally
+        {
+            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
+        }
     }
 
     /// <summary>Runs <paramref name="body"/> with <paramref name="device"/> as the context an allocation builds.</summary>

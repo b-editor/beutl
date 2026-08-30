@@ -15,6 +15,9 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -974,6 +977,92 @@ public sealed class ReadDocumentTests
             Assert.That(bounds.LocalBounds.Height, Is.EqualTo(bounds.TransformedBounds.Height).Within(0.01));
             Assert.That(bounds.Note, Does.Contain("DrawableRenderNode"));
         });
+    }
+
+    /// <remarks>
+    /// A MeasureNode over a bounds-unknown CustomEffect cannot resolve its own extent from the subtree, so it
+    /// falls back to the composition context's target domain. The measurement therefore has to seed that domain
+    /// before ToResource evaluates the graph - the exception escapes ToResource itself, well before the
+    /// render request that carries its own TargetDomain is ever built.
+    /// </remarks>
+    [Test]
+    public void Measure_object_bounds_measures_a_node_graph_whose_measure_node_needs_a_target_domain()
+    {
+        var scene = new Scene(320, 180, "graph-measure-node")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
+        };
+        NodeGraphDrawable drawable = BuildMeasureNodeGraphDrawable();
+        var element = new Element
+        {
+            Name = "Graph element",
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        element.AddObject(drawable);
+        scene.Children.Add(element);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
+            objectId: drawable.Id.ToString(),
+            timeSeconds: 0.0);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        ObjectBoundsMeasurement measured = result.Value!.Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(measured.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
+
+            // The effect's own extent is symbolic, so it resolves to the owning target domain: the frame.
+            // The reported bounds are the frame rather than the 40x20 source, and that is the answer, not
+            // a degraded one - the effect really can write anywhere in the domain it was given.
+            Assert.That(measured.TransformedBounds.Left, Is.EqualTo(0).Within(0.5));
+            Assert.That(measured.TransformedBounds.Top, Is.EqualTo(0).Within(0.5));
+            Assert.That(measured.TransformedBounds.Width, Is.EqualTo(320).Within(0.5));
+            Assert.That(measured.TransformedBounds.Height, Is.EqualTo(180).Within(0.5));
+        });
+    }
+
+    // GeometryShape -> ShakeEffect -> Output, with a MeasureNode reading the same effect output.
+    // ShakeEffect records a CustomEffect with no transformBounds, so the effect segment's extent stays
+    // symbolic and only an owning target domain can resolve it.
+    private static NodeGraphDrawable BuildMeasureNodeGraphDrawable()
+    {
+        var drawable = new NodeGraphDrawable { Name = "Graph" };
+        GraphModel model = drawable.Model.CurrentValue!;
+
+        var geometryNode = new RectGeometryNode();
+        geometryNode.Object.Width.CurrentValue = 40;
+        geometryNode.Object.Height.CurrentValue = 20;
+        var shapeNode = new GeometryShapeNode();
+        SetUnconnectedInput(shapeNode.Fill, Brushes.White);
+        var shakeNode = new FilterEffectNode<ShakeEffect>();
+        var outputNode = new OutputNode();
+        var measureNode = new MeasureNode();
+        model.Nodes.Add(geometryNode);
+        model.Nodes.Add(shapeNode);
+        model.Nodes.Add(shakeNode);
+        model.Nodes.Add(outputNode);
+        model.Nodes.Add(measureNode);
+
+        // ConfigureNode keeps its render-chain ports unexposed: Items[0] = Output, Items[1] = list Input.
+        var shakeChainInput = (IInputPort)shakeNode.Items[1];
+        var shakeChainOutput = (IOutputPort)shakeNode.Items[0];
+        model.Connect(shapeNode.Geometry, geometryNode.OutputPort);
+        model.Connect(shakeChainInput, shapeNode.Output);
+        model.Connect(outputNode.InputPort, shakeChainOutput);
+        model.Connect(measureNode.Input, shakeChainOutput);
+        return drawable;
+    }
+
+    private static void SetUnconnectedInput<T>(InputPort<T> port, T value)
+    {
+        ((DefaultInputPort<T>)port).GetProperty()!.SetValue(value);
     }
 
     [Test]

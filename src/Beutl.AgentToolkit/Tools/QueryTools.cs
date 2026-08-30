@@ -1005,7 +1005,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         // timeSeconds is scene-relative like every other tool, but Element.Range and the engine's
         // composition clock live on the absolute timeline axis (renderers evaluate time + scene.Start).
         TimeSpan absoluteTime = time + scene.Start;
-        var context = new CompositionContext(absoluteTime);
+        // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, before any
+        // render request exists, and a bounds-unknown effect leaves them nothing finite to resolve against.
+        // The frame is the domain the measurement itself composes into, so seed it the way SceneCompositor does.
+        var context = new CompositionContext(absoluteTime) { TargetDomain = new Rect(default, canvasSize) };
         var measurements = new List<ObjectBoundsMeasurement>();
         foreach (Element element in scene.Children)
         {

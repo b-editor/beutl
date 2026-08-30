@@ -23,15 +23,19 @@ public static class SaveFrameScale
 
     /// <summary>Whether the scaled surface fits the per-axis buffer limit on both axes.</summary>
     /// <param name="maxDimension">
-    /// The limit to fit, or <see langword="null"/> for what the device can attach.
+    /// The limit to fit, or <see langword="null"/> for what the device the render will reach can attach.
     /// </param>
     /// <remarks>
     /// The default is the device's limit rather than the engine ceiling: a dialog that validates against the
-    /// ceiling enables a save the device then refuses mid-render.
+    /// ceiling enables a save the device then refuses mid-render. It is
+    /// <see cref="RenderScaleUtilities.PredictRenderThreadMaxBufferDimension"/> rather than
+    /// <see cref="RenderScaleUtilities.ResolveMaxBufferDimension()"/> because this is pre-validation: the
+    /// dialog asks from the UI thread, where an allocation would be CPU-rastered and the device therefore
+    /// bounds nothing, so the allocation limit there is the engine ceiling that admits the refused save.
     /// </remarks>
     public static bool FitsBufferLimit(PixelSize frameSize, float scale, int? maxDimension = null)
     {
-        int limit = maxDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
+        int limit = maxDimension ?? RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
         (long width, long height) = GetRenderSize(frameSize, scale);
         return width <= limit && height <= limit;
     }

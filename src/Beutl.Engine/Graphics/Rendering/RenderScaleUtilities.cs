@@ -13,7 +13,8 @@ public static class RenderScaleUtilities
     /// <remarks>
     /// Planning uses this so a plan means the same thing on every device. What a device can actually attach
     /// is <see cref="ResolveMaxBufferDimension()"/>, which is smaller on some, and a buffer this large is not
-    /// allocatable there - see the note on that method.
+    /// allocatable there - see the note on that method. A caller off the render thread that is predicting
+    /// rather than allocating reads <see cref="PredictRenderThreadMaxBufferDimension"/> instead.
     /// </remarks>
     public const int MaxBufferDimension = 16384;
 
@@ -51,6 +52,34 @@ public static class RenderScaleUtilities
     /// </remarks>
     public static int ResolveMaxBufferDimension()
         => ResolveMaxBufferDimension(RenderTarget.ResolveCreationContextForAllocation());
+
+    /// <summary>
+    /// What <see cref="ResolveMaxBufferDimension()"/> is expected to answer on the render thread, asked from
+    /// a thread that is not it.
+    /// </summary>
+    /// <remarks>
+    /// Pre-validation is not allocation. A dialog that asks whether an export will fit is predicting the
+    /// limit the render thread will resolve later, and <see cref="ResolveMaxBufferDimension()"/> cannot be
+    /// that prediction: it answers for the caller's own allocation, which off a dispatcher
+    /// <see cref="RenderTarget.Create"/> rasters on the CPU, so it correctly reports the engine ceiling
+    /// there. Pre-validating against that clears a size the render then refuses once the user has already
+    /// chosen a file.
+    /// <para>
+    /// A context reports a limit fixed for its lifetime, so reading an installed one from another thread is
+    /// sound. What that thread cannot do is build one - <see cref="Backend.GraphicsContextFactory.GetOrCreateShared"/>
+    /// is render-thread-only - so before any GPU work the answer is <see cref="MaxBufferDimension"/>. That is
+    /// not a measurement standing in for one: the resolved limit is the smaller of the ceiling and the
+    /// device, so the ceiling is the bound every answer satisfies, and it is only ever loose until the first
+    /// frame is drawn. Erring open is also the right direction for a courtesy check - the allocation itself
+    /// refuses authoritatively, so a warning not given costs a late failure, while one invented for a device
+    /// that turns out to be larger would refuse an export that would have worked.
+    /// </para>
+    /// </remarks>
+    public static int PredictRenderThreadMaxBufferDimension()
+    {
+        Backend.IGraphicsContext? installed = Backend.GraphicsContextFactory.SharedContext;
+        return installed is null ? MaxBufferDimension : ResolveMaxBufferDimension(installed);
+    }
 
     /// <summary>
     /// <see cref="ResolveMaxBufferDimension()"/> against a named context rather than the shared one.

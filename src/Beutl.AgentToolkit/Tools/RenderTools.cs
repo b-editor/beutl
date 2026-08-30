@@ -53,7 +53,7 @@ public sealed class RenderTools(
     private const string StoryboardFrameKindShot = "shot";
     private const string StoryboardFrameKindInbetween = "inbetween";
     private const string RenderScaleDescription =
-        "Supersampling render scale. Non-finite values and values <= 0 use 1. The ceil(frame size * renderScale) output extent must not exceed 16384 pixels on either axis.";
+        "Supersampling render scale. Non-finite values and values <= 0 use 1. The ceil(frame size * renderScale) output extent must not exceed 16384 pixels on either axis, and less than that on a graphics device that attaches less; the rejection names the limit that applied.";
 
     [McpServerTool(Name = "render_still")]
     [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
@@ -2109,8 +2109,11 @@ public sealed class RenderTools(
         PixelSize frameSize = scene.FrameSize;
 
         // The device's limit rather than the engine ceiling: a scale this admits is one the render is about
-        // to hand the allocator, and a device below the ceiling refuses it there instead.
-        int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension();
+        // to hand the allocator, and a device below the ceiling refuses it there instead. A tool call runs on
+        // the MCP invocation thread and only StillRenderer / VideoExporter reach RenderThread.Dispatcher, so
+        // the allocation limit here is the CPU raster's; what binds the render is what that dispatcher will
+        // resolve.
+        int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
         double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
         double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);
         if (requestedWidth <= maxDimension && requestedHeight <= maxDimension)

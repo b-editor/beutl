@@ -32,7 +32,7 @@ public sealed class SaveFrameDialogViewModel : IDisposable
         Warning = SelectedScale
             .Select(scale =>
             {
-                int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension();
+                int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
                 if (SaveFrameScale.FitsBufferLimit(baseSize, scale, maxDimension)) return null;
 
                 (long width, long height) = SaveFrameScale.GetRenderSize(baseSize, scale);

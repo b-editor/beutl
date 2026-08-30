@@ -78,13 +78,17 @@ public static class EngineObjectHelper
 
     /// <summary>
     /// Observes <paramref name="obj"/> as a versioned resource whose creation, update, and disposal all run on
-    /// the render dispatcher, so a subscriber never races the renderer for the same resource.
+    /// the render dispatcher, and publishes it as a handle the subscriber has to read through.
     /// </summary>
     /// <remarks>
-    /// Disposing the subscription cancels work that has not started yet, so a resource is never created for a
-    /// subscription that was already gone.
+    /// The dispatcher rebuilds the resource in place, so it is a writer the subscriber's own thread races: a
+    /// reader holding the resource itself can walk a list the rebuild is midway through replacing, or reach a
+    /// child it has already disposed. <see cref="EngineResourceHandle{TResource}"/> is what closes that - it
+    /// only lends the resource out while the rebuild is held off, and reports itself empty once the resource
+    /// has been released. Disposing the subscription cancels work that has not started yet, so a resource is
+    /// never created for a subscription that was already gone.
     /// </remarks>
-    public static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<T, TResource>(
+    public static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
         this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
         where T : EngineObject
         where TResource : EngineObject.Resource
@@ -97,7 +101,7 @@ public static class EngineObjectHelper
     /// the one shared dispatcher a test must not shut down.
     /// </param>
     /// <inheritdoc cref="SubscribeEngineVersionedResource{T, TResource}(T, IObservable{TimeSpan}, Func{T, CompositionContext, TResource})"/>
-    internal static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<T, TResource>(
+    internal static IObservable<EngineResourceHandle<TResource>> SubscribeEngineVersionedResource<T, TResource>(
         this T obj,
         IObservable<TimeSpan> time,
         Func<T, CompositionContext, TResource> createResource,
@@ -105,12 +109,13 @@ public static class EngineObjectHelper
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        return Observable.Create<(TResource Resource, int Version)>(observer =>
+        return Observable.Create<EngineResourceHandle<TResource>>(observer =>
             {
                 var renderContext = new CompositionContext(TimeSpan.Zero);
                 var cts = new CancellationTokenSource();
                 CancellationToken token = cts.Token;
                 TResource? resource = null;
+                var resourceGate = new EngineResourceGate();
                 var gate = new object();
                 int runningUpdates = 0;
                 bool workCancelled = false;
@@ -141,18 +146,31 @@ public static class EngineObjectHelper
                                     if (token.IsCancellationRequested)
                                         return;
 
-                                    renderContext.Time = t.Second;
-                                    if (resource is null)
+                                    EngineResourceHandle<TResource> handle;
+                                    lock (resourceGate.SyncRoot)
                                     {
-                                        resource = createResource(obj, renderContext);
-                                    }
-                                    else
-                                    {
-                                        bool updateOnly = false;
-                                        resource.Update(obj, renderContext, ref updateOnly);
+                                        if (resourceGate.IsReleased)
+                                            return;
+
+                                        renderContext.Time = t.Second;
+                                        if (resource is null)
+                                        {
+                                            resource = createResource(obj, renderContext);
+                                        }
+                                        else
+                                        {
+                                            bool updateOnly = false;
+                                            resource.Update(obj, renderContext, ref updateOnly);
+                                        }
+
+                                        handle = new EngineResourceHandle<TResource>(
+                                            resourceGate, resource, resource.Version);
                                     }
 
-                                    observer.OnNext((resource, resource.Version));
+                                    // The subscriber chain runs inline from here, and a reader reached through
+                                    // it takes the same gate; publishing while still holding it would turn one
+                                    // reader's read into a hold for the length of the whole chain.
+                                    observer.OnNext(handle);
                                 }
                                 catch (Exception ex)
                                 {
@@ -161,14 +179,13 @@ public static class EngineObjectHelper
                                     CancelPendingWork();
                                     try
                                     {
-                                        resource?.Dispose();
+                                        DisposeResourceUnderGate();
                                     }
                                     catch (Exception disposeFailure)
                                     {
                                         ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
                                     }
 
-                                    resource = null;
                                     observer.OnError(ex);
                                 }
                                 finally
@@ -243,7 +260,7 @@ public static class EngineObjectHelper
                     // Dispose here would take the render thread down with it.
                     try
                     {
-                        resource?.Dispose();
+                        DisposeResourceUnderGate();
                     }
                     catch (Exception disposeFailure)
                     {
@@ -253,8 +270,25 @@ public static class EngineObjectHelper
                             obj);
                     }
 
-                    resource = null;
                     cts.Dispose();
+                }
+
+                // Marking the gate released before the teardown is what leaves an already-published handle
+                // reporting itself empty rather than reaching a disposed resource.
+                void DisposeResourceUnderGate()
+                {
+                    lock (resourceGate.SyncRoot)
+                    {
+                        resourceGate.IsReleased = true;
+                        try
+                        {
+                            resource?.Dispose();
+                        }
+                        finally
+                        {
+                            resource = null;
+                        }
+                    }
                 }
             })
             .DistinctUntilChanged(t => t.Version);

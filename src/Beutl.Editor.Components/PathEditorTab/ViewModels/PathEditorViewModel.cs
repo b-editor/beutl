@@ -58,20 +58,18 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         var drawableResource = Drawable
             .Select(d =>
                 d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(t => ((Drawable.Resource, int)?)t) ??
-                Observable.ReturnThenNever<(Drawable.Resource, int)?>(null))
+                    .Select(h => (EngineResourceHandle<Drawable.Resource>?)h) ??
+                Observable.ReturnThenNever<EngineResourceHandle<Drawable.Resource>?>(null))
             .Switch()
             .Publish(null).RefCount();
 
         GeometryResource = drawableResource
-            .Select(t =>
-                t is { Item1: GeometryShape.Resource { Data: PathGeometry.Resource pathGeometry } }
-                    ? (pathGeometry, pathGeometry.Version)
-                    : ((PathGeometry.Resource, int)?)null)
+            .Select(h => h?.Project(r => (r as GeometryShape.Resource)?.Data as PathGeometry.Resource))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Matrix = drawableResource.Select(r => r != null ? CalculateMatrix(r.Value.Item1) : Graphics.Matrix.Identity)
+        Matrix = drawableResource
+            .Select(h => h?.Read(CalculateMatrix, Graphics.Matrix.Identity) ?? Graphics.Matrix.Identity)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
         AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
@@ -144,7 +142,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
 
-    public ReadOnlyReactivePropertySlim<(PathGeometry.Resource Resource, int Version)?> GeometryResource { get; }
+    public ReadOnlyReactivePropertySlim<EngineResourceHandle<PathGeometry.Resource>?> GeometryResource { get; }
 
     public ReadOnlyReactiveProperty<Matrix> Matrix { get; }
 

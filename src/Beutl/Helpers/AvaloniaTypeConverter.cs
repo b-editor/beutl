@@ -39,7 +39,9 @@ public static class AvaloniaTypeConverter
     {
         return obj.SubscribeEngineVersionedResource(time, createResource)
             .ObserveOnUIDispatcher()
-            .Subscribe(t => onUpdated(t.Resource));
+            // The notification is marshalled to the UI thread, but the resource stays owned by the render
+            // dispatcher; only Read holds that owner off for the length of the projection.
+            .Subscribe(h => h.Read(onUpdated));
     }
 
     public static (Avalonia.Media.GradientStop, IDisposable) ToAvaGradientStopSync(

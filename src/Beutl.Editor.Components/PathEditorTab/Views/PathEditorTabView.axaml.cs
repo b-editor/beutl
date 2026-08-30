@@ -153,21 +153,28 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (DataContext is PathEditorTabViewModel { GeometryResource.Value.Item1: { } geometry })
+            bool applied = false;
+            if (DataContext is PathEditorTabViewModel { GeometryResource.Value: { } handle })
             {
-                using (var context = new GeometryContext { FillType = geometry.FillType })
+                // Read holds the resource's owner off, so ApplyTo cannot walk a figure list the owner is
+                // midway through replacing.
+                applied = handle.Read(geometry =>
                 {
-                    geometry.ApplyTo(context);
-                    string s = context.NativeObject.ToSvgPathData();
+                    using (var context = new GeometryContext { FillType = geometry.FillType })
+                    {
+                        geometry.ApplyTo(context);
+                        string s = context.NativeObject.ToSvgPathData();
 
-                    var newGeometry = Avalonia.Media.PathGeometry.Parse(s);
-                    newGeometry.FillRule = geometry.FillType == PathFillType.Winding
-                        ? Avalonia.Media.FillRule.NonZero
-                        : Avalonia.Media.FillRule.EvenOdd;
-                    path.Data = newGeometry;
-                }
+                        var newGeometry = Avalonia.Media.PathGeometry.Parse(s);
+                        newGeometry.FillRule = geometry.FillType == PathFillType.Winding
+                            ? Avalonia.Media.FillRule.NonZero
+                            : Avalonia.Media.FillRule.EvenOdd;
+                        path.Data = newGeometry;
+                    }
+                });
             }
-            else
+
+            if (!applied)
             {
                 path.Data = null;
             }
