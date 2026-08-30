@@ -463,7 +463,21 @@ public sealed class TargetScopeCall<TState>
 
 /// <summary>Defines the fixed shape of a guarded target-command operation.</summary>
 /// <typeparam name="TState">The per-recording state supplied by a <see cref="TargetCommandCall{TState}"/>.</typeparam>
-/// <inheritdoc cref="OpaqueRenderDefinition{TState}" path="/remarks"/>
+/// <remarks>
+/// <para>
+/// A definition contains only operation shape: its callback, metadata, and planner traits. Values that
+/// affect pixels belong to a call. When those values change, the owning <see cref="RenderNode"/> must call
+/// <see cref="RenderNode.MarkChanged"/> before its next request.
+/// </para>
+/// <para>
+/// The affected region, query bounds, and hit-test contract are that metadata, and they answer before any
+/// call supplies state. An operation whose target rectangle is itself a per-recording value builds its
+/// definition inside <see cref="RenderNode.Process"/> rather than holding one - the shape
+/// <c>ParticleRenderNode</c> uses, recomputing its region from live positions each recording. Nothing is
+/// lost by that: the region is part of the fragment's identity by value, so supplying it later would
+/// recompile exactly the same way.
+/// </para>
+/// </remarks>
 public sealed class TargetCommandDefinition<TState>
     where TState : notnull
 {
@@ -695,10 +709,10 @@ public sealed class RawTargetScopeCall<TState>
 /// Raw target work is intentionally never eligible for persistent output reuse. Its definition still declares
 /// metadata and resource slots so the invocation can be validated before execution.
 /// <para>
-/// Metadata is part of that shape: the bounds, hit-test, and scale contracts answer before any call
-/// supplies state, so an operation whose extent or density is itself a per-recording value builds its
-/// definition inside <see cref="RenderNode.Process"/> rather than holding one. Nothing is lost by that,
-/// because a plan is keyed by the shape of the work and not by the values a recording carries.
+/// Metadata is part of that shape: the query bounds and hit-test contract answer before any call supplies
+/// state, so an operation whose queried extent is itself a per-recording value builds its definition inside
+/// <see cref="RenderNode.Process"/> rather than holding one. Nothing is lost by that, because a plan is
+/// keyed by the shape of the work and not by the values a recording carries.
 /// </para>
 /// </remarks>
 public sealed class RawTargetCommandDefinition<TState>
