@@ -233,12 +233,10 @@ void main() {
         Span<Color> clearColors = [new Color(255, 255, 255, 255)]; // Dummy color
         using (UsePass(clearColors))
         {
-            // Bind shadow pipeline
             RenderPass.BindPipeline(_shadowPipeline);
 
             var lightVP = LightViewProjection;
 
-            // Render each object
             foreach (var obj in objects)
             {
                 RenderObject(obj, lightVP, Matrix4x4.Identity);

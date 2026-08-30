@@ -529,7 +529,7 @@ public sealed class AllocationCensusHarness
         }
     }
 
-    // ==== Temporary instrumentation: what the render-node recording cache actually serves ====
+    // ==== What the render-node recording cache actually serves ====
 
     private enum RecordingOutcome
     {

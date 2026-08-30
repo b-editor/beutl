@@ -247,15 +247,12 @@ public sealed class GizmoPass : GraphicsNode3D
         Span<Color> clearColors = [Colors.Transparent];
         using (UsePass(clearColors, 1.0f))
         {
-            // Bind pipeline and descriptor set
             RenderPass.BindPipeline(_pipeline);
             RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
 
-            // Bind vertex and index buffers
             RenderPass.BindVertexBuffer(vertexBuffer);
             RenderPass.BindIndexBuffer(indexBuffer);
 
-            // Draw gizmo
             RenderPass.DrawIndexed((uint)indexCount);
         }
     }

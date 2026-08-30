@@ -110,7 +110,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
             // Compile fragment shader
             byte[] fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
 
-            // Create a color-only render pass matching the RenderTarget format.
             IRenderPass3D renderPass = context.CreateRenderPass3D(
                 [TextureFormat.RGBA16Float],
                 depthFormat: null,
@@ -187,8 +186,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
             [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
         descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
 
-        // Execute render pass. The pass holds a render-pass scope on the context-wide recording batch,
-        // so a body that throws has to release it or every later transfer in the process is diverted.
+        // The pass holds a render-pass scope on the context-wide recording batch, so a body that
+        // throws has to release it or every later transfer in the process is diverted.
         _renderPass.Begin(framebuffer, [default]);
         try
         {
@@ -236,8 +235,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
         descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
         descriptorSet.UpdateTexture(1, maskTexture, _sampler);
 
-        // Execute render pass. The pass holds a render-pass scope on the context-wide recording batch,
-        // so a body that throws has to release it or every later transfer in the process is diverted.
+        // The pass holds a render-pass scope on the context-wide recording batch, so a body that
+        // throws has to release it or every later transfer in the process is diverted.
         _renderPass.Begin(framebuffer, [default]);
         try
         {

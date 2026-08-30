@@ -1007,8 +1007,8 @@ internal static class RenderPipelineInternalDiagnostics
 {
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    // Feature 004 removed the request-wide diagnostics recorder, so counters come from the component
-    // statistics the renderer still publishes rather than from a per-request snapshot.
+    // There is no request-wide diagnostics recorder, so counters come from the component statistics
+    // the renderer publishes rather than from a per-request snapshot.
     public static void Attach(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
         => SetPurpose(options, purpose);
 

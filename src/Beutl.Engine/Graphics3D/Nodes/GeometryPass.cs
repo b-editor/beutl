@@ -134,7 +134,6 @@ public sealed class GeometryPass : GraphicsNode3D
         // Begin geometry pass
         using (UsePass(clearColors))
         {
-            // Render each object
             foreach (var obj in objects)
             {
                 RenderObject(renderContext3D, obj, Matrix4x4.Identity);

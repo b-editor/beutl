@@ -57,11 +57,9 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         // shader modules and the two layouts are already on the device by then.
         try
         {
-            // Create shader modules
             _vertexShader = CreateShaderModule(vk, device, vertexShaderSpirv);
             _fragmentShader = CreateShaderModule(vk, device, fragmentShaderSpirv);
 
-            // Create descriptor set layout
             fixed (DescriptorSetLayoutBinding* bindingsPtr = descriptorBindings)
             {
                 var layoutInfo = new DescriptorSetLayoutCreateInfo
@@ -108,7 +106,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             }
             _pipelineLayout = pipelineLayout;
 
-            // Create graphics pipeline
             _pipeline = CreateGraphicsPipeline(
                 vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
                 hasDepthAttachment, depthTestEnabled, depthWriteEnabled, cullMode, frontFace,

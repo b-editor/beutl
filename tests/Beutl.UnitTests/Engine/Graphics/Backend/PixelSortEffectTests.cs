@@ -120,7 +120,6 @@ public class PixelSortEffectTests
         });
     }
 
-    // The working-scale ceiling used to stand in for the intent; the two are now independent inputs.
     [TestCase(RenderIntent.Delivery, float.PositiveInfinity)]
     [TestCase(RenderIntent.Delivery, 2f)]
     public void DeliveryIntent_DecidesFailFast_IndependentlyOfTheWorkingScaleCeiling(

@@ -220,11 +220,10 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         var fence = _inFlightFence;
         _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
 
-        // Upload bitmap to GPU. The following render submission is ordered after it on the same
-        // queue, so the upload needs no per-operation CPU fence wait.
+        // The following render submission is ordered after this upload on the same queue, so it
+        // needs no per-operation CPU fence wait.
         UploadBitmap(bitmap);
 
-        // Acquire next swapchain image
         var acquireResult = _swapchain.AcquireNextImage(_imageAvailableSemaphore, out uint imageIndex);
         if (acquireResult == Result.ErrorOutOfDateKhr)
         {

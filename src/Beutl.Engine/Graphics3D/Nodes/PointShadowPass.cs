@@ -332,13 +332,10 @@ void main() {
         RenderPass!.Begin(framebuffer, clearColors);
         try
         {
-            // Bind shadow pipeline
             RenderPass.BindPipeline(_shadowPipeline!);
 
-            // Bind descriptor set with light data
             RenderPass.BindDescriptorSet(_shadowPipeline!, _descriptorSet!);
 
-            // Render each object
             foreach (var obj in objects)
             {
                 RenderObject(obj, lightVP, Matrix4x4.Identity);

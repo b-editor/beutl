@@ -130,7 +130,7 @@ public sealed class TransparentPass : GraphicsNode3D
         Span<Color> clearColors = [Colors.Transparent];
         using (UsePass(clearColors))
         {
-            // Render transparent objects (already sorted far to near)
+            // Already sorted far to near.
             foreach (var entry in transparentObjects)
             {
                 RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);

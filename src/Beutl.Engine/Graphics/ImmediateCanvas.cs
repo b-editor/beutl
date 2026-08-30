@@ -513,7 +513,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    // Draw a buffer into a logical destination rect.
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
         => DrawRenderTargetScaledCore(
             renderTarget,
@@ -709,7 +708,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    // Draw a pre-snapshotted image into a logical destination rect.
     public void DrawImageScaled(SKImage image, Rect dest)
     {
         VerifyPixelOperation();
