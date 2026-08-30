@@ -1306,6 +1306,223 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     /// <remarks>
+    /// A deconstruction is the assignment shape written once for several targets. Each element stands
+    /// exactly where <c>_bounds = bounds</c> puts its name, so a node that drifts through it drifts on the
+    /// same terms - and reading the two spellings differently is what let this mutator past the rule.
+    /// </remarks>
+    [Test]
+    public void AMutatorDeconstructingIntoTrackedStateWithoutMarking_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+                private float _opacity;
+
+                public void Update(Rect bounds, float opacity)
+                {
+                    (_bounds, _opacity) = (bounds, opacity);
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_opacity, 0f, 0f, 0f));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a deconstruction changes what Process reads exactly as two assignments would");
+    }
+
+    /// <remarks>
+    /// The target of a nested deconstruction sits several tuples deep, so the walk out to the assignment
+    /// has to keep going rather than stop at the innermost one.
+    /// </remarks>
+    [Test]
+    public void AMutatorDeconstructingIntoTrackedStateThroughNestedTuples_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+                private float _opacity;
+
+                public void Update(Rect bounds, float opacity)
+                {
+                    (_bounds, (_opacity, _)) = (bounds, (opacity, 0f));
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_opacity, 0f, 0f, 0f));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a nested tuple still names the node's own state on the left of an assignment");
+    }
+
+    /// <remarks>
+    /// A deconstruction is judged by the same mark every other write is judged by, so a node that marks
+    /// stays accepted and the fix the diagnostic recommends actually silences it.
+    /// </remarks>
+    [Test]
+    public void AMutatorDeconstructingIntoTrackedStateAndMarkingTheNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+                private float _opacity;
+
+                public void Update(Rect bounds, float opacity)
+                {
+                    (_bounds, _opacity) = (bounds, opacity);
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_opacity, 0f, 0f, 0f));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the mark covers a deconstruction as it covers a whole-field assignment");
+    }
+
+    /// <remarks>
+    /// The shape without the hazard: a deconstruction whose targets are all locals leaves every value the
+    /// recording was made from where it was, so there is nothing to mark.
+    /// </remarks>
+    [Test]
+    public void AMutatorDeconstructingIntoLocalsOnly_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class QuietNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Inspect(Rect bounds, float opacity)
+                {
+                    (Rect candidate, float weight) = (bounds, opacity);
+                    Use(candidate, weight);
+                }
+
+                private static void Use(Rect bounds, float opacity) { }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "writing locals changes nothing the recording was made from");
+    }
+
+    /// <remarks>
+    /// The read side of the same syntax. A tuple built out of the node's state is a read however much it
+    /// looks like the write, and only the left of the assignment tells them apart.
+    /// </remarks>
+    [Test]
+    public void AMutatorReadingTrackedStateThroughATuple_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class QuietNode : RenderNode
+            {
+                private Rect _bounds;
+                private float _opacity;
+
+                public void Report()
+                {
+                    (Rect bounds, float opacity) = (_bounds, _opacity);
+                    Use(bounds, opacity);
+                }
+
+                private static void Use(Rect bounds, float opacity) { }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_opacity, 0f, 0f, 0f));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "taking the state out into a tuple leaves the node's recording as valid as it was");
+    }
+
+    /// <remarks>
+    /// A deconstruction reaches its targets through whatever receiver each element spells, so the receiver
+    /// still decides whose state changed. Marking this node would say nothing about the other one.
+    /// </remarks>
+    [Test]
+    public void AMutatorDeconstructingIntoAnotherNodesState_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class QuietNode : RenderNode
+            {
+                private Rect _bounds;
+                private float _opacity;
+
+                public void UpdateOther(QuietNode other, Rect bounds, float opacity)
+                {
+                    (other._bounds, other._opacity) = (bounds, opacity);
+                    other.MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_opacity, 0f, 0f, 0f));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "another instance's state is not what this node's mark decides");
+    }
+
+    /// <remarks>
     /// What holds an execution callback that reads its own node to one answer. Such a callback is written
     /// inside Process, so the node state it reads is state Process reads, and an unmarked write to that
     /// state is reported on exactly the terms a value handed through call state is - which is the whole of

@@ -642,10 +642,17 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         }
     }
 
+    /// <remarks>
+    /// A deconstruction target counts, on the same terms the single name does: it is written without being
+    /// read, and only the syntax between it and the <c>=</c> differs. Reading it as anything else would put
+    /// a value <c>Process</c> only overwrites into the state it depends on, and run a property's getter for
+    /// a reference that never reads it.
+    /// </remarks>
     private static bool IsSimpleAssignmentTarget(ExpressionSyntax expression)
-        => expression.Parent is AssignmentExpressionSyntax assignment
-           && assignment.Left == expression
-           && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression);
+        => (expression.Parent is AssignmentExpressionSyntax assignment
+            && assignment.Left == expression
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
+           || (expression.Parent is ArgumentSyntax argument && IsDeconstructionTarget(argument));
 
     /// <summary>Whether the reference is where a change to the state this member holds is written.</summary>
     /// <remarks>
@@ -690,12 +697,31 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
             case ArgumentSyntax argument:
                 return argument.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword)
-                       || argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword);
+                       || argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword)
+                       || IsDeconstructionTarget(argument);
 
             default:
                 return false;
         }
     }
+
+    /// <summary>Whether the argument is an element the left side of a deconstruction writes.</summary>
+    /// <remarks>
+    /// <para>
+    /// A deconstruction is the assignment shape written once for several targets: each element stands
+    /// exactly where <c>_bounds = bounds</c> puts its name, changes the same value on the same statement,
+    /// and is spelled by the same node's own body. Only the tuple standing between the name and the
+    /// <c>=</c> differs, so reading the two out differently is what let an ordinary mutator past the rule.
+    /// </para>
+    /// <para>
+    /// Out through tuples only, however many are nested, and only on the left: the identical tuple on the
+    /// right reads its elements, and an argument of an ordinary call is parented by an argument list rather
+    /// than a tuple, so neither reaches an assignment this way. What each element writes is still decided by
+    /// the receiver it spells, so a deconstruction into another object stops where every other write does.
+    /// </para>
+    /// </remarks>
+    private static bool IsDeconstructionTarget(ArgumentSyntax argument)
+        => argument.Parent is TupleExpressionSyntax tuple && IsWriteTarget(tuple);
 
     private static bool IsInsideNameOf(SyntaxNode node)
     {

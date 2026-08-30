@@ -338,6 +338,28 @@ A renderer maintainer compares the redesign with its current-main baseline using
   two drivers and two runs is the strongest performance evidence this branch carries, and it is still not an
   accepted SC-008 result.
 
+  The reason it is not is the measurement configuration rather than either machine.
+  `RenderPipelineBenchmarkConfig` uses `RunStrategy.Monitoring` with `InvocationCount = 1` and
+  `IterationCount = 15`, so each of the fifteen samples the criterion requires is a single render of roughly
+  2.7 ms, and BenchmarkDotNet warns on every run that an iteration that short is not a reliable unit. Replaying
+  the acceptance rule - repeat gate first, then the pooled bootstrap - over triples of runs that were **all
+  fusion-disabled**, where every finding is false by construction, puts the per-case false-positive rate at
+  20.8% on the M3 (192 gated triples) and 25.4% on an idle Linux machine (181). Over sixteen workloads, a
+  handful of cases failing the repeat gate and about one spurious regression per manifest is the expected
+  outcome of the statistic, not evidence about the renderer. The repeat gate does not protect against this,
+  because its own verdict is drawn from the same fifteen samples: `BlurCustomBlur` cleared it on the M3
+  (repeat `1.0193` against a `1.0545` tolerance) and then recorded `1.0698` with a 95% interval entirely above
+  one, which an interleaved in-process probe bounds to `0.9980` `[0.9928, 1.0031]` - a paired difference of
+  −2.9 µs, smaller than the same probe's own A/A bias, while it resolves the primary workload's 34% speedup
+  crisply. Fusion executes nothing differently in that workload: it records no `Shader` fragment, so
+  `ExecutionIslandPlanner.Plan` skips it before reaching the one place `FusionMode` selects behaviour, and the
+  execution counters, allocation totals and output hashes are identical in both modes.
+
+  Raising `InvocationCount` until an iteration reaches the recommended ~100 ms would collapse that
+  false-positive rate. It would also invalidate every manifest recorded so far and give up the one-complete-
+  request-per-sample property the harness documents deliberately, so it is a design decision about what SC-008
+  measures rather than a tuning fix, and it is not taken here.
+
 - **SC-009**: In every injected failure phase, every planner-owned target, program, recorded resource, session, deferred input, or recording handle is discharged exactly once by release/disposal or documented cache-ownership transfer after request teardown; a secondary cleanup fault does not replace the primary failure.
 - **SC-010**: Every planner-controlled execution-shape claim is proven by direct compiled-plan assertions plus the applicable execution probe and component statistics, and every failure-matrix case ends with no active request-owned target, program, resource, session, or handle. No acceptance criterion depends on a separate request-wide diagnostic subsystem.
 - **SC-011**: All applicable engine, public API contract, no-preferred-GPU, and feature-003 regression tests pass with no change to the freshly recorded allocation-failure behavior.

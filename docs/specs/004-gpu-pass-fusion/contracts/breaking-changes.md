@@ -934,7 +934,9 @@ describes, and nothing at runtime notices.
   readonly` of an immutable type that carries no subscriber list, or pass it as call state; declare a method
   group's method where the rule can read it, or write the callback as a `static` lambda at the call site.
 - **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. It reports
-  two shapes: an assignment written inside the node's own type with no reachable `MarkChanged()`, and a member
+  two shapes: an assignment written inside the node's own type with no reachable `MarkChanged()` — a
+  deconstruction's targets counting as the assignments they are, so `(_bounds, _opacity) = (bounds, opacity)`
+  is reported where `_bounds = bounds;` is — and a member
   the node declares that code outside it can write — an auto-property whose setter is neither `private` nor
   `init`, a field-like event that is not `private`, or a field that is neither `private` nor `readonly`. A
   public field whose value `Process` reads, and a public field-like event it reads, are reported on the same
