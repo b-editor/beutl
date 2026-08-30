@@ -819,11 +819,29 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     /// Follows the member an expression invokes without naming it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// An object creation names the type and not the constructor overload it picked, a constructor
-    /// initialiser is spelled <c>this</c> or <c>base</c>, an indexer is spelled as brackets, and a
-    /// user-defined operator or explicit conversion is spelled as punctuation. None of them reach the name
-    /// loop, and each still runs a body: leaving them out let a callback move a read into a constructor and
-    /// keep the rule silent, which is the one thing silence must not mean.
+    /// initialiser is spelled <c>this</c> or <c>base</c>, an indexer is spelled as brackets, a collection
+    /// initialiser spells its <c>Add</c> calls as elements between braces, and a user-defined operator or
+    /// explicit conversion is spelled as punctuation. None of them reach the name loop, and each still runs
+    /// a body: leaving them out let a callback move a read into a constructor and keep the rule silent,
+    /// which is the one thing silence must not mean. The <c>Add</c> is that same move spelled shorter,
+    /// because the creation it hangs off is walked already: <c>new Builder(value)</c> written as
+    /// <c>new Builder { value }</c> is the same read behind two changed characters.
+    /// </para>
+    /// <para>
+    /// An element binds to nothing but itself, and the multi-argument form - a second pair of braces - to
+    /// nothing at all, so the <c>Add</c> is asked for by <c>GetCollectionInitializerSymbolInfo</c> rather
+    /// than found, exactly as an implicit conversion is.
+    /// </para>
+    /// <para>
+    /// It is followed only where the braces sit on an object creation, which is the receiver test
+    /// <see cref="FollowReceiverCreation"/> makes of every other instance member and which the creation
+    /// answers here for the same reasons: it is written in the body, it names the exact type it makes, and
+    /// it is what every element runs on. Braces on a member instead - <c>new Outer { Inner = { value } }</c>
+    /// - fill an instance the callback did not make, whose declared type need not be the type that runs,
+    /// and that is the receiver this rule does not model.
+    /// </para>
     /// </remarks>
     private static void FollowUnnamedInvocation(
         SyntaxNodeAnalysisContext context,
@@ -842,6 +860,28 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 is IPropertySymbol { IsStatic: false } indexer)
             {
                 FollowPropertyAccess(context, model, body, indexer, element, element, depth, walked, report);
+            }
+
+            return;
+        }
+
+        if (node is InitializerExpressionSyntax { Parent: BaseObjectCreationExpressionSyntax } elements
+            && elements.IsKind(SyntaxKind.CollectionInitializerExpression))
+        {
+            foreach (ExpressionSyntax added in elements.Expressions)
+            {
+                if (model.GetCollectionInitializerSymbolInfo(added, context.CancellationToken).Symbol
+                    is IMethodSymbol add)
+                {
+                    FollowCall(
+                        context,
+                        add,
+                        added,
+                        RunsAStaticMethod(add) ? "static method" : "method",
+                        depth,
+                        walked,
+                        report);
+                }
             }
 
             return;

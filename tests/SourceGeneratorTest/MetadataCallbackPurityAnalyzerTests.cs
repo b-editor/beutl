@@ -3011,6 +3011,188 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A collection initialiser spells its <c>Add</c> calls as elements between braces, so an author moves
+    /// a read out of the constructor this rule already follows and into a body it never named by writing
+    /// braces where the parentheses were.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingACollectionInitializerWhoseAddReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using System.Collections;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsBuilder : IEnumerable
+            {
+                public Rect Bounds;
+
+                public void Add(Rect value)
+                    => Bounds = new Rect(
+                        value.X + Settings.Offset, value.Y, value.Width, value.Height);
+
+                public IEnumerator GetEnumerator() => throw new NotSupportedException();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new BoundsBuilder { value }.Bounds,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a collection initialiser runs an Add body the source never spells a name for");
+    }
+
+    /// <remarks>
+    /// The element that takes more than one argument is written as a second pair of braces, which binds to
+    /// <c>Add</c> where the element itself binds to nothing at all, so the two spellings have to be asked
+    /// the same question rather than the one the name loop happens to reach.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingAMultiArgumentCollectionInitializerElementWhoseAddReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using System.Collections;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsBuilder : IEnumerable
+            {
+                public Rect Bounds;
+
+                public void Add(float x, float y)
+                    => Bounds = new Rect(x + Settings.Offset, y, 1f, 1f);
+
+                public IEnumerator GetEnumerator() => throw new NotSupportedException();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new BoundsBuilder { { value.X, value.Y } }.Bounds,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the multi-argument element form runs the same Add and has to be read the same way");
+    }
+
+    /// <remarks>
+    /// What the arm follows is the body, not the braces. An <c>Add</c> reading only its arguments and the
+    /// instance the initialiser is filling has nothing in it to report, and reporting one would say the
+    /// shape is the problem when the rule is about what the shape runs.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingACollectionInitializerWhoseAddReadsNothingStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using System.Collections;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsBuilder : IEnumerable
+            {
+                public Rect Bounds;
+
+                public void Add(Rect value) => Bounds = value;
+
+                public IEnumerator GetEnumerator() => throw new NotSupportedException();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new BoundsBuilder { value }.Bounds,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "an Add that reads only what it was handed answers the same way twice");
+    }
+
+    /// <remarks>
+    /// Braces on a member rather than on the creation are the receiver bound stated as a case: the
+    /// <c>Add</c> runs on an instance the callback did not make, whose declared type need not be the type
+    /// that runs, which is exactly what a member called on a handed-in receiver is refused for.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingACollectionInitializerOnAMemberItDidNotCreate_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using System.Collections;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class BoundsBuilder : IEnumerable
+            {
+                public Rect Bounds;
+
+                public virtual void Add(Rect value)
+                    => Bounds = new Rect(
+                        value.X + Settings.Offset, value.Y, value.Width, value.Height);
+
+                public IEnumerator GetEnumerator() => throw new NotSupportedException();
+            }
+
+            internal sealed class Owner
+            {
+                public BoundsBuilder Builder { get; } = new();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Owner { Builder = { value } }.Builder.Bounds,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the callback did not make this receiver, so what its Add runs is not read off the call site");
+    }
+
+    /// <remarks>
     /// The walk reports static reads, so a body that reads only its arguments and the instance it was
     /// called on has nothing in it to report however far the walk goes into it. Following instance members
     /// must not turn an ordinary helper into a diagnostic.

@@ -911,7 +911,12 @@ describes, and nothing at runtime notices.
   chain rather than accepting it; a method group whose body has no source in the compilation is reported,
   because that body is the whole of the callback. The same walk enters what a body runs without naming: a
   constructor - its chained and base constructors and the instance initialisers that run with it included -
-  and a user-defined operator or conversion. It follows an instance member on those same terms when it can
+  a user-defined operator or conversion, and the `Add` a collection initialiser on an object creation runs
+  per element, in the single-argument form and in the braced multi-argument one, which no name in the source
+  binds to — so `new Builder(value)` and `new Builder { value }` are read alike where before only the
+  parenthesised one was. Braces filling a member rather than the creation, as in
+  `new Outer { Inner = { value } }`, call `Add` on an instance the callback did not make and are the
+  receiver case below. It follows an instance member on those same terms when it can
   point at the object creation that made the receiver, because an object creation names the exact type it
   makes and so the member the call binds to is the member that runs. Three creations qualify: the one written
   at the call site; the one initialising a `readonly` field the callback reaches on its own — named directly,
