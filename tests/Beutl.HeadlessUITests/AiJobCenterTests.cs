@@ -110,6 +110,18 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
+    public void Item_SucceededReplayableJobHonorsAuthoritativeCanRetry()
+    {
+        using var item = CreateItem(CreateJob(
+            kind: "image",
+            status: "succeeded",
+            inputParams: ParseInput("{\"prompt\":\"Completed image\",\"aspectRatio\":\"1:1\"}"),
+            canRetry: true));
+
+        Assert.That(item.CanRetry, Is.True);
+    }
+
+    [Test]
     public void Item_MalformedRetainedInputFallsBackWithoutThrowing()
     {
         AiJobItemViewModel? item = null;
@@ -315,7 +327,8 @@ public sealed class AiJobCenterTests
         using var item = CreateItem(CreateJob(
             kind: "image",
             status: "failed",
-            inputParams: ParseInput("""{ "prompt": "Accessible action" }"""),
+            inputParams: ParseInput(
+                """{ "prompt": "Accessible action", "aspectRatio": "1:1" }"""),
             canRetry: true));
 
         try
@@ -548,7 +561,8 @@ public sealed class AiJobCenterTests
         using var item = CreateItem(CreateJob(
             kind: "image",
             status: "failed",
-            inputParams: ParseInput("""{ "prompt": "Retry at the current price" }"""),
+            inputParams: ParseInput(
+                """{ "prompt": "Retry at the current price", "aspectRatio": "1:1" }"""),
             canRetry: true));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
 

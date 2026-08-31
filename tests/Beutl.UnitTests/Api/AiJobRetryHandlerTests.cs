@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Text.Json;
 using Beutl.Api.Services;
 using Beutl.Language;
@@ -24,7 +25,7 @@ public class AiJobRetryHandlerTests
             .Callback<AiImageGenerationRequest, CancellationToken>((request, _) => keys.Add(request.IdempotencyKey))
             .ThrowsAsync(new IOException("response lost"));
         var handler = new AiImageJobRetryHandler(images.Object, EntitlementService(), AvailabilityService(true), ModelCatalogService(), RetryContext());
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
         Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
         Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
@@ -55,7 +56,7 @@ public class AiJobRetryHandlerTests
             AvailabilityService(available: true),
             ModelCatalogService(),
             RetryContext());
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
         Assert.ThrowsAsync<AiJobLimitReachedException>(() => RunRetryAsync(handler, job));
         await RunRetryAsync(handler, job);
@@ -81,7 +82,7 @@ public class AiJobRetryHandlerTests
             AvailabilityService(true),
             ModelCatalogService(),
             RetryContext());
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
         Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
         Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
@@ -106,7 +107,7 @@ public class AiJobRetryHandlerTests
                 return null!;
             });
         var handler = new AiImageJobRetryHandler(images.Object, EntitlementService(), AvailabilityService(true), ModelCatalogService(), RetryContext());
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
         AiJobRetryPreparationResult firstResult = await handler.PrepareAsync(job, CancellationToken.None);
         AiJobRetryPreparationResult secondResult = await handler.PrepareAsync(job, CancellationToken.None);
@@ -139,7 +140,7 @@ public class AiJobRetryHandlerTests
             RetryContext());
 
         AiJobRetryPreparationResult result = await handler.PrepareAsync(
-            Job("image", "{\"prompt\":\"once\"}"),
+            Job("image", "{\"prompt\":\"once\",\"aspectRatio\":\"1:1\"}"),
             CancellationToken.None);
         IAiJobRetryPreparation preparation = result.TakePreparation();
         await preparation.ExecuteAsync(CancellationToken.None);
@@ -164,7 +165,7 @@ public class AiJobRetryHandlerTests
             AvailabilityService(true),
             ModelCatalogService(),
             RetryContext());
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
         await RunRetryAsync(handler, job);
         await RunRetryAsync(handler, job);
@@ -184,7 +185,7 @@ public class AiJobRetryHandlerTests
             ModelCatalogService(),
             RetryContext(accountId: null));
 
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
         Assert.ThrowsAsync<AuthenticationRequiredException>(async () =>
         {
             AiJobRetryPreparationResult prepared = await handler.PrepareAsync(job, CancellationToken.None);
@@ -208,7 +209,7 @@ public class AiJobRetryHandlerTests
     public void RetryStore_DoesNotReuseKeyAcrossAccounts()
     {
         var store = new InMemoryAiRetryKeyStore();
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
         string first = store.GetOrCreate(job, "account-a", out bool firstRepeat);
         string second = store.GetOrCreate(job, "account-b", out bool secondRepeat);
 
@@ -254,7 +255,7 @@ public class AiJobRetryHandlerTests
     {
         var images = new Mock<IAiImageGenerationService>();
         var store = new InMemoryAiRetryKeyStore();
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
         store.GetOrCreate(job, "test-account", out _);
         var handler = new AiImageJobRetryHandler(
             images.Object,
@@ -285,7 +286,7 @@ public class AiJobRetryHandlerTests
         var images = new Mock<IAiImageGenerationService>();
         var store = new InMemoryAiRetryKeyStore();
         string account = "account-a";
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\"}");
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
         string original = store.GetOrCreate(job, account, out _);
         var context = new AiRetryAttemptContext(
             store,
@@ -329,7 +330,6 @@ public class AiJobRetryHandlerTests
     [TestCase("""{"prompt":"a harbor","size":"1536x1024"}""", "3:2")]
     [TestCase("""{"prompt":"a harbor","size":"1024x1536"}""", "2:3")]
     [TestCase("""{"prompt":"a harbor","size":"1024x1024"}""", "1:1")]
-    [TestCase("""{"prompt":"a harbor"}""", "1:1")]
     public async Task ImageRetry_ReproducesTheShapeTheJobWasAskedFor(
         string inputParameters,
         string expectedAspectRatio)
@@ -367,7 +367,7 @@ public class AiJobRetryHandlerTests
 
         // The picture itself was never retained, so repeating this would make
         // something else and charge the same price for it.
-        Assert.ThrowsAsync<InvalidOperationException>(() => RunRetryAsync(
+        Assert.ThrowsAsync<AiRetryAttemptRejectedException>(() => RunRetryAsync(
             handler,
             Job("image", """{"prompt":"a harbor","aspectRatio":"1:1","reference":{"filename":"style.png"}}""")));
     }
@@ -470,6 +470,92 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
+    public void Retry_UsesAuthoritativeCanRetryForSucceededJobsOnlyWhenReplayable()
+    {
+        var image = new AiImageJobRetryHandler(
+            Mock.Of<IAiImageGenerationService>(),
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(),
+            RetryContext());
+        AiJob succeeded = Job("image", "{\"prompt\":\"done\",\"aspectRatio\":\"1:1\"}") with
+        {
+            Status = new AiJobStatusId("succeeded"),
+            CanRetry = true,
+        };
+        AiJob notAuthoritativelyRetryable = succeeded with { CanRetry = false };
+        AiJob active = succeeded with { Status = new AiJobStatusId("running") };
+        AiJob canceled = succeeded with { Status = new AiJobStatusId("canceled") };
+        AiJob missingShape = succeeded with
+        {
+            InputParameters = JsonDocument.Parse("{\"prompt\":\"done\"}").RootElement.Clone(),
+        };
+        AiJob conflictingShape = succeeded with
+        {
+            InputParameters = JsonDocument.Parse(
+                "{\"prompt\":\"done\",\"size\":\"1024x1024\",\"aspectRatio\":\"1:1\"}")
+                .RootElement.Clone(),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(image.CanRetry(succeeded, new AiJobStatusSemantics(true, false, AiJobOutcomes.Succeeded)), Is.True);
+            Assert.That(image.CanRetry(notAuthoritativelyRetryable, new AiJobStatusSemantics(true, false, AiJobOutcomes.Succeeded)), Is.False);
+            Assert.That(image.CanRetry(active, new AiJobStatusSemantics(false, true)), Is.False);
+            Assert.That(image.CanRetry(canceled, new AiJobStatusSemantics(true, false, AiJobOutcomes.Canceled)), Is.False);
+            Assert.That(image.CanRetry(missingShape, new AiJobStatusSemantics(true, false, AiJobOutcomes.Succeeded)), Is.False);
+            Assert.That(image.CanRetry(conflictingShape, new AiJobStatusSemantics(true, false, AiJobOutcomes.Succeeded)), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task ImageRetry_PreflightWithdrawsChangedCapabilities()
+    {
+        var catalog = new AiModelCatalog([
+            KeyValuePair.Create(AiOperations.ImageGeneration, ImmutableArray.Create(new AiModelOption(
+                new AiModelId("image/model"), "Image", AiModelCostTier.Low, true,
+                Image: new AiImageModelCapabilities(
+                    AiCapabilityDimension<string>.Supported(["1:1"]),
+                    AiCapabilityDimension<string>.Supported(["opaque"]), false, 0))))]);
+        var availability = new Mock<IAiOperationAvailabilityService>();
+        var handler = new AiImageJobRetryHandler(Mock.Of<IAiImageGenerationService>(), EntitlementService(), availability.Object, ModelCatalogService(catalog), RetryContext());
+        AiJob job = Job("image", "{\"prompt\":\"x\",\"aspectRatio\":\"3:2\",\"background\":\"transparent\",\"seed\":7}") with { Model = new AiModelId("image/model") };
+
+        AiJobRetryPreflight result = await handler.GetPreflightAsync(job, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CanSubmit, Is.False);
+            Assert.That(result.Explanation, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
+            availability.Verify(service => service.CheckAsync(It.IsAny<AiOperationAvailabilityRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        });
+    }
+
+    [Test]
+    public async Task VideoRetry_PreflightWithdrawsChangedCapabilities()
+    {
+        var catalog = new AiModelCatalog([
+            KeyValuePair.Create(AiOperations.VideoGeneration, ImmutableArray.Create(new AiModelOption(
+                new AiModelId("video/model"), "Video", AiModelCostTier.Low, true,
+                Video: new AiVideoModelCapabilities(
+                    AiCapabilityDimension<int>.Supported([4]),
+                    AiCapabilityDimension<string>.Supported(["720p"]),
+                    AiCapabilityDimension<string>.Supported(["16:9"]), false, false))))]);
+        var availability = new Mock<IAiOperationAvailabilityService>();
+        var handler = new AiVideoJobRetryHandler(Mock.Of<IAiVideoService>(), EntitlementService(), availability.Object, ModelCatalogService(catalog), RetryContext());
+        AiJob job = Job("video", "{\"prompt\":\"x\",\"durationSeconds\":4,\"resolution\":\"1080p\",\"generateAudio\":true,\"seed\":7}") with { Model = new AiModelId("video/model") };
+
+        AiJobRetryPreflight result = await handler.GetPreflightAsync(job, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CanSubmit, Is.False);
+            Assert.That(result.Explanation, Is.EqualTo(Strings.AiModelDoesNotSupportRequest));
+            availability.Verify(service => service.CheckAsync(It.IsAny<AiOperationAvailabilityRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        });
+    }
+
+    [Test]
     public void VideoRetry_RefusesAClipConditionedOnSourceFrames()
     {
         var handler = new AiVideoJobRetryHandler(
@@ -479,7 +565,7 @@ public class AiJobRetryHandlerTests
             ModelCatalogService(),
             RetryContext());
 
-        Assert.ThrowsAsync<InvalidOperationException>(() => RunRetryAsync(handler,
+        Assert.ThrowsAsync<AiRetryAttemptRejectedException>(() => RunRetryAsync(handler,
             Job(
                 "video",
                 """

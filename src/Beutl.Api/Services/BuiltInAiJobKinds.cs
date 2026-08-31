@@ -233,7 +233,9 @@ internal abstract class MeteredAiJobRetryHandler(
             or AiRequestWasDeletedException;
 
     public virtual bool CanRetry(AiJob job, AiJobStatusSemantics status)
-        => status.Outcome == AiJobOutcomes.Failed
+        => status.IsTerminal
+            && status.Outcome is { } outcome
+            && (outcome == AiJobOutcomes.Failed || outcome == AiJobOutcomes.Succeeded)
             && job.CanRetry
             && HasCanonicalPrompt(job);
 
@@ -338,25 +340,36 @@ internal abstract class MeteredAiJobRetryHandler(
         {
             result = new AiJobRetryPreflight(true, false, Strings.AiProRequired);
         }
-        else if (!await IsModelStillOfferedAsync(job, cancellationToken))
+        else
         {
-            // The balance is not the problem, so saying it is would send the
-            // user to buy credits that would not help.
-            result = new AiJobRetryPreflight(true, false, Strings.AiModelUnavailable);
-        }
-        else if (entitlements.Availability.GetState(operation) == AiOperationAvailabilityState.Unavailable
+            AiModelCatalog catalog = await modelCatalogService.GetAsync(cancellationToken);
+            if (!IsModelStillOffered(catalog, job))
+            {
+                // The balance is not the problem, so saying it is would send the
+                // user to buy credits that would not help.
+                result = new AiJobRetryPreflight(true, false, Strings.AiModelUnavailable);
+            }
+            else if (!IsCurrentRequestSupported(catalog, job))
+            {
+                result = new AiJobRetryPreflight(
+                    true,
+                    false,
+                    Strings.AiModelDoesNotSupportRequest);
+            }
+            else if (entitlements.Availability.GetState(operation) == AiOperationAvailabilityState.Unavailable
                  || !await availabilityService.CheckAsync(
                      CreateAvailabilityRequest(job),
                      cancellationToken))
-        {
-            result = new AiJobRetryPreflight(true, false, Strings.AiEstimatedUsageInsufficient);
-        }
-        else
-        {
-            string explanation = entitlements.Balance.MonthlyUsage.IsExhausted
-                ? Strings.AiEstimatedUsageTopUp
-                : Strings.AiEstimatedUsageMonthly;
-            result = new AiJobRetryPreflight(true, true, explanation);
+            {
+                result = new AiJobRetryPreflight(true, false, Strings.AiEstimatedUsageInsufficient);
+            }
+            else
+            {
+                string explanation = entitlements.Balance.MonthlyUsage.IsExhausted
+                    ? Strings.AiEstimatedUsageTopUp
+                    : Strings.AiEstimatedUsageMonthly;
+                result = new AiJobRetryPreflight(true, true, explanation);
+            }
         }
 
         return result;
@@ -373,18 +386,24 @@ internal abstract class MeteredAiJobRetryHandler(
     {
     }
 
+    /// <summary>
+    /// Checks the exact retained request against the latest model capability
+    /// snapshot. Implementations remain permissive when the snapshot has no
+    /// assertion for this request (for example, an older server that publishes
+    /// no model data).
+    /// </summary>
+    protected virtual bool IsCurrentRequestSupported(AiModelCatalog catalog, AiJob job)
+        => true;
+
     // A rerun repeats the model the job ran on, so a model that has since been
     // withdrawn cannot be repeated. Falling back to the operation's default
     // would quietly produce something else and charge the default's price for
     // it; the server refuses this too.
-    private async Task<bool> IsModelStillOfferedAsync(
-        AiJob job,
-        CancellationToken cancellationToken)
+    private bool IsModelStillOffered(AiModelCatalog catalog, AiJob job)
     {
         if (job.Model is not { Value.Length: > 0 } model)
-            return true;
+            return !catalog.OffersNoModel(operation);
 
-        AiModelCatalog catalog = await modelCatalogService.GetAsync(cancellationToken);
         ImmutableArray<AiModelOption> models = catalog.ModelsFor(operation);
         // A catalog that could not be fetched says nothing about any model, and
         // the server has the last word regardless.
@@ -460,22 +479,37 @@ internal sealed class AiImageJobRetryHandler(
         modelCatalogService,
         retryContext)
 {
+    private static readonly HashSet<string> s_allowedProperties =
+        ["prompt", "size", "aspectRatio", "background", "seed"];
+
+    public override bool CanRetry(AiJob job, AiJobStatusSemantics status)
+        => base.CanRetry(job, status)
+            && TryParseReplayInput(job, out _);
+
     protected override AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job)
         => new AiOperationAvailabilityRequest.Fixed(AiOperations.ImageGeneration, job.Model);
 
     protected override void ValidateRetryInputs(AiJob job)
     {
-        // A generation guided by reference pictures cannot be repeated: the
-        // pictures themselves were never retained, so this would produce
-        // something else at full price. The server refuses it too. Both names
-        // are checked: a job recorded while only one picture was allowed
-        // carries "reference", and one recorded since carries "references".
-        if (AiJobInputParameters.Has(job, "reference")
-            || AiJobInputParameters.Has(job, "references"))
-        {
-            throw new InvalidOperationException(
-                "An image generated from a reference image cannot be retried.");
-        }
+        _ = ParseReplayInput(job);
+    }
+
+    protected override bool IsCurrentRequestSupported(AiModelCatalog catalog, AiJob job)
+    {
+        if (!TryParseReplayInput(job, out ImageReplayInput input))
+            return false;
+
+        AiModelOption? model = ResolveModel(catalog, job);
+        AiImageModelCapabilities? capabilities = model?.Image;
+        if (capabilities is null)
+            return true;
+        return (!capabilities.AspectRatios.IsSpecified
+                || capabilities.AspectRatios.Values.Contains(input.AspectRatio))
+            && (input.Background is not { Length: > 0 } background
+                || string.Equals(background, "auto", StringComparison.Ordinal)
+                || !capabilities.Backgrounds.IsSpecified
+                || capabilities.Backgrounds.Values.Contains(background))
+            && (input.Seed is null || capabilities.SupportsSeed);
     }
 
     protected override async Task DispatchAsync(
@@ -483,22 +517,21 @@ internal sealed class AiImageJobRetryHandler(
         string idempotencyKey,
         bool isRepeat)
     {
-        string prompt = AiJobInputParameters.GetString(job, "prompt")
-            ?? throw new InvalidOperationException("The retained image prompt is missing.");
+        ImageReplayInput input = ParseReplayInput(job);
         await images.GenerateAsync(
             new AiImageGenerationRequest(
-                prompt,
-                new AiImageAspectRatioId(ResolveAspectRatio(job)),
-                background: ResolveBackground(job),
-                seed: AiJobInputParameters.GetInt32(job, "seed"),
+                input.Prompt,
+                new AiImageAspectRatioId(input.AspectRatio),
+                background: ResolveBackground(input),
+                seed: input.Seed,
                 model: job.Model,
                 idempotencyKey: idempotencyKey),
             CancellationToken.None);
     }
 
-    private static AiImageBackgroundId ResolveBackground(AiJob job)
+    private static AiImageBackgroundId ResolveBackground(ImageReplayInput input)
     {
-        string? background = AiJobInputParameters.GetString(job, "background");
+        string? background = input.Background;
         return string.IsNullOrWhiteSpace(background)
             ? default
             : new AiImageBackgroundId(background);
@@ -506,19 +539,94 @@ internal sealed class AiImageJobRetryHandler(
 
     // Jobs recorded before the endpoint spoke ratios carry the fixed size they
     // were asked for. Mapping it back is what keeps a repeat the same shape.
-    private static string ResolveAspectRatio(AiJob job)
+    private static ImageReplayInput ParseReplayInput(AiJob job)
     {
-        string? aspectRatio = AiJobInputParameters.GetString(job, "aspectRatio");
-        if (aspectRatio is not null)
-            return aspectRatio;
-
-        return AiJobInputParameters.GetString(job, "size") switch
-        {
-            "1024x1536" => "2:3",
-            "1536x1024" => "3:2",
-            _ => "1:1",
-        };
+        if (!TryParseReplayInput(job, out ImageReplayInput input))
+            throw new InvalidOperationException("The retained image request cannot be replayed exactly.");
+        return input;
     }
+
+    private static bool TryParseReplayInput(AiJob job, out ImageReplayInput result)
+    {
+        result = default;
+        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input)
+            return false;
+        foreach (JsonProperty property in input.EnumerateObject())
+        {
+            if (!s_allowedProperties.Contains(property.Name))
+                return false;
+        }
+        if (!input.TryGetProperty("prompt", out JsonElement prompt)
+            || prompt.ValueKind != JsonValueKind.String
+            || prompt.GetString() is not { } promptValue
+            || string.IsNullOrWhiteSpace(promptValue)
+            || promptValue.Length > AiRequestLimits.MaxPromptLength
+            || !string.Equals(promptValue, promptValue.Trim(), StringComparison.Ordinal))
+            return false;
+
+        bool hasAspect = input.TryGetProperty("aspectRatio", out JsonElement aspectElement);
+        bool hasSize = input.TryGetProperty("size", out JsonElement sizeElement);
+        if (hasAspect == hasSize)
+            return false;
+
+        string aspectRatio = hasAspect
+            ? aspectElement.ValueKind == JsonValueKind.String
+                ? aspectElement.GetString() ?? string.Empty
+                : string.Empty
+            : hasSize
+                ? sizeElement.ValueKind == JsonValueKind.String
+                    ? sizeElement.GetString() switch
+                    {
+                        "1024x1024" => "1:1",
+                        "1024x1536" => "2:3",
+                        "1536x1024" => "3:2",
+                        _ => string.Empty,
+                    }
+                    : string.Empty
+                : "1:1";
+        if (aspectRatio is not ("1:1" or "16:9" or "9:16" or "4:3" or "3:4" or "3:2" or "2:3"))
+            return false;
+
+        string? background = null;
+        if (input.TryGetProperty("background", out JsonElement backgroundElement))
+        {
+            if (backgroundElement.ValueKind != JsonValueKind.String)
+                return false;
+            background = backgroundElement.GetString();
+            if (background is not ("auto" or "opaque" or "transparent"))
+                return false;
+        }
+
+        int? seed = null;
+        if (input.TryGetProperty("seed", out JsonElement seedElement))
+        {
+            if (seedElement.ValueKind != JsonValueKind.Number
+                || !seedElement.TryGetInt32(out int seedValue)
+                || seedValue < AiRequestLimits.MinSeed
+                || seedValue > AiRequestLimits.MaxSeed)
+                return false;
+            seed = seedValue;
+        }
+
+        result = new ImageReplayInput(promptValue, aspectRatio, background, seed);
+        return true;
+    }
+
+    private static AiModelOption? ResolveModel(AiModelCatalog catalog, AiJob job)
+    {
+        ImmutableArray<AiModelOption> models = catalog.ModelsFor(AiOperations.ImageGeneration);
+        if (models.IsDefaultOrEmpty)
+            return null;
+        if (job.Model is { Value.Length: > 0 } model)
+            return models.FirstOrDefault(option => option.Id == model);
+        return catalog.DefaultFor(AiOperations.ImageGeneration);
+    }
+
+    private readonly record struct ImageReplayInput(
+        string Prompt,
+        string AspectRatio,
+        string? Background,
+        int? Seed);
 }
 
 internal sealed class AiVideoJobRetryHandler(
@@ -547,6 +655,25 @@ internal sealed class AiVideoJobRetryHandler(
     protected override void ValidateRetryInputs(AiJob job)
     {
         _ = ParseReplayInput(job);
+    }
+
+    protected override bool IsCurrentRequestSupported(AiModelCatalog catalog, AiJob job)
+    {
+        if (!TryParseReplayInput(job, out VideoReplayInput input))
+            return false;
+
+        AiModelOption? model = ResolveModel(catalog, job);
+        AiVideoModelCapabilities? capabilities = model?.Video;
+        if (capabilities is null)
+            return true;
+        return (!capabilities.DurationsSeconds.IsSpecified
+                || capabilities.DurationsSeconds.Values.Contains(input.DurationSeconds))
+            && (!capabilities.Resolutions.IsSpecified
+                || capabilities.Resolutions.Values.Contains(input.Resolution))
+            && (!capabilities.AspectRatios.IsSpecified
+                || capabilities.AspectRatios.Values.Contains(input.AspectRatio))
+            && (!input.GenerateAudio || capabilities.SupportsAudio)
+            && (input.Seed is null || capabilities.SupportsSeed);
     }
 
     protected override async Task DispatchAsync(
@@ -652,6 +779,16 @@ internal sealed class AiVideoJobRetryHandler(
             generateAudio,
             seed);
         return true;
+    }
+
+    private static AiModelOption? ResolveModel(AiModelCatalog catalog, AiJob job)
+    {
+        ImmutableArray<AiModelOption> models = catalog.ModelsFor(AiOperations.VideoGeneration);
+        if (models.IsDefaultOrEmpty)
+            return null;
+        if (job.Model is { Value.Length: > 0 } model)
+            return models.FirstOrDefault(option => option.Id == model);
+        return catalog.DefaultFor(AiOperations.VideoGeneration);
     }
 
     private readonly record struct VideoReplayInput(
