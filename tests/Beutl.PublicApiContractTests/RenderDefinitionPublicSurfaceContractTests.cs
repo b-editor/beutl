@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -422,6 +423,72 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         });
     }
 
+    /// <remarks>
+    /// The two descriptions that run no callback of their own. They carry bindings all the same - a hit test
+    /// declared with <c>FromSlot</c> resolves against them - so they need the declaration for the same reason
+    /// the rest of the family does: without a slot list nothing checks that the bindings address slots the
+    /// description named, and the order the caller wrote them in is what the description keeps.
+    /// </remarks>
+    [Test]
+    public void ACallbacklessDescriptionGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings()
+    {
+        RenderResourceSlot<SlotSubject> slotA = new();
+        RenderResourceSlot<SlotSubject> slotB = new();
+        var a = new SlotSubject();
+        var b = new SlotSubject();
+        using RenderTarget target = RenderTarget.CreateNull(4, 4);
+        RenderResourceBinding? bindA = null;
+        RenderResourceBinding? bindB = null;
+        IReadOnlyList<RenderResourceBinding> captureOrder = [];
+        IReadOnlyList<RenderResourceBinding> materializedOrder = [];
+        ArgumentException? captureUndeclared = null;
+        ArgumentException? materializedUndeclared = null;
+        Exception? captureUnbound = null;
+        Exception? materializedUnbound = null;
+
+        using var node = new DelegateNode(context =>
+        {
+            bindA = slotA.Bind(context.Borrow(a));
+            bindB = slotB.Bind(context.Borrow(b));
+            RenderResource<RenderTarget> targetToken = context.Borrow(target);
+
+            captureOrder = Capture([bindB, bindA], [slotA, slotB]).Resources;
+            materializedOrder = Materialized(targetToken, [bindB, bindA], [slotA, slotB]).Resources;
+            captureUndeclared = Assert.Throws<ArgumentException>(
+                () => Capture([bindA], null));
+            materializedUndeclared = Assert.Throws<ArgumentException>(
+                () => Materialized(targetToken, [bindA], null));
+            captureUnbound = Assert.Throws<ArgumentException>(
+                () => Capture([bindA], [slotA, slotB]));
+            materializedUnbound = Assert.Throws<ArgumentException>(
+                () => Materialized(targetToken, [bindA], [slotA, slotB]));
+
+            context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
+        });
+
+        using var renderer = CreateRenderer(node);
+        renderer.Measure();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                captureOrder,
+                Is.EqualTo(new[] { bindA, bindB }),
+                "a capture reorders its bindings into declared-slot order like the rest of the family");
+            Assert.That(
+                materializedOrder,
+                Is.EqualTo(new[] { bindA, bindB }),
+                "and so does a materialized input");
+            Assert.That(
+                captureUndeclared?.ParamName,
+                Is.EqualTo("slots"),
+                "binding without declaring is refused, and the refusal names the missing declaration");
+            Assert.That(materializedUndeclared?.ParamName, Is.EqualTo("slots"));
+            Assert.That(captureUnbound, Is.Not.Null, "a declared slot left unbound is refused");
+            Assert.That(materializedUnbound, Is.Not.Null);
+        });
+    }
+
     // MarkChanged stays the only way to invalidate a cached node, and it only raises: HasChanges has no
     // setter and nothing public lowers it, so a node cannot withdraw a change it already reported.
     // DisableRenderCache is not a second invalidation signal: it opts a recording out of caching altogether,
@@ -570,6 +637,31 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
             RenderHitTestContract.OutputBounds,
             resources: resources,
             slots: slots);
+
+    private static TargetCaptureDescription Capture(
+        IEnumerable<RenderResourceBinding> resources,
+        IEnumerable<RenderResourceSlot>? slots)
+        => TargetCaptureDescription.Create(
+            TargetRegion.Full,
+            new Rect(0, 0, 4, 4),
+            RenderHitTestContract.OutputBounds,
+            TargetCaptureScaleContract.MaterializeAtWorkingScale,
+            resources,
+            slots);
+
+    private static MaterializedInputDescription Materialized(
+        RenderResource<RenderTarget> target,
+        IEnumerable<RenderResourceBinding> resources,
+        IEnumerable<RenderResourceSlot>? slots)
+        => MaterializedInputDescription.FromRenderTarget(
+            target,
+            new Rect(0, 0, 4, 4),
+            EffectiveScale.At(1),
+            PixelRect.FromRect(new Rect(0, 0, 4, 4), 1),
+            default,
+            RenderHitTestContract.OutputBounds,
+            resources,
+            slots);
 
     private static OpaqueRenderDescription MetadataSource(Rect bounds)
         => OpaqueRenderDescription.Create(

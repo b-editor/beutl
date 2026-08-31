@@ -197,6 +197,12 @@ public sealed class OpaqueRenderDescription
     /// The declared dependency of the produced pixels on the device-grid phase. The default states that the
     /// output is unchanged by a sub-pixel shift of the grid, which lets the renderer cache and resample it.
     /// </param>
+    /// <param name="inputDemand">
+    /// What density each input has to reach for this operation's own resolved output demand. Only a combine
+    /// or an expand may declare one, and it is what an operation that resamples its inputs asymmetrically
+    /// needs: without it every input is asked for the unchanged output demand, so an unbounded input feeding
+    /// an enlargement materializes below the density that enlargement consumes.
+    /// </param>
     /// <param name="slots">
     /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
     /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
@@ -213,6 +219,7 @@ public sealed class OpaqueRenderDescription
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResourceBinding>? resources = null,
+        RenderInputDemandContract inputDemand = default,
         IEnumerable<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
@@ -232,7 +239,8 @@ public sealed class OpaqueRenderDescription
                 slots,
                 resources,
                 nameof(slots),
-                nameof(resources)));
+                nameof(resources)),
+            inputDemand);
 
     /// <summary>
     /// Creates an opaque description whose output can never satisfy a later request's cache lookup.

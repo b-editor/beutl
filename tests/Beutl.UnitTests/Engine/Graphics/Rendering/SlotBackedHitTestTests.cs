@@ -311,7 +311,8 @@ public sealed class SlotBackedHitTestTests
                 RenderHitTestContract.FromSlot(
                     s_shapeSlot,
                     static (shape, point) => shape.Contains(point)),
-                resources: bind ? [s_shapeSlot.Bind(shapeResource)] : null)));
+                resources: bind ? [s_shapeSlot.Bind(shapeResource)] : null,
+                slots: bind ? [s_shapeSlot] : null)));
         }
     }
 
@@ -329,7 +330,8 @@ public sealed class SlotBackedHitTestTests
                     s_shapeSlot,
                     static (shape, point) => shape.Contains(point)),
                 TargetCaptureScaleContract.MaterializeAtWorkingScale,
-                resources: [s_shapeSlot.Bind(shapeResource)]));
+                resources: [s_shapeSlot.Bind(shapeResource)],
+                slots: [s_shapeSlot]));
             context.Publish(context.ContributeValues(capture));
         }
     }
