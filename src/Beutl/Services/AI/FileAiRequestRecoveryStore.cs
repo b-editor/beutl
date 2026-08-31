@@ -757,6 +757,27 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         int? generation = null)
         => TryRemoveExact(accountId, operation, fingerprint, key, advanceGeneration: false, ownerToken, generation);
 
+    /// <summary>
+    /// Withdraws a dispatched request only with the exact owner lease that
+    /// marked provider dispatch, after an authoritative no-reservation result.
+    /// </summary>
+    internal bool TryWithdrawAfterNoReservation(
+        string accountId,
+        string operation,
+        string fingerprint,
+        string key,
+        string ownerToken,
+        int generation)
+        => TryRemoveExact(
+            accountId,
+            operation,
+            fingerprint,
+            key,
+            advanceGeneration: false,
+            ownerToken,
+            generation,
+            requireDispatchedOwner: true);
+
     internal bool Abandon(AiPendingAttempt attempt)
     {
         ArgumentNullException.ThrowIfNull(attempt);
@@ -814,7 +835,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         string key,
         bool advanceGeneration,
         string? ownerToken = null,
-        int? generation = null)
+        int? generation = null,
+        bool requireDispatchedOwner = false)
     {
         lock (_gate)
         {
@@ -838,6 +860,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 && claim.Fingerprint == fingerprint
                 && claim.Key == key
                 && claim.Dispatched);
+            if (requireDispatchedOwner && matchingDispatched is null)
+                return false;
             if (matchingDispatched is not null
                 && (ownerToken is null
                     || !StringComparer.Ordinal.Equals(matchingDispatched.OwnerToken, ownerToken)

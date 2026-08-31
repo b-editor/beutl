@@ -1060,7 +1060,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        _requestKey.Withdraw(name);
+        _requestKey.WithdrawAfterNoReservation(name);
         ReleaseFramesOf(name);
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))

@@ -686,6 +686,22 @@ internal sealed class AiRequestKey : IDisposable
     /// </para>
     /// </remarks>
     public void Withdraw(AiRequestName name)
+        => WithdrawCore(name, ownerAuthorizedDispatched: false);
+
+    /// <summary>
+    /// Withdraws a name after the server authoritatively reported that no
+    /// reservation was made, including when the provider call had already
+    /// been marked dispatched.
+    /// </summary>
+    /// <remarks>
+    /// A dispatched recovery row is a paid-job fence. Only the process that
+    /// still holds the exact live dispatch lease may use this path; ordinary
+    /// withdrawal and cross-process abandon remain fail-closed.
+    /// </remarks>
+    internal void WithdrawAfterNoReservation(AiRequestName name)
+        => WithdrawCore(name, ownerAuthorizedDispatched: true);
+
+    private void WithdrawCore(AiRequestName name, bool ownerAuthorizedDispatched)
     {
         if (string.IsNullOrEmpty(name.Key))
             return;
@@ -698,14 +714,23 @@ internal sealed class AiRequestKey : IDisposable
                 string? issuedAccount = _outstandingAccounts.GetValueOrDefault(name.Key);
                 string? issuedOperation = _outstandingOperations.GetValueOrDefault(name.Key);
                 AiRequestRecoveryLease? claim = _claims.GetValueOrDefault(name.Key);
+                bool exactDispatchedOwner = ownerAuthorizedDispatched
+                    && claim is { IsDispatched: true };
+                // A pre-dispatch refusal may still be withdrawn by the claim
+                // owner. Once dispatch is persisted, however, the owner proof
+                // is accepted only through WithdrawAfterNoReservation.
+                bool exactPredispatchOwner = claim is not null
+                    && !claim.WasDispatched;
+                bool authorizedOwner = exactDispatchedOwner || exactPredispatchOwner;
                 bool removedPersisted = RemovePersisted(
                     request,
                     issuedAccount,
                     issuedOperation,
                     name.Key,
                     settle: false,
-                    claim?.OwnerToken,
-                    claim?.Generation);
+                    authorizedOwner ? claim!.OwnerToken : null,
+                    authorizedOwner ? claim!.Generation : null,
+                    exactDispatchedOwner);
                 if (!removedPersisted && _recoveryContext is not null)
                 {
                     _outstanding[name.Key] = request;
@@ -843,7 +868,8 @@ internal sealed class AiRequestKey : IDisposable
         string key,
         bool settle,
         string? ownerToken = null,
-        int? generation = null)
+        int? generation = null,
+        bool ownerAuthorizedDispatched = false)
     {
         if (_recoveryContext is null)
             return true;
@@ -854,7 +880,15 @@ internal sealed class AiRequestKey : IDisposable
             return false;
         bool removed = settle
             ? _recoveryContext.Store.TrySettle(account, operation, request, key, ownerToken, generation)
-            : _recoveryContext.Store.TryWithdraw(account, operation, request, key, ownerToken, generation);
+            : ownerAuthorizedDispatched
+                ? _recoveryContext.Store.TryWithdrawAfterNoReservation(
+                    account,
+                    operation,
+                    request,
+                    key,
+                    ownerToken ?? throw new InvalidOperationException("A dispatched withdrawal requires an owner token."),
+                    generation ?? throw new InvalidOperationException("A dispatched withdrawal requires a generation."))
+                : _recoveryContext.Store.TryWithdraw(account, operation, request, key, ownerToken, generation);
         return removed;
     }
 

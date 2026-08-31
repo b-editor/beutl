@@ -2567,7 +2567,7 @@ public sealed partial class AiSubtitleDialogViewModel
         SourceTranscriptionOperation operation,
         AiRequestName name)
     {
-        operation.RequestKey.Withdraw(name);
+        operation.RequestKey.WithdrawAfterNoReservation(name);
         UpdateOutstandingCaptionRequest();
         PublishSourceTranscriptionPartial(operation);
     }
@@ -2576,7 +2576,7 @@ public sealed partial class AiSubtitleDialogViewModel
         SceneTranscriptionOperation operation,
         AiRequestName name)
     {
-        operation.RequestKey.Withdraw(name);
+        operation.RequestKey.WithdrawAfterNoReservation(name);
         UpdateOutstandingCaptionRequest();
         PublishSceneTranscriptionPartial(operation);
     }
@@ -2585,7 +2585,7 @@ public sealed partial class AiSubtitleDialogViewModel
         TranslationOperation operation,
         AiRequestName name)
     {
-        operation.RequestKey.Withdraw(name);
+        operation.RequestKey.WithdrawAfterNoReservation(name);
         UpdateOutstandingCaptionRequest();
         PublishTranslationPartial(operation);
     }

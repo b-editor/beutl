@@ -81,7 +81,16 @@ public sealed class AiRequestKeyTests
                 pending.Fingerprint,
                 pending.Key), Is.False,
                 "A caller without the dispatch owner cannot clear a paid-job fence.");
+            // The ordinary withdrawal API is deliberately fail-closed once
+            // dispatch has been persisted; only the owner-authorized path used
+            // for an authoritative no-reservation response may clear it.
             key.Withdraw(issued);
+            Assert.That(store.Find(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint), Is.Not.Null);
+
+            key.WithdrawAfterNoReservation(issued);
             Assert.Multiple(() =>
             {
                 Assert.That(store.Find(
@@ -97,6 +106,38 @@ public sealed class AiRequestKeyTests
                 Assert.That(retry.Key, Is.EqualTo(issued.Key));
                 Assert.That(retry.IsRepeat, Is.False);
             });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void OwnerAuthorizedWithdrawalRequiresTheLiveDispatchLease()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "video.generate");
+            AiRequestName issued = key.NameFor("a prompt");
+            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(claim);
+            AiPendingAttempt pending = store.PendingFor("account", "video.generate").Single();
+
+            // Process loss releases the in-memory handle, but not the durable
+            // dispatched fence. A later call without the live owner must stay
+            // fail-closed until the provider outcome is known.
+            claim.Dispose();
+            key.WithdrawAfterNoReservation(issued);
+
+            Assert.That(store.Find(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint), Is.Not.Null);
         }
         finally
         {

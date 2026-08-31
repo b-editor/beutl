@@ -967,7 +967,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        _requestKey.Withdraw(name);
+        _requestKey.WithdrawAfterNoReservation(name);
         if (_selectedRecovery is { } selected
             && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
         {
