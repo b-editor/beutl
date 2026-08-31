@@ -4,7 +4,7 @@
 
 BREAKING CHANGE: render-node work is now recorded through `void RenderNode.Process(RenderNodeContext)`. Nodes publish transaction-scoped fragment handles; they do not receive an immediate canvas, return an operation, or control retained output state directly.
 
-BREAKING CHANGE: public callback authoring now uses immutable `*Definition<TState>` objects and per-recording `.Call(state, bindings)` values. The former public callback-record construction path is no longer an authoring API.
+BREAKING CHANGE: public callback authoring now goes through immutable operation *descriptions* — `OpaqueRenderDescription`, `TargetScopeDescription`, `TargetCommandDescription`, `RawTargetScopeDescription`, `RawTargetCommandDescription`, `ShaderDescription`, and `GeometryDescription`. Each is built where it is recorded, from the callback, the state that callback reads, the metadata contracts, and the resource slots and bindings the operation declares. The former public callback-record construction path is no longer an authoring API.
 
 BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation signal, and it is read-only: a node raises it by calling `RenderNode.MarkChanged()` when its pixel-, metadata-, or topology-affecting state changes. No public API accepts caller-supplied cache identity, resource content metadata, or a manual operation fingerprint.
 
@@ -164,53 +164,49 @@ public override void Process(RenderNodeContext context)
 A source records deferred work without touching media, GPU objects, or native resources during `Process`:
 
 ```csharp
-private static readonly OpaqueRenderDefinition<Color> s_source =
-    OpaqueRenderDefinition<Color>.Create(
-        static (session, color) =>
-        {
-            using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-            output.Canvas.Use(canvas => canvas.Clear(color));
-            session.Publish(output);
-        },
-        OpaqueRenderBoundsContract.Source(new Rect(0, 0, 64, 64)),
-        RenderHitTestContract.OutputBounds,
-        RenderValueCardinality.Single,
-        RenderScaleContract.MaterializeAtWorkingScale);
-
 public override void Process(RenderNodeContext context)
 {
-    context.Publish(context.OpaqueSource(s_source.Call(_color)));
+    context.Publish(context.OpaqueSource(
+        OpaqueRenderDescription.Create(
+            _color,
+            static (session, color) =>
+            {
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                output.Canvas.Use(canvas => canvas.Clear(color));
+                session.Publish(output);
+            },
+            OpaqueRenderBoundsContract.Source(new Rect(0, 0, 64, 64)),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale)));
 }
 ```
 
-Use `OpaqueCombine(inputs, call)` for many-to-one work and `OpaqueExpand(inputs, call)` for runtime N-to-M work. Every input must be value-eligible. If an ordered stream contains target effects, wrap it intentionally with `Layer(inputs, finiteDomain)` or `OwningTargetLayer(inputs)` before passing it to a value consumer; do not silently discard its effects. The definition must declare aggregate bounds, hit testing, scale, and a compatible cardinality (`Single` for one combined output or `Dynamic` for an expansion). An empty runtime expansion is zero output, not identity.
+Use `OpaqueCombine(inputs, description)` for many-to-one work and `OpaqueExpand(inputs, description)` for runtime N-to-M work. Every input must be value-eligible. If an ordered stream contains target effects, wrap it intentionally with `Layer(inputs, finiteDomain)` or `OwningTargetLayer(inputs)` before passing it to a value consumer; do not silently discard its effects. The description must declare aggregate bounds, hit testing, scale, and a compatible cardinality (`Single` for one combined output or `Dynamic` for an expansion). An empty runtime expansion is zero output, not identity.
 
 ### Target command, capture, and scope
 
-Guarded target work uses the same definition/call split:
+Guarded target work is recorded through a description in the same way:
 
 ```csharp
-private static readonly TargetScopeDefinition<float> s_opacityScope =
-    TargetScopeDefinition<float>.Create(
-        static (session, opacity) => session.Canvas.Use(canvas =>
-        {
-            using (canvas.PushOpacity(opacity))
-                session.ReplayInput();
-        }),
-        RenderBoundsContract.Identity,
-        RenderHitTestContract.AnyInput,
-        RenderScaleContract.PreserveInputSupply);
-
 public override void Process(RenderNodeContext context)
 {
     context.PublishMappedInputs(
-        _opacity,
-        static (current, input, opacity) =>
-            current.TargetScope(input, s_opacityScope.Call(opacity)));
+        TargetScopeDescription.Create(
+            _opacity,
+            static (session, opacity) => session.Canvas.Use(canvas =>
+            {
+                using (canvas.PushOpacity(opacity))
+                    session.ReplayInput();
+            }),
+            RenderBoundsContract.Identity,
+            RenderHitTestContract.AnyInput,
+            RenderScaleContract.PreserveInputSupply),
+        static (current, input, description) => current.TargetScope(input, description));
 }
 ```
 
-`TargetCommandDefinition<TState>` declares its affected `TargetRegion`, independent query bounds, hit testing, access, per-input readback selectors, and resource slots. `TargetScopeDefinition<TState>` surrounds exactly one input and must call `ReplayInput()` exactly once. Raw variants are explicit opaque-external boundaries and are never persistently reusable.
+`TargetCommandDescription` declares its affected `TargetRegion`, independent query bounds, hit testing, access, per-input readback selectors, and resource slots. `TargetScopeDescription` surrounds exactly one input and must call `ReplayInput()` exactly once. Raw variants are explicit opaque-external boundaries and are never persistently reusable.
 
 A target capture is a value read, not an implicit redraw:
 
@@ -222,7 +218,10 @@ RenderFragmentHandle capture = context.TargetCapture(
         RenderHitTestContract.None,
         TargetCaptureScaleContract.PreserveTargetSupply));
 
-RenderFragmentHandle filtered = context.Shader(capture, s_tint.Call(_tint));
+float tint = _tint;
+RenderFragmentHandle filtered = context.Shader(
+    capture,
+    ShaderDescription.CurrentPixel(s_tintSource, bindings => bindings.Uniform("amount", tint)));
 context.Publish(context.ContributeValues(filtered));
 ```
 
@@ -238,70 +237,70 @@ Choose persistent caching per request with `RenderNodeRenderRequest.CacheOptions
 
 #### Guarded opaque work
 
-Put callback code and fixed metadata in a reusable definition. Put values and tokens for this recording in the call.
+The callback, the values it reads, the metadata contracts, and the declared slots and their bindings all go into one `OpaqueRenderDescription` built at the point of recording.
 
 ```csharp
 private sealed record DrawState(float Opacity);
 
 private static readonly RenderResourceSlot<Brush.Resource> s_brush = new();
-
-private static readonly OpaqueRenderDefinition<DrawState> s_draw =
-    OpaqueRenderDefinition<DrawState>.Create(
-        static (session, state) => session.UseResource(
-            s_brush,
-            brush => Draw(session, brush, state.Opacity)),
-        OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-        RenderHitTestContract.AnyInput,
-        RenderValueCardinality.Single,
-        RenderScaleContract.PreserveInputSupply,
-        resources: [s_brush]);
+private static readonly RenderResourceSlot[] s_slots = [s_brush];
 
 public override void Process(RenderNodeContext context)
 {
     RenderResource<Brush.Resource> brush = context.Borrow(_brush);
-    OpaqueRenderCall<DrawState> call = s_draw.Call(
-        new DrawState(_opacity),
-        [s_brush.Bind(brush)]);
 
     context.PublishMappedInputs(
-        call,
-        static (current, input, recordedCall) => current.OpaqueMap(input, recordedCall));
+        OpaqueRenderDescription.Create(
+            new DrawState(_opacity),
+            static (session, state) => session.UseResource(
+                s_brush,
+                brush => Draw(session, brush, state.Opacity)),
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+            RenderHitTestContract.AnyInput,
+            RenderValueCardinality.Single,
+            RenderScaleContract.PreserveInputSupply,
+            resources: [s_brush.Bind(brush)],
+            slots: s_slots),
+        static (current, input, description) => current.OpaqueMap(input, description));
 }
 ```
 
-Use `OpaqueSource`, `OpaqueMap`, `OpaqueCombine`, or `OpaqueExpand` according to the fixed topology in the definition. Reusing a static/shared definition avoids needless allocation, but equivalent definitions recreated later still share the engine-derived plan; no manual identifier or singleton lifetime is required.
+A description does not name its topology: the bounds, scale, cardinality, and hit-test contracts it declares decide whether `OpaqueSource`, `OpaqueMap`, `OpaqueCombine`, or `OpaqueExpand` may record it, and an incompatible pairing is rejected at the recording method. Rebuilding the description every request costs nothing in plan terms — the plan is keyed by the callback's method and the declared contracts, never by the values a recording carries — so hoist only the genuinely fixed parts, as the slot and its `RenderResourceSlot[]` are hoisted above.
 
 #### Target work
 
-Use `TargetScopeDefinition<TState>` for one guarded replay scope and `TargetCommandDefinition<TState>` for a guarded current-target command. Declare bounds, hit testing, scale where applicable, target region/access, readback behavior, and resource slots in the definition; invoke it through `.Call`.
+Use `TargetScopeDescription` for one guarded replay scope and `TargetCommandDescription` for a guarded current-target command. Declare bounds, hit testing, scale where applicable, target region/access, readback behavior, and the resource slots and bindings in the description itself.
 
-Raw canvas behavior has matching generic definitions. It remains opaque external work, but its binding schema is still checked:
+Raw canvas behavior has matching descriptions. It remains opaque external work, but its binding schema is still checked:
 
 ```csharp
-private sealed record RawState(RenderResource<IBackdrop> Backdrop);
+private readonly record struct RawState(RenderResource<IBackdrop> Resource);
 
 private static readonly RenderResourceSlot<IBackdrop> s_backdrop = new();
-
-private static readonly RawTargetCommandDefinition<RawState> s_command =
-    RawTargetCommandDefinition<RawState>.Create(
-        static (session, state) => session.UseResource(
-            state.Backdrop,
-            backdrop => backdrop.Draw(session.Canvas)),
-        queryBounds: new Rect(0, 0, 1, 1),
-        hitTest: RenderHitTestContract.None,
-        resources: [s_backdrop]);
+private static readonly RenderResourceSlot[] s_slots = [s_backdrop];
 
 public override void Process(RenderNodeContext context)
 {
     RenderResource<IBackdrop> backdrop = context.Borrow(_backdrop);
+
     context.Publish(context.RawTargetCommand(
-        s_command.Call(new RawState(backdrop), [s_backdrop.Bind(backdrop)])));
+        RawTargetCommandDescription.Create(
+            new RawState(backdrop),
+            static (session, state) => session.UseResource(
+                state.Resource,
+                value => value.Draw(session.Canvas)),
+            queryBounds: _bounds,
+            hitTest: RenderHitTestContract.OutputBounds,
+            resources: [s_backdrop.Bind(backdrop)],
+            slots: s_slots)));
 }
 ```
 
-For a raw scope, use `RawTargetScopeDefinition<TState>` and call `ReplayInput` exactly once. Both raw and guarded sessions address a resource by the slot the definition declared; the token overload remains for a request-local callback that captures what it needs. In both cases, the typed slot in the definition and `slot.Bind(token)` at the call site are mandatory.
+For a raw scope, use `RawTargetScopeDescription` and call `ReplayInput` exactly once. Both raw and guarded sessions address a resource by the slot the description declared; the raw sessions additionally keep a token overload for a callback that needs the resource by identity. In both cases, the typed slot in `slots:` and `slot.Bind(token)` in `resources:` are mandatory.
 
-`TargetScopeDefinition<TState>.Create` takes a `RenderScopeTransformSpace` before its `resources` argument, so a call that passed `resources` positionally after `deviceGridMapping` must name it. The default, `AmbientTarget`, keeps the previous planning behaviour. Declare `InputLogical` when the callback transforms its input in the input's own coordinates: only then does the declared `RenderScaleContract`'s backward map carry an output demand back to the input, which is what keeps an unbounded child from rasterizing at the target's density and being enlarged afterwards.
+Raw work is unreusable because its canvas is opaque to the renderer, not because it cannot pass state: `RawTargetScopeDescription.Create<TState>` and `RawTargetCommandDescription.Create<TState>` both take state, and what that buys is the identity the planner keys the *shape* of the work by — a static callback recorded twice is one plan.
+
+`TargetScopeDescription.Create` takes a `RenderScopeTransformSpace` whose default, `AmbientTarget`, means the callback's replay transform is defined against the surrounding target transform, which already carries the scope's own scale. Declare `InputLogical` when the callback instead transforms its input in the input's own coordinates: only then does the declared `RenderScaleContract`'s backward map carry an output demand back to the input, which is what keeps an unbounded child from rasterizing at the target's density and being enlarged afterwards.
 
 #### Resources
 
@@ -313,55 +312,60 @@ RenderResource<TemporarySurface> scratch = context.Own(new TemporarySurface());
 RenderResourceBinding binding = s_texture.Bind(texture);
 ```
 
-`Borrow` leaves ownership with the caller. `Own` transfers a disposable object to the request family. Neither method accepts identity or content arguments. `RenderResourceBinding` has no public constructor and binding names are not part of the API. A definition declares `RenderResourceSlot<T>` values in `resources:` and its call binds each one exactly once.
+`Borrow` leaves ownership with the caller. `Own` transfers a disposable object to the request family. Neither method accepts identity or content arguments. `RenderResourceBinding` has no public constructor and binding names are not part of the API. A description declares its `RenderResourceSlot<T>` values in `slots:` and binds each one exactly once in `resources:` — spelled `bindings:` on `RenderNodeContext.PaintedSource` and `hitTestResources:` on the shader factories. The declaration is what makes that check possible and what orders the bindings before they reach the plan, so omitting `slots:` declares no slots rather than skipping the check: binding a resource without declaring its slot is refused.
 
 #### Shader and geometry work
 
-Use a shader definition for fixed source and binding schema:
+A shader stage is a `ShaderDescription`. Parse the SkSL once into a shared `SkslSource` and build the description where the stage is recorded:
 
 ```csharp
-private sealed record TintState(float Amount);
-
-private static readonly ShaderDefinition<TintState> s_tint =
-    ShaderDefinition<TintState>.CurrentPixel(
-        """
-        uniform float amount;
-        half4 apply(half4 color) {
-            return half4(color.rgb * amount, color.a);
-        }
-        """,
-        static bindings => bindings.Uniform("amount", static state => state.Amount));
+private static readonly SkslSource s_tintSource = SkslSource.CurrentPixel(
+    """
+    uniform float amount;
+    half4 apply(half4 color) {
+        return half4(color.rgb * amount, color.a);
+    }
+    """);
 
 public override void Process(RenderNodeContext context)
 {
+    float amount = _amount;
+
     context.PublishMappedInputs(
-        new TintState(_amount),
-        static (current, input, state) => current.Shader(input, s_tint.Call(state)));
+        ShaderDescription.CurrentPixel(
+            s_tintSource,
+            bindings => bindings.Uniform("amount", amount)),
+        static (current, input, description) => current.Shader(input, description));
 }
 ```
 
-`ShaderDefinition<TState>.WholeSource` declares a whole-input shader and fixed bounds mapping. Shader value providers, custom uniform binders, and resource binders must be non-capturing `static` callbacks so changing values are supplied only by `TState` and invalidate through `HasChanges`. `ShaderDefinitionBuilder<TState>.Resource` declares typed child-shader slots. `GeometryDefinition<TState>.Create` follows the same definition/call pattern for geometry callbacks, bounds, hit testing, optional readback, and slots.
+`ShaderDescription.WholeSource` declares a whole-input shader and fixed bounds mapping. The `bindings` action itself runs immediately, while the description is being constructed, and is never retained, so it may close over this recording's values. The callbacks it *registers* are retained and are stricter: the execution-time binders taken by `ShaderBindingBuilder.Uniform(name, value, bind)` and `ShaderBindingBuilder.Resource(name, token, coordinateSpace, bind)` may read nothing beyond their arguments and the `RenderNode` declaring them, so every changing value they need arrives as the `value` beside them and invalidates through `HasChanges`. `Resource` is also what declares a typed child-shader slot. `GeometryDescription.Create` follows the same shape for geometry callbacks, bounds, hit testing, optional readback, and slots.
 
-Existing `FilterEffectContext` authoring passes `ShaderCall<TState>` and `GeometryCall<TState>`:
-
-```csharp
-context.Shader(s_tint.Call(new TintState(_amount)));
-context.Geometry(s_geometry.Call(new GeometryState(_radius)));
-```
+`FilterEffectContext.Shader` and `FilterEffectContext.Geometry` take the same descriptions, without an input handle — the effect chain supplies the input.
 
 ## FilterEffect compatibility
 
-`FilterEffect.ApplyTo(FilterEffectContext, Resource)` remains the supported authoring entry point. Existing Skia, color, transform, and `CustomEffect` calls remain ordered, and `ShaderCall<TState>` and `GeometryCall<TState>` add typed stages without replacing `ApplyTo`:
+`FilterEffect.ApplyTo(FilterEffectContext, Resource)` remains the supported authoring entry point. Existing Skia, color, transform, and `CustomEffect` calls remain ordered, and shader and geometry descriptions add typed stages without replacing `ApplyTo`:
 
 ```csharp
-public override void ApplyTo(FilterEffectContext context, Resource resource)
+public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
 {
-    context.Blur(resource.Sigma);
-    context.Shader(s_tint.Call(new TintState(resource.Amount)));
-    context.Geometry(s_geometry.Call(new GeometryState(resource.Radius)));
-    context.CustomEffect(resource.State, static (state, execution) => Execute(state, execution));
+    var self = (Resource)resource;
+
+    context.Blur(self.Sigma);
+    context.Shader(ShaderDescription.CurrentPixel(
+        s_tintSource,
+        bindings => bindings.Uniform("amount", self.Amount)));
+    context.Geometry(GeometryDescription.Create(
+        self.Radius,
+        static (session, radius) => Render(session, radius),
+        RenderBoundsContract.Identity,
+        RenderHitTestContract.AnyInput));
+    context.CustomEffect(self.State, static (state, execution) => Execute(state, execution));
 }
 ```
+
+The parameter is typed `FilterEffect.Resource` and cast to the effect's own generated nested `Resource`, because inside a derived effect the unqualified name `Resource` resolves to that nested type and would not match the base declaration.
 
 The former public `FilterEffectContext.Bounds` property is removed. Bounds stay engine-internal because an earlier opaque custom operation can make them symbolic. `WorkingScale` also is not unconditionally available: call `TryGetWorkingScale(out float)` during `ApplyTo`. If it returns `false`, keep authoring scale-independent and move device-pixel calculations into the shader, geometry, or custom-effect execution callback. The engine invokes `ApplyTo` once; it does not replay authoring after metadata resolution.
 
@@ -411,7 +415,7 @@ catch
 
 ### Metadata and scale migration
 
-Bounds, hit testing, scale, cardinality, input readback, target access, and device-grid behavior are fixed definition metadata. Their callbacks must be deterministic and side-effect-free. They may capture a lightweight immutable CPU value or the `RenderNode` that declares them, and nothing else.
+Bounds, hit testing, scale, cardinality, input readback, target access, and device-grid behavior are declared metadata on the description that records the operation. Their callbacks must be deterministic and side-effect-free. They may capture a lightweight immutable CPU value or the `RenderNode` that declares them, and nothing else.
 
 For a one-input element-wise density transform, declare both directions of the density relationship:
 
@@ -440,7 +444,7 @@ For a matrix-shaped operation, `TransformRenderNode.RescaleDensity` and `Transfo
 
 ## Whole-source shader coordinate space
 
-BREAKING CHANGE: a `ShaderDefinition<TState>.WholeSource` stage is now evaluated over its **complete** output. Its `coord` argument spans `[0, SemanticOutputSize]` and `ShaderExecutionContext.DeviceBounds` / `LogicalOrigin` describe the complete output footprint, even when the renderer only required a sub-region (content that overhangs the frame). Previously `coord` started at the required region's origin while `SemanticOutputSize` still described the complete output, so `coord / iResolution` never reached `1.0` and any absolute anchor — a mirror axis, a tile-grid origin, a pivot — moved by the clipped-off overhang.
+BREAKING CHANGE: a `ShaderDescription.WholeSource` stage is now evaluated over its **complete** output. Its `coord` argument spans `[0, SemanticOutputSize]` and `ShaderExecutionContext.DeviceBounds` / `LogicalOrigin` describe the complete output footprint, even when the renderer only required a sub-region (content that overhangs the frame). Previously `coord` started at the required region's origin while `SemanticOutputSize` still described the complete output, so `coord / iResolution` never reached `1.0` and any absolute anchor — a mirror axis, a tile-grid origin, a pivot — moved by the clipped-off overhang.
 
 `RequiredRegion` still reports the region actually being produced, so a stage that wants the destination extent reads it there.
 
@@ -561,8 +565,8 @@ correctly passes nothing, which is the default.
 - Each returned `RenderNodeRasterization` exclusively owns its nullable bitmap until disposal.
 - `MaterializedDrawableBrush.Image` transfers to the `BrushConstructor` that requested it; the constructor disposes it once the tile shader is built, or once the fill fails, so a materializer returns a fresh image per call and never caches, shares, or disposes one.
 - `Own` transfers one disposable resource to the request family; `Borrow` leaves the raw resource with its external owner.
-- Definition slots and call bindings declare how deferred callbacks access resources; callbacks borrow session inputs, canvases, and declared resources only for callback duration.
-- A call-state value handed to a deferred binder is read once, at the call - but reading a reference does not copy what it points at. A reference-typed value is borrowed on the same terms as the resource beside it: its pixel-affecting contents must stay read-only until the request executes, because the binder runs after the whole recording pass.
+- A description's declared slots and their bindings state how its deferred callback reaches resources; callbacks borrow session inputs, canvases, and declared resources only for callback duration.
+- A state value handed to a deferred binder is read once, while the description is being built - but reading a reference does not copy what it points at. A reference-typed value is borrowed on the same terms as the resource beside it: its pixel-affecting contents must stay read-only until the request executes, because the binder runs after the whole recording pass.
 - Deferred outputs remain executor-owned until publication or discard.
 - A recording or execution failure publishes no partial output; cleanup continues best-effort without replacing the primary exception.
 
@@ -880,14 +884,20 @@ describes, and nothing at runtime notices.
   let it read only the declaring node, and pass the values that change through the contract's state-passing
   overload. Those overloads exist on `RenderBoundsContract`, `RenderHitTestContract`,
   `RenderScaleContract`, `RenderInputDemandContract`, `OpaqueRenderBoundsContract` and
-  `TargetCaptureScaleContract`, and on the definition builders `OpaqueRenderDefinition`,
-  `TargetScopeDefinition`, `TargetCommandDefinition`, `RawTargetScopeDefinition`,
-  `RawTargetCommandDefinition` and `GeometryDefinition`. The rule reaches the shader binding builders and
-  `RenderNodeContext.PaintedSource` on the same terms, so the drawing and the hit test declared in one
-  argument list answer alike; `PaintedSource` is named as a method rather than through its type because the
-  context's other delegate-taking member, the input mapper, runs while the call is being made and is never
-  retained. The analyzer ships only to projects that reference `Beutl.Engine.SourceGenerators`, so an
-  out-of-tree author never sees it.
+  `TargetCaptureScaleContract`, and the `state` parameter of `OpaqueRenderDescription.Create`,
+  `TargetScopeDescription.Create`, `TargetCommandDescription.Create`,
+  `RawTargetScopeDescription.Create`, `RawTargetCommandDescription.Create` and
+  `GeometryDescription.Create` is the same channel for an execution callback. The rule reaches the shader
+  binding builder and `RenderNodeContext.PaintedSource` on the same terms, so the drawing and the hit test
+  declared in one argument list answer alike. The two are rostered differently: `ShaderBindingBuilder` is
+  named as a whole type because everything it declares is retained, while `PaintedSource` and the
+  description factories are named as methods because their types declare both kinds — the context's input
+  mapper runs while the call is being made and is never retained, and each description's internal
+  `CreateRequestLocal` is the documented capturing opt-out that mints a fresh request-local identity every
+  recording. `ShaderDescription` is deliberately absent from both rosters: its `bindings` action runs inside
+  the factory and is never stored, and the binders that action registers are already covered through
+  `ShaderBindingBuilder`. The analyzer ships only to projects that reference
+  `Beutl.Engine.SourceGenerators`, so an out-of-tree author never sees it.
 - **BESG004** — nor may it read mutable static state. A `static` callback cannot reach a local or `this`, but
   it can reach a static field, property, or event. The rule accepts a `const`, and a `static readonly` field
   or get-only property only when the value is provably fixed: the getter reduces to one returned expression
@@ -983,8 +993,8 @@ This is what lets a callback read the `RenderNode` that declares it without cost
 node-reading lambda is a different delegate per node. It also means a method group over a value-typed
 receiver, which boxes a fresh target on every conversion, no longer defeats reuse.
 
-An *execution* callback — the `draw` of a painted source, a shader binding's `bind`, and the `execute` a
-definition builder retains — keys on its `MethodInfo` when the delegate's target is the `RenderNode` that
+An *execution* callback — the `draw` of a painted source, a shader binding's `bind`, and the `execute` or
+`render` a description retains — keys on its `MethodInfo` when the delegate's target is the `RenderNode` that
 declares it, and on the delegate otherwise. The engine holds a metadata callback to being a pure function of
 its arguments and can therefore ignore what it reads unconditionally; it makes no such promise about an
 execution callback, so what that callback closed over still has to separate it. A node is not something the

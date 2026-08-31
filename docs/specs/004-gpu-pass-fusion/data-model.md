@@ -6,16 +6,16 @@
 flowchart LR
     N[RenderNode] --> C[RenderNodeContext]
     C --> G[RecordedRenderGraph]
-    D[immutable Definition] --> K[per-recording Call]
-    S[typed RenderResourceSlot] --> K
-    K --> C
+    S[typed RenderResourceSlot] --> D[immutable Description]
+    B[RenderResourceBinding] --> D
+    D --> C
     G --> M[ResolvedFragmentMetadata]
     M --> R[RequiredRegion]
     R --> P[ExecutionIslandPlan]
     P --> E[RenderRequestExecutor]
 ```
 
-The public model records an immutable operation shape and a request-local invocation of that shape. The internal model resolves the complete graph only after all nodes have recorded.
+The public model records an immutable description per operation; the engine derives that operation's shape from it and keys a plan on the shape alone. The internal model resolves the complete graph only after all nodes have recorded.
 
 ## Public authoring entities
 
@@ -46,45 +46,43 @@ Publication is explicit:
 
 A handle represents a fragment in the active recording transaction. It carries no public executable canvas or persistent ownership. Methods return handles; publication makes them node outputs. Metadata and hit testing can be unavailable until enclosing target information is resolved.
 
-### Definitions and calls
+### Operation descriptions
 
-A public callback operation has these two entities:
+A public callback operation is one immutable description. It holds the execution callback, the state that callback reads, the operation metadata, and the resource slots the operation declares together with the bindings that fill them. There is no separate schema object: a description is built where it is recorded and handed straight to the context method that records it.
 
-| Entity | Holds |
-|---|---|
-| `*Definition<TState>` | Fixed callback code, operation metadata, and resource-slot schema. |
-| `*Call<TState>` | State and resource bindings for one recording. |
-
-Definitions are immutable and are commonly static/shared when their fixed shape is unchanged to avoid allocation. Equivalent definitions recreated later still share an engine-derived plan because equivalence comes from callback code and declared metadata, not object lifetime. Calls are created by `.Call(state, bindings)` for each recording. Changing call state is ordinary node content change and requires the owning node to call `MarkChanged()` before the next request.
+A plan is keyed by the shape of the work — the callback's method and the declared contracts — and never by the values a recording carries, so a description rebuilt each request compiles the same plan. Changing the state a description carries is ordinary node content change and requires the owning node to call `MarkChanged()` before the next request.
 
 The rendering context accepts:
 
-- `OpaqueRenderCall<TState>` through source, map, combine, and expansion methods;
-- `TargetScopeCall<TState>` and `TargetCommandCall<TState>` for guarded target work;
-- `RawTargetScopeCall<TState>` and `RawTargetCommandCall<TState>` for opaque external canvas work;
-- `ShaderCall<TState>` and `GeometryCall<TState>` for value transforms.
+- `OpaqueRenderDescription` through source, map, combine, and expansion methods;
+- `TargetScopeDescription` and `TargetCommandDescription` for guarded target work;
+- `RawTargetScopeDescription` and `RawTargetCommandDescription` for opaque external canvas work;
+- `ShaderDescription` and `GeometryDescription` for value transforms;
+- `MaterializedInputDescription` and `TargetCaptureDescription` for the two callback-free operations.
+
+A painted source has no description and is recorded through `RenderNodeContext.PaintedSource<TState>` directly, because it borrows its fill and its pen from the recording transaction and whether either paints a drawable brush decides the plan key while the call is being made.
 
 ### RenderResource and RenderResourceSlot
 
 `RenderResource<T>` is an opaque request-scoped token. `RenderNodeContext.Own` transfers a disposable raw object to the request family; `Borrow` leaves ownership with the caller. Neither changes output invalidation semantics.
 
-`RenderResourceSlot<T>` is a typed address declared by a definition. `slot.Bind(token)` creates the only valid public binding form. A call binds every declared slot exactly once and cannot bind an undeclared or differently typed token.
+`RenderResourceSlot<T>` is a typed address. A description declares its slots in `slots:` and binds each one exactly once in `resources:`, where `slot.Bind(token)` creates the only valid public binding form; an undeclared or differently typed token is rejected. Declaring the slots is also what orders the bindings, since the order reaches the operation's structural identity. Omitting the slot list declares none rather than skipping the check.
 
-Guarded sessions use `UseResource(slot, callback)` to lease the matching raw value. Raw sessions intentionally use `UseResource(token, callback)` because their callback boundary is request-local; the token remains in call state and the same token is also bound to a typed slot for validation.
+Guarded sessions use `UseResource(slot, callback)` to lease the matching raw value. Raw sessions additionally offer `UseResource(token, callback)` for a callback that needs the resource by identity; the token then lives in the description's state and the same token is also bound to a declared slot for validation.
 
-### ShaderDefinition and GeometryDefinition
+### ShaderDescription and GeometryDescription
 
-`ShaderDefinition<TState>` fixes source, entry-point kind, bounds behavior, uniforms, and child-shader slots. `.CurrentPixel` models `half4 apply(half4 color)`; `.WholeSource` models `half4 main(float2 coord)` with `uniform shader src;`. `ShaderDefinitionBuilder<TState>` maps call state to uniforms and declares typed child resources. `.Call` yields the `ShaderCall<TState>` passed to `RenderNodeContext.Shader` or `FilterEffectContext.Shader`.
+`ShaderDescription` holds source, entry-point kind, bounds behavior, uniforms, and child-shader slots. `.CurrentPixel` models `half4 apply(half4 color)`; `.WholeSource` models `half4 main(float2 coord)` with `uniform shader src;`. Both take an `Action<ShaderBindingBuilder>` that runs immediately, while the description is being constructed, and is never retained; `ShaderBindingBuilder` writes canonical uniform values, registers execution-time uniform binders, and declares typed child resources. `SkslSource.CurrentPixel` and `SkslSource.WholeSource` parse and validate the text once so several descriptions can share it. The result is passed to `RenderNodeContext.Shader` or `FilterEffectContext.Shader`.
 
-`GeometryDefinition<TState>` fixes a geometry callback, bounds, hit testing, optional readback, and slots. `.Call` yields the `GeometryCall<TState>` passed to the corresponding context method.
+`GeometryDescription` holds a geometry callback, bounds, hit testing, optional readback, an optional input demand, and slots, and is passed to the corresponding context method.
 
-### Raw target definitions
+### Raw target descriptions
 
-Raw definitions declare metadata and typed slots even though their canvas work is opaque external. A raw scope wraps and replays one input exactly once. A raw command has no logical value input. Both prevent persistent output reuse because the renderer cannot inspect their internal canvas behavior.
+Raw descriptions declare metadata and typed slots even though their canvas work is opaque external, and both take state like every other description. A raw scope wraps and replays one input exactly once. A raw command has no logical value input. Both prevent persistent output reuse because the renderer cannot inspect their internal canvas behavior — the opaque canvas is the reason, not the absence of state passing.
 
 ### Metadata contracts
 
-Definitions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, target region/access, input readback, and device-grid contracts as appropriate. Metadata callbacks are deterministic and side-effect-free, and may capture only lightweight immutable CPU values and the `RenderNode` that declares them, never a resource, context, request graph, mutable payload, or capturing delegate. A node's own properties are therefore readable from its metadata callbacks; what such a callback answers is request data, and a recorded answer that no longer holds at graph-wide metadata resolution fails the request. Shader-definition uniform and resource binders are stricter and must not capture at all. The engine derives operation-shape information from the definition and contract callbacks.
+Descriptions use `RenderBoundsContract`, `RenderHitTestContract`, `RenderScaleContract`, `RenderValueCardinality`, target region/access, input readback, and device-grid contracts as appropriate. Metadata callbacks are deterministic and side-effect-free, and may capture only lightweight immutable CPU values and the `RenderNode` that declares them, never a resource, context, request graph, mutable payload, or capturing delegate. A node's own properties are therefore readable from its metadata callbacks; what such a callback answers is request data, and a recorded answer that no longer holds at graph-wide metadata resolution fails the request. The execution-time uniform and resource binders registered through `ShaderBindingBuilder` are held to the same terms. The engine derives operation-shape information from the description's callbacks and declared contracts.
 
 `RenderScaleContract.MapInputSupply` accepts a pure one-input supply transform together with the backward demand transform that matches it; `RenderScaleContract.MapInputSupplyPreservingDemand` accepts the supply transform alone and leaves demand unchanged. Both are reevaluated after symbolic upstream metadata becomes concrete.
 
@@ -124,7 +122,7 @@ The planner partitions the graph at materialization, target dependencies, readba
 
 ### StructuralPlanCache and request-time binding
 
-An internal plan records fixed graph topology, operation schemas, shader source/binding layout, barriers, and allocation shape. Request-time bindings contain current call state, request-scoped resources, resolved bounds/regions, densities, target allocation data, and frame inputs. The engine owns this split; public authoring supplies definitions and calls only.
+An internal plan records fixed graph topology, operation schemas, shader source/binding layout, barriers, and allocation shape. Request-time bindings contain the state each description carried, request-scoped resources, resolved bounds/regions, densities, target allocation data, and frame inputs. The engine owns this split; public authoring supplies descriptions only.
 
 ### ResourcePlanUseSchedule and RenderTargetLease
 

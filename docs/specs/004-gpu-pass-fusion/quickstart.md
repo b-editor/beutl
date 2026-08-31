@@ -67,94 +67,93 @@ public override void Process(RenderNodeContext context)
 
 `PublishMappedInputs` invokes its mapper once per input in painter order and publishes the returned handle immediately. An empty input collection produces no output. The mapper may record intermediate handles but must not publish; publication in a mapper is rejected and rolls back the transaction. Prefer the generic overload and a `static` mapper in allocation-sensitive paths.
 
-### Guarded definition and call
+### Guarded operation descriptions
 
-Prefer one static/shared definition for fixed callback code, metadata, and slot schema to avoid allocation. Equivalent definitions recreated later still share the engine-derived plan, so a singleton lifetime is not a correctness requirement. Create a call for state and request-scoped tokens each time `Process` records it.
+Build the description inside `Process` and hand it straight to the recording method. Hoist only what is genuinely fixed — a slot, the slot list a description declares, a hit-test contract over a slot — because the plan is keyed by the callback's method and the declared contracts, not by the values a recording carries.
 
 ```csharp
 private sealed record DrawState(float Opacity);
 
 private static readonly RenderResourceSlot<Brush.Resource> s_brush = new();
-
-private static readonly OpaqueRenderDefinition<DrawState> s_draw =
-    OpaqueRenderDefinition<DrawState>.Create(
-        static (session, state) => session.UseResource(
-            s_brush,
-            brush => Draw(session, brush, state.Opacity)),
-        OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-        RenderHitTestContract.AnyInput,
-        RenderValueCardinality.Single,
-        RenderScaleContract.PreserveInputSupply,
-        resources: [s_brush]);
+private static readonly RenderResourceSlot[] s_slots = [s_brush];
 
 public override void Process(RenderNodeContext context)
 {
     RenderResource<Brush.Resource> brush = context.Borrow(_brush);
-    OpaqueRenderCall<DrawState> call = s_draw.Call(
-        new DrawState(_opacity),
-        [s_brush.Bind(brush)]);
 
     context.PublishMappedInputs(
-        call,
-        static (current, input, recordedCall) => current.OpaqueMap(input, recordedCall));
+        OpaqueRenderDescription.Create(
+            new DrawState(_opacity),
+            static (session, state) => session.UseResource(
+                s_brush,
+                brush => Draw(session, brush, state.Opacity)),
+            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+            RenderHitTestContract.AnyInput,
+            RenderValueCardinality.Single,
+            RenderScaleContract.PreserveInputSupply,
+            resources: [s_brush.Bind(brush)],
+            slots: s_slots),
+        static (current, input, description) => current.OpaqueMap(input, description));
 }
 ```
 
-Every slot declared through `resources:` must be bound exactly once. Guarded callbacks lease it through `session.UseResource(slot, ...)`. `Borrow` retains caller ownership; `Own` transfers a disposable raw object to the request family. Neither takes caller-controlled reuse metadata.
+Every slot declared through `slots:` must be bound exactly once in `resources:`. Guarded callbacks lease it through `session.UseResource(slot, ...)`. `Borrow` retains caller ownership; `Own` transfers a disposable raw object to the request family. Neither takes caller-controlled reuse metadata.
 
 ### Raw target work
 
-Raw work remains request-local, but it still declares typed slots and is recorded through a generic definition:
+Raw work remains request-local, but it still passes state and declares typed slots:
 
 ```csharp
-private sealed record RawState(RenderResource<IBackdrop> Backdrop);
-private static readonly RenderResourceSlot<IBackdrop> s_backdrop = new();
+private readonly record struct RawState(RenderResource<IBackdrop> Resource);
 
-private static readonly RawTargetCommandDefinition<RawState> s_command =
-    RawTargetCommandDefinition<RawState>.Create(
-        static (session, state) => session.UseResource(
-            state.Backdrop,
-            backdrop => backdrop.Draw(session.Canvas)),
-        queryBounds: new Rect(0, 0, 1, 1),
-        hitTest: RenderHitTestContract.None,
-        resources: [s_backdrop]);
+private static readonly RenderResourceSlot<IBackdrop> s_backdrop = new();
+private static readonly RenderResourceSlot[] s_slots = [s_backdrop];
 
 public override void Process(RenderNodeContext context)
 {
     RenderResource<IBackdrop> backdrop = context.Borrow(_backdrop);
+
     context.Publish(context.RawTargetCommand(
-        s_command.Call(new RawState(backdrop), [s_backdrop.Bind(backdrop)])));
+        RawTargetCommandDescription.Create(
+            new RawState(backdrop),
+            static (session, state) => session.UseResource(
+                state.Resource,
+                value => value.Draw(session.Canvas)),
+            queryBounds: _bounds,
+            hitTest: RenderHitTestContract.OutputBounds,
+            resources: [s_backdrop.Bind(backdrop)],
+            slots: s_slots)));
 }
 ```
 
-The raw callback uses the token kept in call state. The same token must be bound to the typed slot, which validates the schema. A raw scope uses `RawTargetScopeDefinition<TState>` and must replay its input exactly once.
+This callback reaches its resource by token, which raw sessions allow and guarded ones do not; the same token is bound to the declared slot so the schema is still checked. What makes raw work unreusable is the opaque canvas, not the token — a raw description passes state like any other, and that state is what gives the planner one plan per callback instead of one per recording. A raw scope uses `RawTargetScopeDescription` and must replay its input exactly once.
 
-## 5. Add shader and geometry definitions
+## 5. Add shader and geometry stages
 
-Define fixed shader source and uniform/resource schema once, then pass values through `ShaderCall<TState>`:
+Parse the SkSL once into a shared `SkslSource`, then build a `ShaderDescription` where the stage is recorded:
 
 ```csharp
-private sealed record TintState(float Amount);
-
-private static readonly ShaderDefinition<TintState> s_tint =
-    ShaderDefinition<TintState>.CurrentPixel(
-        """
-        uniform float amount;
-        half4 apply(half4 color) {
-            return half4(color.rgb * amount, color.a);
-        }
-        """,
-        static bindings => bindings.Uniform("amount", static state => state.Amount));
+private static readonly SkslSource s_tintSource = SkslSource.CurrentPixel(
+    """
+    uniform float amount;
+    half4 apply(half4 color) {
+        return half4(color.rgb * amount, color.a);
+    }
+    """);
 
 public override void Process(RenderNodeContext context)
 {
+    float amount = _amount;
+
     context.PublishMappedInputs(
-        new TintState(_amount),
-        static (current, input, state) => current.Shader(input, s_tint.Call(state)));
+        ShaderDescription.CurrentPixel(
+            s_tintSource,
+            bindings => bindings.Uniform("amount", amount)),
+        static (current, input, description) => current.Shader(input, description));
 }
 ```
 
-Use `.WholeSource` for a whole-input shader with `uniform shader src;` and fixed bounds behavior. Renderer-generated names are reserved: any shader source that declares a binding named `__beutl_pixel` or `__beutl_head_main`, a `__beutl_s<N>_`-prefixed name, or an `fe`-prefixed name containing `_`, is rejected, and a whole-source shader may not declare a renderer-generated top-level name. `ShaderDefinitionBuilder<TState>.Resource` declares typed child-shader slots. `GeometryDefinition<TState>.Create` uses the same definition/call split for geometry callbacks, metadata, optional readback, and slots. `FilterEffectContext` accepts `ShaderCall<TState>` and `GeometryCall<TState>` directly.
+Use `.WholeSource` for a whole-input shader with `uniform shader src;` and fixed bounds behavior. Renderer-generated names are reserved: any shader source that declares a binding named `__beutl_pixel` or `__beutl_head_main`, a `__beutl_s<N>_`-prefixed name, or an `fe`-prefixed name containing `_`, is rejected, and a whole-source shader may not declare a renderer-generated top-level name. The `bindings` action runs immediately and is never retained, so it may close over this recording's values; the execution-time binders it registers may not, and take their changing value as an argument beside them. `ShaderBindingBuilder.Resource` declares typed child-shader slots. `GeometryDescription.Create` follows the same shape for geometry callbacks, metadata, optional readback, and slots. `FilterEffectContext` accepts a `ShaderDescription` and a `GeometryDescription` directly.
 
 ## 6. Record complete roots, then analyze and execute
 

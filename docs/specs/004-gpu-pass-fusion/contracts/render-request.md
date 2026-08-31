@@ -29,15 +29,15 @@ Each `Process` invocation creates a transaction checkpoint. The recorder provide
 
 `PublishMappedInputs` runs its mapper inside this same checkpoint. It is a strict one-input/one-output helper, not an implicit pass-through or a general expansion API.
 
-### Definition and call lowering
+### Description lowering
 
-Public authoring passes a typed call to the context. Internally, the call is lowered into execution state plus immutable metadata captured from its definition. The fixed definition supplies callback code, bounds/hit-test/scale/cardinality or target contracts, and typed resource-slot schema. The call supplies current state and bindings.
+Public authoring passes an operation description to the context. Internally the description is split into execution state plus the immutable metadata the planner reads: callback code, bounds/hit-test/scale/cardinality or target contracts, and the declared resource-slot schema on one side, the recording's state and bindings on the other.
 
-The engine derives plan shape from those fixed inputs. Equivalent definitions recreated later produce the same plan shape; sharing a definition instance is an allocation optimization, not a correctness condition. There is no caller-provided operation or resource identifier in the lowering protocol.
+The engine derives plan shape from the first half only. A description rebuilt with different values therefore produces the same plan shape, and no description has to be held across requests for reuse to work. There is no caller-provided operation or resource identifier in the lowering protocol.
 
 ### Resource binding validation
 
-A definition declares a heterogeneous list of `RenderResourceSlot` values. A call must bind exactly the declared slots, once each, through typed `slot.Bind(token)` values. Guarded execution sessions use a slot to lease the raw value. Raw execution sessions retain token leasing because the raw-canvas boundary is request-local; their state includes the token and the call still binds it to the matching slot.
+A description declares a heterogeneous list of `RenderResourceSlot` values and must bind exactly those slots, once each, through typed `slot.Bind(token)` values. The declaration also orders the bindings, so the order the author wrote them in does not reach the operation's structural identity. Guarded execution sessions use a slot to lease the raw value. Raw execution sessions additionally allow token leasing because the raw-canvas boundary is request-local; the token then travels in the description's state and is still bound to its matching slot.
 
 ## Recorded IR
 
@@ -81,7 +81,7 @@ An island is maximal only if combining adjacent work preserves painter order, ta
 
 ### Eligibility
 
-Eligible stages are current-pixel `ShaderDefinition<TState>` calls and engine operations with a proved equivalent lowering. Whole-source shaders, geometry, opaque work, coordinate-changing or unknown sampling stages, blend/composite, readback, capture, external targets, raw work, and backend transitions are barriers.
+Eligible stages are current-pixel `ShaderDescription` stages and engine operations with a proved equivalent lowering. Whole-source shaders, geometry, opaque work, coordinate-changing or unknown sampling stages, blend/composite, readback, capture, external targets, raw work, and backend transitions are barriers.
 
 *Amended (`991f49e70`).* A whole-source shader is no longer a barrier. One may lead a fused run of downstream current-pixel and opacity stages, so a run's leading stage may be coordinate-changing; folding work upstream of a whole-source stage stays rejected, because its sampling is too broad to prove that rewrite equivalent. `research.md` R8 and `plan.md`'s Shader and Geometry seam carry the current rule.
 
