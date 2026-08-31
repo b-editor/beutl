@@ -30,6 +30,7 @@ internal class DockHostViewModel : IAsyncDisposable
     private readonly List<Task> _pendingDockableDisposals = [];
     private bool _layoutInitialized;
     private long _layoutEpoch;
+    private bool _ownerShutdownRequested;
     internal IReadOnlyList<ToolTabExtension>? DefaultExtensionsOverride { get; set; }
     internal Func<Task>? BeforeDefaultTabMaterializationAsync { get; set; }
     internal Action<BeutlToolDockable>? BeforePrepareDockableDisposal { get; set; }
@@ -44,6 +45,16 @@ internal class DockHostViewModel : IAsyncDisposable
     // omits tool state, so handing it to IToolContext.ReadFromJson would feed every reader a
     // document missing the fields its writer produces.
     private bool _restoringArrangementOnly;
+    private static readonly AsyncLocal<DockHostViewModel?> s_materializingDefaults = new();
+
+    internal bool IsMaterializingDefaultPluginCallback
+        => ReferenceEquals(s_materializingDefaults.Value, this);
+
+    internal void RequestOwnerShutdown()
+    {
+        lock (_disposeGate)
+            _ownerShutdownRequested = true;
+    }
 
     public DockHostViewModel(string sceneId, EditViewModel editViewModel)
     {
@@ -101,7 +112,10 @@ internal class DockHostViewModel : IAsyncDisposable
                     || Factory.EnumerateTools().Any(tool =>
                         tool.TryGetToolContext(out IToolContext? context)
                         && ReferenceEquals(context, item));
-                rejected = teardownReentrant || _disposing || _layoutTransitioning;
+                rejected = teardownReentrant
+                    || _ownerShutdownRequested
+                    || _disposing
+                    || _layoutTransitioning;
                 if (!rejected)
                     opened = OpenToolTabCore(item, target);
                 if (opened)
@@ -210,7 +224,8 @@ internal class DockHostViewModel : IAsyncDisposable
     public async Task CloseToolTabAsync(IToolContext item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        bool reentrantToolTeardown = ToolContextDisposal.IsActive;
+        bool ownerCallbackReentrant = IsMaterializingDefaultPluginCallback;
+        bool reentrantToolTeardown = ToolContextDisposal.IsActive || ownerCallbackReentrant;
         await _layoutGate.WaitAsync();
         BeutlToolDockable? dockable = null;
         bool rejected;
@@ -226,7 +241,9 @@ internal class DockHostViewModel : IAsyncDisposable
                     owningTransition = disposal.Completion.Task;
                     goto Release;
                 }
-                rejected = _disposing || _layoutTransitioning;
+                rejected = _ownerShutdownRequested
+                    || _disposing
+                    || (_layoutTransitioning && !ownerCallbackReentrant);
                 if (rejected)
                 {
                     owningTransition = _disposing
@@ -291,7 +308,9 @@ internal class DockHostViewModel : IAsyncDisposable
         {
             lock (_disposeGate)
             {
-                if (_disposing || (_layoutTransitioning && !allowDuringTransition))
+                if (_ownerShutdownRequested
+                    || _disposing
+                    || (_layoutTransitioning && !allowDuringTransition))
                     return;
                 EnsureDefaultLayout();
                 IEnumerable<ToolTabExtension> availableExtensions = DefaultExtensionsOverride
@@ -325,7 +344,11 @@ internal class DockHostViewModel : IAsyncDisposable
             {
                 _layoutGate.Release();
             }
-            await OpenToolTabFromExtensionCoreAsync(ext, target, allowDuringTransition);
+            await OpenToolTabFromExtensionCoreAsync(
+                ext,
+                target,
+                allowDuringTransition,
+                ownerCallbackScope: true);
         }
 
         await _layoutGate.WaitAsync();
@@ -345,29 +368,58 @@ internal class DockHostViewModel : IAsyncDisposable
     }
 
     internal Task<bool> OpenToolTabFromExtensionAsync(ToolTabExtension ext, IToolDock? target)
-        => OpenToolTabFromExtensionCoreAsync(ext, target, allowDuringTransition: false);
+        => OpenToolTabFromExtensionCoreAsync(
+            ext,
+            target,
+            allowDuringTransition: false,
+            ownerCallbackScope: false);
 
     private async Task<bool> OpenToolTabFromExtensionCoreAsync(
         ToolTabExtension ext,
         IToolDock? target,
-        bool allowDuringTransition)
+        bool allowDuringTransition,
+        bool ownerCallbackScope)
     {
         bool rejected;
         await _layoutGate.WaitAsync();
         try
         {
             lock (_disposeGate)
-                rejected = _disposing || (_layoutTransitioning && !allowDuringTransition);
+                rejected = _ownerShutdownRequested
+                    || _disposing
+                    || (_layoutTransitioning && !allowDuringTransition);
         }
         finally
         {
             _layoutGate.Release();
         }
 
-        if (rejected
-            || !ext.TryCreateContext(_editViewModel, out IToolContext? tab)
-            || tab is null)
+        IToolContext? tab = null;
+        bool created = false;
+        DockHostViewModel? previousMaterializer = s_materializingDefaults.Value;
+        if (ownerCallbackScope)
+            s_materializingDefaults.Value = this;
+        try
         {
+            created = !rejected && ext.TryCreateContext(_editViewModel, out tab) && tab is not null;
+        }
+        finally
+        {
+            if (ownerCallbackScope)
+            {
+                s_materializingDefaults.Value = previousMaterializer;
+                await DrainPendingDockableDisposalsAsync();
+            }
+        }
+
+        if (!created || tab is null)
+        {
+            // [NotNullWhen(true)] permits an extension to return false while
+            // still handing us a context. Consume that context on the refusal
+            // path as well; otherwise a contract-violating extension leaks its
+            // subscriptions until the editor itself is torn down.
+            if (tab is not null)
+                await DisposeContextOnceAsync(tab);
             return false;
         }
 
@@ -379,7 +431,7 @@ internal class DockHostViewModel : IAsyncDisposable
             {
                 lock (_disposeGate)
                 {
-                    opened = !_disposing && OpenToolTabCore(tab, target);
+                    opened = !_ownerShutdownRequested && !_disposing && OpenToolTabCore(tab, target);
                     if (opened)
                         _layoutEpoch++;
                 }
@@ -1023,6 +1075,10 @@ internal class DockHostViewModel : IAsyncDisposable
         {
             _restoredTools = null;
             _restoringArrangementOnly = false;
+            // A malformed extension may return false with a non-null context.
+            // Drain that compensating disposal before the restored layout is
+            // published so no rejected context survives the transition.
+            await DrainPendingDockableDisposalsAsync();
             if (result is null)
             {
                 try
@@ -1522,7 +1578,13 @@ internal class DockHostViewModel : IAsyncDisposable
             .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
         if (extension is null) return null;
 
-        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx) || ctx is null) return null;
+        bool created = extension.TryCreateContext(_editViewModel, out IToolContext? ctx);
+        if (!created || ctx is null)
+        {
+            if (ctx is not null)
+                _ = DisposeContextOnceAsync(ctx);
+            return null;
+        }
 
         BeutlToolDockable? dockable = null;
         try

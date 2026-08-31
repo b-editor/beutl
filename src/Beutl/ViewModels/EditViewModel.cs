@@ -69,7 +69,10 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
     private volatile bool _disposed;
     private readonly object _disposeGate = new();
     private Task? _disposeTask;
+    private int _disposeFaultObserverAttached;
     private readonly Task _restoreTask;
+    private readonly TaskCompletionSource _constructionCompleted = new(
+        TaskCreationOptions.RunContinuationsAsynchronously);
 
     internal bool IsDisposingOrDisposed => _disposed;
 
@@ -191,6 +194,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         _autoSaveService.DisposeWith(_disposables);
 
         _restoreTask = RestoreStateAsync();
+        _constructionCompleted.TrySetResult();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
@@ -622,28 +626,61 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     internal DockHostViewModel DockHost { get; }
 
+    internal bool IsDisposeRequested
+    {
+        get
+        {
+            lock (_disposeGate)
+                return _disposeTask is not null;
+        }
+    }
+
     public ValueTask DisposeAsync()
     {
         TaskCompletionSource<object?>? completion = null;
         Task task;
-        bool reentrantToolTeardown = ToolContextDisposal.IsActive;
+        bool startDisposal = false;
+        bool reentrantOwnerCallback = ToolContextDisposal.IsActive
+            || DockHost.IsMaterializingDefaultPluginCallback;
         lock (_disposeGate)
         {
             if (_disposeTask is not null)
             {
-                return reentrantToolTeardown
-                    ? ValueTask.CompletedTask
-                    : new ValueTask(_disposeTask);
+                task = _disposeTask;
             }
-
-            completion = new TaskCompletionSource<object?>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            _disposeTask = completion.Task;
-            task = completion.Task;
+            else
+            {
+                completion = new TaskCompletionSource<object?>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+                task = completion.Task;
+                startDisposal = true;
+            }
         }
 
-        _ = DisposeCoreAsync(completion);
-        return reentrantToolTeardown ? ValueTask.CompletedTask : new ValueTask(task);
+        if (startDisposal)
+        {
+            DockHost.RequestOwnerShutdown();
+            EditorService.RequestContextShutdown(this);
+            _ = DisposeCoreAsync(completion!);
+        }
+        if (reentrantOwnerCallback)
+        {
+            ObserveReentrantDisposalFailure(task);
+            return ValueTask.CompletedTask;
+        }
+        return new ValueTask(task);
+    }
+
+    private void ObserveReentrantDisposalFailure(Task task)
+    {
+        if (Interlocked.CompareExchange(ref _disposeFaultObserverAttached, 1, 0) != 0)
+            return;
+        _ = task.ContinueWith(
+            t => _logger.LogError(t.Exception, "Reentrant editor disposal failed ({SceneId}).", SceneId),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     private async Task DisposeCoreAsync(TaskCompletionSource<object?> completion)
@@ -657,6 +694,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         _disposed = true;
         Try(() => GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged);
 
+        await TryAsync(async () => await _constructionCompleted.Task.ConfigureAwait(false));
         await TryAsync(async () => await _restoreTask.ConfigureAwait(false));
         await TryAsync(async () => await DockHost.WaitForLayoutTransitionAsync().ConfigureAwait(false));
         if (scene.Uri is not null)
