@@ -102,6 +102,66 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     RenderBoundsContract bounds) => null!;
             }
 
+            public sealed class OpaqueRenderDescription
+            {
+                public static OpaqueRenderDescription Create<TState>(
+                    TState state,
+                    Action<OpaqueRenderSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+
+                internal static OpaqueRenderDescription CreateRequestLocal(
+                    Action<OpaqueRenderSession> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class TargetScopeDescription
+            {
+                public static TargetScopeDescription Create<TState>(
+                    TState state,
+                    Action<TargetScopeSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+
+                internal static TargetScopeDescription CreateRequestLocal(
+                    Action<TargetScopeSession> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class TargetCommandDescription
+            {
+                public static TargetCommandDescription Create<TState>(
+                    TState state,
+                    Action<TargetCommandSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+
+                internal static TargetCommandDescription CreateRequestLocal(
+                    Action<TargetCommandSession> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class RawTargetScopeDescription
+            {
+                public static RawTargetScopeDescription Create<TState>(
+                    TState state,
+                    Action<RawTargetScopeSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+
+                internal static RawTargetScopeDescription CreateRequestLocal(
+                    Action<RawTargetScopeSession> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class RawTargetCommandDescription
+            {
+                public static RawTargetCommandDescription Create<TState>(
+                    TState state,
+                    Action<RawTargetCommandSession, TState> execute,
+                    RenderBoundsContract bounds) => null!;
+
+                internal static RawTargetCommandDescription CreateRequestLocal(
+                    Action<RawTargetCommandSession> execute,
+                    RenderBoundsContract bounds) => null!;
+            }
+
             public sealed class ImmediateCanvas { }
 
             public sealed class RenderFragmentHandle { }
@@ -147,6 +207,18 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             {
                 public static GeometryDefinition<TState> Create(
                     Action<GeometrySession, TState> render,
+                    RenderBoundsContract bounds) => null!;
+            }
+
+            public sealed class GeometryDescription
+            {
+                public static GeometryDescription Create<TState>(
+                    TState state,
+                    Action<GeometrySession, TState> render,
+                    RenderBoundsContract bounds) => null!;
+
+                internal static GeometryDescription CreateRequestLocal(
+                    Action<GeometrySession> render,
                     RenderBoundsContract bounds) => null!;
             }
         }
@@ -2202,6 +2274,80 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A description's Create retains its execution callback exactly as the definition builder above does -
+    /// the recorded operation is fingerprinted by that delegate - and it is the route an out-of-tree author
+    /// takes once the definitions are gone, so the same rule has to reach it. It is named as that one method
+    /// rather than through its type because CreateRequestLocal sits beside it on the same type and means the
+    /// opposite thing.
+    /// </remarks>
+    [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
+    [TestCase("TargetScopeDescription", "TargetScopeSession")]
+    [TestCase("TargetCommandDescription", "TargetCommandSession")]
+    [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
+    [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
+    [TestCase("GeometryDescription", "GeometrySession")]
+    public void ACapturingExecutionCallbackOnADescriptionFactory_IsReported(
+        string description,
+        string session)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeDescriptionCallback(
+            description,
+            session,
+            "(session, state) => Use(session, state + inset)");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a callback that reads a value the caller supplies per recording is what the state parameter is for");
+    }
+
+    /// <remarks>
+    /// The shape the diagnostic asks for. A description factory carries the same state-passing parameter its
+    /// definition builder does, so an author who used it must not be reported for it.
+    /// </remarks>
+    [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
+    [TestCase("TargetScopeDescription", "TargetScopeSession")]
+    [TestCase("TargetCommandDescription", "TargetCommandSession")]
+    [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
+    [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
+    [TestCase("GeometryDescription", "GeometrySession")]
+    public void AStaticExecutionCallbackOnADescriptionFactory_IsNotReported(
+        string description,
+        string session)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeDescriptionCallback(
+            description,
+            session,
+            "static (session, state) => Use(session, state)");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
+    /// The reason these are listed as methods and not as types. CreateRequestLocal is the documented opt-out:
+    /// it takes no state, mints a fresh request-local identity every recording, and therefore says outright
+    /// that its callback may capture. Keying the rule on the description type would report every one of those
+    /// calls, which is a diagnostic on the sanctioned form of a call the author was told to write.
+    /// </remarks>
+    [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
+    [TestCase("TargetScopeDescription", "TargetScopeSession")]
+    [TestCase("TargetCommandDescription", "TargetCommandSession")]
+    [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
+    [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
+    [TestCase("GeometryDescription", "GeometrySession")]
+    public void ACapturingCallbackOnARequestLocalFactory_IsNotReported(
+        string description,
+        string session)
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeRequestLocalCallback(
+            description,
+            session,
+            "session => Use(session, inset)");
+
+        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
+    }
+
+    /// <remarks>
     /// A static method group clears the capture rule and reads static state on exactly the terms a static
     /// lambda does, so the body it names has to be read for the same reason the lambda's is. Leaving it
     /// unread exempted the very form BESG003's own message tells authors to write.
@@ -4138,6 +4284,61 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             {
                 public static void Build(float inset)
                     => {{definition}}<float>.Create(
+                        {{callback}},
+                        RenderBoundsContract.Create(static value => value, static value => value));
+
+                private static void Use({{session}} session, float value)
+                {
+                }
+            }
+            """);
+
+    /// <remarks>
+    /// The description route of the same call. Its state comes first and its type is not generic, where the
+    /// definition builder's is, so the two spellings are exercised separately rather than shared.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeDescriptionCallback(
+        string description,
+        string session,
+        string callback)
+        => Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using Beutl.Graphics.Effects;
+
+            internal static class Author
+            {
+                public static void Build(float inset)
+                    => {{description}}.Create(
+                        0f,
+                        {{callback}},
+                        RenderBoundsContract.Create(static value => value, static value => value));
+
+                private static void Use({{session}} session, float value)
+                {
+                }
+            }
+            """);
+
+    /// <remarks>
+    /// The opt-out beside it, which has no state parameter to carry the captured value through and is not
+    /// meant to.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeRequestLocalCallback(
+        string description,
+        string session,
+        string callback)
+        => Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            using Beutl.Graphics.Effects;
+
+            internal static class Author
+            {
+                public static void Build(float inset)
+                    => {{description}}.CreateRequestLocal(
                         {{callback}},
                         RenderBoundsContract.Create(static value => value, static value => value));
 

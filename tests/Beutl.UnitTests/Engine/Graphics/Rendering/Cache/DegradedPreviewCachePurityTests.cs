@@ -23,6 +23,10 @@ public sealed class DegradedPreviewCachePurityTests
 {
     private static readonly Rect s_bounds = new(0, 0, 32, 24);
 
+    // Read once here rather than inside the callback: a Colors member is a get-only property whose getter
+    // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
+    private static readonly Color s_white = Colors.White;
+
     /// <remarks>
     /// A canvas says what its surface is for. Rendering a preview request onto a delivery canvas would let
     /// an allocation failure drop content into a surface that ships, so the stricter of the two intents is
@@ -275,7 +279,7 @@ public sealed class DegradedPreviewCachePurityTests
                 static (session, area) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(area);
-                    output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    output.Canvas.Use(static canvas => canvas.Clear(s_white));
                     session.Publish(output);
                 },
                 OpaqueRenderBoundsContract.Source(bounds),
@@ -352,7 +356,7 @@ public sealed class DegradedPreviewCachePurityTests
                 static (session, area) =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(area);
-                    output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
+                    output.Canvas.Use(static canvas => canvas.Clear(s_white));
                     session.Publish(output);
                 },
                 OpaqueRenderBoundsContract.Source(bounds),

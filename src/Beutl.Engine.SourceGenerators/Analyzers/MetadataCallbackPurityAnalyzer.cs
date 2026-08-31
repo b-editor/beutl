@@ -80,16 +80,39 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Effects.GeometryDefinition");
 
     /// <remarks>
-    /// One method rather than its whole type, because the type declares both kinds. A recording context's
-    /// painted source retains its draw callback exactly as a definition builder retains its execute, and
-    /// declares its hit test in the same argument list - so leaving it out let one call report the mapping
-    /// and stay silent about the drawing beside it. Its other delegate-taking member, the input mapper, is
-    /// invoked while the call is being made and never retained, which is the shape this rule has nothing to
-    /// say about.
+    /// <para>
+    /// One method rather than its whole type, because each of these types declares both kinds. A recording
+    /// context's painted source retains its draw callback exactly as a definition builder retains its
+    /// execute, and declares its hit test in the same argument list - so leaving it out let one call report
+    /// the mapping and stay silent about the drawing beside it. Its other delegate-taking member, the input
+    /// mapper, is invoked while the call is being made and never retained, which is the shape this rule has
+    /// nothing to say about.
+    /// </para>
+    /// <para>
+    /// An operation description is the same case. Its <c>Create</c> carries the state-passing parameter a
+    /// per-recording value belongs in and retains the execution callback the recorded operation is
+    /// fingerprinted by, so it is keyed and re-run on the terms this rule is about - the same terms as the
+    /// definition builder that also reaches it, which is why both routes are listed while the definitions
+    /// still exist. Its <c>CreateRequestLocal</c> beside it is the documented opt-out: it mints a fresh
+    /// request-local identity every recording precisely so a callback whose pixel-affecting state cannot be
+    /// copied may capture, and naming the type would report every one of those.
+    /// </para>
+    /// <para>
+    /// A shader description is deliberately absent for the reason its definition builder is: its factories
+    /// take a binding-declaration action that is invoked once while the description is being constructed and
+    /// never stored, and the callbacks that action registers reach this rule through
+    /// <c>ShaderBindingBuilder</c> above.
+    /// </para>
     /// </remarks>
     private static readonly ImmutableHashSet<string> s_contractMethods = ImmutableHashSet.Create(
         StringComparer.Ordinal,
-        "Beutl.Graphics.Rendering.RenderNodeContext.PaintedSource");
+        "Beutl.Graphics.Rendering.RenderNodeContext.PaintedSource",
+        "Beutl.Graphics.Rendering.OpaqueRenderDescription.Create",
+        "Beutl.Graphics.Rendering.TargetScopeDescription.Create",
+        "Beutl.Graphics.Rendering.TargetCommandDescription.Create",
+        "Beutl.Graphics.Rendering.RawTargetScopeDescription.Create",
+        "Beutl.Graphics.Rendering.RawTargetCommandDescription.Create",
+        "Beutl.Graphics.Effects.GeometryDescription.Create");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(

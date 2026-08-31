@@ -11,6 +11,14 @@ public sealed class ContributeValuesCacheHitExecutionTests
 {
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
+    // Read once here rather than inside the callback: a Colors member is a get-only property whose getter
+    // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
+    private static readonly Color s_white = Colors.White;
+
+    private static readonly Color s_red = Colors.Red;
+
+    private static readonly Color s_blue = Colors.Blue;
+
     private const int Contributors = 8;
 
     [Test]
@@ -214,7 +222,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 {
                     probe.Record();
                     using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
-                    output.Canvas.Use(canvas => canvas.Clear(Colors.White));
+                    output.Canvas.Use(canvas => canvas.Clear(s_white));
                     session.Publish(output);
                 }),
                 OpaqueRenderBoundsContract.FullInputs(
@@ -245,8 +253,8 @@ public sealed class ContributeValuesCacheHitExecutionTests
                     probe.Record();
                     using OpaqueRenderOutput left = session.CreateOutput(new Rect(0, 0, 8, 12), density: 1);
                     using OpaqueRenderOutput right = session.CreateOutput(new Rect(8, 0, 8, 12), density: 2);
-                    left.Canvas.Use(canvas => canvas.Clear(Colors.Red));
-                    right.Canvas.Use(canvas => canvas.Clear(Colors.Blue));
+                    left.Canvas.Use(canvas => canvas.Clear(s_red));
+                    right.Canvas.Use(canvas => canvas.Clear(s_blue));
                     session.Publish(left);
                     session.Publish(right);
                 }),
