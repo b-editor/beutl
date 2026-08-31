@@ -315,20 +315,7 @@ public class RenderNodeCacheHelperTest
     {
         private static readonly Rect s_bounds = new(0, 0, 100, 100);
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
-        private static readonly OpaqueRenderDefinition<Color> s_definition =
-            OpaqueRenderDefinition<Color>.Create(
-                static (session, state) => session.UseResource(s_probeSlot, probe =>
-                {
-                    probe.Record();
-                    using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
-                    output.Canvas.Use(canvas => canvas.Clear(state));
-                    session.Publish(output);
-                }),
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.Vector,
-                resources: [s_probeSlot]);
+        private static readonly RenderResourceSlot[] s_slots = [s_probeSlot];
 
         private readonly ExecutionProbe _probe = new();
         private Color _color = color;
@@ -345,9 +332,21 @@ public class RenderNodeCacheHelperTest
         public override void Process(RenderNodeContext context)
         {
             RenderResource<ExecutionProbe> probe = context.Borrow(_probe);
-            context.Publish(context.OpaqueSource(s_definition.Call(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
                 _color,
-                [s_probeSlot.Bind(probe)])));
+                static (session, state) => session.UseResource(s_probeSlot, probe =>
+                {
+                    probe.Record();
+                    using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
+                    output.Canvas.Use(canvas => canvas.Clear(state));
+                    session.Publish(output);
+                }),
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Vector,
+                resources: [s_probeSlot.Bind(probe)],
+                slots: s_slots)));
         }
     }
 

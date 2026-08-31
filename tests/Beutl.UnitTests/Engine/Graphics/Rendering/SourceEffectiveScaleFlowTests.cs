@@ -1779,16 +1779,15 @@ public class SourceEffectiveScaleFlowTests
 
     private sealed class TargetCommandSourceRenderNode(Rect bounds, bool owningTargetDomain) : RenderNode
     {
-        private readonly TargetCommandSourceIdentity _state = new(bounds, owningTargetDomain);
-        private readonly TargetCommandDefinition<TargetCommandSourceIdentity> _definition =
-            TargetCommandDefinition<TargetCommandSourceIdentity>.Create(
-                static (session, _) => session.Canvas.Use(static _ => { }),
-                owningTargetDomain ? TargetRegion.Full : TargetRegion.Region(bounds),
-                bounds,
-                RenderHitTestContract.None);
+        private readonly TargetCommandDescription _description = TargetCommandDescription.Create(
+            new TargetCommandSourceIdentity(bounds, owningTargetDomain),
+            static (session, _) => session.Canvas.Use(static _ => { }),
+            owningTargetDomain ? TargetRegion.Full : TargetRegion.Region(bounds),
+            bounds,
+            RenderHitTestContract.None);
 
         public override void Process(RenderNodeContext context)
-            => context.Publish(context.TargetCommand([], _definition.Call(_state)));
+            => context.Publish(context.TargetCommand([], _description));
     }
 
     private sealed class LayerTargetCommandProbeNode(
@@ -1873,7 +1872,8 @@ public class SourceEffectiveScaleFlowTests
             Brush.Resource fill = Brushes.Resource.White;
             RenderResource<Brush.Resource> fillToken = context.Borrow(fill);
             float density = _density;
-            var definition = OpaqueRenderDefinition<(Rect Bounds, float Density)>.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                (Bounds: _bounds, Density: density),
                 static (session, state) => session.UseResource(s_fillSlot, currentFill =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(state.Bounds);
@@ -1885,10 +1885,9 @@ public class SourceEffectiveScaleFlowTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(
                     new ConstantWorkingScaleResolver(density).Resolve),
-                resources: [s_fillSlot]);
-            RenderFragmentHandle current = context.OpaqueSource(definition.Call(
-                (_bounds, density),
-                [s_fillSlot.Bind(fillToken)]));
+                resources: [s_fillSlot.Bind(fillToken)],
+                slots: [s_fillSlot]);
+            RenderFragmentHandle current = context.OpaqueSource(description);
             current = context.RecordNode(_preserve, [current]).Single();
             current = context.RecordNode(_fixed, [current]).Single();
             context.Publish(current);
@@ -2346,7 +2345,8 @@ internal static class ScaleRecordingTestHelper
                 ? RenderScaleContract.Vector
                 : RenderScaleContract.Custom(
                     new FixedScaleResolver(scale.Value).Resolve);
-            var definition = OpaqueRenderDefinition<Rect>.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                bounds,
                 static (session, currentBounds) =>
                     session.UseResource(s_probeSlot, probe =>
                         session.UseResource(s_fillSlot, currentFill =>
@@ -2360,10 +2360,8 @@ internal static class ScaleRecordingTestHelper
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 scaleContract,
-                resources: [s_fillSlot, s_probeSlot]);
-            context.Publish(context.OpaqueSource(definition.Call(
-                bounds,
-                [s_fillSlot.Bind(fillToken), s_probeSlot.Bind(probeToken)])));
+                resources: [s_fillSlot.Bind(fillToken), s_probeSlot.Bind(probeToken)],
+                slots: [s_fillSlot, s_probeSlot])));
         }
     }
 

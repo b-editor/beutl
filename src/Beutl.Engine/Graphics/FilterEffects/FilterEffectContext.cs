@@ -214,14 +214,6 @@ public sealed class FilterEffectContext : IDisposable
         AppendDescription(new FEItem_Shader(description));
     }
 
-    /// <summary>Appends one shader definition call to this filter-effect stream.</summary>
-    public void Shader<TState>(ShaderCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        Shader(call.Description);
-    }
-
     /// <summary>Appends one deferred geometry operation to this filter-effect stream.</summary>
     /// <param name="description">
     /// The non-null immutable geometry contract. Every declared resource must belong to this context's family.
@@ -233,14 +225,6 @@ public sealed class FilterEffectContext : IDisposable
             description.Resources.Select(static binding => binding.Resource),
             nameof(description));
         AppendDescription(new FEItem_Geometry(description));
-    }
-
-    /// <summary>Appends one geometry definition call to this filter-effect stream.</summary>
-    public void Geometry<TState>(GeometryCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        Geometry(call.Description);
     }
 
     public RenderResource<T> Own<T>(T resource)

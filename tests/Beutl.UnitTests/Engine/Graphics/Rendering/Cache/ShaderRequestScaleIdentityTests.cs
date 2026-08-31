@@ -36,27 +36,27 @@ public sealed class ShaderRequestScaleIdentityTests
     // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
     private static readonly Color s_fill = Colors.White;
 
-    private static readonly ShaderDefinition<float> s_binderShader =
-        ShaderDefinition<float>.CurrentPixel(
+    private static readonly ShaderDescription s_binderShader =
+        ShaderDescription.CurrentPixel(
             ShaderSource,
             static bindings => bindings.Uniform(
                 "tint",
-                static state => state,
+                0.5f,
                 static (writer, _, context) => writer.Set(context.OutputScale >= 2f ? 1f : 0.25f)));
 
-    private static readonly ShaderDefinition<float> s_maxWorkingScaleShader =
-        ShaderDefinition<float>.CurrentPixel(
+    private static readonly ShaderDescription s_maxWorkingScaleShader =
+        ShaderDescription.CurrentPixel(
             ShaderSource,
             static bindings => bindings.Uniform(
                 "tint",
-                static state => state,
+                0.5f,
                 static (writer, _, context) => writer.Set(
                     float.IsFinite(context.MaxWorkingScale) ? 1f : 0.25f)));
 
-    private static readonly ShaderDefinition<float> s_directShader =
-        ShaderDefinition<float>.CurrentPixel(
+    private static readonly ShaderDescription s_directShader =
+        ShaderDescription.CurrentPixel(
             ShaderSource,
-            static bindings => bindings.Uniform("tint", static state => state));
+            static bindings => bindings.Uniform("tint", 0.5f));
 
     [Test]
     public void OutputScaleReadByAnExecutionTimeBinder_SeparatesTheCacheIdentity()
@@ -161,14 +161,15 @@ public sealed class ShaderRequestScaleIdentityTests
     /// A fixed-density source under one current-pixel shader. The density is pinned so the two requests
     /// differ in nothing the identity already tracks.
     /// </summary>
-    private sealed class ProbedShaderNode(ShaderDefinition<float> definition) : RenderNode
+    private sealed class ProbedShaderNode(ShaderDescription description) : RenderNode
     {
         public ExecutionProbe Probe { get; } = new();
 
         public override void Process(RenderNodeContext context)
         {
             RenderResource<ExecutionProbe> probeToken = context.Borrow(Probe);
-            var source = OpaqueRenderDefinition<Rect>.Create(
+            OpaqueRenderDescription source = OpaqueRenderDescription.Create(
+                s_bounds,
                 static (session, bounds) => session.UseResource(s_probeSlot, probe =>
                 {
                     probe.Record();
@@ -180,11 +181,11 @@ public sealed class ShaderRequestScaleIdentityTests
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 2f),
-                resources: [s_probeSlot]);
+                resources: [s_probeSlot.Bind(probeToken)],
+                slots: [s_probeSlot]);
 
-            RenderFragmentHandle input = context.OpaqueSource(
-                source.Call(s_bounds, [s_probeSlot.Bind(probeToken)]));
-            context.Publish(context.ContributeValues(context.Shader(input, definition.Call(0.5f))));
+            RenderFragmentHandle input = context.OpaqueSource(source);
+            context.Publish(context.ContributeValues(context.Shader(input, description)));
         }
     }
 

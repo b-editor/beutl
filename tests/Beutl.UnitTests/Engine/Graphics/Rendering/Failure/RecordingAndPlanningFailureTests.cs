@@ -546,14 +546,6 @@ public sealed class RecordingAndPlanningFailureTests
 internal static class FailureTestSupport
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
-    private static readonly OpaqueRenderDefinition<Action<OpaqueRenderSession>> s_sourceDefinition =
-        OpaqueRenderDefinition<Action<OpaqueRenderSession>>.Create(
-            static (session, execute) => execute(session),
-            OpaqueRenderBoundsContract.Source(s_bounds),
-            RenderHitTestContract.OutputBounds,
-            RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale);
-
     public static RenderCacheResolutionContext CacheResolutionContext { get; } = new(
         RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
         new RenderCacheDeviceContextIdentity("failure-device", "failure-context"),
@@ -592,7 +584,7 @@ internal static class FailureTestSupport
             maxWorkingScale: 1,
             cachePolicy: useRenderCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
 
-    public static OpaqueRenderCall<Action<OpaqueRenderSession>> SourceDescription(
+    public static OpaqueRenderDescription SourceDescription(
         Action<OpaqueRenderSession>? execute = null)
     {
         execute ??= static session =>
@@ -602,7 +594,13 @@ internal static class FailureTestSupport
             session.Publish(output);
         };
 
-        return s_sourceDefinition.Call(execute);
+        return OpaqueRenderDescription.Create(
+            execute,
+            static (session, action) => action(session),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale);
     }
 
     public static void WarmForCacheCapture(RenderNode node)

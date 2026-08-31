@@ -10,17 +10,19 @@ namespace Beutl.PublicApiContractTests;
 /// <remarks>
 /// A bounds contract is operation shape, so every factory on it - the source rectangle and the state a
 /// combining mapping reads alike - answers from the moment the contract is built. None of them is a channel
-/// for the state a call supplies later. A source that moves therefore builds its definition per recording.
+/// for the execution state the description beside it carries. A source that moves therefore builds its
+/// description per recording, over the rectangle it is moving to.
 /// </remarks>
 [TestFixture]
-public sealed class OpaqueSourceCallStateContractTests
+public sealed class OpaqueSourceStateContractTests
 {
     private static readonly Rect s_domain = new(0, 0, 200, 200);
     private static readonly Size s_size = new(10, 10);
 
-    private static readonly OpaqueRenderDefinition<Point> s_fixedDefinition =
-        OpaqueRenderDefinition<Point>.Create(
-            static (session, origin) => Draw(session, new Rect(origin, s_size)),
+    private static OpaqueRenderDescription FixedBoundsSource(Point origin)
+        => OpaqueRenderDescription.Create(
+            origin,
+            static (session, current) => Draw(session, new Rect(current, s_size)),
             OpaqueRenderBoundsContract.Source(new Rect(default, s_size)),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
@@ -33,12 +35,12 @@ public sealed class OpaqueSourceCallStateContractTests
     }
 
     [Test]
-    public void ASharedSourceDefinition_PublishesItsDefinitionTimeBounds_WhateverTheCallStateSays()
+    public void ASourceWithAFixedBoundsContract_PublishesThoseBounds_WhateverItsStateSays()
     {
         using var atOrigin = new SourceNode(context => context.Publish(
-            context.OpaqueSource(s_fixedDefinition.Call(new Point(0, 0)))));
+            context.OpaqueSource(FixedBoundsSource(new Point(0, 0)))));
         using var moved = new SourceNode(context => context.Publish(
-            context.OpaqueSource(s_fixedDefinition.Call(new Point(100, 40)))));
+            context.OpaqueSource(FixedBoundsSource(new Point(100, 40)))));
 
         Assert.Multiple(() =>
         {
@@ -46,7 +48,7 @@ public sealed class OpaqueSourceCallStateContractTests
             Assert.That(
                 Measure(moved).OutputBounds,
                 Is.EqualTo(new Rect(0, 0, 10, 10)),
-                "the rectangle a source publishes is the one its definition declared, so a call state that "
+                "the rectangle a source publishes is the one its bounds contract declared, so a state that "
                 + "moves the drawing does not move the bounds with it");
         });
 
@@ -58,7 +60,7 @@ public sealed class OpaqueSourceCallStateContractTests
     }
 
     [Test]
-    public void ACombiningContractsState_IsBoundWhenTheContractIsBuilt_NotWhenACallSuppliesState()
+    public void ACombiningContractsState_IsBoundWhenTheContractIsBuilt_NotByTheDescriptionsOwnState()
     {
         var seen = new List<Vector>();
         OpaqueRenderBoundsContract bounds = OpaqueRenderBoundsContract.Combine(
@@ -69,7 +71,8 @@ public sealed class OpaqueSourceCallStateContractTests
                 return inputs[0].Translate(offset);
             },
             static (offset, output, inputs) => new[] { output.Translate(-offset) });
-        OpaqueRenderDefinition<Vector> definition = OpaqueRenderDefinition<Vector>.Create(
+        OpaqueRenderDescription combine = OpaqueRenderDescription.Create(
+            new Vector(999, 999),
             static (session, _) => Draw(session, session.RequiredRegion),
             bounds,
             RenderHitTestContract.OutputBounds,
@@ -77,9 +80,9 @@ public sealed class OpaqueSourceCallStateContractTests
             RenderScaleContract.Vector);
 
         using var node = new ContainerNode(context => context.Publish(
-            context.OpaqueCombine(context.Inputs, definition.Call(new Vector(999, 999)))));
+            context.OpaqueCombine(context.Inputs, combine)));
         node.AddChild(new SourceNode(context => context.Publish(
-            context.OpaqueSource(s_fixedDefinition.Call(new Point(0, 0))))));
+            context.OpaqueSource(FixedBoundsSource(new Point(0, 0))))));
 
         Assert.Multiple(() =>
         {
@@ -87,24 +90,24 @@ public sealed class OpaqueSourceCallStateContractTests
                 Measure(node).OutputBounds,
                 Is.EqualTo(new Rect(7, 7, 10, 10)),
                 "the state-passing combine overload keeps the mapping static-declared; it is not a channel "
-                + "for the state a call supplies");
+                + "for the execution state the description carries");
             Assert.That(seen, Has.All.EqualTo(new Vector(7, 7)));
         });
     }
 
     [Test]
-    public void ASourceThatMoves_DeclaresItsPlaceByBuildingItsDefinitionPerRecording()
+    public void ASourceThatMoves_DeclaresItsPlaceByBuildingItsDescriptionPerRecording()
     {
         using var moved = new SourceNode(context =>
         {
             var bounds = new Rect(new Point(100, 40), s_size);
-            OpaqueRenderDefinition<Rect> definition = OpaqueRenderDefinition<Rect>.Create(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                bounds,
                 static (session, own) => Draw(session, own),
                 OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.Vector);
-            context.Publish(context.OpaqueSource(definition.Call(bounds)));
+                RenderScaleContract.Vector)));
         });
 
         Assert.That(Measure(moved).OutputBounds, Is.EqualTo(new Rect(100, 40, 10, 10)));

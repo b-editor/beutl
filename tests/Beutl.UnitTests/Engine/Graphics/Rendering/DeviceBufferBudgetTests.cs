@@ -949,25 +949,23 @@ public sealed class DeviceBufferBudgetTests
 
     private sealed class OverBudgetSourceNode : RenderNode
     {
-        private static readonly OpaqueRenderDefinition<Action<OpaqueRenderSession>> s_definition =
-            OpaqueRenderDefinition<Action<OpaqueRenderSession>>.Create(
-                static (session, execute) => execute(session),
-                OpaqueRenderBoundsContract.Source(s_overBudgetDomain),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale);
-
         public int ExecuteCalls { get; private set; }
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.OpaqueSource(s_definition.Call(session =>
-            {
-                ExecuteCalls++;
-                using OpaqueRenderOutput output = session.CreateOutput(s_overBudgetDomain);
-                output.Canvas.Use(canvas => canvas.Clear(Color.FromArgb(255, 100, 149, 237)));
-                session.Publish(output);
-            })));
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create<Action<OpaqueRenderSession>>(
+                session =>
+                {
+                    ExecuteCalls++;
+                    using OpaqueRenderOutput output = session.CreateOutput(s_overBudgetDomain);
+                    output.Canvas.Use(canvas => canvas.Clear(Color.FromArgb(255, 100, 149, 237)));
+                    session.Publish(output);
+                },
+                static (session, execute) => execute(session),
+                OpaqueRenderBoundsContract.Source(s_overBudgetDomain),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 

@@ -13,8 +13,8 @@ namespace Beutl.PublicApiContractTests;
 public sealed class FilterEffectCompatibilityContractTests
 {
     private static readonly Rect s_bounds = new(3, 5, 12, 8);
-    private static readonly ShaderDefinition<byte> s_identityShader =
-        ShaderDefinition<byte>.CurrentPixel("half4 apply(half4 color) { return color; }");
+    private static readonly ShaderDescription s_identityShader =
+        ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }");
 
     [Test]
     public void ExecutionContexts_RequireExplicitIntentAndPurpose()
@@ -267,7 +267,7 @@ public sealed class FilterEffectCompatibilityContractTests
                     getterFailure = ex;
                 }
             },
-            static context => context.Shader(s_identityShader.Call(default)));
+            static context => context.Shader(s_identityShader));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var root = new ConcreteMultiFilterInputNode(
             new BranchSensitiveWorkingScaleFilterNode(resource));
@@ -308,7 +308,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 hasWorkingScale = context.TryGetWorkingScale(out probedWorkingScale);
                 getterWorkingScale = context.WorkingScale;
             },
-            static context => context.Shader(s_identityShader.Call(default)));
+            static context => context.Shader(s_identityShader));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var root = new ConcreteSingleFilterInputNode(
             new VectorWorkingScaleFilterNode(resource));
@@ -574,12 +574,12 @@ public sealed class FilterEffectCompatibilityContractTests
         }
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> CreateMetadataSource(
+    private static OpaqueRenderDescription CreateMetadataSource(
         Rect bounds,
         RenderScaleContract scale,
         object _)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -591,7 +591,7 @@ public sealed class FilterEffectCompatibilityContractTests
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderCall<(Rect bounds, Color color)> call = RenderDefinitionCallFactory.Opaque(
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 (bounds, color),
                 static (session, state) =>
                 {
@@ -603,7 +603,7 @@ public sealed class FilterEffectCompatibilityContractTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueSource(call));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 

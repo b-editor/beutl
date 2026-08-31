@@ -95,23 +95,23 @@ public sealed class OutputIdentityFanOutCostTests
         }
     }
 
-    private static OpaqueRenderCall<Rect> DescribeSource(Rect bounds)
-        => OpaqueRenderDefinition<Rect>.Create(
-                Draw,
-                OpaqueRenderBoundsContract.Source(bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale)
-            .Call(bounds);
+    private static OpaqueRenderDescription DescribeSource(Rect bounds)
+        => OpaqueRenderDescription.Create(
+            bounds,
+            Draw,
+            OpaqueRenderBoundsContract.Source(bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale);
 
-    private static OpaqueRenderCall<Rect> DescribeCombine(Rect bounds)
-        => OpaqueRenderDefinition<Rect>.Create(
-                Draw,
-                OpaqueRenderBoundsContract.FullInputs(_ => bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale)
-            .Call(bounds);
+    private static OpaqueRenderDescription DescribeCombine(Rect bounds)
+        => OpaqueRenderDescription.Create(
+            bounds,
+            Draw,
+            OpaqueRenderBoundsContract.FullInputs(_ => bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale);
 
     // Colors.White computes its value in a getter, which a recording callback cannot be shown answers
     // the same way twice; a snapshot of it can be.

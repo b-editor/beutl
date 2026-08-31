@@ -155,10 +155,9 @@ public sealed class RenderScaleMappingContractTests
     }
 
     /// <remarks>
-    /// The same declaration made through the description rather than through the definition builder. The
-    /// description is the surface an out-of-tree author is left with once the definitions are gone, so it has
-    /// to carry a backward demand map too: a many-input operation that resamples asymmetrically has nowhere
-    /// else to say so, its scale contract carrying demand back only for a one-input map.
+    /// A many-input operation that resamples asymmetrically has nowhere but its description to say so: its
+    /// scale contract carries demand back only for a one-input map, so the description has to carry a
+    /// backward demand map of its own.
     /// </remarks>
     [Test]
     public void ACombineRecordedThroughItsDescriptionCanRaiseTheDemandOfOnlyTheInputItEnlarges()
@@ -291,14 +290,15 @@ public sealed class RenderScaleMappingContractTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
                 probe,
                 static (session, state) => state.Execute(session),
                 bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Vector));
-            TargetCommandDefinition<byte> definition = TargetCommandDefinition<byte>.Create(
+            TargetCommandDescription description = TargetCommandDescription.Create(
+                (byte)0,
                 static (session, _) => session.Canvas.Use(canvas =>
                 {
                     using (canvas.PushTransform(Matrix.CreateScale(2, 2)))
@@ -312,7 +312,7 @@ public sealed class RenderScaleMappingContractTests
                 inputDemand: mapsOutputDemand
                     ? RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand)
                     : default);
-            context.Publish(context.TargetCommand([source], definition.Call(default)));
+            context.Publish(context.TargetCommand([source], description));
         }
 
         private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
@@ -327,14 +327,15 @@ public sealed class RenderScaleMappingContractTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
                 probe,
                 static (session, state) => state.Execute(session),
                 bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Vector));
-            GeometryDefinition<byte> definition = GeometryDefinition<byte>.Create(
+            GeometryDescription description = GeometryDescription.Create(
+                (byte)0,
                 static (session, _) => session.Canvas.Use(canvas =>
                 {
                     using (canvas.PushTransform(Matrix.CreateScale(2, 2)))
@@ -347,7 +348,7 @@ public sealed class RenderScaleMappingContractTests
                 inputDemand: mapsOutputDemand
                     ? RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand)
                     : default);
-            context.Publish(context.Geometry(source, definition.Call(default)));
+            context.Publish(context.Geometry(source, description));
         }
 
         private static Rect Enlarge(Rect inputBounds)
@@ -368,7 +369,7 @@ public sealed class RenderScaleMappingContractTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
                 probe,
                 static (session, state) => state.Execute(session),
                 bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
@@ -378,7 +379,7 @@ public sealed class RenderScaleMappingContractTests
             RenderScaleContract scale = mapsOutputDemand
                 ? RenderScaleContract.MapInputSupply(HalveSupply, DoubleDemand)
                 : RenderScaleContract.MapInputSupplyPreservingDemand(HalveSupply);
-            RenderFragmentHandle enlarged = context.OpaqueMap(source, RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle enlarged = context.OpaqueMap(source, RenderDescriptionFactory.Opaque(
                 execute: static session =>
                 {
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -416,28 +417,28 @@ public sealed class RenderScaleMappingContractTests
 
         private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
 
-        private static readonly ShaderDefinition<byte> s_mapsDemand =
-            ShaderDefinition<byte>.WholeSource(
+        private static readonly ShaderDescription s_mapsDemand =
+            ShaderDescription.WholeSource(
                 EnlargingSource,
                 RenderBoundsContract.Create(Enlarge, Shrink),
                 inputDemand: RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand));
 
-        private static readonly ShaderDefinition<byte> s_leavesDemandUnchanged =
-            ShaderDefinition<byte>.WholeSource(
+        private static readonly ShaderDescription s_leavesDemandUnchanged =
+            ShaderDescription.WholeSource(
                 EnlargingSource,
                 RenderBoundsContract.Create(Enlarge, Shrink));
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
                 probe,
                 static (session, state) => state.Execute(session),
                 bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
                 hitTest: RenderHitTestContract.OutputBounds,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Vector));
-            ShaderDefinition<byte> definition = mapsOutputDemand ? s_mapsDemand : s_leavesDemandUnchanged;
-            context.Publish(context.Shader(source, definition.Call(0)));
+            ShaderDescription description = mapsOutputDemand ? s_mapsDemand : s_leavesDemandUnchanged;
+            context.Publish(context.Shader(source, description));
         }
 
         private static Rect Enlarge(Rect inputBounds)
@@ -463,7 +464,7 @@ public sealed class RenderScaleMappingContractTests
             RenderFragmentHandle second = Source(context, passedThrough);
             context.Publish(context.OpaqueCombine(
                 [first, second],
-                RenderDefinitionCallFactory.Opaque(
+                RenderDescriptionFactory.Opaque(
                     execute: static session =>
                     {
                         using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -484,7 +485,7 @@ public sealed class RenderScaleMappingContractTests
         private static RenderFragmentHandle Source(
             RenderNodeContext context,
             MaterializationDensityProbe probe)
-            => context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            => context.OpaqueSource(OpaqueRenderDescription.Create(
                 probe,
                 static (session, state) => state.Execute(session),
                 bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
@@ -553,13 +554,13 @@ public sealed class RenderScaleMappingContractTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle source = context.OpaqueSource(RenderDescriptionFactory.Opaque(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.Vector));
-            context.Publish(context.OpaqueMap(source, RenderDefinitionCallFactory.Opaque(
+            context.Publish(context.OpaqueMap(source, RenderDescriptionFactory.Opaque(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.None,
@@ -582,13 +583,13 @@ public sealed class RenderScaleMappingContractTests
                 ? RenderScaleContract.Vector
                 : RenderScaleContract.Custom(
                     new FixedScaleResolver(inputSupply.Value).Resolve);
-            RenderFragmentHandle source = context.OpaqueSource(RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle source = context.OpaqueSource(RenderDescriptionFactory.Opaque(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Source(s_bounds),
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: sourceScale));
-            RenderFragmentHandle mapped = context.OpaqueMap(source, RenderDefinitionCallFactory.Opaque(
+            RenderFragmentHandle mapped = context.OpaqueMap(source, RenderDescriptionFactory.Opaque(
                 execute: static _ => throw new AssertionException("Measurement must not execute opaque callbacks."),
                 bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                 hitTest: RenderHitTestContract.None,

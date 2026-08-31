@@ -255,7 +255,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle source = context.OpaqueSource(SourceDescription(bounds));
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     static _ => throw new AssertionException("Metadata queries must not execute target commands."),
                     TargetRegion.Region(bounds),
                     bounds,
@@ -278,7 +278,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle blend = context.Blend(source, BlendMode.SrcOver);
             RenderFragmentHandle targetScope = context.TargetScope(
                 source,
-                RenderDefinitionCallFactory.TargetScope(
+                RenderDescriptionFactory.TargetScope(
                     static _ => throw new AssertionException("Metadata queries must not execute target scopes."),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -358,7 +358,7 @@ public sealed class RenderNodeAuthoringContractTests
             materialized = FragmentSnapshot.From(input);
 
             RenderFragmentHandle declaredResourceSource = context.OpaqueSource(
-                RenderDefinitionCallFactory.Opaque(
+                RenderDescriptionFactory.Opaque(
                     static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
                     OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
@@ -366,13 +366,13 @@ public sealed class RenderNodeAuthoringContractTests
                     RenderScaleContract.Vector,
                     resources:
                     [
-                        s_ownedSlot,
-                        s_borrowedSlot,
-                    ],
-                    bindings:
-                    [
                         s_ownedSlot.Bind(ownedToken),
                         s_borrowedSlot.Bind(borrowedToken),
+                    ],
+                    slots:
+                    [
+                        s_ownedSlot,
+                        s_borrowedSlot,
                     ]));
             context.PublishRange([input, declaredResourceSource]);
         });
@@ -417,7 +417,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -434,7 +434,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -448,7 +448,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     static _ => { },
                     TargetRegion.Region(bounds),
                     Rect.Empty,
@@ -639,7 +639,7 @@ public sealed class RenderNodeAuthoringContractTests
             Assert.That(() => RenderValueCardinality.Range(-1, null), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => RenderValueCardinality.Range(2, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(
-                () => RenderDefinitionCallFactory.Opaque(
+                () => RenderDescriptionFactory.Opaque(
                     static _ => { },
                     OpaqueRenderBoundsContract.Source(new Rect(0, 0, 1, 1)),
                     RenderHitTestContract.None,
@@ -674,15 +674,15 @@ public sealed class RenderNodeAuthoringContractTests
         });
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> SourceDescription(Rect bounds)
+    private static OpaqueRenderDescription SourceDescription(Rect bounds)
         => SourceDescription(bounds, RenderValueCardinality.Single, RenderScaleContract.Vector);
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> SourceDescription(
+    private static OpaqueRenderDescription SourceDescription(
         Rect bounds,
         RenderValueCardinality cardinality,
         RenderScaleContract scale)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Source(bounds),
             RenderHitTestContract.OutputBounds,
@@ -690,9 +690,9 @@ public sealed class RenderNodeAuthoringContractTests
             scale);
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> MapDescription(RenderValueCardinality cardinality)
+    private static OpaqueRenderDescription MapDescription(RenderValueCardinality cardinality)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
@@ -700,9 +700,9 @@ public sealed class RenderNodeAuthoringContractTests
             RenderScaleContract.PreserveInputSupply);
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> CombineDescription(RenderValueCardinality cardinality)
+    private static OpaqueRenderDescription CombineDescription(RenderValueCardinality cardinality)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.FullInputs(UnionAll),
             RenderHitTestContract.AnyInput,
@@ -710,9 +710,9 @@ public sealed class RenderNodeAuthoringContractTests
             RenderScaleContract.MaterializeAtWorkingScale);
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> EmptyInputDescription(RenderValueCardinality cardinality)
+    private static OpaqueRenderDescription EmptyInputDescription(RenderValueCardinality cardinality)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
             OpaqueRenderBoundsContract.FullInputs(
                 static _ => new Rect(40, 50, 3, 2)),

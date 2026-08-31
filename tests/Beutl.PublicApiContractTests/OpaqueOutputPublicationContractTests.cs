@@ -21,9 +21,10 @@ public sealed class OpaqueOutputPublicationContractTests
     private static readonly Rect s_domain = new(0, 0, 32, 32);
     private static readonly Rect s_sourceBounds = new(0, 0, 32, 32);
 
-    private static readonly OpaqueRenderDefinition<PublishedBoundsRecorder> s_recordingMap =
-        OpaqueRenderDefinition<PublishedBoundsRecorder>.Create(
-            static (session, recorder) => recorder.Record(session.Inputs.Single().Bounds),
+    private static OpaqueRenderDescription RecordingMap(PublishedBoundsRecorder recorder)
+        => OpaqueRenderDescription.Create(
+            recorder,
+            static (session, current) => current.Record(session.Inputs.Single().Bounds),
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.ZeroOrOne,
@@ -142,15 +143,16 @@ public sealed class OpaqueOutputPublicationContractTests
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDefinition<PublishPlan> source = OpaqueRenderDefinition<PublishPlan>.Create(
-                static (session, plan) => plan.Execute(session),
+            OpaqueRenderDescription source = OpaqueRenderDescription.Create(
+                plan,
+                static (session, current) => current.Execute(session),
                 OpaqueRenderBoundsContract.Source(s_sourceBounds),
                 RenderHitTestContract.OutputBounds,
                 cardinality,
                 RenderScaleContract.MaterializeAtWorkingScale);
             context.Publish(context.OpaqueMap(
-                context.OpaqueSource(source.Call(plan)),
-                s_recordingMap.Call(recorder)));
+                context.OpaqueSource(source),
+                RecordingMap(recorder)));
         }
     }
 }

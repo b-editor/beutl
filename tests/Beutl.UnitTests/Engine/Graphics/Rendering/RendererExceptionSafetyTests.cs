@@ -260,7 +260,8 @@ internal sealed class FixedOpsNode : RenderNode
             bool trackDischarge = context.Purpose != RenderRequestPurpose.Bounds || spec.TrackMetadataDischarge;
             var operation = new RecordedOperation(spec, _discharged, trackDischarge);
             _ = context.Own(operation);
-            var definition = OpaqueRenderDefinition<RecordedOperationSpec>.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                spec,
                 static (session, state) => session.UseResource(
                     s_fillSlot,
                     fill => RecordedOperation.Execute(state, session, fill)),
@@ -268,8 +269,9 @@ internal sealed class FixedOpsNode : RenderNode
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: [s_fillSlot]);
-            context.Publish(context.OpaqueSource(definition.Call(spec, [s_fillSlot.Bind(fillResource)])));
+                resources: [s_fillSlot.Bind(fillResource)],
+                slots: [s_fillSlot]);
+            context.Publish(context.OpaqueSource(description));
         }
     }
 }

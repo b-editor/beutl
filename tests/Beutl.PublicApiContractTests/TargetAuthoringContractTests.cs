@@ -9,59 +9,65 @@ public sealed class TargetAuthoringContractTests
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 6);
     private static readonly RenderResourceSlot<CommandPayload> s_payloadSlot = new();
-    private static readonly OpaqueRenderDefinition<Color> s_sourceDefinition =
-        OpaqueRenderDefinition<Color>.Create(
-            static (session, color) =>
+    private static OpaqueRenderDescription SourceDescription(Color color)
+        => OpaqueRenderDescription.Create(
+            color,
+            static (session, current) =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(canvas => canvas.Clear(color));
+                output.Canvas.Use(canvas => canvas.Clear(current));
                 session.Publish(output);
             },
             OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);
-    private static readonly TargetScopeDefinition<byte> s_scopeDefinition =
-        TargetScopeDefinition<byte>.Create(
+
+    private static TargetScopeDescription ReplayScope()
+        => TargetScopeDescription.Create(
+            (byte)0,
             static (session, _) => session.ReplayInput(),
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
-            RenderScaleContract.PreserveInputSupply,
-            resources: []);
-    private static readonly TargetCommandDefinition<CommandState> s_commandDefinition =
-        TargetCommandDefinition<CommandState>.Create(
-            static (session, state) => session.UseResource(s_payloadSlot, payload =>
+            RenderScaleContract.PreserveInputSupply);
+
+    private static TargetCommandDescription SlotReadingCommand(
+        CommandState state,
+        RenderResourceBinding payload)
+        => TargetCommandDescription.Create(
+            state,
+            static (session, current) => session.UseResource(s_payloadSlot, payload =>
             {
                 payload.Uses++;
-                state.Executions++;
-                session.ReplaceAffectedRegion(state.Color);
+                current.Executions++;
+                session.ReplaceAffectedRegion(current.Color);
             }),
             TargetRegion.Region(s_bounds),
             s_bounds,
             RenderHitTestContract.OutputBounds,
-            resources: [s_payloadSlot]);
-    private static readonly TargetCommandDefinition<CommandState> s_shapeCommandDefinition =
-        TargetCommandDefinition<CommandState>.Create(
-            static (session, state) => session.ReplaceAffectedRegion(state.Color),
+            resources: [payload],
+            slots: [s_payloadSlot]);
+
+    private static TargetCommandDescription ShapeCommand(CommandState state)
+        => TargetCommandDescription.Create(
+            state,
+            static (session, current) => session.ReplaceAffectedRegion(current.Color),
             TargetRegion.Region(s_bounds),
             s_bounds,
             RenderHitTestContract.OutputBounds);
 
     [Test]
-    public void TargetDefinitionCalls_RecordTheFixedDefinitionShapeAndPerCallState()
+    public void TargetDescriptions_RecordAsTargetEffectsRatherThanValueInputs()
     {
         var commandState = new CommandState(Colors.Red);
-        OpaqueRenderCall<Color> sourceCall = s_sourceDefinition.Call(Colors.CornflowerBlue);
-        TargetScopeCall<byte> scopeCall = s_scopeDefinition.Call(default);
-        TargetCommandCall<CommandState> commandCall = s_shapeCommandDefinition.Call(commandState);
         bool scopeEligible = true;
         bool commandEligible = true;
 
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(sourceCall);
-            RenderFragmentHandle scope = context.TargetScope(source, scopeCall);
-            RenderFragmentHandle command = context.TargetCommand([], commandCall);
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.CornflowerBlue));
+            RenderFragmentHandle scope = context.TargetScope(source, ReplayScope());
+            RenderFragmentHandle command = context.TargetCommand([], ShapeCommand(commandState));
             scopeEligible = scope.CanBeUsedAsValueInput;
             commandEligible = command.CanBeUsedAsValueInput;
             context.PublishRange([scope, command]);
@@ -71,11 +77,6 @@ public sealed class TargetAuthoringContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(sourceCall.Definition, Is.SameAs(s_sourceDefinition));
-            Assert.That(sourceCall.State, Is.EqualTo(Colors.CornflowerBlue));
-            Assert.That(scopeCall.Definition, Is.SameAs(s_scopeDefinition));
-            Assert.That(commandCall.Definition, Is.SameAs(s_shapeCommandDefinition));
-            Assert.That(commandCall.State, Is.SameAs(commandState));
             Assert.That(scopeEligible, Is.False);
             Assert.That(commandEligible, Is.False);
             Assert.That(measurement.HasTargetEffects, Is.True);
@@ -84,7 +85,7 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
-    public void TargetCommandCall_UsesTheResourceBoundToItsDeclaredSlot()
+    public void ATargetCommand_UsesTheResourceBoundToItsDeclaredSlot()
     {
         var payload = new CommandPayload();
         var state = new CommandState(Colors.MediumPurple);
@@ -93,7 +94,7 @@ public sealed class TargetAuthoringContractTests
             RenderResource<CommandPayload> token = context.Borrow(payload);
             context.Publish(context.TargetCommand(
                 [],
-                s_commandDefinition.Call(state, [s_payloadSlot.Bind(token)])));
+                SlotReadingCommand(state, s_payloadSlot.Bind(token))));
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node);
@@ -107,10 +108,11 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
-    public void TargetCommandCall_RejectsAHitTestForAnEmptyQueryRegion()
+    public void ATargetCommand_RejectsAHitTestForAnEmptyQueryRegion()
     {
         Assert.That(
-            () => TargetCommandDefinition<byte>.Create(
+            () => TargetCommandDescription.Create(
+                (byte)0,
                 static (_, _) => { },
                 TargetRegion.Region(s_bounds),
                 Rect.Empty,
@@ -119,20 +121,18 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
-    public void TargetCommandCall_DeclaresReadbackThroughTheDefinition()
+    public void ATargetCommand_DeclaresReadbackThroughItsDescription()
     {
         int snapshots = 0;
-        TargetCommandDefinition<Action<TargetCommandSession>> definition =
-            TargetCommandDefinition<Action<TargetCommandSession>>.Create(
-                static (session, action) => action(session),
-                TargetRegion.Region(s_bounds),
-                Rect.Empty,
-                RenderHitTestContract.None,
-                access: TargetAccess.Readback);
         using var node = new DelegateNode(context =>
             context.Publish(context.TargetCommand(
                 [],
-                definition.Call(session => session.UseSnapshot(_ => snapshots++)))));
+                RenderDescriptionFactory.TargetCommand(
+                    session => session.UseSnapshot(_ => snapshots++),
+                    TargetRegion.Region(s_bounds),
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    access: TargetAccess.Readback))));
 
         using RenderNodeRasterization rasterization = Rasterize(node);
 
@@ -140,16 +140,16 @@ public sealed class TargetAuthoringContractTests
     }
 
     [Test]
-    public void RawTargetCommandCall_RemainsAnExplicitDefinitionBasedBoundary()
+    public void ARawTargetCommand_RemainsAnExplicitlyDeclaredBoundary()
     {
         int executions = 0;
-        RawTargetCommandDefinition<Action<RawTargetCommandSession>> definition =
-            RawTargetCommandDefinition<Action<RawTargetCommandSession>>.Create(
-                static (session, action) => action(session),
-                Rect.Empty,
-                RenderHitTestContract.None);
         using var node = new DelegateNode(context =>
-            context.Publish(context.RawTargetCommand(definition.Call(_ => executions++))));
+            context.Publish(context.RawTargetCommand(
+                RawTargetCommandDescription.Create<Action<RawTargetCommandSession>>(
+                    _ => executions++,
+                    static (session, action) => action(session),
+                    Rect.Empty,
+                    RenderHitTestContract.None))));
 
         using RenderNodeRasterization rasterization = Rasterize(node);
 
@@ -172,7 +172,7 @@ public sealed class TargetAuthoringContractTests
         var recorded = new PreparationCountingNode();
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(s_sourceDefinition.Call(Colors.White));
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
             foreach (RenderFragmentHandle output in context.RecordNode(recorded, [source]))
                 context.Publish(output);
         });
@@ -202,7 +202,8 @@ public sealed class TargetAuthoringContractTests
     [Test]
     public void AGuardedScopeDeclaresTheSpaceItsReplayTransformLivesIn()
     {
-        TargetScopeDefinition<byte> inputLogical = TargetScopeDefinition<byte>.Create(
+        TargetScopeDescription inputLogical = TargetScopeDescription.Create(
+            (byte)0,
             static (session, _) => session.Canvas.Use(_ => session.ReplayInput()),
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput,
@@ -211,8 +212,8 @@ public sealed class TargetAuthoringContractTests
                 static demand => EffectiveScale.At(demand.Value * 2)),
             transformSpace: RenderScopeTransformSpace.InputLogical);
         using var node = new DelegateNode(context => context.Publish(context.TargetScope(
-            context.OpaqueSource(s_sourceDefinition.Call(Colors.White)),
-            inputLogical.Call(0))));
+            context.OpaqueSource(SourceDescription(Colors.White)),
+            inputLogical)));
 
         using RenderNodeRasterization rasterization = Rasterize(node);
 
@@ -220,21 +221,23 @@ public sealed class TargetAuthoringContractTests
     }
 
     /// <remarks>
-    /// A raw definition's callback is static and its slots are fixed, so the only thing that changes per call
-    /// is the binding. Without slot addressing the callback would have to be handed the exact token in its
-    /// state as well, leaving the declared binding validation-only and the resource named in two places.
+    /// A raw command's callback is static and its slots are fixed, so the only thing that changes per
+    /// recording is the binding. Without slot addressing the callback would have to be handed the exact token
+    /// in its state as well, leaving the declared binding validation-only and the resource named in two
+    /// places.
     /// </remarks>
     [Test]
     public void ARawCommandAddressesItsResourceByTheSlotItDeclared()
     {
         var payload = new CommandPayload();
-        RawTargetCommandDefinition<byte> definition = RawTargetCommandDefinition<byte>.Create(
-            static (session, _) => session.UseResource(s_payloadSlot, static bound => bound.Uses++),
-            Rect.Empty,
-            RenderHitTestContract.None,
-            resources: [s_payloadSlot]);
         using var node = new DelegateNode(context => context.Publish(context.RawTargetCommand(
-            definition.Call(0, [s_payloadSlot.Bind(context.Borrow(payload))]))));
+            RawTargetCommandDescription.Create(
+                (byte)0,
+                static (session, _) => session.UseResource(s_payloadSlot, static bound => bound.Uses++),
+                Rect.Empty,
+                RenderHitTestContract.None,
+                resources: [s_payloadSlot.Bind(context.Borrow(payload))],
+                slots: [s_payloadSlot]))));
 
         using RenderNodeRasterization rasterization = Rasterize(node);
 

@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Rendering;
 /// Represents a declaration-owned resource address.
 /// </summary>
 /// <remarks>
-/// This non-generic base exists only so a definition can declare a heterogeneous set of typed slots.
+/// This non-generic base exists only so a description can declare a heterogeneous set of typed slots.
 /// It does not expose a raw resource type or value to callbacks.
 /// </remarks>
 public abstract class RenderResourceSlot
@@ -21,7 +21,7 @@ public abstract class RenderResourceSlot
 }
 
 /// <summary>
-/// Declares one typed resource address for a reusable render definition.
+/// Declares one typed resource address a render description binds and its callbacks read.
 /// </summary>
 /// <typeparam name="T">The raw resource type leased to the execution callback.</typeparam>
 public sealed class RenderResourceSlot<T> : RenderResourceSlot
@@ -34,7 +34,7 @@ public sealed class RenderResourceSlot<T> : RenderResourceSlot
 
     /// <summary>Binds this declared slot to a resource token from the active render context.</summary>
     /// <param name="resource">The request-scoped resource token to bind.</param>
-    /// <returns>A binding suitable for a call of the definition that declares this slot.</returns>
+    /// <returns>A binding suitable for a description that declares this slot.</returns>
     public RenderResourceBinding Bind(RenderResource<T> resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
@@ -49,7 +49,7 @@ public sealed class RenderResourceSlot<T> : RenderResourceSlot
 }
 
 /// <summary>
-/// Binds a definition-declared resource slot to a request-scoped resource token.
+/// Binds a declared resource slot to a request-scoped resource token.
 /// </summary>
 /// <remarks>
 /// Bindings can only be created by <see cref="RenderResourceSlot{T}.Bind(RenderResource{T})"/>, which
@@ -279,9 +279,9 @@ internal sealed class RenderRequestResourceRegistry : IDisposable
         ArgumentNullException.ThrowIfNull(use);
         EnsureReadable(resource);
 
-        // A lease is a read, and one composable definition can reach the same declared resource twice: a
+        // A lease is a read, and one composable operation can reach the same declared resource twice: a
         // scope that binds a token and replays an input that binds the same one runs the inner read inside
-        // the outer lease. Refusing that made two definitions uncomposable for sharing a resource, so the
+        // the outer lease. Refusing that made two operations uncomposable for sharing a resource, so the
         // outermost lease owns the state and an inner one just reads through it.
         RenderResourceRegistration slot = resource.Slot;
         RenderResourceOwnershipState returnState = slot.State;

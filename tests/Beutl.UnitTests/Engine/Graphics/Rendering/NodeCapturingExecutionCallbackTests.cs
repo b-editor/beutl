@@ -279,14 +279,14 @@ public sealed class NodeCapturingExecutionCallbackTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale));
 
-            ShaderDefinition<int> definition = ShaderDefinition<int>.CurrentPixel(
+            ShaderDescription description = ShaderDescription.CurrentPixel(
                 ScalingSource,
                 builder => builder.Uniform<float>(
                     "amount",
-                    static _ => 1f,
+                    1f,
                     (writer, value, _) => writer.Set(value * Scale)));
 
-            context.Publish(context.Shader(source, definition.Call(0)));
+            context.Publish(context.Shader(source, description));
         }
     }
 

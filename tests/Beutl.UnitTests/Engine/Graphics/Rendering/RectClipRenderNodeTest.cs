@@ -262,7 +262,8 @@ public class RectClipRenderNodeTest
         public override void Process(RenderNodeContext context)
         {
             DefinitionCreations++;
-            TargetScopeDefinition<ScopeState> definition = TargetScopeDefinition<ScopeState>.Create(
+            TargetScopeDescription description = TargetScopeDescription.Create(
+                default(ScopeState),
                 static (session, _) => session.Canvas.Use(canvas =>
                 {
                     using (canvas.Push())
@@ -276,8 +277,8 @@ public class RectClipRenderNodeTest
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
                 deviceGridMapping: RenderDeviceGridMapping.Preserved);
             context.PublishMappedInputs(
-                definition.Call(default),
-                static (current, input, call) => current.TargetScope(input, call));
+                description,
+                static (current, input, scope) => current.TargetScope(input, scope));
         }
 
         private readonly record struct ScopeState;
@@ -301,7 +302,8 @@ public class RectClipRenderNodeTest
             RenderBoundsContract bounds = UseFullInputContract
                 ? RenderBoundsContract.FullInput
                 : RenderBoundsContract.Identity;
-            TargetScopeDefinition<ScopeState> definition = TargetScopeDefinition<ScopeState>.Create(
+            TargetScopeDescription description = TargetScopeDescription.Create(
+                default(ScopeState),
                 static (session, _) => session.Canvas.Use(canvas =>
                 {
                     using (canvas.Push())
@@ -315,8 +317,8 @@ public class RectClipRenderNodeTest
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
                 deviceGridMapping: RenderDeviceGridMapping.Preserved);
             context.PublishMappedInputs(
-                definition.Call(default),
-                static (current, input, call) => current.TargetScope(input, call));
+                description,
+                static (current, input, scope) => current.TargetScope(input, scope));
         }
 
         private readonly record struct ScopeState;

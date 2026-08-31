@@ -78,24 +78,7 @@ public sealed class RawSessionSlotResourceTests
     {
         private static readonly RenderResourceSlot<Payload> s_slot = new();
 
-        private static readonly RawTargetScopeDefinition<Rect> s_scope =
-            RawTargetScopeDefinition<Rect>.Create(
-                static (session, _) =>
-                {
-                    session.UseResource(s_slot, static payload => payload.Reach());
-                    session.ReplayInput();
-                },
-                RenderBoundsContract.FullInput,
-                RenderHitTestContract.AnyInput,
-                RenderScaleContract.PreserveInputSupply,
-                resources: [s_slot]);
-
-        private static readonly RawTargetCommandDefinition<Rect> s_command =
-            RawTargetCommandDefinition<Rect>.Create(
-                static (session, _) => session.UseResource(s_slot, static payload => payload.Reach()),
-                s_domain,
-                RenderHitTestContract.OutputBounds,
-                resources: [s_slot]);
+        private static readonly RenderResourceSlot[] s_slots = [s_slot];
 
         private readonly Payload _bound = new("bound");
         private readonly Payload _rebound = new("rebound");
@@ -117,7 +100,13 @@ public sealed class RawSessionSlotResourceTests
 
             if (!throughScope)
             {
-                context.Publish(context.RawTargetCommand(s_command.Call(s_domain, [s_slot.Bind(token)])));
+                context.Publish(context.RawTargetCommand(RawTargetCommandDescription.Create(
+                    s_domain,
+                    static (session, _) => session.UseResource(s_slot, static payload => payload.Reach()),
+                    s_domain,
+                    RenderHitTestContract.OutputBounds,
+                    resources: [s_slot.Bind(token)],
+                    slots: s_slots)));
                 return;
             }
 
@@ -128,7 +117,18 @@ public sealed class RawSessionSlotResourceTests
                     static _ => { },
                     s_domain,
                     RenderHitTestContract.OutputBounds));
-            context.Publish(context.RawTargetScope(inert, s_scope.Call(s_domain, [s_slot.Bind(token)])));
+            context.Publish(context.RawTargetScope(inert, RawTargetScopeDescription.Create(
+                s_domain,
+                static (session, _) =>
+                {
+                    session.UseResource(s_slot, static payload => payload.Reach());
+                    session.ReplayInput();
+                },
+                RenderBoundsContract.FullInput,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                resources: [s_slot.Bind(token)],
+                slots: s_slots)));
         }
     }
 

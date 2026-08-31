@@ -10,10 +10,11 @@ public sealed class DeclaredPlannerTraitContractTests
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
-    public void Definitions_ValidateTheirDeclaredDeviceGridTraits()
+    public void Descriptions_ValidateTheirDeclaredDeviceGridTraits()
     {
         ArgumentOutOfRangeException? opaque = Assert.Throws<ArgumentOutOfRangeException>(
-            static () => OpaqueRenderDefinition<byte>.Create(
+            static () => OpaqueRenderDescription.Create(
+                (byte)0,
                 static (_, _) => { },
                 OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
@@ -21,14 +22,16 @@ public sealed class DeclaredPlannerTraitContractTests
                 RenderScaleContract.MaterializeAtWorkingScale,
                 deviceGridSensitivity: (RenderDeviceGridSensitivity)7));
         ArgumentOutOfRangeException? scopeMapping = Assert.Throws<ArgumentOutOfRangeException>(
-            static () => TargetScopeDefinition<byte>.Create(
+            static () => TargetScopeDescription.Create(
+                (byte)0,
                 static (_, _) => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
                 deviceGridMapping: (RenderDeviceGridMapping)7));
         ArgumentOutOfRangeException? scopeSensitivity = Assert.Throws<ArgumentOutOfRangeException>(
-            static () => TargetScopeDefinition<byte>.Create(
+            static () => TargetScopeDescription.Create(
+                (byte)0,
                 static (_, _) => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.AnyInput,
@@ -49,10 +52,10 @@ public sealed class DeclaredPlannerTraitContractTests
         bool valueEligible = true;
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.CornflowerBlue));
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.CornflowerBlue));
             RenderFragmentHandle scope = context.TargetScope(
                 source,
-                RenderDefinitionCallFactory.TargetScope(
+                RenderDescriptionFactory.TargetScope(
                     static session => session.ReplayInput(),
                     RenderBoundsContract.Identity,
                     RenderHitTestContract.AnyInput,
@@ -122,8 +125,9 @@ public sealed class DeclaredPlannerTraitContractTests
         });
     }
 
-    private static OpaqueRenderCall<Color> SourceCall(Color color)
-        => OpaqueRenderDefinition<Color>.Create(
+    private static OpaqueRenderDescription SourceDescription(Color color)
+        => OpaqueRenderDescription.Create(
+            color,
             static (session, current) =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -134,8 +138,7 @@ public sealed class DeclaredPlannerTraitContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            RenderDeviceGridSensitivity.Insensitive)
-            .Call(color);
+            RenderDeviceGridSensitivity.Insensitive);
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
@@ -154,14 +157,11 @@ public sealed class DeclaredPlannerTraitContractTests
 
     private sealed class StatefulSourceNode(Color initialColor) : RenderNode
     {
-        private static readonly OpaqueRenderDefinition<StatefulSourceNode> s_definition =
-            OpaqueRenderDefinition<StatefulSourceNode>.Create(
-                static (session, node) => node.Execute(session),
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                RenderDeviceGridSensitivity.Insensitive);
+        // Declared out of Process on purpose. An unmarked public setter over state the execution callback
+        // reads is what this fixture is demonstrating, and BESG005 reports exactly that shape once the
+        // callback is written inside Process for its walk to follow.
+        private static readonly Action<OpaqueRenderSession, StatefulSourceNode> s_execute =
+            static (session, node) => node.Execute(session);
 
         public Color Color { get; set; } = initialColor;
 
@@ -170,7 +170,14 @@ public sealed class DeclaredPlannerTraitContractTests
         public List<Color> ExecutedColors { get; } = [];
 
         public override void Process(RenderNodeContext context)
-            => context.Publish(context.OpaqueSource(s_definition.Call(this)));
+            => context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                this,
+                s_execute,
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale,
+                RenderDeviceGridSensitivity.Insensitive)));
 
         private void Execute(OpaqueRenderSession session)
         {

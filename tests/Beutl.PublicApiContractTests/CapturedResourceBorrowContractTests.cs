@@ -14,11 +14,12 @@ public sealed class CapturedResourceBorrowContractTests
     // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
     private static readonly Color s_fill = Colors.White;
 
-    private static readonly OpaqueRenderDefinition<byte> s_definition =
-        OpaqueRenderDefinition<byte>.Create(
-            static (session, _) => session.UseResource(s_payloadSlot, payload =>
+    private static OpaqueRenderDescription PayloadSource(RenderResourceBinding payload)
+        => OpaqueRenderDescription.Create(
+            (byte)0,
+            static (session, _) => session.UseResource(s_payloadSlot, bound =>
             {
-                payload.Uses++;
+                bound.Uses++;
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                 output.Canvas.Use(static canvas => canvas.Clear(s_fill));
                 session.Publish(output);
@@ -27,7 +28,8 @@ public sealed class CapturedResourceBorrowContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: [s_payloadSlot]);
+            resources: [payload],
+            slots: [s_payloadSlot]);
 
     [Test]
     public void BorrowedResource_IsBoundByItsTypedSlotWithoutAnAuthorIdentity()
@@ -36,8 +38,7 @@ public sealed class CapturedResourceBorrowContractTests
         using var node = new DelegateSourceNode(context =>
         {
             RenderResource<BorrowedPayload> token = context.Borrow(payload);
-            context.Publish(context.OpaqueSource(
-                s_definition.Call(default, [s_payloadSlot.Bind(token)])));
+            context.Publish(context.OpaqueSource(PayloadSource(s_payloadSlot.Bind(token))));
         });
         using var renderer = new RenderNodeRenderer(
             node,

@@ -82,13 +82,14 @@ public sealed class MovingOpaqueSourceBoundsTests
         public override void Process(RenderNodeContext context)
         {
             var bounds = new Rect(Origin, s_size);
-            OpaqueRenderDefinition<Rect> definition = OpaqueRenderDefinition<Rect>.Create(
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
+                bounds,
                 Draw,
                 OpaqueRenderBoundsContract.Source(bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector);
-            context.Publish(context.OpaqueSource(definition.Call(bounds)));
+            context.Publish(context.OpaqueSource(description));
         }
 
         private void Draw(OpaqueRenderSession session, Rect bounds)

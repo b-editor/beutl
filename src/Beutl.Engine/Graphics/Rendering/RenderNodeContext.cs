@@ -16,8 +16,7 @@ namespace Beutl.Graphics.Rendering;
 /// <param name="fill">The resolved fill brush, or <see langword="null"/> when the source paints no interior.</param>
 /// <param name="pen">The resolved stroke pen, or <see langword="null"/> when the source paints no outline.</param>
 /// <param name="state">
-/// The state the node handed to
-/// <see cref="PaintedSourceDefinition{TState}.Call(TState, Brush.Resource, Pen.Resource, OpaqueRenderBoundsContract, IEnumerable{RenderResourceBinding})"/>.
+/// The state the node handed to <see cref="RenderNodeContext"/>'s <c>PaintedSource</c>.
 /// </param>
 /// <remarks>
 /// The callback runs during execution, long after <see cref="RenderNode.Process(RenderNodeContext)"/> returned, so
@@ -412,16 +411,6 @@ public sealed class RenderNodeContext
         ShaderDescription description)
         => Shader(input, description, workingScalePolicy: null);
 
-    /// <summary>Records one shader definition call over a value-eligible input.</summary>
-    public RenderFragmentHandle Shader<TState>(
-        RenderFragmentHandle input,
-        ShaderCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return Shader(input, call.Description, workingScalePolicy: null);
-    }
-
     internal RenderFragmentHandle Shader(
         RenderFragmentHandle input,
         ShaderDescription description,
@@ -490,16 +479,6 @@ public sealed class RenderNodeContext
         RenderFragmentHandle input,
         GeometryDescription description)
         => Geometry(input, description, workingScalePolicy: null);
-
-    /// <summary>Records a deferred geometry call over one value-eligible fragment.</summary>
-    public RenderFragmentHandle Geometry<TState>(
-        RenderFragmentHandle input,
-        GeometryCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return Geometry(input, call.Description, workingScalePolicy: null);
-    }
 
     internal RenderFragmentHandle Geometry(
         RenderFragmentHandle input,
@@ -757,35 +736,6 @@ public sealed class RenderNodeContext
                 nameof(bindings)));
     }
 
-    /// <summary>Records a painted-source call.</summary>
-    /// <param name="call">
-    /// A non-null call binding a <see cref="PaintedSourceDefinition{TState}"/> to this recording's state, fill,
-    /// pen, bounds, and resource tokens.
-    /// </param>
-    /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
-    /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call.
-    /// </remarks>
-    public RenderFragmentHandle PaintedSource<TState>(PaintedSourceCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        PaintedSourceDefinition<TState> definition = call.Definition;
-        return PaintedSourceCore(
-            call.State,
-            definition.Draw,
-            call.Fill,
-            call.Pen,
-            call.Bounds,
-            definition.HitTest,
-            definition.Scale,
-            directReplayAtExactIntegerReduction: false,
-            definition.DeviceGridSensitivity,
-            definition.PaintsNonOverlappingCoverage,
-            call.Bindings);
-    }
-
     private RenderFragmentHandle PaintedSourceCore<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,
@@ -816,7 +766,7 @@ public sealed class RenderNodeContext
                 .Select(static binding => binding.Resource)
                 .DistinctBy(static resource => resource.SlotIdentity)
                 .ToArray());
-        // Both callbacks are static, so the description's identity is the pair of definitions rather than
+        // Both callbacks are static, so the description's identity is the pair of declarations rather than
         // this frame's helper instance, which a method group over `source` would have made it.
         Action<EngineDirectRenderSession, PlainPaintedSource<TState>>? directReplay =
             ContainsDrawableBrush(fill, pen)
@@ -883,14 +833,6 @@ public sealed class RenderNodeContext
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
-    /// <summary>Records an opaque value-source call.</summary>
-    public RenderFragmentHandle OpaqueSource<TState>(OpaqueRenderCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return OpaqueSource(call.Description);
-    }
-
     /// <summary>Records an opaque one-input value transformation.</summary>
     /// <param name="input">A non-null value-eligible fragment borrowed from the active transaction.</param>
     /// <param name="description">
@@ -934,16 +876,6 @@ public sealed class RenderNodeContext
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
-    /// <summary>Records an opaque one-input value-transformation call.</summary>
-    public RenderFragmentHandle OpaqueMap<TState>(
-        RenderFragmentHandle input,
-        OpaqueRenderCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return OpaqueMap(input, call.Description);
-    }
-
     /// <summary>Records an opaque many-input combination.</summary>
     /// <param name="inputs">
     /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction.
@@ -957,16 +889,6 @@ public sealed class RenderNodeContext
         OpaqueRenderDescription description)
         => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Combine);
 
-    /// <summary>Records an opaque many-input combination call.</summary>
-    public RenderFragmentHandle OpaqueCombine<TState>(
-        IReadOnlyList<RenderFragmentHandle> inputs,
-        OpaqueRenderCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Combine);
-    }
-
     /// <summary>Records an opaque many-input fragment that may expand value cardinality.</summary>
     /// <param name="inputs">
     /// A non-null ordered list of non-null value-eligible fragments borrowed from the active transaction.
@@ -979,16 +901,6 @@ public sealed class RenderNodeContext
         IReadOnlyList<RenderFragmentHandle> inputs,
         OpaqueRenderDescription description)
         => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Expand);
-
-    /// <summary>Records an opaque many-input expansion call.</summary>
-    public RenderFragmentHandle OpaqueExpand<TState>(
-        IReadOnlyList<RenderFragmentHandle> inputs,
-        OpaqueRenderCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return RecordOpaqueMany(inputs, call.Description, OpaqueRenderTopology.Expand);
-    }
 
     internal RenderFragmentHandle FilterEffectSegment(
         IReadOnlyList<RenderFragmentHandle> inputs,
@@ -1317,16 +1229,6 @@ public sealed class RenderNodeContext
         return RecordTargetScope(input, description, raw: false);
     }
 
-    /// <summary>Records a guarded target-scope call around one input.</summary>
-    public RenderFragmentHandle TargetScope<TState>(
-        RenderFragmentHandle input,
-        TargetScopeCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return RecordTargetScope(input, call.Description, raw: false);
-    }
-
     /// <summary>Records an opaque external target scope around one input.</summary>
     /// <param name="input">A non-null fragment borrowed from the active transaction and replayed inside the scope.</param>
     /// <param name="description">
@@ -1339,16 +1241,6 @@ public sealed class RenderNodeContext
     {
         ArgumentNullException.ThrowIfNull(description);
         return RecordTargetScope(input, description, raw: true);
-    }
-
-    /// <summary>Records an opaque external target-scope call around one input.</summary>
-    public RenderFragmentHandle RawTargetScope<TState>(
-        RenderFragmentHandle input,
-        RawTargetScopeCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return RecordTargetScope(input, call.Description, raw: true);
     }
 
     /// <summary>Records an opaque external command against the active target.</summary>
@@ -1372,14 +1264,6 @@ public sealed class RenderNodeContext
             inputs: [],
             new RawTargetCommandRenderFragmentPayload(description),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
-    }
-
-    /// <summary>Records an opaque external target-command call.</summary>
-    public RenderFragmentHandle RawTargetCommand<TState>(RawTargetCommandCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return RawTargetCommand(call.Description);
     }
 
     /// <summary>Records a guarded command that consumes declared values and accesses the active target.</summary>
@@ -1419,16 +1303,6 @@ public sealed class RenderNodeContext
             references,
             new TargetCommandRenderFragmentPayload(description, inputReadbacks),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
-    }
-
-    /// <summary>Records a guarded target-command call.</summary>
-    public RenderFragmentHandle TargetCommand<TState>(
-        IReadOnlyList<RenderFragmentHandle> inputs,
-        TargetCommandCall<TState> call)
-        where TState : notnull
-    {
-        ArgumentNullException.ThrowIfNull(call);
-        return TargetCommand(inputs, call.Description);
     }
 
     /// <summary>Records a root and its descendants into the current request without executing them.</summary>

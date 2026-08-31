@@ -323,7 +323,7 @@ public sealed class TargetCommandSession
         _token.AuthorizeResource(snapshot, () => use(snapshot));
     }
 
-    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    /// <summary>Uses the resource bound to a declared slot.</summary>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {

@@ -61,12 +61,8 @@ public sealed class PaintedSourceAuthoringContractTests
     }
 
     [Test]
-    public void PaintedSourceCall_RejectsABindingItsDefinitionDidNotDeclare()
+    public void PaintedSource_RejectsABindingItDidNotDeclareAndEmptyBounds()
     {
-        var strayDefinition = PaintedSourceDefinition<Rect>.Create(
-            static (canvas, fill, pen, rect) => canvas.DrawRectangle(rect, fill, pen),
-            RenderHitTestContract.OutputBounds,
-            RenderScaleContract.Vector);
         var straySlot = new RenderResourceSlot<PaintRecord>();
         var rect = new Rect(1, 1, 2, 2);
         Exception? unbound = null;
@@ -75,17 +71,23 @@ public sealed class PaintedSourceAuthoringContractTests
         using var node = new DelegateProbeNode(context =>
         {
             RenderResource<PaintRecord> token = context.Borrow(new PaintRecord(rect));
-            unbound = Assert.Catch(() => strayDefinition.Call(
+            unbound = Assert.Catch(() => context.PaintedSource(
                 rect,
+                static (canvas, fill, pen, current) => canvas.DrawRectangle(current, fill, pen),
                 null,
                 null,
-                OpaqueRenderBoundsContract.Source(rect),
-                [straySlot.Bind(token)]));
-            empty = Assert.Catch(() => strayDefinition.Call(
                 rect,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.Vector,
+                bindings: [straySlot.Bind(token)]));
+            empty = Assert.Catch(() => context.PaintedSource(
+                rect,
+                static (canvas, fill, pen, current) => canvas.DrawRectangle(current, fill, pen),
                 null,
                 null,
-                OpaqueRenderBoundsContract.Source(Rect.Empty)));
+                Rect.Empty,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.Vector));
         });
 
         Measure(node);
@@ -237,18 +239,11 @@ public sealed class PaintedSourceAuthoringContractTests
     {
         private static readonly RenderResourceSlot<PaintRecord> s_recordSlot = new();
 
-        private static readonly PaintedSourceDefinition<PaintRecord> s_definition =
-            PaintedSourceDefinition<PaintRecord>.Create(
-                static (canvas, fill, pen, state) =>
-                {
-                    state.Record(fill, pen);
-                    canvas.DrawRectangle(state.Rect, fill, pen);
-                },
-                RenderHitTestContract.FromSlot(
-                    s_recordSlot,
-                    static (state, point) => state.Rect.ContainsExclusive(point)),
-                RenderScaleContract.Vector,
-                resources: [s_recordSlot]);
+        private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
+            s_recordSlot,
+            static (state, point) => state.Rect.ContainsExclusive(point));
+
+        private static readonly RenderResourceSlot[] s_slots = [s_recordSlot];
 
         public Rect DeclaredBounds { get; private set; }
 
@@ -256,12 +251,20 @@ public sealed class PaintedSourceAuthoringContractTests
         {
             Rect bounds = PenHelper.GetBounds(record.Rect, pen);
             DeclaredBounds = bounds;
-            context.Publish(context.PaintedSource(s_definition.Call(
+            context.Publish(context.PaintedSource(
                 record,
+                static (canvas, currentFill, currentPen, state) =>
+                {
+                    state.Record(currentFill, currentPen);
+                    canvas.DrawRectangle(state.Rect, currentFill, currentPen);
+                },
                 fill,
                 pen,
-                OpaqueRenderBoundsContract.Source(bounds),
-                [s_recordSlot.Bind(context.Borrow(record))])));
+                bounds,
+                s_hitTest,
+                RenderScaleContract.Vector,
+                bindings: [s_recordSlot.Bind(context.Borrow(record))],
+                slots: s_slots));
         }
     }
 
@@ -293,7 +296,7 @@ public sealed class PaintedSourceAuthoringContractTests
             {
                 recorded.Add(context.TargetCommand(
                     [],
-                    RenderDefinitionCallFactory.TargetCommand(
+                    RenderDescriptionFactory.TargetCommand(
                         static _ => { },
                         region,
                         Rect.Empty,
@@ -305,18 +308,16 @@ public sealed class PaintedSourceAuthoringContractTests
             context.PublishRange(recorded);
         }
 
-        private static readonly PaintedSourceDefinition<Rect> s_definition =
-            PaintedSourceDefinition<Rect>.Create(
-                static (canvas, fill, pen, rect) => canvas.DrawRectangle(rect, fill, pen),
-                RenderHitTestContract.OutputBounds,
-                RenderScaleContract.Vector);
-
         private RenderFragmentHandle Paint(RenderNodeContext context, Rect rect)
-            => context.PaintedSource(s_definition.Call(
+            => context.PaintedSource(
                 rect,
+                static (canvas, currentFill, currentPen, current) =>
+                    canvas.DrawRectangle(current, currentFill, currentPen),
                 fill,
                 null,
-                OpaqueRenderBoundsContract.Source(rect)));
+                rect,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.Vector);
     }
 
     private sealed class CpuTargetFactory : IRenderTargetFactory

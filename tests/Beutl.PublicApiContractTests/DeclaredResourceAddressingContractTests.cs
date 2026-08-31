@@ -20,8 +20,10 @@ public sealed class DeclaredResourceAddressingContractTests
     // compilation cannot see, so a callback naming it is not shown to answer the same way twice.
     private static readonly Color s_fill = Colors.Red;
 
-    private static readonly OpaqueRenderDefinition<byte> s_twoPayloadDefinition =
-        OpaqueRenderDefinition<byte>.Create(
+    private static OpaqueRenderDescription TwoPayloadDescription(
+        IEnumerable<RenderResourceBinding> bindings)
+        => OpaqueRenderDescription.Create(
+            (byte)0,
             static (session, _) => session.UseResource(s_leftSlot, left =>
                 session.UseResource(s_rightSlot, right =>
                 {
@@ -35,15 +37,19 @@ public sealed class DeclaredResourceAddressingContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: [s_leftSlot, s_rightSlot]);
-    private static readonly OpaqueRenderDefinition<byte> s_missingLookupDefinition =
-        OpaqueRenderDefinition<byte>.Create(
+            resources: bindings,
+            slots: [s_leftSlot, s_rightSlot]);
+
+    private static OpaqueRenderDescription MissingLookupDescription(RenderResourceBinding binding)
+        => OpaqueRenderDescription.Create(
+            (byte)0,
             static (session, _) => session.UseResource(s_missingSlot, static _ => { }),
             OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: [s_leftSlot]);
+            resources: [binding],
+            slots: [s_leftSlot]);
 
     [TestCase(false)]
     [TestCase(true)]
@@ -57,7 +63,7 @@ public sealed class DeclaredResourceAddressingContractTests
             RenderResourceBinding[] bindings = reverse
                 ? [s_rightSlot.Bind(right), s_leftSlot.Bind(left)]
                 : [s_leftSlot.Bind(left), s_rightSlot.Bind(right)];
-            context.Publish(context.OpaqueSource(s_twoPayloadDefinition.Call(default, bindings)));
+            context.Publish(context.OpaqueSource(TwoPayloadDescription(bindings)));
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node, RenderCacheOptions.Disabled);
@@ -70,7 +76,7 @@ public sealed class DeclaredResourceAddressingContractTests
     }
 
     [Test]
-    public void DefinitionCallsRejectMissingDuplicateAndUnexpectedSlots()
+    public void DescriptionsRejectMissingDuplicateAndUnexpectedSlots()
     {
         ArgumentException? missing = null;
         ArgumentException? duplicate = null;
@@ -80,40 +86,37 @@ public sealed class DeclaredResourceAddressingContractTests
             RenderResource<Payload> first = context.Borrow(new Payload());
             RenderResource<Payload> second = context.Borrow(new Payload());
             missing = Assert.Throws<ArgumentException>(() =>
-                s_twoPayloadDefinition.Call(default, [s_leftSlot.Bind(first)]));
+                TwoPayloadDescription([s_leftSlot.Bind(first)]));
             duplicate = Assert.Throws<ArgumentException>(() =>
-                s_twoPayloadDefinition.Call(
-                    default,
-                    [s_leftSlot.Bind(first), s_leftSlot.Bind(second)]));
+                TwoPayloadDescription([s_leftSlot.Bind(first), s_leftSlot.Bind(second)]));
             unexpected = Assert.Throws<ArgumentException>(() =>
-                s_twoPayloadDefinition.Call(
-                    default,
-                    [s_leftSlot.Bind(first), s_unboundSlot.Bind(second)]));
+                TwoPayloadDescription([s_leftSlot.Bind(first), s_unboundSlot.Bind(second)]));
         });
 
         _ = Measure(node);
 
         Assert.Multiple(() =>
         {
-            Assert.That(missing!.ParamName, Is.EqualTo("bindings"));
-            Assert.That(duplicate!.ParamName, Is.EqualTo("bindings"));
-            Assert.That(unexpected!.ParamName, Is.EqualTo("bindings"));
+            Assert.That(missing!.ParamName, Is.EqualTo("resources"));
+            Assert.That(duplicate!.ParamName, Is.EqualTo("resources"));
+            Assert.That(unexpected!.ParamName, Is.EqualTo("resources"));
         });
     }
 
     [Test]
-    public void DefinitionRejectsTheSameSlotTwice()
+    public void ADescriptionRejectsTheSameSlotTwice()
     {
         ArgumentException? exception = Assert.Throws<ArgumentException>(() =>
-            OpaqueRenderDefinition<byte>.Create(
+            OpaqueRenderDescription.Create(
+                (byte)0,
                 static (_, _) => { },
                 OpaqueRenderBoundsContract.Source(s_bounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [s_leftSlot, s_leftSlot]));
+                slots: [s_leftSlot, s_leftSlot]));
 
-        Assert.That(exception!.ParamName, Is.EqualTo("resources"));
+        Assert.That(exception!.ParamName, Is.EqualTo("slots"));
     }
 
     [Test]
@@ -123,7 +126,7 @@ public sealed class DeclaredResourceAddressingContractTests
         {
             RenderResource<Payload> token = context.Borrow(new Payload());
             context.Publish(context.OpaqueSource(
-                s_missingLookupDefinition.Call(default, [s_leftSlot.Bind(token)])));
+                MissingLookupDescription(s_leftSlot.Bind(token))));
         });
         using RenderNodeRenderer renderer = CreateRenderer(node, RenderCacheOptions.Disabled);
 

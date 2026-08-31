@@ -313,8 +313,8 @@ public sealed class OpaqueRenderDescription
     /// The callback is assembled by a shared recorder helper and reaches request-scoped resources and a
     /// recorded paint plan, neither of which can be part of a persistent identity, so the declared identity is
     /// hand-verified against what the helper draws with. The shape is reachable from outside the engine through
-    /// <see cref="PaintedSourceDefinition{TState}"/>, whose caller-supplied draw callback is held purely by
-    /// BESG003 rather than by the shape being unreachable.
+    /// <see cref="RenderNodeContext"/>'s <c>PaintedSource</c>, whose caller-supplied draw callback is held
+    /// purely by BESG003 rather than by the shape being unreachable.
     /// </remarks>
     internal static OpaqueRenderDescription CreateEngineSource<TState>(
         TState state,
@@ -569,11 +569,11 @@ public sealed class OpaqueRenderBoundsContract
     /// </para>
     /// <para>
     /// A source whose place, size, or outset is a per-recording value therefore builds its
-    /// <see cref="OpaqueRenderDefinition{TState}"/> inside <see cref="RenderNode.Process"/>, over the values
-    /// it is moving by. That costs no plan: this contract contributes only its kind to the structural
-    /// identity, and an execution callback bound to the node that declares it contributes its method, so two
-    /// nodes of one type standing at different places compile one plan and re-run it over their own
-    /// rectangles. A call that draws outside the rectangle its definition declared fails at
+    /// <see cref="OpaqueRenderDescription"/> inside <see cref="RenderNode.Process"/>, over the values it is
+    /// moving by. That costs no plan: this contract contributes only its kind to the structural identity,
+    /// and an execution callback bound to the node that declares it contributes its method, so two nodes of
+    /// one type standing at different places compile one plan and re-run it over their own rectangles. A
+    /// source that draws outside the rectangle its description declared fails at
     /// <see cref="OpaqueRenderSession.CreateOutput"/> rather than escaping the bounds it published.
     /// </para>
     /// </remarks>
@@ -889,10 +889,10 @@ public readonly struct RenderHitTestContract
     /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/>.
     /// </summary>
     /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
-    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="slot">A slot the owning description declares.</param>
     /// <param name="hitTest">
     /// The pure test, given the bound resource. It must not capture a resource of its own; the slot is
-    /// resolved against the bindings of the call being tested, so one definition can be reused across
+    /// resolved against the bindings of the description being tested, so one hit test can be reused across
     /// recordings that bind different resources.
     /// </param>
     public static RenderHitTestContract FromSlot<T>(
@@ -913,7 +913,7 @@ public readonly struct RenderHitTestContract
     /// consults the operation's output bounds and inputs.
     /// </summary>
     /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
-    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="slot">A slot the owning description declares.</param>
     /// <param name="hitTest">
     /// The pure test, given the bound resource and the hit-test context. It must not capture a resource
     /// of its own.
@@ -1069,7 +1069,7 @@ public sealed class RenderHitTestContext
     /// </summary>
     /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
     /// <typeparam name="TResult">The value the reader produces.</typeparam>
-    /// <param name="slot">A slot the owning definition declares.</param>
+    /// <param name="slot">A slot the owning description declares.</param>
     /// <param name="use">Reads the bound resource. The raw value must not outlive this call.</param>
     /// <exception cref="KeyNotFoundException">The call bound no resource to that slot.</exception>
     public TResult UseResource<T, TResult>(RenderResourceSlot<T> slot, Func<T, TResult> use)
@@ -1654,7 +1654,7 @@ public sealed class OpaqueRenderSession
         output.Publish(this, _publish);
     }
 
-    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    /// <summary>Uses the resource bound to a declared slot.</summary>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {
@@ -1846,7 +1846,7 @@ internal sealed record EngineOpaqueDefinition(
 internal static class RenderDescriptionValidation
 {
     /// <summary>
-    /// Binds a definition callback to the values supplied by one operation call.
+    /// Binds an execution callback to the state one description carries.
     /// </summary>
     public static RenderExecutionChannel<TSession> CreateStateChannel<TSession, TState>(
         TState state,
@@ -1977,6 +1977,18 @@ internal static class RenderDescriptionValidation
     public static object StructuralIdentityOfExecution(Delegate callback)
         => callback.Target is RenderNode ? callback.Method : callback;
 
+    /// <summary>
+    /// How many slots a declaration may hold before the duplicate check stops being a linear scan.
+    /// </summary>
+    /// <remarks>
+    /// A node declares its slot list once and hands it over on every recording, so this runs on the render
+    /// path. At the sizes a declaration actually reaches - two is the widest any built-in node declares -
+    /// building a hash set to reject a repeat costs several times what comparing the handful of references
+    /// already copied does, and the copy can be sized from the declaration instead of grown into. Past this
+    /// width the quadratic scan is the more expensive of the two and the set is built after all.
+    /// </remarks>
+    private const int LinearSlotScanLimit = 8;
+
     public static IReadOnlyList<RenderResource> CopyResources(
         IEnumerable<RenderResource>? resources,
         string parameterName)
@@ -2008,6 +2020,9 @@ internal static class RenderDescriptionValidation
         if (resources is null or IReadOnlyCollection<RenderResourceBinding> { Count: 0 })
             return Array.Empty<RenderResourceBinding>();
 
+        if (resources is IReadOnlyList<RenderResourceBinding> { Count: <= LinearSlotScanLimit } declared)
+            return CopyShortResourceBindings(declared, parameterName);
+
         var slots = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
         var result = new List<RenderResourceBinding>();
         foreach (RenderResourceBinding? binding in resources)
@@ -2023,12 +2038,44 @@ internal static class RenderDescriptionValidation
         return result.Count == 0 ? Array.Empty<RenderResourceBinding>() : result.AsReadOnly();
     }
 
+    /// <inheritdoc cref="CopyShortResourceSlots" path="/remarks"/>
+    private static IReadOnlyList<RenderResourceBinding> CopyShortResourceBindings(
+        IReadOnlyList<RenderResourceBinding> bindings,
+        string parameterName)
+    {
+        var copy = new RenderResourceBinding[bindings.Count];
+        for (int index = 0; index < copy.Length; index++)
+        {
+            RenderResourceBinding binding = bindings[index];
+            if (binding is null)
+                throw new ArgumentException("A declared render resource binding cannot be null.", parameterName);
+
+            for (int bound = 0; bound < index; bound++)
+            {
+                if (ReferenceEquals(copy[bound].Slot, binding.Slot))
+                {
+                    throw new ArgumentException(
+                        "A render resource slot cannot be bound more than once.",
+                        parameterName);
+                }
+            }
+
+            ThrowIfUndeclarable(binding.Resource, parameterName);
+            copy[index] = binding;
+        }
+
+        return Array.AsReadOnly(copy);
+    }
+
     public static IReadOnlyList<RenderResourceSlot> CopyResourceSlots(
         IEnumerable<RenderResourceSlot>? slots,
         string parameterName)
     {
         if (slots is null or IReadOnlyCollection<RenderResourceSlot> { Count: 0 })
             return Array.Empty<RenderResourceSlot>();
+
+        if (slots is IReadOnlyList<RenderResourceSlot> { Count: <= LinearSlotScanLimit } declared)
+            return CopyShortResourceSlots(declared, parameterName);
 
         var seen = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
         var result = new List<RenderResourceSlot>();
@@ -2044,43 +2091,103 @@ internal static class RenderDescriptionValidation
         return result.Count == 0 ? Array.Empty<RenderResourceSlot>() : result.AsReadOnly();
     }
 
-    public static IReadOnlyList<RenderResourceBinding> ValidateResourceBindings(
-        IReadOnlyList<RenderResourceSlot> declaredSlots,
-        IEnumerable<RenderResourceBinding>? bindings,
+    /// <remarks>
+    /// The copy is what the scan reads, so a caller handing over an array it mutates afterwards cannot
+    /// change either the check or the list this returns.
+    /// </remarks>
+    private static IReadOnlyList<RenderResourceSlot> CopyShortResourceSlots(
+        IReadOnlyList<RenderResourceSlot> slots,
         string parameterName)
     {
-        ArgumentNullException.ThrowIfNull(declaredSlots);
-        IReadOnlyList<RenderResourceBinding> copy = CopyResourceBindings(bindings, parameterName);
-        if (declaredSlots.Count != copy.Count)
+        var copy = new RenderResourceSlot[slots.Count];
+        for (int index = 0; index < copy.Length; index++)
         {
-            throw new ArgumentException(
-                "A render call must bind every resource slot declared by its definition exactly once.",
-                parameterName);
-        }
+            RenderResourceSlot slot = slots[index];
+            if (slot is null)
+                throw new ArgumentException("A render resource slot cannot be null.", parameterName);
 
-        var bySlot = new Dictionary<RenderResourceSlot, RenderResourceBinding>(ReferenceEqualityComparer.Instance);
-        foreach (RenderResourceBinding binding in copy)
-            bySlot.Add(binding.Slot, binding);
-
-        var ordered = new RenderResourceBinding[declaredSlots.Count];
-        for (int index = 0; index < declaredSlots.Count; index++)
-        {
-            RenderResourceSlot slot = declaredSlots[index];
-            if (!bySlot.TryGetValue(slot, out RenderResourceBinding? binding))
+            for (int declared = 0; declared < index; declared++)
             {
-                throw new ArgumentException(
-                    "A render call contains a resource slot that its definition did not declare.",
-                    parameterName);
+                if (ReferenceEquals(copy[declared], slot))
+                {
+                    throw new ArgumentException(
+                        "A render resource slot cannot be declared more than once.",
+                        parameterName);
+                }
             }
 
-            ordered[index] = binding;
+            copy[index] = slot;
         }
 
-        return ordered.Length == 0 ? Array.Empty<RenderResourceBinding>() : Array.AsReadOnly(ordered);
+        return Array.AsReadOnly(copy);
     }
 
     /// <summary>
-    /// Applies a definition's declared slot list to a factory that is handed bindings rather than a call.
+    /// Puts already-copied bindings into declared-slot order, refusing a set that does not match.
+    /// </summary>
+    /// <remarks>
+    /// The bindings arrive copied, so this neither re-enumerates them nor re-checks what the copy already
+    /// refused. Which binding answers for a declared slot is found by scanning, which for the widths a
+    /// declaration reaches is cheaper than the index built to avoid the scan; past
+    /// <see cref="LinearSlotScanLimit"/> that reverses and the index is built.
+    /// </remarks>
+    private static IReadOnlyList<RenderResourceBinding> OrderByDeclaredSlots(
+        IReadOnlyList<RenderResourceSlot> declaredSlots,
+        IReadOnlyList<RenderResourceBinding> bindings,
+        string parameterName)
+    {
+        if (declaredSlots.Count != bindings.Count)
+        {
+            throw new ArgumentException(
+                "A render description must bind every resource slot it declares exactly once.",
+                parameterName);
+        }
+
+        Dictionary<RenderResourceSlot, RenderResourceBinding>? bySlot = null;
+        if (bindings.Count > LinearSlotScanLimit)
+        {
+            bySlot = new Dictionary<RenderResourceSlot, RenderResourceBinding>(
+                bindings.Count,
+                ReferenceEqualityComparer.Instance);
+            foreach (RenderResourceBinding binding in bindings)
+                bySlot.Add(binding.Slot, binding);
+        }
+
+        var ordered = new RenderResourceBinding[declaredSlots.Count];
+        for (int index = 0; index < ordered.Length; index++)
+        {
+            RenderResourceSlot slot = declaredSlots[index];
+            RenderResourceBinding? bound = bySlot is null
+                ? FindBinding(bindings, slot)
+                : bySlot.GetValueOrDefault(slot);
+            if (bound is null)
+            {
+                throw new ArgumentException(
+                    "A render description contains a resource slot it did not declare.",
+                    parameterName);
+            }
+
+            ordered[index] = bound;
+        }
+
+        return Array.AsReadOnly(ordered);
+    }
+
+    private static RenderResourceBinding? FindBinding(
+        IReadOnlyList<RenderResourceBinding> bindings,
+        RenderResourceSlot slot)
+    {
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            if (ReferenceEquals(bindings[index].Slot, slot))
+                return bindings[index];
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Applies a declared slot list to a factory that is handed bindings alone.
     /// </summary>
     /// <remarks>
     /// A bindings-only factory has no slot list of its own, so nothing there can tell a caller that bound one
@@ -2103,8 +2210,8 @@ internal static class RenderDescriptionValidation
     {
         IReadOnlyList<RenderResourceSlot> declaredSlots = CopyResourceSlots(slots, slotsParameterName);
 
-        // Copied before the count is read: a caller-supplied sequence may be a generator, and enumerating it
-        // once here and again inside ValidateResourceBindings would let the two see different bindings.
+        // Copied once, before the count is read: a caller-supplied sequence may be a generator, so every
+        // check below and the list this returns have to read one enumeration of it.
         IReadOnlyList<RenderResourceBinding> declaredBindings = CopyResourceBindings(
             bindings,
             bindingsParameterName);
@@ -2123,7 +2230,7 @@ internal static class RenderDescriptionValidation
             return Array.Empty<RenderResourceBinding>();
         }
 
-        return ValidateResourceBindings(declaredSlots, declaredBindings, bindingsParameterName);
+        return OrderByDeclaredSlots(declaredSlots, declaredBindings, bindingsParameterName);
     }
 
     public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)

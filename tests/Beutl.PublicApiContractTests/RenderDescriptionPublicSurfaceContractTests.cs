@@ -7,7 +7,7 @@ using Beutl.Media;
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class RenderDefinitionPublicSurfaceContractTests
+public sealed class RenderDescriptionPublicSurfaceContractTests
 {
     private const BindingFlags AnyPublicMember =
         BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.FlattenHierarchy;
@@ -18,24 +18,11 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         "Beutl.Graphics.Effects",
     ];
 
-    [Test]
-    public void DefinitionsAndCalls_AreTheExternalRecordingSurface()
-    {
-        AssertDefinitionCallSurface(typeof(OpaqueRenderDefinition<>), typeof(OpaqueRenderCall<>));
-        AssertDefinitionCallSurface(typeof(TargetScopeDefinition<>), typeof(TargetScopeCall<>));
-        AssertDefinitionCallSurface(typeof(TargetCommandDefinition<>), typeof(TargetCommandCall<>));
-        AssertDefinitionCallSurface(typeof(RawTargetScopeDefinition<>), typeof(RawTargetScopeCall<>));
-        AssertDefinitionCallSurface(typeof(RawTargetCommandDefinition<>), typeof(RawTargetCommandCall<>));
-        AssertDefinitionCallSurface(typeof(GeometryDefinition<>), typeof(GeometryCall<>));
-        AssertDefinitionCallSurface(typeof(ShaderDefinition<>), typeof(ShaderCall<>));
-    }
-
     /// <remarks>
-    /// This assertion is the inverse of the one it replaces. The seven descriptions used to be plan-internal,
-    /// reachable only by going through a Definition and a Call, and this file asserted their absence from the
-    /// exported set. They are now the recording surface itself, so their presence is what has to be pinned:
-    /// a description that slips back to <see langword="internal"/> takes the whole family's authoring route
-    /// with it.
+    /// The seven descriptions used to be plan-internal, reachable only by going through a Definition and a
+    /// Call, and this file asserted their absence from the exported set. They are the recording surface
+    /// itself now, so their presence is what has to be pinned: a description that slips back to
+    /// <see langword="internal"/> takes the whole family's authoring route with it.
     /// </remarks>
     [Test]
     public void EffectItemDescriptions_AreTheExternalRecordingSurface()
@@ -54,38 +41,37 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
     }
 
     /// <remarks>
-    /// Two overloads per recording method is the honest count for as long as both routes exist: the
-    /// Call-taking one an author reaches through a Definition, and the Description-taking one they reach
-    /// directly. It is deliberately not "at least one" - a third overload appearing, or either of these two
-    /// disappearing before the families are collapsed, is exactly what this is here to report.
+    /// Exactly one public overload per recording method, and it takes the description. It is deliberately not
+    /// "at least one": a second overload appearing is how the three-type authoring surface grew the first
+    /// time, and a Call-taking route coming back is exactly what this is here to report.
     /// </remarks>
     [Test]
-    public void EveryRecordingMethod_TakesBothACallAndADescription()
+    public void EveryRecordingMethod_TakesItsDescriptionAndNothingElse()
     {
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueSource", typeof(OpaqueRenderCall<>), typeof(OpaqueRenderDescription));
+            typeof(RenderNodeContext), "OpaqueSource", typeof(OpaqueRenderDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueMap", typeof(OpaqueRenderCall<>), typeof(OpaqueRenderDescription));
+            typeof(RenderNodeContext), "OpaqueMap", typeof(OpaqueRenderDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueCombine", typeof(OpaqueRenderCall<>), typeof(OpaqueRenderDescription));
+            typeof(RenderNodeContext), "OpaqueCombine", typeof(OpaqueRenderDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueExpand", typeof(OpaqueRenderCall<>), typeof(OpaqueRenderDescription));
+            typeof(RenderNodeContext), "OpaqueExpand", typeof(OpaqueRenderDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "TargetScope", typeof(TargetScopeCall<>), typeof(TargetScopeDescription));
+            typeof(RenderNodeContext), "TargetScope", typeof(TargetScopeDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "TargetCommand", typeof(TargetCommandCall<>), typeof(TargetCommandDescription));
+            typeof(RenderNodeContext), "TargetCommand", typeof(TargetCommandDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "RawTargetScope", typeof(RawTargetScopeCall<>), typeof(RawTargetScopeDescription));
+            typeof(RenderNodeContext), "RawTargetScope", typeof(RawTargetScopeDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "RawTargetCommand", typeof(RawTargetCommandCall<>), typeof(RawTargetCommandDescription));
+            typeof(RenderNodeContext), "RawTargetCommand", typeof(RawTargetCommandDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "Geometry", typeof(GeometryCall<>), typeof(GeometryDescription));
+            typeof(RenderNodeContext), "Geometry", typeof(GeometryDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "Shader", typeof(ShaderCall<>), typeof(ShaderDescription));
+            typeof(RenderNodeContext), "Shader", typeof(ShaderDescription));
         AssertContextRecordingSurface(
-            typeof(FilterEffectContext), "Geometry", typeof(GeometryCall<>), typeof(GeometryDescription));
+            typeof(FilterEffectContext), "Geometry", typeof(GeometryDescription));
         AssertContextRecordingSurface(
-            typeof(FilterEffectContext), "Shader", typeof(ShaderCall<>), typeof(ShaderDescription));
+            typeof(FilterEffectContext), "Shader", typeof(ShaderDescription));
     }
 
     /// <remarks>
@@ -98,7 +84,7 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
     /// can resolve against.
     /// </remarks>
     [Test]
-    public void PaintedSource_IsRecordableWithoutADefinition()
+    public void PaintedSource_IsRecordedByOneDrawTakingOverload()
     {
         MethodInfo[] methods = typeof(RenderNodeContext)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
@@ -111,12 +97,7 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(methods, Has.Length.EqualTo(2), "one call-taking overload and one draw-taking overload");
-            Assert.That(
-                methods.Count(static method => method.GetParameters().Any(static parameter =>
-                    parameter.ParameterType.IsGenericType
-                    && parameter.ParameterType.GetGenericTypeDefinition() == typeof(PaintedSourceCall<>))),
-                Is.EqualTo(1));
+            Assert.That(methods, Has.Length.EqualTo(1), "one draw-taking overload and nothing beside it");
             Assert.That(flat, Is.Not.Null, "the draw-taking overload is the description-free recording route");
             if (flat is null)
                 return;
@@ -145,13 +126,12 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
 
     /// <remarks>
     /// A description built from bindings alone has no slot list to check them against, so nothing there can
-    /// report a caller that bound one slot twice and another not at all - the check a Call gets for free from
-    /// the Definition that declares the slots. Every newly public factory takes that list back, which is also
-    /// what restores the normalization: the bindings are reordered into declared-slot order before anything
-    /// derived from them reaches a plan key.
+    /// report a caller that bound one slot twice and another not at all. Every factory takes that list, which
+    /// is also what carries the normalization: the bindings are reordered into declared-slot order before
+    /// anything derived from them reaches a plan key.
     /// </remarks>
     [Test]
-    public void EveryDescriptionFactory_AcceptsTheSlotsItsCallPathValidatesAgainst()
+    public void EveryDescriptionFactory_AcceptsTheSlotsItValidatesItsBindingsAgainst()
     {
         (Type Description, string Factory)[] factories =
         [
@@ -276,6 +256,27 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
             "Beutl.Graphics.Rendering.RenderBackendBoundary",
             "Beutl.Graphics.Rendering.EngineRenderResourceSlot",
             "Beutl.Graphics.Rendering.OpaqueRenderTopology",
+
+            // The seventeen types the definition/call route was made of. They were the third and second
+            // members of a three-type authoring surface the descriptions now hold on their own, so any of
+            // them reappearing means that surface grew back.
+            "Beutl.Graphics.Rendering.OpaqueRenderDefinition`1",
+            "Beutl.Graphics.Rendering.OpaqueRenderCall`1",
+            "Beutl.Graphics.Rendering.PaintedSourceDefinition`1",
+            "Beutl.Graphics.Rendering.PaintedSourceCall`1",
+            "Beutl.Graphics.Rendering.TargetScopeDefinition`1",
+            "Beutl.Graphics.Rendering.TargetScopeCall`1",
+            "Beutl.Graphics.Rendering.TargetCommandDefinition`1",
+            "Beutl.Graphics.Rendering.TargetCommandCall`1",
+            "Beutl.Graphics.Rendering.RawTargetScopeDefinition`1",
+            "Beutl.Graphics.Rendering.RawTargetScopeCall`1",
+            "Beutl.Graphics.Rendering.RawTargetCommandDefinition`1",
+            "Beutl.Graphics.Rendering.RawTargetCommandCall`1",
+            "Beutl.Graphics.Effects.GeometryDefinition`1",
+            "Beutl.Graphics.Effects.GeometryCall`1",
+            "Beutl.Graphics.Effects.ShaderDefinition`1",
+            "Beutl.Graphics.Effects.ShaderCall`1",
+            "Beutl.Graphics.Effects.ShaderDefinitionBuilder`1",
         ];
         string?[] exportedTypes = typeof(RenderNode).Assembly
             .GetExportedTypes()
@@ -569,40 +570,29 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
     }
 
     /// <remarks>
-    /// The list above is read as the family's roster, so a Definition type added without a line there is a
-    /// type nobody checks. This fails when the exported set stops matching, which is the only way a reader
-    /// can trust the roster is complete. <see cref="PaintedSourceDefinition{TState}"/> is listed here but
-    /// not above on purpose: its bounds are measured from the pen the call supplies, so its Call carries
-    /// them rather than taking the uniform (state, bindings) shape the other seven share.
+    /// The named half of the deletion, asked by shape rather than by name. The roster above lists the
+    /// seventeen types by their exact names; this catches a Definition or a Call reintroduced under a name
+    /// nobody thought to list.
     /// </remarks>
     [Test]
-    public void TheDefinitionFamily_HasNoMemberOutsideTheCheckedRoster()
+    public void NoDefinitionOrCallTypeIsExported()
     {
-        string[] roster =
-        [
-            "Beutl.Graphics.Effects.GeometryDefinition`1",
-            "Beutl.Graphics.Effects.ShaderDefinition`1",
-            "Beutl.Graphics.Rendering.OpaqueRenderDefinition`1",
-            "Beutl.Graphics.Rendering.PaintedSourceDefinition`1",
-            "Beutl.Graphics.Rendering.RawTargetCommandDefinition`1",
-            "Beutl.Graphics.Rendering.RawTargetScopeDefinition`1",
-            "Beutl.Graphics.Rendering.TargetCommandDefinition`1",
-            "Beutl.Graphics.Rendering.TargetScopeDefinition`1",
-        ];
-
         string[] exported = typeof(RenderNode).Assembly
             .GetExportedTypes()
-            .Where(static type => type.Name.EndsWith("Definition`1", StringComparison.Ordinal))
+            .Where(static type =>
+                s_recordingNamespaces.Contains(type.Namespace)
+                && (type.Name.EndsWith("Definition`1", StringComparison.Ordinal)
+                    || type.Name.EndsWith("Call`1", StringComparison.Ordinal)))
             .Select(static type => type.FullName!)
             .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
 
         Assert.That(
             exported,
-            Is.EqualTo(roster),
-            "A Definition type joined or left the public surface. Add it to DefinitionsAndCalls_"
-            + "AreTheExternalRecordingSurface, give it the fixed-metadata remark the family carries, and "
-            + "list it here.");
+            Is.Empty,
+            "A Definition or Call type is exported again. One description per operation is the whole "
+            + "authoring surface; a reusable shape an author binds state to separately is the three-type "
+            + "surface this replaced.");
     }
 
     [Test]
@@ -686,29 +676,7 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
                 },
             });
 
-    private static void AssertDefinitionCallSurface(Type definition, Type call)
-    {
-        MethodInfo? method = definition.GetMethod("Call", BindingFlags.Public | BindingFlags.Instance);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(method, Is.Not.Null, definition.Name);
-            if (method is null)
-                return;
-            Assert.That(method!.ReturnType.IsGenericType, Is.True, definition.Name);
-            Assert.That(method.ReturnType.GetGenericTypeDefinition(), Is.EqualTo(call), definition.Name);
-            Assert.That(method.GetParameters(), Has.Length.EqualTo(2), definition.Name);
-            Assert.That(method.GetParameters()[1].ParameterType,
-                Is.EqualTo(typeof(IEnumerable<RenderResourceBinding>)), definition.Name);
-            Assert.That(method.GetParameters()[1].HasDefaultValue, Is.True, definition.Name);
-        });
-    }
-
-    private static void AssertContextRecordingSurface(
-        Type context,
-        string methodName,
-        Type call,
-        Type description)
+    private static void AssertContextRecordingSurface(Type context, string methodName, Type description)
     {
         MethodInfo[] methods = context
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
@@ -720,17 +688,8 @@ public sealed class RenderDefinitionPublicSurfaceContractTests
         {
             Assert.That(
                 methods,
-                Has.Length.EqualTo(2),
-                $"{label} records through exactly one Call overload and one Description overload while both "
-                + "routes exist");
-            Assert.That(
-                methods.Count(method =>
-                    method.IsGenericMethodDefinition
-                    && method.GetParameters().Any(parameter =>
-                        parameter.ParameterType.IsGenericType
-                        && parameter.ParameterType.GetGenericTypeDefinition() == call)),
-                Is.EqualTo(1),
-                label);
+                Has.Length.EqualTo(1),
+                $"{label} records through exactly one overload, and it takes the description");
             Assert.That(
                 methods.Count(method =>
                     !method.IsGenericMethodDefinition

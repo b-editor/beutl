@@ -59,49 +59,32 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Rendering.TargetCaptureScaleContract",
 
         // A shader binding's value provider and resource binder are read the same way and keyed the same
-        // way, so the same rule decides them. The generic builder is the one an out-of-tree author writes
-        // against; the non-generic one is what the engine's own calls go through.
-        "Beutl.Graphics.Effects.ShaderDefinitionBuilder",
-        "Beutl.Graphics.Effects.ShaderBindingBuilder",
-
-        // A definition builder retains its execution callback and the description is fingerprinted by that
-        // delegate, so it is keyed and re-run on the same terms a metadata callback is. Each of these
-        // already carries a state-passing parameter, which is where a per-recording value belongs.
-        //
-        // ShaderDefinition is deliberately absent: its factories take a binding-declaration action that is
-        // invoked once while the definition is built and never retained, and the callbacks it registers
-        // reach the rule through ShaderDefinitionBuilder above.
-        "Beutl.Graphics.Rendering.OpaqueRenderDefinition",
-        "Beutl.Graphics.Rendering.PaintedSourceDefinition",
-        "Beutl.Graphics.Rendering.TargetScopeDefinition",
-        "Beutl.Graphics.Rendering.TargetCommandDefinition",
-        "Beutl.Graphics.Rendering.RawTargetScopeDefinition",
-        "Beutl.Graphics.Rendering.RawTargetCommandDefinition",
-        "Beutl.Graphics.Effects.GeometryDefinition");
+        // way, so the same rule decides them. This is the only whole type on the roster that is not a
+        // metadata contract: everything else a recording retains is declared through one of the
+        // description factories named below, which have to be named as methods rather than as types.
+        "Beutl.Graphics.Effects.ShaderBindingBuilder");
 
     /// <remarks>
     /// <para>
     /// One method rather than its whole type, because each of these types declares both kinds. A recording
-    /// context's painted source retains its draw callback exactly as a definition builder retains its
-    /// execute, and declares its hit test in the same argument list - so leaving it out let one call report
-    /// the mapping and stay silent about the drawing beside it. Its other delegate-taking member, the input
+    /// context's painted source retains its draw callback the way a description factory retains its execute,
+    /// and declares its hit test in the same argument list - so leaving it out let one call report the
+    /// mapping and stay silent about the drawing beside it. Its other delegate-taking member, the input
     /// mapper, is invoked while the call is being made and never retained, which is the shape this rule has
     /// nothing to say about.
     /// </para>
     /// <para>
     /// An operation description is the same case. Its <c>Create</c> carries the state-passing parameter a
     /// per-recording value belongs in and retains the execution callback the recorded operation is
-    /// fingerprinted by, so it is keyed and re-run on the terms this rule is about - the same terms as the
-    /// definition builder that also reaches it, which is why both routes are listed while the definitions
-    /// still exist. Its <c>CreateRequestLocal</c> beside it is the documented opt-out: it mints a fresh
-    /// request-local identity every recording precisely so a callback whose pixel-affecting state cannot be
-    /// copied may capture, and naming the type would report every one of those.
+    /// fingerprinted by, so it is keyed and re-run on the terms this rule is about. Its
+    /// <c>CreateRequestLocal</c> beside it is the documented opt-out: it mints a fresh request-local
+    /// identity every recording precisely so a callback whose pixel-affecting state cannot be copied may
+    /// capture, and naming the type would report every one of those.
     /// </para>
     /// <para>
-    /// A shader description is deliberately absent for the reason its definition builder is: its factories
-    /// take a binding-declaration action that is invoked once while the description is being constructed and
-    /// never stored, and the callbacks that action registers reach this rule through
-    /// <c>ShaderBindingBuilder</c> above.
+    /// A shader description is deliberately absent: its factories take a binding-declaration action that is
+    /// invoked once while the description is being constructed and never stored, and the callbacks that
+    /// action registers reach this rule through <c>ShaderBindingBuilder</c> above.
     /// </para>
     /// </remarks>
     private static readonly ImmutableHashSet<string> s_contractMethods = ImmutableHashSet.Create(
@@ -135,8 +118,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Name rather than ToDisplayString: a generic builder displays with its type arguments, and the
-        // rule is about the builder, not about what it was constructed with.
+        // Name rather than ToDisplayString: a generic contract type displays with its type arguments, and
+        // the rule is about the type, not about what it was constructed with.
         if (method.ContainingType is not { } containingType)
             return;
 

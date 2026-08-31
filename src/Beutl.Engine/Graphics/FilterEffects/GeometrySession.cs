@@ -109,7 +109,7 @@ public sealed class GeometrySession
         get { _token.ThrowIfInactive(); return field; }
     }
 
-    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    /// <summary>Uses the resource bound to a declared slot.</summary>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {

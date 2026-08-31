@@ -283,14 +283,14 @@ public sealed class OrphanedTargetEffectContractTests
         {
             TargetEffectKind.TargetCommand => context.TargetCommand(
                 [source],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     _ => onExecute?.Invoke(),
                     TargetRegion.Region(s_bounds),
                     s_bounds,
                     RenderHitTestContract.None)),
             TargetEffectKind.TargetScope => context.TargetScope(
                 source,
-                RenderDefinitionCallFactory.TargetScope(
+                RenderDescriptionFactory.TargetScope(
                     session =>
                     {
                         onExecute?.Invoke();
@@ -310,9 +310,9 @@ public sealed class OrphanedTargetEffectContractTests
         };
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> ExecutingSource(object _)
+    private static OpaqueRenderDescription ExecutingSource(object _)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             static session =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);

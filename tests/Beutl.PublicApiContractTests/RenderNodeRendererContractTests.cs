@@ -445,7 +445,7 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     _ => executions++,
                     TargetRegion.Full,
                     Rect.Empty,
@@ -492,7 +492,7 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     _ => executions++,
                     TargetRegion.Empty,
                     Rect.Empty,
@@ -563,7 +563,7 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     static _ => throw new AssertionException("Measure must not execute commands."),
                     TargetRegion.Full,
                     query,
@@ -896,7 +896,7 @@ public sealed class RenderNodeRendererContractTests
         {
             RenderFragmentHandle command = context.TargetCommand(
                 [],
-                RenderDefinitionCallFactory.TargetCommand(
+                RenderDescriptionFactory.TargetCommand(
                     session => observed = session.AffectedBounds,
                     TargetRegion.Full,
                     Rect.Empty,
@@ -930,12 +930,12 @@ public sealed class RenderNodeRendererContractTests
         });
     }
 
-    private static OpaqueRenderCall<Action<OpaqueRenderSession>> ExecutingSource(
+    private static OpaqueRenderDescription ExecutingSource(
         Rect bounds,
         Action<OpaqueRenderSession>? observe,
         object _)
     {
-        return RenderDefinitionCallFactory.Opaque(
+        return RenderDescriptionFactory.Opaque(
             session =>
             {
                 observe?.Invoke(session);

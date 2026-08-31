@@ -67,41 +67,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
             public sealed class RawTargetCommandSession { }
 
-            public sealed class OpaqueRenderDefinition<TState>
-            {
-                public static OpaqueRenderDefinition<TState> Create(
-                    Action<OpaqueRenderSession, TState> execute,
-                    RenderBoundsContract bounds) => null!;
-            }
-
-            public sealed class TargetScopeDefinition<TState>
-            {
-                public static TargetScopeDefinition<TState> Create(
-                    Action<TargetScopeSession, TState> execute,
-                    RenderBoundsContract bounds) => null!;
-            }
-
-            public sealed class TargetCommandDefinition<TState>
-            {
-                public static TargetCommandDefinition<TState> Create(
-                    Action<TargetCommandSession, TState> execute,
-                    RenderBoundsContract bounds) => null!;
-            }
-
-            public sealed class RawTargetScopeDefinition<TState>
-            {
-                public static RawTargetScopeDefinition<TState> Create(
-                    Action<RawTargetScopeSession, TState> execute,
-                    RenderBoundsContract bounds) => null!;
-            }
-
-            public sealed class RawTargetCommandDefinition<TState>
-            {
-                public static RawTargetCommandDefinition<TState> Create(
-                    Action<RawTargetCommandSession, TState> execute,
-                    RenderBoundsContract bounds) => null!;
-            }
-
             public sealed class OpaqueRenderDescription
             {
                 public static OpaqueRenderDescription Create<TState>(
@@ -184,11 +149,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             using System;
             using Beutl.Graphics.Rendering;
 
-            public sealed class ShaderDefinitionBuilder<TState>
-            {
-                public void Uniform<T>(string name, Func<TState, T> value) { }
-            }
-
             public sealed class ShaderUniformWriter { }
 
             public sealed class ShaderExecutionContext { }
@@ -202,13 +162,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             }
 
             public sealed class GeometrySession { }
-
-            public sealed class GeometryDefinition<TState>
-            {
-                public static GeometryDefinition<TState> Create(
-                    Action<GeometrySession, TState> render,
-                    RenderBoundsContract bounds) => null!;
-            }
 
             public sealed class GeometryDescription
             {
@@ -878,30 +831,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG003"),
             "nothing else sees that a contract is involved, so this is the last place to say so");
-    }
-
-    /// <remarks>
-    /// The generic builder is what an out-of-tree shader author writes against, and its deferred binder is
-    /// keyed the same way a bounds map is, so the rule has to reach it through the type arguments rather
-    /// than past them.
-    /// </remarks>
-    [Test]
-    public void ACapturingShaderBinder_OnTheGenericBuilder_IsReported()
-    {
-        ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics.Effects;
-
-            internal static class Author
-            {
-                public static void Bind(ShaderDefinitionBuilder<float> builder, float multiplier)
-                    => builder.Uniform("amount", state => state * multiplier);
-            }
-            """);
-
-        Assert.That(
-            diagnostics.Select(static d => d.Id),
-            Does.Contain("BESG003"),
-            "a binder that reads a value the caller supplies per call is the case this rule exists for");
     }
 
     /// <remarks>
@@ -2228,57 +2157,11 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
-    /// A definition builder's execution callback is retained on the definition and is what the description is
-    /// fingerprinted by, so it is keyed and re-run on exactly the terms a metadata callback is. Nothing else
-    /// checks it: the runtime validator null-checks the callback and never looks inside it.
-    /// </remarks>
-    [TestCase("OpaqueRenderDefinition", "OpaqueRenderSession")]
-    [TestCase("TargetScopeDefinition", "TargetScopeSession")]
-    [TestCase("TargetCommandDefinition", "TargetCommandSession")]
-    [TestCase("RawTargetScopeDefinition", "RawTargetScopeSession")]
-    [TestCase("RawTargetCommandDefinition", "RawTargetCommandSession")]
-    [TestCase("GeometryDefinition", "GeometrySession")]
-    public void ACapturingExecutionCallbackOnADefinitionBuilder_IsReported(string definition, string session)
-    {
-        ImmutableArray<Diagnostic> diagnostics = AnalyzeDefinitionCallback(
-            definition,
-            session,
-            "(session, state) => Use(session, state + inset)");
-
-        Assert.That(
-            diagnostics.Select(static d => d.Id),
-            Does.Contain("BESG003"),
-            "a callback that reads a value the caller supplies per recording is what the state parameter is for");
-    }
-
-    /// <remarks>
-    /// These builders already carry a state-passing parameter, so the shape the diagnostic asks for is the
-    /// one they were designed around and must stay silent.
-    /// </remarks>
-    [TestCase("OpaqueRenderDefinition", "OpaqueRenderSession")]
-    [TestCase("TargetScopeDefinition", "TargetScopeSession")]
-    [TestCase("TargetCommandDefinition", "TargetCommandSession")]
-    [TestCase("RawTargetScopeDefinition", "RawTargetScopeSession")]
-    [TestCase("RawTargetCommandDefinition", "RawTargetCommandSession")]
-    [TestCase("GeometryDefinition", "GeometrySession")]
-    public void AStaticExecutionCallbackTakingItsValuesThroughState_IsNotReported(
-        string definition,
-        string session)
-    {
-        ImmutableArray<Diagnostic> diagnostics = AnalyzeDefinitionCallback(
-            definition,
-            session,
-            "static (session, state) => Use(session, state)");
-
-        Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
-    }
-
-    /// <remarks>
-    /// A description's Create retains its execution callback exactly as the definition builder above does -
-    /// the recorded operation is fingerprinted by that delegate - and it is the route an out-of-tree author
-    /// takes once the definitions are gone, so the same rule has to reach it. It is named as that one method
-    /// rather than through its type because CreateRequestLocal sits beside it on the same type and means the
-    /// opposite thing.
+    /// A description's Create retains its execution callback - the recorded operation is fingerprinted by
+    /// that delegate - so it is keyed and re-run on exactly the terms a metadata callback is, and nothing
+    /// else checks it: the runtime validator null-checks the callback and never looks inside it. It is named
+    /// as that one method rather than through its type because CreateRequestLocal sits beside it on the same
+    /// type and means the opposite thing.
     /// </remarks>
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
@@ -4267,35 +4150,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
     /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
-    /// definition's Create takes metadata and planner traits beside its callback, and none of those carry a
+    /// description's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.
-    /// </remarks>
-    private static ImmutableArray<Diagnostic> AnalyzeDefinitionCallback(
-        string definition,
-        string session,
-        string callback)
-        => Analyze($$"""
-            using System;
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-            using Beutl.Graphics.Effects;
-
-            internal static class Author
-            {
-                public static void Build(float inset)
-                    => {{definition}}<float>.Create(
-                        {{callback}},
-                        RenderBoundsContract.Create(static value => value, static value => value));
-
-                private static void Use({{session}} session, float value)
-                {
-                }
-            }
-            """);
-
-    /// <remarks>
-    /// The description route of the same call. Its state comes first and its type is not generic, where the
-    /// definition builder's is, so the two spellings are exercised separately rather than shared.
     /// </remarks>
     private static ImmutableArray<Diagnostic> AnalyzeDescriptionCallback(
         string description,

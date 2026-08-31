@@ -215,8 +215,19 @@ public class NodeCacheScaleTests
     {
         private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
-        private static readonly OpaqueRenderDefinition<Rect> s_definition =
-            OpaqueRenderDefinition<Rect>.Create(
+        private static readonly RenderResourceSlot[] s_slots = [s_fillSlot, s_probeSlot];
+
+        private readonly ExecutionProbe _probe = new();
+
+        public int ExecuteCount => _probe.Count;
+
+        public override void Process(RenderNodeContext context)
+        {
+            Brush.Resource fill = Brushes.Resource.White;
+            RenderResource<Brush.Resource> fillResource = context.Borrow(fill);
+            RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                s_bounds,
                 static (session, bounds) =>
                     session.UseResource(s_probeSlot, probe =>
                     {
@@ -232,20 +243,8 @@ public class NodeCacheScaleTests
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 4f),
-                resources: [s_fillSlot, s_probeSlot]);
-
-        private readonly ExecutionProbe _probe = new();
-
-        public int ExecuteCount => _probe.Count;
-
-        public override void Process(RenderNodeContext context)
-        {
-            Brush.Resource fill = Brushes.Resource.White;
-            RenderResource<Brush.Resource> fillResource = context.Borrow(fill);
-            RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
-            context.Publish(context.OpaqueSource(s_definition.Call(
-                s_bounds,
-                [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)])));
+                resources: [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)],
+                slots: s_slots)));
         }
     }
 
@@ -279,8 +278,13 @@ public class NodeCacheScaleTests
     {
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
         private readonly ExecutionProbe _probe = new();
-        private readonly OpaqueRenderDefinition<Rect> _sourceDefinition =
-            OpaqueRenderDefinition<Rect>.Create(
+        public int ExecuteCount => _probe.Count;
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
+                bounds,
                 static (session, currentBounds) =>
                     session.UseResource(s_probeSlot, probe =>
                     {
@@ -293,16 +297,8 @@ public class NodeCacheScaleTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 1),
-                resources: [s_probeSlot]);
-
-        public int ExecuteCount => _probe.Count;
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderResource<ExecutionProbe> probeResource = context.Borrow(_probe);
-            RenderFragmentHandle source = context.OpaqueSource(_sourceDefinition.Call(
-                bounds,
-                [s_probeSlot.Bind(probeResource)]));
+                resources: [s_probeSlot.Bind(probeResource)],
+                slots: [s_probeSlot]));
             TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(
                 bounds,
                 static (session, replayBounds) => session.Canvas.Use(_ => session.ReplayInput()),

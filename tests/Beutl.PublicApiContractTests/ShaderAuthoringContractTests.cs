@@ -24,52 +24,53 @@ public sealed class ShaderAuthoringContractTests
     private static readonly Vector s_translation = new(20, 10);
     private static readonly RenderResourceSlot<ShaderColor> s_colorSlot = new();
     private static readonly RenderResourceSlot<ShaderColor> s_sharedColorSlot = new();
-    private static readonly ShaderDefinition<float> s_currentPixelDefinition =
-        ShaderDefinition<float>.CurrentPixel(
+    private static readonly ShaderDescription s_currentPixelDescription =
+        ShaderDescription.CurrentPixel(
             CurrentPixelSource,
-            static bindings => bindings.Uniform("amount", static state => state));
-    private static readonly ShaderDefinition<byte> s_wholeSourceDefinition =
-        ShaderDefinition<byte>.WholeSource(
-            WholeSource,
-            RenderBoundsContract.Identity,
-            static bindings => bindings.Resource(
-                "tint",
-                s_colorSlot,
-                ShaderResourceCoordinateSpace.OutputDevice,
-                static (writer, color, _) =>
-                {
-                    color.Uses++;
-                    writer.Set(SKShader.CreateColor(color.Color));
-                }));
-    private static readonly ShaderDefinition<Vector> s_relocatingDefinition =
-        ShaderDefinition<Vector>.WholeSource(
+            static bindings => bindings.Uniform("amount", 0.75f));
+    private static readonly ShaderDescription s_relocatingDescription =
+        ShaderDescription.WholeSource(
             TranslateWholeSource,
             TranslateBounds(),
             DeclareTranslateUniforms,
             hitTest: RenderHitTestContract.Custom(
                 s_translation,
                 static (offset, context, point) => context.Inputs[0].HitTest(point - offset)));
-    private static readonly ShaderDefinition<Vector> s_undeclaredRelocatingDefinition =
-        ShaderDefinition<Vector>.WholeSource(
+    private static readonly ShaderDescription s_undeclaredRelocatingDescription =
+        ShaderDescription.WholeSource(
             TranslateWholeSource,
             TranslateBounds(),
             DeclareTranslateUniforms);
 
+    private static ShaderDescription WholeSourceTint(RenderResource<ShaderColor> token)
+        => ShaderDescription.WholeSource(
+            WholeSource,
+            RenderBoundsContract.Identity,
+            bindings => bindings.Resource(
+                "tint",
+                token,
+                ShaderResourceCoordinateSpace.OutputDevice,
+                static (writer, color, _) =>
+                {
+                    color.Uses++;
+                    writer.Set(SKShader.CreateColor(color.Color));
+                }));
+
     /// <remarks>
     /// A plugin author with many effects over one shader has the same reason the engine does to parse it
-    /// once. SkslSource, its Kind, and the definition factories that take one were public in name only:
+    /// once. SkslSource, its Kind, and the description factories that take one were public in name only:
     /// nothing reachable from outside the assembly could produce or consume an instance.
     /// </remarks>
     [Test]
-    public void AParsedSourceCanBeSharedAcrossDefinitions()
+    public void AParsedSourceCanBeSharedAcrossDescriptions()
     {
         SkslSource parsed = SkslSource.CurrentPixel(CurrentPixelSource);
-        ShaderDefinition<float> first = ShaderDefinition<float>.CurrentPixel(
+        ShaderDescription first = ShaderDescription.CurrentPixel(
             parsed,
-            static bindings => bindings.Uniform("amount", static state => state));
-        ShaderDefinition<float> second = ShaderDefinition<float>.CurrentPixel(
+            static bindings => bindings.Uniform("amount", 0.5f));
+        ShaderDescription second = ShaderDescription.CurrentPixel(
             parsed,
-            static bindings => bindings.Uniform("amount", static state => 1f - state));
+            static bindings => bindings.Uniform("amount", 0.25f));
 
         using (Assert.EnterMultipleScope())
         {
@@ -81,23 +82,32 @@ public sealed class ShaderAuthoringContractTests
     }
 
     [Test]
-    public void AParsedWholeSourceCanHeadADefinition()
+    public void AParsedWholeSourceCanHeadADescription()
     {
         SkslSource parsed = SkslSource.WholeSource(WholeSource);
+        ShaderDescription? description = null;
 
-        ShaderDefinition<byte> definition = ShaderDefinition<byte>.WholeSource(
-            parsed,
-            RenderBoundsContract.Identity,
-            static bindings => bindings.Resource(
-                "tint",
-                s_colorSlot,
-                ShaderResourceCoordinateSpace.OutputDevice,
-                static (writer, color, _) => writer.Set(SKShader.CreateColor(color.Color))));
+        using var node = new DelegateNode(context =>
+        {
+            RenderResource<ShaderColor> token = context.Borrow(new ShaderColor(SKColors.MediumPurple));
+            description = ShaderDescription.WholeSource(
+                parsed,
+                RenderBoundsContract.Identity,
+                bindings => bindings.Resource(
+                    "tint",
+                    token,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, color, _) => writer.Set(SKShader.CreateColor(color.Color))),
+                SKShaderTileMode.Decal);
+            context.Publish(context.OpaqueSource(SourceDescription(Colors.White)));
+        });
+
+        Measure(node);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(parsed.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
-            Assert.That(definition, Is.Not.Null);
+            Assert.That(description, Is.Not.Null);
         }
     }
 
@@ -107,39 +117,53 @@ public sealed class ShaderAuthoringContractTests
         SkslSource currentPixel = SkslSource.CurrentPixel(CurrentPixelSource);
 
         Assert.That(
-            () => ShaderDefinition<byte>.WholeSource(currentPixel, RenderBoundsContract.Identity),
+            () => ShaderDescription.WholeSource(
+                currentPixel,
+                RenderBoundsContract.Identity,
+                bindings: null,
+                SKShaderTileMode.Decal),
             Throws.ArgumentException);
     }
 
     /// <remarks>
     /// A WholeSource shader's input arrives as the implicit 'src' child, so binding it explicitly is not
-    /// something the pipeline can honour. Accepting the definition and throwing on every call of it hands the
-    /// author a shape that builds and is then unusable, with nothing pointing at the declaration that did it.
+    /// something the pipeline can honour. Accepting the description and throwing on every recording of it
+    /// hands the author a stage that builds and is then unusable, with nothing pointing at the declaration
+    /// that did it.
     /// </remarks>
     [Test]
-    public void AWholeSourceDefinitionBindingSrcExplicitly_IsRejectedWhereItIsDeclared()
+    public void AWholeSourceDescriptionBindingSrcExplicitly_IsRejectedWhereItIsDeclared()
     {
-        Assert.That(
-            () => ShaderDefinition<byte>.WholeSource(
+        Exception? failure = null;
+        using var node = new DelegateNode(context =>
+        {
+            RenderResource<ShaderColor> token = context.Borrow(new ShaderColor(SKColors.MediumPurple));
+            failure = Assert.Catch(() => ShaderDescription.WholeSource(
                 WholeSource,
                 RenderBoundsContract.Identity,
-                static bindings => bindings.Resource(
+                bindings => bindings.Resource(
                     "src",
-                    s_colorSlot,
+                    token,
                     ShaderResourceCoordinateSpace.OutputDevice,
-                    static (writer, color, _) => writer.Set(SKShader.CreateColor(color.Color)))),
-            Throws.ArgumentException.With.Message.Contains("implicit WholeSource input"));
+                    static (writer, color, _) => writer.Set(SKShader.CreateColor(color.Color)))));
+            context.Publish(context.OpaqueSource(SourceDescription(Colors.White)));
+        });
+
+        Measure(node);
+
+        Assert.That(
+            failure,
+            Is.TypeOf<ArgumentException>().And.Message.Contains("implicit WholeSource input"));
     }
 
     [Test]
-    public void CurrentPixelDefinitionCall_MapsAValueEligibleInput()
+    public void ACurrentPixelDescription_MapsAValueEligibleInput()
     {
-        ShaderCall<float> call = s_currentPixelDefinition.Call(0.75f);
         FragmentSnapshot output = default;
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            RenderFragmentHandle shader = context.Shader(source, call);
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
+            RenderFragmentHandle shader = context.Shader(source, s_currentPixelDescription);
             output = FragmentSnapshot.From(shader);
             context.Publish(shader);
         });
@@ -148,8 +172,6 @@ public sealed class ShaderAuthoringContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(call.Definition, Is.SameAs(s_currentPixelDefinition));
-            Assert.That(call.State, Is.EqualTo(0.75f));
             Assert.That(output.Bounds, Is.EqualTo(s_bounds));
             Assert.That(output.CanBeUsedAsValueInput, Is.True);
             Assert.That(measurement.HasContributingValues, Is.True);
@@ -157,16 +179,14 @@ public sealed class ShaderAuthoringContractTests
     }
 
     [Test]
-    public void WholeSourceDefinitionCall_UsesItsDeclaredTypedResourceSlot()
+    public void AWholeSourceDescription_UsesTheTypedResourceItDeclared()
     {
         var color = new ShaderColor(SKColors.MediumPurple);
         using var node = new DelegateNode(context =>
         {
             RenderResource<ShaderColor> token = context.Borrow(color);
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            context.Publish(context.Shader(
-                source,
-                s_wholeSourceDefinition.Call(default, [s_colorSlot.Bind(token)])));
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
+            context.Publish(context.Shader(source, WholeSourceTint(token)));
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node);
@@ -179,68 +199,66 @@ public sealed class ShaderAuthoringContractTests
     }
 
     [Test]
-    public void ShaderDefinitions_RejectIncompleteAndDuplicateBindingShapes()
+    public void ShaderDescriptions_RejectIncompleteAndDuplicateBindingShapes()
     {
         Assert.Multiple(() =>
         {
             Assert.That(
-                () => ShaderDefinition<byte>.CurrentPixel(CurrentPixelSource),
+                () => ShaderDescription.CurrentPixel(CurrentPixelSource),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(
-                () => ShaderDefinition<byte>.CurrentPixel(
+                () => ShaderDescription.CurrentPixel(
                     CurrentPixelSource,
                     static bindings =>
                     {
-                        bindings.Uniform("amount", static _ => 0.5f);
-                        bindings.Uniform("amount", static _ => 0.75f);
+                        bindings.Uniform("amount", 0.5f);
+                        bindings.Uniform("amount", 0.75f);
                     }),
                 Throws.TypeOf<ArgumentException>());
         });
     }
 
     /// <remarks>
-    /// Two child-shader names legitimately read one resource - the same bitmap sampled through two call-state
-    /// matrices is one leased resource and two bindings. A slot is the address a call binds, so declaring it
-    /// once is what the call has to satisfy however many names read it.
+    /// Two child-shader names legitimately read one resource - the same bitmap sampled through two matrices
+    /// is one leased resource and two bindings. Each name declares its own binder and its own author value,
+    /// and both resolve the one token the description was given.
     /// </remarks>
     [Test]
-    public void TwoChildShaderBindings_CanShareOneResourceSlot()
+    public void TwoChildShaderBindings_CanShareOneResource()
     {
         var color = new ShaderColor(SKColors.MediumPurple);
-        ShaderDefinition<float> definition = ShaderDefinition<float>.WholeSource(
-            TwoChildWholeSource,
-            RenderBoundsContract.Identity,
-            static bindings =>
-            {
-                bindings.Resource(
-                    "tintA",
-                    s_sharedColorSlot,
-                    ShaderResourceCoordinateSpace.OutputDevice,
-                    static (writer, shared, _) =>
-                    {
-                        shared.Uses++;
-                        writer.Set(SKShader.CreateColor(shared.Color));
-                    });
-                bindings.Resource(
-                    "tintB",
-                    s_sharedColorSlot,
-                    ShaderResourceCoordinateSpace.OutputDevice,
-                    static state => state,
-                    static (writer, shared, opacity, _) =>
-                    {
-                        shared.Uses++;
-                        shared.LastOpacity = opacity;
-                        writer.Set(SKShader.CreateColor(shared.Color.WithAlpha((byte)(opacity * 255))));
-                    });
-            });
 
         using var node = new DelegateNode(context =>
         {
             RenderResource<ShaderColor> token = context.Borrow(color);
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            context.Publish(context.Shader(
-                source,
-                definition.Call(0.5f, [s_sharedColorSlot.Bind(token)])));
+            ShaderDescription description = ShaderDescription.WholeSource(
+                TwoChildWholeSource,
+                RenderBoundsContract.Identity,
+                bindings =>
+                {
+                    bindings.Resource(
+                        "tintA",
+                        token,
+                        ShaderResourceCoordinateSpace.OutputDevice,
+                        static (writer, shared, _) =>
+                        {
+                            shared.Uses++;
+                            writer.Set(SKShader.CreateColor(shared.Color));
+                        });
+                    bindings.Resource(
+                        "tintB",
+                        token,
+                        ShaderResourceCoordinateSpace.OutputDevice,
+                        0.5f,
+                        static (writer, shared, opacity, _) =>
+                        {
+                            shared.Uses++;
+                            shared.LastOpacity = opacity;
+                            writer.Set(SKShader.CreateColor(shared.Color.WithAlpha((byte)(opacity * 255))));
+                        });
+                });
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
+            context.Publish(context.Shader(source, description));
         });
 
         using RenderNodeRasterization rasterization = Rasterize(node);
@@ -248,56 +266,51 @@ public sealed class ShaderAuthoringContractTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(color.Uses, Is.EqualTo(2), "both binding templates resolve the shared slot");
-            Assert.That(color.LastOpacity, Is.EqualTo(0.5f), "the state-reading template keeps its own value");
+            Assert.That(color.Uses, Is.EqualTo(2), "both bindings resolve the shared resource");
+            Assert.That(color.LastOpacity, Is.EqualTo(0.5f), "the value-carrying binding keeps its own value");
         }
     }
 
+    /// <remarks>
+    /// The hit-test resources are the one list a shader description binds by slot, so they take the same
+    /// declaration rule the rest of the family does: a slot declared once is bound once, and binding it twice
+    /// is refused where it is written rather than resolved to whichever binding came last.
+    /// </remarks>
     [Test]
-    public void ACallSharingOneSlotAcrossBindings_BindsThatSlotExactlyOnce()
+    public void AShaderDescriptionBindingOneHitTestSlotTwice_IsRefused()
     {
-        ShaderDefinition<float> definition = ShaderDefinition<float>.WholeSource(
-            TwoChildWholeSource,
-            RenderBoundsContract.Identity,
-            static bindings =>
-            {
-                bindings.Resource(
-                    "tintA",
-                    s_sharedColorSlot,
-                    ShaderResourceCoordinateSpace.OutputDevice,
-                    static (writer, shared, _) => writer.Set(SKShader.CreateColor(shared.Color)));
-                bindings.Resource(
-                    "tintB",
-                    s_sharedColorSlot,
-                    ShaderResourceCoordinateSpace.OutputDevice,
-                    static (writer, shared, _) => writer.Set(SKShader.CreateColor(shared.Color)));
-            });
-
         var color = new ShaderColor(SKColors.MediumPurple);
         Exception? failure = null;
         using var node = new DelegateNode(context =>
         {
             RenderResource<ShaderColor> token = context.Borrow(color);
             RenderResourceBinding binding = s_sharedColorSlot.Bind(token);
-            failure = Assert.Throws<ArgumentException>(() => definition.Call(0.5f, [binding, binding]));
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            context.Publish(context.Shader(source, definition.Call(0.5f, [binding])));
+            failure = Assert.Throws<ArgumentException>(() => ShaderDescription.WholeSource(
+                WholeSource,
+                RenderBoundsContract.Identity,
+                bindings => bindings.Resource(
+                    "tint",
+                    token,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, shared, _) => writer.Set(SKShader.CreateColor(shared.Color))),
+                hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
+                    s_sharedColorSlot,
+                    static (_, _) => true),
+                hitTestResources: [binding, binding],
+                slots: [s_sharedColorSlot]));
+            context.Publish(context.OpaqueSource(SourceDescription(Colors.White)));
         });
 
-        using RenderNodeRasterization rasterization = Rasterize(node);
+        Measure(node);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(failure, Is.Not.Null, "a shared slot is still bound once, not once per name");
-        }
+        Assert.That(failure, Is.Not.Null, "a declared slot is bound once, not once per binding written");
     }
 
     /// <remarks>
-    /// A stage is authored either through a definition and a call, or by building the description directly.
-    /// What the second route may not drag out with it is how a stage carries its bindings: the uniform and
-    /// resource bindings a builder produces, and the Vulkan lowering an engine stage may attach, describe how
-    /// the planner lowers and keys the stage rather than anything an author declares.
+    /// A stage is authored by building its description. What that route may not drag out with it is how a
+    /// stage carries its bindings: the uniform and resource bindings a builder produces, and the Vulkan
+    /// lowering an engine stage may attach, describe how the planner lowers and keys the stage rather than
+    /// anything an author declares.
     /// <see cref="ShaderBindingBuilder"/> is the exception, because it is the parameter the author is handed.
     /// </remarks>
     [Test]
@@ -319,12 +332,7 @@ public sealed class ShaderAuthoringContractTests
             Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.ShaderUniformBinding"));
             Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.ShaderResourceBinding"));
             Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.SpirvShaderLowering"));
-            Assert.That(methods, Has.Length.EqualTo(2));
-            Assert.That(
-                methods.Count(static method =>
-                    method.IsGenericMethodDefinition
-                    && method.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(ShaderCall<>)),
-                Is.EqualTo(1));
+            Assert.That(methods, Has.Length.EqualTo(1), "the description is the only route into a stage");
             Assert.That(
                 methods.Count(static method =>
                     !method.IsGenericMethodDefinition
@@ -352,8 +360,8 @@ public sealed class ShaderAuthoringContractTests
     {
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            context.Publish(context.Shader(source, s_relocatingDefinition.Call(s_translation)));
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
+            context.Publish(context.Shader(source, s_relocatingDescription));
         });
 
         using var renderer = CreateHitTestRenderer(node);
@@ -379,8 +387,8 @@ public sealed class ShaderAuthoringContractTests
     {
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            context.Publish(context.Shader(source, s_undeclaredRelocatingDefinition.Call(s_translation)));
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
+            context.Publish(context.Shader(source, s_undeclaredRelocatingDescription));
         });
 
         using var renderer = CreateHitTestRenderer(node);
@@ -393,30 +401,32 @@ public sealed class ShaderAuthoringContractTests
     }
 
     [Test]
-    public void AWholeSourceHitTest_ReadsTheResourceItsOwnCallBound()
+    public void AWholeSourceHitTest_ReadsTheResourceItsOwnDescriptionBound()
     {
         var color = new ShaderColor(SKColors.MediumPurple);
-        ShaderDefinition<byte> definition = ShaderDefinition<byte>.WholeSource(
-            WholeSource,
-            RenderBoundsContract.Identity,
-            static bindings => bindings.Resource(
-                "tint",
-                s_colorSlot,
-                ShaderResourceCoordinateSpace.OutputDevice,
-                static (writer, tint, _) => writer.Set(SKShader.CreateColor(tint.Color))),
-            hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
-                s_colorSlot,
-                static (tint, point) =>
-                {
-                    tint.HitTests++;
-                    return tint.Color.Alpha > 0 && point.X < 4;
-                }));
 
         using var node = new DelegateNode(context =>
         {
             RenderResource<ShaderColor> token = context.Borrow(color);
-            RenderFragmentHandle source = context.OpaqueSource(SourceCall(Colors.White));
-            context.Publish(context.Shader(source, definition.Call(default, [s_colorSlot.Bind(token)])));
+            ShaderDescription description = ShaderDescription.WholeSource(
+                WholeSource,
+                RenderBoundsContract.Identity,
+                bindings => bindings.Resource(
+                    "tint",
+                    token,
+                    ShaderResourceCoordinateSpace.OutputDevice,
+                    static (writer, tint, _) => writer.Set(SKShader.CreateColor(tint.Color))),
+                hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
+                    s_colorSlot,
+                    static (tint, point) =>
+                    {
+                        tint.HitTests++;
+                        return tint.Color.Alpha > 0 && point.X < 4;
+                    }),
+                hitTestResources: [s_colorSlot.Bind(token)],
+                slots: [s_colorSlot]);
+            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
+            context.Publish(context.Shader(source, description));
         });
 
         using var renderer = CreateHitTestRenderer(node);
@@ -425,15 +435,15 @@ public sealed class ShaderAuthoringContractTests
         {
             Assert.That(renderer.HitTest(new Point(1, 1)), Is.True);
             Assert.That(renderer.HitTest(new Point(6, 1)), Is.False);
-            Assert.That(color.HitTests, Is.EqualTo(2), "the hit test resolved the slot this call bound");
+            Assert.That(color.HitTests, Is.EqualTo(2), "the hit test resolved the slot this description bound");
         }
     }
 
     [Test]
-    public void AWholeSourceDefinitionDeclaringAnUninitializedHitTest_IsRejectedWhereItIsDeclared()
+    public void AWholeSourceDescriptionDeclaringAnUninitializedHitTest_IsRejectedWhereItIsDeclared()
     {
         Assert.That(
-            () => ShaderDefinition<Vector>.WholeSource(
+            () => ShaderDescription.WholeSource(
                 TranslateWholeSource,
                 TranslateBounds(),
                 DeclareTranslateUniforms,
@@ -441,8 +451,9 @@ public sealed class ShaderAuthoringContractTests
             Throws.ArgumentException.With.Message.Contains("uninitialized"));
     }
 
-    private static OpaqueRenderCall<Color> SourceCall(Color color)
-        => OpaqueRenderDefinition<Color>.Create(
+    private static OpaqueRenderDescription SourceDescription(Color color)
+        => OpaqueRenderDescription.Create(
+            color,
             static (session, current) =>
             {
                 using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -452,8 +463,7 @@ public sealed class ShaderAuthoringContractTests
             OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale)
-            .Call(color);
+            RenderScaleContract.MaterializeAtWorkingScale);
 
 
     private static Point MovedPoint() => new Point(4, 3) + s_translation;
@@ -466,10 +476,10 @@ public sealed class ShaderAuthoringContractTests
             static (offset, bounds) => bounds.Translate(offset),
             static (offset, required) => required.Translate(-offset));
 
-    private static void DeclareTranslateUniforms(ShaderDefinitionBuilder<Vector> bindings)
+    private static void DeclareTranslateUniforms(ShaderBindingBuilder bindings)
     {
-        bindings.Uniform("dx", static offset => offset.X);
-        bindings.Uniform("dy", static offset => offset.Y);
+        bindings.Uniform("dx", (float)s_translation.X);
+        bindings.Uniform("dy", (float)s_translation.Y);
     }
 
     private static RenderNodeRenderer CreateHitTestRenderer(RenderNode node)

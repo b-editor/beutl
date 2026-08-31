@@ -64,9 +64,9 @@ public sealed partial class SkslSource
     /// <param name="source">
     /// Non-null SkSL defining exactly one <c>half4 apply(half4 color)</c> entry point.
     /// </param>
-    /// <returns>An immutable parsed source that any number of definitions can share.</returns>
+    /// <returns>An immutable parsed source that any number of descriptions can share.</returns>
     /// <remarks>
-    /// Parsing once and reusing the result keeps a definition's recording free of re-tokenization, which is
+    /// Parsing once and reusing the result keeps a description's recording free of re-tokenization, which is
     /// what the engine's own effects do with their compile-time constant sources.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
@@ -81,7 +81,7 @@ public sealed partial class SkslSource
     /// Non-null SkSL defining exactly one <c>half4 main(float2 coord)</c> entry point and declaring the
     /// implicit upstream input as <c>uniform shader src;</c>.
     /// </param>
-    /// <returns>An immutable parsed source that any number of definitions can share.</returns>
+    /// <returns>An immutable parsed source that any number of descriptions can share.</returns>
     /// <inheritdoc cref="CurrentPixel(string)" path="/remarks|/exception"/>
     public static SkslSource WholeSource(string source)
         => new(source, ShaderDescriptionKind.WholeSource);

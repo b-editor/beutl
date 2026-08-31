@@ -235,7 +235,7 @@ Create your own resource files inside the extension project, or pass a literal s
 
 ### SKSL (SkiaShaderLanguage) pattern
 
-> **Prefer `context.Shader(...)` for per-pixel work.** A `ShaderDefinition<TState>` recorded through
+> **Prefer `context.Shader(...)` for per-pixel work.** A `ShaderDescription` recorded through
 > `FilterEffectContext.Shader` is a typed fragment the planner can fuse with neighbouring shader stages
 > into one GPU pass. `SKSLScriptEffect` also records supported scripts declaratively and exposes them to
 > the fusion planner: `half4 main(float2 fragCoord)` becomes `WholeSource`, which can head a fusion run
@@ -254,43 +254,45 @@ Create your own resource files inside the extension project, or pass a literal s
 | Skia image filters (`Blur`, `DropShadow`, `Dilate`, `Erode`); `CustomEffect`; Geometry; 3D; raw canvas access | Not fusable | Forms a fusion boundary. |
 | Sampler/child budget | Portable: 12; Vulkan/Metal: 12 | The implicit `src` sampler consumes one slot; exceeding the cap falls back to a standalone pass. |
 
-Declare the shader once as a `static readonly ShaderDefinition<TState>` and record a call of it per frame.
-The definition holds the shape — source, uniform and resource bindings — and `.Call(state)` supplies this
-frame's values, so the planner sees a typed fragment it can fuse:
+Build a `ShaderDescription` per recording and hand it to `context.Shader(...)`. The description holds
+everything about the stage — source, uniform and resource bindings, and this recording's values — so the
+planner sees a typed fragment it can fuse. Parse the source once into a `static readonly SkslSource` so
+rebuilding the description costs no re-tokenization:
 
 ```csharp
 public partial class MosaicEffect : FilterEffect
 {
-    private static readonly ShaderDefinition<Size> s_definition =
-        ShaderDefinition<Size>.WholeSource(
-            """
-            uniform shader src;
-            uniform float2 tileSize;
+    private static readonly SkslSource s_source = SkslSource.WholeSource(
+        """
+        uniform shader src;
+        uniform float2 tileSize;
 
-            half4 main(float2 fragCoord) {
-                float2 blockIndex = floor(fragCoord / tileSize);
-                float2 sampleCoord = blockIndex * tileSize + tileSize * 0.5;
-                return src.eval(sampleCoord);
-            }
-            """,
-            RenderBoundsContract.Identity,
-            static bindings => bindings.Uniform(
-                "tileSize",
-                static tileSize => new Vector2(tileSize.Width, tileSize.Height),
-                static (writer, tileSize, context) => writer.Set(tileSize * context.WorkingScale)));
+        half4 main(float2 fragCoord) {
+            float2 blockIndex = floor(fragCoord / tileSize);
+            float2 sampleCoord = blockIndex * tileSize + tileSize * 0.5;
+            return src.eval(sampleCoord);
+        }
+        """);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.Shader(s_definition.Call(r.TileSize));
+        context.Shader(ShaderDescription.WholeSource(
+            s_source,
+            RenderBoundsContract.Identity,
+            bindings => bindings.Uniform(
+                "tileSize",
+                new Vector2(r.TileSize.Width, r.TileSize.Height),
+                static (writer, tileSize, context) => writer.Set(tileSize * context.WorkingScale)),
+            SKShaderTileMode.Decal));
     }
 }
 ```
 
-The definition callback must be pure and non-capturing: its `MethodInfo` is the shader's structural
-identity, so two frames that differ only in `tileSize` reuse one compiled program. If several effects share
-one source, parse it once with `SkslSource.WholeSource(...)` or `SkslSource.CurrentPixel(...)` and pass the
-result to the matching factory instead of the raw string.
+The binder callback must be pure and non-capturing: its `MethodInfo` is the shader's structural identity,
+so two frames that differ only in `tileSize` reuse one compiled program. The uniform's *value* is not part
+of that identity, which is why rebuilding the description every recording costs no second plan. Passing the
+raw string instead of a parsed `SkslSource` also works, at the cost of re-parsing it on every recording.
 
 Note the third argument to `Uniform`. A `WholeSource` shader reads `fragCoord` in **output-device pixels**,
 while every property an author types — a tile size, a radius, an offset — is a **logical** length. Binding

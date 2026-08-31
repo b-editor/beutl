@@ -346,14 +346,12 @@ public sealed class FilterEffectLoweringSeamContractTests
 
     private sealed class RawTargetWriteNode(ExecutionCounter counter) : RenderNode
     {
-        private static readonly RawTargetCommandDefinition<ExecutionCounter> s_definition =
-            RawTargetCommandDefinition<ExecutionCounter>.Create(
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.RawTargetCommand(RawTargetCommandDescription.Create(
+                counter,
                 static (_, state) => state.Count++,
                 Rect.Empty,
-                RenderHitTestContract.None);
-
-        public override void Process(RenderNodeContext context)
-            => context.Publish(context.RawTargetCommand(s_definition.Call(counter)));
+                RenderHitTestContract.None)));
     }
 
     [SuppressResourceClassGeneration]
@@ -385,7 +383,7 @@ public sealed class FilterEffectLoweringSeamContractTests
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderCall<(Rect bounds, Color color)> call = RenderDefinitionCallFactory.Opaque(
+            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 (bounds, color),
                 static (session, state) =>
                 {
@@ -397,7 +395,7 @@ public sealed class FilterEffectLoweringSeamContractTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueSource(call));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 

@@ -223,21 +223,11 @@ public sealed class SlotBackedHitTestTests
     {
         private static readonly RenderResourceSlot<HitShape> s_shapeSlot = new();
 
-        private static readonly OpaqueRenderDefinition<Rect> s_definition =
-            OpaqueRenderDefinition<Rect>.Create(
-                static (session, bounds) =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                    output.Canvas.Use(static canvas => canvas.Clear(s_fill));
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.FromSlot(
-                    s_shapeSlot,
-                    static (shape, point) => shape.Contains(point)),
-                RenderValueCardinality.Single,
-                RenderScaleContract.Vector,
-                resources: [s_shapeSlot]);
+        private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
+            s_shapeSlot,
+            static (shape, point) => shape.Contains(point));
+
+        private static readonly RenderResourceSlot[] s_slots = [s_shapeSlot];
 
         public bool Concrete { get; private set; }
 
@@ -251,8 +241,20 @@ public sealed class SlotBackedHitTestTests
         {
             RenderResource<HitShape> token = context.Borrow(shape);
             Token = token;
-            RenderFragmentHandle handle = context.OpaqueSource(
-                s_definition.Call(s_bounds, [s_shapeSlot.Bind(token)]));
+            RenderFragmentHandle handle = context.OpaqueSource(OpaqueRenderDescription.Create(
+                s_bounds,
+                static (session, bounds) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                    output.Canvas.Use(static canvas => canvas.Clear(s_fill));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                s_hitTest,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Vector,
+                resources: [s_shapeSlot.Bind(token)],
+                slots: s_slots));
             Concrete = handle.TryHitTest(new Point(20, 20), out bool inside);
             HitInside = inside;
             handle.TryHitTest(new Point(80, 80), out bool outside);
@@ -341,8 +343,18 @@ public sealed class SlotBackedHitTestTests
         private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
         private static readonly RenderResourceSlot<HitShape> s_shapeSlot = new();
 
-        private static readonly OpaqueRenderDefinition<Rect> s_definition =
-            OpaqueRenderDefinition<Rect>.Create(
+        private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
+            s_shapeSlot,
+            static (shape, point) => shape.Contains(point));
+
+        private static readonly RenderResourceSlot[] s_slots = [s_fillSlot, s_shapeSlot];
+
+        public override void Process(RenderNodeContext context)
+        {
+            RenderResource<Brush.Resource> fill = context.Borrow<Brush.Resource>(Brushes.Resource.White);
+            RenderResource<HitShape> shapeResource = context.Borrow(shape);
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                s_bounds,
                 static (session, bounds) =>
                     session.UseResource(s_fillSlot, fill =>
                     {
@@ -351,20 +363,11 @@ public sealed class SlotBackedHitTestTests
                         session.Publish(output);
                     }),
                 OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.FromSlot(
-                    s_shapeSlot,
-                    static (shape, point) => shape.Contains(point)),
+                s_hitTest,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: [s_fillSlot, s_shapeSlot]);
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderResource<Brush.Resource> fill = context.Borrow<Brush.Resource>(Brushes.Resource.White);
-            RenderResource<HitShape> shapeResource = context.Borrow(shape);
-            context.Publish(context.OpaqueSource(s_definition.Call(
-                s_bounds,
-                [s_fillSlot.Bind(fill), s_shapeSlot.Bind(shapeResource)])));
+                resources: [s_fillSlot.Bind(fill), s_shapeSlot.Bind(shapeResource)],
+                slots: s_slots)));
         }
     }
 }

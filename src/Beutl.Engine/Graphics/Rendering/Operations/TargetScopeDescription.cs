@@ -346,7 +346,7 @@ public sealed class TargetScopeSession
         canvas.ReplayTargetScopeInput(_replayInput);
     }
 
-    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    /// <summary>Uses the resource bound to a declared slot.</summary>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {
@@ -549,9 +549,9 @@ public sealed class RawTargetScopeSession
         _replayInput(_canvas);
     }
 
-    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    /// <summary>Uses the resource bound to a declared slot.</summary>
     /// <remarks>
-    /// The addressing mode a reusable definition needs: its callback is static and its slots are fixed, so
+    /// The addressing mode a reusable operation shape needs: its callback is static and its slots are fixed, so
     /// the token changes per call and only the slot names it from inside the callback.
     /// </remarks>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
@@ -729,9 +729,9 @@ public sealed class RawTargetCommandSession
         get { _token.ThrowIfInactive(); return _purpose; }
     }
 
-    /// <summary>Uses the resource bound to a definition-declared slot.</summary>
+    /// <summary>Uses the resource bound to a declared slot.</summary>
     /// <remarks>
-    /// The addressing mode a reusable definition needs: its callback is static and its slots are fixed, so
+    /// The addressing mode a reusable operation shape needs: its callback is static and its slots are fixed, so
     /// the token changes per call and only the slot names it from inside the callback.
     /// </remarks>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
