@@ -18,6 +18,8 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public class ToolTabHeaderTests
 {
+    private const int DefaultDisposalExtensionPackageId = 923_841;
+
     private static string NewWorkspace(string name)
     {
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
@@ -589,6 +591,123 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
+    public async Task DefaultContextCanSynchronouslyRequestEditorDisposalWithoutDeadlock()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-default-dispose-reentry");
+        EditorTabItem ownerTab = TestShell.Editor.SelectedTabItem.Value!;
+        var extension = new DisposingDefaultToolExtension(disposeCalls: 2);
+        editor.DockHost.DefaultExtensionsOverride = [extension];
+
+        await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(extension.ContextCreationCount, Is.EqualTo(1));
+            Assert.That(extension.CreatedContext?.DisposeCount, Is.EqualTo(1));
+            Assert.That(TestShell.Editor.TabItems, Does.Not.Contain(ownerTab));
+            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.Not.SameAs(ownerTab));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task DefaultContextStartedForClosingEditorIsRejectedAndConsumed()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-default-dispose-admission");
+        var extension = new DisposingDefaultToolExtension(waitForDisposal: false);
+        editor.DockHost.DefaultExtensionsOverride = [extension];
+
+        await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(extension.ContextCreationCount, Is.EqualTo(1));
+            Assert.That(extension.CreatedContext?.DisposeCount, Is.EqualTo(1));
+            Assert.That(editor.DockHost.Factory.EnumerateTools(), Does.Not.Contain(
+                Has.Property(nameof(BeutlToolDockable.ToolContext))
+                    .SameAs(extension.CreatedContext)));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task InitialDefaultContextCanSynchronouslyRequestEditorDisposal()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new DisposingDefaultToolExtension();
+        TestShell.Extensions.AddExtensions(
+            DefaultDisposalExtensionPackageId,
+            [extension]);
+        try
+        {
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "tooltab-initial-default-dispose",
+                NewWorkspace("tooltab-initial-default-dispose")))!;
+            HeadlessTestHelpers.Settle();
+            Scene scene = project.Items.OfType<Scene>().First();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(extension.ContextCreationCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(extension.CreatedContexts, Is.All.Matches<FakeToolContext>(
+                    context => context.DisposeCount == 1));
+                Assert.That(TestShell.Editor.TryGetTabItem(scene, out _), Is.False);
+            });
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(DefaultDisposalExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task DefaultFactoryCanSynchronouslyCloseEarlierDefaultWithoutDeadlock()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-default-close-reentry");
+        var first = new TrackedDefaultToolExtension("first", 0);
+        var second = new ClosingDefaultToolExtension(() => first.CreatedContext, 1);
+        editor.DockHost.DefaultExtensionsOverride = [first, second];
+
+        await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.CreatedContext?.DisposeCount, Is.EqualTo(1));
+            Assert.That(second.CreatedContext?.DisposeCount, Is.Zero);
+            Assert.That(editor.DockHost.Factory.EnumerateTools(), Has.One.Matches<BeutlToolDockable>(
+                tool => ReferenceEquals(tool.ToolContext, second.CreatedContext)));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task ExtensionReturningFalseWithContextIsDisposed()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-false-context");
+        var extension = new FalseWithContextToolExtension();
+
+        bool opened = await editor.DockHost.OpenToolTabFromExtensionAsync(
+            extension,
+            editor.DockHost.Factory.FindFirstToolDock());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(opened, Is.False);
+            Assert.That(extension.CreatedContext, Is.Not.Null);
+            Assert.That(extension.CreatedContext!.DisposeCount, Is.EqualTo(1));
+            Assert.That(editor.DockHost.Factory.EnumerateTools(), Does.Not.Contain(
+                Has.Property(nameof(BeutlToolDockable.ToolContext)).SameAs(extension.CreatedContext)));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task SnapshotDuringTransitionIsRejected()
     {
         await TestReset.ResetShellAsync();
@@ -758,6 +877,130 @@ public class ToolTabHeaderTests
         {
             context = new FakeToolContext("default", this);
             return true;
+        }
+    }
+
+    private sealed class DisposingDefaultToolExtension(
+        bool waitForDisposal = true,
+        int disposeCalls = 1) : ToolTabExtension
+    {
+        public int ContextCreationCount { get; private set; }
+
+        public FakeToolContext? CreatedContext { get; private set; }
+
+        public List<FakeToolContext> CreatedContexts { get; } = [];
+
+        public override bool CanMultiple => true;
+        public override string Name => "DisposingDefaultToolTab";
+        public override string DisplayName => "Disposing default tool tab";
+        public override string? Header => "Disposing default tool tab";
+        public override bool OpenByDefault => true;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            ContextCreationCount++;
+            for (int i = 0; i < disposeCalls; i++)
+            {
+                ValueTask disposal = editorContext.DisposeAsync();
+                if (waitForDisposal)
+                    disposal.AsTask().GetAwaiter().GetResult();
+            }
+            context = CreatedContext = new FakeToolContext("disposing-default", this);
+            CreatedContexts.Add(CreatedContext);
+            return true;
+        }
+    }
+
+    private sealed class TrackedDefaultToolExtension(string suffix, int order) : ToolTabExtension
+    {
+        public FakeToolContext? CreatedContext { get; private set; }
+        public override bool CanMultiple => true;
+        public override string Name => $"TrackedDefault{suffix}";
+        public override string DisplayName => Name;
+        public override string? Header => Name;
+        public override bool OpenByDefault => true;
+        public override int DefaultOrder => order;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = CreatedContext = new FakeToolContext(Name, this);
+            return true;
+        }
+    }
+
+    private sealed class ClosingDefaultToolExtension(
+        Func<FakeToolContext?> first,
+        int order) : ToolTabExtension
+    {
+        public FakeToolContext? CreatedContext { get; private set; }
+        public override bool CanMultiple => true;
+        public override string Name => "ClosingDefault";
+        public override string DisplayName => Name;
+        public override string? Header => Name;
+        public override bool OpenByDefault => true;
+        public override int DefaultOrder => order;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            editorContext.CloseToolTabAsync(first()!).AsTask().GetAwaiter().GetResult();
+            context = CreatedContext = new FakeToolContext(Name, this);
+            return true;
+        }
+    }
+
+    private sealed class FalseWithContextToolExtension : ToolTabExtension
+    {
+        public FakeToolContext? CreatedContext { get; private set; }
+
+        public override bool CanMultiple => true;
+        public override string Name => "FalseWithContext";
+        public override string DisplayName => Name;
+        public override string? Header => Name;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = null;
+            return false;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = CreatedContext = new FakeToolContext(Name, this);
+            return false;
         }
     }
 

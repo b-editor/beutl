@@ -409,6 +409,22 @@ public sealed class EditorService
     private void RemoveFailedTabItem(EditorTabItem item)
         => RemoveTabItem(item);
 
+    internal void RequestContextShutdown(IEditorContext context)
+    {
+        EditorTabItem? item = _tabItems.FirstOrDefault(tab =>
+            ReferenceEquals(tab.Context.Value, context));
+        if (item is null)
+            return;
+
+        try { RemoveTabItem(item); }
+        catch { }
+        _ = item.DisposeAsync().AsTask().ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
     public bool TryGetTabItem(CoreObject obj, [NotNullWhen(true)] out EditorTabItem? result)

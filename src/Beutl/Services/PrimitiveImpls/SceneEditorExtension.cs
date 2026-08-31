@@ -126,7 +126,18 @@ public sealed class SceneEditorExtension : EditorExtension
             && services.TryGetService<EditorService>(out EditorService? editorService)
             && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider))
         {
-            context = new EditViewModel(scene, extensionProvider, editorService);
+            var editViewModel = new EditViewModel(scene, extensionProvider, editorService);
+            if (editViewModel.IsDisposeRequested)
+            {
+                context = null;
+                _ = editViewModel.DisposeAsync().AsTask().ContinueWith(
+                    static task => _ = task.Exception,
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+                return false;
+            }
+            context = editViewModel;
             return true;
         }
 
