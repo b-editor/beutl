@@ -118,12 +118,15 @@ public class RenderTarget : IDisposable
     /// the CPU.
     /// </summary>
     /// <remarks>
-    /// Only a caller on a dispatcher reaches a graphics context; anywhere else <see cref="Create"/> rasters,
-    /// and no device's attachment limit bounds what it allocates there. A caller budgeting an allocation
-    /// reads this rather than deciding for itself which path runs, so the budget and the allocation cannot
-    /// answer differently.
+    /// <see cref="Create"/> attaches only on the render thread: Skia's GPU context is thread-affine, and
+    /// <c>GetOrCreateShared</c> refuses to build the shared one anywhere else. Everywhere else - another of
+    /// Beutl's dispatchers as much as no dispatcher at all - <see cref="Create"/> rasters on the CPU, and no
+    /// device's attachment limit bounds what it allocates there. <see cref="ResolveCreationContext"/>,
+    /// <see cref="ResolveCreationContextForAllocation"/> and <see cref="Create"/> all read this one property
+    /// rather than each deciding for itself, so a budget and the allocation it covers cannot disagree about
+    /// which path runs.
     /// </remarks>
-    internal static bool CreateAttachesToGraphicsContext => Dispatcher.Current is not null;
+    internal static bool CreateAttachesToGraphicsContext => RenderThread.Dispatcher.CheckAccess();
 
     /// <summary>
     /// The context <see cref="Create"/> would attach a new target to out of <paramref name="sharedContext"/>,
@@ -142,14 +145,9 @@ public class RenderTarget : IDisposable
     /// GPU work has happened is none at all - and a budget taken from that measures against the engine
     /// ceiling while the allocation right behind it builds a device that may attach less. This asks the same
     /// question <see cref="Create"/> does, so the two cannot answer differently.
-    /// <para>
-    /// The dispatcher test is <see cref="Threading.Dispatcher.CheckAccess"/> on the render thread rather than
-    /// <see cref="CreateAttachesToGraphicsContext"/>: the latter holds on any dispatcher, and building the
-    /// shared context off the render thread is what <c>GetOrCreateShared</c> refuses.
-    /// </para>
     /// </remarks>
     internal static IGraphicsContext? ResolveCreationContextForAllocation()
-        => RenderThread.Dispatcher.CheckAccess() ? s_allocationContext() : null;
+        => CreateAttachesToGraphicsContext ? s_allocationContext() : null;
 
     /// <summary>Installs <paramref name="replacement"/> as the context creator, reporting what it replaced.</summary>
     /// <remarks>
@@ -180,14 +178,9 @@ public class RenderTarget : IDisposable
         {
             ITexture2D? sharedTexture = null;
 
-            // Asking for the shared context is itself dispatcher-bound, so which path runs has to be settled
-            // before GetOrCreateShared is reached rather than by what it answers.
-            IGraphicsContext? context = null;
-            if (CreateAttachesToGraphicsContext)
-            {
-                RenderThread.Dispatcher.VerifyAccess();
-                context = s_allocationContext();
-            }
+            // Asking for the shared context is itself render-thread-bound, so which path runs has to be
+            // settled before GetOrCreateShared is reached rather than by what it answers.
+            IGraphicsContext? context = CreateAttachesToGraphicsContext ? s_allocationContext() : null;
 
             SKSurface? surface;
             if (context != null)
@@ -244,8 +237,12 @@ public class RenderTarget : IDisposable
 
             return result;
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            // A device that is lost, or one that declines the allocation, surfaces as whatever the driver
+            // and the Skia binding raise, so the refusal cannot be caught by type. A cancelled render is
+            // not a refusal: reporting it as one would hand the caller an unallocated target to carry on
+            // with instead of unwinding the request the caller already abandoned.
             return null;
         }
     }

@@ -399,6 +399,50 @@ public class RenderTargetThreadAffinityTests
         });
     }
 
+    // Create documents a CPU raster wherever it cannot reach a graphics context, and only the render
+    // thread can. Beutl runs several dispatchers - the compose thread and the MediaFoundation thread among
+    // them - so "is any dispatcher current" is not that question, and answering it there sends Create into
+    // a render-thread-only allocation whose refusal it would report as a failed allocation.
+    [Test]
+    public void Create_on_a_non_render_dispatcher_rasters_on_the_cpu()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        bool onADispatcher = false;
+        bool onTheRenderThread = true;
+        bool created = false;
+        bool attached = false;
+
+        try
+        {
+            dispatcher.Invoke(() =>
+            {
+                onADispatcher = ReferenceEquals(Dispatcher.Current, dispatcher);
+                onTheRenderThread = RenderThread.Dispatcher.CheckAccess();
+
+                using RenderTarget? target = RenderTarget.Create(4, 4);
+                created = target is not null;
+                attached = target?.Texture is not null;
+            });
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+            dispatcher.Thread.Join(TimeSpan.FromSeconds(30));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(onADispatcher, Is.True, "the fixture must run on a Beutl dispatcher");
+            Assert.That(onTheRenderThread, Is.False, "and that dispatcher must not be the render thread's");
+            Assert.That(
+                created,
+                Is.True,
+                "off the render thread Create rasters on the CPU; refusing there reports a failed allocation "
+                + "for a target nothing tried to attach");
+            Assert.That(attached, Is.False, "a CPU raster carries no backend texture");
+        });
+    }
+
     private static bool WaitUntilReleased(SKSurface surface)
     {
         for (int i = 0; i < 300; i++)
