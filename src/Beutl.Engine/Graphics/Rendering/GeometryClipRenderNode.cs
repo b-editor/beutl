@@ -7,6 +7,7 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
 {
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
     private static readonly RenderResourceSlot<GeometryClipHitTestState> s_hitTestSlot = new();
+    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot, s_hitTestSlot];
 
     public (Geometry.Resource Resource, int Version)? Clip { get; private set; } = clip.Capture();
 
@@ -50,31 +51,29 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
         RenderResource<Geometry.Resource> resource = context.Borrow(clip.Resource);
         var hitTestState = new GeometryClipHitTestState(clip.Resource, operation);
         RenderResource<GeometryClipHitTestState> hitTestResource = context.Borrow(hitTestState);
-        TargetScopeDefinition<ClipOperation> definition = TargetScopeDefinition<ClipOperation>.Create(
-            static (session, state) => session.UseResource(s_geometrySlot, geometry =>
-                session.Canvas.Use(canvas =>
-                {
-                    using (canvas.PushClip(geometry, state))
-                    {
-                        session.ReplayInput();
-                    }
-                })),
-            RenderBoundsContract.Create(
-                boundsMetadata,
-                static (state, value) => state.TransformBounds(value),
-                static (state, value) => state.GetRequiredInputBounds(value)),
-            RenderHitTestContract.FromResource(
-                hitTestResource,
-                static (state, hitTest, point) => state.HitTest(hitTest, point)),
-            RenderScaleContract.PreserveInputSupply,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
-            deviceGridMapping: RenderDeviceGridMapping.Preserved,
-            resources: [s_geometrySlot, s_hitTestSlot]);
-
         context.PublishMappedInputs(
-            definition.Call(
+            TargetScopeDescription.Create(
                 operation,
-                [s_geometrySlot.Bind(resource), s_hitTestSlot.Bind(hitTestResource)]),
+                static (session, state) => session.UseResource(s_geometrySlot, geometry =>
+                    session.Canvas.Use(canvas =>
+                    {
+                        using (canvas.PushClip(geometry, state))
+                        {
+                            session.ReplayInput();
+                        }
+                    })),
+                RenderBoundsContract.Create(
+                    boundsMetadata,
+                    static (state, value) => state.TransformBounds(value),
+                    static (state, value) => state.GetRequiredInputBounds(value)),
+                RenderHitTestContract.FromResource(
+                    hitTestResource,
+                    static (state, hitTest, point) => state.HitTest(hitTest, point)),
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved,
+                resources: [s_geometrySlot.Bind(resource), s_hitTestSlot.Bind(hitTestResource)],
+                slots: s_slots),
             static (context, input, value) => context.TargetScope(input, value));
     }
 

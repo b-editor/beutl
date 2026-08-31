@@ -31,22 +31,21 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
 
     public override void Process(RenderNodeContext context)
     {
-        TargetScopeDefinition<RectClipMetadata> definition = TargetScopeDefinition<RectClipMetadata>.Create(
-            static (session, state) => session.Canvas.Use(canvas =>
-            {
-                using (canvas.PushClip(state.Clip, state.Operation))
-                {
-                    session.ReplayInput();
-                }
-            }),
-            RenderBoundsContract.Create(TransformBounds, GetRequiredInputBounds),
-            RenderHitTestContract.Custom(HitTest),
-            RenderScaleContract.PreserveInputSupply,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
-            deviceGridMapping: RenderDeviceGridMapping.Preserved);
-
         context.PublishMappedInputs(
-            definition.Call(new RectClipMetadata(Clip, Operation)),
+            TargetScopeDescription.Create(
+                new RectClipMetadata(Clip, Operation),
+                static (session, state) => session.Canvas.Use(canvas =>
+                {
+                    using (canvas.PushClip(state.Clip, state.Operation))
+                    {
+                        session.ReplayInput();
+                    }
+                }),
+                RenderBoundsContract.Create(TransformBounds, GetRequiredInputBounds),
+                RenderHitTestContract.Custom(HitTest),
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved),
             static (context, input, value) => context.TargetScope(input, value));
     }
 

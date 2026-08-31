@@ -126,10 +126,9 @@ internal sealed class FilterEffectInputBinding : IDisposable
 {
     private static readonly AsyncLocal<FilterEffectInputBinding?> s_current = new();
     private static readonly RenderResourceSlot<Func<Ref<Bitmap>?, Ref<Bitmap>?>> s_previewSinkSlot = new();
-    private static readonly TargetCommandDefinition<PreviewCommandState> s_emptyPreviewCommand =
-        CreatePreviewCommand([]);
-    private static readonly TargetCommandDefinition<PreviewCommandState> s_singlePreviewCommand =
-        CreatePreviewCommand([RenderInputReadback.Values([0])]);
+    private static readonly RenderResourceSlot[] s_previewSlots = [s_previewSinkSlot];
+    private static readonly RenderInputReadback[] s_noPreviewReadback = [];
+    private static readonly RenderInputReadback[] s_singlePreviewReadback = [RenderInputReadback.Values([0])];
     private readonly RenderNodeContext _context;
     private readonly FilterEffectInputRenderNode _inputFacade;
     private readonly IReadOnlyList<RenderFragmentHandle> _graphInputs;
@@ -277,16 +276,26 @@ internal sealed class FilterEffectInputBinding : IDisposable
             Func<Ref<Bitmap>?, Ref<Bitmap>?> replace = preview.Replace;
             IReadOnlyList<RenderFragmentHandle> inputs = preview.Inputs;
             RenderResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>> sink = _context.Borrow(replace);
-            TargetCommandDefinition<PreviewCommandState> command = inputs.Count switch
+            RenderInputReadback[] inputReadbacks = inputs.Count switch
             {
-                0 => s_emptyPreviewCommand,
-                1 => s_singlePreviewCommand,
+                0 => s_noPreviewReadback,
+                1 => s_singlePreviewReadback,
                 _ => throw new InvalidOperationException(
                     "A normalized node-graph preview must have zero or one value input."),
             };
             _context.Publish(_context.TargetCommand(
                 inputs,
-                command.Call(default, [s_previewSinkSlot.Bind(sink)])));
+                TargetCommandDescription.Create(
+                    default(PreviewCommandState),
+                    static (session, _) => session.UseResource(
+                        s_previewSinkSlot,
+                        sink => ExecutePreview(session, sink)),
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    inputReadbacks: inputReadbacks,
+                    resources: [s_previewSinkSlot.Bind(sink)],
+                    slots: s_previewSlots)));
         }
 
         _previews.Clear();
@@ -406,18 +415,6 @@ internal sealed class FilterEffectInputBinding : IDisposable
             previous?.Dispose();
         }
     }
-
-    private static TargetCommandDefinition<PreviewCommandState> CreatePreviewCommand(
-        IReadOnlyList<RenderInputReadback> inputReadbacks)
-        => TargetCommandDefinition<PreviewCommandState>.Create(
-            static (session, _) => session.UseResource(
-                s_previewSinkSlot,
-                sink => ExecutePreview(session, sink)),
-            TargetRegion.Empty,
-            Rect.Empty,
-            RenderHitTestContract.None,
-            inputReadbacks: inputReadbacks,
-            resources: [s_previewSinkSlot]);
 
     public void Dispose()
     {

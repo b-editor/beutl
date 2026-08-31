@@ -90,12 +90,11 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     {
         var r = (Resource)resource;
 
-        if (r._definition is not null)
+        if (r._source is { } source)
         {
-            context.Shader(r._definition.Call(new Resource.ScriptUniformState(
-                r.Progress,
-                r.Duration,
-                r.Time)));
+            context.Shader(Resource.CreateDescription(
+                source,
+                new Resource.ScriptUniformState(r.Progress, r.Duration, r.Time)));
             return;
         }
 
@@ -187,7 +186,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
     public new partial class Resource
     {
         internal SKSLShader? _shader;
-        internal ShaderDefinition<ScriptUniformState>? _definition;
+        internal SkslSource? _source;
         internal string? _compiledScript;
         internal string? _compileError;
 
@@ -223,7 +222,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
             _shader?.Dispose();
             _shader = null;
-            _definition = null;
+            _source = null;
             var prevError = _compileError;
             _compileError = null;
             _compiledScript = script;
@@ -237,11 +236,13 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             {
                 try
                 {
-                    ShaderDefinition<ScriptUniformState> definition = CreateCurrentPixelDefinition(script);
-                    ShaderDescription description = definition.Call(default).Description;
-                    if (TryCompileProgram(CreateCurrentPixelProgram(description.Source), out declarativeError))
+                    SkslSource source = ParseCurrentPixelSource(script);
+                    // Building one description here settles the binding contract while a failure can still
+                    // fall back to the effect-item program below, instead of during a recording that cannot.
+                    _ = CreateDescription(source, default);
+                    if (TryCompileProgram(CreateCurrentPixelProgram(source), out declarativeError))
                     {
-                        _definition = definition;
+                        _source = source;
                         return;
                     }
                 }
@@ -254,11 +255,11 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             {
                 try
                 {
-                    ShaderDefinition<ScriptUniformState> definition = CreateWholeSourceDefinition(script);
-                    ShaderDescription description = definition.Call(default).Description;
-                    if (TryCompileProgram(description.Source.Text, out declarativeError))
+                    SkslSource source = ParseWholeSource(script);
+                    _ = CreateDescription(source, default);
+                    if (TryCompileProgram(source.Text, out declarativeError))
                     {
-                        _definition = definition;
+                        _source = source;
                         return;
                     }
                 }
@@ -278,16 +279,14 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             // could not represent it.
         }
 
-        private static ShaderDefinition<ScriptUniformState> CreateCurrentPixelDefinition(string script)
+        private static SkslSource ParseCurrentPixelSource(string script)
         {
             var source = new SkslSource(script, ShaderDescriptionKind.CurrentPixel);
             ValidateDeclarativeUniforms(source, ShaderDescriptionKind.CurrentPixel);
-            return ShaderDefinition<ScriptUniformState>.CurrentPixel(
-                source,
-                builder => BindUniforms(builder, source, isWholeSource: false));
+            return source;
         }
 
-        private static ShaderDefinition<ScriptUniformState> CreateWholeSourceDefinition(string script)
+        private static SkslSource ParseWholeSource(string script)
         {
             string declarativeSource = SkslSource.HasUniformDeclaration(script, "src")
                 ? script
@@ -295,16 +294,24 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             var source = new SkslSource(declarativeSource, ShaderDescriptionKind.WholeSource);
 
             ValidateDeclarativeUniforms(source, ShaderDescriptionKind.WholeSource);
-            return ShaderDefinition<ScriptUniformState>.WholeSource(
-                source,
-                RenderBoundsContract.FullInput,
-                builder => BindUniforms(builder, source, isWholeSource: true),
-                SKShaderTileMode.Clamp);
+            return source;
         }
 
+        internal static ShaderDescription CreateDescription(SkslSource source, ScriptUniformState state)
+            => source.Kind == ShaderDescriptionKind.WholeSource
+                ? ShaderDescription.WholeSource(
+                    source,
+                    RenderBoundsContract.FullInput,
+                    builder => BindUniforms(builder, source, state, isWholeSource: true),
+                    SKShaderTileMode.Clamp)
+                : ShaderDescription.CurrentPixel(
+                    source,
+                    builder => BindUniforms(builder, source, state, isWholeSource: false));
+
         private static void BindUniforms(
-            ShaderDefinitionBuilder<ScriptUniformState> builder,
+            ShaderBindingBuilder builder,
             SkslSource source,
+            ScriptUniformState state,
             bool isWholeSource)
         {
             foreach ((string name, SkslUniformDeclaration declaration) in source.Uniforms)
@@ -315,26 +322,26 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                 switch (name)
                 {
                     case "progress":
-                        builder.Uniform(name, static state => state.Progress);
+                        builder.Uniform(name, state.Progress);
                         break;
                     case "duration":
-                        builder.Uniform(name, static state => state.Duration);
+                        builder.Uniform(name, state.Duration);
                         break;
                     case "time":
                     case "iTime":
-                        builder.Uniform(name, static state => state.Time);
+                        builder.Uniform(name, state.Time);
                         break;
                     case "width":
-                        builder.Uniform(name, static _ => 0f, BindWidth);
+                        builder.Uniform(name, 0f, BindWidth);
                         break;
                     case "height":
-                        builder.Uniform(name, static _ => 0f, BindHeight);
+                        builder.Uniform(name, 0f, BindHeight);
                         break;
                     case "iResolution":
-                        builder.Uniform(name, static _ => default(Vector2), BindResolution);
+                        builder.Uniform(name, default(Vector2), BindResolution);
                         break;
                     case "iScale":
-                        builder.Uniform(name, static _ => 0f, BindScale);
+                        builder.Uniform(name, 0f, BindScale);
                         break;
                     default:
                         BindZero(builder, name, declaration);
@@ -366,12 +373,12 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         {
             _shader?.Dispose();
             _shader = null;
-            _definition = null;
+            _source = null;
             _compileError = null;
         }
 
         private static void BindZero(
-            ShaderDefinitionBuilder<ScriptUniformState> builder,
+            ShaderBindingBuilder builder,
             string name,
             SkslUniformDeclaration declaration)
         {
@@ -379,13 +386,13 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             switch (kind)
             {
                 case ZeroBindingKind.FloatingPoint:
-                    builder.ConstantUniform(name, new float[componentCount]);
+                    builder.Uniform(name, new float[componentCount]);
                     break;
                 case ZeroBindingKind.Integer:
-                    builder.ConstantUniform(name, 0);
+                    builder.Uniform(name, 0);
                     break;
                 case ZeroBindingKind.Boolean:
-                    builder.ConstantUniform(name, false);
+                    builder.Uniform(name, false);
                     break;
                 default:
                     throw new InvalidOperationException("The zero-binding kind is invalid.");

@@ -17,16 +17,10 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     private static readonly Color s_untintedParticle = Colors.White;
     private static readonly SKColor s_opaqueWhite = SKColors.White;
     private static readonly RenderResourceSlot<Brush.Resource> s_fallbackFillSlot = new();
-    private static readonly OpaqueRenderDefinition<ParticleFallbackState> s_fallbackDefinition =
-        OpaqueRenderDefinition<ParticleFallbackState>.Create(
-            static (session, _) => session.UseResource(
-                s_fallbackFillSlot,
-                fill => DrawFallbackParticle(session, fill)),
-            OpaqueRenderBoundsContract.Source(s_fallbackBounds),
-            RenderHitTestContract.OutputBounds,
-            RenderValueCardinality.Single,
-            RenderScaleContract.Vector,
-            resources: [s_fallbackFillSlot]);
+    private static readonly RenderResourceSlot[] s_fallbackSlots = [s_fallbackFillSlot];
+    private static readonly RenderResourceSlot[] s_particleSlots = [s_particlesSlot];
+    private static readonly OpaqueRenderBoundsContract s_fallbackBoundsContract =
+        OpaqueRenderBoundsContract.Source(s_fallbackBounds);
 
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
 
@@ -72,8 +66,10 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         bool requiresClippedLayer = context.TargetDomain is not null
                                     && RequiresClippedLayer(totalBounds, context.OutputScale);
         RenderResource<Particle[]> particlesToken = context.Borrow(particles);
-        TargetCommandDefinition<ParticleCommandState> definition =
-            TargetCommandDefinition<ParticleCommandState>.Create(
+        RenderFragmentHandle painter = context.TargetCommand(
+            [source],
+            TargetCommandDescription.Create(
+                default(ParticleCommandState),
                 static (session, _) => session.UseResource(
                     s_particlesSlot,
                     current => DrawParticles(session, current)),
@@ -82,10 +78,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                     : TargetRegion.Region(totalBounds),
                 queryBounds: totalBounds,
                 hitTest: RenderHitTestContract.None,
-                resources: [s_particlesSlot]);
-        RenderFragmentHandle painter = context.TargetCommand(
-            [source],
-            definition.Call(default, [s_particlesSlot.Bind(particlesToken)]));
+                resources: [s_particlesSlot.Bind(particlesToken)],
+                slots: s_particleSlots));
 
         // A union beyond the buffer budget is mostly off-target travel. Preserve the finite layer for
         // ordinary emitters, but clip an oversized union to its owning target before allocation.
@@ -121,10 +115,17 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     {
         Brush.Resource fill = Brushes.Resource.White;
         RenderResource<Brush.Resource> fillToken = context.Borrow(fill);
-        return context.OpaqueSource(
-            s_fallbackDefinition.Call(
-                default,
-                [s_fallbackFillSlot.Bind(fillToken)]));
+        return context.OpaqueSource(OpaqueRenderDescription.Create(
+            default(ParticleFallbackState),
+            static (session, _) => session.UseResource(
+                s_fallbackFillSlot,
+                fill => DrawFallbackParticle(session, fill)),
+            s_fallbackBoundsContract,
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.Vector,
+            resources: [s_fallbackFillSlot.Bind(fillToken)],
+            slots: s_fallbackSlots));
     }
 
     private static void DrawFallbackParticle(OpaqueRenderSession session, Brush.Resource fill)

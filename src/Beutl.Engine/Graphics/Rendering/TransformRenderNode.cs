@@ -71,16 +71,15 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
             return;
         }
 
-        TargetScopeDefinition<(Matrix Transform, TransformOperator Operator)> definition =
-            TargetScopeDefinition<(Matrix Transform, TransformOperator Operator)>.Create(
+        context.PublishMappedInputs(
+            TargetScopeDescription.Create(
+                (transform, transformOperator),
                 ExecuteTransform,
                 bounds,
                 hitTest,
                 scale,
                 deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
-                deviceGridMapping: gridMapping);
-        context.PublishMappedInputs(
-            definition.Call((transform, transformOperator)),
+                deviceGridMapping: gridMapping),
             static (context, input, value) => context.TargetScope(input, value));
     }
 

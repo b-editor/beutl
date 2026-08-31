@@ -8,15 +8,7 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
 {
     private static readonly RenderResourceSlot<AudioVisualizerDrawable.Resource> s_visualizerSlot = new();
 
-    // A visualizer strokes bars and curves that overlap one another, so its coverage cannot be composited
-    // straight into a destination-out blend.
-    private static readonly PaintedSourceDefinition<VisualizerPainterState> s_definition =
-        PaintedSourceDefinition<VisualizerPainterState>.Create(
-            static (canvas, _, _, state) => state.Resource.RenderToCanvas(canvas, state.Bounds),
-            RenderHitTestContract.None,
-            RenderScaleContract.Vector,
-            paintsNonOverlappingCoverage: false,
-            resources: [s_visualizerSlot]);
+    private static readonly RenderResourceSlot[] s_slots = [s_visualizerSlot];
 
     public (AudioVisualizerDrawable.Resource Resource, int Version)? Visualizer { get; private set; } = resource.Capture();
 
@@ -42,12 +34,19 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
         var bounds = new Rect(0, 0, Math.Max(1f, resource.Width), Math.Max(1f, resource.Height));
         RenderResource<AudioVisualizerDrawable.Resource> resourceToken = context.Borrow(resource);
         Brush.Resource? fill = resource.Fill;
-        context.Publish(context.PaintedSource(s_definition.Call(
+        context.Publish(context.PaintedSource(
             new VisualizerPainterState(resource, bounds),
+            static (canvas, _, _, state) => state.Resource.RenderToCanvas(canvas, state.Bounds),
             fill,
             null,
-            OpaqueRenderBoundsContract.Source(bounds),
-            [s_visualizerSlot.Bind(resourceToken)])));
+            bounds,
+            RenderHitTestContract.None,
+            RenderScaleContract.Vector,
+            // A visualizer strokes bars and curves that overlap one another, so its coverage cannot be
+            // composited straight into a destination-out blend.
+            supportsDirectDstOut: false,
+            bindings: [s_visualizerSlot.Bind(resourceToken)],
+            slots: s_slots));
     }
 
     protected override void OnDispose(bool disposing)

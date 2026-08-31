@@ -9,14 +9,12 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
     private static readonly RenderResourceSlot<GeometryHitTestState> s_hitTestSlot = new();
 
-    private static readonly PaintedSourceDefinition<Geometry.Resource> s_definition =
-        PaintedSourceDefinition<Geometry.Resource>.Create(
-            static (canvas, fill, pen, state) => canvas.DrawGeometry(state, fill, pen),
-            RenderHitTestContract.FromSlot(
-                s_hitTestSlot,
-                static (state, point) => state.HitTest(point)),
-            RenderScaleContract.Vector,
-            resources: [s_geometrySlot, s_hitTestSlot]);
+    // Inlining these into Process would rebuild them once per recording; only the state below varies.
+    private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
+        s_hitTestSlot,
+        static (state, point) => state.HitTest(point));
+
+    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot, s_hitTestSlot];
 
     public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
 
@@ -58,15 +56,20 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         var hitTestState = new GeometryHitTestState(geometry, fill, pen);
         RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(hitTestState);
 
-        context.Publish(context.PaintedSource(s_definition.Call(
+        context.Publish(context.PaintedSource(
             geometry,
+            static (canvas, fill, pen, state) => canvas.DrawGeometry(state, fill, pen),
             fill,
             pen,
-            OpaqueRenderBoundsContract.Source(bounds),
+            bounds,
+            s_hitTest,
+            RenderScaleContract.Vector,
+            bindings:
             [
                 s_geometrySlot.Bind(geometryResource),
                 s_hitTestSlot.Bind(hitTestResource),
-            ])));
+            ],
+            slots: s_slots));
     }
 
     protected override void OnDispose(bool disposing)

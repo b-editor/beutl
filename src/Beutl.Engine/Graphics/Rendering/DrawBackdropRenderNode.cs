@@ -3,6 +3,7 @@
 public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNode()
 {
     private static readonly RenderResourceSlot<IBackdrop> s_backdropSlot = new();
+    private static readonly RenderResourceSlot[] s_slots = [s_backdropSlot];
 
     public IBackdrop Backdrop { get; private set; } = backdrop;
 
@@ -33,29 +34,28 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
             : RenderHitTestContract.None;
         if (context.TryBuiltInBackdrop(backdrop, out RenderFragmentHandle? capture))
         {
-            TargetCommandDefinition<BackdropCaptureState> captureCommand =
-                TargetCommandDefinition<BackdropCaptureState>.Create(
+            context.Publish(context.TargetCommand(
+                [capture!],
+                TargetCommandDescription.Create(
+                    default(BackdropCaptureState),
                     static (session, _) => session.Canvas.Use(canvas => session.Inputs[0].Draw(canvas)),
                     TargetRegion.Region(bounds),
                     bounds,
-                    hitTest);
-            context.Publish(context.TargetCommand([capture!], captureCommand.Call(default)));
+                    hitTest)));
             return;
         }
 
         RenderResource<IBackdrop> resource = context.Borrow(backdrop);
-        RawTargetCommandDefinition<RawBackdropCommandState> rawCommand =
-            RawTargetCommandDefinition<RawBackdropCommandState>.Create(
+        context.Publish(context.RawTargetCommand(
+            RawTargetCommandDescription.Create(
+                new RawBackdropCommandState(resource),
                 static (session, state) => session.UseResource(
                     state.Resource,
                     value => value.Draw(session.Canvas)),
                 bounds,
                 hitTest,
-                resources: [s_backdropSlot]);
-        context.Publish(context.RawTargetCommand(
-            rawCommand.Call(
-                new RawBackdropCommandState(resource),
-                [s_backdropSlot.Bind(resource)])));
+                resources: [s_backdropSlot.Bind(resource)],
+                slots: s_slots)));
     }
 
     private readonly record struct BackdropCaptureState;
