@@ -201,7 +201,11 @@ public sealed class FilterEffectContext : IDisposable
         }
     }
 
-    internal void Shader(ShaderDescription description)
+    /// <summary>Appends one shader stage to this filter-effect stream.</summary>
+    /// <param name="description">
+    /// The non-null immutable stage contract. Every declared resource must belong to this context's family.
+    /// </param>
+    public void Shader(ShaderDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         _resourceState.ValidateResources(
@@ -218,7 +222,11 @@ public sealed class FilterEffectContext : IDisposable
         Shader(call.Description);
     }
 
-    internal void Geometry(GeometryDescription description)
+    /// <summary>Appends one deferred geometry operation to this filter-effect stream.</summary>
+    /// <param name="description">
+    /// The non-null immutable geometry contract. Every declared resource must belong to this context's family.
+    /// </param>
+    public void Geometry(GeometryDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         _resourceState.ValidateResources(

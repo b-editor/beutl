@@ -152,7 +152,7 @@ internal sealed class ShaderResourceBinding
 /// or borrowed registration. Every binding name must be a unique SkSL identifier matching a declaration in the
 /// source.
 /// </remarks>
-internal sealed class ShaderBindingBuilder
+public sealed class ShaderBindingBuilder
 {
     private readonly List<ShaderUniformBinding> _uniforms = [];
     private readonly List<ShaderResourceBinding> _resources = [];

@@ -11,7 +11,7 @@ namespace Beutl.Graphics.Effects;
 /// derives plan shape from source and declared binding layout. Declared binding callbacks run only during execution
 /// and receive execution-scoped writers and contexts that must not be retained.
 /// </remarks>
-internal sealed class ShaderDescription
+public sealed class ShaderDescription
 {
     private ShaderDescription(
         ShaderDescriptionKind kind,
@@ -96,10 +96,10 @@ internal sealed class ShaderDescription
     public RenderInputDemandContract InputDemand { get; }
 
     /// <summary>Gets the non-null immutable uniform bindings in declaration order.</summary>
-    public IReadOnlyList<ShaderUniformBinding> Uniforms { get; }
+    internal IReadOnlyList<ShaderUniformBinding> Uniforms { get; }
 
     /// <summary>Gets the non-null immutable child-shader resource bindings in declaration order.</summary>
-    public IReadOnlyList<ShaderResourceBinding> Resources { get; }
+    internal IReadOnlyList<ShaderResourceBinding> Resources { get; }
 
     /// <summary>Gets the sampling mode used outside the implicit <c>src</c> input bounds.</summary>
     /// <remarks>The value is meaningful for <see cref="ShaderDescriptionKind.WholeSource"/> descriptions.</remarks>
@@ -191,16 +191,24 @@ internal sealed class ShaderDescription
     /// <exception cref="ArgumentException">
     /// The source grammar, entry point, declarations, or supplied bindings are invalid or incompatible.
     /// </exception>
-    internal static ShaderDescription CurrentPixel(
+    /// <param name="slots">
+    /// The resource slots this stage declares. <paramref name="hitTestResources"/> must bind every one of
+    /// them exactly once and is reordered into this list's order, so the order the caller wrote the bindings
+    /// in never reaches the recorded stage. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    public static ShaderDescription CurrentPixel(
         string source,
         Action<ShaderBindingBuilder>? bindings = null,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
         => CurrentPixel(
             new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
             bindings,
             hitTest,
-            hitTestResources);
+            hitTestResources,
+            slots);
 
     /// <summary>
     /// Creates a current-pixel stage from a source that was already normalized and validated.
@@ -209,11 +217,12 @@ internal sealed class ShaderDescription
     /// Engine stages whose SkSL text is a compile-time constant share one parsed source so that recording a
     /// fragment does not re-tokenize and re-validate it.
     /// </remarks>
-    internal static ShaderDescription CurrentPixel(
+    public static ShaderDescription CurrentPixel(
         SkslSource source,
         Action<ShaderBindingBuilder>? bindings,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
     {
         if (source.Kind != ShaderDescriptionKind.CurrentPixel)
             throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
@@ -228,11 +237,15 @@ internal sealed class ShaderDescription
             bindings,
             SKShaderTileMode.Decal,
             hitTest,
-            hitTestResources ?? []);
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                hitTestResources,
+                nameof(slots),
+                nameof(hitTestResources)));
     }
 
     /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
-    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
+    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IEnumerable{RenderResourceSlot})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
     internal static ShaderDescription CurrentPixel(
         SkslSource source,
         SpirvShaderLowering spirvLowering,
@@ -283,14 +296,21 @@ internal sealed class ShaderDescription
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="sourceTileMode"/> is not a defined <see cref="SKShaderTileMode"/> value.
     /// </exception>
-    internal static ShaderDescription WholeSource(
+    /// <param name="slots">
+    /// The resource slots this stage declares. <paramref name="hitTestResources"/> must bind every one of
+    /// them exactly once and is reordered into this list's order, so the order the caller wrote the bindings
+    /// in never reaches the recorded stage. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    public static ShaderDescription WholeSource(
         string source,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings = null,
         SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
         RenderInputDemandContract inputDemand = default,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest?.ThrowIfUninitialized(nameof(hitTest));
@@ -306,17 +326,24 @@ internal sealed class ShaderDescription
             bindings,
             sourceTileMode,
             hitTest,
-            hitTestResources ?? []);
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                hitTestResources,
+                nameof(slots),
+                nameof(hitTestResources)));
     }
 
-    internal static ShaderDescription WholeSource(
+    /// <summary>Creates a materializing shader stage from a source that was already normalized and validated.</summary>
+    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderBindingBuilder}, SKShaderTileMode, RenderInputDemandContract, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IEnumerable{RenderResourceSlot})" path="/param|/remarks|/exception"/>
+    public static ShaderDescription WholeSource(
         SkslSource source,
         RenderBoundsContract bounds,
         Action<ShaderBindingBuilder>? bindings,
         SKShaderTileMode sourceTileMode,
         RenderInputDemandContract inputDemand = default,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
     {
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
@@ -334,7 +361,11 @@ internal sealed class ShaderDescription
             bindings,
             sourceTileMode,
             hitTest,
-            hitTestResources ?? []);
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                hitTestResources,
+                nameof(slots),
+                nameof(hitTestResources)));
     }
 
     private static void ValidateBindings(

@@ -34,7 +34,7 @@ public enum RenderDeviceGridSensitivity : byte
     PhaseDependent,
 }
 
-internal sealed class OpaqueRenderDescription
+public sealed class OpaqueRenderDescription
 {
     private readonly RenderExecutionChannel<OpaqueRenderSession> _execution;
 
@@ -197,7 +197,13 @@ internal sealed class OpaqueRenderDescription
     /// The declared dependency of the produced pixels on the device-grid phase. The default states that the
     /// output is unchanged by a sub-pixel shift of the grid, which lets the renderer cache and resample it.
     /// </param>
-    internal static OpaqueRenderDescription Create<TState>(
+    /// <param name="slots">
+    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
+    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
+    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    public static OpaqueRenderDescription Create<TState>(
         TState state,
         Action<OpaqueRenderSession, TState> execute,
         OpaqueRenderBoundsContract bounds,
@@ -206,7 +212,8 @@ internal sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -221,7 +228,11 @@ internal sealed class OpaqueRenderDescription
             deviceGridSensitivity,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             inputReadbacks,
-            resources);
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                resources,
+                nameof(slots),
+                nameof(resources)));
 
     /// <summary>
     /// Creates an opaque description whose output can never satisfy a later request's cache lookup.
@@ -1983,7 +1994,10 @@ internal static class RenderDescriptionValidation
         IEnumerable<RenderResourceBinding>? resources,
         string parameterName)
     {
-        if (resources is null)
+        // An empty sequence has nothing to check, and the recording paths reach this once per operation per
+        // frame with no resources at all - by far the common case - so the working set is built only once
+        // there is something to put in it.
+        if (resources is null or IReadOnlyCollection<RenderResourceBinding> { Count: 0 })
             return Array.Empty<RenderResourceBinding>();
 
         var slots = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
@@ -2005,7 +2019,7 @@ internal static class RenderDescriptionValidation
         IEnumerable<RenderResourceSlot>? slots,
         string parameterName)
     {
-        if (slots is null)
+        if (slots is null or IReadOnlyCollection<RenderResourceSlot> { Count: 0 })
             return Array.Empty<RenderResourceSlot>();
 
         var seen = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
@@ -2055,6 +2069,53 @@ internal static class RenderDescriptionValidation
         }
 
         return ordered.Length == 0 ? Array.Empty<RenderResourceBinding>() : Array.AsReadOnly(ordered);
+    }
+
+    /// <summary>
+    /// Applies a definition's declared slot list to a factory that is handed bindings rather than a call.
+    /// </summary>
+    /// <remarks>
+    /// A bindings-only factory has no slot list of its own, so nothing there can tell a caller that bound one
+    /// slot twice and another not at all. Passing the declared slots restores that check, and with it the
+    /// normalization it performs: the returned bindings are in declared-slot order, so a structural identity
+    /// built from them - <see cref="Beutl.Graphics.Effects.GeometryDescription"/>'s resource-type sequence
+    /// among them - stops depending on the order the caller happened to write them in.
+    /// <para>
+    /// A <see langword="null"/> <paramref name="slots"/> declares none rather than opting out of the check,
+    /// so an omitted slot list still reaches the same validation an empty one does. Bindings supplied against
+    /// it are refused here: the recorded operation would otherwise carry resources in the order the caller
+    /// wrote them, which is exactly the order dependence this normalization exists to remove.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<RenderResourceBinding> BindDeclaredSlots(
+        IEnumerable<RenderResourceSlot>? slots,
+        IEnumerable<RenderResourceBinding>? bindings,
+        string slotsParameterName,
+        string bindingsParameterName)
+    {
+        IReadOnlyList<RenderResourceSlot> declaredSlots = CopyResourceSlots(slots, slotsParameterName);
+
+        // Copied before the count is read: a caller-supplied sequence may be a generator, and enumerating it
+        // once here and again inside ValidateResourceBindings would let the two see different bindings.
+        IReadOnlyList<RenderResourceBinding> declaredBindings = CopyResourceBindings(
+            bindings,
+            bindingsParameterName);
+        if (declaredSlots.Count == 0)
+        {
+            if (declaredBindings.Count > 0)
+            {
+                throw new ArgumentException(
+                    "A render call that declares no resource slots cannot bind a resource. Declare the slots "
+                    + "the bindings address, so each one is checked and ordered against that declaration.",
+                    slotsParameterName);
+            }
+
+            // Declaring nothing and binding nothing is the default every recording path takes, and it is
+            // already checked by the two counts above.
+            return Array.Empty<RenderResourceBinding>();
+        }
+
+        return ValidateResourceBindings(declaredSlots, declaredBindings, bindingsParameterName);
     }
 
     public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)

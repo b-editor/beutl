@@ -347,7 +347,8 @@ public sealed class EngineResourceIdentityRoutingTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [EngineResourceIdentityRoutingSlots.First.Bind(first), EngineResourceIdentityRoutingSlots.Second.Bind(second)]);
+                resources: [EngineResourceIdentityRoutingSlots.First.Bind(first), EngineResourceIdentityRoutingSlots.Second.Bind(second)],
+                slots: [EngineResourceIdentityRoutingSlots.First, EngineResourceIdentityRoutingSlots.Second]);
             context.Publish(context.OpaqueSource(description));
         }
     }

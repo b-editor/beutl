@@ -6,12 +6,15 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
 /// <summary>
-/// Pins that the order of a <c>resources:</c> argument survives recording and reaches the structural plan key.
+/// Pins that the order of a <c>slots:</c> declaration survives recording and reaches the structural plan key,
+/// and that the order of the <c>resources:</c> argument bound against it does not.
 /// </summary>
 /// <remarks>
 /// <c>StructuralPlanCache</c> writes the binding count and then each slot's value type in declaration order, so
-/// two nodes that declare the same bindings in a different order are different plans. Recording therefore must
-/// not sort or canonicalize the list on the way there.
+/// two nodes that declare the same slots in a different order are different plans. Recording therefore must not
+/// sort or canonicalize the declaration on the way there. The bindings are a different matter: the description
+/// reorders them into the declared order, so an author who writes the same two bindings the other way round
+/// keeps one plan instead of silently compiling a second one for the same operation.
 /// </remarks>
 [TestFixture]
 public sealed class DeclaredResourceOrderTests
@@ -19,15 +22,19 @@ public sealed class DeclaredResourceOrderTests
     private static readonly Rect s_domain = new(0, 0, 8, 8);
 
     [Test]
-    public void DeclaredResourcesReachTheDescriptionInTheirAuthoredOrder()
+    public void DeclaredSlotsReachTheDescriptionInTheirAuthoredOrder()
     {
         using var straight = new TwoResourceNode(swapped: false);
         using var reversed = new TwoResourceNode(swapped: true);
+        using var writtenTheOtherWayRound = new TwoResourceNode(swapped: false);
+        writtenTheOtherWayRound.SwapBindingOrder();
 
         RenderResourceSlot[] straightSlots = [];
         RenderResourceSlot[] reversedSlots = [];
+        RenderResourceSlot[] rewrittenSlots = [];
         WithOpaqueRoot(straight, payload => straightSlots = SlotsOf(payload));
         WithOpaqueRoot(reversed, payload => reversedSlots = SlotsOf(payload));
+        WithOpaqueRoot(writtenTheOtherWayRound, payload => rewrittenSlots = SlotsOf(payload));
 
         Assert.Multiple(() =>
         {
@@ -37,12 +44,16 @@ public sealed class DeclaredResourceOrderTests
             Assert.That(
                 reversedSlots,
                 Is.EqualTo(new[] { TwoResourceNode.SecondSlot, TwoResourceNode.FirstSlot }),
-                "Recording must not sort or canonicalize a resources: argument.");
+                "Recording must not sort or canonicalize a slots: declaration.");
+            Assert.That(
+                rewrittenSlots,
+                Is.EqualTo(new[] { TwoResourceNode.FirstSlot, TwoResourceNode.SecondSlot }),
+                "The same declaration with its bindings written the other way round records identically.");
         });
     }
 
     [Test]
-    public void SwappingTwoDeclaredResources_CompilesASeparateStructuralPlan()
+    public void SwappingTwoDeclaredSlots_CompilesASeparateStructuralPlan()
     {
         using var node = new TwoResourceNode(swapped: false);
         using var renderer = new RenderNodeRenderer(
@@ -61,16 +72,21 @@ public sealed class DeclaredResourceOrderTests
 
         long afterAuthoredOrder = CompilationsAfterFrame(renderer);
         long afterUnchangedFrame = CompilationsAfterFrame(renderer);
+        node.SwapBindingOrder();
+        long afterBindingSwap = CompilationsAfterFrame(renderer);
         node.SwapDeclarationOrder();
-        long afterSwap = CompilationsAfterFrame(renderer);
+        long afterDeclarationSwap = CompilationsAfterFrame(renderer);
 
         Assert.Multiple(() =>
         {
             Assert.That(afterAuthoredOrder, Is.EqualTo(1));
             Assert.That(afterUnchangedFrame, Is.EqualTo(1),
-                "The control: an unchanged frame replays the compiled plan, so a later increment is the swap.");
-            Assert.That(afterSwap, Is.EqualTo(2),
-                "Two bindings swapped in the declaration list are a different plan, not the same one.");
+                "The control: an unchanged frame replays the compiled plan, so a later increment is a swap.");
+            Assert.That(afterBindingSwap, Is.EqualTo(1),
+                "The bindings are reordered into the declaration, so writing them the other way round is the "
+                + "same plan rather than a second one compiled for the same operation.");
+            Assert.That(afterDeclarationSwap, Is.EqualTo(2),
+                "Two slots swapped in the declaration are a different plan, not the same one.");
         });
     }
 
@@ -114,7 +130,8 @@ public sealed class DeclaredResourceOrderTests
 
         private readonly FirstPayload _first = new();
         private readonly SecondPayload _second = new();
-        private bool _swapped = swapped;
+        private bool _swappedDeclaration = swapped;
+        private bool _swappedBindings;
 
         internal static RenderResourceSlot FirstSlot => s_firstSlot;
 
@@ -122,7 +139,13 @@ public sealed class DeclaredResourceOrderTests
 
         public void SwapDeclarationOrder()
         {
-            _swapped = !_swapped;
+            _swappedDeclaration = !_swappedDeclaration;
+            MarkChanged();
+        }
+
+        public void SwapBindingOrder()
+        {
+            _swappedBindings = !_swappedBindings;
             MarkChanged();
         }
 
@@ -130,6 +153,15 @@ public sealed class DeclaredResourceOrderTests
         {
             RenderResource<FirstPayload> first = context.Borrow(_first);
             RenderResource<SecondPayload> second = context.Borrow(_second);
+            RenderResourceSlot[] declaredSlots = _swappedDeclaration
+                ? [s_secondSlot, s_firstSlot]
+                : [s_firstSlot, s_secondSlot];
+            RenderResourceBinding[] bindings = _swappedDeclaration
+                ? [s_secondSlot.Bind(second), s_firstSlot.Bind(first)]
+                : [s_firstSlot.Bind(first), s_secondSlot.Bind(second)];
+            if (_swappedBindings)
+                (bindings[0], bindings[1]) = (bindings[1], bindings[0]);
+
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(
                 s_domain,
                 static (session, bounds) =>
@@ -141,9 +173,8 @@ public sealed class DeclaredResourceOrderTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: _swapped
-                    ? [s_secondSlot.Bind(second), s_firstSlot.Bind(first)]
-                    : [s_firstSlot.Bind(first), s_secondSlot.Bind(second)]);
+                resources: bindings,
+                slots: declaredSlots);
             context.Publish(context.OpaqueSource(description));
         }
 

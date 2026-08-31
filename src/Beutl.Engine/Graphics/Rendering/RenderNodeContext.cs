@@ -407,7 +407,7 @@ public sealed class RenderNodeContext
     /// family.
     /// </param>
     /// <returns>A new transaction-scoped shader fragment. The result is not published automatically.</returns>
-    internal RenderFragmentHandle Shader(
+    public RenderFragmentHandle Shader(
         RenderFragmentHandle input,
         ShaderDescription description)
         => Shader(input, description, workingScalePolicy: null);
@@ -486,7 +486,7 @@ public sealed class RenderNodeContext
     /// family.
     /// </param>
     /// <returns>A new transaction-scoped geometry fragment. The result is not published automatically.</returns>
-    internal RenderFragmentHandle Geometry(
+    public RenderFragmentHandle Geometry(
         RenderFragmentHandle input,
         GeometryDescription description)
         => Geometry(input, description, workingScalePolicy: null);
@@ -584,8 +584,9 @@ public sealed class RenderNodeContext
     /// </param>
     /// <param name="directReplayAtExactIntegerReduction">
     /// Whether the source may still be replayed directly when the surrounding transform reduces it by an exact
-    /// integer factor. Leave it <see langword="false"/> unless re-painting at the reduced size is what the source
-    /// wants; the default routes such a reduction through an intermediate so the downsample is filtered.
+    /// integer factor. Pass <see langword="false"/> unless re-painting at the reduced size is what the source
+    /// wants; that routes such a reduction through an intermediate so the downsample is filtered. It carries no
+    /// default here on purpose: naming it is what selects this overload over the public one beside it.
     /// </param>
     /// <param name="deviceGridSensitivity">
     /// Whether the painted pixels depend on where the device pixel grid falls. Keep the
@@ -609,10 +610,10 @@ public sealed class RenderNodeContext
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
     /// <remarks>
     /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to that
-    /// call. This is the engine-side overload: it exists for <paramref name="directReplayAtExactIntegerReduction"/>,
-    /// which names a planner fast path an out-of-tree node has no model of and cannot decide for itself.
-    /// Everything else it does is reachable through <see cref="PaintedSourceDefinition{TState}"/>, and that is what
-    /// a node outside the engine records with.
+    /// call. This is the engine-side overload, and it keeps two things the public one beside it withholds:
+    /// <paramref name="directReplayAtExactIntegerReduction"/>, which names a planner fast path an out-of-tree node
+    /// has no model of and cannot decide for itself, and a bare <paramref name="resources"/> list, whose tokens the
+    /// engine binds to slots of its own - addressable by nothing, so no declared hit test can resolve one.
     /// </remarks>
     internal RenderFragmentHandle PaintedSource<TState>(
         TState state,
@@ -622,7 +623,7 @@ public sealed class RenderNodeContext
         Rect outputBounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        bool directReplayAtExactIntegerReduction = false,
+        bool directReplayAtExactIntegerReduction,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         bool supportsDirectDstOut = true,
         IEnumerable<RenderResource>? resources = null,
@@ -647,6 +648,113 @@ public sealed class RenderNodeContext
             RenderDescriptionValidation.CopyResources(resources, nameof(resources))
                 .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
                 .ToArray());
+    }
+
+
+    /// <summary>
+    /// Records a source fragment that paints itself with a fill brush and a stroke pen through an
+    /// <see cref="ImmediateCanvas"/>.
+    /// </summary>
+    /// <typeparam name="TState">The type of the state handed back to <paramref name="draw"/> unchanged.</typeparam>
+    /// <param name="state">
+    /// The state the callback paints from. Treat it as immutable once recorded: the callback runs later, so a value
+    /// mutated after this call changes what the fragment paints without the engine noticing.
+    /// </param>
+    /// <param name="draw">
+    /// A non-null painting callback. Declare it as a static lambda so it carries no per-frame identity; see
+    /// <see cref="PaintedSourceDraw{TState}"/>.
+    /// </param>
+    /// <param name="fill">
+    /// The fill brush the callback receives, or <see langword="null"/> for an unfilled source. A non-null brush is
+    /// borrowed for the request, so the caller keeps ownership of it.
+    /// </param>
+    /// <param name="pen">
+    /// The stroke pen the callback receives, or <see langword="null"/> for an unstroked source. A non-null pen is
+    /// borrowed for the request, so the caller keeps ownership of it.
+    /// </param>
+    /// <param name="outputBounds">
+    /// The finite, non-empty bounds the callback paints within, in the node's own coordinate space. Compute stroked
+    /// bounds with <see cref="PenHelper.GetBounds(Rect, Pen.Resource)"/> so they follow the same stroke-alignment and
+    /// offset convention as the built-in shape nodes.
+    /// </param>
+    /// <param name="hitTest">An initialized hit-test contract describing which points the source claims.</param>
+    /// <param name="scale">
+    /// An initialized scale contract. Use <see cref="RenderScaleContract.Vector"/> for content the callback can
+    /// re-paint at any density, and a materializing contract for content that is only correct at its working scale.
+    /// </param>
+    /// <param name="deviceGridSensitivity">
+    /// Whether the painted pixels depend on where the device pixel grid falls. Keep the
+    /// <see cref="RenderDeviceGridSensitivity.PhaseDependent"/> default for analytically anti-aliased content, and
+    /// declare <see cref="RenderDeviceGridSensitivity.Insensitive"/> only when a sub-pixel shift of the grid cannot
+    /// change the output.
+    /// </param>
+    /// <param name="supportsDirectDstOut">
+    /// Whether the source may be painted straight into a destination-out composite instead of an isolated layer.
+    /// Set it to <see langword="false"/> when the callback paints overlapping coverage that would double up.
+    /// </param>
+    /// <param name="bindings">
+    /// The resources this source reads on top of the fill and the pen, each produced by
+    /// <see cref="RenderResourceSlot{T}.Bind(RenderResource{T})"/>, or <see langword="null"/> for none.
+    /// </param>
+    /// <param name="slots">
+    /// The resource slots this source declares. <paramref name="bindings"/> must bind every one of them
+    /// exactly once and is reordered into this list's order. Omitting the list declares no slots rather than
+    /// skipping that check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    /// <param name="rasterOutset">
+    /// Extra padding, in the node's own coordinate space, that the rasterizer adds around
+    /// <paramref name="outputBounds"/> so filtering or anti-aliasing that spills past the declared bounds is not
+    /// clipped. Leave it default when the callback paints strictly inside its bounds.
+    /// </param>
+    /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
+    /// <remarks>
+    /// <para>
+    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
+    /// that call.
+    /// </para>
+    /// <para>
+    /// A hit test reaches a bound resource through
+    /// <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>, which resolves
+    /// the slot the binding names. That is why the resources arrive as bindings rather than as bare tokens: a
+    /// token handed over without a slot is addressable by nothing, so a hit test could never find it again.
+    /// </para>
+    /// </remarks>
+    public RenderFragmentHandle PaintedSource<TState>(
+        TState state,
+        PaintedSourceDraw<TState> draw,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        Rect outputBounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
+        bool supportsDirectDstOut = true,
+        IEnumerable<RenderResourceBinding>? bindings = null,
+        IEnumerable<RenderResourceSlot>? slots = null,
+        Thickness rasterOutset = default)
+        where TState : notnull
+    {
+        ArgumentNullException.ThrowIfNull(draw);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
+
+        return PaintedSourceCore(
+            state,
+            draw,
+            fill,
+            pen,
+            OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
+            hitTest,
+            scale,
+            directReplayAtExactIntegerReduction: false,
+            deviceGridSensitivity,
+            supportsDirectDstOut,
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                bindings,
+                nameof(slots),
+                nameof(bindings)));
     }
 
     /// <summary>Records a painted-source call.</summary>
@@ -750,7 +858,7 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned source-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
-    internal RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description)
+    public RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         description.ThrowIfIncompatible(OpaqueRenderTopology.Source, nameof(description));
@@ -789,7 +897,7 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned map-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
-    internal RenderFragmentHandle OpaqueMap(
+    public RenderFragmentHandle OpaqueMap(
         RenderFragmentHandle input,
         OpaqueRenderDescription description)
     {
@@ -844,7 +952,7 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned combine-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
-    internal RenderFragmentHandle OpaqueCombine(
+    public RenderFragmentHandle OpaqueCombine(
         IReadOnlyList<RenderFragmentHandle> inputs,
         OpaqueRenderDescription description)
         => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Combine);
@@ -867,7 +975,7 @@ public sealed class RenderNodeContext
     /// A non-null caller-owned expand-topology description whose declared resources belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped opaque fragment. The result is not published automatically.</returns>
-    internal RenderFragmentHandle OpaqueExpand(
+    public RenderFragmentHandle OpaqueExpand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         OpaqueRenderDescription description)
         => RecordOpaqueMany(inputs, description, OpaqueRenderTopology.Expand);
@@ -1201,7 +1309,7 @@ public sealed class RenderNodeContext
     /// The non-null caller-owned guarded scope contract. Every declared resource must belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped target scope. The result is not published automatically.</returns>
-    internal RenderFragmentHandle TargetScope(
+    public RenderFragmentHandle TargetScope(
         RenderFragmentHandle input,
         TargetScopeDescription description)
     {
@@ -1225,7 +1333,7 @@ public sealed class RenderNodeContext
     /// The non-null caller-owned raw scope contract. Every declared resource must belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
-    internal RenderFragmentHandle RawTargetScope(
+    public RenderFragmentHandle RawTargetScope(
         RenderFragmentHandle input,
         RawTargetScopeDescription description)
     {
@@ -1248,7 +1356,7 @@ public sealed class RenderNodeContext
     /// The non-null caller-owned raw command contract. Every declared resource must belong to this request family.
     /// </param>
     /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
-    internal RenderFragmentHandle RawTargetCommand(RawTargetCommandDescription description)
+    public RenderFragmentHandle RawTargetCommand(RawTargetCommandDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
         ValidateDescriptionResources(description.Resources, nameof(description));
@@ -1284,7 +1392,7 @@ public sealed class RenderNodeContext
     /// family.
     /// </param>
     /// <returns>A new transaction-scoped target command. The result is not published automatically.</returns>
-    internal RenderFragmentHandle TargetCommand(
+    public RenderFragmentHandle TargetCommand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetCommandDescription description)
     {

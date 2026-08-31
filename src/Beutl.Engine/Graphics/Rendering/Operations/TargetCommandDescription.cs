@@ -2,7 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
-internal sealed class TargetCommandDescription
+public sealed class TargetCommandDescription
 {
     private readonly RenderExecutionChannel<TargetCommandSession> _execution;
 
@@ -63,7 +63,13 @@ internal sealed class TargetCommandDescription
     /// <see cref="TargetAccess.Readback"/> obliges the callback to consume
     /// <see cref="TargetCommandSession.UseSnapshot"/> exactly once.
     /// </param>
-    internal static TargetCommandDescription Create<TState>(
+    /// <param name="slots">
+    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
+    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
+    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    public static TargetCommandDescription Create<TState>(
         TState state,
         Action<TargetCommandSession, TState> execute,
         TargetRegion affectedRegion,
@@ -72,7 +78,8 @@ internal sealed class TargetCommandDescription
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IEnumerable<RenderResourceBinding>? resources = null,
-        RenderInputDemandContract inputDemand = default)
+        RenderInputDemandContract inputDemand = default,
+        IEnumerable<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -87,7 +94,11 @@ internal sealed class TargetCommandDescription
             inputReadbacks,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             inputDemand,
-            resources);
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                resources,
+                nameof(slots),
+                nameof(resources)));
 
     /// <summary>
     /// Creates a command whose effect on the target can never satisfy a later request's cache lookup.

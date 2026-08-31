@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Effects;
 /// The renderer derives plan shape from the callback and declared contracts. The render callback receives a
 /// borrowed execution-scoped <see cref="GeometrySession"/> that must not be retained.
 /// </remarks>
-internal sealed class GeometryDescription
+public sealed class GeometryDescription
 {
     private readonly RenderExecutionChannel<GeometrySession> _execution;
 
@@ -83,22 +83,29 @@ internal sealed class GeometryDescription
     /// An optional sequence of non-null declared resources. <see langword="null"/> means no resources; otherwise
     /// the sequence is copied immediately and no caller collection is retained.
     /// </param>
+    /// <param name="slots">
+    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
+    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
+    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
     /// <returns>An immutable deferred geometry description.</returns>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="render"/> or <paramref name="state"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// A contract is uninitialized, <paramref name="render"/> captures, or <paramref name="resources"/> contains
-    /// a null or released resource.
+    /// A contract is uninitialized, <paramref name="render"/> captures, <paramref name="resources"/> contains
+    /// a null or released resource, or it does not bind every slot in <paramref name="slots"/> exactly once.
     /// </exception>
-    internal static GeometryDescription Create<TState>(
+    public static GeometryDescription Create<TState>(
         TState state,
         Action<GeometrySession, TState> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -111,7 +118,11 @@ internal sealed class GeometryDescription
             RenderDescriptionValidation.StructuralIdentityOfExecution(render),
             requiresReadback,
             inputDemand,
-            resources);
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                resources,
+                nameof(slots),
+                nameof(resources)));
 
     /// <summary>
     /// Creates a geometry description whose value can never satisfy a later request's cache lookup.

@@ -51,7 +51,7 @@ public enum RenderScopeTransformSpace : byte
     InputLogical,
 }
 
-internal sealed class TargetScopeDescription
+public sealed class TargetScopeDescription
 {
     private readonly RenderExecutionChannel<TargetScopeSession> _execution;
 
@@ -129,7 +129,13 @@ internal sealed class TargetScopeDescription
     /// declare <see cref="RenderDeviceGridMapping.Preserved"/> only when the callback leaves the target
     /// transform alone.
     /// </param>
-    internal static TargetScopeDescription Create<TState>(
+    /// <param name="slots">
+    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
+    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
+    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    public static TargetScopeDescription Create<TState>(
         TState state,
         Action<TargetScopeSession, TState> execute,
         RenderBoundsContract bounds,
@@ -138,7 +144,8 @@ internal sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IEnumerable<RenderResourceBinding>? resources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -152,7 +159,11 @@ internal sealed class TargetScopeDescription
             deviceGridSensitivity,
             deviceGridMapping,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
-            resources,
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                resources,
+                nameof(slots),
+                nameof(resources)),
             isValueReplayMap: false,
             transformSpace,
             builtInBackdropCapturesBackingTarget: false);
@@ -352,7 +363,7 @@ public sealed class TargetScopeSession
 
 internal sealed record EngineValueReplayMapDefinition(object Execute);
 
-internal sealed class RawTargetScopeDescription
+public sealed class RawTargetScopeDescription
 {
     private readonly RenderExecutionChannel<RawTargetScopeSession> _execution;
 
@@ -384,13 +395,59 @@ internal sealed class RawTargetScopeDescription
 
     internal void Execute(RawTargetScopeSession session) => _execution.Invoke(session);
 
+    /// <summary>Creates an immutable raw target-scope description.</summary>
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
+    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// </param>
+    /// <param name="execute">
+    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
+    /// shape what is drawn without reaching <paramref name="state"/>, and is rejected.
+    /// </param>
+    /// <param name="slots">
+    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
+    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
+    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    /// <remarks>
+    /// The raw canvas keeps the recorded work opaque to the renderer, so a raw scope is never eligible for
+    /// persistent output reuse whichever form built it. What the state-passing form buys is the identity the
+    /// planner keys the shape of the work by: a static callback recorded twice is one plan, where
+    /// <see cref="CreateRequestLocal"/> mints a fresh identity every recording.
+    /// </remarks>
+    public static RawTargetScopeDescription Create<TState>(
+        TState state,
+        Action<RawTargetScopeSession, TState> execute,
+        RenderBoundsContract bounds,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        IEnumerable<RenderResourceBinding>? resources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
+        where TState : notnull
+        => CreateCore(
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
+            bounds,
+            hitTest,
+            scale,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                resources,
+                nameof(slots),
+                nameof(resources)));
+
     /// <summary>
-    /// Creates a raw scope whose output can never satisfy a later request's cache lookup.
+    /// Creates a raw scope whose recorded work can never satisfy a later request's plan lookup.
     /// </summary>
     /// <remarks>
-    /// A raw scope hands an unguarded canvas to an opaque external callback, so the renderer can describe
-    /// nothing about what it draws and gives every recording a fresh request-local identity. There is no
-    /// state-passing form: no declared state could make the output reusable.
+    /// The opt-out for a callback whose pixel-affecting state cannot be expressed as copied, deeply immutable
+    /// CPU state. The callback may capture, and the recorded work takes a fresh request-local identity every
+    /// time.
     /// </remarks>
     internal static RawTargetScopeDescription CreateRequestLocal(
         Action<RawTargetScopeSession> execute,
@@ -519,7 +576,7 @@ public sealed class RawTargetScopeSession
     }
 }
 
-internal sealed class RawTargetCommandDescription
+public sealed class RawTargetCommandDescription
 {
     private readonly RenderExecutionChannel<RawTargetCommandSession> _execution;
 
@@ -547,14 +604,49 @@ internal sealed class RawTargetCommandDescription
 
     internal void Execute(RawTargetCommandSession session) => _execution.Invoke(session);
 
+    /// <summary>Creates an immutable raw target-command description.</summary>
+    /// <param name="state">
+    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
+    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// </param>
+    /// <param name="execute">
+    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
+    /// shape what is drawn without reaching <paramref name="state"/>, and is rejected.
+    /// </param>
+    /// <param name="slots">
+    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
+    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
+    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
+    /// check, so binding a resource without declaring its slot is an error.
+    /// </param>
+    /// <inheritdoc cref="RawTargetScopeDescription.Create{TState}" path="/remarks"/>
+    public static RawTargetCommandDescription Create<TState>(
+        TState state,
+        Action<RawTargetCommandSession, TState> execute,
+        Rect queryBounds,
+        RenderHitTestContract hitTest,
+        IEnumerable<RenderResourceBinding>? resources = null,
+        IEnumerable<RenderResourceSlot>? slots = null)
+        where TState : notnull
+        => CreateCore(
+            RenderDescriptionValidation.CreateStateChannel(
+                state,
+                execute,
+                nameof(state),
+                nameof(execute)),
+            queryBounds,
+            hitTest,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
+            RenderDescriptionValidation.BindDeclaredSlots(
+                slots,
+                resources,
+                nameof(slots),
+                nameof(resources)));
+
     /// <summary>
-    /// Creates a raw command whose effect on the target can never satisfy a later request's cache lookup.
+    /// Creates a raw command whose recorded work can never satisfy a later request's plan lookup.
     /// </summary>
-    /// <remarks>
-    /// A raw command hands an unguarded canvas to an opaque external callback, so the renderer can describe
-    /// nothing about what it draws and gives every recording a fresh request-local identity. There is no
-    /// state-passing form: no declared state could make the output reusable.
-    /// </remarks>
+    /// <inheritdoc cref="RawTargetScopeDescription.CreateRequestLocal" path="/remarks"/>
     internal static RawTargetCommandDescription CreateRequestLocal(
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,

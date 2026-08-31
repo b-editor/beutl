@@ -1936,7 +1936,8 @@ public sealed class RenderCacheResolutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [s_probeSlot.Bind(probe)]);
+                resources: [s_probeSlot.Bind(probe)],
+                slots: [s_probeSlot]);
             context.Publish(context.OpaqueSource(description));
         }
     }
@@ -1970,7 +1971,8 @@ public sealed class RenderCacheResolutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)]);
+                resources: [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)],
+                slots: [s_fillSlot, s_probeSlot]);
             context.Publish(context.OpaqueSource(description));
         }
 

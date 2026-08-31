@@ -72,6 +72,7 @@ public sealed class VideoSourceRenderNode(
             scale: RenderScaleContract.Custom(
                 supplyDensity,
                 static (density, _) => density),
+            directReplayAtExactIntegerReduction: false,
             resources: [sourceResource]));
     }
 

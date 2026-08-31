@@ -293,10 +293,20 @@ public sealed class ShaderAuthoringContractTests
         }
     }
 
+    /// <remarks>
+    /// A stage is authored either through a definition and a call, or by building the description directly.
+    /// What the second route may not drag out with it is how a stage carries its bindings: the uniform and
+    /// resource bindings a builder produces, and the Vulkan lowering an engine stage may attach, describe how
+    /// the planner lowers and keys the stage rather than anything an author declares.
+    /// <see cref="ShaderBindingBuilder"/> is the exception, because it is the parameter the author is handed.
+    /// </remarks>
     [Test]
-    public void ShaderDescription_IsNotPartOfTheExternalAuthoringSurface()
+    public void ShaderDescription_IsAuthorableWithoutLeakingHowAStageCarriesItsBindings()
     {
-        Assembly engine = typeof(RenderNode).Assembly;
+        string?[] exportedTypes = typeof(RenderNode).Assembly
+            .GetExportedTypes()
+            .Select(static type => type.FullName)
+            .ToArray();
         MethodInfo[] methods = typeof(RenderNodeContext)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Where(static method => method.Name == "Shader")
@@ -304,12 +314,29 @@ public sealed class ShaderAuthoringContractTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Effects.ShaderDescription"));
+            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Effects.ShaderBindingBuilder"));
+            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.ShaderUniformBinding"));
+            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.ShaderResourceBinding"));
+            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.SpirvShaderLowering"));
+            Assert.That(methods, Has.Length.EqualTo(2));
             Assert.That(
-                engine.GetExportedTypes().Any(static type => type.FullName == "Beutl.Graphics.Effects.ShaderDescription"),
-                Is.False);
-            Assert.That(methods, Has.Length.EqualTo(1));
-            Assert.That(methods[0].GetParameters()[1].ParameterType.GetGenericTypeDefinition(),
-                Is.EqualTo(typeof(ShaderCall<>)));
+                methods.Count(static method =>
+                    method.IsGenericMethodDefinition
+                    && method.GetParameters()[1].ParameterType.GetGenericTypeDefinition() == typeof(ShaderCall<>)),
+                Is.EqualTo(1));
+            Assert.That(
+                methods.Count(static method =>
+                    !method.IsGenericMethodDefinition
+                    && method.GetParameters()[1].ParameterType == typeof(ShaderDescription)),
+                Is.EqualTo(1));
+            Assert.That(
+                typeof(ShaderDescription).GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Where(static method => method.Name is "CurrentPixel" or "WholeSource")
+                    .All(static method => method.GetParameters().Any(static parameter =>
+                        parameter.ParameterType == typeof(Action<ShaderBindingBuilder>))),
+                Is.True,
+                "the builder is how an author declares a stage's bindings, so it has to be reachable");
         });
     }
 

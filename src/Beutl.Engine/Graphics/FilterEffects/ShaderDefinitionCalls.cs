@@ -196,8 +196,11 @@ public sealed class ShaderDefinition<TState>
                 binding.Apply(builder, state, resourceBindings);
         };
 
+        // The slot list travels with the bindings: the stage the definition builds declares the same slots
+        // the definition does, so the description checks and orders them for itself rather than trusting the
+        // list assembled above to already be in declared order.
         return _kind == ShaderDescriptionKind.CurrentPixel
-            ? ShaderDescription.CurrentPixel(_source, apply, _hitTest, resourceBindings)
+            ? ShaderDescription.CurrentPixel(_source, apply, _hitTest, resourceBindings, _resourceSlots)
             : ShaderDescription.WholeSource(
                 _source,
                 _bounds,
@@ -205,7 +208,8 @@ public sealed class ShaderDefinition<TState>
                 _sourceTileMode,
                 _inputDemand,
                 _hitTest,
-                resourceBindings);
+                resourceBindings,
+                _resourceSlots);
     }
 
     private static void ValidateBindings(
