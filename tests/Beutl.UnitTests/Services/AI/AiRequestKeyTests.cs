@@ -61,6 +61,50 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
+    public void DispatchedExactOwnerCanWithdrawAfterAuthoritativeNoReservation()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "video.generate");
+            AiRequestName issued = key.NameFor("a prompt");
+            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(claim);
+            AiPendingAttempt pending = store.PendingFor("account", "video.generate").Single();
+
+            Assert.That(store.TryWithdraw(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint,
+                pending.Key), Is.False,
+                "A caller without the dispatch owner cannot clear a paid-job fence.");
+            key.Withdraw(issued);
+            Assert.Multiple(() =>
+            {
+                Assert.That(store.Find(
+                    pending.AccountId,
+                    pending.Operation,
+                    pending.Fingerprint), Is.Null);
+                Assert.That(claim.IsReleased, Is.True);
+            });
+
+            AiRequestName retry = key.NameFor("a prompt");
+            Assert.Multiple(() =>
+            {
+                Assert.That(retry.Key, Is.EqualTo(issued.Key));
+                Assert.That(retry.IsRepeat, Is.False);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
     public void Retire_SettlesOneRequestAndLeavesTheOthersOutstanding()
     {
         // A が課金されたまま応答を落とし、入力を変えた B が成功する。B の決着で
@@ -520,6 +564,208 @@ public sealed class AiRequestKeyTests
     }
 
     [Test]
+    public void ExpiredDispatchedFenceRejectsAbandonAndCompetingClaimButExactOwnerCanSettle()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var firstStore = new FileAiRequestRecoveryStore(directory, () => now);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(firstStore, () => "account"),
+                operation: "video.generate");
+            AiRequestName issued = key.NameFor("prompt");
+            AiRequestRecoveryLease owner = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(owner);
+            AiPendingAttempt pending = firstStore.PendingFor("account", "video.generate").Single();
+            owner.Dispose();
+
+            now = now.AddMinutes(16);
+            var restartedStore = new FileAiRequestRecoveryStore(directory, () => now);
+            Assert.Throws<InvalidDataException>(() => restartedStore.Claim(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint,
+                pending.Key + "-wrong"));
+            AiRequestRecoveryLease adopted = restartedStore.Claim(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint,
+                pending.Key)!;
+            Assert.That(adopted, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(adopted.IsDispatched, Is.True);
+                Assert.That(adopted.OwnerToken, Is.Not.EqualTo(owner.OwnerToken));
+                Assert.That(adopted.Generation, Is.EqualTo(owner.Generation));
+                Assert.That(restartedStore.Abandon(pending), Is.False);
+                Assert.That(owner.Renew(), Is.False);
+                Assert.That(restartedStore.TrySettle(
+                    pending.AccountId,
+                    pending.Operation,
+                    pending.Fingerprint,
+                    pending.Key,
+                    owner.OwnerToken,
+                    owner.Generation), Is.False);
+                Assert.That(restartedStore.TrySettle(
+                    pending.AccountId,
+                    pending.Operation,
+                    pending.Fingerprint,
+                    pending.Key,
+                    adopted.OwnerToken,
+                    adopted.Generation + 1), Is.False);
+                Assert.That(restartedStore.TrySettle(
+                    pending.AccountId,
+                    pending.Operation,
+                    pending.Fingerprint,
+                    pending.Key,
+                    adopted.OwnerToken,
+                    adopted.Generation), Is.True);
+            });
+            Assert.That(restartedStore.Find(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint), Is.Null);
+            adopted.Dispose();
+            owner.Dispose();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void ReacquireFailureRollsBackStateSoDisposeTerminates()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("prompt");
+            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(claim);
+            claim.Dispose();
+
+            File.WriteAllText(Path.Combine(directory, "ai-request-recovery-claims.json"), "not-json");
+            Assert.Throws<InvalidDataException>(() => claim.Reacquire());
+
+            Task dispose = Task.Run(claim.Dispose);
+            Assert.That(dispose.Wait(TimeSpan.FromSeconds(2)), Is.True,
+                "Dispose must not spin after a failed reacquire.");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void DisposeWaitsUntilReacquirePublishesItsRenewalTimer()
+    {
+        string directory = CreateTemporaryDirectory();
+        using var entered = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("prompt");
+            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(claim);
+            claim.Dispose();
+            claim.BeforeReacquirePublish = () =>
+            {
+                entered.Set();
+                release.Wait();
+            };
+
+            Task<bool> reacquire = Task.Run(claim.Reacquire);
+            Assert.That(entered.Wait(TimeSpan.FromSeconds(2)), Is.True);
+            Task dispose = Task.Run(claim.Dispose);
+            Assert.That(dispose.Wait(TimeSpan.FromMilliseconds(50)), Is.False,
+                "Dispose must wait while timer and dispatched state are being published.");
+
+            release.Set();
+            Assert.That(reacquire.Wait(TimeSpan.FromSeconds(2)), Is.True);
+            Assert.That(reacquire.Result, Is.True);
+            Assert.That(dispose.Wait(TimeSpan.FromSeconds(2)), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(claim.IsReleased, Is.True);
+                Assert.That(claim.Renew(), Is.False);
+            });
+        }
+        finally
+        {
+            release.Set();
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void ReacquireLockFailureRollsBackStateSoDisposeTerminates()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("prompt");
+            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(claim);
+            claim.Dispose();
+
+            string lockPath = Path.Combine(directory, "ai-request-recovery.json.lock");
+            using var heldLock = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            Assert.Throws<InvalidDataException>(() => claim.Reacquire());
+
+            Task dispose = Task.Run(claim.Dispose);
+            Assert.That(dispose.Wait(TimeSpan.FromSeconds(2)), Is.True,
+                "Dispose must not spin after a failed lock acquisition.");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void BulkSettlementCannotRemoveDispatchedRows()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "video.generate");
+            AiRequestName first = key.NameFor("first");
+            _ = key.NameFor("second");
+            AiRequestRecoveryLease claim = key.TryClaim(first)!;
+            key.MarkClaimDispatched(claim);
+            AiPendingAttempt[] pending = store.PendingFor("account", "video.generate").ToArray();
+
+            Assert.Throws<InvalidDataException>(() => store.SettleMany(pending));
+            Assert.That(store.PendingFor("account", "video.generate"), Has.Count.EqualTo(2));
+            Assert.Throws<InvalidDataException>(() => key.Abandon(pending.Single(item => item.Key == first.Key)));
+            Assert.That(store.Find("account", "video.generate", pending.Single(item => item.Key == first.Key).Fingerprint), Is.Not.Null);
+            claim.Dispose();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
     public void ExplicitAbandonAdvancesGenerationAndLeavesOtherAccountUntouched()
     {
         string directory = CreateTemporaryDirectory();
@@ -548,6 +794,44 @@ public sealed class AiRequestKeyTests
                 Assert.That(next.IsRepeat, Is.False);
                 Assert.That(store.Find("account-b", "image.generate", pendingA.Fingerprint)?.Key,
                     Is.EqualTo(other.Key));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void AbandonTreatsAConcurrentSettlementAsIdempotentSuccess()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var otherProcess = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                seed: "stable-seed",
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("same");
+            AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
+            key.BeforeAbandonPersistedRemoval = () =>
+            {
+                Assert.That(otherProcess.TrySettle(
+                    pending.AccountId,
+                    pending.Operation,
+                    pending.Fingerprint,
+                    pending.Key), Is.True);
+            };
+
+            Assert.DoesNotThrow(() => key.Abandon(pending));
+            AiRequestName next = key.NameFor("same");
+            Assert.Multiple(() =>
+            {
+                Assert.That(key.HasOutstandingName.Value, Is.True);
+                Assert.That(next.Key, Is.Not.EqualTo(issued.Key));
+                Assert.That(next.IsRepeat, Is.False);
             });
         }
         finally

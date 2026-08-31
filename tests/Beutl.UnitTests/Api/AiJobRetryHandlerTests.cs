@@ -432,14 +432,41 @@ public class AiJobRetryHandlerTests
         // way it originally ran.
         await RunRetryAsync(
             handler,
-            Job("video", """{"prompt":"waves","durationSeconds":4,"resolution":"720p"}"""));
+            Job("video", """{"prompt":"waves"}"""));
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(sent!.AspectRatio.Value, Is.EqualTo("16:9"));
             Assert.That(sent.GenerateAudio, Is.True);
             Assert.That(sent.Seed, Is.Null);
+            Assert.That(sent.DurationSeconds, Is.EqualTo(4));
+            Assert.That(sent.Resolution.Value, Is.EqualTo("720p"));
         }
+    }
+
+    [Test]
+    public void VideoRetry_CanRetryRejectsSourceFramesAndMalformedInput()
+    {
+        var handler = new AiVideoJobRetryHandler(
+            Mock.Of<IAiVideoService>(),
+            EntitlementService(),
+            AvailabilityService(available: true),
+            ModelCatalogService(),
+            RetryContext());
+        AiJobStatusSemantics failed = new(
+            isTerminal: true,
+            shouldPoll: false,
+            outcome: AiJobOutcomes.Failed);
+
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"firstFrame\":{\"filename\":\"a.png\",\"mimeType\":\"image/png\"}}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"durationSeconds\":\"four\"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"seed\":-1}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\" waves \"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"" + new string('x', 4001) + "\"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"ignored\":true}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"3:2\"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"3:4\"}"), failed), Is.True);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\"}"), failed), Is.True);
     }
 
     [Test]

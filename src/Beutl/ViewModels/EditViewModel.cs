@@ -633,50 +633,63 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     private async Task DisposeCoreAsync(TaskCompletionSource<object?> completion)
     {
-        try
-        {
-            _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
-            Scene scene = Scene;
+        List<Exception>? failures = null;
+        _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
+        Scene scene = Scene;
 
-            // Block any proxy-invalidation flush already posted to the UI thread from running after this
-            // nulls Scene / disposes FrameCacheManager below.
-            _disposed = true;
-            GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-            if (scene.Uri is not null)
-                SaveState();
-            _editorSelection.SelectedObject.Value = null;
-            // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
-            DisposeCommandStateNotifier();
-            // Tool contexts can own paid-AI operations that still publish through the editor.
-            // Cancel and drain them before retiring element handlers and the player.
-            await _restoreTask.ConfigureAwait(false);
-            await DockHost.DisposeAsync();
-            // Retire and cancel UI-initiated element operations before waiting for handler leases.
-            // Awaiting yields the UI thread so cancellation continuations can release those leases.
-            await _elementAdder.DisposeAsync();
-            await Player.DisposeAsync();
-            _elementNudgeService?.Dispose();
-            _historyMutationPlaybackGuard.Dispose();
-            _disposables.Dispose();
-            IsEnabled.Dispose();
-            Player = null!;
-            BufferStatus = null!;
+        // Block any proxy-invalidation flush already posted to the UI thread from running after this
+        // nulls Scene / disposes FrameCacheManager below.
+        _disposed = true;
+        Try(() => GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged);
 
-            // History can retain an undone unsaved element across a save. Once the editor closes and
-            // history is about to be discarded, no live or redoable item may still own this directory.
-            UnsavedSceneStorage.Cleanup(scene.Id);
-            Scene = null!;
-            Commands = null!;
-            HistoryManager.Clear();
-            FrameCacheManager.Value.Dispose();
-            FrameCacheManager.Dispose();
+        await TryAsync(async () => await _restoreTask.ConfigureAwait(false));
+        await TryAsync(async () => await DockHost.WaitForLayoutTransitionAsync().ConfigureAwait(false));
+        if (scene.Uri is not null)
+            Try(() => SaveState());
+        Try(() => _editorSelection.SelectedObject.Value = null);
+        // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
+        Try(DisposeCommandStateNotifier);
+        // Tool contexts can own paid-AI operations that still publish through the editor.
+        // Cancel and drain them before retiring element handlers and the player.
+        await TryAsync(async () => await DockHost.DisposeAsync());
+        // Retire and cancel UI-initiated element operations before waiting for handler leases.
+        // Awaiting yields the UI thread so cancellation continuations can release those leases.
+        await TryAsync(async () => await _elementAdder.DisposeAsync());
+        await TryAsync(async () => await Player.DisposeAsync());
+        Try(() => _elementNudgeService?.Dispose());
+        Try(() => _historyMutationPlaybackGuard.Dispose());
+        Try(() => _disposables.Dispose());
+        Try(() => IsEnabled.Dispose());
+        Player = null!;
+        BufferStatus = null!;
 
-            _logger.LogInformation("Disposed EditViewModel ({SceneId}).", SceneId);
+        // History can retain an undone unsaved element across a save. Once the editor closes and
+        // history is about to be discarded, no live or redoable item may still own this directory.
+        Try(() => UnsavedSceneStorage.Cleanup(scene.Id));
+        Scene = null!;
+        Commands = null!;
+        Try(HistoryManager.Clear);
+        Try(() => FrameCacheManager.Value.Dispose());
+        Try(() => FrameCacheManager.Dispose());
+
+        _logger.LogInformation("Disposed EditViewModel ({SceneId}).", SceneId);
+        if (failures is null)
             completion.TrySetResult(null);
-        }
-        catch (Exception ex)
+        else
+            completion.TrySetException(
+                failures.Count == 1 ? failures[0] : new AggregateException(failures));
+        return;
+
+        void Try(Action action)
         {
-            completion.TrySetException(ex);
+            try { action(); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
+        }
+
+        async Task TryAsync(Func<Task> action)
+        {
+            try { await action().ConfigureAwait(false); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
         }
     }
 

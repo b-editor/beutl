@@ -41,7 +41,7 @@ public class ElementViewLayoutTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     private static async Task AddRectangle(EditViewModel editor)

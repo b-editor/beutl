@@ -34,7 +34,7 @@ public class EditorWorkflowTests
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         // The scene editor's IEditorContext is the EditViewModel itself.
-        return (EditViewModel)tab.Context.Value;
+        return (EditViewModel)tab.Context.Value!;
     }
 
     private static async Task<Element> AddRectangle(EditViewModel editor, TimeSpan start, int layer)
@@ -57,7 +57,7 @@ public class EditorWorkflowTests
         EditViewModel editor = await OpenEditorForNewScene("editvm");
 
         Assert.That(editor, Is.Not.Null);
-        Assert.That(editor.Scene, Is.SameAs(TestShell.Editor.SelectedTabItem.Value!.Context.Value.Object));
+        Assert.That(editor.Scene, Is.SameAs(TestShell.Editor.SelectedTabItem.Value!.Context.Value!.Object));
         Assert.That(editor.HistoryManager, Is.Not.Null);
         Assert.That(editor.HistoryManager.Root, Is.SameAs(editor.Scene));
     }

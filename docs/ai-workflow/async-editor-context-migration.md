@@ -43,10 +43,13 @@ using the editor.
 
 The host-owned editor collections are now read-only to consumers:
 
-- `EditorTabItem.Context` is `IReadOnlyReactiveProperty<IEditorContext>`;
+- `EditorTabItem.Context` is `IReadOnlyReactiveProperty<IEditorContext?>`; it is `null` while
+  replacement or terminal disposal is in progress, so callers must use a null-safe fallback.
 - `EditorService.TabItems` is `ICoreReadOnlyList<EditorTabItem>`.
 
 Use `EditorTabItem.ReplaceContextAsync` to replace a context. It serializes
 replacement with tab close, awaits the outgoing context, and consumes the new
-context if close wins. Add and remove tabs through `EditorService`; do not cast
+context if close wins. If outgoing teardown fails, the tab is terminally removed
+and the replacement task faults after cleanup. Add and remove tabs through
+`EditorService`; do not cast
 the read-only collections back to their concrete mutable implementations.

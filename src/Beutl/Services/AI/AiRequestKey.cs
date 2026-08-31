@@ -84,6 +84,8 @@ internal sealed class AiRequestKey : IDisposable
     private bool _resumedAttemptPending;
     private bool _disposed;
 
+    internal Action? BeforeAbandonPersistedRemoval { get; set; }
+
     public AiRequestKey(string? seed = null, bool namePending = false,
         AiRequestRecoveryContext? recoveryContext = null, string? operation = null)
     {
@@ -454,7 +456,28 @@ internal sealed class AiRequestKey : IDisposable
             }
             bool removed = persisted is null && key is not null;
             if (persisted is not null)
+            {
+                BeforeAbandonPersistedRemoval?.Invoke();
                 removed = _recoveryContext.Abandon(attempt);
+                if (!removed)
+                {
+                    AiPendingAttempt? current = _recoveryContext.Store.Find(
+                        attempt.AccountId,
+                        attempt.Operation,
+                        attempt.Fingerprint);
+                    if (current is null)
+                    {
+                        removed = true;
+                    }
+                    else
+                    {
+                        throw new InvalidDataException(
+                            StringComparer.Ordinal.Equals(current.Key, attempt.Key)
+                                ? "The AI recovery attempt has an active dispatch fence and cannot be abandoned."
+                                : "The AI recovery attempt changed while it was being abandoned.");
+                    }
+                }
+            }
             if (removed)
             {
                 string generationIdentity =

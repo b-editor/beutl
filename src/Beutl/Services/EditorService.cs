@@ -14,25 +14,37 @@ public sealed class EditorTabItem : IAsyncDisposable
     private Task? _disposeTask;
     private Task? _transitionTask;
     private bool _closing;
+    private bool _contextDisposeAttempted;
+    private Action<EditorTabItem>? _terminalFailureHandler;
     private string? _hash;
 
     public EditorTabItem(IEditorContext context)
     {
-        MutableContext = new ReactiveProperty<IEditorContext>(context);
-        FilePath = Context.Select(ctxt => ctxt?.Object.Uri?.LocalPath)
+        MutableContext = new ReactiveProperty<IEditorContext?>(context);
+        FilePath = Context
+            .Where(static ctxt => ctxt is not null)
+            .Select(static ctxt => ctxt!.Object.Uri?.LocalPath)
+            .Where(static path => path is not null)
+            .Select(static path => path!)
             .ToReadOnlyReactivePropertySlim()!;
         FileName = FilePath.Select(Path.GetFileName)
             .Do(_ => _hash = null)
             .ToReadOnlyReactivePropertySlim()!;
-        Extension = Context.Select(ctxt => ctxt?.Extension!)
+        Extension = Context
+            .Where(static ctxt => ctxt is not null)
+            .Select(static ctxt => ctxt!.Extension)
             .ToReadOnlyReactivePropertySlim()!;
         Commands = Context.Select(ctxt => ctxt?.Commands)
             .ToReadOnlyReactivePropertySlim();
     }
 
-    private IReactiveProperty<IEditorContext> MutableContext { get; }
+    private IReactiveProperty<IEditorContext?> MutableContext { get; }
 
-    public IReadOnlyReactiveProperty<IEditorContext> Context => MutableContext;
+    /// <summary>The active editor context, or <see langword="null"/> while replacement or closure is in progress.</summary>
+    public IReadOnlyReactiveProperty<IEditorContext?> Context => MutableContext;
+
+    internal void AttachOwner(Action<EditorTabItem> terminalFailureHandler)
+        => _terminalFailureHandler = terminalFailureHandler;
 
     public IReadOnlyReactiveProperty<string> FilePath { get; }
 
@@ -68,7 +80,9 @@ public sealed class EditorTabItem : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(context);
         IEditorContext? oldContext = null;
-        TaskCompletionSource<bool>? completion = null;
+        TaskCompletionSource? transition = null;
+        TaskCompletionSource<bool>? result = null;
+        Exception? publicationFailure = null;
         bool rejected;
         lock (_lifetimeGate)
         {
@@ -76,50 +90,143 @@ public sealed class EditorTabItem : IAsyncDisposable
             if (!rejected)
             {
                 oldContext = MutableContext.Value;
-                MutableContext.Value = null!;
-                completion = new TaskCompletionSource<bool>(
+                transition = new TaskCompletionSource(
                     TaskCreationOptions.RunContinuationsAsynchronously);
-                _transitionTask = completion.Task;
+                result = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _transitionTask = transition.Task;
             }
         }
 
         if (rejected)
             return new ValueTask<bool>(DisposeRejectedAndReturnFalseAsync(context));
 
-        _ = CompleteReplacementAsync(oldContext!, context, completion!);
-        return new ValueTask<bool>(completion!.Task);
+        try
+        {
+            MutableContext.Value = null;
+        }
+        catch (Exception ex)
+        {
+            publicationFailure = ex;
+        }
+
+        _ = CompleteReplacementAsync(
+            oldContext!,
+            context,
+            transition!,
+            result!,
+            publicationFailure);
+        return new ValueTask<bool>(result!.Task);
     }
 
     private async Task CompleteReplacementAsync(
         IEditorContext oldContext,
         IEditorContext replacement,
-        TaskCompletionSource<bool> completion)
+        TaskCompletionSource transition,
+        TaskCompletionSource<bool> result,
+        Exception? publicationFailure)
     {
         bool published = false;
+        List<Exception>? failures = publicationFailure is null ? null : [publicationFailure];
+
+        lock (_lifetimeGate)
+            _contextDisposeAttempted = true;
         try
         {
             await DisposeOwnedContextAsync(oldContext).ConfigureAwait(true);
-            lock (_lifetimeGate)
-            {
-                if (!_closing)
-                {
-                    MutableContext.Value = replacement;
-                    published = true;
-                }
-                _transitionTask = null;
-            }
-            if (!published)
-                await DisposeRejectedContextAsync(replacement).ConfigureAwait(true);
-            completion.TrySetResult(published);
         }
         catch (Exception ex)
         {
-            lock (_lifetimeGate)
-                _transitionTask = null;
-            await DisposeRejectedContextAsync(replacement).ConfigureAwait(true);
-            completion.TrySetException(ex);
+            RecordFailure(ref failures, ex);
         }
+
+        bool shouldPublish;
+        lock (_lifetimeGate)
+        {
+            shouldPublish = failures is null && !_closing;
+            if (shouldPublish)
+            {
+                _contextDisposeAttempted = false;
+            }
+            else if (failures is not null)
+            {
+                _closing = true;
+                _contextDisposeAttempted = true;
+            }
+        }
+
+        if (shouldPublish)
+        {
+            try
+            {
+                MutableContext.Value = replacement;
+                published = true;
+            }
+            catch (Exception ex)
+            {
+                RecordFailure(ref failures, ex);
+            }
+        }
+
+        bool closeWonAfterPublication;
+        lock (_lifetimeGate)
+        {
+            if (failures is not null)
+            {
+                _closing = true;
+                _contextDisposeAttempted = true;
+            }
+            closeWonAfterPublication = published && _closing;
+            _transitionTask = null;
+        }
+
+        if (!published)
+        {
+            Exception? rejectionFailure = await TryDisposeRejectedContextOwnedAsync(replacement)
+                .ConfigureAwait(true);
+            if (rejectionFailure is not null)
+                RecordFailure(ref failures, rejectionFailure);
+        }
+
+        transition.TrySetResult();
+        if (failures is null && published && !closeWonAfterPublication)
+        {
+            result.TrySetResult(true);
+            return;
+        }
+
+        if (failures is not null)
+        {
+            try
+            {
+                _terminalFailureHandler?.Invoke(this);
+            }
+            catch (Exception ex)
+            {
+                RecordFailure(ref failures, ex);
+            }
+        }
+
+        try
+        {
+            await DisposeAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            RecordFailure(ref failures, ex);
+        }
+
+        if (failures is null)
+            result.TrySetResult(false);
+        else
+            result.TrySetException(CreateFailure(failures));
     }
+
+    private static void RecordFailure(ref List<Exception>? failures, Exception exception)
+        => (failures ??= []).Add(exception);
+
+    private static Exception CreateFailure(List<Exception> failures)
+        => failures.Count == 1 ? failures[0] : new AggregateException(failures);
 
     private async Task DisposeOwnedContextAsync(IEditorContext context)
     {
@@ -133,22 +240,24 @@ public sealed class EditorTabItem : IAsyncDisposable
         finally { s_ownedDisposals.Value = previous; }
     }
 
-    private static async Task DisposeRejectedContextAsync(IEditorContext context)
+    private async Task<Exception?> TryDisposeRejectedContextOwnedAsync(IEditorContext context)
     {
         try
         {
-            await context.DisposeAsync().ConfigureAwait(false);
+            await DisposeOwnedContextAsync(context).ConfigureAwait(true);
+            return null;
         }
-        catch
+        catch (Exception ex)
         {
-            // The caller cannot retain ownership of a rejected context. Preserve the
-            // original replacement/close outcome while ensuring it is not leaked.
+            return ex;
         }
     }
 
-    private static async Task<bool> DisposeRejectedAndReturnFalseAsync(IEditorContext context)
+    private async Task<bool> DisposeRejectedAndReturnFalseAsync(IEditorContext context)
     {
-        await DisposeRejectedContextAsync(context).ConfigureAwait(false);
+        Exception? failure = await TryDisposeRejectedContextOwnedAsync(context).ConfigureAwait(true);
+        if (failure is not null)
+            throw failure;
         return false;
     }
 
@@ -179,37 +288,74 @@ public sealed class EditorTabItem : IAsyncDisposable
         Task? transition,
         TaskCompletionSource<object?> completion)
     {
+        List<Exception>? failures = null;
+        IReadOnlySet<EditorTabItem>? previous = s_ownedDisposals.Value;
+        var current = previous is null
+            ? new HashSet<EditorTabItem>(ReferenceEqualityComparer.Instance)
+            : new HashSet<EditorTabItem>(previous, ReferenceEqualityComparer.Instance);
+        current.Add(this);
+        s_ownedDisposals.Value = current;
         try
         {
             if (transition is not null)
             {
                 try { await transition.ConfigureAwait(true); }
-                catch { }
+                catch (Exception ex) { RecordFailure(ref failures, ex); }
             }
 
             IEditorContext? context;
+            bool disposeContext;
             lock (_lifetimeGate)
             {
                 context = MutableContext.Value;
-                MutableContext.Value = null!;
+                disposeContext = context is not null && !_contextDisposeAttempted;
+                if (disposeContext)
+                    _contextDisposeAttempted = true;
             }
-            if (context is not null)
-                await DisposeOwnedContextAsync(context).ConfigureAwait(true);
-
-            MutableContext.Dispose();
-            FilePath.Dispose();
-            FileName.Dispose();
-            Extension.Dispose();
-            Commands.Dispose();
-            IsSelected.Dispose();
+            try
+            {
+                MutableContext.Value = null;
+            }
+            catch (Exception ex)
+            {
+                RecordFailure(ref failures, ex);
+            }
+            if (disposeContext && context is not null)
+            {
+                try
+                {
+                    await DisposeOwnedContextAsync(context).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    RecordFailure(ref failures, ex);
+                }
+            }
         }
         catch (Exception ex)
         {
-            completion.TrySetException(ex);
-            return;
+            RecordFailure(ref failures, ex);
         }
+        finally
+        {
+            DisposeSurface(MutableContext, ref failures);
+            DisposeSurface(FilePath, ref failures);
+            DisposeSurface(FileName, ref failures);
+            DisposeSurface(Extension, ref failures);
+            DisposeSurface(Commands, ref failures);
+            DisposeSurface(IsSelected, ref failures);
+            s_ownedDisposals.Value = previous;
+            if (failures is null)
+                completion.TrySetResult(null);
+            else
+                completion.TrySetException(CreateFailure(failures));
+        }
+    }
 
-        completion.TrySetResult(null);
+    private static void DisposeSurface(IDisposable surface, ref List<Exception>? failures)
+    {
+        try { surface.Dispose(); }
+        catch (Exception ex) { RecordFailure(ref failures, ex); }
     }
 }
 
@@ -230,9 +376,38 @@ public sealed class EditorService
 
     internal void ClearTabItems() => _tabItems.Clear();
 
-    internal void AddTabItem(EditorTabItem item) => _tabItems.Add(item);
+    internal void AddTabItem(EditorTabItem item)
+    {
+        item.AttachOwner(RemoveFailedTabItem);
+        _tabItems.Add(item);
+    }
 
-    internal bool RemoveTabItem(EditorTabItem item) => _tabItems.Remove(item);
+    internal bool RemoveTabItem(EditorTabItem item)
+    {
+        List<Exception>? failures = null;
+        bool wasPresent = _tabItems.Contains(item);
+        bool removed = false;
+        try
+        {
+            removed = _tabItems.Remove(item);
+        }
+        catch (Exception ex)
+        {
+            failures = [ex];
+            removed = wasPresent && !_tabItems.Contains(item);
+        }
+        if (removed && ReferenceEquals(SelectedTabItem.Value, item))
+        {
+            try { SelectedTabItem.Value = null; }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
+        }
+        if (failures is not null)
+            throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
+        return removed;
+    }
+
+    private void RemoveFailedTabItem(EditorTabItem item)
+        => RemoveTabItem(item);
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
@@ -270,15 +445,17 @@ public sealed class EditorService
     public async ValueTask CloseTabItem(CoreObject obj)
     {
         if (TryGetTabItem(obj, out EditorTabItem? item))
-        {
-            RemoveTabItem(item);
-            await item.DisposeAsync();
-        }
+            await CloseTabItem(item);
     }
 
     public async ValueTask CloseTabItem(EditorTabItem item)
     {
-        RemoveTabItem(item);
-        await item.DisposeAsync();
+        List<Exception>? failures = null;
+        try { RemoveTabItem(item); }
+        catch (Exception ex) { failures = [ex]; }
+        try { await item.DisposeAsync(); }
+        catch (Exception ex) { (failures ??= []).Add(ex); }
+        if (failures is not null)
+            throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
     }
 }

@@ -35,7 +35,7 @@ public class ShellViewTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     [AvaloniaTest]

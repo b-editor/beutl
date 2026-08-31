@@ -24,7 +24,7 @@ public sealed class AiResultImporterTests
         Scene scene = project.Items.OfType<Scene>().First();
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     [AvaloniaTest]

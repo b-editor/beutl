@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
@@ -7,20 +8,23 @@ namespace Beutl.ViewModels.Dock;
 
 internal static class ToolContextDisposal
 {
-    private static readonly AsyncLocal<IToolContext?> s_current = new();
+    private static readonly AsyncLocal<WeakReference<IToolContext>?> s_current = new();
 
     public static bool IsCurrent(IToolContext context)
-        => ReferenceEquals(s_current.Value, context);
+        => s_current.Value is { } current
+            && current.TryGetTarget(out IToolContext? target)
+            && ReferenceEquals(target, context);
 
-    public static bool IsActive => s_current.Value is not null;
+    public static bool IsActive
+        => s_current.Value is { } current && current.TryGetTarget(out _);
 
     public static async ValueTask DisposeAsync(IToolContext context)
     {
         if (IsCurrent(context))
             return;
 
-        IToolContext? previous = s_current.Value;
-        s_current.Value = context;
+        WeakReference<IToolContext>? previous = s_current.Value;
+        s_current.Value = new WeakReference<IToolContext>(context);
         try
         {
             await context.DisposeAsync();
@@ -34,15 +38,16 @@ internal static class ToolContextDisposal
 
 internal class BeutlToolDockable : Tool, IAsyncDisposable
 {
-    private readonly IDisposable _isSelectedSubscription;
-    private readonly IDisposable _headerSubscription;
+    private IDisposable? _isSelectedSubscription;
+    private IDisposable? _headerSubscription;
     private readonly object _disposeGate = new();
+    private IToolContext? _toolContext;
     private Task? _disposeTask;
     private bool _isDisposed;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
     {
-        ToolContext = context;
+        _toolContext = context;
         EditViewModel = editViewModel;
 
         Id = CreateId(context);
@@ -75,7 +80,23 @@ internal class BeutlToolDockable : Tool, IAsyncDisposable
         PropertyChanged += OnPropertyChanged;
     }
 
-    public IToolContext ToolContext { get; }
+    public IToolContext ToolContext
+    {
+        get
+        {
+            lock (_disposeGate)
+                return _toolContext ?? throw new ObjectDisposedException(nameof(BeutlToolDockable));
+        }
+    }
+
+    internal bool TryGetToolContext([NotNullWhen(true)] out IToolContext? context)
+    {
+        lock (_disposeGate)
+        {
+            context = _toolContext;
+            return context is not null;
+        }
+    }
 
     public EditViewModel EditViewModel { get; }
 
@@ -138,12 +159,36 @@ internal class BeutlToolDockable : Tool, IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        PropertyChanged -= OnPropertyChanged;
-        _headerSubscription.Dispose();
-        _isSelectedSubscription.Dispose();
-        ToolContent = null;
-
-        await ToolContextDisposal.DisposeAsync(ToolContext);
+        IToolContext? context;
+        lock (_disposeGate)
+            context = _toolContext;
+        List<Exception>? errors = null;
+        try
+        {
+            try { PropertyChanged -= OnPropertyChanged; }
+            catch (Exception ex) { (errors ??= []).Add(ex); }
+            try { Interlocked.Exchange(ref _headerSubscription, null)?.Dispose(); }
+            catch (Exception ex) { (errors ??= []).Add(ex); }
+            try { Interlocked.Exchange(ref _isSelectedSubscription, null)?.Dispose(); }
+            catch (Exception ex) { (errors ??= []).Add(ex); }
+            try { ToolContent = null; }
+            catch (Exception ex) { (errors ??= []).Add(ex); }
+            try { Context = null; }
+            catch (Exception ex) { (errors ??= []).Add(ex); }
+            try
+            {
+                if (context is not null)
+                    await ToolContextDisposal.DisposeAsync(context);
+            }
+            catch (Exception ex) { (errors ??= []).Add(ex); }
+        }
+        finally
+        {
+            lock (_disposeGate)
+                _toolContext = null;
+        }
+        if (errors is { Count: > 0 })
+            throw new AggregateException(errors);
     }
 
     // Resolve empty per-instance/menu headers to a readable display or extension name.

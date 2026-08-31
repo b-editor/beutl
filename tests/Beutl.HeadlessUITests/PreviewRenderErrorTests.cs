@@ -45,7 +45,7 @@ public class PreviewRenderErrorTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        EditViewModel editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        EditViewModel editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
         // Opening a scene queues a preview render that is dispatched asynchronously to the
         // render thread; when it succeeds it posts a clear of PreviewRenderError. Drain it

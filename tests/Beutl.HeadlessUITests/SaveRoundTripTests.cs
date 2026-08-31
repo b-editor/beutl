@@ -34,7 +34,7 @@ public class SaveRoundTripTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
@@ -84,7 +84,7 @@ public class SaveRoundTripTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(

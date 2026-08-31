@@ -59,7 +59,7 @@ public class VideoFileImportTests
         HeadlessTestHelpers.Settle();
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        return (EditViewModel)tab.Context.Value;
+        return (EditViewModel)tab.Context.Value!;
     }
 
     [AvaloniaTest]

@@ -47,7 +47,7 @@ public class ElementAddEntryPointTests
         HeadlessTestHelpers.Settle();
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        var editor = (EditViewModel)tab.Context.Value;
+        var editor = (EditViewModel)tab.Context.Value!;
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()
                                             ?? throw new InvalidOperationException(
                                                 "The default editor layout did not create a timeline tab.");

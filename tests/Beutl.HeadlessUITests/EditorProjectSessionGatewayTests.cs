@@ -73,8 +73,8 @@ public class EditorProjectSessionGatewayTests
             Assert.That(result.Session.Source, Is.EqualTo(EditingSessionSource.LiveEditor));
             Assert.That(sessions.CurrentSession, Is.Not.Null);
             Assert.That(sessions.CurrentSession!.SessionId, Is.EqualTo(result.Session.SessionId));
-            Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value, Is.InstanceOf<EditViewModel>());
-            var editViewModel = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value!, Is.InstanceOf<EditViewModel>());
+            var editViewModel = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
             Assert.That(editViewModel.Scene, Is.SameAs(result.Session.Root));
         });
     }
@@ -203,7 +203,7 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.That(added.Project.Items.OfType<Scene>().Count(), Is.EqualTo(2));
             Assert.That(File.Exists(added.Scene.Uri!.LocalPath), Is.True);
-            var editViewModel = TestShell.Editor.SelectedTabItem.Value?.Context.Value as EditViewModel;
+            var editViewModel = TestShell.Editor.SelectedTabItem.Value?.Context.Value! as EditViewModel;
             Assert.That(editViewModel?.Scene, Is.SameAs(added.Scene));
             // The live session must be rebound to the newly activated scene, not left on the first.
             Assert.That(added.Session.Root, Is.SameAs(added.Scene));

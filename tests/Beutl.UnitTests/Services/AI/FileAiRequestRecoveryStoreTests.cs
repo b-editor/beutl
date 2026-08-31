@@ -441,7 +441,7 @@ public sealed class FileAiRequestRecoveryStoreTests
     }
 
     [Test]
-    public void DispatchedClaimRenewalExtendsFenceAndExpiredOwnerCanBeReclaimed()
+    public void DispatchedClaimRenewalExtendsFenceAndExpiredFenceCanBeAdopted()
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var store = new FileAiRequestRecoveryStore(_directory, () => now);
@@ -458,7 +458,16 @@ public sealed class FileAiRequestRecoveryStoreTests
         Assert.That(store.Abandon(attempt), Is.False);
 
         now = now.AddMinutes(16);
-        Assert.That(store.Abandon(attempt), Is.True);
+        using AiRequestRecoveryLease adopted = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(adopted.IsDispatched, Is.True);
+            Assert.That(adopted.Generation, Is.EqualTo(claim.Generation));
+            Assert.That(adopted.OwnerToken, Is.Not.EqualTo(claim.OwnerToken));
+            Assert.That(claim.Renew(), Is.False);
+            Assert.That(store.Abandon(attempt), Is.False);
+        });
     }
 
     [Test]
@@ -490,7 +499,7 @@ public sealed class FileAiRequestRecoveryStoreTests
     }
 
     [Test]
-    public void StaleOwnerCannotRenewAfterGenerationChanges()
+    public void ExpiredDispatchedFenceAdoptionFencesTheStaleOwner()
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var first = new FileAiRequestRecoveryStore(_directory, () => now);
@@ -502,8 +511,12 @@ public sealed class FileAiRequestRecoveryStoreTests
             attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
         Assert.That(claim.MarkDispatched(), Is.True);
         now = now.AddMinutes(16);
-        Assert.That(first.Abandon(attempt), Is.True);
+        using AiRequestRecoveryLease adopted = first.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(adopted.IsDispatched, Is.True);
+        Assert.That(adopted.OwnerToken, Is.Not.EqualTo(claim.OwnerToken));
         Assert.That(claim.Renew(), Is.False);
+        Assert.That(first.Abandon(attempt), Is.False);
     }
 
     [Test]
@@ -522,7 +535,7 @@ public sealed class FileAiRequestRecoveryStoreTests
     }
 
     [Test]
-    public void DispatchedClaimRemainsFenceAfterDisposeUntilExpiry()
+    public void DispatchedClaimRemainsFenceAfterDisposeAndExpiry()
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var store = new FileAiRequestRecoveryStore(_directory, () => now);
@@ -533,7 +546,15 @@ public sealed class FileAiRequestRecoveryStoreTests
         claim.Dispose();
         Assert.That(store.Abandon(attempt), Is.False);
         now = now.AddMinutes(16);
-        Assert.That(store.Abandon(attempt), Is.True);
+        using AiRequestRecoveryLease adopted = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(adopted.IsDispatched, Is.True);
+            Assert.That(adopted.Generation, Is.EqualTo(0));
+            Assert.That(adopted.OwnerToken, Is.Not.EqualTo(claim.OwnerToken));
+            Assert.That(store.Abandon(attempt), Is.False);
+        });
     }
 
     [Test]

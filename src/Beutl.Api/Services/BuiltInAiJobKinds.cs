@@ -232,10 +232,22 @@ internal abstract class MeteredAiJobRetryHandler(
             or AiProviderErrorException
             or AiRequestWasDeletedException;
 
-    public bool CanRetry(AiJob job, AiJobStatusSemantics status)
+    public virtual bool CanRetry(AiJob job, AiJobStatusSemantics status)
         => status.Outcome == AiJobOutcomes.Failed
             && job.CanRetry
-            && AiJobInputParameters.GetString(job, "prompt") is not null;
+            && HasCanonicalPrompt(job);
+
+    private static bool HasCanonicalPrompt(AiJob job)
+    {
+        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input
+            || !input.TryGetProperty("prompt", out JsonElement prompt)
+            || prompt.ValueKind != JsonValueKind.String)
+            return false;
+        string? value = prompt.GetString();
+        return !string.IsNullOrWhiteSpace(value)
+            && value.Length <= AiRequestLimits.MaxPromptLength
+            && string.Equals(value, value.Trim(), StringComparison.Ordinal);
+    }
 
     public async ValueTask<AiJobRetryPreflight> GetPreflightAsync(
         AiJob job,
@@ -522,19 +534,19 @@ internal sealed class AiVideoJobRetryHandler(
         modelCatalogService,
         retryContext)
 {
+    private static readonly HashSet<string> s_allowedProperties =
+        ["prompt", "durationSeconds", "resolution", "aspectRatio", "generateAudio", "seed"];
+
+    public override bool CanRetry(AiJob job, AiJobStatusSemantics status)
+        => base.CanRetry(job, status)
+            && TryParseReplayInput(job, out _);
+
     protected override AiOperationAvailabilityRequest CreateAvailabilityRequest(AiJob job)
-        => new AiOperationAvailabilityRequest.Video(GetDurationSeconds(job), job.Model);
+        => new AiOperationAvailabilityRequest.Video(ParseReplayInput(job).DurationSeconds, job.Model);
 
     protected override void ValidateRetryInputs(AiJob job)
     {
-        // Same rule as a reference image: the frames were not retained, so a
-        // repeat would be a different video charged at the same price.
-        if (AiJobInputParameters.Has(job, "firstFrame")
-            || AiJobInputParameters.Has(job, "lastFrame"))
-        {
-            throw new InvalidOperationException(
-                "A video generated from source frames cannot be retried.");
-        }
+        _ = ParseReplayInput(job);
     }
 
     protected override async Task DispatchAsync(
@@ -542,36 +554,113 @@ internal sealed class AiVideoJobRetryHandler(
         string idempotencyKey,
         bool isRepeat)
     {
-        string prompt = AiJobInputParameters.GetString(job, "prompt")
-            ?? throw new InvalidOperationException("The retained video prompt is missing.");
-        int durationSeconds = GetDurationSeconds(job);
-        string? resolution = AiJobInputParameters.GetString(job, "resolution");
-        string? aspectRatio = AiJobInputParameters.GetString(job, "aspectRatio");
+        VideoReplayInput input = ParseReplayInput(job);
         await videos.CreateAsync(
             new AiVideoGenerationRequest(
-                prompt,
-                durationSeconds,
-                new AiVideoResolutionId(resolution is { Length: > 0 } ? resolution : "720p"),
-                new AiVideoAspectRatioId(aspectRatio is { Length: > 0 } ? aspectRatio : "16:9"),
-                generateAudio: AiJobInputParameters.GetBoolean(job, "generateAudio") ?? true,
-                seed: AiJobInputParameters.GetInt32(job, "seed"),
+                input.Prompt,
+                input.DurationSeconds,
+                new AiVideoResolutionId(input.Resolution),
+                new AiVideoAspectRatioId(input.AspectRatio),
+                generateAudio: input.GenerateAudio,
+                seed: input.Seed,
                 model: job.Model,
                 idempotencyKey: idempotencyKey),
             CancellationToken.None);
     }
 
-    // The length the job ran at, so a rerun repeats the clip that was asked
-    // for. Only a length the server would refuse falls back, and any whole
-    // second in range is one some model takes.
-    private static int GetDurationSeconds(AiJob job)
+    private static VideoReplayInput ParseReplayInput(AiJob job)
     {
-        int? durationSeconds = AiJobInputParameters.GetInt32(job, "durationSeconds");
-        return durationSeconds is { } seconds
-               && seconds >= AiRequestLimits.MinVideoDurationSeconds
-               && seconds <= AiRequestLimits.MaxVideoDurationSeconds
-            ? seconds
-            : 6;
+        if (!TryParseReplayInput(job, out VideoReplayInput input))
+            throw new InvalidOperationException("The retained video request cannot be replayed exactly.");
+        return input;
     }
+
+    private static bool TryParseReplayInput(AiJob job, out VideoReplayInput result)
+    {
+        result = default;
+        if (job.InputParameters is not { ValueKind: JsonValueKind.Object } input)
+            return false;
+        foreach (JsonProperty property in input.EnumerateObject())
+        {
+            if (!s_allowedProperties.Contains(property.Name))
+                return false;
+        }
+        if (!input.TryGetProperty("prompt", out JsonElement prompt)
+            || prompt.ValueKind != JsonValueKind.String
+            || prompt.GetString() is not { } promptValue
+            || string.IsNullOrWhiteSpace(promptValue)
+            || promptValue.Length > AiRequestLimits.MaxPromptLength
+            || !string.Equals(promptValue, promptValue.Trim(), StringComparison.Ordinal))
+            return false;
+
+        int durationSeconds = 4;
+        if (input.TryGetProperty("durationSeconds", out JsonElement duration))
+        {
+            if (duration.ValueKind != JsonValueKind.Number
+                || !duration.TryGetInt32(out durationSeconds)
+                || durationSeconds < AiRequestLimits.MinVideoDurationSeconds
+                || durationSeconds > AiRequestLimits.MaxVideoDurationSeconds)
+                return false;
+        }
+
+        string resolution = "720p";
+        if (input.TryGetProperty("resolution", out JsonElement resolutionElement))
+        {
+            string? parsedResolution = resolutionElement.ValueKind == JsonValueKind.String
+                ? resolutionElement.GetString()
+                : null;
+            if (parsedResolution is not ("480p" or "720p" or "1080p" or "2K"))
+                return false;
+            resolution = parsedResolution;
+        }
+
+        string aspectRatio = "16:9";
+        if (input.TryGetProperty("aspectRatio", out JsonElement aspectElement))
+        {
+            string? parsedAspect = aspectElement.ValueKind == JsonValueKind.String
+                ? aspectElement.GetString()
+                : null;
+            if (parsedAspect is not ("1:1" or "16:9" or "9:16" or "4:3" or "3:4"))
+                return false;
+            aspectRatio = parsedAspect;
+        }
+
+        bool generateAudio = true;
+        if (input.TryGetProperty("generateAudio", out JsonElement audio))
+        {
+            if (audio.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                return false;
+            generateAudio = audio.GetBoolean();
+        }
+
+        int? seed = null;
+        if (input.TryGetProperty("seed", out JsonElement seedElement))
+        {
+            if (seedElement.ValueKind != JsonValueKind.Number
+                || !seedElement.TryGetInt32(out int seedValue)
+                || seedValue < AiRequestLimits.MinSeed
+                || seedValue > AiRequestLimits.MaxSeed)
+                return false;
+            seed = seedValue;
+        }
+
+        result = new VideoReplayInput(
+            promptValue,
+            durationSeconds,
+            resolution,
+            aspectRatio,
+            generateAudio,
+            seed);
+        return true;
+    }
+
+    private readonly record struct VideoReplayInput(
+        string Prompt,
+        int DurationSeconds,
+        string Resolution,
+        string AspectRatio,
+        bool GenerateAudio,
+        int? Seed);
 }
 
 internal sealed class AiVideoJobRefreshHandler(IAiVideoService videos) : IAiJobRefreshHandler

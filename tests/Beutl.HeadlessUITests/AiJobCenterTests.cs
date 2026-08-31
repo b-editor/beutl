@@ -83,7 +83,8 @@ public sealed class AiJobCenterTests
             Assert.That(item.IsFailed, Is.True);
             Assert.That(item.ShouldPoll, Is.False);
             Assert.That(item.IsTerminal, Is.True);
-            Assert.That(item.CanRetry, Is.True);
+            Assert.That(item.CanRetry, Is.False,
+                "A displayed prompt may be normalized, but a paid retry cannot change its retained body.");
             Assert.That(item.CanDelete, Is.True);
             Assert.That(item.CanAddToScene, Is.False);
         }
@@ -1243,7 +1244,7 @@ public sealed class AiJobCenterTests
         Scene scene = project.Items.OfType<Scene>().First();
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

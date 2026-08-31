@@ -116,6 +116,8 @@ internal sealed class AiRequestRecoveryLease : IDisposable
     private int _renewing;
     private static readonly TimeSpan RenewalCadence = TimeSpan.FromMinutes(5);
 
+    internal Action? BeforeReacquirePublish { get; set; }
+
     internal AiRequestRecoveryLease(
         FileAiRequestRecoveryStore store,
         string accountId,
@@ -123,7 +125,8 @@ internal sealed class AiRequestRecoveryLease : IDisposable
         string fingerprint,
         string key,
         int generation,
-        string ownerToken)
+        string ownerToken,
+        bool dispatched = false)
     {
         _store = store;
         AccountId = accountId;
@@ -132,6 +135,10 @@ internal sealed class AiRequestRecoveryLease : IDisposable
         Key = key;
         Generation = generation;
         OwnerToken = ownerToken;
+        _state = dispatched ? DispatchedState : ActiveState;
+        _everDispatched = dispatched ? 1 : 0;
+        if (dispatched)
+            StartRenewalTimer();
     }
 
     internal string AccountId { get; }
@@ -227,18 +234,35 @@ internal sealed class AiRequestRecoveryLease : IDisposable
                 != DispatchedState)
             return false;
 
-        bool reacquired = _store.ReacquireClaim(this);
-        if (reacquired)
+        try
         {
-            Volatile.Write(ref _state, DispatchedState);
-            StartRenewalTimer();
+            bool reacquired = _store.ReacquireClaim(this);
+            if (reacquired)
+            {
+                StartRenewalTimer();
+                BeforeReacquirePublish?.Invoke();
+                if (Interlocked.CompareExchange(ref _state, DispatchedState, DispatchingState)
+                    != DispatchingState)
+                {
+                    Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+                    return false;
+                }
+            }
+            else
+            {
+                Volatile.Write(ref _state, ReleasedState);
+                Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+            }
+            return reacquired;
         }
-        else
+        catch
         {
+            // A failed lock/read/write must not strand the lease in the
+            // transitional state. Dispose must remain terminating.
             Volatile.Write(ref _state, ReleasedState);
             Interlocked.Exchange(ref _renewalTimer, null)?.Dispose();
+            throw;
         }
-        return reacquired;
     }
 
     private void StartRenewalTimer()
@@ -529,16 +553,45 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             int generation = GetGenerationCore(accountId, operation, fingerprint);
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             DateTimeOffset now = _utcNow();
-            claims.RemoveAll(claim => claim.ExpiresAt <= now);
+            // A dispatched claim is a durable paid-job fence. Expiry controls
+            // renewal only; it cannot make the request abandonable or reusable.
+            claims.RemoveAll(claim => !claim.Dispatched && claim.ExpiresAt <= now);
             int removedStale = claims.RemoveAll(claim =>
                 claim.AccountId == accountId
                 && claim.Operation == operation
                 && claim.Fingerprint == fingerprint
                 && (claim.Generation != generation
                     || !StringComparer.Ordinal.Equals(claim.Key, key)));
-            if (claims.Any(claim => claim.AccountId == accountId
+            AiRequestRecoveryClaim? existingClaim = claims.FirstOrDefault(claim =>
+                claim.AccountId == accountId
                 && claim.Operation == operation
-                && claim.Fingerprint == fingerprint))
+                && claim.Fingerprint == fingerprint);
+            if (existingClaim is not null
+                && existingClaim.Dispatched
+                && existingClaim.ExpiresAt <= now)
+            {
+                // The renewal TTL has elapsed, but a dispatched provider call
+                // remains fenced. Atomically hand the durable fence to the
+                // recovering process, preserving key and generation while
+                // fencing the old owner token.
+                string adoptedOwner = $"{Guid.NewGuid():N}";
+                claims[claims.IndexOf(existingClaim)] = existingClaim with
+                {
+                    OwnerToken = adoptedOwner,
+                    ExpiresAt = now.Add(ClaimLifetime),
+                };
+                SaveClaims(claims);
+                return new AiRequestRecoveryLease(
+                    this,
+                    accountId,
+                    operation,
+                    fingerprint,
+                    key,
+                    generation,
+                    adoptedOwner,
+                    dispatched: true);
+            }
+            if (existingClaim is not null)
             {
                 if (removedStale > 0)
                     SaveClaims(claims);
@@ -546,9 +599,9 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             }
             if (claims.Count >= MaximumClaims)
             {
-                // Expired claims were removed above. A full live set cannot be
-                // safely evicted because each entry may still own a provider
-                // call, so fail closed until one releases.
+                // Expired non-dispatched claims were removed above. Dispatched
+                // fences are retained for exact-key adoption and cannot be
+                // evicted while they may own a provider call.
                 throw new InvalidDataException("AI request recovery claims are full.");
             }
 
@@ -589,7 +642,11 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             AiRequestRecoveryClaim current = claims[index];
             if (current.ExpiresAt <= now)
                 return false;
-            claims[index] = current with { Dispatched = true, ExpiresAt = now.Add(ClaimLifetime) };
+            claims[index] = current with
+            {
+                Dispatched = true,
+                ExpiresAt = now.Add(ClaimLifetime),
+            };
             SaveClaims(claims);
             return true;
         }
@@ -722,10 +779,11 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 && claim.Operation == attempt.Operation
                 && claim.Fingerprint == attempt.Fingerprint
                 && claim.Key == attempt.Key
-                && claim.ExpiresAt > now))
+                && (claim.Dispatched || claim.ExpiresAt > now)))
             {
-                // A request actively being dispatched cannot be abandoned by a
-                // competing process; the owner will release it on settle/error.
+                // A dispatched request cannot be abandoned by a competing
+                // process. The exact owner (or a later fence adopter) must
+                // settle it; expiry alone is not proof of provider terminality.
                 return false;
             }
 
@@ -773,7 +831,24 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 return false;
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             DateTimeOffset now = _utcNow();
-            claims.RemoveAll(claim => claim.ExpiresAt <= now);
+            claims.RemoveAll(claim => !claim.Dispatched && claim.ExpiresAt <= now);
+            AiRequestRecoveryClaim? matchingDispatched = claims.FirstOrDefault(claim =>
+                claim.AccountId == accountId
+                && claim.Operation == operation
+                && claim.Fingerprint == fingerprint
+                && claim.Key == key
+                && claim.Dispatched);
+            if (matchingDispatched is not null
+                && (ownerToken is null
+                    || !StringComparer.Ordinal.Equals(matchingDispatched.OwnerToken, ownerToken)
+                    || generation is null
+                    || matchingDispatched.Generation != generation.Value))
+            {
+                // Once provider work was dispatched, only the exact owner can
+                // settle it or withdraw it after an authoritative no-reservation
+                // response. Process loss and lease expiry are not terminality.
+                return false;
+            }
             if (claims.Any(claim => claim.AccountId == accountId
                 && claim.Operation == operation
                 && claim.Fingerprint == fingerprint
@@ -829,6 +904,21 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             if (removed.Length == 0)
                 return;
 
+            List<AiRequestRecoveryClaim> claims = LoadClaims();
+            if (removed.Any(attempt => claims.Any(claim =>
+                claim.AccountId == attempt.AccountId
+                && claim.Operation == attempt.Operation
+                && claim.Fingerprint == attempt.Fingerprint
+                && claim.Key == attempt.Key
+                && claim.Dispatched)))
+            {
+                // Bulk retirement has no owner-token proof. Never remove a
+                // row whose provider request was dispatched; the exact owner
+                // or a later fence adopter must settle it individually.
+                throw new InvalidDataException(
+                    "A dispatched AI recovery attempt cannot be settled in bulk.");
+            }
+
             foreach (AiPendingAttempt attempt in removed)
                 AdvanceGenerationCore(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
 
@@ -838,6 +928,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 && identity.Fingerprint == record.Fingerprint
                 && identity.Key == record.Key));
             Save(records);
+            foreach (AiPendingAttempt attempt in removed)
+                InvalidateClaimsCore(attempt.AccountId, attempt.Operation, attempt.Fingerprint);
             foreach (AiPendingAttempt attempt in removed)
             {
                 foreach (AiRequestRecoverySource source in attempt.EffectiveSources)

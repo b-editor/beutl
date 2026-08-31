@@ -214,7 +214,9 @@ public partial class MainView
         if (project != null && selectedTabItem != null)
         {
             string filePath = selectedTabItem.FilePath.Value;
-            ProjectItem? projItem = project.Items.FirstOrDefault(i => i == selectedTabItem.Context.Value.Object);
+            ProjectItem? projItem = selectedTabItem.Context.Value is { } context
+                ? project.Items.FirstOrDefault(i => i == context.Object)
+                : null;
             if (projItem == null)
                 return;
 

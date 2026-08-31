@@ -36,7 +36,8 @@ public sealed class OutputProfileItem : IDisposable
 
         if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
         {
-            tabItem.Context.Value.IsEnabled.Value = false;
+            if (tabItem.Context.Value is { } context)
+                context.IsEnabled.Value = false;
             _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
         }
         else
@@ -51,7 +52,8 @@ public sealed class OutputProfileItem : IDisposable
 
         if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
         {
-            tabItem.Context.Value.IsEnabled.Value = true;
+            if (tabItem.Context.Value is { } context)
+                context.IsEnabled.Value = true;
             _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
         }
         else

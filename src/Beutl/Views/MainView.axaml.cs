@@ -251,8 +251,9 @@ public sealed partial class MainView : UserControl
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
+                    if (selectedTab.Context.Value is { } selectedContext
+                        && editorExtension.TryCreateContext(
+                            selectedContext.Object,
                             new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
                             out IEditorContext? context))
                     {

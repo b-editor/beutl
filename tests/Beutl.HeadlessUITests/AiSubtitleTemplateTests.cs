@@ -51,7 +51,7 @@ public class AiSubtitleTemplateTests
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
 
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     private static TranslateTransform GetTranslate(TextBlock textBlock)
