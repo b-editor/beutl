@@ -507,11 +507,6 @@ public sealed class ShaderDescriptionTests
         });
     }
 
-    /// <remarks>
-    /// The description keeps the builder's binding lists instead of copying them. A retained builder that could
-    /// still append would add a binding the description never validated against its source and never carried into
-    /// its structural identity, so the stage's cache key would stop describing what the stage binds.
-    /// </remarks>
     [Test]
     public void BuilderRetainedPastConstruction_RejectsFurtherDeclarations()
     {
@@ -589,13 +584,6 @@ public sealed class ShaderDescriptionTests
         });
     }
 
-    /// <remarks>
-    /// ValidateBindings reads the builder's own name set instead of rebuilding one, so a name may only join that
-    /// set together with the binding that carries it. A declaration that throws after its name is accepted must
-    /// leave nothing behind: the execution paths write only the bindings the description holds, and an SkSL
-    /// uniform nothing writes reads as zero in the shader without any error, so a stale name would turn a
-    /// rejected description into silently wrong pixels.
-    /// </remarks>
     [Test]
     public void DeclarationFailingAfterItsNameIsAccepted_LeavesThatNameUnsupplied()
     {

@@ -8,28 +8,6 @@ using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// Pins that a custom effect written outside the friend set can run a nested filter pipeline that allocates
-/// from the caller's <see cref="IRenderTargetFactory"/>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="FilterEffectContext.CustomEffect{T}(T, Action{T, CustomFilterEffectContext})"/> is the
-/// documented extensibility point, and the <see cref="CustomFilterEffectContext.Targets"/> it hands the
-/// callback are the factory's surfaces whenever the host set
-/// <see cref="RenderNodeRendererOptions.TargetFactory"/>. An activator built through
-/// <see cref="FilterEffectActivator"/>'s public constructor cannot reach that factory, so its flush buffer
-/// comes from the process-wide shared graphics context and the callback ends up drawing a factory-made input
-/// into a surface from somewhere else — two graphics contexts inside one flush.
-/// </para>
-/// <para>
-/// The test proves provenance by reference identity rather than by observing a device mismatch: the factory
-/// here is backed by the same allocator the engine would have used, so the two paths differ only in *who*
-/// produced the buffer, which is exactly the property at issue. The standalone assertion is the negative
-/// control — it shows the recording factory can miss an allocation, so the seam assertion passing is not
-/// vacuous.
-/// </para>
-/// </remarks>
 [TestFixture]
 public sealed class CustomEffectAllocatorSeamContractTests
 {

@@ -119,13 +119,6 @@ public sealed class FilterEffectCrashSafetyTests
            && double.IsFinite(rect.Width)
            && double.IsFinite(rect.Height);
 
-    /// <remarks>
-    /// The half-initialized state is built here, on purpose: a zero-extent attachment is what a caller that
-    /// never finished initializing hands the pipeline, and the point is that it degrades to a no-op instead
-    /// of crashing. Creating that attachment is itself illegal, so with validation on the layer reports it
-    /// and the harness fails the test for an error the test asked for. It is skipped there rather than
-    /// filtered by category, so the gate keeps covering everything a category could be forgotten on.
-    /// </remarks>
     [Test]
     public void PixelSort_half_initialized_gpu_path_degrades_to_noop()
     {

@@ -71,11 +71,6 @@ public sealed class ParticleRenderNodeAllocationTests
             size.Width <= factory.MaximumDimension && size.Height <= factory.MaximumDimension));
     }
 
-    /// <remarks>
-    /// A particle is scaled and then rotated about the source's own centre, so a turned square reaches further
-    /// along both axes than the square itself. This rectangle is what the layer buffer is allocated from, so a
-    /// bound that ignores rotation clips the corners off every particle instead of merely mismeasuring them.
-    /// </remarks>
     [Test]
     public void RotatedParticles_AllocateMoreThanTheUnrotatedFootprint()
     {
@@ -90,11 +85,6 @@ public sealed class ParticleRenderNodeAllocationTests
         });
     }
 
-    /// <remarks>
-    /// A particle is drawn through its own scale and rotation, so the blit resamples the source. Point
-    /// sampling replicates whichever texels the sample points land on, so the edge steps through a handful of
-    /// repeated alphas instead of a gradient - the count of distinct edge alphas separates the two.
-    /// </remarks>
     [Test]
     public void ScaledParticles_AreResampledRatherThanPointSampled()
     {
@@ -123,12 +113,6 @@ public sealed class ParticleRenderNodeAllocationTests
         });
     }
 
-    /// <remarks>
-    /// <see cref="ParticleEmitter.EndOpacityMultiplier"/> defaults to zero, so fading to
-    /// <c>CurrentOpacity == 0</c> is an ordinary state for a still-alive particle. The drawing loop skips such a
-    /// particle, and the bounds loop has to skip it on the same predicate: the union is what the layer buffer is
-    /// allocated from, so a distant invisible particle otherwise buys a buffer that renders nothing.
-    /// </remarks>
     [Test]
     public void TransparentParticles_AreExcludedFromTheAllocatedBounds()
     {
@@ -153,10 +137,6 @@ public sealed class ParticleRenderNodeAllocationTests
         });
     }
 
-    /// <remarks>
-    /// The drawing loop rejects a non-finite opacity, not merely a non-positive one - <c>NaN &lt;= 0</c> is false,
-    /// so a bare sign test would let a NaN opacity through and hand the union an unbounded coordinate.
-    /// </remarks>
     [Test]
     public void NonFiniteOpacityParticles_AreExcludedFromTheAllocatedBounds()
     {
@@ -173,11 +153,6 @@ public sealed class ParticleRenderNodeAllocationTests
             "A NaN opacity is never drawn, so it must not enlarge the layer either.");
     }
 
-    /// <remarks>
-    /// The opposite side of the same predicate: an opacity that is merely faint still reaches the canvas, so the
-    /// layer has to cover it. Only a non-positive or non-finite opacity may be dropped. The check is applied to
-    /// the normalized opacity, so the value here has to stay positive after the divide by 100.
-    /// </remarks>
     [Test]
     public void FaintButVisibleParticles_StillEnlargeTheAllocatedBounds()
     {
@@ -196,9 +171,6 @@ public sealed class ParticleRenderNodeAllocationTests
             "A positive opacity still draws, however faint, so its extent stays in the union.");
     }
 
-    /// <remarks>
-    /// The liveness and scale filters the bounds loop already applied must keep working alongside the opacity one.
-    /// </remarks>
     [Test]
     public void DeadOrZeroSizedParticles_RemainExcludedFromTheAllocatedBounds()
     {

@@ -118,11 +118,6 @@ public sealed class RenderScaleMappingContractTests
         });
     }
 
-    /// <remarks>
-    /// A many-input operation that resamples asymmetrically has nowhere but its description to say so: its
-    /// scale contract carries demand back only for a one-input map, so the description has to carry a
-    /// backward demand map of its own.
-    /// </remarks>
     [Test]
     public void ACombineCanRaiseTheDemandOfOnlyTheInputItEnlarges()
     {
@@ -141,11 +136,6 @@ public sealed class RenderScaleMappingContractTests
         });
     }
 
-    /// <remarks>
-    /// The control for the case above: the same graph with the argument omitted asks both inputs for the
-    /// density it was itself asked for, so the pair shows the mapping is what moved the density and not the
-    /// shape of the node around it.
-    /// </remarks>
     [Test]
     public void ACombineThatDeclaresNoPerInputDemandAsksEveryInputForTheSameDensity()
     {

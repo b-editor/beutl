@@ -2108,11 +2108,7 @@ public sealed class RenderTools(
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         PixelSize frameSize = scene.FrameSize;
 
-        // The device's limit rather than the engine ceiling: a scale this admits is one the render is about
-        // to hand the allocator, and a device below the ceiling refuses it there instead. A tool call runs on
-        // the MCP invocation thread and only StillRenderer / VideoExporter reach RenderThread.Dispatcher, so
-        // the allocation limit here is the CPU raster's; what binds the render is what that dispatcher will
-        // resolve.
+        // Validate against the allocator reached by StillRenderer or VideoExporter, not the engine ceiling.
         int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
         double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
         double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);

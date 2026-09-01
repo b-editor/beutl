@@ -12,15 +12,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins the buffer lifetimes the recording path depends on, and the per-visit allocation they buy.
-/// </summary>
-/// <remarks>
-/// A recorded fragment outlives the request that made it - the recording cache replays it on later frames -
-/// so only a buffer nothing reads after its recording sealed may come from a pool. These tests hold that
-/// line from both sides: the pooled scratch is returned exactly once even when a replay throws, and nothing
-/// a replay leaves behind aliases it.
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class RecordingBufferPoolingTests

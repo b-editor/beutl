@@ -47,11 +47,6 @@ public sealed class RenderCacheResolutionTests
         });
     }
 
-    /// <remarks>
-    /// A node reachable from two parents is recorded once per parent. Both recordings point at the same
-    /// RenderNodeCache, so offering both as candidates lets one family try to publish two independent outputs
-    /// to one cache, which the executor rejects by failing the frame.
-    /// </remarks>
     [Test]
     public void Recorder_OffersOneCandidatePerNodeEvenWhenTwoParentsShareIt()
     {
@@ -877,10 +872,6 @@ public sealed class RenderCacheResolutionTests
         });
     }
 
-    /// <remarks>
-    /// An authored scope that transforms its input in the input's own coordinates says so, and only then does
-    /// its scale contract describe the step between them completely enough to carry demand back.
-    /// </remarks>
     [Test]
     public void MaterializationDemands_AnInputLogicalScopeCarriesItsDeclaredDemandBackwards()
     {
@@ -899,10 +890,6 @@ public sealed class RenderCacheResolutionTests
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
     }
 
-    /// <remarks>
-    /// The default, and what an appended transform is: the destination matrix already carries the scope's
-    /// scale, so raising the input's demand would rasterize it enlarged and then draw it enlarged again.
-    /// </remarks>
     [Test]
     public void MaterializationDemands_AnAmbientTargetScopeLeavesTheDemandAlone()
     {
@@ -921,11 +908,6 @@ public sealed class RenderCacheResolutionTests
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(1)));
     }
 
-    /// <remarks>
-    /// A raw scope's callback is opaque, so the declared scale contract is the only statement of how the
-    /// replayed input is consumed. Forwarding the target demand past a scope that resamples rasterizes an
-    /// unbounded child at the target density and then enlarges it.
-    /// </remarks>
     [Test]
     public void MaterializationDemands_RawTargetScopeCarriesItsDeclaredDemandBackwards()
     {
@@ -943,11 +925,6 @@ public sealed class RenderCacheResolutionTests
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
     }
 
-    /// <remarks>
-    /// The companion to <see cref="MaterializationDemands_RawTargetScopeCarriesItsDeclaredDemandBackwards"/>:
-    /// a scope whose enlargement is already carried by the destination matrix declares no backward map, and
-    /// pre-scaling its input there would rasterize it large and then draw it scaled again.
-    /// </remarks>
     [Test]
     public void MaterializationDemands_RawTargetScopeWithoutABackwardMapLeavesTheDemandAlone()
     {

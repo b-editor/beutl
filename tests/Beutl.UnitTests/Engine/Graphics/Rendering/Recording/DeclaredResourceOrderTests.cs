@@ -5,17 +5,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins that the order of a <c>slots:</c> declaration survives recording and reaches the structural plan key,
-/// and that the order of the <c>resources:</c> argument bound against it does not.
-/// </summary>
-/// <remarks>
-/// <c>StructuralPlanCache</c> writes the binding count and then each slot's value type in declaration order, so
-/// two nodes that declare the same slots in a different order are different plans. Recording therefore must not
-/// sort or canonicalize the declaration on the way there. The bindings are a different matter: the description
-/// reorders them into the declared order, so an author who writes the same two bindings the other way round
-/// keeps one plan instead of silently compiling a second one for the same operation.
-/// </remarks>
 [TestFixture]
 public sealed class DeclaredResourceOrderTests
 {

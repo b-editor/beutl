@@ -49,10 +49,6 @@ public class FontNameTests
         Assert.That(FontName.ReadUInt32(reader), Is.EqualTo(expected));
     }
 
-    /// <remarks>
-    /// The reads previously went through <c>BitConverter</c> over a reversed copy of the bytes, which is
-    /// host-endianness dependent and therefore only defined on the little-endian platforms Beutl supports.
-    /// </remarks>
     [TestCaseSource(nameof(UInt16Patterns))]
     public void ReadUInt16_AgreesWithTheReversedBitConverterItReplaced(byte[] bytes, ushort expected)
     {
@@ -69,7 +65,6 @@ public class FontNameTests
         });
     }
 
-    /// <inheritdoc cref="ReadUInt16_AgreesWithTheReversedBitConverterItReplaced" />
     [TestCaseSource(nameof(UInt32Patterns))]
     public void ReadUInt32_AgreesWithTheReversedBitConverterItReplaced(byte[] bytes, uint expected)
     {
@@ -95,10 +90,6 @@ public class FontNameTests
         Assert.Throws<EndOfStreamException>(() => FontName.ReadUInt16(reader));
     }
 
-    /// <remarks>
-    /// Every field this asserts on is a big-endian uint16 whose byte-swapped reading selects a different
-    /// record or a different string, so the end-to-end parse fails if any read loses its byte order.
-    /// </remarks>
     [Test]
     public void ReadFontName_SelectsTheUsEnglishWindowsRecord()
     {

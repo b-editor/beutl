@@ -9,24 +9,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A blur-backed filter must only sample the content it was given.
-/// </summary>
-/// <remarks>
-/// The filtered flush used to open its Skia layer without bounds, so Skia sized the layer from the
-/// clip and the blur sampled past the drawn content into uninitialized device memory. On a real GPU
-/// that memory is whatever the allocator last left there, so the undefined values reached the output
-/// as NaN. Asserting on finiteness is the point: a NaN reads as "some value" through every ordinary
-/// bitmap comparison, so an image-difference assertion alone does not catch it.
-///
-/// These are guards, not a reproduction. The defect only becomes observable when the sampled memory
-/// happens to hold non-zero data, which depends on the driver's allocator; on the SwiftShader host
-/// used to find it, the reproduction needed a specific sequence of whole-scene renders that a unit
-/// test cannot pin down. They were verified to pass both with and without the production fix, so
-/// they document the contract and would catch a gross regression, but they are not a red-then-green
-/// characterization test. Reproducing the original failure takes an out-of-process harness that
-/// renders several whole scenes in sequence and then checks every channel for non-finite values.
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class BlurFilterLayerBoundsTests
@@ -47,11 +29,6 @@ public sealed class BlurFilterLayerBoundsTests
         AssertFiniteOutput(blur, "blur");
     }
 
-    /// <summary>
-    /// The original reproduction. The undefined values only become observable once an earlier render
-    /// has left non-zero data in the memory the blur samples, and an image source is what makes the
-    /// engine take the filtered-flush path this guards.
-    /// </summary>
     [Test]
     public void ShadowedContentOverAnImage_StaysFiniteAfterAnEarlierRender()
     {

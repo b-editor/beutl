@@ -8,13 +8,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A custom (imperative) filter effect crops and re-lays-out its input in whole device pixels, so the
-/// input has to be rasterized on a grid whose phase is zero. An effect that widens its layout box by an
-/// odd half device pixel leaves the source off that grid; snapping it costs sub-pixel position, but
-/// resampling it onto the grid spreads the outer edge over two pixels, and a DrawableBrush magnifying
-/// the result turns that half pixel into a visibly soft fill edge.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public class CustomEffectDeviceGridPhaseTests

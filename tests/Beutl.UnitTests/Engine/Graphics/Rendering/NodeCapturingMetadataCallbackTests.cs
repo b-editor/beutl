@@ -9,17 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins what a metadata callback may be written against: the node that declares it, and nothing else the
-/// identity validator names.
-/// </summary>
-/// <remarks>
-/// The validator reads one object - the delegate's target - so a lambda that closes over anything besides
-/// <see langword="this"/> arrives as a compiler display class and has always been accepted, however many
-/// resources its fields hold. What the list decides is therefore what the callback <em>is</em>: a method
-/// group bound to one of those types, or a lambda inside one that reads nothing but its own instance. Only
-/// the node case is admitted here.
-/// </remarks>
 [TestFixture]
 public sealed class NodeCapturingMetadataCallbackTests
 {
@@ -46,11 +35,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         });
     }
 
-    /// <remarks>
-    /// The reason the plan key stands for a method rather than a delegate. A static callback is a cached
-    /// singleton, so two nodes writing one already share a plan; a callback that reads its own node is a
-    /// different delegate per node and would otherwise compile a plan each.
-    /// </remarks>
     [Test]
     public void TwoNodesOfOneTypeReadingDifferentValues_CompileOneStructuralPlan()
     {
@@ -87,11 +71,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         Assert.DoesNotThrow(() => node.CreateBounds());
     }
 
-    /// <remarks>
-    /// The property that lets a plan key stand for a method: one declaration is one identity, and two
-    /// declarations are two - including two closed instantiations of one generic callback, which the
-    /// delegate-keyed form separated because C# caches a static lambda per instantiation.
-    /// </remarks>
     [Test]
     public void StructuralIdentity_SeparatesDeclarationsAndGenericInstantiations()
     {
@@ -166,10 +145,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         => new TestCaseData(RuntimeHelpers.GetUninitializedObject(typeof(T)))
             .SetArgDisplayNames(typeof(T).Name);
 
-    /// <remarks>
-    /// The exemption is written into the disposability clause alone, so the mutable-payload clause still
-    /// answers for a node that is also a collection.
-    /// </remarks>
     [Test]
     public void ANodeThatIsAlsoAMutableCollection_IsStillRejected()
     {
@@ -179,11 +154,6 @@ public sealed class NodeCapturingMetadataCallbackTests
             () => RenderIdentityKeyValidator.ThrowIfInvalid(node, "callback"));
     }
 
-    /// <remarks>
-    /// What the node exemption does not do. A resource a callback reads through its node was never visible
-    /// here - the target is the node, and the validator reads no field of it - so nothing that used to be
-    /// rejected on that ground has started passing. A callback that <em>is</em> a resource still is.
-    /// </remarks>
     [Test]
     public void ACallbackReachingAResourceThroughItsNode_IsNotWhatTheValidatorReads()
     {
@@ -204,12 +174,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         });
     }
 
-    /// <remarks>
-    /// Why the analyzer still has to report a capture of anything besides <see langword="this"/>. The
-    /// validator reads the delegate's target, and a lambda closing over a local arrives with a compiler
-    /// display class as its target - none of the types on the list, whatever its fields hold - so the
-    /// runtime admits it and nothing here governs what that field is later assigned.
-    /// </remarks>
     [Test]
     public void ALambdaClosingOverALocal_IsNotWhatTheValidatorReads()
     {

@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
-#
-# SC-008 — runs the paired render-pipeline benchmark as baseline A, feature, baseline B on one machine and
-# analyses the result into a bootstrap confidence-interval manifest under this directory.
-#
-# The A/feature/B ordering is the drift control the criterion specifies: the analyzer first bootstraps
-# median(B) / median(A) and refuses to pool the baseline unless that interval contains 1.0 with a symmetric
-# factor of at most 1.20. Machine drift between the two baseline runs therefore fails the run instead of being
-# attributed to the feature.
-#
+# SC-008: run baseline A, feature, and baseline B, then write a bootstrap confidence-interval manifest.
+# Bracketing detects machine drift; pooling requires the B/A interval to stay within a symmetric factor of 1.20.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -135,8 +128,6 @@ run_side() {
         }
 }
 
-# Baseline, feature, baseline: the repeat pair brackets the feature run so drift shows up as an unstable
-# baseline rather than as an effect.
 run_side "baseline-a" "$baseline_project" "$baseline_fusion_mode"
 run_side "feature" "$benchmark_project" "$feature_fusion_mode"
 run_side "baseline-b" "$baseline_project" "$baseline_fusion_mode"

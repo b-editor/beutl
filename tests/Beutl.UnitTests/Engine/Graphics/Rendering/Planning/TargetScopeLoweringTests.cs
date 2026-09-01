@@ -502,12 +502,6 @@ public sealed class TargetScopeLoweringTests
         Assert.That(error!.Message, Does.Contain("finite").And.Contain("target domain").IgnoreCase);
     }
 
-    /// <remarks>
-    /// The scope a capture is used in decides its target domain, and an author has no way to read that when
-    /// building the description, so bounds sticking out of it cannot be a precondition they are able to meet.
-    /// The capture's value is cleared before the copy, so the part with no pixels behind it reads transparent,
-    /// which is the same answer as capturing an area nothing drew into.
-    /// </remarks>
     [Test]
     public void FullTargetCaptureBoundsOutsideFiniteLayer_LowerToTransparentInsteadOfFailing()
     {

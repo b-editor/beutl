@@ -264,14 +264,10 @@ get_feature_paths() {
 
     # Resolve feature directory.  Priority:
     #   1. SPECIFY_FEATURE_DIRECTORY env var (explicit override)
-    #   2. Branch-name prefix lookup, when it names a feature directory that exists
-    #   3. .specify/feature.json "feature_directory" key (persisted by /speckit.specify)
+    #   2. Existing feature directory matching the branch prefix
+    #   3. Shared .specify/feature.json fallback
     #
-    # The branch outranks the pin because feature.json is a single checked-in value shared by every
-    # feature in the repo: whichever feature wrote it last would otherwise redirect the analysis,
-    # planning and task scripts on every other feature's branch to its own directory, silently.
-    # The pin still resolves a branch whose name says nothing about which feature it belongs to,
-    # which is the case it was added for.
+    # A matching branch outranks the shared pin; the pin handles branches with no feature prefix.
     local feature_dir=''
     if [[ -n "${SPECIFY_FEATURE_DIRECTORY:-}" ]]; then
         feature_dir="$SPECIFY_FEATURE_DIRECTORY"
@@ -286,13 +282,11 @@ get_feature_paths() {
         if [[ -d "$_branch_dir" ]]; then
             feature_dir="$_branch_dir"
         else
-            # Shared, set -e-safe parser: jq -> python3 -> grep/sed. Returns empty on
-            # missing/unparseable/unset so we fall back to whatever the branch named.
+            # Parse with jq, python3, then grep/sed; failure falls back to the branch result.
             local _fd
             _fd=$(read_feature_json_feature_directory "$repo_root")
             if [[ -n "$_fd" ]]; then
                 feature_dir="$_fd"
-                # Normalize relative paths to absolute under repo root
                 [[ "$feature_dir" != /* ]] && feature_dir="$repo_root/$feature_dir"
             elif [[ -n "$_branch_dir" ]]; then
                 feature_dir="$_branch_dir"

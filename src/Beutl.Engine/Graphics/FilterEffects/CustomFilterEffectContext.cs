@@ -63,49 +63,28 @@ public class CustomFilterEffectContext
     public float OutputScale { get; }
 
     /// <summary>
-    /// Gets the nominal working density <c>w</c> requested for this callback. <see cref="CreateTarget"/>
-    /// can clamp a specific allocation below this value; call <see cref="ResolveTargetDensity"/> before
-    /// allocation or use the returned target's <see cref="EffectTarget.Scale"/> for device-pixel math.
+    /// Gets the nominal working density. Use <see cref="ResolveTargetDensity"/> or the target scale after clamping.
     /// </summary>
     public float WorkingScale { get; }
 
     /// <summary>Working-scale ceiling forwarded into canvases from <see cref="Open"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; }
 
-    /// <summary>
-    /// Gets the finite logical region the request delivers its output to, or <see langword="null"/> when
-    /// the request declares none.
-    /// </summary>
+    /// <summary>Gets the request-level delivery region, or <see langword="null"/>.</summary>
     /// <remarks>
-    /// <para>
-    /// This is the request-level value <see cref="RenderNodeContext.TargetDomain"/> reports, carried through
-    /// unchanged rather than mapped into the coordinates of the targets this callback holds. An effect nested
-    /// under a transform therefore sees a domain offset from its own space.
-    /// </para>
-    /// <para>
-    /// Feed it to <see cref="Rect.TransformToDeliveredAABB"/> when bounding a matrix applied to a target.
-    /// That union only ever widens the box <see cref="Rect.TransformToAABB(Matrix, float)"/> alone returns, so
-    /// an offset domain costs buffer area and never content; what it buys is the perspective case, where the
-    /// plain box collapses to <see cref="Rect.Empty"/> for a rectangle whose front sliver stays nearer than
-    /// <see cref="Rect.DefaultNearPlane"/> — pixels the rasterizer still draws.
-    /// </para>
+    /// The value is not mapped into effect-local space. Use <see cref="Rect.TransformToDeliveredAABB"/> when
+    /// bounding a target transform.
     /// </remarks>
     public Rect? TargetDomain { get; }
 
-    /// <summary>
-    /// Gets the largest device extent an allocation from this context may have, on both axes.
-    /// </summary>
+    /// <summary>Gets the maximum allocation extent on either axis.</summary>
     /// <remarks>
-    /// Resolved per call rather than in the constructor: a context can outlive the moment the graphics
-    /// context first answers, and until it does the engine ceiling stands in for the device's own limit.
+    /// Resolved per call because the graphics context may become available after this context is created.
     /// </remarks>
     public int MaxBufferDimension
         => _maxBufferDimension ?? RenderScaleUtilities.ResolveMaxBufferDimension();
 
-    /// <summary>
-    /// Gets the translation from effect-local coordinates to the composition-device grid used
-    /// for intermediate allocation.
-    /// </summary>
+    /// <summary>Gets the effect-local to composition-device grid translation.</summary>
     public Vector DeviceGridOffset => _deviceGridOffset;
 
     /// <summary>Gets the explicit preview or delivery classification for this execution.</summary>
@@ -581,14 +560,7 @@ public class CustomFilterEffectContext
         }
     }
 
-    /// <summary>
-    /// Allocates one custom-effect target, through the caller's lease session when there is one.
-    /// </summary>
-    /// <summary>
-    /// The lease session only when the caller supplied a factory. A path that already allocated its own
-    /// surfaces keeps doing so without one, so routing it through the pool does not change which targets a
-    /// render reuses; with a factory it must route through the session or the factory is bypassed.
-    /// </summary>
+    // Only a caller-supplied factory redirects allocation through the lease session.
     private RenderTargetLeaseSession? FactoryBackedSession
         => _renderTargetLeaseSession is { HasTargetFactory: true } session ? session : null;
 

@@ -4,11 +4,6 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// This project is not a friend of <c>Beutl.Engine</c>, so a plugin that wants to animate text one glyph
-/// at a time has to reach the per-glyph outlines through the same public surface these tests compile
-/// against — shaping the run itself would drift from what <c>TextBlock</c> draws for the same string.
-/// </summary>
 [TestFixture]
 public sealed class TextOutlineAuthoringContractTests
 {

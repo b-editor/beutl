@@ -283,10 +283,6 @@ public class ResolutionScaleTests
         }
     }
 
-    /// <remarks>
-    /// Zero is not a density: the working-scale policy rejects it, so a clamp that returns it turns a bounds
-    /// value it merely could not fit into an exception several layers away from the rectangle that caused it.
-    /// </remarks>
     [TestCase(-8f, 6f)]
     [TestCase(8f, -6f)]
     [TestCase(-8f, -6f)]

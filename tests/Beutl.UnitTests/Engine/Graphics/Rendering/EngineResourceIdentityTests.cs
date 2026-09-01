@@ -4,14 +4,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Covers the derivation every CWT-synthesized cache-key helper in the renderer routes through.
-/// </summary>
-/// <remarks>
-/// <see cref="EngineObject.Resource.GetOriginal"/> returns null for a resource that never went through
-/// <see cref="EngineObject.ToResource"/> — a shape the public
-/// <c>FilterEffectContext.RegisterBrush</c>/<c>RegisterPen</c> entry points accept.
-/// </remarks>
 [TestFixture]
 public sealed class EngineResourceIdentityTests
 {

@@ -10,17 +10,6 @@ using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// Pins that the surfaces whose intent decides fail-fast versus degrade make the caller say which one it
-/// wants.
-/// </summary>
-/// <remarks>
-/// A trailing optional <see cref="RenderIntent"/> defaulting to <see cref="RenderIntent.Preview"/> reads as a
-/// convenience, but it silently rewrites a delivery host's failure policy: an intermediate that cannot be
-/// allocated stops failing the render and starts dropping content, so an export ships a frame with a hole in
-/// it and nothing in the source says why. The same applies to a brush host's materializer, without which a
-/// <c>DrawableBrush</c> fill resolves to transparent.
-/// </remarks>
 [TestFixture]
 public sealed class DeliveryIntentDeclarationContractTests
 {

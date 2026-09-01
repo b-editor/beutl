@@ -6,15 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
-/// <summary>
-/// Pins that a shader description's resource binder is handed the author value its own description declared.
-/// </summary>
-/// <remarks>
-/// The binder runs long after recording and must not capture, so the only way a per-recording value reaches
-/// it is as an argument the declaration carried. Two descriptions built over one live resource with different
-/// values therefore bind their own value each, and neither reads the other's - nor the live state the value
-/// was read out of.
-/// </remarks>
 [TestFixture]
 public sealed class ShaderDescriptionResourceStateTests
 {

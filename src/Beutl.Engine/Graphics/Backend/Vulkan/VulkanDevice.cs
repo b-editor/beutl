@@ -139,13 +139,8 @@ internal sealed unsafe class VulkanDevice : IDisposable
             PQueuePriorities = &queuePriority
         };
 
-        // A feature the engine's own code uses has to be requested here: advertising it on the physical
-        // device is not enough, and using it without requesting it is undefined behaviour the driver need
-        // not report. Requesting only what this device already reports costs nothing.
-        //   - shaderInt64/shaderFloat64: a 64-bit specialization constant, or any shader declaring a 64-bit
-        //     scalar, fails pipeline creation without them.
-        //   - imageCubeArray: point-light shadows sample every cube at once, which needs a
-        //     VK_IMAGE_VIEW_TYPE_CUBE_ARRAY view and the SampledCubeArray SPIR-V capability.
+        // Vulkan features must be enabled before use even when the physical device advertises them.
+        // 64-bit specialization constants need shaderInt64/shaderFloat64; point shadows need imageCubeArray.
         PhysicalDeviceFeatures available;
         _vk.GetPhysicalDeviceFeatures(_physicalDevice, &available);
         var features = new PhysicalDeviceFeatures

@@ -7,19 +7,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// Pins what <see cref="Threshold"/> paints where its input covers nothing, and that the hit-test contract it
-/// declares still describes those pixels.
-/// </summary>
-/// <remarks>
-/// The entry point returns <c>half4(t)</c> without consulting the input alpha, so a fully transparent
-/// premultiplied pixel - luma 0 - leaves with whatever the threshold curve says about 0. An ellipse inside a
-/// square gives the stage transparent pixels to answer for while keeping visible content in the same pass.
-/// <see cref="Threshold.Smoothness"/> defaults to 0, which collapses the band onto the threshold: that is a
-/// divide by zero inside <c>smoothstep</c>, whose result for equal edges is undefined in the shading
-/// languages, so the grid below runs every combination of the two properties rather than the degenerate row
-/// alone.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class ThresholdDegenerateBandTests
@@ -49,12 +36,6 @@ public sealed class ThresholdDegenerateBandTests
         });
     }
 
-    /// <remarks>
-    /// <see cref="Threshold"/> is the one built-in whose entry point can hand a fully transparent pixel a
-    /// visible alpha, so it declares <see cref="RenderHitTestContract.OutputBounds"/> exactly at the settings
-    /// where that happens and forwards the test to its input otherwise. The C# that decides which is a mirror
-    /// of the SkSL, so it can only stay right by being measured against the pixels the SkSL produced.
-    /// </remarks>
     [TestCaseSource(nameof(ParameterGrid))]
     [Category("GpuPassFusionGpu")]
     public void TheHitTestContract_AgreesWithWhatTheStagePainted(float value, float smoothness, float strength)
@@ -73,12 +54,6 @@ public sealed class ThresholdDegenerateBandTests
         });
     }
 
-    /// <remarks>
-    /// The band is centred on the threshold, so it evaluates to exactly 0.5 there at every positive width.
-    /// A collapsed band keeping that value is what makes the property continuous across zero; a conventional
-    /// <c>step</c> would answer 1 and turn the whole transparent surround opaque white as the slider lands
-    /// on zero.
-    /// </remarks>
     [TestCase(0f)]
     [TestCase(1f)]
     [TestCase(50f)]

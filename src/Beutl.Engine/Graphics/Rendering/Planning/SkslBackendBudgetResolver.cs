@@ -54,23 +54,9 @@ internal static class SkslBackendBudgetResolver
 
     private static SkslBackendBudget Create(SkslBackendCapabilityClass capabilityClass)
     {
-        // Portable also covers target-less rendering and backends whose family Skia cannot identify. There is no
-        // universal sampler floor for an arbitrary unidentified driver, so this policy is deliberately based on
-        // the common floor of Beutl's supported backend families rather than claiming one. OpenGL ES 3.0.6 table
-        // 6.32 and OpenGL 4.6 core table 23.61 both require at least 16 fragment texture-image units; D3D exposes
-        // at least 16 fragment-stage sampler slots as well. Vulkan 1.0 requires at least 16
-        // maxPerStageDescriptorSamplers and 16 maxPerStageDescriptorSampledImages (Vulkan core specification,
-        // Required Limits table). Apple's Metal Feature Set Tables likewise guarantee at least 16 sampler-state
-        // argument-table entries per graphics function.
-        //
-        // Do not spend that entire guaranteed floor here: Skia composes a runtime effect into a larger fragment
-        // program with paint, blend, coverage, and clip-mask resources that ProgramMetrics cannot see. Twelve
-        // reserves four guaranteed slots for that surrounding program. A genuinely unsupported backend remains
-        // outside this supported-family guarantee even when it reaches the Portable profile.
-        //
-        // ProgramMetrics increments samplers and children together for every resource, starting with one of each
-        // for the implicit source. Their effective limit is therefore always the smaller value. Keep both at 12
-        // instead of advertising Metal's larger texture-table limit, which this accounting model cannot exercise.
+        // Supported GL, D3D, Vulkan, and Metal families guarantee at least 16 fragment samplers.
+        // Reserve four for Skia's surrounding paint, blend, coverage, and clip program.
+        // ProgramMetrics counts a sampler and child together, so both limits must match.
         (int maxSamplers, int maxChildren) = capabilityClass switch
         {
             SkslBackendCapabilityClass.Portable => (12, 12),

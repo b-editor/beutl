@@ -7,15 +7,9 @@ namespace Beutl.UnitTests.Engine.Media.Geometry;
 
 using Geometry = Beutl.Media.Geometry;
 
-/// <summary>
-/// A verbatim copy of the geometry path construction as it stood at 989856e8d, when
-/// <c>Geometry.Resource.GetCachedPath</c> dispatched through <c>GetOriginal().ApplyTo(context, this)</c>.
-/// </summary>
+/// <summary>Preserves the 989856e8d geometry path implementation as a parity baseline.</summary>
 /// <remarks>
-/// The copy is the comparison baseline for <see cref="GeometryPathParityTests"/>: dispatch moved onto the
-/// resource, and every value the old engine-object overrides read already came from the resource, so the two
-/// must agree element for element. Edit this only to correct a transcription error — it is not a second
-/// implementation to keep in step with the shipped one.
+/// Edit only to correct transcription; it must not track the production implementation.
 /// </remarks>
 internal static class PreChangeGeometryPath
 {

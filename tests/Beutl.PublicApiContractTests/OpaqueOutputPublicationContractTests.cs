@@ -4,17 +4,6 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// Pins what publishing a shrunk opaque output produces, as an external author sees it.
-/// </summary>
-/// <remarks>
-/// <see cref="OpaqueRenderOutput.SetOutputBounds"/> accepts any rectangle the allocation contains, and
-/// containment is a pure edge comparison, so a zero-extent rectangle at a point inside the allocation is an
-/// accepted answer. That answer means the operation produced nothing, so the request drops the output rather
-/// than failing: shrinking to nothing and calling <see cref="OpaqueRenderSession.Publish"/> is the same
-/// statement as <see cref="OpaqueRenderOutput.Discard"/>, under either cardinality. A rectangle with real
-/// extent is a different statement and still reaches the next operation, cropped to what it selected.
-/// </remarks>
 [TestFixture]
 public sealed class OpaqueOutputPublicationContractTests
 {

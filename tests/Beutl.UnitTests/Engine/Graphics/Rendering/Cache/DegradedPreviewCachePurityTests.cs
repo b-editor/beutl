@@ -10,14 +10,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// Pins that a preview frame which dropped part of itself leaves nothing that outlives it.
-/// </summary>
-/// <remarks>
-/// A preview degrades rather than fails when a target cannot be allocated, so the frame on screen is
-/// deliberately incomplete. Anything that survives the frame - the persistent node cache above all - would
-/// then keep serving those missing pixels long after the memory pressure that caused them is gone.
-/// </remarks>
 [TestFixture]
 public sealed class DegradedPreviewCachePurityTests
 {
@@ -27,11 +19,6 @@ public sealed class DegradedPreviewCachePurityTests
     // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
     private static readonly Color s_white = Colors.White;
 
-    /// <remarks>
-    /// A canvas says what its surface is for. Rendering a preview request onto a delivery canvas would let
-    /// an allocation failure drop content into a surface that ships, so the stricter of the two intents is
-    /// the one the render runs under.
-    /// </remarks>
     [Test]
     public void ARequestOnADeliveryCanvas_FailsRatherThanDroppingContent()
     {
@@ -131,11 +118,6 @@ public sealed class DegradedPreviewCachePurityTests
         });
     }
 
-    /// <remarks>
-    /// A tile brush allocates its own intermediate instead of taking a materialization lease, so nothing in
-    /// the executor sees it run dry. Without a report the frame reads as complete and the transparent hole
-    /// where the fill should be is exactly what a snapshot sink keeps.
-    /// </remarks>
     [Test]
     public void APreviewWhoseTileBrushDroppedItsIntermediate_CommitsNoBackdropSnapshot()
     {
@@ -224,11 +206,6 @@ public sealed class DegradedPreviewCachePurityTests
         }
     }
 
-    /// <remarks>
-    /// A nested request renders into its own target and the parent composites that target, so a drop the
-    /// nested body observed makes the parent's output incomplete too. Reporting only a failed nested root
-    /// acquisition left the parent free to publish those pixels.
-    /// </remarks>
     [Test]
     public void APreviewWhoseNestedRequestDropped_PublishesNothingToTheParentsNodeCache()
     {

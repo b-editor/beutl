@@ -8,12 +8,8 @@ using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph;
 
-// RenderNode.ChildNodes is deliberately left empty here. The graph output nodes this records through are read
-// back out of the snapshot by PullOutputValue and only exist once Evaluate has run for this frame's time and
-// composition flags; the next Snapshot.Build disposes them, so an array retained to back a span would hand the
-// traversals disposed nodes. Revalidation and cache recursion therefore stop at this node: the graph subtree
-// keeps its marks and is never render-cached. That is sound only while this node itself stays out of the cache,
-// which NodeGraphFilterEffect.Resource.Update guarantees by bumping Version on every build.
+// Snapshot output nodes are disposed by the next build, so ChildNodes must not retain them.
+// Revalidation and caching stop here; Resource.Update keeps this node uncached by bumping Version each build.
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
     private static readonly IEqualityComparer<RenderNode> s_renderNodeReferenceComparer =
@@ -257,8 +253,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
             return;
         }
 
-        // A layer preserves painter order and guarantees one runtime value for the deferred preview readback.
-        // When a raw output cannot fan out, replace the identity cache so later graph outputs share the layer.
+        // Normalization preserves order, creates one readback value, and lets later outputs share consumed raw output.
         RenderFragmentHandle layer = NormalizeToLayer(outputs);
         if (outputs.Any(static output => !output.CanBeUsedAsValueInput))
         {

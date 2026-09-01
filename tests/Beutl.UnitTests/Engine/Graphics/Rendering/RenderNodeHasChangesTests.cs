@@ -120,10 +120,6 @@ public class RenderNodeHasChangesTests
         return new NoOpUpdateCase(node, () => node.Update(resource));
     }
 
-    /// <summary>
-    /// Compiles and exercises the invalidation pattern the 004 migration contract hands an out-of-tree
-    /// author to copy, so the documented code cannot drift away from the API it is compiled against.
-    /// </summary>
     [Test]
     public void TheDocumentedInvalidationPattern_ReportsOnlyARealChange()
     {

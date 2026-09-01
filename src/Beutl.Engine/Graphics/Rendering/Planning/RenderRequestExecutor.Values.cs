@@ -73,12 +73,8 @@ internal sealed partial class RenderRequestExecutor
         {
             Vector previousOffset = _activeDeviceGridOffset;
             bool previousNormalized = _deviceGridPhaseNormalized;
-            // A custom effect's buffers must start on the pixel its logical origin names, because the
-            // effect does its own device-pixel arithmetic against them. A grid whose phase is
-            // fractional cannot deliver that, so the flush would resample the input onto the phase
-            // instead, and half a pixel of edge coverage is lost before the effect ever sees it.
-            // The requirement is inherited: the input is rasterized in whatever frame materializes it,
-            // which for a chained segment is a nested frame that re-derives the grid from this canvas.
+            // Custom effects require logical origins on exact buffer pixels; fractional grid phases resample
+            // and lose edge coverage. Nested materialization inherits this normalization.
             bool normalized = previousNormalized || normalizeGridPhase;
             Vector offset = DeviceGridAlignment.ResolveLogicalOffset(currentTarget);
             if (normalized)
@@ -109,12 +105,8 @@ internal sealed partial class RenderRequestExecutor
             if (scale.IsUnbounded)
                 throw new InvalidOperationException("An allocated render value requires a concrete density.");
             Vector gridOffset = deviceGridOffset ?? _activeDeviceGridOffset;
-            // The density stays the plan's here even where the device attaches less than the engine ceiling
-            // the plan was clamped to. The render cache keys an entry on the planned materialization density
-            // and refuses a payload recorded at any other, so re-clamping to the device would turn every
-            // cacheable fragment on such a device into a failed capture. An over-budget footprint is instead
-            // declined by the pool, which reaches the caller as the preview drop or the delivery failure the
-            // lease session already defines.
+            // Cache identity requires the planned density. The pool reports device-budget failures through
+            // the existing preview-drop or delivery-failure path instead of re-clamping it.
             PixelRect semanticDeviceBounds = PixelRect.FromRect(
                 bounds.Translate(gridOffset),
                 scale.Value);

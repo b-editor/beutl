@@ -6,15 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins that a raw definition can reach its bound resource through the slot it declared.
-/// </summary>
-/// <remarks>
-/// A raw definition declares slots and binds a different token on each call, and its callback is static, so
-/// without slot addressing the only way in is to carry the exact token in the call state. That makes the
-/// declared binding validation-only and leaves two places the callback's resource can come from, which can
-/// disagree.
-/// </remarks>
 [TestFixture]
 public sealed class RawSessionSlotResourceTests
 {

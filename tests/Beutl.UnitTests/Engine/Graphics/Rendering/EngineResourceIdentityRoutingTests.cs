@@ -10,18 +10,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Covers the six render-node sites that read <c>GetOriginal().Id</c> directly and now route through
-/// <see cref="EngineResourceIdentity.Of"/>.
-/// </summary>
-/// <remarks>
-/// Each site keeps a <see cref="Guid"/>-typed identity element, so the routing has to stay allocation-free to be
-/// worth taking. The recorded end-to-end outcomes below are what each node actually does with a detached
-/// resource, measured rather than reasoned about. Which site a detached resource reaches first depends on which
-/// of a node's resources is detached, so the outcome is recorded per input shape rather than per node.
-/// <c>Geometry.Resource</c> now builds its path from itself, so a detached geometry no longer fails ahead of the
-/// routed identity read; <see cref="DetachedGeometryResourceTests"/> covers that path.
-/// </remarks>
 [TestFixture]
 public sealed class EngineResourceIdentityRoutingTests
 {
@@ -62,13 +50,6 @@ public sealed class EngineResourceIdentityRoutingTests
         }
     }
 
-    /// <summary>
-    /// The one site this change rescues end to end. A detached <see cref="Brush.Resource"/> reaches
-    /// <see cref="GeometryRenderNode"/>'s identity read before anything else dereferences it, so the routing
-    /// turns a <see cref="NullReferenceException"/> into a complete render. Both the node's constructor and
-    /// <c>GraphicsContext2D.DrawGeometry</c> take a publicly constructible <c>Brush.Resource?</c>, so this is
-    /// an ordinary plugin shape rather than a contrived one.
-    /// </summary>
     [Test]
     public void GeometryRenderNode_WithADetachedFill_RendersInsteadOfThrowing()
     {

@@ -9,26 +9,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins that the recording gate decides reuse from its input fingerprints alone, and what makes that sound.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <c>RenderFragmentReference.RecordingFingerprint</c> digests the recording metadata a consumer reads
-/// through <see cref="RenderFragmentHandle"/> - bounds, effective scale, cardinality, the recording flags,
-/// the payload's type, and the fragment's hit-test rule. Two things make that digest enough to serve a node
-/// whose descendants re-recorded: the digest covers which rule answers a hit test, and no combinator captures
-/// the delegate of the input it wrapped - <c>ContributeValues</c>, <c>Opacity</c>, <c>Blend</c>,
-/// <c>OpacityMask</c> and <c>Shader</c> name their inputs, so replay resolves the hit test through the
-/// fragments the new request holds.
-/// </para>
-/// <para>
-/// The two halves cover different changes and both are needed. A rule swap - a shape that stops filling -
-/// changes the digest and re-records the ancestor. A change in the state one rule reads keeps the digest,
-/// serves the ancestor, and is answered correctly anyway because the served fragment reads its input's hit
-/// test rather than a copy of it.
-/// </para>
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class RecordingGateFingerprintTests
@@ -37,7 +17,6 @@ public sealed class RecordingGateFingerprintTests
     private static readonly Point s_inside = new(50, 50);
     private static readonly PixelSize s_frameSize = new(240, 160);
 
-    /// <summary>The digest the gate compares reports which rule answers a hit test.</summary>
     [Test]
     public void TwoFragmentsDifferingOnlyInTheirHitTest_DoNotShareARecordingFingerprint()
     {
@@ -59,7 +38,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>The guard, over a walked child: a hit-test-only change still re-records the ancestor.</summary>
     [Test]
     public void AChildThatChangesOnlyItsHitTest_StillForcesItsAncestorToRecordAgain()
     {
@@ -90,16 +68,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>
-    /// The change the digest cannot see, which the combinators no longer capture: the state one rule reads.
-    /// </summary>
-    /// <remarks>
-    /// A hit-test contract's structural identity is which callback answers, not what it answers over, so a
-    /// contract built over per-recording state keeps one identity while that state moves. This is the shape
-    /// <c>GeometryRenderNode</c> records: its hit test reads a <c>(geometry, fill, pen)</c> state whose
-    /// identity is one static callback. The ancestor is served here, and it is still right, because what it
-    /// replays resolves the hit test through the fragment it is replayed over.
-    /// </remarks>
     [Test]
     public void AServedAncestor_AnswersWithTheHitTestOfTheFragmentItIsReplayedOver()
     {
@@ -129,16 +97,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>
-    /// The hole the digest alone leaves: a parent that decides what to record from an input's hit test.
-    /// </summary>
-    /// <remarks>
-    /// The child keeps one hit-test rule while the state that rule reads moves, so its fragment digests the
-    /// same as before. A parent that only forwards the hit test is right anyway - it reads the live rule
-    /// through the fragment it is replayed over. A parent that reads the answer while recording does not: the
-    /// branch it took is baked into the fragments it published, and nothing about those fragments says the
-    /// answer was ever consulted.
-    /// </remarks>
     [Test]
     public void AParentThatBranchesOnItsInputHitTest_RecordsAgainWhenThatAnswerChanges()
     {
@@ -177,11 +135,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>A parent that reads a hit test it does not act on keeps being served.</summary>
-    /// <remarks>
-    /// The point of recording what a parent read is that the answer is what matters, not the reading. A
-    /// parent whose answer is unchanged has nothing to record again, however the input's rule got there.
-    /// </remarks>
     [Test]
     public void AParentThatBranchesOnItsInputHitTest_IsStillServedWhenThatAnswerHolds()
     {
@@ -201,7 +154,6 @@ public sealed class RecordingGateFingerprintTests
             "the input still hits the point the parent read, so its recording still stands");
     }
 
-    /// <summary>The same hole over the explicit-input path, where the parent is reached with inputs.</summary>
     [Test]
     public void ANodeRecordedWithExplicitInputs_FollowsAHitTestAnswerItBranchedOn()
     {
@@ -226,13 +178,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>The cross-check no longer blames the parent for a hit-test answer its input changed.</summary>
-    /// <remarks>
-    /// While the gate served this parent, the cross-check re-recorded it and saw the other branch, and
-    /// reported it as the parent violating <see cref="RenderNode.HasChanges"/> - which is not what happened.
-    /// Now that the answer the parent read is part of what the gate offers its recording back over, the
-    /// re-recording and the retained one describe the same branch and there is nothing to report.
-    /// </remarks>
     [Test]
     public void TheCrossCheck_NoLongerBlamesTheParentForAHitTestAnswerItsInputChanged()
     {
@@ -253,7 +198,6 @@ public sealed class RecordingGateFingerprintTests
         }
     }
 
-    /// <summary>The same guard over the explicit-input path, which the gate now admits.</summary>
     [Test]
     public void ANodeRecordedWithExplicitInputs_FollowsAHitTestOnlyChangeInThoseInputs()
     {
@@ -282,15 +226,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>
-    /// The cross-check accepts a served ancestor, so it cannot stand in for the fingerprint.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="RecordedNodeShape"/> compares each payload's <c>StructuralFragmentIdentity</c>, and an
-    /// opacity payload's identity carries its fusion description and opacity range - not the hit test of the
-    /// input it wraps. A widening this accepts is therefore not evidence that the widening is safe; it is run
-    /// here so that a node the wider gate serves is still verified against what a fresh recording produces.
-    /// </remarks>
     [Test]
     public void TheCrossCheck_AcceptsAnAncestorWhoseInputChangedOnlyItsHitTest()
     {
@@ -311,7 +246,6 @@ public sealed class RecordingGateFingerprintTests
         }
     }
 
-    /// <summary>Every node the wider gate serves, verified against a fresh recording of itself.</summary>
     [Test]
     public void TheCrossCheck_AcceptsTheRepresentativeSceneWithOneLeafChangingEveryRequest()
     {
@@ -345,15 +279,6 @@ public sealed class RecordingGateFingerprintTests
         });
     }
 
-    /// <summary>
-    /// The case the gate was widened for: a leaf that changes every request no longer costs its ancestors
-    /// their recordings.
-    /// </summary>
-    /// <remarks>
-    /// The leaf re-records the same fragments, so every ancestor's input digests still match what it was
-    /// recorded over. The rule this replaced rejected every one of them for the sole reason that something
-    /// below had re-recorded.
-    /// </remarks>
     [Test]
     public void ARepresentativeSceneWithOneChangingLeaf_ServesEveryAncestorWhoseInputsDigestTheSame()
     {

@@ -6,13 +6,6 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class PipelineSpecializationContractTests
 {
-    /// <remarks>
-    /// A push-constant update must name every shader stage of every declared range it overlaps, and which
-    /// stages those are is a property of the bound pipeline layout, not of the calling site. Offering the
-    /// caller a stage argument invited it to name only the stage it reads from — undefined behaviour the
-    /// driver is not required to diagnose, and which the Vulkan validation gate catches as
-    /// VUID-vkCmdPushConstants-offset-01796.
-    /// </remarks>
     [Test]
     public void SettingPushConstants_OffersNoWayToNameTheStages()
     {

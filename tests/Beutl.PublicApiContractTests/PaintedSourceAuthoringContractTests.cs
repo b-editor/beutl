@@ -5,11 +5,6 @@ using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// This project is not a friend of <c>Beutl.Engine</c>, so the nodes below compile only while the painted-source
-/// recording overload, the resource slot currency it binds, the stroke-bounds convention it pairs with, and the
-/// recorded-extent hint stay reachable from a type declared outside the engine assembly.
-/// </summary>
 [TestFixture]
 public sealed class PaintedSourceAuthoringContractTests
 {

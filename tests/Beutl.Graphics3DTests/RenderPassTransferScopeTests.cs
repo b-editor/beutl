@@ -6,22 +6,6 @@ using Beutl.Media;
 
 namespace Beutl.Graphics3DTests;
 
-/// <summary>
-/// Pins that a transfer issued while a render pass is recording splits that pass instead of taking its
-/// own submission.
-/// </summary>
-/// <remarks>
-/// Meshes upload their vertex and index buffers lazily from inside the draw loop, which runs between
-/// <see cref="IRenderPass3D.Begin"/> and <see cref="IRenderPass3D.End"/>. Vulkan forbids a transfer
-/// inside a render pass instance, so appending one to the pass's own batch loses the upload: the mesh
-/// then draws undefined vertices over the whole framebuffer, which a deferred renderer turns into a
-/// black frame. Giving the transfer its own batch avoids that but submits it ahead of the pass, so every
-/// draw already recorded in the pass runs after work requested later than it. Ending the instance,
-/// recording the transfer, and beginning it again keeps the whole sequence on one command buffer in
-/// recording order, which is the only arrangement that is right for both. The submission count is the
-/// observable part of that contract; the rendering consequence is covered by the lit-framebuffer
-/// assertions in <see cref="Renderer3DTests"/>.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class RenderPassTransferScopeTests
@@ -112,13 +96,6 @@ public sealed class RenderPassTransferScopeTests
         public float Alpha;
     }
 
-    /// <remarks>
-    /// A claimed render-pass scope sends every barrier through the split path, and a scope claimed before
-    /// its instance is open cannot split, so it falls back to a batch of its own submitted ahead. That is
-    /// wrong for the pass's own attachment transitions: those have to stay in recording order behind
-    /// whatever was recorded before them, or the queue runs them against an image that has since moved to a
-    /// different layout. The batch is therefore claimed at the command that opens the instance, not before.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void BeginningAPass_KeepsItsPreparationBarriersInTheRecordedBatch()
@@ -210,12 +187,6 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
-    /// <remarks>
-    /// A readback records its image-to-buffer copy on the recording batch and then maps the staging buffer,
-    /// so it is only correct if the synchronous flush in between actually submits that batch. Inside a
-    /// render pass the batch belongs to the pass, and withholding it hands the caller the memory as it was
-    /// before the copy.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void AReadbackInsideARenderPass_SeesWhatWasRecordedBeforeIt()
@@ -303,15 +274,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
 
-    /// <remarks>
-    /// A flush during a suspension submits the batch, so the instance resumes on a command buffer that was
-    /// allocated after the caller made its bindings. Everything a draw reads other than the pipeline - the
-    /// vertex and index buffers, the descriptor set, the push constants - is state of that command buffer,
-    /// not of any object, so a resume that restores only the pipeline hands the following draw undefined
-    /// vertices, no texture, and undefined push constants. Drawing what was bound before the split is the
-    /// whole point of splitting rather than submitting ahead, and under the validation layer this test also
-    /// fails on the missing bindings themselves rather than only on the pixels they produce.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ADrawAfterAResumedPass_StillSeesEveryBindingMadeBeforeTheSplit()
@@ -424,11 +386,6 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
-    /// <remarks>
-    /// A caller that waits is owed everything it recorded. Withholding the batch because a pass owns it
-    /// leaves a readback mapping memory the copy has not reached, so the flush ends the instance, submits,
-    /// and begins the instance again on the next batch.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void WaitIdleInsideARenderPass_SubmitsWhatWasRecordedAndResumesThePass()
@@ -462,14 +419,6 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
-    /// <remarks>
-    /// <see cref="IRenderPass3D"/> is <see cref="IDisposable"/> and <see cref="IGraphicsContext"/> hands one
-    /// out, so a caller that owns its own pass can reach dispose from a path that never runs
-    /// <see cref="IRenderPass3D.End"/> - an early return or a throw under a <c>using</c>. The scope claimed
-    /// at <see cref="IRenderPass3D.Begin"/> belongs to the whole context rather than to the pass, so a
-    /// disposed pass that keeps it rejects every later Begin on that context and sends every later transfer
-    /// through a suspend on an object whose render pass handles are already gone.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void DisposingAPassThatIsStillRecording_ReleasesTheRenderPassScope()
@@ -528,13 +477,6 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
-    /// <remarks>
-    /// A descriptor set and a pipeline layout reach <c>vkCmdBindDescriptorSets</c> as unrelated handles, and
-    /// neither carries what it was declared with, so binding a set against a pipeline whose layout does not
-    /// describe it is undefined behaviour rather than a validation message - on MoltenVK it takes the process
-    /// down. Only the managed layer knows which pipeline a set was allocated from, so only it can reject the
-    /// mismatch.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ADescriptorSetAllocatedFromAnotherPipeline_IsRejectedByBindDescriptorSet()
@@ -609,18 +551,6 @@ public sealed class RenderPassTransferScopeTests
         });
     }
 
-    /// <remarks>
-    /// A draw resolves the bound descriptor set through the layout of the pipeline it uses, but the binding
-    /// was programmed against whatever layout reached <c>vkCmdBindDescriptorSets</c>. Neither handle carries
-    /// its own declarations, so a pipeline that declares binding 0 as a uniform buffer reading a set
-    /// programmed as a combined image sampler is <c>VUID-vkCmdDraw-None-08600</c> - undefined behaviour the
-    /// driver need not diagnose rather than a validation message, and on MoltenVK it takes the process down.
-    ///
-    /// Neither bind below is rejectable on its own: the spec lets a set be bound without having bound a
-    /// particular pipeline first, or with a different one bound, so the pair only becomes wrong once a draw
-    /// makes one pipeline the one that reads the set. That is why the check lives on the draw, and why the
-    /// control has to show that a coherently bound set still draws rather than being swept up with it.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ADescriptorSetBoundUnderAnotherPipelinesLayout_IsRejectedByDraw()

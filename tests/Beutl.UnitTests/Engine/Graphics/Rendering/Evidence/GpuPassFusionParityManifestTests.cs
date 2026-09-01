@@ -6,10 +6,6 @@ using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 
-/// <summary>
-/// Pins the SC-007 artifact: that it records what was compared and at what scale, that it judges a case by the
-/// harness's own thresholds, and that it does not quietly drop a workload that failed.
-/// </summary>
 [TestFixture]
 public sealed class GpuPassFusionParityManifestTests
 {

@@ -131,12 +131,6 @@ public sealed class ContributeValuesCacheHitExecutionTests
         });
     }
 
-    /// <remarks>
-    /// A replay branch that materializes has to report the use complete, or the input's values stay on the
-    /// ledger and their pooled target stays leased for the rest of the request. ContributeValues is the one
-    /// branch that materializes inline instead of delegating to a method whose finally does it, so a chain of
-    /// them held one live intermediate per link where the whole chain needs one.
-    /// </remarks>
     [Test]
     public void ChainedContributeValues_HandBackEachIntermediateAsItIsDrawn()
     {

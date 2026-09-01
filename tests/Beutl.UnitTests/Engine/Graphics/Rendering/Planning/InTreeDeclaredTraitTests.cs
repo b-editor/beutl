@@ -9,10 +9,6 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
-/// <summary>
-/// Pins the planner traits the in-tree render nodes declare and the cache decisions they produce, so a
-/// reversed mapping is caught instead of silently changing which fragments survive a remapping scope.
-/// </summary>
 [TestFixture]
 public sealed class InTreeDeclaredTraitTests
 {

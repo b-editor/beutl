@@ -6,11 +6,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// A mapped-input readback failure must decide degrade-vs-fail from the explicit
-/// <see cref="RenderIntent"/>, not from the working-scale ceiling that happens to accompany it, and a
-/// replacement allocation failure must keep Preview sources and fail Delivery renders.
-/// </summary>
 [TestFixture]
 public sealed class MappedInputReadbackIntentTests
 {

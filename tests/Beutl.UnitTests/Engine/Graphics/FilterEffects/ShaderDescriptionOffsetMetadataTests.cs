@@ -8,16 +8,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
-/// <summary>
-/// Pins that a whole-source shader stage whose offset is a per-recording value moves its metadata with that
-/// value and still compiles one plan.
-/// </summary>
-/// <remarks>
-/// A description carries its bounds contract, its hit test, and its uniform values together, so a stage that
-/// moves is a description rebuilt around the offset it is moving by. That costs the author nothing: a plan is
-/// keyed by which callback a contract holds rather than by the values behind it, so two descriptions built
-/// over one parsed source and one pair of callbacks land on the same compiled plan.
-/// </remarks>
 [TestFixture]
 public sealed class ShaderDescriptionOffsetMetadataTests
 {

@@ -48,13 +48,6 @@ public sealed class PerspectiveNearPlaneCrossingTests
         });
     }
 
-    /// <summary>
-    /// Rotated near edge-on, the same layer's w = 0.05 image line lands inside the frame, so a scope
-    /// declaring <see cref="Rect.DefaultNearPlane"/> bounds cut a wedge the rasterizer draws - thousands of
-    /// frame pixels the viewer should have seen. A transform now declares
-    /// <see cref="Rect.TransformToDeliveredAABB"/>, which is exact wherever the request delivers, so the
-    /// wedge survives. See PerspectiveNearPlaneResidualTests for what the bare default still gives up.
-    /// </summary>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void DefaultDepth_NearEdgeOnRotation_DrawsTheWedgeThePragmaticBoundsExcluded()

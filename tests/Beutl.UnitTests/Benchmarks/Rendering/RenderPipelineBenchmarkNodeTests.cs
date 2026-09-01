@@ -40,12 +40,6 @@ public sealed class RenderPipelineBenchmarkNodeTests
         });
     }
 
-    /// <summary>
-    /// Regression: the toggle node changed which shader it publishes without marking itself changed, so the
-    /// recording cache replayed the previous description and every setup frame produced identical pixels. The
-    /// scene's own animation-mode check then rejected the run, and all three sides of a paired SC-008 run lost
-    /// this workload.
-    /// </summary>
     [Test]
     [NonParallelizable]
     public void StructuralToggle_ChangesItsOutputWhenTheDeclaredVariantFlips()

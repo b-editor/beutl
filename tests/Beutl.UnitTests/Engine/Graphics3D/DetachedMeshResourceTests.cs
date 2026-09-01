@@ -8,10 +8,6 @@ using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-/// <summary>
-/// <c>Mesh</c> had the same shape as <c>Geometry</c>: <c>EnsureCached</c> dispatched through the backing
-/// engine object, so a publicly constructed resource threw. Generation now dispatches on the resource.
-/// </summary>
 [TestFixture]
 public sealed class DetachedMeshResourceTests
 {
@@ -35,12 +31,6 @@ public sealed class DetachedMeshResourceTests
         }
     }
 
-    /// <remarks>
-    /// A draw binds whatever buffers the resource holds and asks for a count. Taking that count from the mesh
-    /// as it is now rather than from what an upload actually put on the device reads past the end of the
-    /// buffers whenever the topology grew, and leaving the previous topology's buffers behind lets a mesh with
-    /// nothing left in it still bind them.
-    /// </remarks>
     [Test]
     public void AnUploadRecordsWhatItPutOnTheDevice_AndAnEmptyMeshKeepsNothing()
     {
@@ -123,11 +113,6 @@ public sealed class DetachedMeshResourceTests
         }
     }
 
-    /// <summary>
-    /// <c>MeshBufferUploadHelper</c> and <c>TransparentPass</c> clear <c>BuffersDirty</c> once they have
-    /// uploaded the current vertices, so a regenerated mesh that leaves it clear keeps the GPU on the old
-    /// buffers.
-    /// </summary>
     [Test]
     public void RegeneratingAMesh_MarksItsGpuBuffersDirtyAgain()
     {

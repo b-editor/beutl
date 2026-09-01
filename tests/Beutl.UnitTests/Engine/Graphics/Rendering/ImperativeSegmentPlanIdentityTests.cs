@@ -5,16 +5,6 @@ using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that whether a effect-item filter segment holds an imperative callback is part of its plan identity.
-/// </summary>
-/// <remarks>
-/// The segment's key carries its working-scale policy and stream-input count. Two segments that agree on
-/// both must still not share a compiled plan when one runs an imperative callback: such a callback crops and
-/// re-lays-out its targets in whole device pixels, so the executor strips the ambient sub-pixel phase for
-/// that segment and ends its island for that reason. A plan compiled for one classification replayed against
-/// the other describes a graph that is not there.
-/// </remarks>
 [TestFixture]
 public sealed class ImperativeSegmentPlanIdentityTests
 {

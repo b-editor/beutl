@@ -8,36 +8,12 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 /// <summary>
-/// Reports a <c>RenderNode</c> subclass that changes state its <c>Process</c> reads without marking the node
-/// changed.
+/// Reports <c>RenderNode</c> state that can change without marking the node changed.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <c>RenderNode.MarkChanged</c> is public, so an out-of-tree node decides for itself when to call it. Today
-/// a node that forgets is still re-recorded every frame and only loses the pixel cache, which is why the
-/// omission has been survivable. Once a recorded graph may be reused for a node that reports no changes,
-/// forgetting means the node is not re-recorded at all and renders stale, and no compile error says so.
-/// </para>
-/// <para>
-/// What a rule can decide here is bounded, and the bound is the point rather than an apology for it. This
-/// reports two shapes, both about state the node's <c>Process</c> reads: an assignment written in the node's
-/// own type to an instance field or auto-property, or to an element of one, and a member the node declares -
-/// an auto-property, a field-like event, or a field - that anyone outside it can write. Those are the shapes
-/// authors write, and a rule that guessed past them on a public extension point would be suppressed
-/// wholesale and then protect nothing. The runtime cross-check in <c>Beutl.Engine</c> is what covers the
-/// rest; silence here is not a proof.
-/// </para>
-/// <para>
-/// The second shape is asked at the declaration because there is nowhere else to ask it. A synthesized
-/// setter, a field-like event's accessors and a field have no body to read, and the write is made by whoever
-/// holds the node, in code this rule is not looking at - so both halves of the first shape are missing while
-/// the node still goes stale.
-/// </para>
-/// <para>
-/// An assignment inside <c>Process</c>, or inside a method <c>Process</c> calls, is deliberately not
-/// reported: memoizing a value derived from state the node already tracks is ordinary and correct there, and
-/// telling it apart from a real drift needs the two recordings only the runtime check has.
-/// </para>
+/// The analyzer checks mutations outside the <c>Process</c> call graph and externally writable fields,
+/// auto-properties, and field-like events. The runtime cross-check covers ambiguous mutations inside the
+/// call graph, where memoization may be valid.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
@@ -56,8 +32,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        // A symbol action rather than a syntax action: a partial node would otherwise be analyzed once per
-        // declaration, each time seeing only the members that declaration happens to hold.
+        // A symbol action sees all declarations of a partial node together.
         context.RegisterSymbolAction(AnalyzeNamedType, SymbolKind.NamedType);
     }
 
@@ -85,9 +60,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             if (member is not IMethodSymbol method)
                 continue;
 
-            // A constructor runs before anything is recorded and a teardown path after the last recording,
-            // so neither has a later frame to invalidate. Process and the methods it calls are excluded on
-            // purpose - see the remarks on this type.
+            // Constructors precede recording, and teardown follows the last recording.
             if (method.MethodKind is MethodKind.Constructor
                     or MethodKind.StaticConstructor
                     or MethodKind.Destructor
@@ -116,27 +89,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         ReportExternallyWritableState(context, type, readState);
     }
 
-    /// <summary>
-    /// Reports a member of this node that code outside it can write, and whose value <c>Process</c> reads.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A synthesized setter, a field-like event's accessors and a field have no body anywhere, so the walk
-    /// over member bodies above yields nothing for them, and nobody inside the node writes them either: the
-    /// write is made by whoever holds the node, in code this rule is not looking at. Both halves of the shape
-    /// that reports an assignment are therefore absent, and the node is stale from the moment the write
-    /// lands.
-    /// </para>
-    /// <para>
-    /// So this half is asked at the declaration rather than at a call site, and it is the declaration the
-    /// author can fix: give the member a body that marks, or narrow it until only the node's own code -
-    /// which the assignment shape does read - can reach it.
-    /// </para>
-    /// <para>
-    /// Only a member the node's own type declares, so that a node inheriting one is not reported a second
-    /// time at the same location; the type that declares it is the type analyzed for it.
-    /// </para>
-    /// </remarks>
     private static void ReportExternallyWritableState(
         SymbolAnalysisContext context,
         INamedTypeSymbol type,
@@ -157,25 +109,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>How code outside the node writes a member of it, and what the author can do about it.</summary>
     private readonly record struct ExternalWrite(string Writer, string Fix, Location Location);
 
-    /// <returns>
-    /// The write code outside the node can make, or <see langword="null"/> when there is none.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// An init accessor runs only while the object is being made, which is before there is a recording to
-    /// invalidate - the same reason a constructor assignment is not reported, and the same reason a readonly
-    /// field is not one of these writes. A private member is reachable only from the node's own code, and
-    /// every write made there is already read by the assignment shape, which also accepts the ones that
-    /// mark; reporting the declaration too would reject a node that marks on every path into it.
-    /// </para>
-    /// <para>
-    /// A property setter with a body of its own, and an event whose accessors have bodies, are likewise the
-    /// assignment shape, reported where the value actually changes.
-    /// </para>
-    /// </remarks>
     private static ExternalWrite? GetExternalWrite(ISymbol member) => member switch
     {
         IPropertySymbol property when IsAutoProperty(property)
@@ -189,8 +124,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 MarkFromTheSetter,
                 setter.Locations.FirstOrDefault() ?? property.Locations.FirstOrDefault() ?? Location.None),
 
-        // += and -= are the assignments of the delegate field a field-like event stands for, and they bind
-        // from wherever the event is visible.
         IEventSymbol { DeclaredAccessibility: not Accessibility.Private } @event when IsFieldLikeEvent(@event)
             => new ExternalWrite(
                 @event.Name + ".add",
@@ -225,12 +158,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         "Make the field private or readonly so that code outside this node cannot assign it, or replace it "
         + "with a property whose setter assigns the value and calls MarkChanged()";
 
-    /// <summary>Whether every accessor of <paramref name="property"/> is one the compiler synthesizes.</summary>
-    /// <remarks>
-    /// The single test both halves of this rule are judged by: an auto-property is state in its own right,
-    /// because no body anywhere names the field behind it, while a property with a body is read through that
-    /// body instead - the assignment inside its setter is what gets reported, once, where the value changes.
-    /// </remarks>
     private static bool IsAutoProperty(IPropertySymbol property)
     {
         foreach (SyntaxReference reference in property.DeclaringSyntaxReferences)
@@ -254,23 +181,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         return property.DeclaringSyntaxReferences.Length > 0;
     }
 
-    /// <summary>Whether the accessors of <paramref name="event"/> are ones the compiler synthesizes.</summary>
-    /// <remarks>
-    /// The event counterpart of <see cref="IsAutoProperty"/>, asked of the accessor rather than of the
-    /// declaration because a field-like event declares no accessor syntax to read.
-    /// </remarks>
     private static bool IsFieldLikeEvent(IEventSymbol @event)
         => @event.AddMethod is { IsImplicitlyDeclared: true };
 
     private static bool IsDisposalOverride(IMethodSymbol method, INamedTypeSymbol renderNodeType)
         => method.Name == DisposeCallbackName && OverridesRenderNodeMember(method, renderNodeType);
 
-    /// <summary>Whether <paramref name="method"/> fills a virtual slot declared by <c>RenderNode</c> itself.</summary>
-    /// <remarks>
-    /// Sharing a name with a <c>RenderNode</c> member is not the same as being the member the engine calls. A
-    /// node may declare an unrelated overload, or hide the member with <c>new</c>; neither is the body a
-    /// virtual call through <c>RenderNode</c> reaches.
-    /// </remarks>
     private static bool OverridesRenderNodeMember(IMethodSymbol method, INamedTypeSymbol renderNodeType)
     {
         for (IMethodSymbol? current = method; current is not null; current = current.OverriddenMethod)
@@ -306,19 +222,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Finds the <c>Process</c> body a node of this type would actually run, if it is in source.</summary>
-    /// <remarks>
-    /// <para>
-    /// A node that inherits <c>Process</c> is analyzed against the base's body, so only state that body names
-    /// enters the read set. Whatever the base reaches through a virtual hook does not, which is one of the
-    /// places this rule stops.
-    /// </para>
-    /// <para>
-    /// The body is chosen by the slot it overrides rather than by name and arity, because an unrelated
-    /// <c>Process</c> overload declared on the node would otherwise be read as the render path and leave the
-    /// read set empty - silencing the rule over everything the inherited override really reads.
-    /// </para>
-    /// </remarks>
     private static IMethodSymbol? FindProcessMethod(INamedTypeSymbol type, INamedTypeSymbol renderNodeType)
     {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
@@ -339,15 +242,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
     private readonly record struct StateAssignment(ISymbol State, Location Location);
 
-    /// <summary>A reference to a member, as the state walkers need to read it.</summary>
     private readonly record struct StateReference(ISymbol? Symbol, ExpressionSyntax Access, bool OnThisInstance);
 
-    /// <summary>Reads <paramref name="node"/> as a reference to a member, if that is what it is.</summary>
-    /// <remarks>
-    /// The <c>field</c> keyword is a reference to instance state that never spells a name, so a walk that
-    /// only looked at names could not see a property's backing field at all - neither the read that puts it
-    /// in the read set nor the write that has to be marked.
-    /// </remarks>
     private static StateReference? GetStateReference(SemanticModel model, SyntaxNode node)
     {
         switch (node)
@@ -519,25 +415,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        /// <returns>The ref locals in the body that name state <c>Process</c> reads, and what each names.</returns>
-        /// <remarks>
-        /// <para>
-        /// <c>ref var alias = ref _bounds;</c> puts the field's own reference under a <c>ref</c>, which
-        /// writes nothing, and the write one statement later names only the local - so both halves of an
-        /// ordinary mutator went past the rule while the node still rendered stale content.
-        /// </para>
-        /// <para>
-        /// Taking the reference is not itself the change, which is why this is tracked rather than read as
-        /// a write: a member that only reads through the alias leaves the recording as it was, and
-        /// reporting it would make this a rule about <c>ref</c> instead of about mutation.
-        /// </para>
-        /// <para>
-        /// Out through brackets, on the terms <see cref="ChangesTheValueBehind"/> already sets: a reference
-        /// to an element of a tracked collection is a reference into that collection. A ref local aliasing
-        /// anything else - a local, an element of one, another object's member - names storage no recording
-        /// of this node ever read, and is not tracked.
-        /// </para>
-        /// </remarks>
         private static Dictionary<ISymbol, ISymbol> CollectRefLocalAliases(
             BodyWithModel body,
             ImmutableHashSet<ISymbol> trackedState)
@@ -573,16 +450,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return aliases;
         }
 
-        /// <returns>
-        /// The tracked state a <c>ref</c> expression reaches, through another alias where it names one, or
-        /// <see langword="null"/> when it reaches storage no recording of this node reads.
-        /// </returns>
-        /// <remarks>
-        /// An alias of an alias names whatever the first one named, and a local carries no receiver of its
-        /// own, so the question <see cref="StateReference.OnThisInstance"/> answers was settled where that
-        /// first alias was declared. A declaration always precedes the aliases of it, so reading the body in
-        /// source order is enough to have the answer by the time it is asked for.
-        /// </remarks>
         private static ISymbol? GetAliasedState(
             SemanticModel model,
             Dictionary<ISymbol, ISymbol> aliases,
@@ -601,7 +468,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return reference.OnThisInstance && trackedState.Contains(symbol) ? symbol : null;
         }
 
-        /// <returns>The node naming the storage a <c>ref</c> expression points at.</returns>
         private static SyntaxNode GetAliasedName(ExpressionSyntax expression)
         {
             while (true)
@@ -671,36 +537,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        /// <summary>
-        /// Whether the body being walked can run <paramref name="nested"/>, for a nested function it declares.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// What a body nothing runs writes is not what the member does, and what it marks is not a mark.
-        /// Descending into every nested function alike cleared a mutator that declared
-        /// <c>void Invalidate() =&gt; MarkChanged();</c> and never called it, which is the one failure this
-        /// rule cannot afford: the node it approves renders stale content and nothing else says so.
-        /// </para>
-        /// <para>
-        /// The question <see cref="MetadataCallbackPurityAnalyzer"/> asks of a nested body, and for a lambda
-        /// the same answer down to the two shapes it skips. A delegate handed anywhere this rule cannot read
-        /// is run by code this rule cannot read, so it stays walked - which is what keeps a mark marshalled
-        /// onto another thread counting as a mark.
-        /// </para>
-        /// <para>
-        /// A local function is where a caller that follows calls can take a cheaper answer. Such a caller
-        /// walks every local function reachable code names as a callee anyway, so declining to descend into
-        /// one costs it nothing - and asking the name question there as well would answer it over the whole
-        /// member, the parts already ruled unreachable included, which is how a mark named only from an
-        /// uninvoked lambda came back as a mark. A caller with no call walk of its own has no second route
-        /// and must ask.
-        /// </para>
-        /// <para>
-        /// A nested function named only from an unreachable one is still walked, because that would need
-        /// the reachable region settled before the walk rather than during it. It is the bound this shape
-        /// leaves, one nesting level in.
-        /// </para>
-        /// </remarks>
         private static bool RunsNestedFunction(
             SemanticModel model,
             SyntaxNode body,
@@ -719,12 +555,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 _ => true,
             };
 
-        /// <remarks>
-        /// A lambda is an expression, so what can run it is decided by what the body does with the delegate
-        /// it makes. Held in a local, that is whatever names the local; assigned to a discard, nothing at
-        /// all. Every other position hands the delegate somewhere this rule cannot read, and is walked -
-        /// which is what keeps a mark marshalled onto another thread counting as a mark.
-        /// </remarks>
         private static bool RunsLambda(
             SemanticModel model,
             SyntaxNode body,
@@ -751,14 +581,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        /// <returns>
-        /// Whether any name in <paramref name="body"/> written outside <paramref name="declaration"/> binds
-        /// to <paramref name="symbol"/>.
-        /// </returns>
-        /// <remarks>
-        /// Names inside the declaration itself do not count: a lambda that only names the local it was
-        /// stored in is still unreachable from the body.
-        /// </remarks>
         private static bool IsNamedOutside(
             SemanticModel model,
             SyntaxNode body,
@@ -783,25 +605,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        /// <returns>
-        /// Whether a call to <paramref name="callee"/> written in <paramref name="tree"/> is in the assembly
-        /// the compiler produces.
-        /// </returns>
-        /// <remarks>
-        /// <para>
-        /// <c>[Conditional]</c> keeps the annotated method's body in every build and removes the calls to
-        /// it. So a helper marked <c>[Conditional("DEBUG")]</c> holds a <c>MarkChanged</c> that reads exactly
-        /// like a real one and is not in the shipped program, and following the callee's symbol without
-        /// asking this cleared the mutator on the strength of a call that is not there.
-        /// </para>
-        /// <para>
-        /// The symbols are read from the tree the call is written in, because that is what the language uses:
-        /// conditional compilation is per file, so the same call can survive in one file and not in another.
-        /// Several attributes are several chances - the call stands if any one of the named symbols is
-        /// defined - and the attribute is looked for up the override chain, because an override may not
-        /// declare one of its own and it is the base declaration that decides.
-        /// </para>
-        /// </remarks>
         private bool IsCallCompiled(IMethodSymbol callee, SyntaxTree tree)
         {
             if (_conditionalAttribute is null)
@@ -902,12 +705,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        /// <summary>The methods a reference to <paramref name="name"/> actually runs.</summary>
-        /// <remarks>
-        /// A property reference runs one accessor, not both: a read runs the getter and a plain assignment
-        /// runs the setter, while a compound assignment or an increment runs each in turn. Yielding both for
-        /// every reference let a bare read of a property whose setter marks stand in for the mark.
-        /// </remarks>
         private static IEnumerable<IMethodSymbol> ResolveCallees(SemanticModel model, SimpleNameSyntax name)
         {
             ISymbol? symbol = model.GetSymbolInfo(name).Symbol;
@@ -934,11 +731,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             ? memberAccess
             : name;
 
-    /// <remarks>
-    /// A bare identifier inside an instance member is this node; a qualified one has to say so, whether it
-    /// spells the receiver beside the name or once at the head of a conditional-access chain. Anything else
-    /// names another object, whose staleness this node's mark does not decide.
-    /// </remarks>
     private static bool IsOnThisInstance(SimpleNameSyntax name)
     {
         switch (name.Parent)
@@ -957,38 +749,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <remarks>
-    /// A deconstruction target counts, on the same terms the single name does: it is written without being
-    /// read, and only the syntax between it and the <c>=</c> differs. Reading it as anything else would put
-    /// a value <c>Process</c> only overwrites into the state it depends on, and run a property's getter for
-    /// a reference that never reads it.
-    /// </remarks>
     private static bool IsSimpleAssignmentTarget(ExpressionSyntax expression)
         => (expression.Parent is AssignmentExpressionSyntax assignment
             && assignment.Left == expression
             && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
            || (expression.Parent is ArgumentSyntax argument && IsDeconstructionTarget(argument));
 
-    /// <summary>Whether the reference is where a change to the state this member holds is written.</summary>
-    /// <remarks>
-    /// <para>
-    /// An element write - <c>_points[0] = value</c> - is the assignment shape and not the
-    /// collection-mutation bound. Nothing but the tracked name reaches that element, no name outside this
-    /// member is involved, and the read side already counts the field as state <c>Process</c> depends on,
-    /// because a read of <c>_points[i]</c> reads <c>_points</c>. Reading the write out differently is what
-    /// let the node go stale while the rule stayed silent.
-    /// </para>
-    /// <para>
-    /// Asked separately from <see cref="IsWriteTarget"/>, which answers a different question - which
-    /// accessor a reference runs. An element write on a property runs its getter, so widening that one
-    /// would have walked the setter body and let a mark written there excuse a mutation it never sees.
-    /// </para>
-    /// <para>
-    /// Through brackets only, however many are nested. A member written past the name -
-    /// <c>_child.Bounds = value</c> - is another object's state, which this node's mark does not decide,
-    /// and is where the rule already stops.
-    /// </para>
-    /// </remarks>
     private static bool ChangesTheValueBehind(ExpressionSyntax expression)
         => IsWriteTarget(expression)
            || (expression.Parent is ElementAccessExpressionSyntax element
@@ -1020,21 +786,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Whether the argument is an element the left side of a deconstruction writes.</summary>
-    /// <remarks>
-    /// <para>
-    /// A deconstruction is the assignment shape written once for several targets: each element stands
-    /// exactly where <c>_bounds = bounds</c> puts its name, changes the same value on the same statement,
-    /// and is spelled by the same node's own body. Only the tuple standing between the name and the
-    /// <c>=</c> differs, so reading the two out differently is what let an ordinary mutator past the rule.
-    /// </para>
-    /// <para>
-    /// Out through tuples only, however many are nested, and only on the left: the identical tuple on the
-    /// right reads its elements, and an argument of an ordinary call is parented by an argument list rather
-    /// than a tuple, so neither reaches an assignment this way. What each element writes is still decided by
-    /// the receiver it spells, so a deconstruction into another object stops where every other write does.
-    /// </para>
-    /// </remarks>
     private static bool IsDeconstructionTarget(ArgumentSyntax argument)
         => argument.Parent is TupleExpressionSyntax tuple && IsWriteTarget(tuple);
 

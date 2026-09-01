@@ -4,9 +4,6 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins which nodes keep their recording across requests, which are refused, and what forces a re-record.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public sealed class RenderNodeRecordingCacheTests
@@ -94,10 +91,6 @@ public sealed class RenderNodeRecordingCacheTests
         Assert.That(node.ProcessCalls, Is.EqualTo(2));
     }
 
-    /// <remarks>
-    /// The public surface only raises the flag, so the one path that lowers it is a consumed recording. Were
-    /// that path lost, a node marked once would report changes forever and never reuse a recording again.
-    /// </remarks>
     [Test]
     public void ConsumingARecording_LowersTheMarkTheNodeRaised()
     {
@@ -144,10 +137,6 @@ public sealed class RenderNodeRecordingCacheTests
         });
     }
 
-    /// <remarks>
-    /// One case per member of <c>RenderNodeRecordingKey</c>. The node records the same fragments whatever the
-    /// request says, so the count is evidence about the key and nothing else.
-    /// </remarks>
     [TestCase("intent")]
     [TestCase("purpose")]
     [TestCase("targetDomain")]
@@ -233,10 +222,6 @@ public sealed class RenderNodeRecordingCacheTests
         });
     }
 
-    /// <remarks>
-    /// The driven node leaves no fragment behind, so only counting the call sees that this recording was
-    /// partly another node's.
-    /// </remarks>
     [Test]
     public void ANodeThatDrivesANodeRecordingNothing_IsStillRefused()
     {
@@ -256,9 +241,6 @@ public sealed class RenderNodeRecordingCacheTests
         });
     }
 
-    /// <remarks>
-    /// A refused node re-records every request, and what it produces is what an ancestor was recorded over.
-    /// </remarks>
     [Test]
     public void AnAncestorOfARefusedNode_IsStillReused()
     {
@@ -277,11 +259,6 @@ public sealed class RenderNodeRecordingCacheTests
         });
     }
 
-    /// <remarks>
-    /// What an ancestor is recorded over is the fragments below it, not the fact that the node beneath it ran
-    /// its <see cref="RenderNode.Process(RenderNodeContext)"/> again. A leaf that reports a change and then
-    /// records what it recorded before leaves its ancestor's inputs digesting to what it was recorded over.
-    /// </remarks>
     [Test]
     public void ARefusedNodeThatChangesNothingItRecords_LeavesItsAncestorServed()
     {
@@ -319,10 +296,6 @@ public sealed class RenderNodeRecordingCacheTests
         Assert.That(root.ProcessCalls, Is.EqualTo(2));
     }
 
-    /// <remarks>
-    /// Opting out is a call the node makes while it processes, so a request that skips Process has to carry
-    /// it over. Missing it would let the pixel cache keep a node that asked not to be kept.
-    /// </remarks>
     [Test]
     public void AReusedRecording_KeepsItsRenderCacheOptOut()
     {

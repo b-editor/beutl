@@ -6,10 +6,6 @@ namespace Beutl.UnitTests.Engine.Media.Geometry;
 
 using Geometry = Beutl.Media.Geometry;
 
-/// <summary>
-/// <c>GetCachedPath</c> is on the render path, so a cache hit has to stay allocation-free and a rebuild must
-/// not cost more than the pre-change construction transcribed in <see cref="PreChangeGeometryPath"/>.
-/// </summary>
 [TestFixture]
 public sealed class GeometryPathAllocationTests
 {

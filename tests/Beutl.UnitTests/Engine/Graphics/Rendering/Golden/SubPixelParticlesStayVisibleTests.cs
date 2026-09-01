@@ -8,12 +8,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A particle is a copy of its source scaled by the particle's own size, so below ten units it is a
-/// minification. Filling a rectangle with the source's shader made that minification the tile mode's
-/// problem: a decal domain narrower than the sample footprint drops out, and the emitter rendered an
-/// entirely empty frame while the same emitter drawn larger rendered normally.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public class SubPixelParticlesStayVisibleTests

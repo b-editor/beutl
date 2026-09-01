@@ -10,22 +10,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A drawable whose transform squeezes it below one device pixel keeps the same ink under a filter
-/// effect as it does without one.
-/// </summary>
-/// <remarks>
-/// A built-in Skia filter over a vector drawable used to be materialized into a buffer rasterized in
-/// the drawable's own space and then composited back through the drawable's minifying transform with
-/// a two-tap sampler. At a 10:1 minification that single tap either lands on the hairline or misses
-/// it, so the bar arrived at up to 1.5x or as little as 0.0005x of its ink depending only on sub-pixel
-/// phase. The remaining loss came from the filter's save layer, whose bound hugged the content: the
-/// Ganesh backend keeps only (1 + w) / 2 of a w-device-pixel-wide feature inside such a layer.
-///
-/// The no-effect render is the reference rather than the analytic 0.6 x s_out, because antialiasing
-/// phase alone moves a heavily sub-pixel feature by ~20% and only the effect's contribution is under
-/// test here.
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public class AnisotropicHairlineCoverageTests
@@ -55,10 +39,6 @@ public class AnisotropicHairlineCoverageTests
         AssertEffectPreservesHairlineInk(WhiteShadowOnly(), outputScale, "shadow-only");
     }
 
-    /// <summary>
-    /// A morphology radius that is sub-pixel on the squeezed axis neither grows nor erases the bar: it
-    /// resolves against the destination's device grid, where Skia rounds it to no pixels at all.
-    /// </summary>
     [TestCase(0.25f)]
     [TestCase(0.333f)]
     [TestCase(0.5f)]
@@ -70,11 +50,6 @@ public class AnisotropicHairlineCoverageTests
         AssertEffectPreservesHairlineInk(Dilate(), outputScale, "dilate");
     }
 
-    /// <summary>
-    /// The default authoring shape: <see cref="Drawable"/>'s constructor installs a
-    /// <see cref="FilterEffectGroup"/>, so two stacked effects arrive as two filter segments and the
-    /// outer one's input is the inner segment rather than the drawable.
-    /// </summary>
     [TestCase(0.25f)]
     [TestCase(0.333f)]
     [TestCase(0.5f)]
@@ -89,10 +64,6 @@ public class AnisotropicHairlineCoverageTests
             "blur over shadow-only");
     }
 
-    /// <summary>
-    /// The anisotropic rig the family was reported against: the same 10% squeeze in x with a 20x
-    /// stretch in y, so the working density the effect resolves cannot describe both axes at once.
-    /// </summary>
     [TestCase(0.25f)]
     [TestCase(0.5f)]
     [TestCase(1f)]

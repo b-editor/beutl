@@ -6,15 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
-/// <summary>
-/// Pins that a symbolic <see cref="FilterEffectContext.Transform{T}(T, Func{T, Rect, Matrix}, BitmapInterpolationMode)"/>
-/// reports the bounds it renders on every activation, not only the first one.
-/// </summary>
-/// <remarks>
-/// The recorded item is shared by every activation of the context and of its <see cref="FilterEffectContext.Clone"/>,
-/// while the Skia factory resolves its matrix from the execution-time targets each time. Any resolution state the
-/// item keeps between activations therefore desynchronizes the reported bounds from the rendered pixels.
-/// </remarks>
 [TestFixture]
 public sealed class SymbolicTransformActivationTests
 {

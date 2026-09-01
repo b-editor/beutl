@@ -128,14 +128,9 @@ internal static class GpuTestEnvironment
         FailOnValidationErrorsSince(before);
     }
 
-    /// <summary>
-    /// Fails the current test when the work just run reported a Vulkan validation error.
-    /// </summary>
+    /// <summary>Fails when the preceding render work reported a Vulkan validation error.</summary>
     /// <remarks>
-    /// Nothing is recorded unless the job enabled validation, so this is inert on an ordinary run. The
-    /// layer reports some errors at queue submission rather than at the offending call, so an error can
-    /// land on a later invocation than the one that caused it; it still fails the run, which is what the
-    /// gate is for.
+    /// Submission-time errors may be attributed to a later invocation. Ordinary runs record nothing.
     /// </remarks>
     private static void FailOnValidationErrorsSince(int previousCount)
     {

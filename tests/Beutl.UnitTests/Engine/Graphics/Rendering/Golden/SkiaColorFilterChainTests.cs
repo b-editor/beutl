@@ -8,10 +8,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A Skia colour filter recorded through <see cref="FilterEffectContext"/> must reach the output exactly
-/// once no matter what follows it in the same Skia segment.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public sealed class SkiaColorFilterChainTests

@@ -8,16 +8,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins what an execution callback may be written against - the node that declares it - and what that costs
-/// the plan key.
-/// </summary>
-/// <remarks>
-/// A metadata callback contributes which declaration it is and nothing about the instance it reads, because
-/// the engine holds it to being a pure function of its arguments. An execution callback carries no such
-/// promise, so what it closed over still separates it; the node it was written inside is the one target
-/// that is not something it closed over, and it is therefore the one that does not.
-/// </remarks>
 [TestFixture]
 public sealed class NodeCapturingExecutionCallbackTests
 {
@@ -51,11 +41,6 @@ public sealed class NodeCapturingExecutionCallbackTests
         });
     }
 
-    /// <remarks>
-    /// The half that says a shared plan is shape and not content. A painted source's plan key never held
-    /// its drawing, so these two nodes shared a plan before this change as well; what has to hold is that
-    /// the shared plan is re-run over each node rather than replayed from the first.
-    /// </remarks>
     [Test]
     public void TwoNodesOfOneTypeDrawingDifferentValues_ShareOnePlanAndRenderTheirOwn()
     {
@@ -96,11 +81,6 @@ public sealed class NodeCapturingExecutionCallbackTests
         });
     }
 
-    /// <remarks>
-    /// The reason an execution callback's plan key had to stop being its delegate. A shader binder that
-    /// reads its own node is a different delegate per node, so before this change two nodes of one type
-    /// compiled a plan each and hit the cache never.
-    /// </remarks>
     [Test]
     public void TwoNodesOfOneTypeBindingDifferentValues_CompileOneStructuralPlan()
     {
@@ -125,12 +105,6 @@ public sealed class NodeCapturingExecutionCallbackTests
         });
     }
 
-    /// <remarks>
-    /// What the node exemption must not take with it. The request-local overloads exist so a callback may
-    /// close over a recording, and the fresh identity that bars its output from a later request's cache
-    /// lookup is nothing but its delegate: a closure over anything besides the node arrives as a compiler
-    /// display class allocated again every recording.
-    /// </remarks>
     [Test]
     public void ACapturingRequestLocalCallback_StillTakesAFreshIdentityPerRecording()
     {
@@ -154,11 +128,6 @@ public sealed class NodeCapturingExecutionCallbackTests
         });
     }
 
-    /// <remarks>
-    /// A change to state only the drawing reads has to reach the next frame, and what makes it do so is
-    /// the mark: a node reporting no change may have its recording replayed instead of re-recorded, which
-    /// is the contract BESG005 reports an unmarked write against.
-    /// </remarks>
     [Test]
     public void AMarkedChangeToAValueOnlyTheDrawingReads_ReachesTheNextFrame()
     {

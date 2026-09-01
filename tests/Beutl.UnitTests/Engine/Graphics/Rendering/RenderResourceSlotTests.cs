@@ -35,11 +35,6 @@ public sealed class RenderResourceSlotTests
         Assert.That(reached, Is.EqualTo(new[] { "left", "right" }));
     }
 
-    /// <remarks>
-    /// One composable definition can reach the same declared resource twice: a scope binds a token and
-    /// replays an input that binds the same one, so the inner read runs inside the outer lease. Refusing
-    /// that made two definitions uncomposable merely for sharing a resource.
-    /// </remarks>
     [Test]
     public void TheSameRegistrationCanBeReadInsideItsOwnLease()
     {

@@ -6,14 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that rejecting a factory's target never takes down a surface something else is still using.
-/// </summary>
-/// <remarks>
-/// A factory can hand back a fresh target instance wrapping a surface the pool already owns. Refusing it is
-/// right, but disposing it would free that surface underneath the live slot that holds it, and the next draw
-/// into that slot writes to freed memory rather than failing.
-/// </remarks>
 [TestFixture]
 public sealed class RenderTargetPoolRejectionTests
 {

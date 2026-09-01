@@ -9,15 +9,6 @@ using Microsoft.CodeAnalysis.Emit;
 
 namespace SourceGeneratorTest;
 
-/// <summary>
-/// Pins that a render metadata callback which is not a stable, state-free delegate is reported where it is
-/// written.
-/// </summary>
-/// <remarks>
-/// The engine used to walk the delegate's closure while recording to catch this. Recording is the render
-/// path and does no reflection now, so this rule is the whole of what enforces it, and it has to hold on
-/// both sides: a stable, state-free delegate must stay silent, or authors will suppress it.
-/// </remarks>
 [TestFixture]
 public sealed class MetadataCallbackPurityAnalyzerTests
 {
@@ -209,13 +200,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a lambda that reads a value the caller supplies per call is the case this rule exists for");
     }
 
-    /// <remarks>
-    /// The one reader the rule admits. A node's mapping is written against the node's own properties, and
-    /// nothing else says what that mapping is; threading every such value through TState says the same
-    /// thing at more length. What makes it safe is not the lambda but the node: it arrives as the
-    /// delegate's own target, marking it changed re-records it, and an answer of its that moves between
-    /// recording and metadata resolution fails the request at the recorded-answer cross-check.
-    /// </remarks>
     [Test]
     public void ALambdaReadingOnlyTheDeclaringNode_IsNotReported()
     {
@@ -241,11 +225,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "the rule that stands in front of the runtime has to accept it too");
     }
 
-    /// <remarks>
-    /// The half of the split nothing else covers. The runtime validator reads the delegate's target, and a
-    /// closure over a local arrives as a compiler display class that none of its type tests answer for, so
-    /// this rule is the only thing between an author and a captured mutable local.
-    /// </remarks>
     [Test]
     public void ALambdaClosingOverALocal_InsideANode_IsReported()
     {
@@ -290,10 +269,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// Reading the node is a permission to read the node, not a permission to close over whatever else is
-    /// in scope beside it.
-    /// </remarks>
     [Test]
     public void ALambdaClosingOverTheNodeAndALocal_IsReported()
     {
@@ -318,12 +293,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// The exemption follows the runtime's, which names <c>RenderNode</c> and nothing else. What holds a
-    /// node's answer still is a node's: change marking re-records the node that owns the callback, and no
-    /// such thing exists for an arbitrary object an author happens to write the lambda inside. Accepting it
-    /// here would be the analyzer promising what the engine does not.
-    /// </remarks>
     [Test]
     public void ALambdaReadingAnEnclosingInstanceThatIsNotANode_IsReported()
     {
@@ -348,9 +317,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "no change marking covers an ordinary object, so its state moving is caught by nothing");
     }
 
-    /// <remarks>
-    /// Staticness is still read first, so it decides the callback without the closure walk being consulted.
-    /// </remarks>
     [Test]
     public void AStaticLambdaInsideANode_IsNotReported()
     {
@@ -368,12 +334,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// A lambda that reads nothing is cached in a singleton the compiler owns, so there is no instance for
-    /// the node test to disagree about and nothing for the plan key to stand wrongly for. It is accepted
-    /// wherever it is written, which is what makes the rule about what a callback reads rather than about
-    /// how it was spelled.
-    /// </remarks>
     [Test]
     public void ANonStaticLambdaReadingNothing_IsNotReported()
     {
@@ -410,11 +370,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// The delegate's target is a box the conversion allocates, so the same method group produces a
-    /// reference-unequal delegate every time it is written. The plan key is the delegate, so this shape keys
-    /// each frame differently and no compiled plan is ever reused.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAReadonlyStruct_IsReported()
     {
@@ -440,11 +395,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "boxing the receiver makes a fresh delegate each conversion, so the plan key never repeats");
     }
 
-    /// <remarks>
-    /// A method group carries no closure, but an instance method's receiver becomes the delegate's target.
-    /// On a reference type that target is the author's own object, so changing a field on it changes what
-    /// the callback answers while its identity stays the method.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAReferenceType_IsReported()
     {
@@ -469,10 +419,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// This is the shape the diagnostic tells authors to move to, so it has to be accepted: the callbacks are
-    /// static and cached, and the values they read arrive as call state the contract does not key on.
-    /// </remarks>
     [Test]
     public void AStaticLambdaOnTheStatePassingOverload_IsNotReported()
     {
@@ -517,13 +463,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// The one reader the rule admits, written the other way. The runtime is handed the same delegate as
-    /// for the lambda: the node as its target, and a method of the node's type as the structural identity
-    /// the plan is keyed by. The method group is the narrower of the two forms - an instance method reads
-    /// its receiver and its arguments, where a lambda has the enclosing scope to reach into - so reporting
-    /// this while admitting the lambda would be judging how the mapping was spelled.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnTheDeclaringNode_IsNotReported()
     {
@@ -553,10 +492,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "rule cannot turn on whether the author wrote a lambda or named the method");
     }
 
-    /// <remarks>
-    /// The receiver is read at the call and not off the method, so a mapping a base node declares is judged
-    /// by the node that runs it - which is the object that becomes the delegate's target.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAMethodABaseNodeDeclares_IsNotReported()
     {
@@ -582,10 +517,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// Parentheses around a receiver leave the same object underneath, and the whole point of this arm is
-    /// that the rule answers by what the callback reads rather than by how it was spelled.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAParenthesisedThis_InsideANode_IsNotReported()
     {
@@ -608,10 +539,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// The body is the whole of what a method group contributes, and the exemption says nothing about what
-    /// that body reads, so BESG004 still follows it. Accepting the receiver must not stop the rule looking.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnTheDeclaringNodeReadingAMutableStatic_IsReportedByTheStaticStateRule()
     {
@@ -644,10 +571,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "admitting the receiver decides nothing about the body, which is still walked");
     }
 
-    /// <remarks>
-    /// The exemption is for the node the callback is written inside, not for whatever object a node holds.
-    /// Nothing marks that object changed, and the runtime validator is handed it rather than the node.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAnotherObject_InsideANode_IsReported()
     {
@@ -678,10 +601,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the delegate's target is the provider, whose state no change marking on this node covers");
     }
 
-    /// <remarks>
-    /// The sharpest case for the exemption's boundary: the receiver is a <c>RenderNode</c> and is still not
-    /// the node whose recording the callback belongs to, so marking it changed re-records the wrong node.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAnotherNode_IsReported()
     {
@@ -712,11 +631,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "being a node is not the test; being the node this callback is recorded for is");
     }
 
-    /// <remarks>
-    /// The receiver arm takes the exemption on the same terms the closure arm does, which the runtime
-    /// validator writes as <c>not RenderNode</c>: an ordinary object is covered by no change marking, so
-    /// its state moving is caught by nothing.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnThis_OutsideANode_IsReported()
     {
@@ -742,11 +656,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "no change marking covers an ordinary object, so its receiver moving is caught by nothing");
     }
 
-    /// <remarks>
-    /// A struct's own <c>this</c> is boxed at the conversion exactly as a named value-typed receiver is, so
-    /// the delegate answers from a copy of what the receiver held right there. The exemption names a class
-    /// and cannot reach this whatever the struct is written inside.
-    /// </remarks>
     [Test]
     public void AMethodGroupOnAStructsOwnThis_IsReported()
     {
@@ -767,11 +676,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// A bare name is not always a receiver. A local function that is not declared static reads the scope
-    /// it is written in exactly as a lambda does, and nothing here reads which locals it took, so widening
-    /// the receiver arm must not widen to this.
-    /// </remarks>
     [Test]
     public void ALocalFunctionCapturingAParameter_InsideANode_IsReported()
     {
@@ -797,9 +701,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the delegate carries the caller's argument, which is the case this rule exists for");
     }
 
-    /// <remarks>
-    /// Staticness is still read first, so it decides the callback without the receiver being consulted.
-    /// </remarks>
     [Test]
     public void AStaticMethodGroupInsideANode_IsNotReported()
     {
@@ -819,11 +720,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// A forwarded callback is checked nowhere else: the caller hands it to the helper, not to a contract,
-    /// so the caller's own call is not a contract call and is not analyzed. The forwarder is the last place
-    /// that knows a contract is involved.
-    /// </remarks>
     [Test]
     public void AForwardedParameter_IsReported()
     {
@@ -845,11 +741,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "nothing else sees that a contract is involved, so this is the last place to say so");
     }
 
-    /// <remarks>
-    /// A cast is still a delegate argument, and the delegate underneath it is the ordinary capturing one the
-    /// runtime validator accepts. Classifying the expression as written rather than the delegate underneath
-    /// let this shape through silently.
-    /// </remarks>
     [Test]
     public void AForwardedParameterBehindACast_IsReported()
     {
@@ -925,10 +816,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// Unwrapping must not turn the rule into a blanket reject: the shape the diagnostic recommends still has
-    /// to survive being written behind a cast.
-    /// </remarks>
     [Test]
     public void AStaticLambdaBehindACast_IsNotReported()
     {
@@ -949,10 +836,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// An expression the rule cannot classify is reported rather than waved through: silence has to mean the
-    /// rule looked at the delegate, not that it ran out of cases.
-    /// </remarks>
     [Test]
     public void AnUnrecognisedDelegateExpression_IsReported()
     {
@@ -976,10 +859,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the rule cannot see what the factory returns, so it must not assume the delegate is stable");
     }
 
-    /// <remarks>
-    /// A null callback carries no state and no identity, so reporting it would be the rule complaining about
-    /// something other than purity. The contract rejects it at run time on its own.
-    /// </remarks>
     [Test]
     public void ANullCallback_IsNotReported()
     {
@@ -998,10 +877,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// A static lambda cannot reach a local, a parameter, or this, so BESG003 is right to stay silent - but
-    /// static state is still reachable, and changing it makes one structural identity stand for two answers.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAMutableStaticField_IsReported()
     {
@@ -1057,10 +932,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
     }
 
-    /// <remarks>
-    /// Static state that cannot be reassigned answers the same way on every frame, so the rule must not reject
-    /// it. Without this, BESG004 would push authors to suppress it instead of reading it.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingImmutableStaticState_IsNotReported()
     {
@@ -1093,11 +964,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The getter is where a get-only property either proves itself or does not. This one reads a field
-    /// anything can assign, so the property answers differently on the next frame while the delegate the
-    /// plan is keyed by stays the same - the exact failure BESG004 exists to name.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAGetOnlyPropertyOverMutableState_IsReported()
     {
@@ -1131,12 +997,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a getter has to prove its value, and a call is not a shape that proves one");
     }
 
-    /// <remarks>
-    /// A property compiled into a referenced assembly carries no getter this rule can read, and
-    /// <see cref="Environment.TickCount"/> is what that hides: get-only, and a different value every read.
-    /// Not being able to look is the reporting side, or the rule would wave through every framework
-    /// property an author happens to name.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAGetOnlyPropertyWithNoSource_IsReported()
     {
@@ -1150,11 +1010,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a getter with no source proves nothing, so it must not be assumed constant");
     }
 
-    /// <remarks>
-    /// These are what stop BESG004 becoming a blanket reject on get-only properties, which authors would
-    /// suppress wholesale and lose the rule with it. Each getter can answer only one value, so the plan a
-    /// callback reading it compiles to stays correct.
-    /// </remarks>
     [TestCase("public static float Value => 4f;", "value.X + Settings.Value")]
     [TestCase("public const float Inset = 1f;\n\n    public static float Value => Inset;", "value.X + Settings.Value")]
     [TestCase("public static Alignment Value => Alignment.Center;", "value.X + (float)Settings.Value")]
@@ -1169,12 +1024,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// readonly stops the field being assigned and says nothing about the object it points at. The delegate
-    /// is the same delegate on every frame, so the plan key never moves, while what the callback reads
-    /// through the field answers differently the moment anyone writes <c>Offset</c> - the same failure a
-    /// settable static field is reported for, reached one hop further out.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAMutableClass_IsReported()
     {
@@ -1202,12 +1051,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// A readonly struct cannot be written through an instance member, which says nothing about what its
-    /// fields point at. This one holds a reference, so the value the field keeps is fixed and the state the
-    /// callback reaches through it is not - the case that stops "readonly struct" from standing in for
-    /// "immutable".
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAReferenceBearingStruct_IsReported()
     {
@@ -1242,11 +1085,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// The field's type is decided in metadata, where the rule still has the fields to walk even though it
-    /// has no source. A referenced readonly struct that carries a reference must be reported on the same
-    /// terms as one written here, or the boundary itself becomes the way past the rule.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldFromAReferencedAssembly_IsReported()
     {
@@ -1296,15 +1134,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a type with no source is still a type whose fields metadata carries");
     }
 
-    /// <remarks>
-    /// A compilation imports only the public and protected members of a metadata type, so a class read from
-    /// another assembly arrives with its private state absent from the field list and every field still on
-    /// it readonly. Reading that list as "no writable state" answers a question the walk was never shown the
-    /// evidence for: mutating the object behind the field changes what the callback answers while the plan
-    /// key stays the same. The library here is emitted whole, so this is not a reference assembly having
-    /// removed anything - it is the import boundary, and a reference assembly only reaches the same place
-    /// twice.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticReadonlyFieldOfASealedClassWithMetadataOnlyState_IsReported()
     {
@@ -1351,12 +1180,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a field list stopping at the public members is not evidence the type carries no state");
     }
 
-    /// <remarks>
-    /// StringBuilder's shape, which is the case that showed the hole: sealed, its buffer private, and a
-    /// public Length computed from it. Across an assembly boundary the buffer is not imported, so the walk
-    /// sees a class with nothing writable on it; Append then changes what Length answers with the delegate
-    /// untouched.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingABuilderLengthAcrossAnAssemblyBoundary_IsReported()
     {
@@ -1408,11 +1231,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a builder whose buffer was not imported is still a builder");
     }
 
-    /// <remarks>
-    /// The same class written here instead. Sealing and having nothing writable is not what was in doubt -
-    /// where the field list was read from is - so the two have to land on opposite sides, or the rule is
-    /// deciding on the shape of the type rather than on what it was shown.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticReadonlyFieldOfAStatelessSealedClassFromAnotherAssembly_IsReported()
     {
@@ -1455,12 +1273,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a class with no fields in the metadata is not a class with no fields");
     }
 
-    /// <remarks>
-    /// A struct is where the import stops short of nothing: a compilation cannot decide definite assignment
-    /// or an unmanaged constraint without every field of a referenced struct, so it has them all and the
-    /// walk is reading the type. Rejecting a referenced readonly struct would cost the rule every value type
-    /// an author shares across a project boundary for no evidence gained.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticReadonlyFieldOfAnImmutableStructFromAnotherAssembly_IsNotReported()
     {
@@ -1504,14 +1316,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The pair below is why EffectiveScale.Unbounded is a field. A sentinel of an immutable struct is the
-    /// same constant in either form to a source caller, and only one of the two survives the assembly
-    /// boundary: the getter's body is not imported, so the rule is left holding a signature that a computed
-    /// getter and a constant one share, while the struct's fields are imported and carry initonly with them.
-    /// Both directions are pinned together because the property case is the whole reason the field case
-    /// matters - accepting the field proves nothing unless the property it replaced was refused.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAGetOnlySentinelPropertyFromAnotherAssembly_IsReported()
     {
@@ -1579,12 +1383,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         }
         """;
 
-    /// <remarks>
-    /// The shape the diagnostic's own message sends an author to, seen the way an author outside
-    /// Beutl.Engine sees it: a metadata class, which the field walk is no longer allowed to clear. The rule
-    /// knows this one by name instead, so recommending it and accepting it stay the same answer whichever
-    /// assembly the author is writing in.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticReadonlyResourceSlotFromAnotherAssembly_IsNotReported()
     {
@@ -1623,12 +1421,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The reviewer's example written literally, against the shipping StringBuilder. Its five chunk fields
-    /// are internal, so a compilation importing only public and protected members sees a sealed class with
-    /// no fields at all - which is why the walk used to accept it, and why the walk is not what decides a
-    /// metadata type any more.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticReadonlyStringBuilderLength_IsReported()
     {
@@ -1642,11 +1434,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "appending to the builder changes what the callback answers with the delegate unchanged");
     }
 
-    /// <remarks>
-    /// These are what stop the field rule becoming a blanket reject on static readonly, which authors would
-    /// suppress wholesale and lose the rule with it. Each type's instances carry no state anything can
-    /// write, so a field fixing the value fixes the whole of what the callback can read through it.
-    /// </remarks>
     [TestCase("public static readonly Alignment Current = Alignment.Center;", "value.X + (float)Settings.Current")]
     [TestCase("public static readonly float Current = 2f;", "value.X + Settings.Current")]
     [TestCase("public static readonly string Current = \"beutl\";", "value.X + Settings.Current.Length")]
@@ -1661,10 +1448,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The struct an author writes to group a few numbers is the shape the field rule has to keep accepting,
-    /// or the reference-bearing case above would have cost every value type with it.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAnImmutableStruct_IsNotReported()
     {
@@ -1697,12 +1480,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A class with nothing to write is the shape the diagnostic's own advice hands back: a resource slot is
-    /// an address a definition declares once, held in a static readonly field and named by every callback
-    /// that leases through it. Rejecting it for being a reference would leave the rule rejecting the fix it
-    /// recommends, which is the state authors suppress a rule over.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticReadonlyFieldOfAStatelessSealedClass_IsNotReported()
     {
@@ -1720,10 +1497,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// Every field readonly and every field's type accepted is the whole of what the walk asks, and a class
-    /// answering it carries no more writable state than a readonly struct does.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfASealedImmutableClass_IsNotReported()
     {
@@ -1743,11 +1516,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// Sealing is what makes the field list the whole of the type. Without it the walk would be reading one
-    /// class while the field holds an instance of another, so an unsealed class is reported however
-    /// immutable its own declaration looks.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAnUnsealedClass_IsReported()
     {
@@ -1770,11 +1538,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a subclass can add the writable state the declaration does not show");
     }
 
-    /// <remarks>
-    /// A settable auto-property compiles to a backing field nothing marks readonly, so the walk reaches the
-    /// same answer it would for the field written out - which is what stops an author spelling their way
-    /// past the rule.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingThroughAStaticReadonlyFieldOfAClassWithASettableProperty_IsReported()
     {
@@ -1795,11 +1558,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the backing field of a settable auto-property is writable state like any other");
     }
 
-    /// <remarks>
-    /// readonly fixes the reference the plan key needs and says nothing about the delegate the field holds.
-    /// A field assigned in a constructor is where that gap shows: the delegate is built from the
-    /// constructor's arguments, and the runtime validator accepts an ordinary closure target.
-    /// </remarks>
     [Test]
     public void ACapturingLambdaAssignedToAReadonlyField_IsReported()
     {
@@ -1825,15 +1583,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the delegate is built in a constructor, where it closes over that constructor's arguments");
     }
 
-    /// <remarks>
-    /// The field is only a name for the lambda, so the lambda answers for the same rule an argument lambda
-    /// does - and here that rule accepts it. A field initialiser has no local, no parameter and no
-    /// <see langword="this"/> in scope, so the lambda it holds closes over nothing whether or not it says
-    /// <c>static</c>, and the compiler caches it in a singleton. That the field is not what decided this is
-    /// what <see cref="ACapturingLambdaAssignedToAReadonlyField_IsReported"/> and
-    /// <see cref="ACapturingLambdaBehindAGetOnlyProperty_IsReported"/> pin: the rule follows the member to
-    /// what it holds rather than accepting the member.
-    /// </remarks>
     [Test]
     public void ANonStaticLambdaInAReadonlyFieldInitialiser_IsNotReported()
     {
@@ -1854,10 +1603,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// An instance method group keeps its receiver as the delegate's target, and the field being readonly
-    /// says nothing about that receiver, so a field on it still changes what the callback answers.
-    /// </remarks>
     [Test]
     public void AnInstanceMethodGroupInAReadonlyFieldInitialiser_IsReported()
     {
@@ -1885,10 +1630,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// A readonly field holding a static lambda clears the capture rule and reaches static state exactly as
-    /// a static lambda written at the call does, so BESG004 has to follow the callback into the field.
-    /// </remarks>
     [Test]
     public void AReadonlyFieldHoldingAStaticLambdaOverMutableStaticState_IsReported()
     {
@@ -1922,11 +1663,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// A field compiled into another assembly carries no initialiser this rule can read, and readonly proves
-    /// only that the reference is fixed. Not being able to look is the reporting side, as it already is for
-    /// a get-only property whose getter has no source.
-    /// </remarks>
     [Test]
     public void AReadonlyFieldFromAReferencedAssembly_IsReported()
     {
@@ -1961,10 +1697,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a field whose initialiser is not in this compilation proves nothing about what it holds");
     }
 
-    /// <remarks>
-    /// This is the shape the diagnostic leaves an author with: one delegate cached in a readonly field, built
-    /// from a static lambda that reads nothing that can change. Rejecting it would make the rule unusable.
-    /// </remarks>
     [Test]
     public void AReadonlyFieldHoldingAStaticLambdaOverConstants_IsNotReported()
     {
@@ -1991,11 +1723,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A property is the same "cannot prove it" shape a readonly field is: it names a delegate without
-    /// saying what that delegate carries. Here the getter hands back a lambda that closes over the
-    /// receiver, so the callback answers differently once a field on that receiver changes.
-    /// </remarks>
     [Test]
     public void ACapturingLambdaBehindAGetOnlyProperty_IsReported()
     {
@@ -2026,10 +1753,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the getter returns a lambda that is not static, so what it closed over decides the answer");
     }
 
-    /// <remarks>
-    /// The getter clearing the capture rule leaves the static-state rule to decide, exactly as it does for a
-    /// static lambda written at the call or held in a readonly field.
-    /// </remarks>
     [Test]
     public void AGetOnlyPropertyReturningAStaticLambdaOverMutableStaticState_IsReported()
     {
@@ -2066,10 +1789,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// A setter means the delegate the call sees is whatever was last assigned, which nothing in the
-    /// declaration pins. Having no setter is what makes a getter worth reading at all.
-    /// </remarks>
     [Test]
     public void ASettableDelegateProperty_IsReported()
     {
@@ -2096,10 +1815,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "an assignable property says nothing about which delegate reaches the contract");
     }
 
-    /// <remarks>
-    /// A getter compiled into another assembly cannot be read, and having no setter says only that this
-    /// declaration does not write it. Not being able to look is the reporting side here too.
-    /// </remarks>
     [Test]
     public void AGetOnlyDelegatePropertyFromAReferencedAssembly_IsReported()
     {
@@ -2134,11 +1849,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a getter with no source proves nothing about the delegate it returns");
     }
 
-    /// <remarks>
-    /// This is what stops the property arm becoming a blanket reject, which authors would suppress wholesale
-    /// and lose both rules with it: the getter can only ever hand back one static lambda, and that lambda
-    /// reads nothing that can change.
-    /// </remarks>
     [Test]
     public void AGetOnlyPropertyReturningAStaticLambdaOverConstants_IsNotReported()
     {
@@ -2168,13 +1878,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A description's Create retains its execution callback - the recorded operation is fingerprinted by
-    /// that delegate - so it is keyed and re-run on exactly the terms a metadata callback is, and nothing
-    /// else checks it: the runtime validator null-checks the callback and never looks inside it. It is named
-    /// as that one method rather than through its type because CreateRequestLocal sits beside it on the same
-    /// type and means the opposite thing.
-    /// </remarks>
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
@@ -2196,10 +1899,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a callback that reads a value the caller supplies per recording is what the state parameter is for");
     }
 
-    /// <remarks>
-    /// The shape the diagnostic asks for. A description factory carries the same state-passing parameter its
-    /// definition builder does, so an author who used it must not be reported for it.
-    /// </remarks>
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
@@ -2218,12 +1917,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The reason these are listed as methods and not as types. CreateRequestLocal is the documented opt-out:
-    /// it takes no state, mints a fresh request-local identity every recording, and therefore says outright
-    /// that its callback may capture. Keying the rule on the description type would report every one of those
-    /// calls, which is a diagnostic on the sanctioned form of a call the author was told to write.
-    /// </remarks>
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
@@ -2242,11 +1935,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A static method group clears the capture rule and reads static state on exactly the terms a static
-    /// lambda does, so the body it names has to be read for the same reason the lambda's is. Leaving it
-    /// unread exempted the very form BESG003's own message tells authors to write.
-    /// </remarks>
     [Test]
     public void AStaticMethodGroupReadingAMutableStatic_IsReported()
     {
@@ -2282,11 +1970,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// The call the callback makes used to be where the rule stopped, so a read moved one method along was
-    /// enough to leave it. The walk now follows it to a bounded depth, on the shape the field walk already
-    /// uses: run out of depth and report, so the bound can cost a diagnostic and never hide one.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAMethodThatReadsAMutableStatic_IsReported()
     {
@@ -2300,10 +1983,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "moving the read one call along does not make the callback answer the same way twice");
     }
 
-    /// <remarks>
-    /// Both halves at once: the callback is a method group, and the read is a call further in. Neither the
-    /// body inspection nor the call walk catches this on its own.
-    /// </remarks>
     [Test]
     public void AStaticMethodGroupReadingAMutableStaticThroughACall_IsReported()
     {
@@ -2331,11 +2010,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
     }
 
-    /// <remarks>
-    /// A chain longer than the walk is reported rather than accepted, so the bound only ever costs a
-    /// diagnostic. Nine hops is one past <c>MaxCallbackCallDepth</c>, and every body in it is provably
-    /// constant, which is what makes the report attributable to the bound and to nothing else.
-    /// </remarks>
     [Test]
     public void ACallChainDeeperThanTheWalk_IsReported()
     {
@@ -2355,9 +2029,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "running out of depth is not evidence that the rest of the chain is constant");
     }
 
-    /// <remarks>
-    /// A callback that names its own method recursively would walk for ever, and the compiler allows it.
-    /// </remarks>
     [Test]
     public void ARecursiveStaticMethodGroupOverConstants_IsNotReported()
     {
@@ -2378,11 +2049,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// This is the half that stops the widened rule from rejecting the form it recommends. A method group
-    /// reading only constants and proven static readonly state is exactly what BESG003 sends authors to, and
-    /// reporting it would leave them nowhere to go.
-    /// </remarks>
     [Test]
     public void AStaticMethodGroupReadingOnlyProvenConstants_IsNotReported()
     {
@@ -2416,13 +2082,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A method compiled into another assembly carries no body this rule can read, and it is the whole of
-    /// the callback: staying silent would say the rule looked when it looked at nothing. This is where the
-    /// static field rule already stands - a type whose state was not imported is refused, not assumed clean -
-    /// and a callback is the one place that reasoning bites hardest, because there is no second half left to
-    /// check.
-    /// </remarks>
     [Test]
     public void AStaticMethodGroupFromAReferencedAssembly_IsReported()
     {
@@ -2463,11 +2122,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// A method the body calls is the documented bound, and it stays one when the callee has no source: the
-    /// rule did inspect the callback, unlike the case above where the callback was the unreadable method.
-    /// Reporting here would reject every callback that names <see cref="Math.Clamp(float, float, float)"/>.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAMethodWithNoSource_IsNotReported()
     {
@@ -2478,11 +2132,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A constructor runs code the body never names: the object-creation expression names the type, and the
-    /// loop that reads the body sees only names. So a helper whose constructor snapshots a mutable static
-    /// answers differently on a later frame while the delegate keying the plan stays the same one.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConstructingAHelperThatReadsAMutableStatic_IsReported()
     {
@@ -2521,10 +2170,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "moving the read into a constructor does not make the callback answer the same way twice");
     }
 
-    /// <remarks>
-    /// An initialiser runs as part of every constructor of the type, so it is reached by constructing the
-    /// type and is not written inside any constructor body.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConstructingAHelperWhoseInitialiserReadsAMutableStatic_IsReported()
     {
@@ -2610,10 +2255,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A type with no constructor of its own has one the compiler writes, which has no source to read and no
-    /// state to reach; reporting it would reject every callback that names a plain helper.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConstructingATypeWithAnImplicitConstructor_IsNotReported()
     {
@@ -2666,10 +2307,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A chained constructor is spelled <c>this</c>, which is not a name the walk's loop reads, so the body
-    /// it runs is reached only by following the chain.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConstructingAHelperThatChainsToAReadingConstructor_IsReported()
     {
@@ -2706,11 +2343,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
     }
 
-    /// <remarks>
-    /// A constructor with no initialiser still runs its base type's parameterless one, and that call is
-    /// written nowhere at all. The middle type has no constructor of its own, so the chain runs through one
-    /// the compiler wrote: stopping there would lose a base this rule can read.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConstructingATypeWhoseBaseConstructorReadsAMutableStatic_IsReported()
     {
@@ -2751,10 +2383,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
     }
 
-    /// <remarks>
-    /// An operator is spelled as punctuation, so the same read moved behind one used to leave the rule with
-    /// nothing to look at.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingAnOperatorThatReadsAMutableStatic_IsReported()
     {
@@ -2793,10 +2421,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
     }
 
-    /// <remarks>
-    /// An implicit conversion is spelled nothing at all - a declared type decides it - so an author can move
-    /// a read behind one without changing a single name in the callback.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingAnImplicitConversionThatReadsAMutableStatic_IsReported()
     {
@@ -2866,11 +2490,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A constructor with no source here is the callee case, not the callback case: the rule did read the
-    /// callback, so this is a bound on an inspected callback and reporting it would reject every callback
-    /// that constructs a framework type.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConstructingATypeFromAReferencedAssembly_IsNotReported()
     {
@@ -2904,12 +2523,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A helper's method is a body the callback runs, and the expression that makes the helper says
-    /// everything the walk needs: the type is exact, and what the instance carries came from the constructor
-    /// the walk already reads. So following it needs no model of a receiver, and stopping at it let an
-    /// author move a read one member sideways and keep the rule silent.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAMethodOnAFreshlyConstructedHelperThatReadsAMutableStatic_IsReported()
     {
@@ -2943,11 +2556,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a read moved into a helper's method is still a read the callback reaches");
     }
 
-    /// <remarks>
-    /// A virtual method is the one case the receiver decides, and an object creation decides it here: the
-    /// expression names the exact type it makes, so the override the call binds to is the override that
-    /// runs. That is read off the call site, not tracked from anywhere.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAVirtualMethodOnAFreshlyConstructedHelperThatReadsAMutableStatic_IsReported()
     {
@@ -3014,10 +2622,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a getter is a body the callback runs as surely as a method is");
     }
 
-    /// <remarks>
-    /// An indexer is a getter reached through punctuation rather than a name, so a walk that only looked at
-    /// names could not see it at all.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAnIndexerThatReadsAMutableStatic_IsReported()
     {
@@ -3051,11 +2655,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "an indexer runs a getter body the source never spells a name for");
     }
 
-    /// <remarks>
-    /// A collection initialiser spells its <c>Add</c> calls as elements between braces, so an author moves
-    /// a read out of the constructor this rule already follows and into a body it never named by writing
-    /// braces where the parentheses were.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingACollectionInitializerWhoseAddReadsAMutableStatic_IsReported()
     {
@@ -3096,11 +2695,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a collection initialiser runs an Add body the source never spells a name for");
     }
 
-    /// <remarks>
-    /// The element that takes more than one argument is written as a second pair of braces, which binds to
-    /// <c>Add</c> where the element itself binds to nothing at all, so the two spellings have to be asked
-    /// the same question rather than the one the name loop happens to reach.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingAMultiArgumentCollectionInitializerElementWhoseAddReadsAMutableStatic_IsReported()
     {
@@ -3140,11 +2734,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the multi-argument element form runs the same Add and has to be read the same way");
     }
 
-    /// <remarks>
-    /// What the arm follows is the body, not the braces. An <c>Add</c> reading only its arguments and the
-    /// instance the initialiser is filling has nothing in it to report, and reporting one would say the
-    /// shape is the problem when the rule is about what the shape runs.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingACollectionInitializerWhoseAddReadsNothingStatic_IsNotReported()
     {
@@ -3183,11 +2772,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "an Add that reads only what it was handed answers the same way twice");
     }
 
-    /// <remarks>
-    /// Braces on a member rather than on the creation are the receiver bound stated as a case: the
-    /// <c>Add</c> runs on an instance the callback did not make, whose declared type need not be the type
-    /// that runs, which is exactly what a member called on a handed-in receiver is refused for.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingACollectionInitializerOnAMemberItDidNotCreate_IsNotReported()
     {
@@ -3233,11 +2817,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the callback did not make this receiver, so what its Add runs is not read off the call site");
     }
 
-    /// <remarks>
-    /// The walk reports static reads, so a body that reads only its arguments and the instance it was
-    /// called on has nothing in it to report however far the walk goes into it. Following instance members
-    /// must not turn an ordinary helper into a diagnostic.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAnInstanceMethodOverItsArguments_IsNotReported()
     {
@@ -3270,19 +2849,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a helper reading its own arguments and fields answers the same way twice");
     }
 
-    /// <remarks>
-    /// <para>
-    /// The bound this rule stops at, stated as a case, and it holds whether or not the callee could be
-    /// overridden - what is missing is the receiver, not the body.
-    /// </para>
-    /// <para>
-    /// Walking past it was tried and is not viable. These callbacks are handed the objects they work
-    /// through - a session, a canvas, a context - so a member called on one of those is the engine behind
-    /// it: following them reported the render backend's loggers, its shared GPU context, its dispatcher and
-    /// its pools, hundreds of times over a tree that is correct, none of which says anything about whether
-    /// a callback answers the same way twice. A rule that loud is a rule authors suppress.
-    /// </para>
-    /// </remarks>
     [Test]
     [TestCase("public")]
     [TestCase("public virtual")]
@@ -3320,14 +2886,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the callback did not make this receiver, so what it carries is not read off the call site");
     }
 
-    /// <remarks>
-    /// A receiver the expression did not make can still be one this rule reads the making of: a readonly
-    /// field whose one initialiser is an object creation names the exact type it makes as surely as writing
-    /// the creation at the call site does, and no constructor can put a different instance there. A
-    /// stateless helper kept as a singleton clears the static field rule on its own - readonly, and a
-    /// sealed class carrying no instance state - so before this the mutable static its method reads was
-    /// reported by nothing at all.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAMethodOnAStaticReadonlyStatelessHelperThatReadsAMutableStatic_IsReported()
     {
@@ -3367,11 +2925,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "both readable, so the body it runs is the body that runs");
     }
 
-    /// <remarks>
-    /// The same helper held by the node instead of by a static class, which is the shape the capture rule
-    /// admits: the lambda reads nothing but its own node, so BESG003 is silent by design, and what the node
-    /// holds is where a mutable static could sit with neither rule looking at it.
-    /// </remarks>
     [Test]
     public void ANodeLambdaCallingAReadonlyFieldHelperThatReadsAMutableStatic_IsReported()
     {
@@ -3414,13 +2967,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "static through a helper the node holds");
     }
 
-    /// <remarks>
-    /// A readonly field's initialiser runs once, before the callback is ever handed over, so whatever the
-    /// constructor read is frozen into the one instance every recording sees - which is the same value at
-    /// both, however the static moved in between. That is the reason BESG005 exempts a constructor too, and
-    /// reading this one anyway had the two rules disagreeing about the same constructor. The member called
-    /// on the instance is still walked: it runs per invocation and can read a static that has moved.
-    /// </remarks>
     [Test]
     public void ANodeLambdaCallingAReadonlyFieldHelperWhoseConstructorReadsAMutableStatic_IsNotReported()
     {
@@ -3461,14 +3007,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "every recording and cannot be what makes the callback answer differently");
     }
 
-    /// <remarks>
-    /// The same frozen value one indirection out, and the shape a singleton is usually written in. Nothing
-    /// about a <c>static readonly</c> holder makes its constructor run again, so the walk that reads it is
-    /// reading code that ran before the plan existed. The member called on the singleton is a different
-    /// question and still walked -
-    /// <c>AStaticLambdaCallingAMethodOnAStaticReadonlyStatelessHelperThatReadsAMutableStatic</c> above is
-    /// what that costs.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReachingASingletonWhoseConstructorReadsAMutableStatic_IsNotReported()
     {
@@ -3512,11 +3050,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "second, whatever the static it was read from does in between");
     }
 
-    /// <remarks>
-    /// The positive control the narrowing above has to leave standing: a creation written in the callback
-    /// runs its constructor every time the callback does, so a mutable static read there is read afresh at
-    /// each recording.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCreatingAHelperWhoseConstructorReadsAMutableStatic_IsReported()
     {
@@ -3555,10 +3088,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "recording");
     }
 
-    /// <remarks>
-    /// A local written once where it is declared names one creation, and that creation is written in the
-    /// callback body, so its constructor runs per invocation exactly as one spelled at the call site does.
-    /// </remarks>
     [Test]
     public void AStaticLambdaHoldingAHelperInALocalWhoseConstructorReadsAMutableStatic_IsReported()
     {
@@ -3600,12 +3129,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "at every recording");
     }
 
-    /// <remarks>
-    /// <c>DescribeUnprovenGetter</c> accepts this getter as a fixed instance of a stateless type, so the
-    /// property itself is not reported - and refusing the same field here left the helper's body the one
-    /// reach the rule cleared and then never read. One hop and no chain: the getter can answer with no
-    /// other expression, and the field is put the whole of the test it would be put naming it directly.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReachingAHelperThroughAGetOnlyPropertyAlias_IsReported()
     {
@@ -3647,10 +3170,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "exactly known as one the expression makes");
     }
 
-    /// <remarks>
-    /// The negative control for the hop: following the alias must report what the helper reads and not the
-    /// helper's existence. This one reads nothing, and the getter was already accepted before the hop.
-    /// </remarks>
     [Test]
     public void AGetOnlyPropertyAliasToAStatelessHelper_IsNotReported()
     {
@@ -3686,11 +3205,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the hop is a way to reach a body, not a reason to report one");
     }
 
-    /// <remarks>
-    /// The bound on the hop: a settable field can hold a second instance, so the initialiser is not
-    /// evidence of what the getter hands back and the helper's body is not the body that runs. The getter
-    /// is still reported for that same reason, which is the one diagnostic this shape earns.
-    /// </remarks>
     [Test]
     public void AGetOnlyPropertyAliasToASettableField_IsNotFollowed()
     {
@@ -3736,12 +3250,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "and that is the whole of it: the helper's body is not the body the getter was shown to run");
     }
 
-    /// <remarks>
-    /// readonly fixes the reference against everything except the declaring type's own constructors, so the
-    /// initialiser is only the whole story where none of them writes the field. Here the constructor puts a
-    /// subclass there whose override reads nothing, so the body the walk would follow is not the body that
-    /// runs and reporting it would be a diagnostic about code the callback never reaches.
-    /// </remarks>
     [Test]
     public void ANodeLambdaCallingAReadonlyFieldHelperAConstructorReplaces_IsNotReported()
     {
@@ -3785,12 +3293,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "the initialiser is not evidence of what the callback runs");
     }
 
-    /// <remarks>
-    /// The rule follows the member the call binds to, and that is chosen by the declared type of the
-    /// expression. A creation written at the call site is its own declared type, but a field declared as a
-    /// base of what its initialiser makes is not: the walk would read the base body the override replaces,
-    /// and report a read the instance in that field never makes. So the exact type is what clears the gate.
-    /// </remarks>
     [Test]
     public void ANodeLambdaCallingAReadonlyFieldDeclaredAsABaseOfWhatItHolds_IsNotReported()
     {
@@ -3832,12 +3334,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "override the created instance runs");
     }
 
-    /// <remarks>
-    /// The field has to be one the callback reaches on its own. A field read off a receiver the callback
-    /// was handed is that receiver's state, and following it is the walk into the engine behind a session
-    /// or a canvas that this rule stops at - the very thing the parameter case above pins - so a readonly
-    /// field of a handed-in object is no more followed than the object is.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAMethodOnAReadonlyFieldOfAReceiverItWasHanded_IsNotReported()
     {
@@ -3879,13 +3375,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "own state and not something read off the call site");
     }
 
-    /// <remarks>
-    /// A conditional access spells its receiver once, at the head of the chain, so the name beside the call
-    /// carries none of its own. That is a different syntax shape and not a different rule: the object
-    /// creation guarding the chain is still made right there, so the exact type and everything the instance
-    /// carries are still read off the call site. Reading only the receiver written beside the name let an
-    /// author move a read behind a question mark and keep the id silent.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConditionallyCallingAMethodOnAFreshHelperThatReadsAMutableStatic_IsReported()
     {
@@ -3922,11 +3411,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the chain still makes the instance it runs on, however the call is spelled");
     }
 
-    /// <remarks>
-    /// The other side of the same shape: a question mark does not make a receiver visible. What the walk
-    /// needs is the object creation at the head of the chain, and a chain headed by a parameter has none, so
-    /// this stays where the rule already stops.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConditionallyCallingAMethodOnAReceiverItDidNotCreate_IsNotReported()
     {
@@ -3963,10 +3447,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the callback did not make this receiver, so what it carries is not read off the call site");
     }
 
-    /// <remarks>
-    /// Following the conditional spelling must not turn an ordinary helper into a diagnostic either: a body
-    /// reading only its arguments and the fields its own constructor set has nothing in it to report.
-    /// </remarks>
     [Test]
     public void AStaticLambdaConditionallyCallingAMethodOverItsArguments_IsNotReported()
     {
@@ -4002,21 +3482,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a helper reading its own arguments and fields answers the same way twice");
     }
 
-    /// <remarks>
-    /// <para>
-    /// An extension method written in instance form is a static method spelled as if it were not. Roslyn
-    /// hands the call site a reduced symbol whose <c>IsStatic</c> is false, so the staticness gate skipped
-    /// it, and the receiver gate could not admit it either: the receiver is the value the callback was
-    /// handed, not one it made. That put a static body the author can write and the walk never reads behind
-    /// nothing more than a dot.
-    /// </para>
-    /// <para>
-    /// Following it needs no receiver reasoning at all, which is what separates this from the bound below.
-    /// The method the call runs is <c>ReducedFrom</c>, a static method whose every parameter - the receiver
-    /// included - is an argument the call site passes, so there is no instance whose contents the rule
-    /// would have to know.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingASourceExtensionThatReadsAMutableStatic_IsReported()
     {
@@ -4051,10 +3516,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "knowing anything about the receiver");
     }
 
-    /// <remarks>
-    /// The same call written the way it is declared. Both spellings run the one method, so a rule that
-    /// answered them differently would be a rule an author escapes by adding a dot.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingASourceExtensionInStaticFormThatReadsAMutableStatic_IsReported()
     {
@@ -4085,10 +3546,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG004"));
     }
 
-    /// <remarks>
-    /// The other side of the same reach. An extension body that reads only what the call site passed it has
-    /// nothing in it to report, and following extensions must not turn one into a diagnostic.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingASourceExtensionOverItsArguments_IsNotReported()
     {
@@ -4117,11 +3574,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "an extension reading only its own parameters answers the same way twice");
     }
 
-    /// <remarks>
-    /// The documented bound, reached through the new spelling: a callee with no source here stops the walk
-    /// without reporting, because the rule did read the callback and this is a bound on an inspected one.
-    /// Answering otherwise would report every callback that names a LINQ operator.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAnExtensionWithNoSource_IsNotReported()
     {
@@ -4160,11 +3612,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "nothing of that body is in this compilation, so the walk stops where it always stops");
     }
 
-    /// <remarks>
-    /// A body nothing runs is not a body the callback reads. Descending into an uncalled local function
-    /// reported a static the callback never touches, and a rule that fires on code the program does not run
-    /// is one an author suppresses wholesale.
-    /// </remarks>
     [Test]
     public void AStaticLambdaDeclaringALocalFunctionItNeverCalls_IsNotReported()
     {
@@ -4197,10 +3644,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "nothing calls it, so the callback answers the same way twice whatever that body names");
     }
 
-    /// <remarks>
-    /// A name written inside the declaration is not something that runs it: a local function reaching only
-    /// itself is still one the body never enters.
-    /// </remarks>
     [Test]
     public void AStaticLambdaDeclaringALocalFunctionThatOnlyCallsItself_IsNotReported()
     {
@@ -4234,9 +3677,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the only call to it is its own, and the callback never makes the first one");
     }
 
-    /// <remarks>
-    /// The control on the case above: skipping a body nothing runs must not skip the one that does.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingALocalFunctionThatReadsAMutableStatic_IsReported()
     {
@@ -4270,10 +3710,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "callback answers");
     }
 
-    /// <remarks>
-    /// A non-static local function is the same case: it has no receiver to identify, only the scope it was
-    /// written in, so what it reads is read every time it is called.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingANonStaticLocalFunctionThatReadsAMutableStatic_IsReported()
     {
@@ -4339,11 +3775,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the delegate is made and dropped, so that body is never a body the callback runs");
     }
 
-    /// <remarks>
-    /// The control on the case above, and the reason the bound is written as reachability rather than as a
-    /// blanket skip: a lambda the callback goes on to invoke reads exactly what the same body written
-    /// inline would.
-    /// </remarks>
     [Test]
     public void AStaticLambdaInvokingALambdaThatReadsAMutableStatic_IsReported()
     {
@@ -4377,11 +3808,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the callback invokes it, so that read is one the callback makes");
     }
 
-    /// <remarks>
-    /// A lambda handed to something else is reachable on the only terms this rule can judge: what the
-    /// receiver does with it is not in the callback, and reading it as never invoked would let any static
-    /// read out behind a LINQ operator.
-    /// </remarks>
     [Test]
     public void AStaticLambdaPassingALambdaThatReadsAMutableStatic_IsReported()
     {
@@ -4420,11 +3846,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the operator runs that body, and the rule cannot read the operator to find out how often");
     }
 
-    /// <remarks>
-    /// A deconstruction runs a method the source never spells: there is no name beside the value for the
-    /// walk to find, so a <c>Deconstruct</c> reading a mutable static was a read the callback made and the
-    /// rule never saw.
-    /// </remarks>
     [Test]
     public void AStaticLambdaDeconstructingAValueWhoseDeconstructReadsAMutableStatic_IsReported()
     {
@@ -4493,10 +3914,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a tuple deconstruction runs no method at all, so there is nothing to follow");
     }
 
-    /// <remarks>
-    /// A positional record's <c>Deconstruct</c> is written by the compiler and has no source here, which is
-    /// the no-source answer the walk already gives every callee: stop without reporting.
-    /// </remarks>
     [Test]
     public void AStaticLambdaDeconstructingAPositionalRecord_IsNotReported()
     {
@@ -4572,10 +3989,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "Deconstruct is for");
     }
 
-    /// <remarks>
-    /// The same implicit call written as a loop header. Answering the two spellings differently would make
-    /// the rule one an author escapes by moving the deconstruction into a <c>foreach</c>.
-    /// </remarks>
     [Test]
     public void AStaticLambdaDeconstructingInAForEachWhoseDeconstructReadsAMutableStatic_IsReported()
     {
@@ -4620,10 +4033,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "less");
     }
 
-    /// <remarks>
-    /// A deconstruction of a deconstruction runs a method per level, and the walk has to reach every one:
-    /// stopping at the outer method would leave an inner one as a place to put a read.
-    /// </remarks>
     [Test]
     public void AStaticLambdaWhoseNestedDeconstructReadsAMutableStatic_IsReported()
     {
@@ -4675,11 +4084,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "makes");
     }
 
-    /// <remarks>
-    /// A <c>with</c> runs a copy constructor the source never spells, and the expression does not bind to it
-    /// either - the symbol has to be read off the operand's type. Leaving it out let a callback move a
-    /// static read into a copy constructor and keep the rule silent.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingWithWhoseCopyConstructorReadsAMutableStatic_IsReported()
     {
@@ -4717,10 +4121,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the with runs that constructor once per call, and the read in it is the callback's");
     }
 
-    /// <remarks>
-    /// The braces of a <c>with</c> run setters on the copy the expression just made, which is a creation
-    /// this rule can point at on exactly the terms an object creation is.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingWithWhoseInitialiserSetterReadsAMutableStatic_IsReported()
     {
@@ -4764,11 +4164,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the setter runs where the with is written, so the static it reads is one the callback reads");
     }
 
-    /// <remarks>
-    /// A <c>with</c> on a record struct copies the value and runs no constructor, so a one-parameter
-    /// constructor the struct happens to declare is not what the expression runs - and following it would
-    /// report a body nothing executes.
-    /// </remarks>
     [Test]
     public void AStaticLambdaUsingWithOnARecordStructThatDeclaresACopyConstructor_IsNotReported()
     {
@@ -4918,10 +4313,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             }
             """);
 
-    /// <remarks>
-    /// A drawing callback and the mapping declared beside it are decided by one rule, so an author cannot
-    /// find that one argument of a call reports what the next argument accepts.
-    /// </remarks>
     [Test]
     public void ADrawCallbackClosingOverALocal_IsReported()
     {
@@ -4978,10 +4369,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the node the drawing is written inside is the one reader both paths admit");
     }
 
-    /// <remarks>
-    /// A shader binder is retained by the description and keyed by which declaration it is, so it takes the
-    /// same answer as a drawing callback rather than the answer its enclosing type would give.
-    /// </remarks>
     [Test]
     public void AShaderBinderReadingOnlyTheDeclaringNode_IsNotReported()
     {
@@ -5029,16 +4416,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Does.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// The one description factory deliberately off this rule's roster, pinned so that removing it from the
-    /// exemption is a test failure rather than a silent tightening. Its bindings argument is not a retained
-    /// execution callback: it is invoked once, inside the factory, while the description is being
-    /// constructed, and is never stored - so there is no later recording at which a captured value could
-    /// make it answer differently, which is the whole of what this rule reports. Putting ShaderDescription
-    /// on the roster would report every declaratively-bound shader in the engine, <c>SKSLScriptEffect</c>'s
-    /// among them, whose declaration has to read the parsed source and the uniform state it is declaring
-    /// from.
-    /// </remarks>
     [Test]
     public void ACapturingBindingDeclarationOnAShaderDescriptionFactory_IsNotReported()
     {
@@ -5066,12 +4443,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "the declaration runs while the description is being constructed and is never retained");
     }
 
-    /// <remarks>
-    /// The control that keeps that exemption honest. What a shader description does retain is each binder
-    /// the declaration registers, and those reach this rule through <c>ShaderBindingBuilder</c> - so the
-    /// exemption covers the declaration and stops at the callbacks declared inside it. Without this, a
-    /// shader binder could be exempted by writing it inside a factory call and nothing would say so.
-    /// </remarks>
     [Test]
     public void ACapturingBinderRegisteredByThatDeclaration_IsStillReported()
     {
@@ -5099,11 +4470,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "a retained binder is judged the way every retained callback is, wherever it was written");
     }
 
-    /// <remarks>
-    /// What naming one method rather than its type leaves out. A recording context's input mapper runs
-    /// while the call is being made and is never retained, so nothing keys a plan by it and there is no
-    /// second answer for a captured value to produce.
-    /// </remarks>
     [Test]
     public void ACapturingInputMapperOnTheSameContext_IsNotReported()
     {
@@ -5125,17 +4491,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Does.Not.Contain("BESG003"));
     }
 
-    /// <remarks>
-    /// <para>
-    /// An event is a delegate field whose value is a subscriber list, and += and -= are its assignments.
-    /// Reading that list back is only legal inside the declaring type, which is exactly where a callback
-    /// written beside the event sits, so the narrowness of the language rule is no protection here.
-    /// </para>
-    /// <para>
-    /// Nothing about the callback changes when a subscriber is added: the delegate is the same method, the
-    /// plan key is the same key, and the bounds this hands back are different.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AStaticLambdaReadingAStaticEventDeclaredBesideIt_IsReported()
     {
@@ -5162,12 +4517,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "delegate the plan is keyed by stays the same method");
     }
 
-    /// <remarks>
-    /// The shape that carries the hazard past the declaring type. The callback itself may be written
-    /// anywhere - only the helper the walk follows into has to sit beside the event - so "you can only
-    /// read an event from inside its own type" bounds where the read is written, not where it is reached
-    /// from.
-    /// </remarks>
     [Test]
     public void AStaticLambdaCallingAHelperThatReadsAStaticEvent_IsReported()
     {
@@ -5199,11 +4548,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "type the callback was written in");
     }
 
-    /// <remarks>
-    /// The write side, which needs no declaring type at all: += binds from anywhere. A mutable static field
-    /// is reported wherever the callback names it, assignment included, and an event is the same state
-    /// under a keyword.
-    /// </remarks>
     [Test]
     public void AStaticLambdaSubscribingToAStaticEvent_IsReported()
     {
@@ -5237,12 +4581,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "whichever side of the += the state sits on");
     }
 
-    /// <remarks>
-    /// The bound on the write side: an event written with its own accessors keeps nothing of itself, so
-    /// what a subscription does is whatever the accessor body does - here nothing at all. The rule reads
-    /// that body rather than the keyword, exactly as it reads a property through the accessor a reference
-    /// runs, and as the immutability walk already reads such an event as storing nothing.
-    /// </remarks>
     [Test]
     public void AStaticLambdaSubscribingToANoOpCustomStaticEvent_IsNotReported()
     {
@@ -5275,11 +4613,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "an accessor that stores nothing leaves no subscriber list for a later += to differ by");
     }
 
-    /// <remarks>
-    /// The positive control for reading the accessor rather than the keyword: an event whose accessors do
-    /// store the handler is reported for the field they store it in, which is the state the field-like
-    /// spelling stands for said out loud.
-    /// </remarks>
     [Test]
     public void AStaticLambdaSubscribingToACustomStaticEventWhoseAccessorWritesAStaticDelegate_IsReported()
     {
@@ -5319,12 +4652,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "event holds and the same hazard under a different spelling");
     }
 
-    /// <remarks>
-    /// An event declared in a referenced assembly is reported for the reason a getter with no source is:
-    /// metadata carries real accessors whether the author wrote them or the compiler did, so nothing there
-    /// tells the two apart, and reading unread accessors as storing nothing would clear every static event
-    /// in every assembly this compilation references.
-    /// </remarks>
     [Test]
     public void AStaticLambdaSubscribingToAStaticEventFromAnotherAssembly_IsReported()
     {
@@ -5364,13 +4691,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "silence would say the rule looked when it looked at nothing");
     }
 
-    /// <remarks>
-    /// The same state one indirection out, and the reachable one: a static readonly singleton needs no
-    /// declaring-type relationship to the callback at all. A source type's member list carries the event
-    /// and its accessors and not the delegate field the compiler writes behind them, so a type whose whole
-    /// mutable state is an event used to pass the immutability walk that the identical state spelled as
-    /// <c>private Action _changed;</c> fails.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReachingAStaticReadonlyHelperWhoseOnlyStateIsAnEvent_IsReported()
     {
@@ -5408,12 +4728,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "subscriber list any += rewrites");
     }
 
-    /// <remarks>
-    /// The negative control for the field-like case: an event declared with its own accessors has no
-    /// backing field, so a type carrying nothing but one carries no state, and reporting it would be the
-    /// rule reading the keyword rather than the storage. Whatever such accessors do write is a field the
-    /// walk already sees.
-    /// </remarks>
     [Test]
     public void AStaticLambdaReachingAStaticReadonlyHelperWhoseEventHasNoBackingField_IsNotReported()
     {
@@ -5451,10 +4765,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "state than a stateless one");
     }
 
-    /// <remarks>
-    /// The negative control for the naming: nameof reaches the event without reading the list, exactly as
-    /// it already does for a mutable static field.
-    /// </remarks>
     [Test]
     public void AStaticLambdaNamingAStaticEventInsideNameof_IsNotReported()
     {
@@ -5481,11 +4791,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             "nameof spells the member and reads nothing of it");
     }
 
-    /// <remarks>
-    /// The negative control for the scope: this rule is about static state, and an event the node itself
-    /// declares is the node's own, which BESG003 admits a callback reading and which change marking
-    /// re-records. Reporting it here would take back the one reader both rules are built around.
-    /// </remarks>
     [Test]
     public void ANodeLambdaReadingAnEventItsOwnNodeDeclares_IsNotReported()
     {

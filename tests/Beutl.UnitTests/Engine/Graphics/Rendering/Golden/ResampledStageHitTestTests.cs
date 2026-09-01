@@ -7,18 +7,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// Pins that a stage which reads its input somewhere other than the pixel it is writing answers a hit test for
-/// the pixels it actually produced.
-/// </summary>
-/// <remarks>
-/// A whole-source stage with no declared contract forwards the query to its input at the queried point, which
-/// is right only while the stage leaves content where it found it. <see cref="ColorShift"/> and
-/// <see cref="MosaicEffect"/> both move it: one translates each channel, the other replaces every pixel of a
-/// tile with the tile's centre sample. Each assertion below compares the hit test against the pixel the shader
-/// wrote at the same logical point, so the contract can only stay right by being measured against the shader
-/// rather than against a reading of it.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class ResampledStageHitTestTests
@@ -59,12 +47,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// The offsets are what make the stage move content, so at zero it reads the pixel it writes and the
-    /// forwarded query is already exact. A contract that claimed the output rectangle whenever the stage exists
-    /// would satisfy every painted case above and still be wrong here, where the point sits inside the output
-    /// bounds and outside the ellipse.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ColorShift_WithoutAnOffset_StillMissesTheClearCorner()
@@ -89,11 +71,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// The other half of the same guard, at the settings where the stage does need a contract: the shifted
-    /// output bounds reach x = 80, so a contract widened to those bounds would hit here, where every channel
-    /// reads a point the ellipse never covered.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ColorShift_WithAnOffset_StillMissesWhereNoChannelLanded()
@@ -140,12 +117,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// A tile whose centre sample is clear is erased whatever the input covered inside it, so the stage's
-    /// output is not a subset of its input's coverage in either direction. This is the direction a contract
-    /// widened to the output rectangle gets wrong: the point is inside the mosaic's bounds and the mosaic put
-    /// nothing there.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void MosaicEffect_StillMissesATileTheStageErased()
@@ -171,11 +142,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// The stage samples with <see cref="SkiaSharp.SKShaderTileMode.Clamp"/>, so a tile whose centre falls
-    /// outside the input reads the input's edge rather than transparency. An origin of 5 puts the centre of the
-    /// tile holding (2, 2) at (-5, -5), outside a full-bleed input that still paints the point opaque.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void MosaicEffect_ATileCentreOutsideTheInput_ReadsTheEdgeAndHits()
@@ -201,12 +167,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// Both contracts rebuild a shader-side quantity from logical values - <see cref="ColorShift"/> its offsets,
-    /// <see cref="MosaicEffect"/> its tile grid, whose origin the binder resolves in device pixels. A hit test
-    /// is asked in logical coordinates, so neither may start answering differently because the request asked
-    /// for a denser output.
-    /// </remarks>
     [TestCase(0.5f)]
     [TestCase(2f)]
     [TestCase(3f)]
@@ -247,14 +207,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// The tile grid is defined over the whole plane, so the entry point's mapping alone answers for points the
-    /// stage never wrote: it names a sample for any coordinate, and clamped sampling then reads the input's edge
-    /// there. What stops that is the surface itself - the entry point runs only for fragments of this stage's
-    /// own output, so outside it the stage wrote nothing whatever the grid says. The target domain here is three
-    /// times the input and the input sits inside it, so a point can be far outside the stage and still be a
-    /// coordinate the request asks about.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void MosaicEffect_OutsideItsOwnOutput_ClaimsNothing()
@@ -283,13 +235,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// A tile whose centre sample lands exactly on the input's right or bottom edge is the case the engine's
-    /// half-open rule decides: <see cref="RectangleRenderNode"/> answers over
-    /// <see cref="Rect.ContainsExclusive"/>, so a sample clamped to <see cref="Rect.Right"/> itself falls
-    /// outside the input that the clamp is supposed to read. The shader has no such gap - clamped sampling reads
-    /// the edge texel - so the contract has to clamp to the last coordinate the input still answers for.
-    /// </remarks>
     [TestCase(92f, 50f, TestName = "MosaicEffect_ATileCentreOnTheRightEdge_ReadsTheEdgeAndHits")]
     [TestCase(50f, 92f, TestName = "MosaicEffect_ATileCentreOnTheBottomEdge_ReadsTheEdgeAndHits")]
     [Category("GpuPassFusionGpu")]
@@ -315,15 +260,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <summary>
-    /// Pins that the coordinate the clamp produces is one the input itself answers for, not merely that the
-    /// stage happens to hit.
-    /// </summary>
-    /// <remarks>
-    /// The tile holding x = 92 under a centred origin has its centre at 100, the right edge of a 100-wide
-    /// input. <see cref="RectangleRenderNode"/> rejects that coordinate and accepts every one below it, so the
-    /// clamp is only right if it produces the greatest coordinate the input still accepts.
-    /// </remarks>
     [Test]
     public void TheExclusiveEdge_IsTheLastCoordinateTheInputAnswersFor()
     {
@@ -346,16 +282,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <summary>
-    /// Pins the coordinate the clamp hands the input, not merely that the stage ends up hitting.
-    /// </summary>
-    /// <remarks>
-    /// Under a centred origin the tile holding x = 92 has its centre at 100, the right edge of a 100-wide
-    /// input, while y = 50 belongs to a tile whose centre at 60 needs no clamping at all. The input is asked
-    /// here with <see cref="RectangleRenderNode"/>'s own rule, so the assertion is that the clamp produces a
-    /// coordinate that rule accepts - the last <see langword="float"/> below the edge - rather than the edge
-    /// it rejects or some distance short of it.
-    /// </remarks>
     [Test]
     public void MosaicEffect_ClampsOntoTheLastCoordinateTheInputAnswersFor()
     {
@@ -387,22 +313,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <summary>
-    /// Pins that an input with no area is answered with a miss rather than an inverted clamp range.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// No render tree reaches this: the stage maps its input's bounds through to its own, so an input with no
-    /// area gives the stage no output either and the bounds gate above answers first. It is still the
-    /// contract's own precondition - <see cref="RenderHitTestInput"/> accepts any finite non-negative
-    /// rectangle, and a clamp whose upper end is the last coordinate below an edge has no range at all when
-    /// there is no coordinate below it. <see cref="Math.Clamp(float, float, float)"/> throws on such a range,
-    /// so the contract is asked here directly, over an input that says yes to everything and covers nothing.
-    /// </para>
-    /// <para>
-    /// Both axes are exercised, because each contributes its own end of the range.
-    /// </para>
-    /// </remarks>
     [TestCase(50f, 0f, 0f, 100f, TestName = "MosaicEffect_OverAnInputWithNoWidth_Misses")]
     [TestCase(0f, 50f, 100f, 0f, TestName = "MosaicEffect_OverAnInputWithNoHeight_Misses")]
     public void MosaicEffect_OverAnInputWithNoArea_Misses(float x, float y, float width, float height)
@@ -430,15 +340,6 @@ public sealed class ResampledStageHitTestTests
                ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
     }
 
-    /// <summary>
-    /// The class regression 1 belongs to: a declared contract may answer only for the fragment it describes.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="RenderHitTestContract.Custom"/> applies no bounds gate of its own, so every contract that
-    /// resolves a coordinate rather than forwarding one - anything that clamps, wraps or folds - can answer
-    /// outside the rectangle its stage wrote. That is not a property of one effect, so it is asserted here over
-    /// the stages as a set and over a grid rather than at a chosen point.
-    /// </remarks>
     [TestCaseSource(nameof(OutsideOutputCases))]
     public void TheContracts_NeverAnswerOutsideTheFragmentsOwnOutput(
         Func<FilterEffect> effect,
@@ -468,25 +369,6 @@ public sealed class ResampledStageHitTestTests
             $"the stage wrote only {bounds}, so it must not answer for points outside it");
     }
 
-    /// <summary>
-    /// Records why <see cref="ColorShift"/>'s contract cannot be made exact, over an input whose selected
-    /// channel is zero.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The entry point takes one channel from each of four samples, so what a pixel carries depends on the
-    /// input's colour there and not only on whether the input covered it. A hit test can ask an input only
-    /// whether it covers a point - <see cref="RenderHitTestInput"/> exposes coverage, never a sample - so the
-    /// two inputs below are indistinguishable to the contract while the stage paints one and not the other:
-    /// pure red under a green-only shift leaves the arriving pixel empty, pure green under the same shift
-    /// paints it.
-    /// </para>
-    /// <para>
-    /// The contract therefore has one answer to give for two different outcomes, and the rule that it may not
-    /// miss a point the stage painted decides which: it claims the point. What that costs is recorded here so
-    /// the over-claim stays bounded by the four translated footprints and does not grow.
-    /// </para>
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ColorShift_OverANonWhiteInput_CannotDistinguishAZeroChannelFromANonZeroOne()
@@ -526,11 +408,6 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
-    /// <remarks>
-    /// The over-claim above is bounded: it reaches only where some channel's sample lands on the input. A point
-    /// past every translated footprint is still a miss over a non-white input, which is what keeps the contract
-    /// from degenerating into the output rectangle.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void ColorShift_OverANonWhiteInput_StillMissesWhereNoChannelLanded()

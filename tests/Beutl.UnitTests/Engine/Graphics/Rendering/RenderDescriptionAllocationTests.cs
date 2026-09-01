@@ -95,11 +95,6 @@ public sealed class RenderDescriptionAllocationTests
             "descending through tuple element types happens once per closed state type, not per call");
     }
 
-    /// <remarks>
-    /// A pure metadata callback is validated once per node per frame, and every transform in a scene hands
-    /// the walk a matrix. Reading a fixed struct to accept it boxes each of its numbers, which is a per-frame
-    /// cost for a verdict its declared type already settles.
-    /// </remarks>
     [Test]
     public void ValidatingACallbackOverFixedStructCaptures_DoesNotAllocate()
     {
@@ -121,10 +116,6 @@ public sealed class RenderDescriptionAllocationTests
             "a capture whose declared type already settles the verdict must not be read to reach it");
     }
 
-    /// <remarks>
-    /// Planning projects the same fragment lists once per frame. The result array is the work; the query object
-    /// a LINQ projection puts in front of it is not.
-    /// </remarks>
     [Test]
     public void SelectToArray_AllocatesLessThanTheQueryItReplaces()
     {

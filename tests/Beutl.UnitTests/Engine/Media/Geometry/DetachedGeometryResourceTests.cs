@@ -8,17 +8,6 @@ namespace Beutl.UnitTests.Engine.Media.Geometry;
 
 using Geometry = Beutl.Media.Geometry;
 
-/// <summary>
-/// A "detached" resource is one built through its public parameterless constructor rather than through
-/// <see cref="Beutl.Engine.EngineObject.ToResource"/>, so its backing engine object is null. At 989856e8d the
-/// four public members a detached geometry resource needs — <c>Bounds</c>, <c>GetRenderBounds</c>,
-/// <c>FillContains</c>, <c>StrokeContains</c> — were all non-virtual, so an out-of-tree author who built one
-/// could not override the <see cref="NullReferenceException"/> away.
-/// </summary>
-/// <remarks>
-/// Path construction now dispatches on the resource's own type, so a detached resource produces the same path
-/// its attached counterpart does.
-/// </remarks>
 [TestFixture]
 public sealed class DetachedGeometryResourceTests
 {
@@ -114,11 +103,6 @@ public sealed class DetachedGeometryResourceTests
         Assert.That(resource.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)));
     }
 
-    /// <remarks>
-    /// A detached resource never reconciles against an engine object, and a generated setter stores its
-    /// value without moving <c>Version</c>, so every cache here - all of them keyed on that number - stays
-    /// as it was until the author moves it.
-    /// </remarks>
     [Test]
     public void MutatingADetachedEllipse_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
@@ -144,12 +128,6 @@ public sealed class DetachedGeometryResourceTests
         }
     }
 
-    /// <remarks>
-    /// A resource list is handed out as a plain <see cref="List{T}"/>, so replacing an entry runs no setter
-    /// and moves nothing. A cache over a hand-built resource is invalidated by a change to its
-    /// <c>Version</c> and by nothing else, so the caller that reached into the list is the one that has to
-    /// move it; the rebuild it asks for then reads the whole subtree as it stands.
-    /// </remarks>
     [Test]
     public void ReplacingASegmentOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheCallerBumpsTheVersion()
     {

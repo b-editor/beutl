@@ -46,10 +46,6 @@ public sealed class RendererWideRecordingTests
     }
 
 
-    /// <remarks>
-    /// The GPU-gated test above self-skips without a Vulkan device, so this CPU-surface case is what keeps the
-    /// plan cache covered on every machine.
-    /// </remarks>
     [Test]
     public void ProductionFrameRenderer_CompilesItsPlanOnceOnTheFirstFrame()
     {
@@ -684,11 +680,6 @@ public sealed class RendererWideRecordingTests
     }
 
 
-    /// <remarks>
-    /// The count under test is how many requests reach a node, which is what a lazy bound short-circuits.
-    /// Whether the node processes again for such a request is a separate question the recording cache
-    /// answers, so it is counted separately here.
-    /// </remarks>
     [Test]
     public void ProductionRenderer_LazilyCachesBoundariesForCurrentFrame()
     {

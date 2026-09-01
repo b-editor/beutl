@@ -10,12 +10,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class TextRenderNodeTests
 {
-    /// <remarks>
-    /// The bounds a fragment publishes are what place it, so anything density-dependent in them moves the
-    /// composition between a 50% preview, a 100% preview and a 2x export. Hinting needs a couple of logical
-    /// units of extra room, and a different amount at each density, so that room is declared for the buffer
-    /// only rather than published.
-    /// </remarks>
     [TestCase(0.5f)]
     [TestCase(1f)]
     [TestCase(2f)]

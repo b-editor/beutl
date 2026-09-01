@@ -10,17 +10,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// The apron <see cref="ImmediateCanvas.PushFilterLayer"/> opens around a filter's content holds one
-/// device pixel perpendicular to every edge, whatever basis the canvas transform carries.
-/// </summary>
-/// <remarks>
-/// A drawable's own transform sits outside its filter effect, so a <see cref="SkewTransform"/> reaches
-/// the destination canvas whenever the executor replays a built-in Skia filter directly onto it. Under
-/// that basis the logical distance mapping to one device pixel along an axis is no longer the distance
-/// an inflated edge travels perpendicular to itself: the two differ by the ratio of the basis area to
-/// the product of the basis lengths, which a shear drives towards zero.
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public class ShearedFilterLayerApronTests
@@ -86,12 +75,6 @@ public class ShearedFilterLayerApronTests
         });
     }
 
-    /// <summary>
-    /// The general form divides by the basis area, which rounds differently from the reciprocal of a
-    /// basis length even where the two agree exactly in arithmetic. Every unsheared transform has to
-    /// keep the reciprocal form's bits, or an apron landing on a whole device pixel would round out to
-    /// a different layer.
-    /// </summary>
     [TestCaseSource(nameof(UnshearedTransforms))]
     public void AnOrthogonalBasis_KeepsTheReciprocalApronExactly(Matrix transform)
     {
@@ -114,12 +97,6 @@ public class ShearedFilterLayerApronTests
             Is.EqualTo(s_content));
     }
 
-    /// <summary>
-    /// A blur too small to move a device pixel adds no margin of its own to the save layer, so the apron
-    /// is all that separates the content's antialiased edge from the layer bound. Summing over a device
-    /// pixel of sub-pixel phase cancels the rasterization noise a steeply sheared bar carries, leaving
-    /// only what the layer clipped.
-    /// </summary>
     [TestCase(0f, TestName = "unsheared control")]
     [TestCase(80f, TestName = "80 degree skew")]
     [Category("GpuPassFusionGpu")]

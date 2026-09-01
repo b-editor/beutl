@@ -4,15 +4,6 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// Pins when an opaque operation's declared bounds are fixed, as an external author sees it.
-/// </summary>
-/// <remarks>
-/// A bounds contract is operation shape, so every factory on it - the source rectangle and the state a
-/// combining mapping reads alike - answers from the moment the contract is built. None of them is a channel
-/// for the execution state the description beside it carries. A source that moves therefore builds its
-/// description per recording, over the rectangle it is moving to.
-/// </remarks>
 [TestFixture]
 public sealed class OpaqueSourceStateContractTests
 {

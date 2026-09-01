@@ -17,14 +17,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// An allocation has to fit what the device can attach, even though the plan it came from was clamped to
-/// the engine's fixed ceiling.
-/// </summary>
-/// <remarks>
-/// The budget is named rather than read from the machine running the suite, so the clamp is observable on a
-/// device whose own limit is the engine ceiling and the expectations do not move between devices.
-/// </remarks>
 [TestFixture]
 public sealed class DeviceBufferBudgetTests
 {
@@ -291,15 +283,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <remarks>
-    /// The materialization is not one the plan marked droppable under allocation pressure. A device-budget
-    /// refusal is not pressure - no allocator this session can reach will ever attach the buffer - so the
-    /// render intent decides it, and a preview gives up the contribution rather than failing the frame.
-    /// Completing at all is what proves the drop was recorded rather than swallowed: the island holding the
-    /// refused materialization is skipped and is not region-empty, and the execution ledger accepts a
-    /// skipped island only once PreviewAllocationDropObserved is set - the same flag that keeps
-    /// StageCacheCaptures and the backdrop publication from carrying the incomplete frame forward.
-    /// </remarks>
     [Test]
     public void AnOverBudgetMaterialization_DropsThePreviewContribution_WithoutAskingTheAllocator()
     {
@@ -538,11 +521,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// A request opened before any GPU work has happened pins no context, because there is none installed to
-    /// pin. The allocation behind it still builds one, so the budget has to ask for the device that
-    /// allocation will get rather than fall back to the engine ceiling.
-    /// </summary>
     [Test]
     public void ABudgetTakenBeforeTheFirstDevice_MeasuresAgainstTheDeviceTheAllocationWillBuild()
     {
@@ -583,11 +561,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// The root output surface is <c>ceil(FrameSize * s_out)</c> and is allocated directly rather than
-    /// through the pool, so nothing else can bound it: it has to refuse for itself, naming the same limit a
-    /// pooled refusal names.
-    /// </summary>
     [Test]
     public void ARootSurfacePastTheDevicesLimit_IsRefusedBeforeItReachesTheAllocator()
     {
@@ -621,17 +594,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// The render-target factory is public and runs wherever a plugin's filter effect, drawable or render
-    /// node does, so an extent past what the device can attach has to be refused inside it rather than by
-    /// whichever caller happened to route through it.
-    /// </summary>
-    /// <remarks>
-    /// A driver does not report that attachment as a failure: SwiftShader builds a framebuffer wider than
-    /// its own limit and returns success, MoltenVK aborts the process on a Metal assertion. Neither reaches
-    /// the factory's catch, so the target coming back null proves nothing on its own - the assertion is
-    /// that the allocator was never asked.
-    /// </remarks>
     [Test]
     public void ADirectCreatePastTheDevicesLimit_IsRefusedBeforeItReachesTheAllocator()
     {
@@ -651,10 +613,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// The negative control for the refusal above: off the render thread the same call rasters on the CPU,
-    /// which no device's attachment limit bounds, so it has to keep allocating the extent it always did.
-    /// </summary>
     [Test]
     public void ADirectCreateOffTheRenderThread_IsStillAllocatedPastTheDevicesLimit()
     {
@@ -679,11 +637,6 @@ public sealed class DeviceBufferBudgetTests
         }
     }
 
-    /// <summary>
-    /// The export and save-frame dialogs pre-validate the root surface before any rendering starts. Measuring
-    /// that against the engine ceiling admits a size the device then refuses, so the user is told the export
-    /// is fine and the render fails afterwards.
-    /// </summary>
     [Test]
     public void RootSurfacePreValidation_FollowsTheDeviceRatherThanTheEngineCeiling()
     {
@@ -713,10 +666,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// Both dialogs evaluate their warning on the Avalonia UI thread, never on the render dispatcher, so the
-    /// pre-validation has to reach the device from off it.
-    /// </summary>
     [Test]
     public void RootSurfacePreValidation_FollowsTheDeviceFromOffTheRenderDispatcher()
     {
@@ -748,10 +697,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// The prediction is only worth taking because it is the render thread's own answer. Both are read for
-    /// the same installed device, so nothing but the thread they are asked from can separate them.
-    /// </summary>
     [Test]
     public void PredictRenderThreadMaxBufferDimension_AnswersWhatTheRenderThreadResolves()
     {
@@ -773,11 +718,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// Building a device is render-thread-only, so a predicting caller can only read one that is already
-    /// installed. With none there is nothing to measure, and the engine ceiling is the bound every
-    /// measurement satisfies rather than a device's answer standing in for another's.
-    /// </summary>
     [Test]
     public void PredictRenderThreadMaxBufferDimension_BoundsAnUnbuiltDeviceByTheEngineCeiling()
     {
@@ -804,16 +744,6 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
-    /// <summary>
-    /// An effect item allocates at what the device can attach, which on a device below the engine ceiling is
-    /// less than the density the plan - and therefore a cache key - was built from. Nothing may be stored
-    /// under a key whose pixels do not exist at that density, so such a segment must not be a cache
-    /// candidate at all.
-    /// </summary>
-    /// <remarks>
-    /// The clamped density is named here rather than read from the machine running the suite, so the case is
-    /// reached on a device whose own limit is the engine ceiling.
-    /// </remarks>
     [Test]
     public void ADeviceClampedEffectItem_IsNeverKeyedOnThePlannedDensity()
     {

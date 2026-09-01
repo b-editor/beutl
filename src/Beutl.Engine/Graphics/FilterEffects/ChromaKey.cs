@@ -17,14 +17,8 @@ public partial class ChromaKey : FilterEffect
         uniform float saturationRange;
         uniform float boundary;
 
-        // A solid fill reaches this shader quantized onto an 8-bit grid in the render target's colour
-        // space, which is linear light, so a pixel authored as the key colour arrives up to half a linear
-        // code away from the uniform. Only in linear light is that error uniform - half a code spans about
-        // ten sRGB levels near black and a fifth of one near white - so the match is tested here, before
-        // the transfer curve, instead of on the hue and saturation differences below. The second term
-        // covers the render target's own half-precision storage of the quantized value. Testing
-        // premultiplied keeps the bound independent of alpha, at the cost of matching any colour once
-        // alpha is small enough that the quantum swamps the difference.
+        // Match in linear light, where the 8-bit quantization error is uniform. Include half-storage error;
+        // premultiplication makes the bound alpha-independent but intentionally dominates at low alpha.
         const float kLinearQuantum = 0.5 / 255.0;
         const float kHalfStorageUlp = 1.0 / 2048.0;
 

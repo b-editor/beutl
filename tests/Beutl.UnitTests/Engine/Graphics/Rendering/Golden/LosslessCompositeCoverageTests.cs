@@ -12,11 +12,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// Guards the "rasterize once at the final density" contract: content whose buffer already lands on
-/// exact device pixels must be copied, never resampled, and a genuine resample must stay inside the
-/// range of the samples it interpolated.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public sealed class LosslessCompositeCoverageTests

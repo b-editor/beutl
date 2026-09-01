@@ -66,42 +66,31 @@ public sealed class GeometryDescription
 
     internal object StructuralIdentity { get; }
 
-    /// <summary>Creates an immutable deferred geometry description.</summary>
+    /// <summary>Creates a deferred geometry description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
-    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
-    /// <see cref="RenderNode.HasChanges"/>.
+    /// Immutable pixel-affecting state retained for execution.
     /// </param>
     /// <param name="render">
-    /// A non-capturing callback invoked only during execution. Declare it <see langword="static"/>: a capture
-    /// would let a per-frame value shape the geometry without reaching <paramref name="state"/>, and is
-    /// rejected. The borrowed session and facades are valid only for that invocation and must not be retained.
+    /// A static execution callback. Its borrowed session and facades must not be retained.
     /// </param>
     /// <param name="bounds">An initialized pure input-to-output bounds contract.</param>
     /// <param name="hitTest">An initialized pure CPU output hit-test contract.</param>
     /// <param name="requiresReadback">Whether the callback may request declared readback of its input.</param>
     /// <param name="inputDemand">
-    /// What density this stage's one input has to reach for the stage's own resolved output demand. Without
-    /// one the input is asked for the unchanged output demand, which falls short wherever the stage samples
-    /// its input more densely than it writes.
+    /// Maps resolved output demand to the density required from the input.
     /// </param>
     /// <param name="resources">
-    /// An optional sequence of non-null declared resources. <see langword="null"/> means no resources; otherwise
-    /// the sequence is copied immediately and no caller collection is retained.
+    /// Declared resources copied immediately, or <see langword="null"/>.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
     /// </param>
     /// <returns>An immutable deferred geometry description.</returns>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="render"/> or <paramref name="state"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// A contract is uninitialized, <paramref name="render"/> captures, <paramref name="resources"/> contains
-    /// a null or released resource, or it does not bind every slot in <paramref name="slots"/> exactly once.
+    /// A contract, callback, resource, or slot binding is invalid.
     /// </exception>
     public static GeometryDescription Create<TState>(
         TState state,

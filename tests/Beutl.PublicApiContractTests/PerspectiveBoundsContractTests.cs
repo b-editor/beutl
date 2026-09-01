@@ -4,13 +4,6 @@ using Beutl.Graphics;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// Every way a plugin author can bound a transformed rectangle survives perspective. The mapped-corner
-/// box does not: it is exact only while the rectangle stays on one side of the matrix's <c>w = 0</c>
-/// plane, and it fails silently rather than loudly when it does not — it returns a box on the far side
-/// of the image. It is bit-identical to the safe answers everywhere else, so a caller cannot discover
-/// the difference by testing, which is why it is not reachable from here.
-/// </summary>
 [TestFixture]
 public sealed class PerspectiveBoundsContractTests
 {

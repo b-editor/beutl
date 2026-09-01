@@ -3,13 +3,6 @@ using BeutlDescriptorType = Beutl.Graphics.Backend.DescriptorType;
 
 namespace Beutl.Graphics3DTests;
 
-/// <summary>
-/// Pins the descriptor writes the Vulkan backend owes its callers a diagnosis for: a binding the pipeline
-/// layout never declared, a write whose descriptor type disagrees with the declaration, and a write that
-/// runs past the declared array. vkUpdateDescriptorSets sees a binding number and a type with nothing
-/// tying either to the layout the set was allocated from, so none of the three is an error the driver has
-/// to report - the declarations have to be kept and checked on the managed side.
-/// </summary>
 [TestFixture]
 [NonParallelizable]
 public sealed class VulkanDescriptorBindingValidationTests

@@ -5,21 +5,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that <see cref="RenderTarget.Create"/> releases the target it already built when the initial
-/// transparent clear fails.
-/// </summary>
-/// <remarks>
-/// The clear submits to the device, so it is the step that fails while the device is lost — exactly when
-/// callers treat the resulting null as a per-frame degrade and ask again on the next frame. Degrading to
-/// null without releasing strands the Skia surface and the backend texture behind it until a finalizer
-/// runs, so the leak compounds once per attempt at the worst possible moment.
-///
-/// The texture here deliberately does not record backend clears: <c>ITransparentClearableTexture</c> is
-/// internal, so a texture from any out-of-tree <see cref="IGraphicsContext"/> cannot implement it, and
-/// <see cref="RenderTarget.CreateSharedSurface"/> leaves such a texture uncleared. That is the shape which
-/// reaches the render-target-level clear with a live backend texture attached.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class RenderTargetCreateClearFailureTests
@@ -60,10 +45,6 @@ public sealed class RenderTargetCreateClearFailureTests
         });
     }
 
-    /// <remarks>
-    /// The negative control for the release above: a clear that succeeds must still hand the caller a
-    /// usable target rather than one whose resources were released underneath it.
-    /// </remarks>
     [Test]
     public void Create_KeepsTheSurfaceAndTexture_WhenTheInitialClearSucceeds()
     {
@@ -92,14 +73,6 @@ public sealed class RenderTargetCreateClearFailureTests
         });
     }
 
-    /// <remarks>
-    /// The one failure <see cref="RenderTarget.Create"/> does not answer with <see langword="null"/>. A
-    /// refusal cannot be separated by type - a lost device surfaces as whatever the driver and the Skia
-    /// binding raise - so the catch takes everything except a cancellation, which is not a refusal: the
-    /// caller has already abandoned the request, and a null there would have it carry on inside a render
-    /// nobody is waiting for. Nothing may be stranded on the way out either, so the release the failing
-    /// clear performs is asserted here exactly as it is for a refusal.
-    /// </remarks>
     [Test]
     public void Create_PropagatesACancellation_RatherThanReportingItAsARefusal()
     {

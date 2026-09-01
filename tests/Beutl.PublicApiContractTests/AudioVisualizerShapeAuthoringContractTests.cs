@@ -14,13 +14,6 @@ using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// This project is not a friend of <c>Beutl.Engine</c>, so the shapes and the visualizer below compile only
-/// while the audio visualizer authoring surface stays reachable from a type derived outside the engine
-/// assembly. Each one splits into an abstract plugin base that only forwards to a hook and a concrete plugin
-/// that overrides it, so the forwarding call site is bound to the base declaration and reaches the override
-/// through the vtable.
-/// </summary>
 [TestFixture]
 public sealed class AudioVisualizerShapeAuthoringContractTests
 {

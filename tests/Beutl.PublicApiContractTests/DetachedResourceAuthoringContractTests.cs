@@ -10,10 +10,6 @@ using Beutl.Media;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <summary>
-/// This project is not a friend of <c>Beutl.Engine</c>, so everything here compiles only against the public
-/// authoring surface an out-of-tree plugin sees, with the same generator the SDK ships as an analyzer.
-/// </summary>
 [TestFixture]
 public sealed class DetachedResourceAuthoringContractTests
 {
@@ -74,11 +70,6 @@ public sealed class DetachedResourceAuthoringContractTests
         }
     }
 
-    /// <remarks>
-    /// A detached resource is a supported authoring shape, so the accessor that answers "what was this built
-    /// from" has to admit it has no answer. It used to be declared non-null and return null anyway, which
-    /// turned every plugin that trusted the declaration into a NullReferenceException.
-    /// </remarks>
     [Test]
     public void ADetachedResource_ReportsNoBackingObject()
     {
@@ -151,12 +142,6 @@ public sealed class DetachedResourceAuthoringContractTests
         }
     }
 
-    /// <remarks>
-    /// A generated setter stores what it is given and moves nothing else, so a detached resource - which has
-    /// no engine object to reconcile against either - is only ever invalidated by its author. The path,
-    /// bounds and hit-test caches all key on <c>Version</c>, and the helper the engine bumps it through is
-    /// internal, so that bump is the whole of an out-of-tree author's invalidation.
-    /// </remarks>
     [Test]
     public void MutatingADetachedGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
@@ -214,12 +199,6 @@ public sealed class DetachedResourceAuthoringContractTests
         Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(9));
     }
 
-    /// <remarks>
-    /// This is the rule a hand-built resource is authored under: a capture is invalidated by a change to
-    /// <c>Version</c> and by nothing else, and nothing moves that number on the author's behalf. A
-    /// list-bearing resource is authored by reaching into the list the getter hands back, which does not
-    /// even run a setter, so moving the version is the author's own job.
-    /// </remarks>
     [Test]
     public void AddingAFigureToADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
@@ -251,11 +230,6 @@ public sealed class DetachedResourceAuthoringContractTests
             "the author's bump is what invalidates the path, and the rebuild reads the added figure");
     }
 
-    /// <remarks>
-    /// Mutating a child already in the list moves no version at all - not the child's, and so not the
-    /// parent's, which is the only one the parent reads - so the author that mutated the child moves the
-    /// parent's themselves.
-    /// </remarks>
     [Test]
     public void MutatingAFigureOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
@@ -277,10 +251,6 @@ public sealed class DetachedResourceAuthoringContractTests
         Assert.That(detached.Bounds, Is.EqualTo(new Rect(10, 10, 30, 5)));
     }
 
-    /// <remarks>
-    /// The child that moved is two levels down. The version the author bumps is still the one on the
-    /// resource whose cache they need invalidated, and the rebuild reads the whole subtree from there.
-    /// </remarks>
     [Test]
     public void MutatingASegmentOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
@@ -304,12 +274,6 @@ public sealed class DetachedResourceAuthoringContractTests
         Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)));
     }
 
-    /// <remarks>
-    /// <c>IsEnabled</c> is declared by hand on the base rather than generated, and it follows the same rule
-    /// the generated ones do: it stores the value and moves nothing. Whatever a render node recorded while
-    /// the resource was disabled therefore stays current - <c>Capture</c> and <c>Compare</c> are how a
-    /// caller asks - until the author moves the version.
-    /// </remarks>
     [Test]
     public void TogglingADetachedResource_LeavesACaptureCurrentUntilTheAuthorBumpsTheVersion()
     {
@@ -336,10 +300,6 @@ public sealed class DetachedResourceAuthoringContractTests
             "the author's bump is what tells a recording the enabled state it was taken under is stale");
     }
 
-    /// <remarks>
-    /// The sibling of the one above, on a generated setter rather than the hand-written one, so that the two
-    /// member kinds are pinned to one rule instead of two.
-    /// </remarks>
     [Test]
     public void MutatingAGeneratedPropertyOfADetachedResource_LeavesACaptureCurrentUntilTheAuthorBumps()
     {
@@ -360,13 +320,6 @@ public sealed class DetachedResourceAuthoringContractTests
         Assert.That(detached.Compare(beforeMutation), Is.False);
     }
 
-    /// <remarks>
-    /// Nothing that runs during a first build can move the version: the setter is a plain store, and
-    /// <see cref="EngineObject.Resource.Update"/> only steps the version when it is reconciling a resource
-    /// that was already built. That matters because <c>IsEnabled</c> starts <see langword="true"/> on the
-    /// object and <see langword="false"/> on the resource, so the two always differ on a first build - a
-    /// setter that invalidated would invalidate every node's cache the first time it recorded.
-    /// </remarks>
     [Test]
     public void BuildingAResourceFromAnEnabledObject_LeavesItsVersionUnmoved()
     {

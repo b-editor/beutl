@@ -6,10 +6,6 @@ namespace Beutl.UnitTests.Engine.Media.Geometry;
 
 using Geometry = Beutl.Media.Geometry;
 
-/// <summary>
-/// <c>Geometry.Resource</c>'s stroke-path cache keys on the pen. Both halves of that key are exercised here:
-/// which pen the cached stroke belongs to, and whether the fill path it was derived from is still current.
-/// </summary>
 [TestFixture]
 public sealed class GeometryStrokePathCacheTests
 {

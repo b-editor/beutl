@@ -160,12 +160,6 @@ public sealed class TargetAuthoringContractTests
         });
     }
 
-    /// <remarks>
-    /// PrepareForRequest is where a node reconciles what depends on the request, and RenderNodePreparation
-    /// cannot be constructed from outside the engine, so a node reached through RecordNode with explicit
-    /// inputs has no other way to get its call. Missing it there would leave that node on the state some
-    /// earlier request left behind.
-    /// </remarks>
     [Test]
     public void ANodeRecordedWithExplicitInputs_IsStillPreparedForTheRequest()
     {
@@ -194,11 +188,6 @@ public sealed class TargetAuthoringContractTests
         });
     }
 
-    /// <remarks>
-    /// Whether a scope's replay transform lives in its input's coordinates or against the ambient target is
-    /// something only the author knows, and it decides whether the declared scale contract can carry an
-    /// output demand back to the input. An out-of-tree scope has to be able to say it.
-    /// </remarks>
     [Test]
     public void AGuardedScopeDeclaresTheSpaceItsReplayTransformLivesIn()
     {
@@ -220,12 +209,6 @@ public sealed class TargetAuthoringContractTests
         Assert.That(rasterization.IsEmpty, Is.False);
     }
 
-    /// <remarks>
-    /// A raw command's callback is static and its slots are fixed, so the only thing that changes per
-    /// recording is the binding. Without slot addressing the callback would have to be handed the exact token
-    /// in its state as well, leaving the declared binding validation-only and the resource named in two
-    /// places.
-    /// </remarks>
     [Test]
     public void ARawCommandAddressesItsResourceByTheSlotItDeclared()
     {

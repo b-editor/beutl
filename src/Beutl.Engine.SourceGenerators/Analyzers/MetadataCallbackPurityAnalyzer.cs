@@ -9,42 +9,11 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 /// <summary>
-/// Reports a callback passed to a render metadata contract that reads more than the render node declaring it.
+/// Reports render metadata callbacks whose state can change without changing their plan identity.
 /// </summary>
 /// <remarks>
-/// <para>
-/// These callbacks are evaluated repeatedly - forward bounds, backward region of interest, scale
-/// reevaluation, hit testing, cache lookup - and the compiled plan is keyed by which method the callback is,
-/// not by what the callback closed over. A callback that reads a captured local therefore lets one plan key
-/// stand for two different answers, and the second recording replays a plan compiled for the first.
-/// </para>
-/// <para>
-/// The engine used to walk the delegate's closure at recording time to catch this. Recording is the render
-/// path, so that walk is gone; this says the same thing at compile time, before the frame that would have
-/// paid for it.
-/// </para>
-/// <para>
-/// One reader is admitted: a callback may read the <c>RenderNode</c> it is written inside. That node arrives
-/// as the delegate's own target rather than as a closure field, marking it changed re-records it, and an
-/// answer of the node's that moves between recording and graph-wide metadata resolution fails the request at
-/// the recorded-answer cross-check. A local, a parameter, and an enclosing instance that is not a node have
-/// none of that: nothing re-records when one is assigned, and the runtime identity validator never sees
-/// them, because a closure over anything besides <see langword="this"/> arrives as a compiler display class
-/// that none of its type tests answer for. This rule is the whole of what stands there.
-/// </para>
-/// <para>
-/// The exemption is about which instance the callback reads and not about how the callback was written, so
-/// both spellings of that one reader take it: a lambda closing over nothing but its own node, and a method
-/// group naming a method of that node. They hand the runtime the same delegate - the node as its target and
-/// a method of the node's type as the structural identity the plan is keyed by - and the method group is the
-/// narrower of the two, having no enclosing scope to reach into. A method group bound to any other instance
-/// is still reported, and so is one bound to an enclosing instance that is not a node.
-/// </para>
-/// <para>
-/// A callback clearing this rule can still read static state, which changes what it answers without
-/// changing which method it is, so that is a second rule (BESG004) rather than a second reason on this one:
-/// the failure and the fix differ, and two ids let an author suppress one without losing the other.
-/// </para>
+/// Plans are keyed by callback method identity. BESG003 permits only explicit state and the declaring
+/// <c>RenderNode</c>, whose changes trigger re-recording. BESG004 separately reports unproven static state.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
@@ -58,35 +27,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Rendering.OpaqueRenderBoundsContract",
         "Beutl.Graphics.Rendering.TargetCaptureScaleContract",
 
-        // A shader binding's value provider and resource binder are read the same way and keyed the same
-        // way, so the same rule decides them. This is the only whole type on the roster that is not a
-        // metadata contract: everything else a recording retains is declared through one of the
-        // description factories named below, which have to be named as methods rather than as types.
+        // ShaderBindingBuilder retains callbacks under the same identity rules as the factories below.
         "Beutl.Graphics.Effects.ShaderBindingBuilder");
 
-    /// <remarks>
-    /// <para>
-    /// One method rather than its whole type, because each of these types declares both kinds. A recording
-    /// context's painted source retains its draw callback the way a description factory retains its execute,
-    /// and declares its hit test in the same argument list - so leaving it out let one call report the
-    /// mapping and stay silent about the drawing beside it. Its other delegate-taking member, the input
-    /// mapper, is invoked while the call is being made and never retained, which is the shape this rule has
-    /// nothing to say about.
-    /// </para>
-    /// <para>
-    /// An operation description is the same case. Its <c>Create</c> carries the state-passing parameter a
-    /// per-recording value belongs in and retains the execution callback the recorded operation is
-    /// fingerprinted by, so it is keyed and re-run on the terms this rule is about. Its
-    /// <c>CreateRequestLocal</c> beside it is the documented opt-out: it mints a fresh request-local
-    /// identity every recording precisely so a callback whose pixel-affecting state cannot be copied may
-    /// capture, and naming the type would report every one of those.
-    /// </para>
-    /// <para>
-    /// A shader description is deliberately absent: its factories take a binding-declaration action that is
-    /// invoked once while the description is being constructed and never stored, and the callbacks that
-    /// action registers reach this rule through <c>ShaderBindingBuilder</c> above.
-    /// </para>
-    /// </remarks>
     private static readonly ImmutableHashSet<string> s_contractMethods = ImmutableHashSet.Create(
         StringComparer.Ordinal,
         "Beutl.Graphics.Rendering.RenderNodeContext.PaintedSource",
@@ -118,8 +61,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Name rather than ToDisplayString: a generic contract type displays with its type arguments, and
-        // the rule is about the type, not about what it was constructed with.
+        // Type arguments do not affect whether a containing type is a registered contract.
         if (method.ContainingType is not { } containingType)
             return;
 
@@ -153,25 +95,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>
-    /// Follows a member that only names a delegate - a readonly field, a get-only property - to the
-    /// expression that decides which delegate it holds.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// readonly fixes the reference, which is what the plan key needs, and says nothing about the delegate
-    /// the field holds: the closure it carries and the state it reads are decided by whatever built it. So
-    /// the member is only a name for the callback, and the rules apply to what it was given.
-    /// </para>
-    /// <para>
-    /// A member this rule cannot read the source of is reported, on the same ground the getter rule already
-    /// stands on: not being able to look proves nothing, and silence has to mean the rule looked.
-    /// </para>
-    /// </remarks>
-    /// <returns>
-    /// The delegate expression to classify and the model that binds it, or why the member could not be
-    /// followed.
-    /// </returns>
     private static (ExpressionSyntax Callback, SemanticModel Model, string? Unresolved) ResolveCallback(
         SyntaxNodeAnalysisContext context,
         ExpressionSyntax expression)
@@ -210,8 +133,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                         return (expression, model, DescribeUnreadableProperty(property));
                     break;
 
-                // Everything else is classified where it stands: a non-readonly field, a local, a
-                // parameter, and a method group each have their own answer in DescribeImpurity.
                 default:
                     return (expression, model, null);
             }
@@ -223,9 +144,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return (expression, model, null);
     }
 
-    /// <remarks>
-    /// Two members may name each other, which the compiler allows and which would otherwise walk for ever.
-    /// </remarks>
     private const string CyclicCallback =
         "the callback comes from a member that resolves back to itself, so what delegate it ends up "
         + "holding cannot be determined";
@@ -246,11 +164,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <remarks>
-    /// A getter that runs more than one expression is not reduced to the delegate it returns, so it takes
-    /// the same answer a getter with no source takes. This reuses the shape the static-state rule already
-    /// trusts to stand for a getter's whole result.
-    /// </remarks>
     private static ExpressionSyntax? GetGetterResult(
         SyntaxNodeAnalysisContext context,
         IPropertySymbol property)
@@ -282,13 +195,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             : "the callback comes from a get-only property whose getter is not a single returned expression "
               + "this rule can read, so which delegate it hands back cannot be determined";
 
-    /// <summary>
-    /// Strips the syntax an author can write around a callback without changing which delegate arrives.
-    /// </summary>
-    /// <remarks>
-    /// Each of these forms leaves the same delegate value underneath, so classifying the expression as
-    /// written would let a capturing callback past on nothing but how it was spelled.
-    /// </remarks>
     private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
     {
         while (true)
@@ -326,7 +232,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         => context.SemanticModel.GetTypeInfo(argument.Expression, context.CancellationToken).ConvertedType
             is { TypeKind: TypeKind.Delegate };
 
-    /// <returns>Why the callback can read changing state, or <see langword="null"/> when it cannot.</returns>
     private static string? DescribeImpurity(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -380,23 +285,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
     private const string RenderNodeTypeName = "Beutl.Graphics.Rendering.RenderNode";
 
-    /// <summary>
-    /// Decides what a non-static lambda closes over: the render node declaring it, which is admitted, or
-    /// anything else, which is not.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A capture is read off the semantic model rather than off the syntax, so an instance member named
-    /// without a receiver counts as reading <see langword="this"/> the same way an explicit <c>this.X</c>
-    /// does, and a variable a nested lambda reads counts against the outer one that holds it.
-    /// </para>
-    /// <para>
-    /// The <c>RenderNode</c> test is what the runtime identity validator's exemption is written against, so
-    /// this reports a lambda reading an enclosing instance that is not a node rather than admitting a
-    /// capture the engine would reject; and a lambda reading nothing at all is accepted whatever it is
-    /// written inside, there being no instance for either side to disagree about.
-    /// </para>
-    /// </remarks>
     private static string? DescribeCaptureImpurity(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -456,10 +344,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             + "reads to one answer";
     }
 
-    /// <remarks>
-    /// A lambda's own parameters, and everything declared in its body, are written inside its span; a
-    /// symbol with no declaration to point at - a setter's <c>value</c> - came from outside it.
-    /// </remarks>
     private static bool IsDeclaredOutside(ISymbol symbol, AnonymousFunctionExpressionSyntax lambda)
     {
         foreach (SyntaxReference reference in symbol.DeclaringSyntaxReferences)
@@ -482,23 +366,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <remarks>
-    /// <para>
-    /// A method group carries no closure, but an instance method's receiver becomes the delegate's target,
-    /// and that receiver is whatever the author named. A reference-typed one the author holds somewhere
-    /// else is their own object, so changing a field on it changes what the callback answers; a value-typed
-    /// one is boxed at the conversion, so the delegate answers from a copy of whatever the receiver held
-    /// right there.
-    /// </para>
-    /// <para>
-    /// One receiver is admitted, and it is the instance the closure rule already admits: the enclosing one,
-    /// when that instance is a <c>RenderNode</c>. Both spellings hand the runtime the same delegate - the
-    /// node as its target, and a method of the node's type as the structural identity the plan is keyed by
-    /// - so reporting one while admitting the other would be judging how the mapping was spelled. A method
-    /// group is the narrower form at that: an instance method reads its receiver and its arguments, where a
-    /// lambda has the whole enclosing scope to reach into and needs the closure walk to say it did not.
-    /// </para>
-    /// </remarks>
     private static string? DescribeReceiverImpurity(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -534,15 +401,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
               + "object as its receiver";
     }
 
-    /// <summary>
-    /// Decides a method group whose receiver is the instance the call is written inside: the render node
-    /// declaring it, which is admitted, or anything else, which is not.
-    /// </summary>
-    /// <remarks>
-    /// The type is read at the call rather than off the method, so a method a base type declares is judged
-    /// by the instance that runs it, which is the one that becomes the delegate's target. That is the type
-    /// the closure walk reads for a lambda and the object the runtime identity validator is handed.
-    /// </remarks>
     private static string? DescribeEnclosingReceiverImpurity(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -574,19 +432,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             + "nothing holds what its receiver reads to one answer";
     }
 
-    /// <remarks>
-    /// <para>
-    /// A callback satisfies the capture rule and can still read static state, which changes the answer
-    /// without changing the delegate. What the body names is what is visible here, and a method group names
-    /// its body as surely as a lambda writes one out, so both are read: exempting the method group left the
-    /// form BESG003's own message recommends checked by nothing at all.
-    /// </para>
-    /// <para>
-    /// Within the body the burden runs the other way from the walk that follows it: a read is reported
-    /// unless the member is proven to answer the same way twice, because a callback reading state nobody
-    /// can pin down is the hazard.
-    /// </para>
-    /// </remarks>
     private static void ReportUnprovenStaticStateReads(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -647,24 +492,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             Report);
     }
 
-    /// <remarks>
-    /// The body is the whole of what a method group contributes, so a method group with no body to read is
-    /// a callback this rule has inspected nothing of, and silence would say it looked. That is where the
-    /// static field rule already stands for a type whose state was never imported, and a callback is where
-    /// the reasoning bites hardest: there is no second half left to check.
-    /// </remarks>
     private const string UnreadableCallbackBody =
         "the callback is a method whose body has no source in this compilation, so nothing it reads can be "
         + "seen, and being static says only that the delegate is the same one every frame, not that it "
         + "answers the same way; declare the method where this rule can read it, or write the callback as a "
         + "static lambda at the call site";
 
-    /// <remarks>
-    /// The same shape <see cref="MaxImmutableFieldDepth"/> takes and for the same reason: a chain longer
-    /// than the walk is reported rather than accepted, so the bound can only ever cost a diagnostic and
-    /// never hide one. Eight is past any callback written by hand, and a metadata callback needing a ninth
-    /// hop is doing more than one of these should.
-    /// </remarks>
     private const int MaxCallbackCallDepth = 8;
 
     private const string DeeperThanTheWalk =
@@ -672,15 +505,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         + "that chain reads was never looked at, and a call chain nobody can follow to its end is not "
         + "evidence that the callback answers the same way twice";
 
-    /// <summary>
-    /// Reports every static member named by <paramref name="body"/>, or by a static member it names or an
-    /// instance member it makes the receiver for, that is not proven to answer the same way twice.
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="walked"/> spans the whole callback rather than one path through it: two calls
-    /// reaching the same method want one diagnostic, not one each, and a method that names itself would
-    /// otherwise walk for ever.
-    /// </remarks>
     private static void WalkBody(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -772,24 +596,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>
-    /// Whether the body being walked can run <paramref name="nested"/>, for a nested function it declares.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A body nothing runs is not a body the callback reads. Descending into every nested function alike
-    /// reported a static named in a local function nobody calls, which is a diagnostic about code the
-    /// program never executes - and on a public extension point the author's only answer to one of those is
-    /// to suppress the id and lose every real report with it.
-    /// </para>
-    /// <para>
-    /// Reachability rather than a blanket skip, because the walk has to keep the case it exists for. A
-    /// lambda handed to anything at all - an argument, a return, a field, an immediate invocation - is run
-    /// by code this rule is not reading, so it stays walked: answering otherwise would let any static read
-    /// out from under the rule behind a LINQ operator. Only the two shapes that say the function is
-    /// unreachable in the body itself are skipped, and both are decided by names written in that body.
-    /// </para>
-    /// </remarks>
     private static bool RunsNestedFunction(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -812,11 +618,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <remarks>
-    /// A lambda is an expression, so what can run it is decided by what the body does with the delegate it
-    /// makes. Held in a local, that is whatever names the local; assigned to a discard, nothing at all.
-    /// Every other position hands the delegate somewhere this rule cannot read, and is walked.
-    /// </remarks>
     private static bool RunsLambda(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -844,14 +645,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <returns>
-    /// Whether any name in <paramref name="body"/> written outside <paramref name="declaration"/> binds to
-    /// <paramref name="symbol"/>.
-    /// </returns>
-    /// <remarks>
-    /// Names inside the declaration itself do not count: a local function that only calls itself, and a
-    /// lambda that only names the local it was stored in, are each still unreachable from the body.
-    /// </remarks>
     private static bool IsNamedOutside(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -881,17 +674,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <returns>
-    /// The accessor body a subscription runs, or <see langword="null"/> when there is none this rule can
-    /// read - a field-like event, an event whose source is not in this compilation, or a reference that is
-    /// neither a <c>+=</c> nor a <c>-=</c>.
-    /// </returns>
-    /// <remarks>
-    /// An event declared elsewhere is deliberately not routed here: its accessors are real methods whether
-    /// the author wrote them or the compiler did, so nothing in metadata tells the two apart, and reading a
-    /// no-source body as "stores nothing" would clear every static event in every referenced assembly. That
-    /// is the position the static property rule already takes for a getter it cannot read.
-    /// </remarks>
     private static IMethodSymbol? GetRunAccessor(IEventSymbol @event, ExpressionSyntax access)
     {
         if (@event.AddMethod is not { IsImplicitlyDeclared: false }
@@ -908,57 +690,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return assignment.IsKind(SyntaxKind.SubtractAssignmentExpression) ? @event.RemoveMethod : null;
     }
 
-    /// <summary>
-    /// Whether the method a call runs is static, whatever the call site spells it as.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// An extension method written in instance form - <c>value.Shift()</c> - binds to a reduced symbol
-    /// whose <see cref="ISymbol.IsStatic"/> is <see langword="false"/>, so reading that alone left a body
-    /// the author wrote, and could put any static read into, behind nothing more than a dot: the
-    /// staticness gate said no, and the receiver gate could not say yes either, because the receiver is a
-    /// value the callback was handed rather than one it made.
-    /// </para>
-    /// <para>
-    /// Following it asks nothing about a receiver, which is what separates it from the instance members
-    /// this rule stops at. What runs is <see cref="IMethodSymbol.ReducedFrom"/>, a static method whose
-    /// every parameter - the receiver included - is an argument the call site passes, so the walk is
-    /// reading a static body over its own arguments, exactly as it does for the same call written as
-    /// <c>Extensions.Shift(value)</c>. Answering the two spellings differently would have made the rule
-    /// one an author escapes by adding a dot.
-    /// </para>
-    /// </remarks>
     private static bool RunsAStaticMethod(IMethodSymbol method)
         => method.IsStatic || method.ReducedFrom is { IsStatic: true };
 
-    /// <summary>
-    /// Follows the member an expression invokes without naming it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// An object creation names the type and not the constructor overload it picked, a constructor
-    /// initialiser is spelled <c>this</c> or <c>base</c>, an indexer is spelled as brackets, a collection
-    /// initialiser spells its <c>Add</c> calls as elements between braces, and a user-defined operator or
-    /// explicit conversion is spelled as punctuation. None of them reach the name loop, and each still runs
-    /// a body: leaving them out let a callback move a read into a constructor and keep the rule silent,
-    /// which is the one thing silence must not mean. The <c>Add</c> is that same move spelled shorter,
-    /// because the creation it hangs off is walked already: <c>new Builder(value)</c> written as
-    /// <c>new Builder { value }</c> is the same read behind two changed characters.
-    /// </para>
-    /// <para>
-    /// An element binds to nothing but itself, and the multi-argument form - a second pair of braces - to
-    /// nothing at all, so the <c>Add</c> is asked for by <c>GetCollectionInitializerSymbolInfo</c> rather
-    /// than found, exactly as an implicit conversion is.
-    /// </para>
-    /// <para>
-    /// It is followed only where the braces sit on an object creation, which is the receiver test
-    /// <see cref="FollowReceiverCreation"/> makes of every other instance member and which the creation
-    /// answers here for the same reasons: it is written in the body, it names the exact type it makes, and
-    /// it is what every element runs on. Braces on a member instead - <c>new Outer { Inner = { value } }</c>
-    /// - fill an instance the callback did not make, whose declared type need not be the type that runs,
-    /// and that is the receiver this rule does not model.
-    /// </para>
-    /// </remarks>
     private static void FollowUnnamedInvocation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1055,34 +789,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>
-    /// Follows what a <c>with</c> expression runs: the copy constructor that makes the new instance, and
-    /// the setters the braces then run on it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Neither is spelled in the source, and the expression does not bind to the constructor either -
-    /// asking it for a symbol answers with nothing - so the constructor is read off the declared type of
-    /// the operand. A record that declares no copy constructor of its own gets the compiler's, which has no
-    /// source here and stops the walk where every other bodiless callee does.
-    /// </para>
-    /// <para>
-    /// Only for a class. A <c>with</c> on a record struct copies the value and runs no constructor at all,
-    /// so following a one-parameter constructor a struct happens to declare would report a body the
-    /// expression never runs.
-    /// </para>
-    /// <para>
-    /// Its body alone, and not the instance initialisers <see cref="FollowConstructor"/> reads for an
-    /// object creation: a copy constructor does not run them - it copies the fields the operand already
-    /// holds - and the creation that did run them is walked where it is written.
-    /// </para>
-    /// <para>
-    /// The braces run setters on the copy this expression just made, which is the identity
-    /// <see cref="FollowReceiverCreation"/> asks of every other instance member and which the copy answers
-    /// for the same reasons an object creation does: it is made right here, of exactly the operand's type,
-    /// and it is what every one of those setters runs on.
-    /// </para>
-    /// </remarks>
     private static void FollowWithExpression(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1109,22 +815,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <returns>
-    /// The constructor a <c>with</c> on <paramref name="type"/> runs, or <see langword="null"/> when the
-    /// type declares none - which is every type that is not a record.
-    /// </returns>
     private static IMethodSymbol? GetCopyConstructor(INamedTypeSymbol type)
         => type.InstanceConstructors.FirstOrDefault(
             constructor => constructor.Parameters.Length == 1
                            && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, type));
 
-    /// <summary>Follows the <c>Deconstruct</c> a deconstruction runs, and the ones its elements run.</summary>
-    /// <remarks>
-    /// A tuple on the right deconstructs by position and runs nothing, which is the empty answer here. A
-    /// positional record's <c>Deconstruct</c> is the compiler's and has no source, which is the bodiless
-    /// answer <see cref="FollowCall"/> already gives. What is left is the method an author wrote, which
-    /// runs once per run of the deconstruction and can read anything a named call can.
-    /// </remarks>
     private static void FollowDeconstruction(
         SyntaxNodeAnalysisContext context,
         DeconstructionInfo deconstruction,
@@ -1149,12 +844,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowDeconstruction(context, nested, node, depth, walked, report);
     }
 
-    /// <remarks>
-    /// A user-defined implicit conversion runs a static method the source never spells, so an author can
-    /// move a read behind one by changing nothing but a declared type. Asking every expression what it was
-    /// converted to costs a semantic query per node, which is affordable because this walk runs only for the
-    /// callbacks a contract call passes and not over the compilation at large.
-    /// </remarks>
     private static void FollowImplicitConversion(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1170,16 +859,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>
-    /// Follows the accessor an instance property or indexer reference runs.
-    /// </summary>
-    /// <remarks>
-    /// A read runs the getter and a plain assignment runs the setter, while a compound assignment and an
-    /// increment run each in turn. Following both for every reference would report a static read written in
-    /// a setter that a bare read never reaches, which is a diagnostic about code the callback does not run.
-    /// A static property is not routed here: it is judged by the stricter question of whether its value is
-    /// the same on every read, which is more than what its getter happens to name.
-    /// </remarks>
     private static void FollowPropertyAccess(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1201,50 +880,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowCall(context, setter, reference, "property", depth, walked, report);
     }
 
-    /// <summary>
-    /// Walks the creation that made the instance the call runs on, and says whether there was one this
-    /// rule could point at.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This is the whole of what an instance member has to clear, and what clears it is an object creation
-    /// this rule can point at. An object creation names the exact type it makes, so the member the call
-    /// binds to is the member that runs even when it is virtual; and the instance carries only what its
-    /// constructor and initialisers put there. Nothing has to be known about a receiver held anywhere else,
-    /// which is the identity this rule does not model.
-    /// </para>
-    /// <para>
-    /// The constructor is walked only where the creation is written inside <paramref name="body"/>, the
-    /// body this walk is reading. There it runs once per run of that body, so a constructor reading a
-    /// mutable static is exactly the impurity this rule is for: the member called on the instance hands the
-    /// captured value back without naming the static anywhere the walk would see it. A creation written
-    /// outside the body - a field initialiser - ran before the callback was ever handed over and made one
-    /// instance for good, and BESG005 already exempts a constructor for that reason: a value frozen before
-    /// the first recording cannot answer differently at the second. Members called on the instance are
-    /// walked either way, because those do run per invocation.
-    /// </para>
-    /// <para>
-    /// The creation does not have to be written in the expression. A readonly field, and a local written
-    /// once where it is declared, name one creation and can never name another, so the type they hold is as
-    /// exactly known as the type spelled at the call - and a helper kept in a field is how a callback most
-    /// naturally reaches one. Two things have to be checked that a creation at the call site answers for
-    /// itself. The initialiser has to be the whole story: readonly leaves the declaring type's constructors
-    /// free to put a different instance there, so a field one of them writes is not followed. And the
-    /// creation has to make the declared type exactly, because the member is bound against the declaration
-    /// rather than against the instance: a field declared as a base of what it holds would have the walk
-    /// read the body an override replaces, and report a read the instance never makes.
-    /// </para>
-    /// <para>
-    /// A receiver the callback was handed is where the walk stops, and the reason is not only that it
-    /// cannot be identified. The callbacks under this rule are handed the objects they work through - a
-    /// session, a canvas, a context - so walking a member called on one of those is walking the engine
-    /// behind it, and the mutable statics a render backend keeps say nothing about whether the callback
-    /// answers the same way twice. Following them reported the whole backend and would have taught authors
-    /// to suppress the id. That is why a parameter is not resolved here, and why a field is followed only
-    /// where the callback reaches it on its own - a bare name, <c>this</c>, or a static reached through its
-    /// type - and never as the state of some receiver the callback did not make.
-    /// </para>
-    /// </remarks>
     private static bool FollowReceiverCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1267,26 +902,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Whether <paramref name="expression"/> runs every time <paramref name="body"/> does.</summary>
     private static bool RunsWith(SyntaxNode body, ExpressionSyntax expression)
         => expression.SyntaxTree == body.SyntaxTree && body.Span.Contains(expression.Span);
 
-    /// <returns>
-    /// The object creation that made the instance the call runs on, and the model that binds it, or
-    /// <see langword="null"/> when this rule cannot point at one.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// A type parameter is left out on purpose: <c>new T()</c> makes whatever T was substituted with, so
-    /// the member found on the constraint is not necessarily the member that runs.
-    /// </para>
-    /// <para>
-    /// The exact type is required rather than an assignable one, and that is the last of the three things
-    /// a creation written at the call site answers for itself. The member the call binds to is chosen by
-    /// the type of the expression, so a field declared as a base of what its initialiser makes would have
-    /// the walk read the body an override replaces, and report a read the instance never makes.
-    /// </para>
-    /// </remarks>
     private static (ExpressionSyntax Creation, SemanticModel Model)? GetReceiverCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1314,25 +932,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             : null;
     }
 
-    /// <returns>
-    /// The object creation a member holding one instance for good was given, and the model that binds it,
-    /// or <see langword="null"/> when the expression names no such member.
-    /// </returns>
-    /// <remarks>
-    /// <para>
-    /// One hop and no chain: the member has to be given a creation itself, not a name for a member that was
-    /// given one. A chain would have to answer for every hop what this answers for one - that nothing can
-    /// put a second instance there - and each hop it could not read would be a type assumed rather than
-    /// known.
-    /// </para>
-    /// <para>
-    /// A get-only property whose getter names one such field and nothing else is that field spelled
-    /// differently rather than a second hop: the getter can answer with no other expression, and the field
-    /// still answers for itself under the same test. That spelling is the one <c>DescribeUnprovenGetter</c>
-    /// already accepts as a fixed instance of a stateless type, so refusing it here left the helper's own
-    /// body the single reach this rule cleared and then never read.
-    /// </para>
-    /// </remarks>
     private static (ExpressionSyntax Creation, SemanticModel Model)? GetHeldCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1366,10 +965,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return value is BaseObjectCreationExpressionSyntax ? (value, initializerModel) : null;
     }
 
-    /// <returns>
-    /// Whether <paramref name="field"/> was given one instance that nothing can replace, reached by a
-    /// callback on its own.
-    /// </returns>
     private static bool HoldsOneCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1379,15 +974,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
            && ReachesMemberOnItsOwn(context, model, reference, field)
            && !IsWrittenInAConstructor(context, field);
 
-    /// <returns>
-    /// The initialiser of the field a get-only property hands straight back, or <see langword="null"/> when
-    /// its getter is any other shape.
-    /// </returns>
-    /// <remarks>
-    /// The field is put the whole of the test it would be put naming it directly, read against the getter's
-    /// own model, so routing the reach through the property makes it neither stricter nor looser - the same
-    /// terms on which <c>IsProvenConstant</c> accepts a static readonly field behind a getter.
-    /// </remarks>
     private static ExpressionSyntax? GetAliasedFieldInitializer(
         SyntaxNodeAnalysisContext context,
         IPropertySymbol property)
@@ -1415,14 +1001,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <returns>
-    /// Whether the callback reaches the member without going through a receiver of its own.
-    /// </returns>
-    /// <remarks>
-    /// A member read off another instance is that instance's state, and following it is exactly the walk
-    /// into the engine behind a handed-in session or canvas that this rule stops at. A bare name, an
-    /// explicit <c>this</c>, and a static reached through the type that declares it carry no such instance.
-    /// </remarks>
     private static bool ReachesMemberOnItsOwn(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
@@ -1439,13 +1017,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             : qualifier is ThisExpressionSyntax;
     }
 
-    /// <remarks>
-    /// readonly stops every assignment outside the declaring type's constructors, so those are the whole of
-    /// what has to be read, and one write in any of them means the instance the callback reaches is not the
-    /// one the initialiser made. A primary constructor is declared by the type and can write no field of
-    /// it, so it is skipped rather than read: taking its declaration would put every method body of the
-    /// type inside a constructor's span.
-    /// </remarks>
     private static bool IsWrittenInAConstructor(SyntaxNodeAnalysisContext context, IFieldSymbol field)
     {
         INamedTypeSymbol type = field.OriginalDefinition.ContainingType;
@@ -1465,16 +1036,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <returns>
-    /// The declaration's initialiser when nothing else writes the local, or <see langword="null"/> when it
-    /// has no initialiser or is assigned again.
-    /// </returns>
-    /// <remarks>
-    /// A local cannot carry the readonly modifier, so what stands in its place is the assignment list: a
-    /// local written once, where it is declared, names the same instance everywhere it is read. The scope
-    /// searched is the member the declaration is written in, which is as far as a local can be reached at
-    /// all.
-    /// </remarks>
     private static ExpressionSyntax? GetUnreassignedLocalInitializer(
         SyntaxNodeAnalysisContext context,
         ILocalSymbol local)
@@ -1497,12 +1058,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <returns>Whether anything in <paramref name="scope"/> writes <paramref name="symbol"/>.</returns>
-    /// <remarks>
-    /// Every form of a write counts, because each one replaces the instance a name stands for: an
-    /// assignment, a deconstruction naming it as one of its targets, an argument passed by reference, and
-    /// an increment, which a user-defined operator makes reachable on a receiver too.
-    /// </remarks>
     private static bool IsWrittenWithin(SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol symbol)
     {
         SemanticModel model = GetSemanticModel(context, scope.SyntaxTree);
@@ -1558,17 +1113,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <returns>
-    /// The expression the call is made on, or <see langword="null"/> when the reference carries no receiver
-    /// of its own - a bare name, which is this instance or a static.
-    /// </returns>
-    /// <remarks>
-    /// A conditional access is the same question spelled differently, not a different question: the chain
-    /// writes its receiver once, at the head, so the binding beside the name carries none of its own.
-    /// Reading only the receiver written beside the name let an author move a read behind a question mark -
-    /// <c>new Helper()?.Map(value)</c> - and take the whole instance walk out of the rule, which is the one
-    /// thing silence must not mean.
-    /// </remarks>
     private static ExpressionSyntax? GetReceiver(SyntaxNode reference) => reference switch
     {
         SimpleNameSyntax name when name.Parent is MemberAccessExpressionSyntax access && access.Name == name
@@ -1579,11 +1123,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         _ => null,
     };
 
-    /// <remarks>
-    /// Deliberately not <see cref="Unwrap"/>, which also strips a cast: a cast is what changes the type a
-    /// call is bound against, so stripping one would read the exact type off an expression the call was
-    /// never bound to.
-    /// </remarks>
     private static ExpressionSyntax StripParentheses(ExpressionSyntax expression)
     {
         while (expression is ParenthesizedExpressionSyntax parenthesized)
@@ -1610,12 +1149,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         _ => false,
     };
 
-    /// <remarks>
-    /// A callee with no body to read is where the walk stops without reporting, and that is not the answer
-    /// the method group itself gets. The difference is what the rule has already done: here it read the
-    /// callback and is one layer past it, so the callee is a bound on an inspected callback rather than an
-    /// uninspected one, and reporting it would reject every callback that names <c>Math.Clamp</c>.
-    /// </remarks>
     private static void FollowCall(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol called,
@@ -1642,22 +1175,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         WalkBody(context, GetSemanticModel(context, body.SyntaxTree), body, depth - 1, walked, report);
     }
 
-    /// <summary>
-    /// Follows a constructor the callback reaches, on the same terms a called method is followed.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The same bound and the same answers: a constructor with no source here stops the walk without
-    /// reporting, because the rule did inspect the callback and this is a bound on an inspected one; a chain
-    /// longer than the bound is reported rather than accepted.
-    /// </para>
-    /// <para>
-    /// What a constructor runs is more than one syntax node. The instance field and property initialisers of
-    /// the type run before the body of whichever constructor does not chain to another of the same type, and
-    /// a constructor with no initialiser of its own still runs its base type's parameterless one. None of
-    /// that is written where the name loop could reach it.
-    /// </para>
-    /// </remarks>
     private static void FollowConstructor(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol constructor,
@@ -1688,16 +1205,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowConstructor(context, implicitBase, node, depth - 1, walked, report);
     }
 
-    /// <returns>
-    /// Every syntax node the constructor runs whose names this rule can read - its initialiser call, its own
-    /// body, and the instance field and property initialisers it runs - or an empty list when it has no
-    /// source in this compilation.
-    /// </returns>
-    /// <remarks>
-    /// A primary constructor is declared by the type, whose members are not what it runs, so only its base
-    /// argument list is taken from there. Parameter defaults are left out on purpose: a default has to be a
-    /// constant expression, which cannot read state at all.
-    /// </remarks>
     private static List<SyntaxNode> GetConstructorBodies(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol constructor)
@@ -1741,10 +1248,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return bodies;
     }
 
-    /// <remarks>
-    /// An auto-property's backing field carries the same initialiser the property declares, so only the
-    /// members an author wrote are read; taking both would report one read twice.
-    /// </remarks>
     private static void AddInstanceInitializers(
         SyntaxNodeAnalysisContext context,
         INamedTypeSymbol? type,
@@ -1777,17 +1280,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <returns>
-    /// The base constructor this one runs without saying so, or <see langword="null"/> when it says so
-    /// itself or when the base type has no source here.
-    /// </returns>
-    /// <remarks>
-    /// The question asked of the base is whether the type has source here, not whether its constructor does:
-    /// a type declared in this compilation whose constructor is the one the compiler writes still runs its
-    /// own base's, so stopping at it would lose a chain the rule can read. A base with no source at all -
-    /// object, which every class reaches - is where the walk stops, and returning it would have the depth
-    /// bound report a chain that ends at nothing.
-    /// </remarks>
     private static IMethodSymbol? GetImplicitBaseConstructor(
         SyntaxNodeAnalysisContext context,
         IMethodSymbol constructor)
@@ -1815,11 +1307,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             .FirstOrDefault(static candidate => candidate.Parameters.Length == 0);
     }
 
-    /// <returns>
-    /// The syntax whose names stand for everything the method reads, or <see langword="null"/> when the
-    /// method has no body in this compilation - one compiled into another assembly, or abstract, extern or
-    /// partial with no implementing declaration.
-    /// </returns>
     private static SyntaxNode? GetBody(SyntaxNodeAnalysisContext context, IMethodSymbol method)
     {
         // An extension method called in reduced form and a constructed generic both carry the declaration
@@ -1865,10 +1352,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <returns>
-    /// What kind of static member this is and why it is not proven to answer the same way twice, or
-    /// <see langword="null"/> when the read is proven stable.
-    /// </returns>
     private static (string Kind, string Reason)? DescribeUnprovenStaticState(
         SyntaxNodeAnalysisContext context,
         ISymbol? symbol)
@@ -1910,15 +1393,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    /// <remarks>
-    /// The two ways a field's type fails this test want different fixes and so are said apart. A type
-    /// carrying writable state has to lose it or move behind the state-passing parameter; a type this rule
-    /// was never shown the state of has to be declared where the rule can read it, and telling an author
-    /// their type "carries writable state" when the rule simply could not see it would send them looking for
-    /// a field that is not there. Only a class can be in the second case - a struct's fields are imported
-    /// whatever its assembly - and only when everything that was visible passed, which is exactly the shape
-    /// the walk used to clear.
-    /// </remarks>
     private static string DescribeUnprovableFieldType(ITypeSymbol type)
     {
         if (type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsSealed: true } named
@@ -1938,12 +1412,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             + "same";
     }
 
-    /// <remarks>
-    /// Having no setter says only that this declaration does not write the property; it does not say the
-    /// getter answers the same way twice, because a get-only getter is free to compute its result from
-    /// anything. So the getter itself has to prove the value, and a getter this rule cannot read - one
-    /// whose source is not in the compilation - proves nothing and is reported.
-    /// </remarks>
     private static (string Kind, string Reason)? DescribeUnprovenGetter(
         SyntaxNodeAnalysisContext context,
         IPropertySymbol property)
@@ -1973,10 +1441,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             + "on every read, and having no setter is not on its own evidence that it does");
     }
 
-    /// <returns>
-    /// The single expression the getter can ever answer with, or <see langword="null"/> when the getter runs
-    /// enough code that no one expression stands for its result.
-    /// </returns>
     private static ExpressionSyntax? GetInvariantCandidate(PropertyDeclarationSyntax syntax)
     {
         if (syntax.ExpressionBody is { } propertyBody)
@@ -2001,10 +1465,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return getter.Body is null ? syntax.Initializer?.Value : null;
     }
 
-    /// <remarks>
-    /// A static readonly field is accepted on the same terms the field rule accepts one directly, through
-    /// the same test, so routing the read through a property makes it neither stricter nor looser.
-    /// </remarks>
     private static bool IsProvenConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         SemanticModel model = GetSemanticModel(context, expression.SyntaxTree);
@@ -2028,23 +1488,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             && IsImmutableType(field.Type);
     }
 
-    /// <summary>
-    /// Decides whether the value a static readonly field holds carries state something can still write.
-    /// </summary>
-    /// <remarks>
-    /// This is the single test both places that accept a static readonly field are judged by - the field a
-    /// callback names directly, and the one a proven getter hands back - because readonly says the same
-    /// thing in both: the reference is fixed, and what it points at is not.
-    /// </remarks>
     private static bool IsImmutableType(ITypeSymbol type) => IsImmutableType(type, MaxImmutableFieldDepth);
 
-    /// <remarks>
-    /// A class can hold a reference to its own type, so the walk below has a real cycle to end, and a
-    /// value-type layout that would cycle is only rejected while the code still compiles - which an
-    /// analyzer reading a half-written file cannot assume. Eight is past any type written by hand, and the
-    /// framework's own bottom out after one or two levels; a type nested deeper is reported rather than
-    /// assumed, so the bound can only ever cost a diagnostic, never hide one.
-    /// </remarks>
     private const int MaxImmutableFieldDepth = 8;
 
     private static bool IsImmutableType(ITypeSymbol type, int depth) => type switch
@@ -2090,14 +1535,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         _ => false,
     };
 
-    /// <summary>
-    /// Decides whether the field list this rule can read is the whole of what an instance carries.
-    /// </summary>
-    /// <remarks>
-    /// An empty field list says two different things and the walk cannot tell them apart on its own: this
-    /// type has no state, and this rule was not shown its state. Which one it is turns on where the type was
-    /// read from, so that is asked rather than guessed.
-    /// </remarks>
     private static bool HasCompleteFieldList(INamedTypeSymbol type)
     {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
@@ -2109,34 +1546,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <remarks>
-    /// A type declared in this compilation is read from its declaration, where every field is present
-    /// whatever its accessibility. A type that arrives as metadata is imported down to its public and
-    /// protected members, so a class's private and internal state is simply not there - which is how
-    /// System.Text.StringBuilder reaches an analyzer as a sealed class with no fields at all, and how a
-    /// reference assembly, having dropped the private fields on the way out, arrives too. There the list is
-    /// a floor and not the type, and the rule refuses what it cannot prove.
-    /// <para>
-    /// A struct is the exception, and not by accident: a compilation cannot decide definite assignment, an
-    /// unmanaged constraint or a layout cycle without every field of a metadata struct, so it imports them
-    /// whatever their accessibility. The private field of a referenced readonly struct is therefore readable
-    /// where a class's is not.
-    /// </para>
-    /// <para>
-    /// object, ValueType and Enum are what a base chain ends at and declare no instance field in any build
-    /// of them, so reaching one is not reaching an unread type.
-    /// </para>
-    /// </remarks>
     private static bool IsFieldListReadable(INamedTypeSymbol type)
         => type.IsValueType
             || type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType
                 or SpecialType.System_Enum
             || !type.DeclaringSyntaxReferences.IsEmpty;
 
-    /// <remarks>
-    /// Only worth reading once <see cref="HasCompleteFieldList"/> says the list is the whole type; on its
-    /// own it answers about the fields it was given, not about the type they came from.
-    /// </remarks>
     private static bool HasOnlyImmutableFields(INamedTypeSymbol type, int depth)
     {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
@@ -2165,12 +1580,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <remarks>
-    /// The property whose getter decides this is routinely declared in another file, and the context's model
-    /// only covers the tree the callback is written in. RS1030 warns because a second model costs memory;
-    /// this reaches for one only for a static property a metadata callback names, which is rare enough that
-    /// the alternative - reporting every property declared elsewhere - would cost far more.
-    /// </remarks>
     private static SemanticModel GetSemanticModel(SyntaxNodeAnalysisContext context, SyntaxTree tree)
     {
         if (tree == context.SemanticModel.SyntaxTree)

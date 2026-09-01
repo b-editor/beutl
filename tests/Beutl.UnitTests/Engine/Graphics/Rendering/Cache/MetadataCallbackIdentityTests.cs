@@ -4,18 +4,6 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// Pins what a recorded operation's structural identity discriminates now that it is the callback delegate
-/// itself rather than the <c>MethodInfo</c> behind it.
-/// </summary>
-/// <remarks>
-/// The delegate is strictly finer than the method: it compares the method and the receiver, where the method
-/// compared only the method. Two properties have to hold together for that to be the right key. Recordings
-/// that reach the same callback must still share one compiled plan, or every frame recompiles; and recordings
-/// that reach different callbacks must not, or one plan stands for two answers. Generic instantiations are the
-/// case that separates a real callback key from a source-location one: two constructions of the same generic
-/// helper are written on one line of one file and still behave differently.
-/// </remarks>
 [TestFixture]
 public sealed class MetadataCallbackIdentityTests
 {

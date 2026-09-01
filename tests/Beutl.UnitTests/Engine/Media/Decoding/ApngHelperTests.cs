@@ -138,8 +138,6 @@ public class ApngHelperTests
         });
     }
 
-    // Negative control. If the byte reversal is removed and ConvertEndian becomes the identity, every
-    // case here fails: an asymmetric value must not survive the call unchanged.
     [Test]
     public void ConvertEndian_IsNotIdentity_ForAsymmetricValues()
     {

@@ -15,23 +15,10 @@ using SkiaSharp;
 
 namespace Beutl.Evidence;
 
-/// <summary>
-/// The machine, device, driver, and build identity a rendering evidence run was produced on.
-/// </summary>
+/// <summary>Identifies the environment that produced a rendering evidence run.</summary>
 /// <remarks>
-/// <para>
-/// Two evidence runs may only be compared when their <see cref="ComparabilityKey"/> matches. The key covers
-/// exactly the fields that change what the renderer produces or how fast it produces it: the physical device
-/// and driver identity, the enabled Vulkan extensions, the backend pair, <see cref="MaxAttachmentDimension"/>
-/// (feature 003's per-buffer clamp reads it, so a smaller device silently renders at a different working
-/// density), the OS and process architecture, the runtime, and the Skia / Silk.NET / Beutl.Engine builds.
-/// Wall-clock time and the output paths are deliberately outside the key.
-/// </para>
-/// <para>
-/// Capture never starts a child process and never P/Invokes a platform UI framework, because it runs inside
-/// NUnit fixtures and inside BenchmarkDotNet setup. On macOS the Vulkan identity is MoltenVK's view of the
-/// same Metal device Skia draws with, so the Vulkan block identifies the GPU on every supported platform.
-/// </para>
+/// Runs are comparable only when <see cref="ComparabilityKey"/> matches. Capture stays in-process and avoids
+/// platform UI APIs so it is safe in NUnit and BenchmarkDotNet setup.
 /// </remarks>
 public sealed record RenderEvidenceFingerprint
 {

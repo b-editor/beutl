@@ -3,22 +3,10 @@ using System.Text.Json;
 
 namespace Beutl.Evidence;
 
-/// <summary>
-/// Turns three interleaved BenchmarkDotNet runs — baseline A, feature, baseline B — into the SC-008 manifest.
-/// </summary>
+/// <summary>Builds the SC-008 manifest from baseline A, feature, and baseline B runs.</summary>
 /// <remarks>
-/// <para>
-/// The method is the one <c>docs/specs/004-gpu-pass-fusion/spec.md</c> fixes under SC-008 and is implemented
-/// here without deviation: per case, the baseline repeat ratio <c>median(B) / median(A)</c> is bootstrapped
-/// from the two 15-sample runs; its 95% interval must contain 1.0 and its symmetric factor
-/// <c>max(upper, 1 / lower)</c> must be at most 1.20. Only when every case clears that gate are the 30 baseline
-/// samples pooled, and the feature-over-pooled-baseline median ratio bootstrapped against them.
-/// </para>
-/// <para>
-/// The analyzer consumes <c>Statistics.OriginalValues</c> rather than BenchmarkDotNet's outlier-classified
-/// summary, and applies no outlier removal, clipping, or winsorization of its own. Dropping a sample the
-/// resampler is meant to see would narrow the interval by construction.
-/// </para>
+/// Baseline pooling requires the bootstrapped B/A interval to contain 1.0 within a symmetric factor of 1.20.
+/// Resampling uses every original value without outlier removal or clipping.
 /// </remarks>
 public static class PairedBenchmarkAnalyzer
 {

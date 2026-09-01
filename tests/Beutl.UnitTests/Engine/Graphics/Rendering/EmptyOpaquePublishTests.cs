@@ -6,29 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins what an opaque operation that shrinks its output to nothing produces.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="OpaqueRenderOutput.SetOutputBounds"/> admits an empty rectangle: its containment check is a pure
-/// edge comparison, so a zero-extent rectangle at a point inside the allocation is contained by it. Publishing
-/// that output is how an operation says it produced nothing, so the executor drops it - the same answer
-/// <see cref="OpaqueRenderOutput.Discard"/> gives, and the same one the geometry path reaches when its output
-/// leaves the required region.
-/// </para>
-/// <para>
-/// The drop is decided on logical bounds rather than device bounds, because the two disagree. A device
-/// rectangle floors the left edge and ceils the right, so an empty logical rectangle at an integer origin is
-/// zero device pixels wide while one at a fractional origin is one pixel wide. Only the logical test catches
-/// both.
-/// </para>
-/// <para>
-/// Each case reads what the source published through a downstream map, whose callback runs once per input
-/// value: no invocation means nothing was published, and one invocation carries the bounds the published value
-/// ended up with.
-/// </para>
-/// </remarks>
 [TestFixture]
 public sealed class EmptyOpaquePublishTests
 {

@@ -5,15 +5,6 @@ using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-/// <summary>
-/// <see cref="GraphicsContextFactory.Shutdown"/> is the only way back to a working device after the shared
-/// context is abandoned or lost, and the reclaim flush it starts with speaks to exactly the device that is
-/// suspect. These pin that the flush's failure reaches the caller without taking the teardown with it.
-/// </summary>
-/// <remarks>
-/// The teardown destroys state the whole process shares, so each test stands in for that state, tears the
-/// stand-in down, and puts the real state back.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class GraphicsContextShutdownTests

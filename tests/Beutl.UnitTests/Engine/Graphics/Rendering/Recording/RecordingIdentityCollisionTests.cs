@@ -4,30 +4,12 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins that the recording gate settles a fingerprint match by comparison rather than trusting the digest.
-/// </summary>
-/// <remarks>
-/// FR-033 requires identity comparison to remain correct under hash collisions.
-/// <c>RenderFragmentReference.RecordingFingerprint</c> is 64 bits standing for a whole input cone, and two of
-/// the members it folds in - a target region's rectangle and a bounds contract's identity - it can only hash,
-/// so a collision is constructible rather than merely improbable.
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class RecordingIdentityCollisionTests
 {
     private static readonly Rect s_bounds = new(0, 0, 100, 100);
 
-    /// <summary>
-    /// The digest the gate rejects on can collide, so agreeing on it cannot be the whole answer.
-    /// </summary>
-    /// <remarks>
-    /// A target command's affected region reaches the fingerprint through a multiply-accumulate over the four
-    /// rectangle words, which is a hash and has neighbours that collide by construction. Everything else about
-    /// these two fragments is identical, so a recording made over one digests exactly as a recording made over
-    /// the other while the two name different regions. FR-033 is what says the comparison has to survive that.
-    /// </remarks>
     [Test]
     public void AnInputThatOnlyCollidesWithTheOneARecordingWasMadeOver_ForcesARecord()
     {
@@ -58,13 +40,6 @@ public sealed class RecordingIdentityCollisionTests
         });
     }
 
-    /// <summary>The cross-check cannot stand in for this: it never looks at the inputs.</summary>
-    /// <remarks>
-    /// <see cref="RecordedNodeShape"/> describes the fragments one node recorded and the labels its inputs
-    /// carry, not the structure of those inputs, so a parent recorded over either region describes the same
-    /// recording. It accepts the collision whether or not the gate catches it, which is why its acceptance is
-    /// no evidence about the gate.
-    /// </remarks>
     [Test]
     public void TheCrossCheck_AcceptsAParentWhoseInputOnlyCollidesWithTheOneItWasRecordedOver()
     {

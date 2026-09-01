@@ -7,17 +7,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// Pins that keying a solid fill against its own colour removes it whatever the boundary is.
-/// </summary>
-/// <remarks>
-/// A solid fill reaches the shaders quantized onto an 8-bit grid in the render target's colour space, which is
-/// linear light, so it arrives up to half a linear code away from the CPU-computed key uniform. Half a linear
-/// code spans about ten sRGB levels near black, so a tolerance carried after the transfer curve cannot absorb
-/// it: the dark cases below collapse onto an exact grey, and their saturation then disagrees with the key by
-/// two orders of magnitude more than a one-8-bit-step tolerance. Only an axis-aligned rectangle ever gave Skia
-/// a full-coverage quad, so the ellipse cases pin a shape that was wrong before the fused pipeline as well.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class KeyingDegenerateBoundaryTests
@@ -111,16 +100,6 @@ public sealed class KeyingDegenerateBoundaryTests
         });
     }
 
-    /// <summary>
-    /// Pins that a dark, fully saturated colour survives a key it only differs from in hue.
-    /// </summary>
-    /// <remarks>
-    /// A pure primary shares its saturation with a pure key, so the saturation term cannot separate them and
-    /// hue is the only discriminator left. Quantization makes a dark pixel's hue unreliable, but withholding
-    /// the hue term there removes the pixel instead of keeping it: the shader keeps what no term claims. Every
-    /// shadow in a keyed plate lands in this range, so the levels below span the whole band a chroma floor of
-    /// one linear code covers.
-    /// </remarks>
     [TestCase(4)]
     [TestCase(8)]
     [TestCase(12)]

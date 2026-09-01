@@ -18,15 +18,6 @@ public sealed class DrawableBrushFractionalContentExtentTests
     private const float HostWidth = 210f;
     private const float HostHeight = 130f;
 
-    /// <summary>
-    /// <see cref="Stretch.Uniform"/> fits the drawable's true fractional bounds into the destination.
-    /// Rounding the materialized content size to whole logical units inflates the uniform factor by
-    /// <c>size / floor(size)</c>, oversizing the fill and pushing it into the destination clip.
-    /// </summary>
-    /// <remarks>
-    /// Only the free axis is asserted. The destination clip pins the constrained axis at the host
-    /// extent whatever factor produced it, so measuring it cannot tell an exact fit from an overflow.
-    /// </remarks>
     [TestCase(TileMode.None)]
     [TestCase(TileMode.Tile)]
     public void DrawableBrushUniformStretch_FitsFractionalContentBounds(TileMode tileMode)
@@ -52,19 +43,6 @@ public sealed class DrawableBrushFractionalContentExtentTests
         });
     }
 
-    /// <summary>
-    /// A brush whose artwork reaches outside the destination is fitted to the artwork, not to the part of
-    /// it that happens to fall inside.
-    /// </summary>
-    /// <remarks>
-    /// The compilation that asks where the content is gets handed the destination rectangle as its target
-    /// domain, which is only safe because a target domain narrows a measurement's OutputBounds alone. The
-    /// extent the brush reads back is QueryBounds, a union that nothing intersects with the domain, so
-    /// passing the destination in does not crop it. This test is what keeps that true: the content box is
-    /// the same as above but a second child sits one content-width to the right, so the true extent is
-    /// twice as wide and fitting it makes the fill half as tall. Were a domain ever to start clipping the
-    /// query footprint, Uniform would fit the visible part instead and this height would come back larger.
-    /// </remarks>
     [Test]
     public void DrawableBrushUniformStretch_FitsArtworkReachingOutsideTheDestination()
     {

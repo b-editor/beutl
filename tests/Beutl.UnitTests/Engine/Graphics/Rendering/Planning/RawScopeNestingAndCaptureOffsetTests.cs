@@ -225,13 +225,6 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         });
     }
 
-    /// <remarks>
-    /// A clamped capture necessarily reaches <see cref="RenderScaleUtilities.MaxBufferDimension"/> on the axis
-    /// that forced the clamp, so the only axis this fixture is free to choose is the other one. It keeps that
-    /// one two logical pixels wide: the buffer is 8x16384, about a megabyte at RgbaF16, where a full-frame
-    /// domain would ask for a quarter of a gigabyte and be declined on a constrained runner - answering a
-    /// question about planning with a fact about the machine.
-    /// </remarks>
     [Test]
     public void BuiltInBackdropCapture_ClampsTheMaximumSingularValueToTheCaptureFootprint()
     {
@@ -392,12 +385,6 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         });
     }
 
-    /// <remarks>
-    /// The scope a capture ends up in decides its resolved region and target domain, and the author has
-    /// neither when they build the description. Bounds reaching past the pixels available must therefore read
-    /// transparent rather than fail the frame, or the same description would work or throw depending only on
-    /// where it was used.
-    /// </remarks>
     [Test]
     public void TargetCapture_ReachingPastTheTargetDomain_ReadsTransparentInsteadOfFailing()
     {

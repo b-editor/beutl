@@ -2,14 +2,9 @@
 
 namespace Beutl.Evidence;
 
-/// <summary>
-/// The bootstrap's resampling source: xoshiro256** seeded through SplitMix64.
-/// </summary>
+/// <summary>Provides xoshiro256** resampling seeded through SplitMix64.</summary>
 /// <remarks>
-/// The manifest is an artifact a reader is expected to reproduce, so the generator is written out here rather
-/// than delegated to <see cref="Random"/>. A framework generator would tie the recorded confidence interval to
-/// one runtime's implementation detail; these two algorithms are fixed by their published definitions, so the
-/// same seed yields the same interval on any runtime and in any future version of this file.
+/// A fixed algorithm keeps confidence intervals reproducible across runtime versions.
 /// </remarks>
 public sealed class DeterministicBootstrapRandom
 {

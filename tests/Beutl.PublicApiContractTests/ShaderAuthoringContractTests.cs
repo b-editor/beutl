@@ -56,11 +56,6 @@ public sealed class ShaderAuthoringContractTests
                     writer.Set(SKShader.CreateColor(color.Color));
                 }));
 
-    /// <remarks>
-    /// A plugin author with many effects over one shader has the same reason the engine does to parse it
-    /// once. SkslSource, its Kind, and the description factories that take one were public in name only:
-    /// nothing reachable from outside the assembly could produce or consume an instance.
-    /// </remarks>
     [Test]
     public void AParsedSourceCanBeSharedAcrossDescriptions()
     {
@@ -125,12 +120,6 @@ public sealed class ShaderAuthoringContractTests
             Throws.ArgumentException);
     }
 
-    /// <remarks>
-    /// A WholeSource shader's input arrives as the implicit 'src' child, so binding it explicitly is not
-    /// something the pipeline can honour. Accepting the description and throwing on every recording of it
-    /// hands the author a stage that builds and is then unusable, with nothing pointing at the declaration
-    /// that did it.
-    /// </remarks>
     [Test]
     public void AWholeSourceDescriptionBindingSrcExplicitly_IsRejectedWhereItIsDeclared()
     {
@@ -218,11 +207,6 @@ public sealed class ShaderAuthoringContractTests
         });
     }
 
-    /// <remarks>
-    /// Two child-shader names legitimately read one resource - the same bitmap sampled through two matrices
-    /// is one leased resource and two bindings. Each name declares its own binder and its own author value,
-    /// and both resolve the one token the description was given.
-    /// </remarks>
     [Test]
     public void TwoChildShaderBindings_CanShareOneResource()
     {
@@ -271,11 +255,6 @@ public sealed class ShaderAuthoringContractTests
         }
     }
 
-    /// <remarks>
-    /// The hit-test resources are the one list a shader description binds by slot, so they take the same
-    /// declaration rule the rest of the family does: a slot declared once is bound once, and binding it twice
-    /// is refused where it is written rather than resolved to whichever binding came last.
-    /// </remarks>
     [Test]
     public void AShaderDescriptionBindingOneHitTestSlotTwice_IsRefused()
     {
@@ -306,13 +285,6 @@ public sealed class ShaderAuthoringContractTests
         Assert.That(failure, Is.Not.Null, "a declared slot is bound once, not once per binding written");
     }
 
-    /// <remarks>
-    /// A stage is authored by building its description. What that route may not drag out with it is how a
-    /// stage carries its bindings: the uniform and resource bindings a builder produces, and the Vulkan
-    /// lowering an engine stage may attach, describe how the planner lowers and keys the stage rather than
-    /// anything an author declares.
-    /// <see cref="ShaderBindingBuilder"/> is the exception, because it is the parameter the author is handed.
-    /// </remarks>
     [Test]
     public void ShaderDescription_IsAuthorableWithoutLeakingHowAStageCarriesItsBindings()
     {
@@ -349,12 +321,6 @@ public sealed class ShaderAuthoringContractTests
     }
 
 
-    /// <remarks>
-    /// A whole-source stage states where its output lands in its bounds contract and puts it there with its own
-    /// SkSL. Forwarding the hit test to the input asks about a point in the stage's own output space, which for
-    /// a stage that moved its content names neither the pixels it produced nor the place it vacated. Only the
-    /// author knows the inverse of the mapping their SkSL performs, so only the author can state the test.
-    /// </remarks>
     [Test]
     public void AWholeSourceShaderThatRelocatesItsInput_HitsWhereItsDeclaredContractSays()
     {
@@ -378,10 +344,6 @@ public sealed class ShaderAuthoringContractTests
         }
     }
 
-    /// <remarks>
-    /// Declaring nothing has to keep meaning what it meant before this contract existed, or every shader
-    /// already in the wild answers a different question than the one it was written against.
-    /// </remarks>
     [Test]
     public void AWholeSourceShaderDeclaringNoHitTest_StillForwardsTheQuestionToItsInputUnchanged()
     {

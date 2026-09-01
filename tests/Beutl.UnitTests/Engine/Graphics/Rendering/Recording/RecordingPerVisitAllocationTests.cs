@@ -4,15 +4,6 @@ using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Budgets what one request costs when every node in it repeats the recording it already made.
-/// </summary>
-/// <remarks>
-/// This is the cost the recording cache cannot remove: a node it skips still gets a transaction, a set of
-/// handles, and a commit, and each of its fragments is recreated for the new request. The scene-level
-/// ceilings in <c>RenderDescriptionAllocationTests</c> move with the whole pipeline; this one isolates the
-/// per-visit machinery so a regression in it cannot hide inside a scene total.
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class RecordingPerVisitAllocationTests

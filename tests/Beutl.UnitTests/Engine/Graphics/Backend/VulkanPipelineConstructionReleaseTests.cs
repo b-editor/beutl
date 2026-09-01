@@ -3,20 +3,6 @@ using System.Text.RegularExpressions;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-/// <summary>
-/// Pins that a Vulkan graphics-pipeline type releases its device objects when its constructor throws.
-/// </summary>
-/// <remarks>
-/// Such a constructor creates shader modules, a descriptor set layout and a pipeline layout before it asks
-/// the driver for the pipeline, and the driver can reject that pipeline - a specialization constant the
-/// shader does not declare is enough. Construction then never completes, so nothing will ever call
-/// <c>Dispose</c> on the instance and every handle made along the way stays on the device until the context
-/// is destroyed; repeat it per plugin load and the leak grows without bound. Making a real driver reject a
-/// pipeline is not portable across MoltenVK, SwiftShader and desktop drivers, and the leak has no
-/// observation point short of the validation layer's object tracker, so the release is pinned at the source
-/// instead - over every type that creates a graphics pipeline, found by what it calls rather than by name,
-/// so a type added later is covered without editing this test.
-/// </remarks>
 [TestFixture]
 public sealed class VulkanPipelineConstructionReleaseTests
 {

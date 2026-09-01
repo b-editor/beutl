@@ -11,10 +11,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Temporary measurement harness: splits one frame of the representative scene into the phases of
-/// <see cref="RenderNodeRenderer.Rasterize"/> and reports the allocation of each.
-/// </summary>
 [TestFixture]
 [Explicit("Measurement harness, not an assertion.")]
 public sealed class AllocationCensusHarness
@@ -39,7 +35,6 @@ public sealed class AllocationCensusHarness
         TestContext.Out.WriteLine(report);
     }
 
-    /// <summary>Ground truth: the unmodified public entry point, for cross-checking the phase sum.</summary>
     [Test]
     [NonParallelizable]
     public void WholeFrameBaseline()
@@ -54,7 +49,6 @@ public sealed class AllocationCensusHarness
         TestContext.Out.WriteLine(report);
     }
 
-    /// <summary>Separates the per-node slope from the per-frame intercept by varying the node count.</summary>
     [Test]
     [NonParallelizable]
     public void NodeScaling()
@@ -181,10 +175,6 @@ public sealed class AllocationCensusHarness
         islands = compiled.ExecutionPlan.Islands.Length;
     }
 
-    /// <summary>
-    /// Long allocation loop for an external profiler. CENSUS_DELAY seconds elapse before the loop starts
-    /// so a tracer can attach, and CENSUS_FRAMES frames run inside it.
-    /// </summary>
     [Test]
     [NonParallelizable]
     public void TraceLoop()
@@ -223,7 +213,6 @@ public sealed class AllocationCensusHarness
         TestContext.Out.WriteLine(report);
     }
 
-    /// <summary>Reports the recorded-graph object counts for the representative scene.</summary>
     [Test]
     [NonParallelizable]
     public void RepresentativeSceneShape()
@@ -806,10 +795,6 @@ public sealed class AllocationCensusHarness
             CollectNodes(children[index], into, seen);
     }
 
-    /// <summary>
-    /// Wraps the representative scene in N pure wrapper nodes, which every frame after the warmup skips, and
-    /// reports what the RECORD phase still pays for them. The slope over N is the cost of one skipped visit.
-    /// </summary>
     [Test]
     [NonParallelizable]
     public void SkippedVisitMarginalCost()
@@ -892,11 +877,6 @@ public sealed class AllocationCensusHarness
         }
     }
 
-    /// <summary>
-    /// Marks one leaf changed every frame and reports what that costs the nodes above it. The leaf re-records
-    /// the same fragments, so every ancestor's input digests still match what it was recorded over and the
-    /// gate serves them; a non-zero reject count here is the gate rejecting on something other than a digest.
-    /// </summary>
     [Test]
     [NonParallelizable]
     public void GateOverRejection()
@@ -1008,10 +988,6 @@ public sealed class AllocationCensusHarness
         }
     }
 
-    /// <summary>
-    /// Reports the RECORD phase for scene variants, so the share carried by each resource-binding leaf's
-    /// subtree can be read off the differences.
-    /// </summary>
     [Test]
     [NonParallelizable]
     public void RefusedLeafShare()

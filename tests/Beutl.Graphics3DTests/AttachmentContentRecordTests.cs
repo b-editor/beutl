@@ -2,14 +2,6 @@
 
 namespace Beutl.Graphics3DTests;
 
-/// <summary>
-/// Pins that what the backend records about a texture's contents survives contact with a render pass.
-/// </summary>
-/// <remarks>
-/// The record exists so a caller that wants a blank target can skip a clear that would change nothing. A
-/// pass writes its attachments, so a record left saying "transparent" across one would make that caller
-/// skip a clear it needed and read the pass's output instead.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class AttachmentContentRecordTests
@@ -17,12 +9,6 @@ public sealed class AttachmentContentRecordTests
     private const int Width = 16;
     private const int Height = 8;
 
-    /// <remarks>
-    /// A device can report a framebuffer limit below the engine's own ceiling - CI's does - and an
-    /// intermediate is attached as well as sampled, so clamping working density to a fixed number asks such
-    /// a device for an attachment it cannot make. Vulkan calls that undefined rather than a failed
-    /// allocation, so nothing downstream would report it.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void TheBufferBudget_DoesNotExceedWhatTheDeviceCanAttach()

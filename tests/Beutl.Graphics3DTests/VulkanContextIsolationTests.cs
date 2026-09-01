@@ -6,11 +6,6 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics3DTests;
 
-/// <summary>
-/// Pins the boundary checks the Vulkan backend owes its callers: a handle means nothing outside the device
-/// that made it, and a render pass instance cannot contain another on the same command buffer. Vulkan
-/// diagnoses neither, so both have to be rejected before a native call.
-/// </summary>
 [TestFixture]
 [NonParallelizable]
 public sealed class VulkanContextIsolationTests
@@ -106,16 +101,6 @@ public sealed class VulkanContextIsolationTests
         });
     }
 
-    /// <remarks>
-    /// Skia's allocator picks whichever bind entry point the device exposes. Intercepting only the 1.0 form
-    /// let a scratch image bound through the core 1.1 or KHR form skip the transparent clear and show
-    /// whatever the reused allocation last held.
-    /// </remarks>
-    /// <remarks>
-    /// vkUpdateDescriptorSets takes raw handles, so a texture or sampler from another device written into
-    /// this set is undefined behaviour rather than a validation message. A plain cast would let one through
-    /// because the managed type is the same on both contexts.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void AResourceFromAnotherContext_IsRejectedByADescriptorUpdate()
@@ -226,12 +211,6 @@ public sealed class VulkanContextIsolationTests
         });
     }
 
-    /// <remarks>
-    /// A shadow atlas binds its whole array to the lighting pass while only the lights actually present
-    /// fill a slot. A slot nothing wrote to used to stay in UNDEFINED, so the descriptor handed the sampler
-    /// an image in a layout it may not read - undefined behaviour the driver need not report, and what
-    /// validation flags as InvalidImageLayout on every unfilled slot.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void AFreshArrayTexture_IsReadableInEverySlotBeforeAnythingWritesToIt()

@@ -9,13 +9,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A scope bounds its callback to its own footprint, and that bound is stated in the callback's local
-/// units. Replayed under a shrinking transform those units cover a sub-pixel span, which a
-/// non-antialiased clip snaps to the nearest device pixel — outward it costs the leading partially
-/// covered column, and inward it takes the whole picture. What a shrink is authored through must not
-/// decide whether it survives.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public class ShrinkingTransformKeepsItsFootprintTests

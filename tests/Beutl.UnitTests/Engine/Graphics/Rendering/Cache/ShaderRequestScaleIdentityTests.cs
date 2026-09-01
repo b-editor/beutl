@@ -7,15 +7,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// Pins that the request scales a public shader binder is allowed to read separate the persistent cache
-/// identity, and that a shader which reads neither still shares its stored pixels across both of them.
-/// </summary>
-/// <remarks>
-/// Both halves are needed: the identity has to follow every value the binder can observe, and it must not
-/// follow values no binder in the fragment reads, because a request-scale-sensitive key would cost every
-/// other fragment its reuse.
-/// </remarks>
 [TestFixture]
 public sealed class ShaderRequestScaleIdentityTests
 {

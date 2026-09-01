@@ -8,23 +8,11 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
-/// <summary>
-/// Records how migrated color adjustments land in the compiled plan as CurrentPixel shader stages.
-/// </summary>
-/// <remarks>
-/// This is a characterization test: a Skia blur remains a compatibility segment, while a following migrated
-/// adjustment becomes a shader run after coverage resolution. Adjacent CurrentPixel adjustments fuse together,
-/// including the resource-heavy Curves case under the Vulkan profile.
-/// </remarks>
 [TestFixture]
 public sealed class ColorFilterIslandSplitTests
 {
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
-    /// <summary>
-    /// Saturate now follows the same CurrentPixel path as Brightness: the blur stays in its compatibility segment,
-    /// and Saturate starts a shader run once that segment has resolved coverage.
-    /// </summary>
     [Test]
     public void BlurThenSaturate_CompilesAfterTheSingleTargetSegment()
     {
@@ -55,17 +43,6 @@ public sealed class ColorFilterIslandSplitTests
         }
     }
 
-    /// <summary>
-    /// Brightness is a shader stage, so it cannot be folded into the blur's segment. The blur stays in a
-    /// compatibility island, while Brightness becomes a one-stage shader run after the segment has resolved
-    /// its coverage.
-    /// </summary>
-    /// <remarks>
-    /// A pure Skia segment preserves its one input target and therefore publishes
-    /// <c>RenderValueCardinality.Single</c>. That permits the downstream CurrentPixel stage to compile. The
-    /// boundary after the segment is <c>CoverageResolution</c>, because the Skia materialization establishes
-    /// the coverage that Brightness consumes; it is not a topology rejection.
-    /// </remarks>
     [Test]
     public void BlurThenBrightness_CompilesAfterTheSingleTargetSegment()
     {
@@ -117,10 +94,6 @@ public sealed class ColorFilterIslandSplitTests
         });
     }
 
-    /// <summary>
-    /// Two adjacent CurrentPixel stages do fuse: Brightness followed by Gamma is a single shader run holding
-    /// both stages, with no boundary between them.
-    /// </summary>
     [Test]
     public void BrightnessThenGamma_FusesIntoASingleTwoStageShaderRun()
     {
@@ -147,11 +120,6 @@ public sealed class ColorFilterIslandSplitTests
         }
     }
 
-    /// <summary>
-    /// Curves binds nine curve resources in addition to the implicit source. The Portable policy admits those ten
-    /// resources under its 12/12 budget, so Curves can remain in the same shader run as the two color stages that
-    /// follow it while four slots below the backend guarantee remain reserved for Skia's surrounding program.
-    /// </summary>
     [Test]
     public void CurvesThenBrightnessThenGamma_FusesWithinThePortableBudget()
     {

@@ -249,11 +249,6 @@ public sealed class RegionAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// A metadata callback may read the node that declares it, which is a value that can move. What holds it
-    /// is not the identity validator - the callback is admitted - but the rule that a recorded answer has to
-    /// survive being asked for again, which is the same rule a callback over any other moving value meets.
-    /// </remarks>
     [Test]
     public void Analyze_RejectsAConcreteForwardMappingWhoseNodeMovedAfterRecording()
     {
@@ -353,18 +348,7 @@ public sealed class RegionAnalyzerTests
     private static EffectiveScale HalveSupply(EffectiveScale input)
         => input.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(input.Value / 2);
 
-    /// <summary>
-    /// State a metadata callback reads whose value moves once - on the first read after the recording that
-    /// used it - and then stays put.
-    /// </summary>
-    /// <remarks>
-    /// That is the shape a field takes when something writes it between the recording that read it and the
-    /// resolution that reads it again, and it is the case a guard comparing two evaluations at the resolved
-    /// point cannot see: both of those reads return the moved value and agree. The callbacks reading this stay
-    /// <see langword="static"/>, so nothing here is a captured delegate; what the contract cannot check is that
-    /// the state handed to it is immutable.
-    /// </remarks>
-    /// <summary>A node whose own bounds mapping reads a property of its that the test then moves.</summary>
+    /// <summary>Models a static bounds callback whose state changes between recording and resolution.</summary>
     private sealed class ShiftingNode : RenderNode
     {
         public float Offset { get; set; }
@@ -428,10 +412,6 @@ public sealed class RegionAnalyzerTests
         });
     }
 
-    /// <remarks>
-    /// Compilation re-lowers target scopes from the fragment bounds that metadata resolution wrote, so the
-    /// measurement-only entry point has to leave the graph in exactly the state a full analysis would.
-    /// </remarks>
     [Test]
     public void ResolveMeasurement_MatchesAFullAnalysisOnBothItsResultAndItsResolvedMetadata()
     {

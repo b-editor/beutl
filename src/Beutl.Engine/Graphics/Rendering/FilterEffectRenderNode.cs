@@ -19,30 +19,14 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         return false;
     }
 
-    /// <summary>
-    /// Gets an optional declarative scale contract for this effect's working inputs.
-    /// </summary>
+    /// <summary>Gets an optional working-input scale contract.</summary>
     /// <returns>
-    /// A scale contract applied after the base node has isolated target-dependent inputs, or
-    /// <see langword="null"/> to use the standard supply-driven working scale.
+    /// A contract applied after input isolation, or <see langword="null"/> for supply-driven scale.
     /// </returns>
     /// <remarks>
-    /// Override this hook for working-scale customization instead of replacing <see cref="Process"/>. The returned
-    /// contract is folded into the first authored shader, geometry, or effect-item operation. Its callback receives one
-    /// surviving branch at a time, with one <see cref="RenderScaleContext.InputSupplies"/> item and that branch's
-    /// isolated effect-input bounds as <see cref="RenderScaleContext.OutputBounds"/>. EffectItem multi-input operations
-    /// aggregate the densest concrete branch result and fall back to <see cref="RenderScaleContext.OutputScale"/>
-    /// only when every branch remains unbounded. Allocation clamping is independent of callback cardinality: it
-    /// covers each branch's local-origin footprint and every intermediate effect-item materialization. The forced Flush
-    /// immediately before a custom callback removes renderer-owned aprons and presents each branch through the
-    /// historical dimension-sized local backing. Because that callback may then combine, split, move, or shrink
-    /// targets without declaring topology, its results collapse to their union and later footprints conservatively
-    /// use that aggregate domain while retaining physical backing produced by the callback.
-    /// The callback may be evaluated again after symbolic
-    /// input metadata is resolved, so it must be deterministic and side-effect-free. An effect that authors no
-    /// operations creates no isolation or contract fragment and remains a true pass-through. The hook and resolver
-    /// stay lazy and are not evaluated for such an effect unless its <c>ApplyTo</c> implementation explicitly probes
-    /// <see cref="FilterEffectContext.WorkingScale"/> or <see cref="FilterEffectContext.TryGetWorkingScale"/>.
+    /// Override this hook instead of <see cref="Process"/>. The contract is folded into the first authored operation
+    /// and evaluated per surviving branch; multi-input effects use the densest concrete result. It must be deterministic
+    /// because symbolic metadata resolution may evaluate it again. Effects that author no operations remain pass-through.
     /// </remarks>
     protected virtual RenderScaleContract? GetWorkingScaleContract() => null;
 

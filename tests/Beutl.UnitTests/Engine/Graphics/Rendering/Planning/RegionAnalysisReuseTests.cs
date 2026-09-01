@@ -5,11 +5,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
-/// <summary>
-/// Pins how many full region analyses one request pays for. Metadata resolution and compilation both need
-/// forward metadata resolved, but only compilation consumes region requirements, so a request must run the
-/// requirement propagation exactly once.
-/// </summary>
 [TestFixture]
 public sealed class RegionAnalysisReuseTests
 {

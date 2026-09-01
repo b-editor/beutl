@@ -6,15 +6,6 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace SourceGeneratorTest;
 
-/// <summary>
-/// Pins what BESG005 reports about a render node that changes state its <c>Process</c> reads, and pins the
-/// shapes it deliberately stays quiet about.
-/// </summary>
-/// <remarks>
-/// The quiet cases matter as much as the loud one. This rule guards a public extension point, so an author
-/// who meets a false positive suppresses the id and loses the real reports with it. Each "is not reported"
-/// case below is a bound the rule documents, not an oversight.
-/// </remarks>
 [TestFixture]
 public sealed class RenderNodeChangeMarkingAnalyzerTests
 {
@@ -135,10 +126,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The mark is often factored into a helper, so the rule follows same-type calls to find it. Missing that
-    /// would report every node that shares one invalidation routine.
-    /// </remarks>
     [Test]
     public void AMutatorThatMarksThroughAHelper_IsNotReported()
     {
@@ -168,11 +155,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The successor to the shape this rule used to wave through. Lowering the flag on the very path that
-    /// changes what Process reads is the opposite of marking, and the analyzer once accepted it because it
-    /// only asked whether <c>HasChanges</c> was written, never what was written to it.
-    /// </remarks>
     [Test]
     public void AMutatorThatClearsInsteadOfMarking_IsReported()
     {
@@ -207,10 +189,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "clearing the flag where the value changes leaves the recording stale, not marked");
     }
 
-    /// <remarks>
-    /// Whether this node's own recording went stale is not something marking a different node answers, so a
-    /// call that names another instance cannot excuse the assignment.
-    /// </remarks>
     [Test]
     public void AMutatorThatMarksAnotherNode_IsReported()
     {
@@ -244,11 +222,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
     }
 
-    /// <remarks>
-    /// The stronger half of the guard, and the reason the rule no longer has to spot an un-marking: a node
-    /// outside the engine cannot withdraw a change it already reported, because <c>HasChanges</c> has no
-    /// setter to withdraw it through. Only a consumed recording lowers the flag.
-    /// </remarks>
     [Test]
     public void AMutatorThatUnMarksTheNode_DoesNotCompile()
     {
@@ -318,10 +291,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "state no recording depends on cannot make a recording stale");
     }
 
-    /// <remarks>
-    /// Teardown runs after the last recording, so nulling a field there has no later frame to invalidate.
-    /// Every render node in the tree does it, and reporting them would have made the rule pure noise.
-    /// </remarks>
     [Test]
     public void ADisposalOverrideClearingState_IsNotReported()
     {
@@ -349,12 +318,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// This is the rule's largest documented blind spot: a value memoized during recording is written on the
-    /// very path that reads it, and nothing in the syntax separates a legitimate memo from a node whose state
-    /// drifts every time it records. The runtime cross-check, which has both recordings to compare, is what
-    /// covers this half.
-    /// </remarks>
     [Test]
     public void AnAssignmentInsideProcess_IsNotReported()
     {
@@ -425,11 +388,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// Reading a property whose setter marks is not a mark - the setter never ran. The rule used to walk both
-    /// accessors of every property reference, so a bare read of a marking property cleared every assignment
-    /// in the mutator that read it.
-    /// </remarks>
     [Test]
     public void AMutatorThatOnlyReadsAMarkingProperty_IsReported()
     {
@@ -472,10 +430,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "a read cannot run the setter that marks, so it cannot excuse the assignment beside it");
     }
 
-    /// <remarks>
-    /// The other half of the accessor split: a write really does run the marking setter, so factoring the
-    /// mark into a property is still a way to invalidate the node.
-    /// </remarks>
     [Test]
     public void AMutatorThatWritesThroughAMarkingProperty_IsNotReported()
     {
@@ -514,10 +468,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A conditional access keeps its receiver in the enclosing expression rather than beside the name, so
-    /// <c>_other?.MarkChanged()</c> looks bare to a check that only knows qualified member access.
-    /// </remarks>
     [Test]
     public void AMutatorThatConditionallyMarksAnotherNode_IsReported()
     {
@@ -554,11 +504,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "marking whatever _other happens to be says nothing about this node's own recording");
     }
 
-    /// <remarks>
-    /// Reaching the mark through a helper called on another instance is the same forwarding one call deeper:
-    /// the helper's body names <c>MarkChanged</c> bare, but the receiver that helper ran against was not this
-    /// node.
-    /// </remarks>
     [Test]
     public void AMutatorThatMarksAnotherNodeThroughAHelper_IsReported()
     {
@@ -594,10 +539,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
     }
 
-    /// <remarks>
-    /// Spelling the receiver out is the ordinary way to write the mark, and the receiver check has to keep
-    /// accepting it. The unqualified spelling is pinned by <see cref="AMutatorThatMarksTheNode_IsNotReported"/>.
-    /// </remarks>
     [Test]
     public void AMutatorThatMarksThroughThisAndBase_IsNotReported()
     {
@@ -633,11 +574,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The render pipeline calls <c>Process</c> through the <c>RenderNode</c> slot, so a same-named overload
-    /// declared on the node is not the body that records it. Picking the overload leaves the read set empty
-    /// and the rule silent about everything the inherited body actually reads.
-    /// </remarks>
     [Test]
     public void ADerivedNodeShadowedByAnUnrelatedProcessOverload_IsReported()
     {
@@ -674,10 +610,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the inherited override is the body that records, whatever else on the node shares its name");
     }
 
-    /// <remarks>
-    /// The same shape declared on one type: the overload sits beside the real override rather than above it
-    /// in the chain, so member order alone decided which one the rule read.
-    /// </remarks>
     [Test]
     public void ANodeDeclaringAnUnrelatedProcessOverloadFirst_IsReported()
     {
@@ -708,12 +640,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
     }
 
-    /// <remarks>
-    /// Finding the real override must not turn every node carrying an overload into a report: this one marks,
-    /// and the inherited body is read only to learn what marking had to cover. The inherited state is
-    /// reached through a setter that marks, which is the fix the declaration shape recommends - a protected
-    /// field would be reported where the base declares it, whatever the derived node does with it.
-    /// </remarks>
     [Test]
     public void ADerivedNodeWithAnUnrelatedProcessOverloadThatMarks_IsNotReported()
     {
@@ -757,11 +683,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A property whose accessors have bodies is skipped so the assignment inside the setter is reported
-    /// instead, but the field keyword names a backing field no other member can reach. Excluding every field
-    /// a property owns dropped both halves and left the state invisible.
-    /// </remarks>
     [Test]
     public void ASemiAutoPropertyMutatedWithoutMarking_IsReported()
     {
@@ -816,12 +737,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The setter of an auto-property is synthesized, so there is no body anywhere for the walk over member
-    /// bodies to read, and nobody inside the node writes the property: the shape that reports an assignment
-    /// finds nothing to report. The assignment is written by whoever holds the node, which this rule never
-    /// sees, and the recording is stale from the moment it lands.
-    /// </remarks>
     [Test]
     [TestCase("public Rect Bounds { get; set; }")]
     [TestCase("public Rect Bounds { get; protected set; }")]
@@ -849,11 +764,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "a setter anyone outside the node can call changes what Process reads with no mark anywhere");
     }
 
-    /// <remarks>
-    /// The same shape under a different keyword. A field-like event's accessors are synthesized, so there
-    /// is no body for the assignment shape to read, and += binds from wherever the event is visible - so a
-    /// subscriber added from outside changes what Process reads with nothing inside the node to report.
-    /// </remarks>
     [Test]
     [TestCase("public event System.Action Invalidated;")]
     [TestCase("protected event System.Action Invalidated;")]
@@ -883,12 +793,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "anywhere");
     }
 
-    /// <remarks>
-    /// A field code outside the node can assign is the same declaration hazard as a synthesized setter and
-    /// wants the same answer: there is no accessor body to hold the mark and no assignment inside the type
-    /// to report. Reporting the auto-property and not this was the rule disagreeing with itself about which
-    /// member kinds its own second shape is for.
-    /// </remarks>
     [Test]
     [TestCase("public Rect Bounds;")]
     [TestCase("protected Rect Bounds;")]
@@ -916,11 +820,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "a field anyone outside the node can assign changes what Process reads with no mark anywhere");
     }
 
-    /// <remarks>
-    /// The fix the diagnostic recommends, and the event counterpart of a setter that marks: accessors with
-    /// bodies put the mark on the path every subscription takes, and the delegate field they write is then
-    /// no different from any other marked state.
-    /// </remarks>
     [Test]
     public void AnEventWithAccessorsThatMark_IsNotReported()
     {
@@ -958,11 +857,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A private event is reachable only from the node's own code, which is exactly what the assignment
-    /// shape already reads - the subscription below is a write it finds and a mark it accepts. Reporting
-    /// the declaration too would report the same state twice and reject this node.
-    /// </remarks>
     [Test]
     public void APrivateEventProcessReads_IsNotReported()
     {
@@ -992,10 +886,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// readonly stops every assignment outside the declaring type's constructors, and a constructor runs
-    /// before there is a recording to invalidate - the same reason an init accessor is not reported.
-    /// </remarks>
     [Test]
     public void AReadonlyFieldProcessReads_IsNotReported()
     {
@@ -1019,10 +909,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The read set is what makes a mutation matter, for an event as much as for a property: a subscriber
-    /// list no Process reads can be rewritten from anywhere without a frame noticing.
-    /// </remarks>
     [Test]
     public void AnEventProcessNeverReads_IsNotReported()
     {
@@ -1053,10 +939,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// An init accessor can only run while the object is being made, which is before there is a recording
-    /// to invalidate - the same reason a constructor assignment is not reported.
-    /// </remarks>
     [Test]
     public void AnInitOnlyAutoPropertyProcessReads_IsNotReported()
     {
@@ -1078,11 +960,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// A private setter is reachable only from the node's own code, which is exactly what the assignment
-    /// shape already reads; reporting the declaration too would report the same state twice and reject the
-    /// well-behaved node below.
-    /// </remarks>
     [Test]
     public void APrivateSetAutoPropertyWrittenWhereAMarkFollows_IsNotReported()
     {
@@ -1133,10 +1010,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The read set is what makes a mutation matter. A property no Process reads can go stale without any
-    /// frame noticing, so an externally writable one is not on its own a diagnostic.
-    /// </remarks>
     [Test]
     public void AnExternallyWritableAutoPropertyProcessNeverReads_IsNotReported()
     {
@@ -1166,10 +1039,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// The fix the diagnostic recommends, pinned: giving the setter a body puts the mark on the path every
-    /// external assignment takes, and the property is then no different from any other marking mutator.
-    /// </remarks>
     [Test]
     public void APublicPropertyWhoseSetterMarks_IsNotReported()
     {
@@ -1201,13 +1070,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         Assert.That(diagnostics.Select(static d => d.Id), Is.Empty);
     }
 
-    /// <remarks>
-    /// An element write is the assignment shape, not the collection-mutation bound. Nothing but this field
-    /// reaches the array, no other type's body runs, and the read side already counts the field as state
-    /// Process depends on - reading the write out differently is the asymmetry that made the rule silent
-    /// while the node went stale. readonly is the sharpest form of it: the reference cannot be reassigned,
-    /// so an element write is the only way the value ever changes.
-    /// </remarks>
     [Test]
     public void AMutatorWritingAnElementOfTrackedStateWithoutMarking_IsReported()
     {
@@ -1237,10 +1099,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "writing an element changes exactly the value Process reads back");
     }
 
-    /// <remarks>
-    /// The read side of the same syntax, pinned: a member that only takes an element out changes nothing,
-    /// and reporting it would make every accessor over an array field a diagnostic.
-    /// </remarks>
     [Test]
     public void AMutatorReadingAnElementOfTrackedState_IsNotReported()
     {
@@ -1271,10 +1129,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "taking an element out leaves the node's recording as valid as it was");
     }
 
-    /// <remarks>
-    /// An element write is judged by the same mark the assignment shape is judged by, so a node that marks
-    /// stays accepted. Without this the fix the diagnostic recommends would not silence it.
-    /// </remarks>
     [Test]
     public void AMutatorWritingAnElementAndMarkingTheNode_IsNotReported()
     {
@@ -1305,11 +1159,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the mark covers an element write as it covers a whole-field assignment");
     }
 
-    /// <remarks>
-    /// A deconstruction is the assignment shape written once for several targets. Each element stands
-    /// exactly where <c>_bounds = bounds</c> puts its name, so a node that drifts through it drifts on the
-    /// same terms - and reading the two spellings differently is what let this mutator past the rule.
-    /// </remarks>
     [Test]
     public void AMutatorDeconstructingIntoTrackedStateWithoutMarking_IsReported()
     {
@@ -1341,10 +1190,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "a deconstruction changes what Process reads exactly as two assignments would");
     }
 
-    /// <remarks>
-    /// The target of a nested deconstruction sits several tuples deep, so the walk out to the assignment
-    /// has to keep going rather than stop at the innermost one.
-    /// </remarks>
     [Test]
     public void AMutatorDeconstructingIntoTrackedStateThroughNestedTuples_IsReported()
     {
@@ -1376,10 +1221,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "a nested tuple still names the node's own state on the left of an assignment");
     }
 
-    /// <remarks>
-    /// A deconstruction is judged by the same mark every other write is judged by, so a node that marks
-    /// stays accepted and the fix the diagnostic recommends actually silences it.
-    /// </remarks>
     [Test]
     public void AMutatorDeconstructingIntoTrackedStateAndMarkingTheNode_IsNotReported()
     {
@@ -1412,10 +1253,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the mark covers a deconstruction as it covers a whole-field assignment");
     }
 
-    /// <remarks>
-    /// The shape without the hazard: a deconstruction whose targets are all locals leaves every value the
-    /// recording was made from where it was, so there is nothing to mark.
-    /// </remarks>
     [Test]
     public void AMutatorDeconstructingIntoLocalsOnly_IsNotReported()
     {
@@ -1448,10 +1285,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "writing locals changes nothing the recording was made from");
     }
 
-    /// <remarks>
-    /// The read side of the same syntax. A tuple built out of the node's state is a read however much it
-    /// looks like the write, and only the left of the assignment tells them apart.
-    /// </remarks>
     [Test]
     public void AMutatorReadingTrackedStateThroughATuple_IsNotReported()
     {
@@ -1486,10 +1319,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "taking the state out into a tuple leaves the node's recording as valid as it was");
     }
 
-    /// <remarks>
-    /// A deconstruction reaches its targets through whatever receiver each element spells, so the receiver
-    /// still decides whose state changed. Marking this node would say nothing about the other one.
-    /// </remarks>
     [Test]
     public void AMutatorDeconstructingIntoAnotherNodesState_IsNotReported()
     {
@@ -1522,12 +1351,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "another instance's state is not what this node's mark decides");
     }
 
-    /// <remarks>
-    /// What holds an execution callback that reads its own node to one answer. Such a callback is written
-    /// inside Process, so the node state it reads is state Process reads, and an unmarked write to that
-    /// state is reported on exactly the terms a value handed through call state is - which is the whole of
-    /// why reading the node directly costs no guarantee that spelling the same read as call state keeps.
-    /// </remarks>
     [Test]
     public void StateReadOnlyInsideAnExecutionCallback_IsStateProcessReads()
     {
@@ -1555,19 +1378,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "reported rather than left to a replayed recording");
     }
 
-    /// <remarks>
-    /// <para>
-    /// The guard rail against the fix proposed for the method-group false negative: making
-    /// <c>MarkChanged</c> count only when it is the callee of an invocation. Marking is thread-confined
-    /// today - see the comment on <c>RenderNode.MarkChanged</c> - so marshalling the mark onto the recording
-    /// thread is a plausible way to write it, and that fix reports this correct node.
-    /// </para>
-    /// <para>
-    /// A rule that wanted the real gap - a method group that is genuinely never invoked, pinned by
-    /// <see cref="AMarkNamedButNeverInvoked_IsAKnownGapTheRuleMisses"/> - has to tell this shape apart from
-    /// it rather than reject both.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AMutatorHandingTheMarkToAScheduler_IsNotReported()
     {
@@ -1600,11 +1410,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "would reject it");
     }
 
-    /// <remarks>
-    /// The same guard rail one step closer to the gap: the method group is stored in a delegate and then
-    /// invoked through it, so the mark does run, but the name <c>MarkChanged</c> never appears as the callee
-    /// of an invocation. Requiring one reports this node too.
-    /// </remarks>
     [Test]
     public void AMutatorInvokingTheMarkThroughADelegate_IsNotReported()
     {
@@ -1637,20 +1442,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the mark runs, so the node is correct, however the invocation is spelled");
     }
 
-    /// <remarks>
-    /// <para>
-    /// The guard rail against the fix proposed for the abstract-base false negative: scanning inherited
-    /// members for unmarked assignments. This is the shape <c>BrushRenderNode</c> and the six nodes deriving
-    /// from it are written in - a protected helper on the base assigns and reports whether anything changed,
-    /// and the derived override marks once for the whole update - and that fix reports every one of them.
-    /// </para>
-    /// <para>
-    /// Excusing the base helper needs the rule to look at its callers, not at what it can itself reach, which
-    /// is a wider excuse on a public extension point than the gap it closes. The gap this leaves is pinned by
-    /// <see cref="AnUnmarkedMutatorOnABaseType_IsAKnownGapTheRuleMisses"/>; the two differ only in whether the
-    /// derived caller marks, which is the line any such fix has to draw.
-    /// </para>
-    /// </remarks>
     [Test]
     public void ABaseHelperWhoseDerivedCallerMarks_IsNotReported()
     {
@@ -1713,20 +1504,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the derived update marks for the whole change, so neither half of it is a node going stale");
     }
 
-    /// <remarks>
-    /// <para>
-    /// A known gap, recorded so it is visible rather than endorsed. The base helper assigns state the derived
-    /// node's <c>Process</c> reads and nobody marks, so this node does go stale - the rule is silent because
-    /// the member scan reads only <c>type.GetMembers()</c>, and the analysis stops at the base because a type
-    /// with no <c>Process</c> of its own reads no state at all.
-    /// </para>
-    /// <para>
-    /// Closing it was measured and declined: the obvious fix reports the correct shape pinned by
-    /// <see cref="ABaseHelperWhoseDerivedCallerMarks_IsNotReported"/> twelve times over in this repository
-    /// alone. A later fix that tells the two apart <em>should</em> make this case report; flipping this test
-    /// to <c>Does.Contain("BESG005")</c> is then the right response, and is the point of writing it down.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AnUnmarkedMutatorOnABaseType_IsAKnownGapTheRuleMisses()
     {
@@ -1759,18 +1536,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "that the node is correct");
     }
 
-    /// <remarks>
-    /// <para>
-    /// The other known gap, recorded on the same terms. Naming <c>MarkChanged</c> clears the member whether
-    /// or not the delegate is ever invoked, so this node goes stale and the rule says nothing.
-    /// </para>
-    /// <para>
-    /// Closing it by demanding an invocation was measured and declined: it reports the correct shapes pinned
-    /// by <see cref="AMutatorHandingTheMarkToAScheduler_IsNotReported"/> and
-    /// <see cref="AMutatorInvokingTheMarkThroughADelegate_IsNotReported"/>. A later fix that tells a
-    /// discarded method group from a marshalled one <em>should</em> make this case report.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AMarkNamedButNeverInvoked_IsAKnownGapTheRuleMisses()
     {
@@ -1806,13 +1571,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "the rule, not a verdict that the node is correct");
     }
 
-    /// <remarks>
-    /// A ref local is the assignment shape with the name moved one statement up: <c>alias = value</c>
-    /// changes the very storage <c>Process</c> reads, and only the alias standing between the field and the
-    /// <c>=</c> differs. Reading the two out differently let an ordinary mutator past the rule, because the
-    /// field's own reference sits under a <c>ref</c> that writes nothing and the write names a local this
-    /// rule never tracked.
-    /// </remarks>
     [Test]
     public void AMutatorWritingThroughARefLocalAlias_IsReported()
     {
@@ -1904,10 +1662,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the mark is what the rule asks for, however the write is spelled");
     }
 
-    /// <remarks>
-    /// The bound that keeps the alias tracking from becoming a rule about every <c>ref</c>: what a ref local
-    /// aliases decides the answer, and a local, or an element of one, is not state <c>Process</c> reads.
-    /// </remarks>
     [Test]
     public void AMutatorWritingThroughARefLocalAliasOfALocal_IsNotReported()
     {
@@ -1972,11 +1726,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "an element of a local is a local, however the alias reaches it");
     }
 
-    /// <remarks>
-    /// Taking a writable reference is not itself the change: a member read through the alias leaves the
-    /// recording as it was, and reporting it would make the rule one about <c>ref</c> rather than about
-    /// mutation.
-    /// </remarks>
     [Test]
     public void AMemberOnlyReadingThroughARefLocalAlias_IsNotReported()
     {
@@ -2038,11 +1787,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "a second name for the first alias reaches the same storage, so a chain of them is one write");
     }
 
-    /// <remarks>
-    /// The bound this tracking is written to: reading a body in source order says which storage an alias
-    /// was given, not which one it holds at a given statement, so a rebound alias is dropped rather than
-    /// guessed at. The silence costs a report and never invents one.
-    /// </remarks>
     [Test]
     public void AMutatorWritingThroughARebindableAlias_IsAKnownGapTheRuleMisses()
     {
@@ -2078,19 +1822,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "the silence is a recorded limit, not a verdict that the node is correct");
     }
 
-    /// <remarks>
-    /// <para>
-    /// A local function nothing in the body names is code the program never runs, so a <c>MarkChanged</c>
-    /// written inside it is not a mark: the mutator that ships assigns state <c>Process</c> reads and leaves
-    /// the recording as it was. The walk descended into every nested body alike and read this as marked.
-    /// </para>
-    /// <para>
-    /// The same question <c>BESG004</c> asks of a nested body, and deliberately the same answer - see
-    /// <c>MetadataCallbackPurityAnalyzer.RunsNestedFunction</c>. Only the cost of getting it wrong differs:
-    /// there an unreachable body walked is a report about code nobody runs, here an unreachable body counted
-    /// is a rule that silently does not fire.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AMutatorMarkingOnlyInAnUninvokedLocalFunction_IsReported()
     {
@@ -2123,11 +1854,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "ships and the node renders stale content");
     }
 
-    /// <remarks>
-    /// The lambda spelling of <see cref="AMutatorMarkingOnlyInAnUninvokedLocalFunction_IsReported"/>. A
-    /// lambda stored in a local is run by whatever names that local, and nothing here does, so the delegate
-    /// is made and dropped.
-    /// </remarks>
     [Test]
     public void AMutatorMarkingOnlyInAnUninvokedLambda_IsReported()
     {
@@ -2159,11 +1885,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the delegate is made and never invoked, so the mark inside it never runs");
     }
 
-    /// <remarks>
-    /// The negative control for <see cref="AMutatorMarkingOnlyInAnUninvokedLocalFunction_IsReported"/>: the
-    /// same local function, called. A reachability test that could not keep this apart from the uninvoked one
-    /// would be a blanket skip of nested bodies, which loses the real marks with the unreachable ones.
-    /// </remarks>
     [Test]
     public void AMutatorInvokingTheLocalFunctionThatMarks_IsNotReported()
     {
@@ -2196,12 +1917,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the local function runs, so the mark runs with it");
     }
 
-    /// <remarks>
-    /// The negative control for <see cref="AMutatorMarkingOnlyInAnUninvokedLambda_IsReported"/>: a lambda
-    /// handed to something that runs it. The delegate goes to code this rule is not reading, so the only
-    /// answer that keeps the rule honest is that it runs - the counterpart of
-    /// <see cref="AMutatorHandingTheMarkToAScheduler_IsNotReported"/> written as a lambda.
-    /// </remarks>
     [Test]
     public void AMutatorHandingAMarkingLambdaToAScheduler_IsNotReported()
     {
@@ -2233,17 +1948,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the lambda is handed to a scheduler, which is still marking");
     }
 
-    /// <remarks>
-    /// <para>
-    /// A <c>[Conditional]</c> attribute keeps the helper's body in every build and removes the calls to it,
-    /// so a mark written behind one is a mark the shipped assembly never reaches. The walk followed the
-    /// helper's symbol without asking whether the call to it survives, and cleared the mutator on the
-    /// strength of a call that is not there.
-    /// </para>
-    /// <para>
-    /// <c>DEBUG</c> is undefined in this compilation, which is the release build the author ships.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AMutatorMarkingOnlyInAConditionalHelper_IsReported()
     {
@@ -2278,13 +1982,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "without DEBUG the compiler removes the call, so the shipped mutator never marks");
     }
 
-    /// <remarks>
-    /// The negative control for <see cref="AMutatorMarkingOnlyInAConditionalHelper_IsReported"/>: the same
-    /// source, compiled with the symbol defined. The call is emitted there, so the mark is a mark and the
-    /// rule has to keep accepting it - a check that rejected every <c>[Conditional]</c> helper alike would
-    /// report a node that is correct in the build it is compiled for. The unannotated helper is pinned by
-    /// <see cref="AMutatorThatMarksThroughAHelper_IsNotReported"/>.
-    /// </remarks>
     [Test]
     public void AMutatorMarkingInAConditionalHelper_IsNotReportedWhenTheSymbolIsDefined()
     {
@@ -2321,10 +2018,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "DEBUG is defined, so the call to the helper is compiled and the mark runs");
     }
 
-    /// <remarks>
-    /// Several <c>[Conditional]</c> attributes are several chances: the call stands if any one of the named
-    /// symbols is defined, so a check that demanded all of them would report this correct node.
-    /// </remarks>
     [Test]
     public void AMutatorMarkingInAMultiplyConditionalHelper_IsNotReportedWhenOneSymbolIsDefined()
     {
@@ -2362,20 +2055,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "TRACE is defined, so the call is compiled however many other symbols are named");
     }
 
-    /// <remarks>
-    /// <para>
-    /// The mark is written in a local function, and the only name for that local function is inside a lambda
-    /// the body never invokes - so nothing that runs ever reaches it. Asking whether a local function is
-    /// named anywhere in the member answers yes here, because that question reads the whole body including
-    /// the parts it has just decided are unreachable.
-    /// </para>
-    /// <para>
-    /// <c>BESG004</c> answers yes here and has to: it reaches a local function only by descending into one,
-    /// so the name written in the lambda is all it has to go on. This rule walks calls of its own, so a
-    /// local function that reachable code names is followed as a callee instead - which makes declining to
-    /// descend free, and strictly safer. It is the one place the two rules answer differently.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AMutatorWhoseMarkingLocalFunctionIsNamedOnlyFromAnUninvokedLambda_IsReported()
     {
@@ -2411,11 +2090,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "program however plainly the source spells it");
     }
 
-    /// <remarks>
-    /// The one position where a lambda needs no name looked for: assigned to a discard, the delegate is made
-    /// and dropped on the same line, so nothing anywhere can run it. Parentheses and a cast stand between the
-    /// lambda and the discard here because they may, and they do not change what becomes of the delegate.
-    /// </remarks>
     [Test]
     public void AMutatorMarkingOnlyInADiscardedLambda_IsReported()
     {
@@ -2447,18 +2121,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "the delegate is discarded where it is made, so the mark inside it can never run");
     }
 
-    /// <remarks>
-    /// <para>
-    /// The whole mutator sits in a local function nothing names, so neither half of it runs. Reading the
-    /// assignment there while declining to see the mark written two lines below it would report a node that
-    /// is stale in code the program never executes - the shape of report an author answers by suppressing
-    /// the id, taking every real one with it.
-    /// </para>
-    /// <para>
-    /// So both walks read the member on the same terms. The mark alone deciding reachability is what made
-    /// this a report; the assignment asking the same question is what takes it back.
-    /// </para>
-    /// </remarks>
     [Test]
     public void AMutatorWhoseAssignmentAndMarkBothSitInAnUninvokedLocalFunction_IsNotReported()
     {
@@ -2492,11 +2154,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             "nothing runs, so there is no recording for this member to leave stale");
     }
 
-    /// <remarks>
-    /// The negative control for <see cref="AMutatorWhoseAssignmentAndMarkBothSitInAnUninvokedLocalFunction_IsNotReported"/>:
-    /// the same local function, called, and marking nowhere. Nothing follows calls on the way to an
-    /// assignment, so a walk that skipped every local function alike would lose this report outright.
-    /// </remarks>
     [Test]
     public void AMutatorAssigningFromAnInvokedLocalFunction_IsReported()
     {

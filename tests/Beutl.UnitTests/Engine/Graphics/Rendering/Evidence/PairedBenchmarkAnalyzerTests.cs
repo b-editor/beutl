@@ -4,10 +4,6 @@ using Beutl.Evidence;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 
-/// <summary>
-/// Pins the SC-008 analysis method. Every constant these tests assert is quoted from the SC-008 paragraph in
-/// <c>docs/specs/004-gpu-pass-fusion/spec.md</c>, so a change to the method has to change both.
-/// </summary>
 [TestFixture]
 public sealed class PairedBenchmarkAnalyzerTests
 {
@@ -412,12 +408,6 @@ public sealed class PairedBenchmarkAnalyzerTests
         }
     }
 
-    /// <summary>Samples spread symmetrically around <paramref name="value"/>, so their median is exactly it.</summary>
-    /// <summary>
-    /// Regression: BenchmarkDotNet abbreviates a long parameter into the display form
-    /// <c>Multi(...)ncies [35]</c>, so keying the analysis by `Parameters` silently invents case names no scene
-    /// has and the required-case lookup then fails on a real corpus.
-    /// </summary>
     [Test]
     public void ReadSamples_PrefersTheUnabbreviatedFullNameOverTheAbbreviatedParameters()
     {

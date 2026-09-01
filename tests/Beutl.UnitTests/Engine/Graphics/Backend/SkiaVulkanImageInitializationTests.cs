@@ -55,14 +55,6 @@ public class SkiaVulkanImageInitializationTests
         });
     }
 
-    /// <remarks>
-    /// Skia emits its first barrier out of the layout <see cref="GRVkImageInfo.ImageLayout"/> names, and a
-    /// barrier out of Undefined is licensed to discard the image's contents. A fresh image is Undefined at
-    /// the instant of the wrap, but the allocation clear the backend records is submitted before Skia ever
-    /// runs, so describing that instant hands Skia a licence to throw the clear away — which Mesa takes,
-    /// and which returned non-finite pixels for 266 shots of the differential corpus. The wrap has to
-    /// describe the hand-off instead.
-    /// </remarks>
     [Test]
     [Category("GpuPassFusionGpu")]
     public void SkiaImageInfo_DeclaresTheHandOffLayout_NotTheLayoutAtTheMomentOfTheWrap()

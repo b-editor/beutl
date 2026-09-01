@@ -128,12 +128,6 @@ public class SelectedDrawableRenderTests
         Assert.That(playerBitmap.IsDisposed, Is.True);
     }
 
-    /// <remarks>
-    /// "Save this element as an image" is about the element, not about what the scene happens to show. The
-    /// export used to render against the scene frame as its target domain, which is a hard output clip, so
-    /// an element hanging over the edge came out cropped and one entirely outside it produced no output at
-    /// all and threw.
-    /// </remarks>
     [AvaloniaTest]
     public async Task Selected_drawable_outside_the_frame_is_still_exported_whole()
     {
@@ -169,7 +163,6 @@ public class SelectedDrawableRenderTests
         }
     }
 
-    /// <remarks>An element straddling the edge keeps the half the frame does not show.</remarks>
     [AvaloniaTest]
     public async Task Selected_drawable_straddling_the_frame_edge_keeps_its_hidden_half()
     {
@@ -240,8 +233,7 @@ public class SelectedDrawableRenderTests
                 Assert.That(rasterization.Bitmap, Is.Null);
             });
 
-            // Assert.ThrowsAsync blocks the Avalonia UI thread and deadlocks the headless dispatcher,
-            // so await the empty-result failure inline with a bounded timeout.
+            // Assert.ThrowsAsync blocks the UI thread; await inline with a timeout.
             InvalidOperationException? exception = null;
             try
             {
@@ -271,14 +263,6 @@ public class SelectedDrawableRenderTests
         }
     }
 
-    /// <summary>
-    /// A group used to publish a full-target layer, so a bounds-dependent effect on it was measured
-    /// against the canvas and the same project rendered differently at a different scene resolution.
-    /// A group now publishes the bounds of what it holds, and the save path frames that extent rather
-    /// than the frame. Where the two bounds still diverge — a drawable that writes the target without
-    /// any query geometry — is covered by
-    /// <see cref="Full_target_only_drawable_renders_when_query_bounds_are_empty"/>.
-    /// </summary>
     [AvaloniaTest]
     public async Task Group_uses_its_content_extent_for_measurement_and_rasterization()
     {
@@ -340,12 +324,6 @@ public class SelectedDrawableRenderTests
         }
     }
 
-    /// <remarks>
-    /// A subtree that reads the whole target cannot be measured without a domain, so the export falls back
-    /// to one. Falling back to the frame alone reinstates the crop the feature exists to avoid: the frame
-    /// is a hard output clip, so a backdrop grouped with content past the edge - a blurred backdrop, an
-    /// element carried out by a transform - saved as the frame with that content sliced off, silently.
-    /// </remarks>
     [AvaloniaTest]
     public async Task Full_target_drawable_grouped_with_off_frame_content_keeps_that_content()
     {

@@ -6,17 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins how a source whose position is a per-recording value declares the bounds it publishes.
-/// </summary>
-/// <remarks>
-/// An <see cref="OpaqueRenderBoundsContract"/> is operation shape, so the rectangle a source publishes is
-/// fixed when the definition is built rather than when a call supplies its state. A source that moves
-/// therefore builds its definition inside <see cref="RenderNode.Process"/>, over the values it is moving by.
-/// That costs no plan: a source bounds contract contributes only its kind to the structural identity, and an
-/// execution callback bound to the node that declares it contributes its method, so two nodes of one type
-/// standing at different places still compile one plan and re-run it over their own rectangles.
-/// </remarks>
 [TestFixture]
 public sealed class MovingOpaqueSourceBoundsTests
 {

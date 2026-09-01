@@ -189,29 +189,19 @@ public sealed class OpaqueRenderDescription
                 directReplayAtExactIntegerReduction: false);
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
-    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
-    /// <see cref="RenderNode.HasChanges"/>.
+    /// Immutable pixel-affecting state retained for execution.
     /// </param>
     /// <param name="execute">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape the output without reaching <paramref name="state"/>, and is rejected.
+    /// A static execution callback.
     /// </param>
     /// <param name="deviceGridSensitivity">
-    /// The declared dependency of the produced pixels on the device-grid phase. The default states that the
-    /// output is unchanged by a sub-pixel shift of the grid, which lets the renderer cache and resample it.
+    /// Whether device-grid phase affects the produced pixels.
     /// </param>
     /// <param name="inputDemand">
-    /// What density each input has to reach for this operation's own resolved output demand. Only a combine
-    /// or an expand may declare one, and it is what an operation that resamples its inputs asymmetrically
-    /// needs: without it every input is asked for the unchanged output demand, so an unbounded input feeding
-    /// an enlargement materializes below the density that enlargement consumes.
+    /// Per-input density required by a combine or expand for its resolved output demand.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
     /// </param>
     public static OpaqueRenderDescription Create<TState>(
         TState state,

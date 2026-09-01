@@ -10,12 +10,6 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// A render target is cleared to transparent before it is handed out so no consumer can observe
-/// uninitialised device memory. A custom effect that writes the target through the Vulkan backend does
-/// so outside Skia's task graph, so the clear has to be submitted before that writer runs; an unflushed
-/// clear lands on top of the effect's output and blanks it.
-/// </summary>
 [NonParallelizable]
 [TestFixture]
 public class NativeBackendWriteSurvivesTargetClearTests

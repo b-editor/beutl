@@ -354,18 +354,6 @@ public sealed class CurrentPixelFilterEffectTests
             "Threshold no longer matches its active premultiplied reference");
     }
 
-    /// <remarks>
-    /// <see cref="Threshold.Smoothness"/> defaults to 0, which collapses the smoothstep band onto the
-    /// threshold and divides by zero inside it. Equal edges are undefined in the shading languages, and the
-    /// backends disagree: Skia's CPU backend answers NaN and Metal answers 0. Because the entry point returns
-    /// <c>half4(t)</c>, a NaN is written into alpha as well, so every pixel whose luma lands on the threshold
-    /// leaves the stage non-finite. The cases below are the landings that are exact on every backend: a zero
-    /// threshold over a transparent premultiplied pixel, and a full threshold over white. An interior
-    /// threshold is reachable too, but only by hunting a colour whose premultiplied linear luma lands on it,
-    /// and such a colour only lands where it was hunted - the sRGB-to-linear conversion is free to round
-    /// differently per backend, and one F16 ulp off the threshold takes the hard-step branch instead of the
-    /// boundary these cases are about.
-    /// </remarks>
     [TestCaseSource(nameof(CollapsedThresholdBandCases))]
     public void Threshold_ACollapsedBand_IsFiniteAndKeepsTheThresholdValue(float value, SKColor input)
     {
@@ -397,15 +385,6 @@ public sealed class CurrentPixelFilterEffectTests
             "Threshold no longer carries the threshold value a band of positive width has there");
     }
 
-    /// <remarks>
-    /// The band is centred on the threshold, so a band of any positive width evaluates to exactly 0.5 at the
-    /// threshold. Pinning that across the smoothness range is what makes 0.5 the collapsed band's value
-    /// rather than a fresh choice: the alternative hard step - <c>step(threshold, luma)</c>, which is 1 -
-    /// would make the output jump as the slider crosses zero, and at Value = 0 it would turn every fully
-    /// transparent pixel the stage covers opaque white. Value = 0 is also the landing this drives from,
-    /// because that is the case the sentence above argues about and because a transparent premultiplied
-    /// pixel carries luma 0 on every backend.
-    /// </remarks>
     [TestCase(0f)]
     [TestCase(1f)]
     [TestCase(50f)]

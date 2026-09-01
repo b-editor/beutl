@@ -65,11 +65,6 @@ public sealed class ReadDocumentTests
         });
     }
 
-    /// <remarks>
-    /// A request's target domain is a hard clip on OutputBounds, and only on OutputBounds. This measurement
-    /// reads QueryBounds, which the domain never touches, so an off-frame drawable reports where it actually
-    /// is - the case an agent most needs, since it is how it works out how far to move the object back.
-    /// </remarks>
     [Test]
     public void Measure_object_bounds_reports_an_off_frame_drawable_where_it_actually_is()
     {
@@ -979,12 +974,6 @@ public sealed class ReadDocumentTests
         });
     }
 
-    /// <remarks>
-    /// A MeasureNode over a bounds-unknown CustomEffect cannot resolve its own extent from the subtree, so it
-    /// falls back to the composition context's target domain. The measurement therefore has to seed that domain
-    /// before ToResource evaluates the graph - the exception escapes ToResource itself, well before the
-    /// render request that carries its own TargetDomain is ever built.
-    /// </remarks>
     [Test]
     public void Measure_object_bounds_measures_a_node_graph_whose_measure_node_needs_a_target_domain()
     {

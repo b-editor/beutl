@@ -8,16 +8,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that every effect-item filter-effect path allocates its own surfaces through the caller's
-/// <see cref="IRenderTargetFactory"/> instead of the global allocator.
-/// </summary>
-/// <remarks>
-/// A factory's targets may come from a graphics context the global allocator knows nothing about. A path that
-/// goes around it both ignores the caller's allocation policy and can sample a factory-backed input into a
-/// foreign surface, which shows up as missing output rather than an error. The factory is reachable only
-/// through the render pass's lease session, so each seam below is checked with a session in hand.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class RenderTargetFactoryReachTests
@@ -108,12 +98,6 @@ public sealed class RenderTargetFactoryReachTests
         });
     }
 
-    /// <remarks>
-    /// A declined native replacement leaves the caller holding the unfiltered source, and a preview keeps
-    /// going with it. The request has to be told, or the executor can publish that unfiltered frame into a
-    /// persistent node cache or a backdrop snapshot and keep bypassing the effect long after the factory
-    /// recovers.
-    /// </remarks>
     [Test]
     public void ADeclinedNativeReplacement_MarksTheRequestAsHavingDroppedContent()
     {
@@ -143,11 +127,6 @@ public sealed class RenderTargetFactoryReachTests
         });
     }
 
-    /// <remarks>
-    /// A delivery render ships what it produces, so it fails rather than writing an unprocessed frame. The
-    /// lease session is what says so, by throwing on the declined acquire rather than reporting it, so the
-    /// preview-only handling above is never the delivery answer.
-    /// </remarks>
     [Test]
     public void ADeclinedNativeReplacement_FailsADeliveryRenderInsteadOfDroppingTheEffect()
     {

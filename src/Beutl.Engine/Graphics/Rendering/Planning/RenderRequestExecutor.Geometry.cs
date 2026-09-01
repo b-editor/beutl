@@ -370,12 +370,7 @@ internal sealed partial class RenderRequestExecutor
                             {
                                 MaterializedRenderValue value = outputLeases[output];
 
-                                // Shrinking to nothing is how an opaque operation says it produced nothing,
-                                // the same answer Discard gives and the same one the geometry path reaches
-                                // when its output leaves the required region. Publishing it instead crops to
-                                // a zero-extent buffer the allocator refuses - or, at a fractional origin,
-                                // to a one-pixel buffer whose logical bounds stay empty, which is worse for
-                                // being silent. The finally below releases the lease this leaves unpublished.
+                                // Empty bounds mean no output; publishing would request an invalid zero-extent crop.
                                 if (output.Bounds.Width <= 0 || output.Bounds.Height <= 0)
                                     return;
 

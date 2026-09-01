@@ -7,10 +7,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [TestFixture]
 public sealed class SpecializationConstantTests
 {
-    /// <remarks>
-    /// A 64-bit specialization value needs the device's shaderInt64 or shaderFloat64 feature enabled, and
-    /// which of the two depends on the declared scalar type - which the stored bits alone cannot tell apart.
-    /// </remarks>
     [TestCase(true, false, TestName = "SixtyFourBitClassification_Int64NeedsTheIntegerFeature")]
     [TestCase(false, true, TestName = "SixtyFourBitClassification_Float64NeedsTheFloatFeature")]
     public void SixtyFourBitConstants_NameTheFeatureTheyNeed(bool integer, bool floating)

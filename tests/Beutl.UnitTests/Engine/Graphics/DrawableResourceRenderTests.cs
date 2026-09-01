@@ -6,11 +6,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
-/// <summary>
-/// Rendering a <c>Drawable.Resource</c> dispatches through
-/// <c>drawable.GetOriginal().Render(context, drawable)</c>, so a drawable — unlike a geometry — is still
-/// authored on its engine object rather than on its resource.
-/// </summary>
 [TestFixture]
 public sealed class DrawableResourceRenderTests
 {

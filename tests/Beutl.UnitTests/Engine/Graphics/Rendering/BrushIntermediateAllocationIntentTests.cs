@@ -9,10 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Brush-owned intermediates must decide degrade-vs-fail from the explicit <see cref="RenderIntent"/>,
-/// not from the working-scale ceiling that happens to accompany it.
-/// </summary>
 [TestFixture]
 public sealed class BrushIntermediateAllocationIntentTests
 {
@@ -49,10 +45,6 @@ public sealed class BrushIntermediateAllocationIntentTests
         Assert.That(shader, Is.Null);
     }
 
-    /// <remarks>
-    /// A DrawableBrush without a materializer degrades before it ever sizes an intermediate, so the fixture
-    /// has to supply one: otherwise the null shader proves nothing about the allocation this test is named for.
-    /// </remarks>
     [Test]
     public void DrawableBrush_PreviewDegradesEvenWithoutAWorkingScaleCeiling()
     {

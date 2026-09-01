@@ -113,28 +113,19 @@ public sealed class TargetScopeDescription
     internal bool BuiltInBackdropCapturesBackingTarget { get; }
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
-    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
-    /// <see cref="RenderNode.HasChanges"/>.
+    /// Immutable pixel-affecting state retained for execution.
     /// </param>
     /// <param name="deviceGridSensitivity">
-    /// Whether this scope's replay or surrounding clip state changes coverage with device-grid phase. The
-    /// conservative default requires an explicit <see cref="RenderDeviceGridSensitivity.Insensitive"/> promise.
+    /// Whether replay or clip coverage changes with device-grid phase.
     /// </param>
     /// <param name="execute">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape the output without reaching <paramref name="state"/>, and is rejected.
+    /// A static execution callback.
     /// </param>
     /// <param name="deviceGridMapping">
-    /// The device pixel grid the callback replays its input onto. The default assumes a different grid;
-    /// declare <see cref="RenderDeviceGridMapping.Preserved"/> only when the callback leaves the target
-    /// transform alone.
+    /// Whether replay preserves the input device grid. The default assumes remapping.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
     /// </param>
     public static TargetScopeDescription Create<TState>(
         TState state,
@@ -396,28 +387,18 @@ public sealed class RawTargetScopeDescription
 
     internal void Execute(RawTargetScopeSession session) => _execution.Invoke(session);
 
-    /// <summary>Creates an immutable raw target-scope description.</summary>
+    /// <summary>Creates a raw target-scope description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
-    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
-    /// <see cref="RenderNode.HasChanges"/>.
+    /// Immutable pixel-affecting state retained for execution.
     /// </param>
     /// <param name="execute">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape what is drawn without reaching <paramref name="state"/>, and is rejected.
+    /// A static execution callback.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
     /// </param>
     /// <remarks>
-    /// The raw canvas keeps the recorded work opaque to the renderer, so a raw scope is never eligible for
-    /// persistent output reuse. What this form fixes instead is the identity the planner keys the shape of
-    /// the work by: <paramref name="execute"/> is a method rather than a closure, so the same scope recorded
-    /// on two frames is one plan, and everything that differs between those frames arrives as
-    /// <paramref name="state"/>.
+    /// Raw work is not output-cacheable. Static execution still gives repeated recordings one plan identity.
     /// </remarks>
     public static RawTargetScopeDescription Create<TState>(
         TState state,
@@ -607,28 +588,18 @@ public sealed class RawTargetCommandDescription
 
     internal void Execute(RawTargetCommandSession session) => _execution.Invoke(session);
 
-    /// <summary>Creates an immutable raw target-command description.</summary>
+    /// <summary>Creates a raw target-command description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
-    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
-    /// <see cref="RenderNode.HasChanges"/>.
+    /// Immutable pixel-affecting state retained for execution.
     /// </param>
     /// <param name="execute">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape what is drawn without reaching <paramref name="state"/>, and is rejected.
+    /// A static execution callback.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
     /// </param>
     /// <remarks>
-    /// A raw command writes into the ambient target and publishes no value of its own, so there is no output
-    /// of it to reuse. What this form fixes is the identity the planner keys the shape of the work by:
-    /// <paramref name="execute"/> is a method rather than a closure, so the same command recorded on two
-    /// frames is one plan, and everything that differs between those frames arrives as
-    /// <paramref name="state"/>.
+    /// Raw commands publish no cacheable value. Static execution gives repeated recordings one plan identity.
     /// </remarks>
     public static RawTargetCommandDescription Create<TState>(
         TState state,

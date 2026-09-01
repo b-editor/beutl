@@ -44,12 +44,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         IReadOnlyList<RenderResourceBinding> resources,
         IEnumerable<RenderResourceSlot>? slots);
 
-    /// <remarks>
-    /// The seven descriptions used to be plan-internal, reachable only by going through a Definition and a
-    /// Call, and this file asserted their absence from the exported set. They are the recording surface
-    /// itself now, so their presence is what has to be pinned: a description that slips back to
-    /// <see langword="internal"/> takes the whole family's authoring route with it.
-    /// </remarks>
     [Test]
     public void EffectItemDescriptions_AreTheExternalRecordingSurface()
     {
@@ -66,11 +60,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// Exactly one public overload per recording method, and it takes the description. It is deliberately not
-    /// "at least one": a second overload appearing is how the three-type authoring surface grew the first
-    /// time, and a Call-taking route coming back is exactly what this is here to report.
-    /// </remarks>
     [Test]
     public void EveryRecordingMethod_TakesItsDescriptionAndNothingElse()
     {
@@ -100,15 +89,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             typeof(FilterEffectContext), "Shader", typeof(ShaderDescription));
     }
 
-    /// <remarks>
-    /// A painted source is the one family with no description to record, because two of the decisions its
-    /// recording makes cannot be made anywhere else: the fill and the pen are borrowed against the active
-    /// transaction, and whether either resolves to a brush that itself draws is what withdraws the
-    /// direct-replay fast path. Both are record-time answers, so the context method is the description.
-    /// Its resources therefore arrive as bindings: a bare token is bound to an engine slot no declaration
-    /// names, which no <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>
-    /// can resolve against.
-    /// </remarks>
     [Test]
     public void PaintedSource_IsRecordedByOneDrawTakingOverload()
     {
@@ -150,13 +130,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// The parameter half of the rule, and only that: this reads signatures, so it reports a factory that
-    /// stopped taking the declaration and nothing else. Whether the factory still applies what it takes is
-    /// asked of the running code by
-    /// <see cref="EveryDescriptionFactoryGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings"/>, which is
-    /// the test that fails when a factory keeps the parameter and drops the check behind it.
-    /// </remarks>
     [Test]
     public void EveryDescriptionFactory_DeclaresTheSlotListParameter()
     {
@@ -209,13 +182,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// Publishing a description publishes only what an author declares. Everything the planner reads out of
-    /// one - the fingerprint it keys a plan by, the execution channel it invokes, the engine-only factories
-    /// that mint an identity no declaration could establish - stays behind, and the compiler cannot report a
-    /// member that quietly stops doing so, because widening an internal member of a public type is legal.
-    /// This is that report.
-    /// </remarks>
     [Test]
     public void ThePlanInternalsOfADescription_AreNotPublic()
     {
@@ -267,11 +233,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// The named half of the same rule, asked of types instead of members. Each of these is reachable from a
-    /// description - a shader's bindings, its Vulkan lowering, the channel every retained callback is invoked
-    /// through - and publishing a description must not drag any of them out with it.
-    /// </remarks>
     [Test]
     public void ThePlanInternalTypesADescriptionHolds_AreNotExported()
     {
@@ -319,12 +280,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// The roster read as the family's membership, so a Description exported without a line here is a type
-    /// nobody checks. <see cref="MaterializedInputDescription"/> and <see cref="TargetCaptureDescription"/>
-    /// are listed but hold no callback: they were already public before this family joined them, and they are
-    /// the shape the seven were made to match.
-    /// </remarks>
     [Test]
     public void TheDescriptionFamily_HasNoMemberOutsideTheCheckedRoster()
     {
@@ -358,20 +313,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             + "it here.");
     }
 
-    /// <remarks>
-    /// The behavioural half of the slot parameter, taken out-of-tree so it is exercised the way a plugin
-    /// author reaches it, and taken across every factory in the family rather than one of them. Signatures
-    /// are not the contract: a factory that keeps its <c>slots</c> parameter and binds through
-    /// <c>CopyResourceBindings</c> instead of <c>BindDeclaredSlots</c> still compiles, still reflects the
-    /// same way, and silently stops checking - which is what this table catches and the signature test
-    /// above cannot.
-    /// <para>
-    /// Ordering is asserted rather than only the throwing cases because it is the part a plan key depends
-    /// on: <c>GeometryDescription</c> keys itself on the value types of its bindings in order, so a caller
-    /// writing the same two bindings the other way round would otherwise compile a second plan for one
-    /// operation.
-    /// </para>
-    /// </remarks>
     [Test]
     public void EveryDescriptionFactoryGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings()
     {
@@ -436,13 +377,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// The same table without a slot list. Omitting <c>slots</c> declares none rather than leaving the check
-    /// out, so the common case - no slots and no bindings - still records, while a binding whose slot was
-    /// never declared is refused at record time. Nothing downstream could have applied the declared-order
-    /// normalization to it, so it would have carried the order the caller happened to write it in into the
-    /// plan key.
-    /// </remarks>
     [Test]
     public void EveryDescriptionFactoryWithoutDeclaredSlots_BindsNothingAndRefusesAnUndeclaredBinding()
     {
@@ -560,11 +494,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    /// <remarks>
-    /// The named half of the deletion, asked by shape rather than by name. The roster above lists the
-    /// seventeen types by their exact names; this catches a Definition or a Call reintroduced under a name
-    /// nobody thought to list.
-    /// </remarks>
     [Test]
     public void NoDefinitionOrCallTypeIsExported()
     {
@@ -608,15 +537,9 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(ShaderDescription);
     }
 
-    /// <summary>
-    /// Every public factory in the family, reduced to the one thing they all do with a slot declaration:
-    /// bind the supplied resources against it and publish the result.
-    /// </summary>
+    /// <summary>Enumerates public factories that bind declared resource slots.</summary>
     /// <remarks>
-    /// The rest of each signature is filled with the least the factory will accept, so what differs between
-    /// rows is the factory under test and nothing else. <c>ShaderDescription</c> publishes the bound list as
-    /// <see cref="ShaderDescription.HitTestResources"/> rather than as <c>Resources</c>, which is the only
-    /// shape difference the table has to carry.
+    /// Shader descriptions expose bindings through <see cref="ShaderDescription.HitTestResources"/>.
     /// </remarks>
     private static IEnumerable<(string Name, BindSlots Bind)> SlotBindingFamilies(
         RenderResource<RenderTarget> materializedTarget)

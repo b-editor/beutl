@@ -5,15 +5,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that a failed shared-surface initialization releases the backend texture it already created.
-/// </summary>
-/// <remarks>
-/// The backend texture has no finalizer and nothing registers it anywhere, so a texture that escapes
-/// before it reaches a <see cref="RenderTarget"/> strands its image, view and device memory for the
-/// life of the process — and callers treat the resulting null as a per-frame degrade, so the leak
-/// compounds instead of happening once.
-/// </remarks>
 public sealed class RenderTargetSharedSurfaceTests
 {
     [Test]
@@ -58,11 +49,6 @@ public sealed class RenderTargetSharedSurfaceTests
         Assert.That(surface!.Handle, Is.Not.EqualTo(IntPtr.Zero));
     }
 
-    /// <remarks>
-    /// A backend that declines to wrap the texture reports it by returning null rather than by throwing, and
-    /// the throwing path was the only one that released. The texture has no finalizer, so a caller treating
-    /// the resulting null as a per-frame degrade would strand one image, view and allocation per frame.
-    /// </remarks>
     [Test]
     public void CreateSharedSurface_ReleasesTheTexture_WhenTheBackendDeclinesToWrapIt()
     {

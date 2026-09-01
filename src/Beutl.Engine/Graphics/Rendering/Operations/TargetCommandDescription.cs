@@ -52,28 +52,20 @@ public sealed class TargetCommandDescription
     internal void Execute(TargetCommandSession session) => _execution.Invoke(session);
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
-    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
-    /// <see cref="RenderNode.HasChanges"/>.
+    /// Immutable pixel-affecting state retained for execution.
     /// </param>
     /// <param name="execute">
-    /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
-    /// shape the target without reaching <paramref name="state"/>, and is rejected.
+    /// A static execution callback.
     /// </param>
     /// <param name="access">
     /// <see cref="TargetAccess.Readback"/> obliges the callback to consume
     /// <see cref="TargetCommandSession.UseSnapshot"/> exactly once.
     /// </param>
     /// <param name="inputDemand">
-    /// What density each input has to reach for this command's own resolved output demand, mapped by the
-    /// input's index. Without one every input is asked for the unchanged output demand, so an input the
-    /// command reads more densely than it writes materializes below the density that read consumes.
+    /// Per-input density required for the command's resolved output demand.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
     /// </param>
     public static TargetCommandDescription Create<TState>(
         TState state,

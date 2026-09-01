@@ -7,14 +7,9 @@ using Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 
-/// <summary>
-/// Accumulates every same-process parity comparison the suite performs into one SC-007 manifest.
-/// </summary>
+/// <summary>Accumulates same-process parity results into an SC-007 manifest.</summary>
 /// <remarks>
-/// The builder is separate from the environment-driven facade so the manifest shape can be asserted without a
-/// GPU. It is rebuilt and rewritten after every case rather than flushed at process exit: a suite that crashes
-/// half way through then still leaves the evidence it did produce, and a partial manifest is self-describing
-/// because <see cref="GpuPassFusionParityManifest.CaseCount"/> is the number of cases actually compared.
+/// Rewrites after every case so a crashed suite still leaves a self-describing partial manifest.
 /// </remarks>
 internal sealed class GpuPassFusionParityManifestBuilder
 {

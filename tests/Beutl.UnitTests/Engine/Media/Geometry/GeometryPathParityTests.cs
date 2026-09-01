@@ -9,10 +9,6 @@ namespace Beutl.UnitTests.Engine.Media.Geometry;
 
 using Geometry = Beutl.Media.Geometry;
 
-/// <summary>
-/// Compares the shipped path against <see cref="PreChangeGeometryPath"/>, a transcription of the same
-/// construction as it stood at 989856e8d, in one process and element by element.
-/// </summary>
 [TestFixture]
 public sealed class GeometryPathParityTests
 {

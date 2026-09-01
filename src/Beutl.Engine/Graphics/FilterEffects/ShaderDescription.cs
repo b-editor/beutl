@@ -160,42 +160,29 @@ public sealed class ShaderDescription
 
     /// <summary>Creates a coordinate-independent shader stage that transforms one resolved pixel value.</summary>
     /// <param name="source">
-    /// Non-null SkSL defining exactly one <c>half4 apply(half4 color)</c> entry point. Its argument and result are
-    /// premultiplied linear-light RGBA16F values.
+    /// SkSL with one <c>half4 apply(half4 color)</c> over premultiplied linear-light RGBA16F.
     /// </param>
     /// <param name="bindings">
-    /// An optional callback invoked immediately to declare bindings, or <see langword="null"/> to declare none.
-    /// Binder callbacks registered by the builder are deferred until execution.
+    /// An immediate binding declaration callback; registered binders run during execution.
     /// </param>
     /// <param name="hitTest">
-    /// The CPU hit test for the pixels this stage produces, or <see langword="null"/> to forward the question to
-    /// the input unchanged. A stage that only rewrites the pixels it was handed needs nothing here: the input
-    /// answers for exactly the pixels the stage produced. A stage whose source can return a non-zero alpha for a
-    /// fully transparent input paints outside what the input covers, so forwarding would miss visible pixels.
+    /// A CPU output hit test, or <see langword="null"/> to forward to the input. Supply one when transparent
+    /// input can produce non-zero alpha.
     /// </param>
     /// <param name="hitTestResources">
-    /// The slot-addressed resources a declared <paramref name="hitTest"/> resolves against, or
-    /// <see langword="null"/> when it reads none.
+    /// Slot-addressed resources used by <paramref name="hitTest"/>, or <see langword="null"/>.
     /// </param>
     /// <returns>An immutable deferred shader description.</returns>
     /// <remarks>
-    /// The description declares identity bounds and no independent scale change. A stage recorded directly through
-    /// <see cref="RenderNodeContext.Shader(RenderFragmentHandle, ShaderDescription)"/> preserves its input effective
-    /// scale; when it is the first surviving operation of a <see cref="FilterEffectContext"/>, the enclosing filter
-    /// render node may fold its working-scale contract into that stage and select another density. Public
-    /// current-pixel stages do not fuse across analytic or antialiased coverage production; the planner resolves
-    /// that coverage before applying the stage. Compatible fused stages receive stage-local bounds, required region,
-    /// device footprint, input effective scale, and working scale in their execution-time binders.
+    /// The stage preserves input bounds and scale. Filter-effect lowering may fold its working-scale contract into
+    /// the first stage, but public stages do not fuse across analytic or antialiased coverage production.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     /// The source grammar, entry point, declarations, or supplied bindings are invalid or incompatible.
     /// </exception>
     /// <param name="slots">
-    /// The resource slots this stage declares. <paramref name="hitTestResources"/> must bind every one of
-    /// them exactly once and is reordered into this list's order, so the order the caller wrote the bindings
-    /// in never reaches the recorded stage. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="hitTestResources"/> must bind each exactly once.
     /// </param>
     public static ShaderDescription CurrentPixel(
         string source,
@@ -272,26 +259,19 @@ public sealed class ShaderDescription
 
     /// <summary>Creates a materializing shader stage that may sample arbitrary upstream locations.</summary>
     /// <param name="source">
-    /// Non-null SkSL defining exactly one <c>half4 main(float2 coord)</c> entry point and declaring the implicit
-    /// upstream input as <c>uniform shader src;</c>.
+    /// SkSL with one <c>half4 main(float2 coord)</c> and an implicit <c>uniform shader src;</c> input.
     /// </param>
     /// <param name="bounds">An initialized pure input-to-output bounds contract.</param>
     /// <param name="bindings">
-    /// An optional callback invoked immediately to declare bindings other than <c>src</c>, or
-    /// <see langword="null"/> to declare none. Binder callbacks registered by the builder are deferred until
-    /// execution.
+    /// An immediate declaration callback for bindings other than <c>src</c>; registered binders run during execution.
     /// </param>
     /// <param name="sourceTileMode">The tile mode used when the implicit source is sampled outside its bounds.</param>
     /// <param name="inputDemand">
-    /// What density this stage's one input has to reach for the stage's own resolved output demand. Without
-    /// one the input is asked for the unchanged output demand, which falls short wherever the stage samples
-    /// its input more densely than it writes.
+    /// Maps resolved output demand to the input density required by resampling.
     /// </param>
     /// <returns>An immutable deferred shader description.</returns>
     /// <remarks>
-    /// The stage may lead a fused run whose remaining stages are CurrentPixel transforms, but it never consumes an
-    /// earlier stage inside that run. Its <c>coord</c> argument is expressed in local output-device pixels and its
-    /// recorded effective scale is the resolved working density.
+    /// May lead a fused run of CurrentPixel stages. <c>coord</c> is in local output-device pixels.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
@@ -302,10 +282,7 @@ public sealed class ShaderDescription
     /// <paramref name="sourceTileMode"/> is not a defined <see cref="SKShaderTileMode"/> value.
     /// </exception>
     /// <param name="slots">
-    /// The resource slots this stage declares. <paramref name="hitTestResources"/> must bind every one of
-    /// them exactly once and is reordered into this list's order, so the order the caller wrote the bindings
-    /// in never reaches the recorded stage. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="hitTestResources"/> must bind each exactly once.
     /// </param>
     public static ShaderDescription WholeSource(
         string source,

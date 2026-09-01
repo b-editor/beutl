@@ -7,14 +7,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
-/// <summary>
-/// Pins that a brush owned by a nested filter effect is lowered into the effect's own segment.
-/// </summary>
-/// <remarks>
-/// A <see cref="DrawableBrush"/> draws a whole drawable, so it is the case most likely to be hoisted out into a
-/// second stream input or a nested request. Either would split one effect across two recorded units and change
-/// what the planner may fuse, so the recorded shape has to stay the same as a brush-free effect's.
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class NestedEffectBrushLoweringTests

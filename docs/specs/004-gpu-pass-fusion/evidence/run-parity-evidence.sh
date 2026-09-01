@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-#
-# SC-007 — records what the same-process parity suite compared, on what device, at what commit, and with what
-# result, into a manifest under this directory.
-#
-# Both sides of every comparison run in one process on one device, so no committed device-specific reference
-# blob is needed or used. This is NOT the comparison against a pre-feature build that SC-007's first clause
-# names; see README.md for what that additionally requires.
-#
+# SC-007: record same-process parity results and their environment.
+# This does not compare against a pre-feature build; see README.md for that additional evidence.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"

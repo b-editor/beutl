@@ -6,19 +6,9 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Skia records a draw from one render target into another without owning the source image, so a
-/// GPU target released between recording and submission would leave the driver reading a destroyed
-/// image. These tests pin the deferral that keeps the source alive without a per-draw flush.
-/// </summary>
 [NonParallelizable]
 public sealed class GpuResourceReclaimQueueTests
 {
-    /// <remarks>
-    /// Draining flushes the shared context only. A caller about to sample a surface skips its own flush
-    /// when told a context-wide flush covered it, so claiming that for a target from a caller-supplied
-    /// factory living on another context would let a snapshot read work that was never submitted.
-    /// </remarks>
     [Test]
     public void Draining_ForASurfaceOnAnotherContext_DoesNotClaimToHaveFlushedIt()
     {

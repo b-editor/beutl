@@ -163,13 +163,8 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
             _layerLayouts[i] = ImageLayout.Undefined;
         }
 
-        // Every allocated slot is covered by the array view the shader samples, whether or not anything
-        // ever writes to it - a shadow atlas binds its whole array while only the lights actually present
-        // fill a slot - so a slot has to start in a layout the sampler can read rather than in UNDEFINED,
-        // which is what the descriptor would otherwise present to the lighting pass.
-        // Recording it can fail - allocating or beginning a command buffer - and the type has no finalizer,
-        // so everything created above has to be released here rather than left to a caller that only holds
-        // a thrown exception.
+        // The full array view may sample unwritten slots, so every slot must start shader-readable.
+        // Transition recording can fail, and this type has no finalizer; release partial construction here.
         try
         {
             _context.TransitionImageLayout(

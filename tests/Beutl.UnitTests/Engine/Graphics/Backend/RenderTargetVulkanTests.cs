@@ -5,12 +5,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [NonParallelizable]
 public class RenderTargetVulkanTests
 {
-    /// <remarks>
-    /// A pooled target is cleared before it is handed out, and the caller that receives it asks whether it
-    /// is already blank before clearing it itself. The clear goes through Skia, which the backend cannot
-    /// observe, so without the backend being told the answer stayed "unknown" and every reused
-    /// intermediate paid for a second GPU clear and submission.
-    /// </remarks>
     [Test]
     public void ClearToTransparent_LeavesTheTargetReportingTransparentContents()
     {

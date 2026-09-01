@@ -9,15 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that the rectangle a brush source is recorded against is request data, not structural plan identity.
-/// </summary>
-/// <remarks>
-/// The forward bounds mapping is a closure built while recording, so the callback method behind it is shared by
-/// every brush and carries nothing about the rectangle that closure captured. That is deliberate: a resize must
-/// re-run the plan with new geometry rather than compile a second one, while a change to the shape of the graph
-/// still has to compile. Both halves are pinned here because only their combination says the split is correct.
-/// </remarks>
 [TestFixture]
 public sealed class BrushSourceBoundsIdentityTests
 {

@@ -170,39 +170,10 @@ internal static class RenderNodeRecordingCache
 {
     public const string ProcessRole = "RenderNode.Process";
 
-    /// <summary>Describes one node's recording for reuse, or refuses it.</summary>
+    /// <summary>Captures one node recording for reuse, or returns a refused snapshot.</summary>
     /// <remarks>
-    /// <para>
-    /// Four things make a recording unreusable, and each is a lifetime the recording does not own:
-    /// </para>
-    /// <list type="bullet">
-    /// <item>
-    /// A <see cref="RenderResource"/> registration lives from its recording's commit to the release that
-    /// follows the request. Replaying a fragment that names one would hand the new request a token the
-    /// previous request's registry has already discharged.
-    /// </item>
-    /// <item>
-    /// A nested request carries the same problem one level down, and its own recorded graph besides.
-    /// </item>
-    /// <item>
-    /// A built-in backdrop binding names a fragment for the rest of the request family to find, so replaying
-    /// it would publish a fragment of a request that has ended.
-    /// </item>
-    /// <item>
-    /// Driving another node - <see cref="RenderNodeContext.RecordNode"/> or
-    /// <see cref="RenderNodeContext.RecordSubtree"/> - makes part of this recording that node's, and reusing
-    /// it here would skip that node's own <see cref="RenderNode.HasChanges"/>. Counting the calls rather than
-    /// the fragments they left is what catches a driven node that records nothing traceable.
-    /// </item>
-    /// <item>
-    /// An input reached from outside this node's own recording belongs to the request that produced it, so
-    /// there is nothing for a later request to rebase it onto.
-    /// </item>
-    /// <item>
-    /// A hit test read on a fragment that is neither a declared input nor fixed by this recording answers
-    /// for a graph that has ended, so there is no way to ask it again for the request being served.
-    /// </item>
-    /// </list>
+    /// Recordings that retain request-scoped resources, nested requests, backdrop bindings, driven-node work,
+    /// external fragments, or non-replayable hit-test reads are refused.
     /// </remarks>
     public static RenderNodeRecordingSnapshot Capture(
         in RenderNodeRecordingKey key,

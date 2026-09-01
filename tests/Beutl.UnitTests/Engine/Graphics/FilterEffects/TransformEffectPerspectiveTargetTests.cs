@@ -8,24 +8,11 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
-/// <summary>
-/// A <see cref="TransformEffect"/> with <c>ApplyToTarget</c> maps its target through a user-supplied matrix,
-/// so it is the one transform in the engine whose box is drawn from a matrix nobody vetted for perspective.
-/// These fix the two answers it must give when that matrix crosses <c>w = 0</c>: the delivered box wherever
-/// the request still shows the image, and nothing at all where it does not — never the untransformed target.
-/// </summary>
 [TestFixture]
 public sealed class TransformEffectPerspectiveTargetTests
 {
     private static readonly Rect s_frame = new(0, 0, 256, 144);
 
-    /// <summary>
-    /// The divisor of <c>Rotation3DTransform</c> is <c>1 + (x - CenterX) * sin(RotationY) / Depth</c>, so a
-    /// centre far enough to the right drops every corner of a target this size below
-    /// <see cref="Rect.DefaultNearPlane"/> while the right edge stays in front of
-    /// <see cref="Rect.RasterizerNearPlane"/> — the band the pragmatic box answers <see cref="Rect.Empty"/> for
-    /// and the rasterizer still draws. An animated card flip sweeps through it.
-    /// </summary>
     [Test]
     public void ApplyToTarget_WhenTheStraddlingImageMissesTheDeliveryRegion_DropsTheTargetInsteadOfPassingItThrough()
     {
@@ -53,11 +40,6 @@ public sealed class TransformEffectPerspectiveTargetTests
             + "renders the layer as if the transform had never been applied");
     }
 
-    /// <summary>
-    /// Near edge-on the same transform keeps corners in front of <see cref="Rect.DefaultNearPlane"/>, so the
-    /// pragmatic box is non-empty — but it still cuts a wedge that lands inside the frame. The effect must
-    /// declare <see cref="Rect.TransformToDeliveredAABB"/>, which is exact wherever the request delivers.
-    /// </summary>
     [Test]
     public void ApplyToTarget_WhenTheStraddlingImageReachesTheDeliveryRegion_DeclaresTheDeliveredBox()
     {

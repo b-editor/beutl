@@ -6,16 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// Characterizes what the state-passing rule rejects and which pixel-affecting channels it lets through as
-/// author-owned identities whose cache keys and versions must then be maintained by hand.
-/// </summary>
-/// <remarks>
-/// Recording rejects a callback that captures, and nothing else: the state object itself is not walked, so a
-/// mutable reference, a delegate behind a holder, a static field, and a resource pinned to a fixed key and
-/// version all reach the callback intact. Each of those is an identity channel the cache cannot see, so a
-/// change made through one is served from the previous frame's stored pixels.
-/// </remarks>
 [TestFixture]
 public sealed class RenderCacheIdentityChannelTests
 {

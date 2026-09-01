@@ -2,10 +2,6 @@
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 
-/// <summary>
-/// Pins what the fingerprint promises: that two runs sharing a comparability key really did share the
-/// conditions that change what the renderer produces, and that a run which could not say so is rejected.
-/// </summary>
 [TestFixture]
 public sealed class RenderEvidenceFingerprintTests
 {

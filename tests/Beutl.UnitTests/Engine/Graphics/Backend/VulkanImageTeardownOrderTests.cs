@@ -2,16 +2,6 @@
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-/// <summary>
-/// Pins that every Vulkan teardown destroys an image before freeing the memory it is bound to.
-/// </summary>
-/// <remarks>
-/// The order is a Vulkan requirement, not a preference: freeing memory that still has an image bound to it
-/// is invalid usage, so the validation layer reports it and a driver is free to do anything. The paths that
-/// get it wrong are the ones that run when construction fails partway, which no test can reach without
-/// making a real allocation fail - so the ordering is pinned at the source instead, across every site at
-/// once rather than the one an exercisable path happens to cover.
-/// </remarks>
 [TestFixture]
 public sealed class VulkanImageTeardownOrderTests
 {

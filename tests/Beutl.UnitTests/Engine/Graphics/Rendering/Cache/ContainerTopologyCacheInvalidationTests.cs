@@ -5,11 +5,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// A container's cached output is built from its children, so replacing, adding, or removing one has to
-/// invalidate it. Two freshly built children both sit at change version 0, which is why this needs both a
-/// topology signal from the mutators and a topology term in the dependency signature.
-/// </summary>
 public class ContainerTopologyCacheInvalidationTests
 {
     [Test]

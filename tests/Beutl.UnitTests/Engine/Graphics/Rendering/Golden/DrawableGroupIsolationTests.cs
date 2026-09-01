@@ -691,12 +691,6 @@ public sealed class DrawableGroupIsolationTests
         }
     }
 
-    /// <remarks>
-    /// A drawable whose whole output is a target-wide clear records a symbolic full-target write and no value
-    /// bounds at all. Deriving the isolation region from recorded value bounds alone makes that group an empty
-    /// scope, and an empty scope renders nothing - the group's content disappears instead of compositing at
-    /// its opacity.
-    /// </remarks>
     [Test]
     public void GroupOpacityOverAFullTargetClear_StillCompositesTheClearedTarget()
     {

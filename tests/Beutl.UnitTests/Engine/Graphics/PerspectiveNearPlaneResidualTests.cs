@@ -4,13 +4,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
-/// <summary>
-/// Pins the content <see cref="Rect.DefaultNearPlane"/> gives up on its own, and that
-/// <see cref="Rect.TransformToDeliveredAABB"/> gives up none of it where the request delivers. The default
-/// clips 820x in front of <see cref="Rect.RasterizerNearPlane"/>, so a near-edge-on layer declares bounds
-/// that exclude pixels Skia still draws, and the planner turns declared bounds into a hard raster clip.
-/// That is why a transform declares against its delivery region instead of against the bare default.
-/// </summary>
 [TestFixture]
 public sealed class PerspectiveNearPlaneResidualTests
 {
@@ -53,10 +46,6 @@ public sealed class PerspectiveNearPlaneResidualTests
         });
     }
 
-    /// <remarks>
-    /// The delivered box keeps whatever of the exact box either reaches the frame or the pragmatic box
-    /// already declared, so nothing drawn inside the frame is given up and nothing outside it grows.
-    /// </remarks>
     [TestCase(1200f, 54f, 60.0f, 500f)]
     [TestCase(1200f, 54f, 89.5f, 500f)]
     [TestCase(1200f, 54f, 89.8f, 500f)]

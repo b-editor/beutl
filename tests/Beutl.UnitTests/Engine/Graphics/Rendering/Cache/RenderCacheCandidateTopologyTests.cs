@@ -9,11 +9,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// Pins <see cref="RenderCacheResolver.BuildCandidateTopology"/> to the pair-wise reachability
-/// semantics it replaced. The topology drives cache-candidate supersedence, so a divergence here
-/// silently changes which candidates are cached rather than failing loudly.
-/// </summary>
 [TestFixture]
 [NonParallelizable]
 public sealed class RenderCacheCandidateTopologyTests

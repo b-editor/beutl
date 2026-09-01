@@ -530,37 +530,15 @@ public sealed class RenderNodeContext
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
-    /// <summary>
-    /// Records a source fragment that paints itself with a fill brush and a stroke pen through an
-    /// <see cref="ImmediateCanvas"/>.
-    /// </summary>
-    /// <typeparam name="TState">The type of the state handed back to <paramref name="draw"/> unchanged.</typeparam>
-    /// <param name="state">
-    /// The state the callback paints from. Treat it as immutable once recorded: the callback runs later, so a value
-    /// mutated after this call changes what the fragment paints without the engine noticing.
-    /// </param>
-    /// <param name="draw">
-    /// A non-null painting callback. Declare it as a static lambda so it carries no per-frame identity; see
-    /// <see cref="PaintedSourceDraw{TState}"/>.
-    /// </param>
-    /// <param name="fill">
-    /// The fill brush the callback receives, or <see langword="null"/> for an unfilled source. A non-null brush is
-    /// borrowed for the request, so the caller keeps ownership of it.
-    /// </param>
-    /// <param name="pen">
-    /// The stroke pen the callback receives, or <see langword="null"/> for an unstroked source. A non-null pen is
-    /// borrowed for the request, so the caller keeps ownership of it.
-    /// </param>
-    /// <param name="outputBounds">
-    /// The finite, non-empty bounds the callback paints within, in the node's own coordinate space. Compute stroked
-    /// bounds with <see cref="PenHelper.GetBounds(Rect, Pen.Resource)"/> so they follow the same stroke-alignment and
-    /// offset convention as the built-in shape nodes.
-    /// </param>
+    /// <summary>Records a source fragment painted through an <see cref="ImmediateCanvas"/>.</summary>
+    /// <typeparam name="TState">The callback state type.</typeparam>
+    /// <param name="state">Immutable state retained until the deferred callback runs.</param>
+    /// <param name="draw">A non-null static painting callback; see <see cref="PaintedSourceDraw{TState}"/>.</param>
+    /// <param name="fill">A request-borrowed fill, or <see langword="null"/>.</param>
+    /// <param name="pen">A request-borrowed stroke pen, or <see langword="null"/>.</param>
+    /// <param name="outputBounds">Finite, non-empty local bounds. Use <see cref="PenHelper"/> for strokes.</param>
     /// <param name="hitTest">An initialized hit-test contract describing which points the source claims.</param>
-    /// <param name="scale">
-    /// An initialized scale contract. Use <see cref="RenderScaleContract.Vector"/> for content the callback can
-    /// re-paint at any density, and a materializing contract for content that is only correct at its working scale.
-    /// </param>
+    /// <param name="scale">An initialized scale contract for repaintable or materialized content.</param>
     /// <param name="directReplayAtExactIntegerReduction">
     /// Whether the source may still be replayed directly when the surrounding transform reduces it by an exact
     /// integer factor. Pass <see langword="false"/> unless re-painting at the reduced size is what the source
@@ -568,14 +546,10 @@ public sealed class RenderNodeContext
     /// default here on purpose: naming it is what selects this overload over the public one beside it.
     /// </param>
     /// <param name="deviceGridSensitivity">
-    /// Whether the painted pixels depend on where the device pixel grid falls. Keep the
-    /// <see cref="RenderDeviceGridSensitivity.PhaseDependent"/> default for analytically anti-aliased content, and
-    /// declare <see cref="RenderDeviceGridSensitivity.Insensitive"/> only when a sub-pixel shift of the grid cannot
-    /// change the output.
+    /// Whether device-grid phase affects the pixels. Analytically anti-aliased content is phase-dependent.
     /// </param>
     /// <param name="supportsDirectDstOut">
-    /// Whether the source may be painted straight into a destination-out composite instead of an isolated layer.
-    /// Set it to <see langword="false"/> when the callback paints overlapping coverage that would double up.
+    /// Whether destination-out may paint directly. Overlapping coverage requires <see langword="false"/>.
     /// </param>
     /// <param name="resources">
     /// Optional additional declared resources this source depends on, on top of the fill and the pen. Every entry
@@ -672,32 +646,16 @@ public sealed class RenderNodeContext
     /// Set it to <see langword="false"/> when the callback paints overlapping coverage that would double up.
     /// </param>
     /// <param name="bindings">
-    /// The resources this source reads on top of the fill and the pen, each produced by
-    /// <see cref="RenderResourceSlot{T}.Bind(RenderResource{T})"/>, or <see langword="null"/> for none.
+    /// Additional slot-addressed resources, or <see langword="null"/>.
     /// </param>
     /// <param name="slots">
-    /// The resource slots this source declares. <paramref name="bindings"/> must bind every one of them
-    /// exactly once and is reordered into this list's order. Omitting the list declares no slots rather than
-    /// skipping that check, so binding a resource without declaring its slot is an error.
+    /// Declared slots. <paramref name="bindings"/> must bind each exactly once.
     /// </param>
     /// <param name="rasterOutset">
-    /// Extra padding, in the node's own coordinate space, that the rasterizer adds around
-    /// <paramref name="outputBounds"/> so filtering or anti-aliasing that spills past the declared bounds is not
-    /// clipped. Leave it default when the callback paints strictly inside its bounds.
+    /// Local buffer-only padding for filtering or anti-aliasing outside <paramref name="outputBounds"/>.
     /// </param>
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
-    /// <remarks>
-    /// <para>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call.
-    /// </para>
-    /// <para>
-    /// A hit test reaches a bound resource through
-    /// <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>, which resolves
-    /// the slot the binding names. That is why the resources arrive as bindings rather than as bare tokens: a
-    /// token handed over without a slot is addressable by nothing, so a hit test could never find it again.
-    /// </para>
-    /// </remarks>
+    /// <remarks>Valid only during the active <see cref="RenderNode.Process(RenderNodeContext)"/> call.</remarks>
     public RenderFragmentHandle PaintedSource<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,

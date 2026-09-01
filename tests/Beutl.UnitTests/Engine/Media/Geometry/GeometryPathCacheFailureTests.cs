@@ -6,13 +6,6 @@ namespace Beutl.UnitTests.Engine.Media.Geometry;
 
 using Geometry = Beutl.Media.Geometry;
 
-/// <summary>
-/// A failing <c>ApplyTo</c> must not be able to install a half-built path behind the version guard.
-/// </summary>
-/// <remarks>
-/// <see cref="PreChangeOrdering"/> reproduces the field-write order this cache used at 989856e8d, so the
-/// difference is measured in one process rather than read off the diff.
-/// </remarks>
 [TestFixture]
 public sealed class GeometryPathCacheFailureTests
 {

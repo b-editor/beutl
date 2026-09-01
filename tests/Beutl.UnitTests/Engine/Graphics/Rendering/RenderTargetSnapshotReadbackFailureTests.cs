@@ -7,31 +7,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-/// <summary>
-/// Pins that <see cref="RenderTarget.Snapshot"/> and <see cref="RenderTarget.SnapshotAlpha"/> release the
-/// bitmap they allocated when the surface readback fails.
-/// </summary>
-/// <remarks>
-/// <para>
-/// A failed readback is a device-loss symptom, and the callers that meet it snapshot once per frame, so they
-/// ask again on the next one. Propagating without releasing leaves one full-frame native bitmap behind per
-/// attempt for a finalizer to find, which is the worst moment to be holding them.
-/// </para>
-/// <para>
-/// The bitmap never escapes the failing call, so no test can hold it and read <see cref="Bitmap.IsDisposed"/>.
-/// What the release does leave observable is finalization: <see cref="Bitmap.Dispose"/> ends in
-/// <see cref="GC.SuppressFinalize"/>, so a released bitmap never reaches the finalization queue while a
-/// stranded one — and the <c>SKBitmap</c> it owns — does. Every measurement is calibrated against a
-/// deliberate leak of the very bitmaps the snapshot would allocate, so a harness that stopped seeing leaks
-/// fails loudly instead of passing vacuously.
-/// </para>
-/// <para>
-/// A null Skia surface stands in for the lost device: it declines every CPU readback, which is the one
-/// observable <see cref="RenderTarget"/> branches on. <see cref="RenderTarget.SnapshotInto(Bitmap)"/> is
-/// deliberately outside the release — its destination belongs to the caller, who keeps it either way — and
-/// the last test pins that carve-out.
-/// </para>
-/// </remarks>
 [TestFixture]
 [NonParallelizable]
 public sealed class RenderTargetSnapshotReadbackFailureTests
@@ -84,11 +59,6 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
             BitmapColorType.Alpha8);
     }
 
-    /// <remarks>
-    /// The negative control for the releases above: a surface that can serve the readback must still hand
-    /// back a live bitmap. Without it a fixture that stopped reaching the readback at all — or one whose
-    /// null surface failed something earlier — would satisfy every assertion above by doing nothing.
-    /// </remarks>
     [Test]
     public void Snapshot_ReturnsALiveBitmap_WhenTheReadbackSucceeds()
     {
@@ -108,10 +78,6 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
         });
     }
 
-    /// <remarks>
-    /// The carve-out: <see cref="RenderTarget.SnapshotInto(Bitmap)"/> fills a destination the caller owns and
-    /// keeps whether or not the readback succeeds, so the release must not reach it.
-    /// </remarks>
     [Test]
     public void SnapshotInto_KeepsTheCallersBitmap_WhenTheReadbackFails()
     {

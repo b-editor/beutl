@@ -9,10 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
-/// <remarks>
-/// This assembly is deliberately not an InternalsVisibleTo friend of Beutl.Engine, so everything these tests
-/// touch is reachable by an out-of-tree plugin.
-/// </remarks>
 [TestFixture]
 public sealed class FilterEffectLoweringSeamContractTests
 {

@@ -5,14 +5,6 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-/// <summary>
-/// Pins that an output identity costs what the graph has, not what its paths enumerate.
-/// </summary>
-/// <remarks>
-/// Identities are memoized while they are built, so a fragment consumed by two parents becomes one shared
-/// instance and the identity graph is a DAG. Hashing or comparing one by plain recursion walks every path
-/// through that DAG rather than every edge, which is exponential in the fan-out and runs once per frame.
-/// </remarks>
 [TestFixture]
 public sealed class OutputIdentityFanOutCostTests
 {

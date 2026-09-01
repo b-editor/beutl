@@ -3,15 +3,6 @@ using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-/// <summary>
-/// Covers the record the Vulkan validation gate reads, and confirms that a job asking for validation
-/// actually got it.
-/// </summary>
-/// <remarks>
-/// The gate itself lives in <c>VulkanTestEnvironment.InvokeOnRenderThread</c> and its Graphics3D twin: each
-/// GPU invocation compares the log's count before and after, so a validation error fails the test that
-/// reported it rather than being written to a log nobody reads.
-/// </remarks>
 [TestFixture]
 public sealed class VulkanValidationGateTests
 {
@@ -45,10 +36,6 @@ public sealed class VulkanValidationGateTests
         }
     }
 
-    /// <remarks>
-    /// One mistake inside a draw loop reports on every iteration, so the retained text is bounded. The count
-    /// is not: a gate that under-reported how much went wrong would be worse than one that quotes less.
-    /// </remarks>
     [Test]
     public void AFloodOfErrors_KeepsAnExactCountAndBoundedText()
     {
@@ -87,12 +74,6 @@ public sealed class VulkanValidationGateTests
         }
     }
 
-    /// <remarks>
-    /// The record is written inside the invocation, which is exactly where a real one would arrive, so this
-    /// exercises the wiring the CI job depends on rather than the log in isolation. It leaves the shared
-    /// count higher; every other gate compares against a snapshot it takes later, so nothing else observes
-    /// it.
-    /// </remarks>
     [Test]
     public void AValidationErrorReportedDuringAnInvocation_FailsThatInvocation()
     {
@@ -109,10 +90,6 @@ public sealed class VulkanValidationGateTests
         Assert.That(() => VulkanTestEnvironment.InvokeOnRenderThread(static () => { }), Throws.Nothing);
     }
 
-    /// <remarks>
-    /// Without this a job could set the environment variable, fail to provide the layer, and take the
-    /// silent-skip path — leaving a gate that never observes anything and a green run that proves nothing.
-    /// </remarks>
     [Test]
     public void WhenTheJobAsksForValidation_TheInstanceEnabledIt()
     {

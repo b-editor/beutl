@@ -9,33 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-/// <summary>
-/// Pins the shared color-matrix CurrentPixel stage against the Skia color filter it replaces.
-/// </summary>
-/// <remarks>
-/// <c>SKColorFilter.CreateColorMatrix</c> unpremultiplies without clamping the straight components, multiplies by
-/// the matrix, clamps the product to [0, 1], and re-premultiplies. A shader that skipped the unpremultiply or
-/// output clamp, or that transposed the matrix wrongly would still look plausible on opaque mid-tone input, so
-/// the sweep deliberately includes transparent, semi-transparent, near-zero, out-of-range, and saturating
-/// samples. The near-zero alpha band and the non-zero alpha-offset matrix specifically pin the two cases a
-/// transparency shortcut inside the stage would get wrong: an alpha offset can make a transparent pixel
-/// visible, and a tiny alpha still unpremultiplies into a saturating value rather than into nothing.
-/// <para>
-/// Parity is bounded, not bit-exact. Skia carries the matrix in <c>half</c> uniforms, so on a backend whose
-/// <c>half</c> is real fp16 (Metal through MoltenVK) the reference itself works from coefficients quantized
-/// to about 2^-11 relative, while this stage takes them at float precision; a backend that evaluates
-/// <c>half</c> at float precision (SwiftShader) makes that quantization a no-op and the two agree bit for
-/// bit. Feeding both paths fp16-rounded coefficients collapses the divergence, which is what identifies it.
-/// </para>
-/// <para>
-/// Two bounds hold together because neither one alone covers the sweep. The absolute bound expresses the
-/// coefficient quantization, but says nothing about the near-zero alpha band, whose outputs are subnormal
-/// and orders of magnitude under it - a stage that blanked that band would pass it. The code-distance bound
-/// covers the band, where quantizing a coefficient cannot move a result more than a code or so, and is left
-/// off the normal range, where near-cancellation legitimately amplifies the same quantization into tens of
-/// codes.
-/// </para>
-/// </remarks>
 [NonParallelizable]
 [TestFixture]
 public sealed class ColorFilterShaderParityTests
@@ -67,10 +40,6 @@ public sealed class ColorFilterShaderParityTests
         });
     }
 
-    /// <summary>
-    /// A brightness matrix is diagonal with a zero translation column, so it cannot detect a wrongly transposed
-    /// uniform or a dropped offset. These matrices are asymmetric and carry offsets, so both would show up.
-    /// </summary>
     [TestCaseSource(nameof(StructuredMatrices))]
     [Category("GpuPassFusionGpu")]
     public void ShaderColorMatrix_MatchesTheSkiaColorFilterForAsymmetricAndOffsetMatrices(
@@ -87,9 +56,6 @@ public sealed class ColorFilterShaderParityTests
         });
     }
 
-    /// <summary>
-    /// The Brightness effect must record one fusable shader stage and no effect-item Skia segment.
-    /// </summary>
     [Test]
     public void Brightness_RecordsOneCurrentPixelStageWithoutAEffectItemBoundary()
     {
@@ -260,10 +226,6 @@ public sealed class ColorFilterShaderParityTests
             context => context.HighContrast(grayscale, invertStyle, contrast)));
     }
 
-    /// <summary>
-    /// Non-vacuity: the sweep must actually exercise the clamps and the unpremultiply, otherwise a shader that
-    /// dropped one of those steps could pass the parity assertion.
-    /// </summary>
     [Test]
     public void Sweep_CoversTransparentSemiTransparentAndOutOfRangeSamples()
     {

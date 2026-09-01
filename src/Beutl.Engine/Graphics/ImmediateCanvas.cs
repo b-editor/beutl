@@ -1234,12 +1234,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             return new PushedState(this, _states.Count);
         }
 
-        // The group opacity is applied by the layer's own color filter, which multiplies the premultiplied
-        // result by a float uniform. Skia's two idiomatic alternatives both quantize to 8 bits inside an
-        // otherwise 16-bit linear pipeline: a paint alpha on the SaveLayer paint goes through SkColor4f ->
-        // byte, and so does the DstIn mask this used to draw on pop. Both turn opacity 0.5 into 128/255 ==
-        // 0.50195312 rather than 0.5.
-        // SaveLayer copies the paint, so neither it nor the filter has to outlive this call.
+        // A float color filter preserves 16-bit opacity; SaveLayer alpha and DstIn masks quantize to 8 bits.
+        // SaveLayer copies the paint, so the filter need not outlive this call.
         int count;
         using (var paint = new SKPaint())
         using (SKColorFilter filter = CreateOpacityColorFilter(Opacity))

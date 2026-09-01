@@ -6,15 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
-/// <summary>
-/// Pins that a Skia item may use the activator's public surface without breaking the chain around it.
-/// </summary>
-/// <remarks>
-/// <see cref="FilterEffectActivator.Activate"/> and <see cref="FilterEffectActivator.Flush"/> both drop the
-/// per-target chain bookkeeping, and Activate keeps it only for a builder that has no filter yet. A Skia item
-/// runs author code, so an author calling either one from inside it must not leave the loop that follows
-/// reading a map that is no longer there.
-/// </remarks>
 [TestFixture]
 public sealed class FilterEffectActivatorReentrancyTests
 {

@@ -427,11 +427,6 @@ public class SceneDrawableScaleTests
         }
     }
 
-    /// <remarks>
-    /// The graph is recorded once, by the GraphicsContext2D, at whatever density that context carried. A
-    /// request rasterizing at another one moves everything else, so a nested scene left at the recording
-    /// density is the one thing in the frame drawn at the wrong scale.
-    /// </remarks>
     [Test]
     public void NestedScene_RebuildsWhenARequestAsksForADifferentOutputScale()
     {
