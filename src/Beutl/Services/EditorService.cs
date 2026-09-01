@@ -52,6 +52,29 @@ public sealed class EditorTabItem : IAsyncDisposable
     internal void AttachOwner(Action<EditorTabItem> terminalFailureHandler)
         => _terminalFailureHandler = terminalFailureHandler;
 
+    // Keep publication (registration and selection) behind the same lifetime gate as disposal.
+    // This also covers editor-context implementations that do not expose the optional
+    // IEditorContextPublicationGate contract.
+    internal bool TryPublish(Action publish)
+    {
+        ArgumentNullException.ThrowIfNull(publish);
+        lock (_lifetimeGate)
+        {
+            if (_closing || _disposeTask is not null || MutableContext.Value is null)
+                return false;
+
+            publish();
+            return !_closing && _disposeTask is null && MutableContext.Value is not null;
+        }
+    }
+
+    internal void MutateLifetime(Action mutation)
+    {
+        ArgumentNullException.ThrowIfNull(mutation);
+        lock (_lifetimeGate)
+            mutation();
+    }
+
     public IReadOnlyReactiveProperty<string> FilePath { get; }
 
     public IReadOnlyReactiveProperty<string> FileName { get; }
@@ -133,6 +156,7 @@ public sealed class EditorTabItem : IAsyncDisposable
         Exception? publicationFailure)
     {
         bool published = false;
+        bool accepted = false;
         List<Exception>? failures = publicationFailure is null ? null : [publicationFailure];
 
         lock (_lifetimeGate)
@@ -165,12 +189,11 @@ public sealed class EditorTabItem : IAsyncDisposable
         {
             try
             {
-                published = replacement is IEditorContextPublicationGate gate
-                    ? gate.TryPublish(() => MutableContext.Value = replacement)
-                    : PublishReplacementContext(replacement);
+                (published, accepted) = TryPublishReplacementContext(replacement);
             }
             catch (Exception ex)
             {
+                published = ReferenceEquals(MutableContext.Value, replacement);
                 RecordFailure(ref failures, ex);
             }
         }
@@ -181,7 +204,10 @@ public sealed class EditorTabItem : IAsyncDisposable
             if (failures is not null)
             {
                 _closing = true;
-                _contextDisposeAttempted = true;
+                // A published replacement is now owned by the tab even when a subscriber
+                // throws. Leave its disposal to the terminal tab close; only rejected
+                // replacements are disposed directly below.
+                _contextDisposeAttempted = !published;
             }
             closeWonAfterPublication = published && _closing;
             _transitionTask = null;
@@ -196,7 +222,7 @@ public sealed class EditorTabItem : IAsyncDisposable
         }
 
         transition.TrySetResult();
-        if (failures is null && published && !closeWonAfterPublication)
+        if (failures is null && accepted && !closeWonAfterPublication)
         {
             result.TrySetResult(true);
             return;
@@ -228,10 +254,31 @@ public sealed class EditorTabItem : IAsyncDisposable
             result.TrySetException(CreateFailure(failures));
     }
 
-    private bool PublishReplacementContext(IEditorContext replacement)
+    private (bool Published, bool Accepted) TryPublishReplacementContext(IEditorContext replacement)
     {
-        MutableContext.Value = replacement;
-        return true;
+        bool contextPublished = true;
+        bool itemPublished = false;
+        lock (_lifetimeGate)
+        {
+            if (_closing || _disposeTask is not null || MutableContext.Value is not null)
+                return (false, false);
+
+            if (replacement is IEditorContextPublicationGate gate)
+                contextPublished = gate.TryPublish(() =>
+                {
+                    MutableContext.Value = replacement;
+                    itemPublished = true;
+                });
+            else
+            {
+                MutableContext.Value = replacement;
+                itemPublished = true;
+            }
+
+            bool accepted = itemPublished && contextPublished && !_closing && _disposeTask is null
+                && ReferenceEquals(MutableContext.Value, replacement);
+            return (itemPublished, accepted);
+        }
     }
 
     private static void RecordFailure(ref List<Exception>? failures, Exception exception)
@@ -386,7 +433,18 @@ public sealed class EditorService
 
     public ICoreReadOnlyList<EditorTabItem> TabItems => _tabItems;
 
-    internal void ClearTabItems() => _tabItems.Clear();
+    internal void ClearTabItems()
+    {
+        List<Exception>? failures = null;
+        foreach (EditorTabItem item in _tabItems.ToArray())
+        {
+            try { RemoveTabItem(item); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
+        }
+
+        if (failures is not null)
+            throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
+    }
 
     internal void AddTabItem(EditorTabItem item)
     {
@@ -395,12 +453,43 @@ public sealed class EditorService
     }
 
     internal bool TryAddTabItem(EditorTabItem item)
-    {
-        if (item.Context.Value is IEditorContextPublicationGate gate)
-            return gate.TryPublish(() => AddTabItemCore(item)) && ContainsTabItem(item);
+        => TryAddTabItem(item, select: false);
 
-        AddTabItemCore(item);
-        return true;
+    internal bool TryAddAndSelectTabItem(EditorTabItem item, Action? beforeSelection = null)
+        => TryAddTabItem(item, select: true, beforeSelection);
+
+    private bool TryAddTabItem(EditorTabItem item, bool select, Action? beforeSelection = null)
+    {
+        bool published = false;
+        void Publish()
+        {
+            void Mutate()
+            {
+                AddTabItemCore(item);
+                if (select && _tabItems.Contains(item))
+                {
+                    beforeSelection?.Invoke();
+                    if (!_tabItems.Contains(item) || item.Context.Value is null)
+                        return;
+
+                    item.IsSelected.Value = true;
+                    SelectedTabItem.Value = item;
+                }
+            }
+
+            bool contextPublished = true;
+            bool itemPublished = item.TryPublish(() =>
+            {
+                if (item.Context.Value is IEditorContextPublicationGate gate)
+                    contextPublished = gate.TryPublish(Mutate);
+                else
+                    Mutate();
+            });
+            published = itemPublished && contextPublished;
+        }
+
+        Publish();
+        return published && ContainsTabItem(item);
     }
 
     internal void AddTabItemCore(EditorTabItem item)
@@ -415,22 +504,29 @@ public sealed class EditorService
     internal bool RemoveTabItem(EditorTabItem item)
     {
         List<Exception>? failures = null;
-        bool wasPresent = _tabItems.Contains(item);
         bool removed = false;
-        try
+        item.MutateLifetime(() =>
         {
-            removed = _tabItems.Remove(item);
-        }
-        catch (Exception ex)
-        {
-            failures = [ex];
-            removed = wasPresent && !_tabItems.Contains(item);
-        }
-        if (removed && ReferenceEquals(SelectedTabItem.Value, item))
-        {
-            try { SelectedTabItem.Value = null; }
+            bool wasPresent = _tabItems.Contains(item);
+            try
+            {
+                removed = _tabItems.Remove(item);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+                removed = wasPresent && !_tabItems.Contains(item);
+            }
+            // Clear selection even when the collection removal lost a race with another remover.
+            // Otherwise a tab that is no longer live can be re-exposed as the selected item.
+            if (ReferenceEquals(SelectedTabItem.Value, item))
+            {
+                try { SelectedTabItem.Value = null; }
+                catch (Exception ex) { (failures ??= []).Add(ex); }
+            }
+            try { item.IsSelected.Value = false; }
             catch (Exception ex) { (failures ??= []).Add(ex); }
-        }
+        });
         if (failures is not null)
             throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
         return removed;
@@ -472,8 +568,7 @@ public sealed class EditorService
 
         if (TryGetTabItem(obj, out EditorTabItem? tabItem))
         {
-            tabItem.IsSelected.Value = true;
-            SelectedTabItem.Value = tabItem;
+            TrySelectTabItem(tabItem);
         }
         else
         {
@@ -482,12 +577,39 @@ public sealed class EditorService
             if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
             {
                 var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
-                if (TryAddTabItem(tabItem2))
-                    SelectedTabItem.Value = tabItem2;
-                else
+                if (!TryAddAndSelectTabItem(tabItem2))
                     _ = tabItem2.DisposeAsync();
             }
         }
+    }
+
+    private bool TrySelectTabItem(EditorTabItem item)
+    {
+        bool selected = false;
+        void Publish()
+        {
+            void Mutate()
+            {
+                if (!_tabItems.Contains(item) || item.Context.Value is null)
+                    return;
+
+                item.IsSelected.Value = true;
+                SelectedTabItem.Value = item;
+            }
+
+            bool contextPublished = true;
+            bool itemPublished = item.TryPublish(() =>
+            {
+                if (item.Context.Value is IEditorContextPublicationGate gate)
+                    contextPublished = gate.TryPublish(Mutate);
+                else
+                    Mutate();
+            });
+            selected = itemPublished && contextPublished;
+        }
+
+        Publish();
+        return selected && ReferenceEquals(SelectedTabItem.Value, item);
     }
 
     public async ValueTask CloseTabItem(CoreObject obj)
