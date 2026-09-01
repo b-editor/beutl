@@ -46,6 +46,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     private const string ProcessMethodName = "Process";
     private const string MarkChangedMethodName = "MarkChanged";
     private const string DisposeCallbackName = "OnDispose";
+    private const string ConditionalAttributeMetadataName = "System.Diagnostics.ConditionalAttribute";
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(DiagnosticDescriptors.UnmarkedRenderNodeMutation);
@@ -372,6 +373,9 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol type,
         INamedTypeSymbol renderNodeType)
     {
+        private readonly INamedTypeSymbol? _conditionalAttribute =
+            compilation.GetTypeByMetadataName(ConditionalAttributeMetadataName);
+
         /// <summary>The methods reachable from <paramref name="entryPoint"/> without leaving the node's own type chain.</summary>
         /// <remarks>
         /// Property and indexer accesses are followed as well as invocations, so a node that exposes its
@@ -450,6 +454,14 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         /// member as much as calling it does, so handing the method group to a scheduler or storing it in a
         /// delegate counts: the suppression is by symbol, not by invocation.
         /// </para>
+        /// <para>
+        /// Anywhere in the member means anywhere the member runs, which is the one place path-insensitivity
+        /// stops. A nested function the body cannot reach is not walked, and a call the compiler removes is
+        /// not followed - see <see cref="RunsNestedFunction"/> and <see cref="IsCallCompiled"/> - because a
+        /// mark that is not in the program the author ships leaves the node exactly as stale as no mark at
+        /// all, and this is the rule's one unrecoverable failure: silence here is what the author reads as
+        /// approval.
+        /// </para>
         /// </remarks>
         public bool MarksChanged(IMethodSymbol method)
         {
@@ -457,6 +469,14 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return MarksChangedCore(method, visited);
         }
 
+        /// <summary>The writes to state <c>Process</c> reads that <paramref name="method"/> makes.</summary>
+        /// <remarks>
+        /// Only the parts of the member that run, on the same terms <see cref="MarksChanged"/> reads it: an
+        /// assignment in a body nothing reaches changes nothing, and reporting one while refusing to see the
+        /// mark written beside it would be a diagnostic that the node is stale, aimed at code the program
+        /// never executes. Every local function this walk skips is one no name in the member reaches, since
+        /// nothing here follows calls to find the rest.
+        /// </remarks>
         public IEnumerable<StateAssignment> FindStateAssignments(
             IMethodSymbol method,
             ImmutableHashSet<ISymbol> trackedState)
@@ -465,7 +485,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             {
                 Dictionary<ISymbol, ISymbol> aliases = CollectRefLocalAliases(body, trackedState);
 
-                foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
+                foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf(
+                    child => RunsNestedFunction(
+                        body.Model,
+                        body.Body,
+                        child,
+                        localFunctionsFollowedAsCallees: false)))
                 {
                     if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference)
                         continue;
@@ -519,7 +544,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         {
             var aliases = new Dictionary<ISymbol, ISymbol>(SymbolEqualityComparer.Default);
 
-            foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
+            foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf(
+                child => RunsNestedFunction(
+                    body.Model,
+                    body.Body,
+                    child,
+                    localFunctionsFollowedAsCallees: false)))
             {
                 switch (node)
                 {
@@ -602,7 +632,12 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
             foreach (BodyWithModel body in GetBodies(method))
             {
-                foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
+                foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf(
+                    child => RunsNestedFunction(
+                        body.Model,
+                        body.Body,
+                        child,
+                        localFunctionsFollowedAsCallees: true)))
                 {
                     if (node is not SimpleNameSyntax name || IsInsideNameOf(name))
                         continue;
@@ -613,6 +648,11 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         continue;
 
                     ISymbol? symbol = body.Model.GetSymbolInfo(name).Symbol;
+
+                    // A call the compiler removes is not a mark; asked here so both branches answer alike.
+                    if (symbol is IMethodSymbol called && !IsCallCompiled(called, name.SyntaxTree))
+                        continue;
+
                     if (IsMarkChanged(symbol))
                         return true;
 
@@ -629,6 +669,168 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Whether the body being walked can run <paramref name="nested"/>, for a nested function it declares.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// What a body nothing runs writes is not what the member does, and what it marks is not a mark.
+        /// Descending into every nested function alike cleared a mutator that declared
+        /// <c>void Invalidate() =&gt; MarkChanged();</c> and never called it, which is the one failure this
+        /// rule cannot afford: the node it approves renders stale content and nothing else says so.
+        /// </para>
+        /// <para>
+        /// The question <see cref="MetadataCallbackPurityAnalyzer"/> asks of a nested body, and for a lambda
+        /// the same answer down to the two shapes it skips. A delegate handed anywhere this rule cannot read
+        /// is run by code this rule cannot read, so it stays walked - which is what keeps a mark marshalled
+        /// onto another thread counting as a mark.
+        /// </para>
+        /// <para>
+        /// A local function is where a caller that follows calls can take a cheaper answer. Such a caller
+        /// walks every local function reachable code names as a callee anyway, so declining to descend into
+        /// one costs it nothing - and asking the name question there as well would answer it over the whole
+        /// member, the parts already ruled unreachable included, which is how a mark named only from an
+        /// uninvoked lambda came back as a mark. A caller with no call walk of its own has no second route
+        /// and must ask.
+        /// </para>
+        /// <para>
+        /// A nested function named only from an unreachable one is still walked, because that would need
+        /// the reachable region settled before the walk rather than during it. It is the bound this shape
+        /// leaves, one nesting level in.
+        /// </para>
+        /// </remarks>
+        private static bool RunsNestedFunction(
+            SemanticModel model,
+            SyntaxNode body,
+            SyntaxNode nested,
+            bool localFunctionsFollowedAsCallees)
+            => nested switch
+            {
+                LocalFunctionStatementSyntax when localFunctionsFollowedAsCallees => false,
+
+                LocalFunctionStatementSyntax function
+                    => model.GetDeclaredSymbol(function) is not { } declared
+                       || IsNamedOutside(model, body, declared, function),
+
+                AnonymousFunctionExpressionSyntax lambda => RunsLambda(model, body, lambda),
+
+                _ => true,
+            };
+
+        /// <remarks>
+        /// A lambda is an expression, so what can run it is decided by what the body does with the delegate
+        /// it makes. Held in a local, that is whatever names the local; assigned to a discard, nothing at
+        /// all. Every other position hands the delegate somewhere this rule cannot read, and is walked -
+        /// which is what keeps a mark marshalled onto another thread counting as a mark.
+        /// </remarks>
+        private static bool RunsLambda(
+            SemanticModel model,
+            SyntaxNode body,
+            AnonymousFunctionExpressionSyntax lambda)
+        {
+            ExpressionSyntax stored = lambda;
+            while (stored.Parent is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+                stored = (ExpressionSyntax)stored.Parent;
+
+            if (stored.Parent is AssignmentExpressionSyntax assignment
+                && assignment.Right == stored
+                && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                && model.GetSymbolInfo(assignment.Left).Symbol is IDiscardSymbol)
+            {
+                return false;
+            }
+
+            if (stored.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+                && model.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+            {
+                return IsNamedOutside(model, body, local, lambda);
+            }
+
+            return true;
+        }
+
+        /// <returns>
+        /// Whether any name in <paramref name="body"/> written outside <paramref name="declaration"/> binds
+        /// to <paramref name="symbol"/>.
+        /// </returns>
+        /// <remarks>
+        /// Names inside the declaration itself do not count: a lambda that only names the local it was
+        /// stored in is still unreachable from the body.
+        /// </remarks>
+        private static bool IsNamedOutside(
+            SemanticModel model,
+            SyntaxNode body,
+            ISymbol symbol,
+            SyntaxNode declaration)
+        {
+            foreach (SyntaxNode node in body.DescendantNodesAndSelf())
+            {
+                // The text test is what keeps this affordable: it costs a string compare per node and leaves
+                // a semantic query only for the names that could be this one.
+                if (node is not IdentifierNameSyntax name
+                    || name.Identifier.ValueText != symbol.Name
+                    || declaration.Span.Contains(name.Span))
+                {
+                    continue;
+                }
+
+                if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(name).Symbol, symbol))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <returns>
+        /// Whether a call to <paramref name="callee"/> written in <paramref name="tree"/> is in the assembly
+        /// the compiler produces.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// <c>[Conditional]</c> keeps the annotated method's body in every build and removes the calls to
+        /// it. So a helper marked <c>[Conditional("DEBUG")]</c> holds a <c>MarkChanged</c> that reads exactly
+        /// like a real one and is not in the shipped program, and following the callee's symbol without
+        /// asking this cleared the mutator on the strength of a call that is not there.
+        /// </para>
+        /// <para>
+        /// The symbols are read from the tree the call is written in, because that is what the language uses:
+        /// conditional compilation is per file, so the same call can survive in one file and not in another.
+        /// Several attributes are several chances - the call stands if any one of the named symbols is
+        /// defined - and the attribute is looked for up the override chain, because an override may not
+        /// declare one of its own and it is the base declaration that decides.
+        /// </para>
+        /// </remarks>
+        private bool IsCallCompiled(IMethodSymbol callee, SyntaxTree tree)
+        {
+            if (_conditionalAttribute is null)
+                return true;
+
+            bool conditional = false;
+            for (IMethodSymbol? current = callee; current is not null; current = current.OverriddenMethod)
+            {
+                foreach (AttributeData attribute in current.OriginalDefinition.GetAttributes())
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(
+                            attribute.AttributeClass,
+                            _conditionalAttribute))
+                    {
+                        continue;
+                    }
+
+                    conditional = true;
+                    if (attribute.ConstructorArguments.Length == 1
+                        && attribute.ConstructorArguments[0].Value is string defined
+                        && tree.Options is CSharpParseOptions options
+                        && options.PreprocessorSymbolNames.Contains(defined))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return !conditional;
         }
 
         private bool IsMarkChanged(ISymbol? symbol)

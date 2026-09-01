@@ -2078,9 +2078,468 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "the silence is a recorded limit, not a verdict that the node is correct");
     }
 
-    private static ImmutableArray<Diagnostic> Analyze(string source)
+    /// <remarks>
+    /// <para>
+    /// A local function nothing in the body names is code the program never runs, so a <c>MarkChanged</c>
+    /// written inside it is not a mark: the mutator that ships assigns state <c>Process</c> reads and leaves
+    /// the recording as it was. The walk descended into every nested body alike and read this as marked.
+    /// </para>
+    /// <para>
+    /// The same question <c>BESG004</c> asks of a nested body, and deliberately the same answer - see
+    /// <c>MetadataCallbackPurityAnalyzer.RunsNestedFunction</c>. Only the cost of getting it wrong differs:
+    /// there an unreachable body walked is a report about code nobody runs, here an unreachable body counted
+    /// is a rule that silently does not fire.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AMutatorMarkingOnlyInAnUninvokedLocalFunction_IsReported()
     {
-        CSharpCompilation compilation = CreateCompilation(source);
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+
+                    void Invalidate() => MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "nothing names the local function, so the mark inside it is not in the program the author "
+            + "ships and the node renders stale content");
+    }
+
+    /// <remarks>
+    /// The lambda spelling of <see cref="AMutatorMarkingOnlyInAnUninvokedLocalFunction_IsReported"/>. A
+    /// lambda stored in a local is run by whatever names that local, and nothing here does, so the delegate
+    /// is made and dropped.
+    /// </remarks>
+    [Test]
+    public void AMutatorMarkingOnlyInAnUninvokedLambda_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Action invalidate = () => MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the delegate is made and never invoked, so the mark inside it never runs");
+    }
+
+    /// <remarks>
+    /// The negative control for <see cref="AMutatorMarkingOnlyInAnUninvokedLocalFunction_IsReported"/>: the
+    /// same local function, called. A reachability test that could not keep this apart from the uninvoked one
+    /// would be a blanket skip of nested bodies, which loses the real marks with the unreachable ones.
+    /// </remarks>
+    [Test]
+    public void AMutatorInvokingTheLocalFunctionThatMarks_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Invalidate();
+
+                    void Invalidate() => MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the local function runs, so the mark runs with it");
+    }
+
+    /// <remarks>
+    /// The negative control for <see cref="AMutatorMarkingOnlyInAnUninvokedLambda_IsReported"/>: a lambda
+    /// handed to something that runs it. The delegate goes to code this rule is not reading, so the only
+    /// answer that keeps the rule honest is that it runs - the counterpart of
+    /// <see cref="AMutatorHandingTheMarkToAScheduler_IsNotReported"/> written as a lambda.
+    /// </remarks>
+    [Test]
+    public void AMutatorHandingAMarkingLambdaToAScheduler_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Threading.Tasks;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ScheduledNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Task.Run(() => MarkChanged());
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the lambda is handed to a scheduler, which is still marking");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// A <c>[Conditional]</c> attribute keeps the helper's body in every build and removes the calls to it,
+    /// so a mark written behind one is a mark the shipped assembly never reaches. The walk followed the
+    /// helper's symbol without asking whether the call to it survives, and cleared the mutator on the
+    /// strength of a call that is not there.
+    /// </para>
+    /// <para>
+    /// <c>DEBUG</c> is undefined in this compilation, which is the release build the author ships.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AMutatorMarkingOnlyInAConditionalHelper_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Diagnostics;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Invalidate();
+                }
+
+                [Conditional("DEBUG")]
+                private void Invalidate() => MarkChanged();
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "without DEBUG the compiler removes the call, so the shipped mutator never marks");
+    }
+
+    /// <remarks>
+    /// The negative control for <see cref="AMutatorMarkingOnlyInAConditionalHelper_IsReported"/>: the same
+    /// source, compiled with the symbol defined. The call is emitted there, so the mark is a mark and the
+    /// rule has to keep accepting it - a check that rejected every <c>[Conditional]</c> helper alike would
+    /// report a node that is correct in the build it is compiled for. The unannotated helper is pinned by
+    /// <see cref="AMutatorThatMarksThroughAHelper_IsNotReported"/>.
+    /// </remarks>
+    [Test]
+    public void AMutatorMarkingInAConditionalHelper_IsNotReportedWhenTheSymbolIsDefined()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze(
+            """
+            using System.Diagnostics;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Invalidate();
+                }
+
+                [Conditional("DEBUG")]
+                private void Invalidate() => MarkChanged();
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """,
+            CSharpParseOptions.Default.WithPreprocessorSymbols("DEBUG"));
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "DEBUG is defined, so the call to the helper is compiled and the mark runs");
+    }
+
+    /// <remarks>
+    /// Several <c>[Conditional]</c> attributes are several chances: the call stands if any one of the named
+    /// symbols is defined, so a check that demanded all of them would report this correct node.
+    /// </remarks>
+    [Test]
+    public void AMutatorMarkingInAMultiplyConditionalHelper_IsNotReportedWhenOneSymbolIsDefined()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze(
+            """
+            using System.Diagnostics;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    Invalidate();
+                }
+
+                [Conditional("DEBUG")]
+                [Conditional("TRACE")]
+                private void Invalidate() => MarkChanged();
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """,
+            CSharpParseOptions.Default.WithPreprocessorSymbols("TRACE"));
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "TRACE is defined, so the call is compiled however many other symbols are named");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The mark is written in a local function, and the only name for that local function is inside a lambda
+    /// the body never invokes - so nothing that runs ever reaches it. Asking whether a local function is
+    /// named anywhere in the member answers yes here, because that question reads the whole body including
+    /// the parts it has just decided are unreachable.
+    /// </para>
+    /// <para>
+    /// <c>BESG004</c> answers yes here and has to: it reaches a local function only by descending into one,
+    /// so the name written in the lambda is all it has to go on. This rule walks calls of its own, so a
+    /// local function that reachable code names is followed as a callee instead - which makes declining to
+    /// descend free, and strictly safer. It is the one place the two rules answer differently.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AMutatorWhoseMarkingLocalFunctionIsNamedOnlyFromAnUninvokedLambda_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+
+                    Action unused = () => Invalidate();
+
+                    void Invalidate() => MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "nothing that runs names the local function, so the mark inside it is not in the shipped "
+            + "program however plainly the source spells it");
+    }
+
+    /// <remarks>
+    /// The one position where a lambda needs no name looked for: assigned to a discard, the delegate is made
+    /// and dropped on the same line, so nothing anywhere can run it. Parentheses and a cast stand between the
+    /// lambda and the discard here because they may, and they do not change what becomes of the delegate.
+    /// </remarks>
+    [Test]
+    public void AMutatorMarkingOnlyInADiscardedLambda_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    _bounds = bounds;
+                    _ = (Action)(() => MarkChanged());
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the delegate is discarded where it is made, so the mark inside it can never run");
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The whole mutator sits in a local function nothing names, so neither half of it runs. Reading the
+    /// assignment there while declining to see the mark written two lines below it would report a node that
+    /// is stale in code the program never executes - the shape of report an author answers by suppressing
+    /// the id, taking every real one with it.
+    /// </para>
+    /// <para>
+    /// So both walks read the member on the same terms. The mark alone deciding reachability is what made
+    /// this a report; the assignment asking the same question is what takes it back.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void AMutatorWhoseAssignmentAndMarkBothSitInAnUninvokedLocalFunction_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class QuietNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    void Apply()
+                    {
+                        _bounds = bounds;
+                        MarkChanged();
+                    }
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nothing runs, so there is no recording for this member to leave stale");
+    }
+
+    /// <remarks>
+    /// The negative control for <see cref="AMutatorWhoseAssignmentAndMarkBothSitInAnUninvokedLocalFunction_IsNotReported"/>:
+    /// the same local function, called, and marking nowhere. Nothing follows calls on the way to an
+    /// assignment, so a walk that skipped every local function alike would lose this report outright.
+    /// </remarks>
+    [Test]
+    public void AMutatorAssigningFromAnInvokedLocalFunction_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    Apply();
+
+                    void Apply() => _bounds = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the local function runs and nothing marks, so the node renders stale content");
+    }
+
+    private static ImmutableArray<Diagnostic> Analyze(string source)
+        => Analyze(source, CSharpParseOptions.Default);
+
+    /// <summary>Runs the analyzer over <paramref name="source"/> parsed with <paramref name="parseOptions"/>.</summary>
+    /// <remarks>
+    /// The parse options are a parameter for the sake of the preprocessor symbols: a <c>[Conditional]</c>
+    /// call is kept or dropped by the symbols defined where it is written, so a harness that could not vary
+    /// them could not tell a mark the build keeps from one it removes.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> Analyze(string source, CSharpParseOptions parseOptions)
+    {
+        CSharpCompilation compilation = CreateCompilation(source, parseOptions);
 
         // A source that does not bind produces no analyzer diagnostics, which would let a "stays accepted"
         // case pass without the analyzer ever having looked at it.
@@ -2101,11 +2560,14 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
         => [.. CreateCompilation(source).GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error)];
 
     private static CSharpCompilation CreateCompilation(string source)
+        => CreateCompilation(source, CSharpParseOptions.Default);
+
+    private static CSharpCompilation CreateCompilation(string source, CSharpParseOptions parseOptions)
         => CSharpCompilation.Create(
             "AnalyzerTest",
             [
-                CSharpSyntaxTree.ParseText(RenderNodeStubs),
-                CSharpSyntaxTree.ParseText(source),
+                CSharpSyntaxTree.ParseText(RenderNodeStubs, parseOptions),
+                CSharpSyntaxTree.ParseText(source, parseOptions),
             ],
             AppDomain.CurrentDomain.GetAssemblies()
                 .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
