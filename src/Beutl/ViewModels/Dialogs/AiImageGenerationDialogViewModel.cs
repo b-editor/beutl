@@ -908,9 +908,11 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     // throw away the name of anything else still waiting to be collected.
     private void RetireRequestName(AiRequestName name)
     {
-        _requestKey.Retire(name);
+        if (!_requestKey.Retire(name))
+            return;
         if (_selectedRecovery is { } selected
-            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
+                || !_requestKey.IsCurrentPending(selected)))
         {
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
@@ -967,9 +969,11 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        _requestKey.WithdrawAfterNoReservation(name);
+        if (!_requestKey.WithdrawAfterNoReservation(name))
+            return;
         if (_selectedRecovery is { } selected
-            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
+                || !_requestKey.IsCurrentPending(selected)))
         {
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();

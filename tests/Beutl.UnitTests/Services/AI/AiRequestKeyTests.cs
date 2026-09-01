@@ -794,7 +794,10 @@ public sealed class AiRequestKeyTests
             key.MarkClaimDispatched(claim);
             AiPendingAttempt[] pending = store.PendingFor("account", "video.generate").ToArray();
 
-            Assert.Throws<InvalidDataException>(() => store.SettleMany(pending));
+            Assert.Throws<InvalidDataException>(() => store.SettleMany(
+                "account",
+                "video.generate",
+                pending));
             Assert.That(store.PendingFor("account", "video.generate"), Has.Count.EqualTo(2));
             Assert.Throws<InvalidDataException>(() => key.Abandon(pending.Single(item => item.Key == first.Key)));
             Assert.That(store.Find("account", "video.generate", pending.Single(item => item.Key == first.Key).Fingerprint), Is.Not.Null);
@@ -907,6 +910,171 @@ public sealed class AiRequestKeyTests
 
             Assert.That(store.Find("account", "image.generate", oldAttempt.Fingerprint)?.Key,
                 Is.EqualTo(currentName.Key));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void RetireReportsCasFailureAndKeepsOutstandingName()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var other = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            AiRequestName issued = key.NameFor("same");
+            AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
+
+            Assert.That(other.TrySettle(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint,
+                pending.Key), Is.True);
+            other.WriteOrGet(pending with { Key = "new-owner-key" });
+
+            Assert.That(key.Retire(issued), Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(key.HasOutstandingName.Value, Is.True);
+                Assert.That(store.Find("account", "image.generate", pending.Fingerprint)?.Key,
+                    Is.EqualTo("new-owner-key"));
+            });
+
+            AiRequestName current = key.NameFor("same");
+            Assert.That(current.Key, Is.EqualTo("new-owner-key"));
+            Assert.That(key.Retire(current), Is.True);
+            Assert.That(key.HasOutstandingName.Value, Is.False);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void WithdrawAfterNoReservationReportsCasFailureAndKeepsOutstandingName()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var other = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "video.generate");
+            AiRequestName issued = key.NameFor("same");
+            AiPendingAttempt pending = store.PendingFor("account", "video.generate").Single();
+
+            Assert.That(other.TryWithdraw(
+                pending.AccountId,
+                pending.Operation,
+                pending.Fingerprint,
+                pending.Key), Is.True);
+            other.WriteOrGet(pending with { Key = "new-owner-key" });
+
+            Assert.That(key.WithdrawAfterNoReservation(issued), Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(key.HasOutstandingName.Value, Is.True);
+                Assert.That(store.Find("account", "video.generate", pending.Fingerprint)?.Key,
+                    Is.EqualTo("new-owner-key"));
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void BulkRetireReportsCasFailureWithoutClearingOtherOutstandingNames()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var other = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            _ = key.NameFor("first");
+            _ = key.NameFor("second");
+            AiPendingAttempt[] pending = store.PendingFor("account", "image.generate").ToArray();
+            AiPendingAttempt replaced = pending[0];
+            Assert.That(other.TrySettle(
+                replaced.AccountId,
+                replaced.Operation,
+                replaced.Fingerprint,
+                replaced.Key), Is.True);
+            other.WriteOrGet(replaced with { Key = "new-owner-key" });
+
+            Assert.That(key.Retire(), Is.False);
+            Assert.That(key.HasOutstandingName.Value, Is.True);
+            Assert.That(store.PendingFor("account", "image.generate"), Has.Count.EqualTo(2));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void BulkRetireDoesNotDiscardUnmaterializedDurableRecovery()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            store.WriteOrGet(new AiPendingAttempt(
+                "account", "image.generate", "same", "persisted-key", null,
+                new AiRequestFormSnapshot(Prompt: "same")));
+            var key = new AiRequestKey(
+                seed: "stable-seed",
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+
+            Assert.That(key.Retire(), Is.False);
+            Assert.That(store.Find("account", "image.generate", "same"), Is.Not.Null);
+            Assert.That(key.HasOutstandingName.Value, Is.True);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void BulkRetireDoesNotSettleMaterializedSubsetOfDurableRun()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            _ = key.NameFor("materialized");
+            store.WriteOrGet(new AiPendingAttempt(
+                "account", "image.generate", "not-materialized", "other-key", null,
+                new AiRequestFormSnapshot(Prompt: "other")));
+            AiPendingAttempt[] before = store.PendingFor("account", "image.generate").ToArray();
+
+            Assert.That(key.Retire(), Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(key.HasOutstandingName.Value, Is.True);
+                Assert.That(
+                    store.PendingFor("account", "image.generate")
+                        .Select(static item => (item.AccountId, item.Operation, item.Fingerprint, item.Key)),
+                    Is.EquivalentTo(before.Select(static item =>
+                        (item.AccountId, item.Operation, item.Fingerprint, item.Key))));
+            });
         }
         finally
         {

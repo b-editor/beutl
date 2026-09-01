@@ -903,9 +903,14 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             && entry.Operation == operation
             && entry.Fingerprint == fingerprint)?.Generation ?? 0;
 
-    internal void SettleMany(IEnumerable<AiPendingAttempt> identities)
+    internal bool SettleMany(
+        string accountId,
+        string operation,
+        IEnumerable<AiPendingAttempt> identities)
     {
         ArgumentNullException.ThrowIfNull(identities);
+        ValidateText(accountId, 128, nameof(accountId));
+        ValidateText(operation, 128, nameof(operation));
         AiPendingAttempt[] requested = identities.ToArray();
         foreach (AiPendingAttempt identity in requested)
         {
@@ -918,15 +923,26 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
         {
             using FileStream lease = AcquireLock();
             List<AiPendingAttempt> records = Load();
-            AiPendingAttempt[] removed = records
-                .Where(record => requested.Any(identity =>
+            AiPendingAttempt[] scoped = records.Where(record =>
+                record.AccountId == accountId
+                && (record.Operation == operation
+                    || record.Operation.StartsWith(operation + ".", StringComparison.Ordinal)))
+                .ToArray();
+            // Whole-run retirement is one CAS over the complete operation
+            // scope. A row that was replaced, or one this process never
+            // materialized, keeps every row and generation unchanged.
+            if (scoped.Length != requested.Length
+                || scoped.Any(record => !requested.Any(identity =>
                     identity.AccountId == record.AccountId
                     && identity.Operation == record.Operation
                     && identity.Fingerprint == record.Fingerprint
-                    && identity.Key == record.Key))
-                .ToArray();
+                    && identity.Key == record.Key)))
+            {
+                return false;
+            }
+            AiPendingAttempt[] removed = scoped;
             if (removed.Length == 0)
-                return;
+                return false;
 
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             if (removed.Any(attempt => claims.Any(claim =>
@@ -963,6 +979,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 }
             }
             DeleteDurableSources(removed, records);
+            return true;
         }
     }
 

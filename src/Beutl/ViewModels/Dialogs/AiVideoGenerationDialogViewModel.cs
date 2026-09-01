@@ -1041,11 +1041,14 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     // throw away the name of anything else still waiting to be collected.
     private void RetireRequestName(AiRequestName name)
     {
-        _requestKey.Retire(name);
+        if (!_requestKey.Retire(name))
+            return;
         ReleaseFramesOf(name);
         if (_selectedRecovery is { } selected
-            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
+                || !_requestKey.IsCurrentPending(selected)))
         {
+            ReleaseFramesOf(new AiRequestName(selected.Key, IsRepeat: true));
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
@@ -1060,11 +1063,14 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        _requestKey.WithdrawAfterNoReservation(name);
+        if (!_requestKey.WithdrawAfterNoReservation(name))
+            return;
         ReleaseFramesOf(name);
         if (_selectedRecovery is { } selected
-            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
+                || !_requestKey.IsCurrentPending(selected)))
         {
+            ReleaseFramesOf(new AiRequestName(selected.Key, IsRepeat: true));
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);

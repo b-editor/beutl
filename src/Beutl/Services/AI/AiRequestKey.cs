@@ -390,6 +390,22 @@ internal sealed class AiRequestKey : IDisposable
                 StringComparison.Ordinal)
             && string.Equals(attempt.Operation, ResolveOperation(parts), StringComparison.Ordinal);
 
+    internal bool IsCurrentPending(AiPendingAttempt attempt)
+    {
+        if (_recoveryContext?.TryGetIdentity() is not { } identity
+            || !StringComparer.Ordinal.Equals(identity.AccountId, attempt.AccountId))
+        {
+            return false;
+        }
+
+        AiPendingAttempt? current = _recoveryContext.Store.Find(
+            attempt.AccountId,
+            attempt.Operation,
+            attempt.Fingerprint);
+        return current is not null
+            && StringComparer.Ordinal.Equals(current.Key, attempt.Key);
+    }
+
     internal void PersistForm(
         AiRequestName name,
         AiRequestFormSnapshot form,
@@ -586,12 +602,13 @@ internal sealed class AiRequestKey : IDisposable
     /// request while a first one is still outstanding would leave the first
     /// unreachable, and asking for it again would buy it a second time.
     /// </remarks>
-    public void Retire(AiRequestName name)
+    public bool Retire(AiRequestName name)
     {
         if (string.IsNullOrEmpty(name.Key))
-            return;
+            return false;
 
         bool anyLeft;
+        bool retired = false;
         lock (_gate)
         {
             if (_outstanding.Remove(name.Key, out string? request))
@@ -602,8 +619,6 @@ internal sealed class AiRequestKey : IDisposable
                 string generationIdentity = _recoveryContext is null
                     ? request
                     : $"{issuedAccount}\n{issuedOperation}\n{request}";
-                _generations[generationIdentity] =
-                    _generations.GetValueOrDefault(generationIdentity) + 1;
                 bool removedPersisted = RemovePersisted(
                     request,
                     issuedAccount,
@@ -621,12 +636,15 @@ internal sealed class AiRequestKey : IDisposable
                         _outstandingAccounts[name.Key] = issuedAccount;
                     if (issuedOperation is not null)
                         _outstandingOperations[name.Key] = issuedOperation;
-                    return;
+                    return false;
                 }
+                _generations[generationIdentity] =
+                    _generations.GetValueOrDefault(generationIdentity) + 1;
                 _outstandingAccounts.Remove(name.Key);
                 _outstandingOperations.Remove(name.Key);
                 claim?.Dispose();
                 _claims.Remove(name.Key);
+                retired = true;
             }
 
             anyLeft = HasCurrentOutstandingInMemory() || HasDurableOutstanding();
@@ -634,25 +652,40 @@ internal sealed class AiRequestKey : IDisposable
 
         if (!anyLeft)
             _hasOutstandingName.Value = false;
+        return retired;
     }
 
     /// <summary>
     /// Says every request of this run is settled, and the next one starts under
     /// a seed of its own.
     /// </summary>
-    public void Retire()
+    public bool Retire()
     {
+        bool retired;
         lock (_gate)
         {
             if (_recoveryContext is not null)
             {
-                _recoveryContext.Store.SettleMany(_outstanding.Select(pair =>
-                    new AiPendingAttempt(
-                        _outstandingAccounts[pair.Key],
-                        _outstandingOperations[pair.Key],
-                        pair.Value,
-                        pair.Key)));
+                if (_recoveryContext.TryGetIdentity() is not { } identity
+                    || string.IsNullOrWhiteSpace(_operation))
+                    return false;
+                retired = _recoveryContext.Store.SettleMany(
+                    identity.AccountId,
+                    _operation,
+                    _outstanding.Select(pair =>
+                        new AiPendingAttempt(
+                            _outstandingAccounts[pair.Key],
+                            _outstandingOperations[pair.Key],
+                            pair.Value,
+                            pair.Key)))
+                    || (_outstanding.Count == 0 && !HasDurableOutstanding());
             }
+            else
+            {
+                retired = true;
+            }
+            if (!retired)
+                return false;
             _seed = NewSeed();
             _outstanding.Clear();
             _outstandingAccounts.Clear();
@@ -663,6 +696,7 @@ internal sealed class AiRequestKey : IDisposable
         }
 
         _hasOutstandingName.Value = false;
+        return true;
     }
 
     /// <summary>
@@ -685,7 +719,7 @@ internal sealed class AiRequestKey : IDisposable
     /// still out there is a job that will be bought again.
     /// </para>
     /// </remarks>
-    public void Withdraw(AiRequestName name)
+    public bool Withdraw(AiRequestName name)
         => WithdrawCore(name, ownerAuthorizedDispatched: false);
 
     /// <summary>
@@ -698,15 +732,16 @@ internal sealed class AiRequestKey : IDisposable
     /// still holds the exact live dispatch lease may use this path; ordinary
     /// withdrawal and cross-process abandon remain fail-closed.
     /// </remarks>
-    internal void WithdrawAfterNoReservation(AiRequestName name)
+    internal bool WithdrawAfterNoReservation(AiRequestName name)
         => WithdrawCore(name, ownerAuthorizedDispatched: true);
 
-    private void WithdrawCore(AiRequestName name, bool ownerAuthorizedDispatched)
+    private bool WithdrawCore(AiRequestName name, bool ownerAuthorizedDispatched)
     {
         if (string.IsNullOrEmpty(name.Key))
-            return;
+            return false;
 
         bool anyLeft;
+        bool withdrawn = false;
         lock (_gate)
         {
             if (_outstanding.Remove(name.Key, out string? request))
@@ -738,18 +773,20 @@ internal sealed class AiRequestKey : IDisposable
                         _outstandingAccounts[name.Key] = issuedAccount;
                     if (issuedOperation is not null)
                         _outstandingOperations[name.Key] = issuedOperation;
-                    return;
+                    return false;
                 }
                 _outstandingAccounts.Remove(name.Key);
                 _outstandingOperations.Remove(name.Key);
                 claim?.Dispose();
                 _claims.Remove(name.Key);
+                withdrawn = true;
             }
             anyLeft = HasCurrentOutstandingInMemory() || HasDurableOutstanding();
         }
 
         if (!anyLeft)
             _hasOutstandingName.Value = false;
+        return withdrawn;
     }
 
     private AiRequestName Remember(
@@ -775,6 +812,21 @@ internal sealed class AiRequestKey : IDisposable
                     if (persisted is not null)
                     {
                         string persistedKey = persisted.Key;
+                        string[] staleKeys = _outstanding
+                            .Where(pair => pair.Key != persistedKey
+                                && pair.Value == request
+                                && _outstandingAccounts.GetValueOrDefault(pair.Key) == account
+                                && _outstandingOperations.GetValueOrDefault(pair.Key) == operation)
+                            .Select(static pair => pair.Key)
+                            .ToArray();
+                        foreach (string staleKey in staleKeys)
+                        {
+                            _outstanding.Remove(staleKey);
+                            _outstandingAccounts.Remove(staleKey);
+                            _outstandingOperations.Remove(staleKey);
+                            if (_claims.Remove(staleKey, out AiRequestRecoveryLease? staleClaim))
+                                staleClaim.Dispose();
+                        }
                         if (!_outstanding.ContainsKey(persistedKey))
                         {
                             _outstanding[persistedKey] = request;

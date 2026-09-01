@@ -659,11 +659,15 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     // throw away the name of anything else still waiting to be collected.
     private void RetireRequestName(AiRequestName name)
     {
-        _requestKey.Retire(name);
+        if (!_requestKey.Retire(name))
+            return;
         Forget(name);
         if (_selectedRecovery is { } selected
-            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
+                || !_requestKey.IsCurrentPending(selected)))
         {
+            if (!string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+                Forget(new AiRequestName(selected.Key, IsRepeat: true));
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             _recoveryRevision.Value++;
@@ -677,11 +681,15 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        _requestKey.WithdrawAfterNoReservation(name);
+        if (!_requestKey.WithdrawAfterNoReservation(name))
+            return;
         Forget(name);
         if (_selectedRecovery is { } selected
-            && string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+            && (string.Equals(selected.Key, name.Key, StringComparison.Ordinal)
+                || !_requestKey.IsCurrentPending(selected)))
         {
+            if (!string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
+                Forget(new AiRequestName(selected.Key, IsRepeat: true));
             ClearActiveRecovery();
             ModelPicker.ReconcileRecoveryModels();
             _recoveryRevision.Value++;

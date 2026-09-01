@@ -190,6 +190,114 @@ public sealed class AiFormRecoveryTests
     }
 
     [AvaloniaTest]
+    public async Task StaleCompletionDoesNotClearFormRecoveryOwnedByAnotherProcess()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "Beutl.HeadlessUITests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string sourcePath = Path.Combine(root, "source.png");
+        await File.WriteAllBytesAsync(sourcePath, s_png);
+        var store = new FileAiRequestRecoveryStore(root);
+        AiRequestRecoverySource editSource = FileAiRequestRecoveryStore.CreateExternalSource(
+            "image", sourcePath, "source.png", s_png);
+        AiRequestRecoverySource frameSource = FileAiRequestRecoveryStore.CreateExternalSource(
+            "first-frame", sourcePath, "source.png", s_png);
+        store.WriteOrGet(new AiPendingAttempt(
+            "test-user",
+            "image.generate",
+            "generation-cas",
+            "generation-key",
+            "image-model",
+            new AiRequestFormSnapshot(Prompt: "generation", AspectRatio: "1:1")));
+        store.WriteOrGet(new AiPendingAttempt(
+            "test-user",
+            "image.edit.upscale",
+            "edit-cas",
+            "edit-key",
+            "edit-model",
+            new AiRequestFormSnapshot(Prompt: "edit", Task: "upscale", SourceName: "source.png"),
+            [editSource]));
+        store.WriteOrGet(new AiPendingAttempt(
+            "test-user",
+            "video.generate",
+            "video-cas",
+            "video-key",
+            "video-model",
+            new AiRequestFormSnapshot(
+                Prompt: "video",
+                DurationSeconds: 4,
+                Resolution: "720p",
+                AspectRatio: "16:9",
+                SupportsFirstFrame: true),
+            [frameSource]));
+
+        using var handler = new RecoveryCatalogHandler();
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
+        await using var app = new BeutlApiApplication(client, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var context = NewContext(store, "test-user");
+        await using var generation = CreateGeneration(app, context);
+        await using var edit = CreateEdit(app, context);
+        await using var video = CreateVideo(app, context);
+        await WaitUntilAsync(() => generation.SelectedRecoveryAttempt.Value is not null
+            && edit.SelectedRecoveryAttempt.Value is not null
+            && video.SelectedRecoveryAttempt.Value is not null
+            && generation.ModelPicker.IsLoaded.Value
+            && edit.ModelPicker.IsLoaded.Value
+            && video.ModelPicker.IsLoaded.Value);
+
+        AiPendingAttempt generationAttempt = generation.SelectedRecoveryAttempt.Value!;
+        AiPendingAttempt editAttempt = edit.SelectedRecoveryAttempt.Value!;
+        AiPendingAttempt videoAttempt = video.SelectedRecoveryAttempt.Value!;
+        using (var other = new FileAiRequestRecoveryStore(root))
+        {
+            ReplaceOwner(other, generationAttempt, "generation-new-owner");
+            ReplaceOwner(other, editAttempt, "edit-new-owner");
+            ReplaceOwner(other, videoAttempt, "video-new-owner");
+        }
+
+        InvokeRetireRequestName(generation, generationAttempt);
+        InvokeRetireRequestName(edit, editAttempt);
+        InvokeRetireRequestName(video, videoAttempt);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generation.SelectedRecoveryAttempt.Value?.Key, Is.EqualTo(generationAttempt.Key));
+            Assert.That(edit.SelectedRecoveryAttempt.Value?.Key, Is.EqualTo(editAttempt.Key));
+            Assert.That(video.SelectedRecoveryAttempt.Value?.Key, Is.EqualTo(videoAttempt.Key));
+            Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(edit.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(video.ModelPicker.IsSelectionEnabled.Value, Is.False);
+            Assert.That(edit.SourceFilePath.Value, Is.EqualTo(sourcePath));
+            Assert.That(video.FirstFramePath.Value, Is.EqualTo(sourcePath));
+            Assert.That(RequestKeyOf(generation).HasOutstandingName.Value, Is.True);
+            Assert.That(RequestKeyOf(edit).HasOutstandingName.Value, Is.True);
+            Assert.That(RequestKeyOf(video).HasOutstandingName.Value, Is.True);
+            Assert.That(store.Find("test-user", "image.generate", generationAttempt.Fingerprint)?.Key,
+                Is.EqualTo("generation-new-owner"));
+            Assert.That(store.Find("test-user", "image.edit.upscale", editAttempt.Fingerprint)?.Key,
+                Is.EqualTo("edit-new-owner"));
+            Assert.That(store.Find("test-user", "video.generate", videoAttempt.Fingerprint)?.Key,
+                Is.EqualTo("video-new-owner"));
+        });
+
+        Directory.Delete(root, recursive: true);
+
+        static void ReplaceOwner(
+            FileAiRequestRecoveryStore other,
+            AiPendingAttempt attempt,
+            string replacementKey)
+        {
+            Assert.That(other.TrySettle(
+                attempt.AccountId,
+                attempt.Operation,
+                attempt.Fingerprint,
+                attempt.Key), Is.True);
+            other.WriteOrGet(attempt with { Key = replacementKey });
+        }
+    }
+
+    [AvaloniaTest]
     public async Task RestartedFormsDispatchTheirPersistedKeyModelScalarsAndMultilinePrompt()
     {
         string root = Path.Combine(
@@ -674,6 +782,18 @@ public sealed class AiFormRecoveryTests
 
     private static AiRequestRecoveryContext NewContext(FileAiRequestRecoveryStore store, string account)
         => new(store, () => new AiAuthenticatedRequestIdentity(account, User: null));
+
+    private static AiRequestKey RequestKeyOf(object viewModel)
+        => (AiRequestKey)viewModel.GetType().GetField(
+            "_requestKey",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(viewModel)!;
+
+    private static void InvokeRetireRequestName(object viewModel, AiPendingAttempt attempt)
+        => viewModel.GetType().GetMethod(
+            "RetireRequestName",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(
+                viewModel,
+                [new AiRequestName(attempt.Key, IsRepeat: true)]);
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {

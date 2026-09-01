@@ -656,9 +656,11 @@ public sealed partial class AiSubtitleDialogViewModel
                     // rest of the run takes new ones — and the resume state is
                     // rewritten with them, or a resumed run would ask under the
                     // spent key again.
-                    operation.RequestKey.Retire();
-                    UpdateOutstandingCaptionRequest();
-                    PublishSourceTranscriptionPartial(operation);
+                    if (operation.RequestKey.Retire())
+                    {
+                        UpdateOutstandingCaptionRequest();
+                        PublishSourceTranscriptionPartial(operation);
+                    }
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
@@ -666,6 +668,11 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSourceTranscriptionName(operation, name);
                     throw;
                 }
+                // Settle the durable key before publishing any local progress.
+                // A failed CAS means another owner replaced the recovery row;
+                // leave this operation untouched so it can still be resumed.
+                if (!operation.RequestKey.Retire(name))
+                    return;
                 operation.DetectedLanguage ??= response.Language;
                 double offsetSeconds = chunkOffset / (double)operation.SampleRate;
                 foreach (AiTranscriptionSegment segment in response.Segments)
@@ -681,7 +688,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 operation.CompletedChunkCount++;
                 // This chunk is settled; the rest of the run keeps its own
                 // names, and so does anything else still outstanding.
-                operation.RequestKey.Retire(name);
                 UpdateOutstandingCaptionRequest();
                 switch (PublishSourceTranscriptionPartial(operation))
                 {
@@ -894,9 +900,11 @@ public sealed partial class AiSubtitleDialogViewModel
                     // rest of the run takes new ones — written down as well, or
                     // a run picked up later asks under the spent key again and
                     // gets the same failure every time.
-                    operation.RequestKey.Retire();
-                    UpdateOutstandingCaptionRequest();
-                    PublishSceneTranscriptionPartial(operation);
+                    if (operation.RequestKey.Retire())
+                    {
+                        UpdateOutstandingCaptionRequest();
+                        PublishSceneTranscriptionPartial(operation);
+                    }
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
@@ -904,6 +912,8 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSceneTranscriptionName(operation, name);
                     throw;
                 }
+                if (!operation.RequestKey.Retire(name))
+                    return;
                 operation.DetectedLanguage ??= response.Language;
                 foreach (AiTranscriptionSegment segment in response.Segments)
                 {
@@ -916,7 +926,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 }
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedChunkCount++;
-                operation.RequestKey.Retire(name);
                 UpdateOutstandingCaptionRequest();
                 switch (PublishSceneTranscriptionPartial(operation))
                 {
@@ -1147,9 +1156,11 @@ public sealed partial class AiSubtitleDialogViewModel
                     // left of the run goes out under new ones — and the resume
                     // state is rewritten with them, or a run resumed after a
                     // restart would ask under the spent key again.
-                    operation.RequestKey.Retire();
-                    UpdateOutstandingCaptionRequest();
-                    PublishTranslationPartial(operation);
+                    if (operation.RequestKey.Retire())
+                    {
+                        UpdateOutstandingCaptionRequest();
+                        PublishTranslationPartial(operation);
+                    }
                     throw;
                 }
                 catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
@@ -1157,10 +1168,11 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawTranslationName(operation, name);
                     throw;
                 }
+                if (!operation.RequestKey.Retire(name))
+                    return;
                 AddTranslatedBatch(operation, batch, response);
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedBatchCount++;
-                operation.RequestKey.Retire(name);
                 UpdateOutstandingCaptionRequest();
                 switch (PublishTranslationPartial(operation))
                 {
@@ -1231,20 +1243,24 @@ public sealed partial class AiSubtitleDialogViewModel
         // この実行の名前が、別の依頼のものになっている。残りは新しい名前で。
         catch (AiRequestChangedException)
         {
-            _pendingTranslation?.RequestKey.Retire();
-            UpdateOutstandingCaptionRequest();
-            if (_pendingTranslation is { } changed)
-                PublishTranslationPartial(changed);
+            if (_pendingTranslation?.RequestKey.Retire() == true)
+            {
+                UpdateOutstandingCaptionRequest();
+                if (_pendingTranslation is { } changed)
+                    PublishTranslationPartial(changed);
+            }
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged));
         }
         catch (AiRequestWasDeletedException)
         {
             // The job those names made is gone, so the rest of the run needs
             // new ones; the partial that has been paid for is still good.
-            _pendingTranslation?.RequestKey.Retire();
-            UpdateOutstandingCaptionRequest();
-            if (_pendingTranslation is { } deleted)
-                PublishTranslationPartial(deleted);
+            if (_pendingTranslation?.RequestKey.Retire() == true)
+            {
+                UpdateOutstandingCaptionRequest();
+                if (_pendingTranslation is { } deleted)
+                    PublishTranslationPartial(deleted);
+            }
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted));
         }
         catch (AiModelDoesNotSupportRequestException)
@@ -2544,14 +2560,14 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         if (_pendingSourceTranscription is { } source)
         {
-            source.RequestKey.Retire();
-            PublishSourceTranscriptionPartial(source);
+            if (source.RequestKey.Retire())
+                PublishSourceTranscriptionPartial(source);
         }
 
         if (_pendingSceneTranscription is { } scene)
         {
-            scene.RequestKey.Retire();
-            PublishSceneTranscriptionPartial(scene);
+            if (scene.RequestKey.Retire())
+                PublishSceneTranscriptionPartial(scene);
         }
 
         UpdateOutstandingCaptionRequest();
@@ -2567,7 +2583,8 @@ public sealed partial class AiSubtitleDialogViewModel
         SourceTranscriptionOperation operation,
         AiRequestName name)
     {
-        operation.RequestKey.WithdrawAfterNoReservation(name);
+        if (!operation.RequestKey.WithdrawAfterNoReservation(name))
+            return;
         UpdateOutstandingCaptionRequest();
         PublishSourceTranscriptionPartial(operation);
     }
@@ -2576,7 +2593,8 @@ public sealed partial class AiSubtitleDialogViewModel
         SceneTranscriptionOperation operation,
         AiRequestName name)
     {
-        operation.RequestKey.WithdrawAfterNoReservation(name);
+        if (!operation.RequestKey.WithdrawAfterNoReservation(name))
+            return;
         UpdateOutstandingCaptionRequest();
         PublishSceneTranscriptionPartial(operation);
     }
@@ -2585,7 +2603,8 @@ public sealed partial class AiSubtitleDialogViewModel
         TranslationOperation operation,
         AiRequestName name)
     {
-        operation.RequestKey.WithdrawAfterNoReservation(name);
+        if (!operation.RequestKey.WithdrawAfterNoReservation(name))
+            return;
         UpdateOutstandingCaptionRequest();
         PublishTranslationPartial(operation);
     }
