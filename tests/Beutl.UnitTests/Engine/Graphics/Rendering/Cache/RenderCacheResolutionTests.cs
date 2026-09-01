@@ -66,6 +66,50 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
+    public void Recorder_PreparesASharedNodeOncePerRequestAndStillRecordsEachOccurrence()
+    {
+        var shared = new PreparationCountingNode();
+        using var container = new ContainerRenderNode();
+        container.AddChild(new ReferencesChildRenderNode(shared));
+        container.AddChild(new ReferencesChildRenderNode(shared));
+
+        using var first = NewRequest();
+        using var second = NewRequest();
+        RecordedRenderGraph firstGraph = new RenderRequestRecorder(first).Record(container);
+        RecordedRenderGraph secondGraph = new RenderRequestRecorder(second).Record(container);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                shared.PrepareCount,
+                Is.EqualTo(2),
+                "PrepareForRequest runs once per request however many parents reach the node.");
+            Assert.That(
+                new[] { firstGraph.PublicationRoots.Length, secondGraph.PublicationRoots.Length },
+                Is.All.EqualTo(2),
+                "each parent still publishes the occurrence it recorded, so one call did not merge them.");
+        });
+    }
+
+    [Test]
+    public void Recorder_PreparesANodeReachedWithExplicitInputsOncePerRequest()
+    {
+        var shared = new PreparationCountingNode();
+        using var container = new ContainerRenderNode();
+        container.AddChild(new ReferencesChildRenderNode(shared));
+        container.AddChild(new RecordsWithExplicitInputsNode(shared));
+
+        using var request = NewRequest();
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(container);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shared.PrepareCount, Is.EqualTo(1));
+            Assert.That(graph.PublicationRoots.Length, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void Recorder_KeepsSiblingsCacheableAfterOneOfThemOptsOut()
     {
         var disabledNode = new CacheableNode(disableCache: true);
@@ -1888,6 +1932,33 @@ public sealed class RenderCacheResolutionTests
     private sealed record CollidingKey(string Value)
     {
         public override int GetHashCode() => 7;
+    }
+
+    private sealed class PreparationCountingNode : RenderNode
+    {
+        public int PrepareCount { get; private set; }
+
+        public int ProcessCount { get; private set; }
+
+        public override void PrepareForRequest(RenderNodePreparation preparation) => PrepareCount++;
+
+        public override void Process(RenderNodeContext context)
+        {
+            ProcessCount++;
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
+                "prepared",
+                static (_, _) => { },
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale)));
+        }
+    }
+
+    private sealed class RecordsWithExplicitInputsNode(RenderNode child) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+            => context.PublishRange(context.RecordNode(child, []));
     }
 
     private sealed class CacheableNode(bool disableCache) : RenderNode

@@ -522,9 +522,11 @@ public readonly struct Rect
             if (w > max) max = w;
         }
 
-        // The divisor is affine over the rectangle, so a single sign at the corners means no interior
-        // point reaches the plane and the mapped-corner box is already exact.
-        if (min > 0 || max < 0)
+        // The divisor is affine over the rectangle, so a single sign at the corners means the singularity
+        // lies outside it and the mapped-corner box is already exact. A rectangle wholly in front of the eye
+        // is still measured against the cutoff rather than against zero: when even its farthest corner falls
+        // short of the cutoff, nothing reaches it and the clip below keeps nothing.
+        if ((min > 0 && max >= nearPlane) || max < 0)
             return TransformToMappedCornerAABB(matrix);
 
         Span<Point> clipped = stackalloc Point[8];

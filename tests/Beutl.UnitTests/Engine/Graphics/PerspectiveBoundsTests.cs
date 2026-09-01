@@ -66,6 +66,73 @@ public sealed class PerspectiveBoundsTests
         Assert.That(sliver.TransformToAABB(matrix), Is.EqualTo(Rect.Empty));
     }
 
+    // M33 alone, so the divisor is the same everywhere: the rectangle is wholly in front of the eye and
+    // wholly nearer than the cutoff, which is the one thing that separates it from the cases above.
+    private static Matrix UniformDivisor(float w) => new(1, 0, 0, 0, 1, 0, 0, 0, w);
+
+    [Test]
+    public void WhollyNearerThanTheCutoff_ReachesItNowhereAndIsEmpty()
+    {
+        Matrix matrix = UniformDivisor(0.01f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(matrix.ContainsPerspective(), Is.True);
+            foreach (Point corner in Corners(s_local))
+            {
+                Assert.That(
+                    matrix.GetTransformDivisor(corner),
+                    Is.GreaterThan(0).And.LessThan(Rect.DefaultNearPlane),
+                    "the fixture must put every corner in front of the eye and short of the cutoff");
+            }
+
+            Assert.That(s_local.TransformToAABB(matrix), Is.EqualTo(Rect.Empty));
+        });
+    }
+
+    [Test]
+    public void WhollyBeyondTheCutoff_IsStillTheMappedCornerBox()
+    {
+        Matrix matrix = UniformDivisor(0.5f);
+
+        Assert.Multiple(() =>
+        {
+            foreach (Point corner in Corners(s_local))
+                Assert.That(matrix.GetTransformDivisor(corner), Is.GreaterThan(Rect.DefaultNearPlane));
+
+            Assert.That(
+                s_local.TransformToAABB(matrix),
+                Is.EqualTo(s_local.TransformToMappedCornerAABB(matrix)),
+                "a rectangle the cutoff never touches keeps its exact box");
+        });
+    }
+
+    [Test]
+    public void TheCutoffAndNotTheSign_DecidesAWhollyPositiveRectangle()
+    {
+        Matrix matrix = UniformDivisor(0.01f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                s_local.TransformToAABB(matrix, 0.02f),
+                Is.EqualTo(Rect.Empty),
+                "a cutoff above the divisor reaches nothing");
+            Assert.That(
+                s_local.TransformToAABB(matrix, 0.005f),
+                Is.EqualTo(s_local.TransformToMappedCornerAABB(matrix)),
+                "the same rectangle under a cutoff below the divisor keeps its whole box");
+        });
+    }
+
+    private static IEnumerable<Point> Corners(Rect rect)
+    {
+        yield return rect.TopLeft;
+        yield return rect.TopRight;
+        yield return rect.BottomRight;
+        yield return rect.BottomLeft;
+    }
+
     [TestCase(0.0163f)]
     [TestCase(0.0170f)]
     [TestCase(0.0250f)]

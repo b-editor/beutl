@@ -3,6 +3,8 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -167,6 +169,99 @@ public sealed class ResampledStageHitTestTests
         });
     }
 
+    [TestCaseSource(nameof(DisplacementMapCases))]
+    [Category("GpuPassFusionGpu")]
+    public void DisplacementMap_TheHitTestContract_AgreesWithWhatTheStagePainted(
+        Func<FilterEffect> effect,
+        Point point)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap rendered = Render(s_shiftContent, effect());
+            bool painted = Painted(rendered, (int)point.X, (int)point.Y);
+
+            Assert.That(
+                HitTest(s_shiftContent, effect(), point),
+                Is.EqualTo(painted),
+                $"the displacement map hit test at {point} "
+                + $"{(painted ? "misses a point the stage painted" : "claims a point the stage left clear")}.");
+        });
+    }
+
+    [Test]
+    public void DisplacementMap_ResolvesTheMapItSamplesRatherThanForwardingThePoint()
+    {
+        // The map is opaque everywhere, so the translation is taken in full and the stage reads 20 to the
+        // right of every fragment it writes. Both points are inside the ellipse's box and inside the stage's
+        // own output, which is what makes forwarding answer them and answer them wrongly.
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                HitTest(s_shiftContent, Displace(Translated(20, 0)), new Point(2, 92)),
+                Is.True,
+                "the ellipse covers (22, 92), which is the point this fragment reads");
+            Assert.That(
+                HitTest(s_shiftContent, Displace(Translated(20, 0)), new Point(30, 92)),
+                Is.False,
+                "the ellipse does not cover (50, 92), so the stage vacated the point it used to cover");
+        });
+    }
+
+    [Test]
+    public void DisplacementMap_OverATransparentMap_LeavesTheInputWhereItFoundIt()
+    {
+        // Alpha zero displaces by nothing, so the stage reads the fragment it writes and the contract must
+        // agree with the input exactly - the negative control for a contract that could widen anything.
+        DisplacementMapEffect Effect() => Displace(Translated(20, 0), new SolidColorBrush(Colors.Transparent));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(HitTest(s_shiftContent, Effect(), new Point(30, 92)), Is.True);
+            Assert.That(HitTest(s_shiftContent, Effect(), new Point(2, 92)), Is.False);
+        });
+    }
+
+    [Test]
+    public void DisplacementMap_OverATileBrushMap_DeclaresNoContractRatherThanSamplingIt()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                DeclaredShaderContractOf(Displace(Translated(20, 0))),
+                Is.Not.Null,
+                "a brush whose shader is a pure function of the point carries the resolved contract");
+            Assert.That(
+                DeclaredShaderContractOf(Displace(Translated(20, 0), CreateImageBrush())),
+                Is.Null,
+                "a tile brush's shader rasterizes an intermediate render target, which a hit test must not "
+                + "allocate, so the query stays forwarded");
+        });
+    }
+
+    /// <summary>Reads back the hit-test contract an effect declared, or its absence.</summary>
+    private static RenderHitTestContract? DeclaredShaderContractOf(FilterEffect effect)
+    {
+        using var context = new FilterEffectContext(s_shiftContent);
+        effect.ApplyTo(context, (FilterEffect.Resource)effect.ToResource(CompositionContext.Default));
+        return context.GetOrderedItems()
+            .OfType<FEItem_Shader>()
+            .Single()
+            .Description
+            .HitTest;
+    }
+
+    private static ImageBrush CreateImageBrush()
+    {
+        using var bitmap = new Bitmap(4, 4);
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, EncodedImageFormat.Png);
+
+        var source = new ImageSource();
+        source.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
+        return new ImageBrush(source);
+    }
+
     [TestCase(0.5f)]
     [TestCase(2f)]
     [TestCase(3f)]
@@ -203,6 +298,25 @@ public sealed class ResampledStageHitTestTests
                     Is.EqualTo(
                         HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), point, fullBleed: true)),
                     $"MosaicEffect changed its answer at {point} when the output scale became {outputScale}");
+            }
+
+            // The displacement contracts rebuild a translation, a pivot and a map sample from logical values
+            // that the shader binders express in device pixels, so density is exactly what could move them.
+            foreach ((string name, Func<FilterEffect> effect) in new (string, Func<FilterEffect>)[]
+                     {
+                         ("translate", static () => Displace(Translated(20, 0))),
+                         ("scale", static () => Displace(Scaled(200))),
+                         ("rotation", static () => Displace(Rotated(30))),
+                     })
+            {
+                foreach (Point point in new Point[] { new(2, 92), new(30, 92), new(10, 50), new(55, 85) })
+                {
+                    Assert.That(
+                        HitTest(s_shiftContent, effect(), point, outputScale: outputScale),
+                        Is.EqualTo(HitTest(s_shiftContent, effect(), point)),
+                        $"the displacement {name} contract changed its answer at {point} when the output "
+                        + $"scale became {outputScale}");
+                }
             }
         });
     }
@@ -455,11 +569,54 @@ public sealed class ResampledStageHitTestTests
             static () => Shift(default, default, default, Right(20)),
             s_offsetContent,
             true);
+        yield return Case(
+            "DisplacementMap_Translate", static () => Displace(Translated(20, 0)), s_offsetContent, true);
+        yield return Case(
+            "DisplacementMap_Scale", static () => Displace(Scaled(200)), s_offsetContent, true);
+        yield return Case(
+            "DisplacementMap_Rotation", static () => Displace(Rotated(90)), s_offsetContent, true);
 
         static TestCaseData Case(string name, Func<FilterEffect> effect, Rect content, bool fullBleed)
             => new TestCaseData(effect, content, fullBleed)
                 .SetName($"TheContracts_NeverAnswerOutsideTheFragmentsOwnOutput_{name}");
     }
+
+    private static IEnumerable<TestCaseData> DisplacementMapCases()
+    {
+        // Every point is inside the stage's own output and inside the ellipse's box, so what separates them
+        // is only where the entry point read - which is the whole of what the contract has to restate.
+        yield return Case("Translate_Arrived", static () => Displace(Translated(20, 0)), new Point(2, 92));
+        yield return Case("Translate_Vacated", static () => Displace(Translated(20, 0)), new Point(30, 92));
+        yield return Case("Translate_Middle", static () => Displace(Translated(20, 0)), new Point(10, 50));
+        yield return Case("Translate_Beyond", static () => Displace(Translated(20, 0)), new Point(50, 92));
+        yield return Case("Scale_Magnified_Arrived", static () => Displace(Scaled(200)), new Point(2, 80));
+        yield return Case("Scale_Magnified_Middle", static () => Displace(Scaled(200)), new Point(30, 50));
+        yield return Case("Scale_Reduced_Vacated", static () => Displace(Scaled(50)), new Point(12, 30));
+        yield return Case("Scale_Reduced_Middle", static () => Displace(Scaled(50)), new Point(30, 50));
+        yield return Case("Rotation_Arrived", static () => Displace(Rotated(30)), new Point(55, 85));
+        yield return Case("Rotation_Vacated", static () => Displace(Rotated(30)), new Point(30, 97));
+        yield return Case("Rotation_Pivot", static () => Displace(Rotated(30)), new Point(30, 50));
+
+        static TestCaseData Case(string name, Func<FilterEffect> effect, Point point)
+            => new TestCaseData(effect, point)
+                .SetName($"DisplacementMap_TheHitTestContract_AgreesWithWhatTheStagePainted_{name}");
+    }
+
+    private static DisplacementMapEffect Displace(DisplacementMapTransform transform, Brush? map = null)
+        => new()
+        {
+            DisplacementMap = { CurrentValue = map ?? new SolidColorBrush(Colors.White) },
+            Transform = { CurrentValue = transform },
+        };
+
+    private static DisplacementMapTranslateTransform Translated(float x, float y)
+        => new() { X = { CurrentValue = x }, Y = { CurrentValue = y } };
+
+    private static DisplacementMapScaleTransform Scaled(float percent)
+        => new() { ScaleX = { CurrentValue = percent }, ScaleY = { CurrentValue = percent } };
+
+    private static DisplacementMapRotationTransform Rotated(float degrees)
+        => new() { Rotation = { CurrentValue = degrees } };
 
     private static IEnumerable<TestCaseData> ColorShiftCases()
     {

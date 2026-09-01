@@ -10,6 +10,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private readonly RecordedRenderGraphBuilder _builder;
     private readonly List<PendingRenderCacheCandidate> _pendingCacheCandidates = [];
     private readonly HashSet<RenderNode> _cacheCandidateNodes = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<RenderNode> _preparedNodes = new(ReferenceEqualityComparer.Instance);
     private int _crossCheckProbeDepth;
     private bool _recorded;
 
@@ -116,7 +117,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         NodeRecordingTransaction? parent)
     {
         using ActiveNodeScope scope = EnterNode(node);
-        node.PrepareForRequest(new RenderNodePreparation(Request.Options));
+        PrepareForRequest(node);
         var inputs = new List<RenderFragmentReference>();
         if (node is ContainerRenderNode container)
         {
@@ -138,10 +139,10 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         {
             scope = EnterNode(node);
 
-            // The subtree walk already prepared this node on its way down. A node reached with explicit
-            // inputs is not walked, so this is where it gets its one call for the request - the contract is
-            // that PrepareForRequest runs before Process, on every request, however the node is reached.
-            node.PrepareForRequest(new RenderNodePreparation(Request.Options));
+            // The subtree walk prepares a node on its way down. A node reached with explicit inputs is not
+            // walked, so this is where it is prepared instead - the contract is that PrepareForRequest runs
+            // before Process, on every request, however the node is reached.
+            PrepareForRequest(node);
         }
 
         try
@@ -225,6 +226,18 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             snapshot.Shape = RecordedNodeShape.Capture(inputs, transaction);
 
         node.RecordingSnapshot = snapshot;
+    }
+
+    /// <summary>Gives <paramref name="node"/> its one preparation for this request.</summary>
+    /// <remarks>
+    /// A node reachable from more than one parent is recorded once per parent, and each of those recordings
+    /// arrives here. Preparing it again would let an override that rebuilds or replaces request-dependent
+    /// children invalidate what the earlier occurrence already recorded over them.
+    /// </remarks>
+    private void PrepareForRequest(RenderNode node)
+    {
+        if (_preparedNodes.Add(node))
+            node.PrepareForRequest(new RenderNodePreparation(Request.Options));
     }
 
     private ActiveNodeScope EnterNode(RenderNode node)

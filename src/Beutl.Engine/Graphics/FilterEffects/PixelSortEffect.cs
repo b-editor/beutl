@@ -317,17 +317,17 @@ public sealed partial class PixelSortEffect : FilterEffect
             RenderTarget? renderTarget = target.RenderTarget;
             if (renderTarget?.Texture == null) continue;
 
-            // These passes read the backing texture from a separate Vulkan submission, which Skia's
-            // own ordering does not cover: an unsubmitted source reads back empty, and an empty
-            // source makes every pixel an anchor, so the gather pass returns the unsorted image.
-            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-
-            ITexture2D originalTexture = renderTarget.Texture;
-            int width = originalTexture.Width;
-            int height = originalTexture.Height;
-
             try
             {
+                // These passes read the backing texture from a separate Vulkan submission, which Skia's
+                // own ordering does not cover: an unsubmitted source reads back empty, and an empty
+                // source makes every pixel an anchor, so the gather pass returns the unsorted image.
+                renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+
+                ITexture2D originalTexture = renderTarget.Texture;
+                int width = originalTexture.Width;
+                int height = originalTexture.Height;
+
                 using NativeFilterTextureLease prepLease = ctx.AcquireNativeScratchTexture(
                     gfx,
                     width,
