@@ -1806,6 +1806,278 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             + "the rule, not a verdict that the node is correct");
     }
 
+    /// <remarks>
+    /// A ref local is the assignment shape with the name moved one statement up: <c>alias = value</c>
+    /// changes the very storage <c>Process</c> reads, and only the alias standing between the field and the
+    /// <c>=</c> differs. Reading the two out differently let an ordinary mutator past the rule, because the
+    /// field's own reference sits under a <c>ref</c> that writes nothing and the write names a local this
+    /// rule never tracked.
+    /// </remarks>
+    [Test]
+    public void AMutatorWritingThroughARefLocalAlias_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    ref Rect alias = ref _bounds;
+                    alias = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the alias writes the field Process reads, and no mark says the recording went stale");
+    }
+
+    [Test]
+    public void AMutatorWritingThroughARefVarAlias_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    ref var alias = ref _bounds;
+                    alias = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "ref var names the same storage ref Rect does");
+    }
+
+    [Test]
+    public void AMutatorThatMarksAfterWritingThroughARefLocalAlias_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    ref Rect alias = ref _bounds;
+                    alias = bounds;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the mark is what the rule asks for, however the write is spelled");
+    }
+
+    /// <remarks>
+    /// The bound that keeps the alias tracking from becoming a rule about every <c>ref</c>: what a ref local
+    /// aliases decides the answer, and a local, or an element of one, is not state <c>Process</c> reads.
+    /// </remarks>
+    [Test]
+    public void AMutatorWritingThroughARefLocalAliasOfALocal_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public Rect Measure(Rect bounds)
+                {
+                    Rect scratch = default;
+                    ref Rect alias = ref scratch;
+                    alias = bounds;
+                    return scratch;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the alias names a local, which no recording ever read");
+    }
+
+    [Test]
+    public void AMutatorWritingThroughARefLocalAliasOfALocalArrayElement_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public Rect Measure(Rect bounds)
+                {
+                    Rect[] scratch = new Rect[1];
+                    ref Rect alias = ref scratch[0];
+                    alias = bounds;
+                    return scratch[0];
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "an element of a local is a local, however the alias reaches it");
+    }
+
+    /// <remarks>
+    /// Taking a writable reference is not itself the change: a member read through the alias leaves the
+    /// recording as it was, and reporting it would make the rule one about <c>ref</c> rather than about
+    /// mutation.
+    /// </remarks>
+    [Test]
+    public void AMemberOnlyReadingThroughARefLocalAlias_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public float Measure()
+                {
+                    ref Rect alias = ref _bounds;
+                    return alias.X;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nothing was written, so there is no later frame to invalidate");
+    }
+
+    [Test]
+    public void AMutatorWritingThroughAnAliasOfAnAlias_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                public void Update(Rect bounds)
+                {
+                    ref Rect first = ref _bounds;
+                    ref Rect second = ref first;
+                    second = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a second name for the first alias reaches the same storage, so a chain of them is one write");
+    }
+
+    /// <remarks>
+    /// The bound this tracking is written to: reading a body in source order says which storage an alias
+    /// was given, not which one it holds at a given statement, so a rebound alias is dropped rather than
+    /// guessed at. The silence costs a report and never invents one.
+    /// </remarks>
+    [Test]
+    public void AMutatorWritingThroughARebindableAlias_IsAKnownGapTheRuleMisses()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ForgetfulNode : RenderNode
+            {
+                private Rect _bounds;
+                private Rect _scratch;
+
+                public void Update(Rect bounds, bool other)
+                {
+                    ref Rect alias = ref _bounds;
+                    if (other)
+                        alias = ref _scratch;
+
+                    alias = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "which storage the alias holds at the write is a question about paths this rule does not read; "
+            + "the silence is a recorded limit, not a verdict that the node is correct");
+    }
+
     private static ImmutableArray<Diagnostic> Analyze(string source)
     {
         CSharpCompilation compilation = CreateCompilation(source);

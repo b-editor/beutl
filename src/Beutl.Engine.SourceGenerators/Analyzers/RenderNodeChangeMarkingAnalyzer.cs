@@ -463,13 +463,25 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         {
             foreach (BodyWithModel body in GetBodies(method))
             {
+                Dictionary<ISymbol, ISymbol> aliases = CollectRefLocalAliases(body, trackedState);
+
                 foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
                 {
-                    if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference
-                        || !trackedState.Contains(symbol))
+                    if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference)
+                        continue;
+
+                    // A ref local is the state itself under another name, and the name carries no receiver
+                    // to ask about: which storage it aliases was decided where it was declared.
+                    if (aliases.TryGetValue(symbol, out ISymbol? aliased))
                     {
+                        if (ChangesTheValueBehind(reference.Access))
+                            yield return new StateAssignment(aliased, reference.Access.GetLocation());
+
                         continue;
                     }
+
+                    if (!trackedState.Contains(symbol))
+                        continue;
 
                     // An assignment to another instance of the same type is a different object's state, and
                     // marking this node changed would say nothing about it.
@@ -478,6 +490,107 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
                     if (ChangesTheValueBehind(reference.Access))
                         yield return new StateAssignment(symbol, reference.Access.GetLocation());
+                }
+            }
+        }
+
+        /// <returns>The ref locals in the body that name state <c>Process</c> reads, and what each names.</returns>
+        /// <remarks>
+        /// <para>
+        /// <c>ref var alias = ref _bounds;</c> puts the field's own reference under a <c>ref</c>, which
+        /// writes nothing, and the write one statement later names only the local - so both halves of an
+        /// ordinary mutator went past the rule while the node still rendered stale content.
+        /// </para>
+        /// <para>
+        /// Taking the reference is not itself the change, which is why this is tracked rather than read as
+        /// a write: a member that only reads through the alias leaves the recording as it was, and
+        /// reporting it would make this a rule about <c>ref</c> instead of about mutation.
+        /// </para>
+        /// <para>
+        /// Out through brackets, on the terms <see cref="ChangesTheValueBehind"/> already sets: a reference
+        /// to an element of a tracked collection is a reference into that collection. A ref local aliasing
+        /// anything else - a local, an element of one, another object's member - names storage no recording
+        /// of this node ever read, and is not tracked.
+        /// </para>
+        /// </remarks>
+        private static Dictionary<ISymbol, ISymbol> CollectRefLocalAliases(
+            BodyWithModel body,
+            ImmutableHashSet<ISymbol> trackedState)
+        {
+            var aliases = new Dictionary<ISymbol, ISymbol>(SymbolEqualityComparer.Default);
+
+            foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf())
+            {
+                switch (node)
+                {
+                    case VariableDeclaratorSyntax { Initializer.Value: RefExpressionSyntax aliased } declarator
+                        when body.Model.GetDeclaredSymbol(declarator) is ILocalSymbol { IsRef: true } local:
+                        if (GetAliasedState(body.Model, aliases, trackedState, aliased) is { } state)
+                            aliases[local] = state;
+
+                        break;
+
+                    // alias = ref other rebinds which storage the name reaches, and this reads a body in
+                    // source order rather than along its paths, so a rebound alias is one whose referent it
+                    // cannot say. Dropping it can cost a report and can never invent one.
+                    case AssignmentExpressionSyntax { Right: RefExpressionSyntax } rebind
+                        when body.Model.GetSymbolInfo(rebind.Left).Symbol is { } rebound:
+                        aliases.Remove(rebound);
+                        break;
+                }
+            }
+
+            return aliases;
+        }
+
+        /// <returns>
+        /// The tracked state a <c>ref</c> expression reaches, through another alias where it names one, or
+        /// <see langword="null"/> when it reaches storage no recording of this node reads.
+        /// </returns>
+        /// <remarks>
+        /// An alias of an alias names whatever the first one named, and a local carries no receiver of its
+        /// own, so the question <see cref="StateReference.OnThisInstance"/> answers was settled where that
+        /// first alias was declared. A declaration always precedes the aliases of it, so reading the body in
+        /// source order is enough to have the answer by the time it is asked for.
+        /// </remarks>
+        private static ISymbol? GetAliasedState(
+            SemanticModel model,
+            Dictionary<ISymbol, ISymbol> aliases,
+            ImmutableHashSet<ISymbol> trackedState,
+            RefExpressionSyntax aliased)
+        {
+            if (GetStateReference(model, GetAliasedName(aliased.Expression))
+                is not { Symbol: { } symbol } reference)
+            {
+                return null;
+            }
+
+            if (aliases.TryGetValue(symbol, out ISymbol? chained))
+                return chained;
+
+            return reference.OnThisInstance && trackedState.Contains(symbol) ? symbol : null;
+        }
+
+        /// <returns>The node naming the storage a <c>ref</c> expression points at.</returns>
+        private static SyntaxNode GetAliasedName(ExpressionSyntax expression)
+        {
+            while (true)
+            {
+                switch (expression)
+                {
+                    case ParenthesizedExpressionSyntax parenthesized:
+                        expression = parenthesized.Expression;
+                        continue;
+
+                    case ElementAccessExpressionSyntax element:
+                        expression = element.Expression;
+                        continue;
+
+                    case MemberAccessExpressionSyntax memberAccess:
+                        return memberAccess.Name;
+
+                    default:
+                        return expression;
                 }
             }
         }

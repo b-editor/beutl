@@ -4161,6 +4161,687 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A body nothing runs is not a body the callback reads. Descending into an uncalled local function
+    /// reported a static the callback never touches, and a rule that fires on code the program does not run
+    /// is one an author suppresses wholesale.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaDeclaringALocalFunctionItNeverCalls_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            static float Unused() => Settings.Offset;
+
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nothing calls it, so the callback answers the same way twice whatever that body names");
+    }
+
+    /// <remarks>
+    /// A name written inside the declaration is not something that runs it: a local function reaching only
+    /// itself is still one the body never enters.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaDeclaringALocalFunctionThatOnlyCallsItself_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            static float Unused(int depth)
+                                => depth <= 0 ? Settings.Offset : Unused(depth - 1);
+
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the only call to it is its own, and the callback never makes the first one");
+    }
+
+    /// <remarks>
+    /// The control on the case above: skipping a body nothing runs must not skip the one that does.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingALocalFunctionThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            static float Read() => Settings.Offset;
+
+                            return new Rect(Read(), value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the call runs that body, and moving the read into a local function does not change what the "
+            + "callback answers");
+    }
+
+    /// <remarks>
+    /// A non-static local function is the same case: it has no receiver to identify, only the scope it was
+    /// written in, so what it reads is read every time it is called.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaCallingANonStaticLocalFunctionThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            float Read() => value.X + Settings.Offset;
+
+                            return new Rect(Read(), value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the call runs that body whether or not the local function says static");
+    }
+
+    [Test]
+    public void AStaticLambdaHoldingALambdaItNeverInvokes_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Func<float> unused = static () => Settings.Offset;
+
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the delegate is made and dropped, so that body is never a body the callback runs");
+    }
+
+    /// <remarks>
+    /// The control on the case above, and the reason the bound is written as reachability rather than as a
+    /// blanket skip: a lambda the callback goes on to invoke reads exactly what the same body written
+    /// inline would.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaInvokingALambdaThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Func<float> read = static () => Settings.Offset;
+
+                            return new Rect(read(), value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the callback invokes it, so that read is one the callback makes");
+    }
+
+    /// <remarks>
+    /// A lambda handed to something else is reachable on the only terms this rule can judge: what the
+    /// receiver does with it is not in the callback, and reading it as never invoked would let any static
+    /// read out behind a LINQ operator.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaPassingALambdaThatReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using System.Linq;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            float[] widths = [value.Width];
+
+                            return new Rect(
+                                widths.Select(static width => width + Settings.Offset).First(),
+                                value.Y,
+                                value.Width,
+                                value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the operator runs that body, and the rule cannot read the operator to find out how often");
+    }
+
+    /// <remarks>
+    /// A deconstruction runs a method the source never spells: there is no name beside the value for the
+    /// walk to find, so a <c>Deconstruct</c> reading a mutable static was a read the callback made and the
+    /// rule never saw.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaDeconstructingAValueWhoseDeconstructReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal readonly struct BoundsState
+            {
+                public void Deconstruct(out float x, out float y)
+                {
+                    x = Settings.Offset;
+                    y = 0f;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var (x, y) = new BoundsState();
+
+                            return new Rect(x, y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the deconstruction runs that body once per call, exactly as a named call would");
+    }
+
+    [Test]
+    public void AStaticLambdaDeconstructingATuple_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var (x, y) = (value.X, value.Y);
+
+                            return new Rect(x, y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a tuple deconstruction runs no method at all, so there is nothing to follow");
+    }
+
+    /// <remarks>
+    /// A positional record's <c>Deconstruct</c> is written by the compiler and has no source here, which is
+    /// the no-source answer the walk already gives every callee: stop without reporting.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaDeconstructingAPositionalRecord_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed record BoundsState(float X, float Y);
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var (x, y) = new BoundsState(1f, 2f);
+
+                            return new Rect(x, y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nothing the compiler synthesised reads anything the rule has to prove");
+    }
+
+    [Test]
+    public void AStaticLambdaDeconstructingAValueWhoseDeconstructReadsItsOwnFields_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal readonly struct BoundsState
+            {
+                private readonly float _x;
+                private readonly float _y;
+
+                public BoundsState(float x, float y)
+                {
+                    _x = x;
+                    _y = y;
+                }
+
+                public void Deconstruct(out float x, out float y)
+                {
+                    x = _x;
+                    y = _y;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var (x, y) = new BoundsState(value.X, value.Y);
+
+                            return new Rect(x, y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the body reads the instance the callback made and nothing static, which is what following a "
+            + "Deconstruct is for");
+    }
+
+    /// <remarks>
+    /// The same implicit call written as a loop header. Answering the two spellings differently would make
+    /// the rule one an author escapes by moving the deconstruction into a <c>foreach</c>.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaDeconstructingInAForEachWhoseDeconstructReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal readonly struct BoundsState
+            {
+                public void Deconstruct(out float x, out float y)
+                {
+                    x = Settings.Offset;
+                    y = 0f;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            float width = 0f;
+                            foreach (var (x, y) in new BoundsState[1])
+                                width += x + y;
+
+                            return new Rect(value.X, value.Y, width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the loop header runs that body once per element, which is more than once per call and not "
+            + "less");
+    }
+
+    /// <remarks>
+    /// A deconstruction of a deconstruction runs a method per level, and the walk has to reach every one:
+    /// stopping at the outer method would leave an inner one as a place to put a read.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaWhoseNestedDeconstructReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal readonly struct Inner
+            {
+                public void Deconstruct(out float x, out float y)
+                {
+                    x = Settings.Offset;
+                    y = 0f;
+                }
+            }
+
+            internal readonly struct Outer
+            {
+                public void Deconstruct(out float width, out Inner inner)
+                {
+                    width = 0f;
+                    inner = default;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var (width, (x, y)) = new Outer();
+
+                            return new Rect(x, y, width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the inner Deconstruct runs too, and a read moved one level in is still a read the callback "
+            + "makes");
+    }
+
+    /// <remarks>
+    /// A <c>with</c> runs a copy constructor the source never spells, and the expression does not bind to it
+    /// either - the symbol has to be read off the operand's type. Leaving it out let a callback move a
+    /// static read into a copy constructor and keep the rule silent.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingWithWhoseCopyConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed record BoundsState(float X)
+            {
+                private BoundsState(BoundsState original) => X = original.X + Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState(value.X) with { };
+
+                            return new Rect(state.X, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the with runs that constructor once per call, and the read in it is the callback's");
+    }
+
+    /// <remarks>
+    /// The braces of a <c>with</c> run setters on the copy the expression just made, which is a creation
+    /// this rule can point at on exactly the terms an object creation is.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingWithWhoseInitialiserSetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed record BoundsState
+            {
+                private readonly float _x;
+
+                public float X
+                {
+                    get => _x;
+                    init => _x = value + Settings.Offset;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState() with { X = value.X };
+
+                            return new Rect(state.X, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the setter runs where the with is written, so the static it reads is one the callback reads");
+    }
+
+    /// <remarks>
+    /// A <c>with</c> on a record struct copies the value and runs no constructor, so a one-parameter
+    /// constructor the struct happens to declare is not what the expression runs - and following it would
+    /// report a body nothing executes.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaUsingWithOnARecordStructThatDeclaresACopyConstructor_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal record struct BoundsState
+            {
+                public float X { get; set; }
+
+                public BoundsState(BoundsState original)
+                {
+                    X = original.X + Settings.Offset;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState() with { X = 0f };
+
+                            return new Rect(state.X, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the with never runs that constructor, and the creation beside it is walked where it is written");
+    }
+
+    [Test]
+    public void AStaticLambdaUsingWithOnAPlainRecord_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed record BoundsState(float X, float Y);
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState(value.X, value.Y) with { Y = 0f };
+
+                            return new Rect(state.X, state.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the copy constructor and the setters are all the compiler's, and none of them has source here "
+            + "to read");
+    }
+
+    /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// description's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.

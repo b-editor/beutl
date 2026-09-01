@@ -689,7 +689,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        foreach (SyntaxNode node in body.DescendantNodesAndSelf())
+        foreach (SyntaxNode node in body.DescendantNodesAndSelf(
+            child => RunsNestedFunction(context, model, body, child)))
         {
             // A user-defined implicit conversion is spelled nowhere at all - it is implied by the type the
             // expression is used as - so it is asked for rather than found.
@@ -769,6 +770,115 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             report(name, kind, symbol!, reason);
         }
+    }
+
+    /// <summary>
+    /// Whether the body being walked can run <paramref name="nested"/>, for a nested function it declares.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A body nothing runs is not a body the callback reads. Descending into every nested function alike
+    /// reported a static named in a local function nobody calls, which is a diagnostic about code the
+    /// program never executes - and on a public extension point the author's only answer to one of those is
+    /// to suppress the id and lose every real report with it.
+    /// </para>
+    /// <para>
+    /// Reachability rather than a blanket skip, because the walk has to keep the case it exists for. A
+    /// lambda handed to anything at all - an argument, a return, a field, an immediate invocation - is run
+    /// by code this rule is not reading, so it stays walked: answering otherwise would let any static read
+    /// out from under the rule behind a LINQ operator. Only the two shapes that say the function is
+    /// unreachable in the body itself are skipped, and both are decided by names written in that body.
+    /// </para>
+    /// </remarks>
+    private static bool RunsNestedFunction(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        SyntaxNode nested)
+    {
+        switch (nested)
+        {
+            // A local function is reached only by its own name, so a name written for it somewhere else in
+            // the body is the whole of what can run it.
+            case LocalFunctionStatementSyntax function:
+                return model.GetDeclaredSymbol(function, context.CancellationToken) is not { } declared
+                       || IsNamedOutside(context, model, body, declared, function);
+
+            case AnonymousFunctionExpressionSyntax lambda:
+                return RunsLambda(context, model, body, lambda);
+
+            default:
+                return true;
+        }
+    }
+
+    /// <remarks>
+    /// A lambda is an expression, so what can run it is decided by what the body does with the delegate it
+    /// makes. Held in a local, that is whatever names the local; assigned to a discard, nothing at all.
+    /// Every other position hands the delegate somewhere this rule cannot read, and is walked.
+    /// </remarks>
+    private static bool RunsLambda(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        AnonymousFunctionExpressionSyntax lambda)
+    {
+        ExpressionSyntax stored = lambda;
+        while (stored.Parent is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+            stored = (ExpressionSyntax)stored.Parent;
+
+        if (stored.Parent is AssignmentExpressionSyntax assignment
+            && assignment.Right == stored
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IDiscardSymbol)
+        {
+            return false;
+        }
+
+        if (stored.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+            && model.GetDeclaredSymbol(declarator, context.CancellationToken) is ILocalSymbol local)
+        {
+            return IsNamedOutside(context, model, body, local, lambda);
+        }
+
+        return true;
+    }
+
+    /// <returns>
+    /// Whether any name in <paramref name="body"/> written outside <paramref name="declaration"/> binds to
+    /// <paramref name="symbol"/>.
+    /// </returns>
+    /// <remarks>
+    /// Names inside the declaration itself do not count: a local function that only calls itself, and a
+    /// lambda that only names the local it was stored in, are each still unreachable from the body.
+    /// </remarks>
+    private static bool IsNamedOutside(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        ISymbol symbol,
+        SyntaxNode declaration)
+    {
+        foreach (SyntaxNode node in body.DescendantNodesAndSelf())
+        {
+            // The text test is what keeps this affordable: it costs a string compare per node and leaves a
+            // semantic query only for the names that could be this one.
+            if (node is not IdentifierNameSyntax name
+                || name.Identifier.ValueText != symbol.Name
+                || declaration.Span.Contains(name.Span))
+            {
+                continue;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(
+                    model.GetSymbolInfo(name, context.CancellationToken).Symbol,
+                    symbol))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <returns>
@@ -893,6 +1003,34 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (node is WithExpressionSyntax with)
+        {
+            FollowWithExpression(context, model, with, depth, walked, report);
+            return;
+        }
+
+        // A deconstruction spells its Deconstruct nowhere and binds to nothing, so the method is asked for
+        // by GetDeconstructionInfo rather than found, exactly as an implicit conversion is.
+        if (node is AssignmentExpressionSyntax { Left: TupleExpressionSyntax or DeclarationExpressionSyntax }
+                deconstruction
+            && deconstruction.IsKind(SyntaxKind.SimpleAssignmentExpression))
+        {
+            FollowDeconstruction(
+                context,
+                model.GetDeconstructionInfo(deconstruction),
+                node,
+                depth,
+                walked,
+                report);
+            return;
+        }
+
+        if (node is ForEachVariableStatementSyntax loop)
+        {
+            FollowDeconstruction(context, model.GetDeconstructionInfo(loop), node, depth, walked, report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -915,6 +1053,100 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 FollowCall(context, invoked, node, "static method", depth, walked, report);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Follows what a <c>with</c> expression runs: the copy constructor that makes the new instance, and
+    /// the setters the braces then run on it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Neither is spelled in the source, and the expression does not bind to the constructor either -
+    /// asking it for a symbol answers with nothing - so the constructor is read off the declared type of
+    /// the operand. A record that declares no copy constructor of its own gets the compiler's, which has no
+    /// source here and stops the walk where every other bodiless callee does.
+    /// </para>
+    /// <para>
+    /// Only for a class. A <c>with</c> on a record struct copies the value and runs no constructor at all,
+    /// so following a one-parameter constructor a struct happens to declare would report a body the
+    /// expression never runs.
+    /// </para>
+    /// <para>
+    /// Its body alone, and not the instance initialisers <see cref="FollowConstructor"/> reads for an
+    /// object creation: a copy constructor does not run them - it copies the fields the operand already
+    /// holds - and the creation that did run them is walked where it is written.
+    /// </para>
+    /// <para>
+    /// The braces run setters on the copy this expression just made, which is the identity
+    /// <see cref="FollowReceiverCreation"/> asks of every other instance member and which the copy answers
+    /// for the same reasons an object creation does: it is made right here, of exactly the operand's type,
+    /// and it is what every one of those setters runs on.
+    /// </para>
+    /// </remarks>
+    private static void FollowWithExpression(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        WithExpressionSyntax with,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (model.GetTypeInfo(with.Expression, context.CancellationToken).Type
+            is INamedTypeSymbol { TypeKind: TypeKind.Class } copied
+            && GetCopyConstructor(copied) is { } copy)
+        {
+            FollowCall(context, copy, with, "constructor", depth, walked, report);
+        }
+
+        foreach (ExpressionSyntax assigned in with.Initializer.Expressions)
+        {
+            if (assigned is AssignmentExpressionSyntax { Left: { } target }
+                && model.GetSymbolInfo(target, context.CancellationToken).Symbol
+                    is IPropertySymbol { IsStatic: false, SetMethod: { } setter })
+            {
+                FollowCall(context, setter, target, "property", depth, walked, report);
+            }
+        }
+    }
+
+    /// <returns>
+    /// The constructor a <c>with</c> on <paramref name="type"/> runs, or <see langword="null"/> when the
+    /// type declares none - which is every type that is not a record.
+    /// </returns>
+    private static IMethodSymbol? GetCopyConstructor(INamedTypeSymbol type)
+        => type.InstanceConstructors.FirstOrDefault(
+            constructor => constructor.Parameters.Length == 1
+                           && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, type));
+
+    /// <summary>Follows the <c>Deconstruct</c> a deconstruction runs, and the ones its elements run.</summary>
+    /// <remarks>
+    /// A tuple on the right deconstructs by position and runs nothing, which is the empty answer here. A
+    /// positional record's <c>Deconstruct</c> is the compiler's and has no source, which is the bodiless
+    /// answer <see cref="FollowCall"/> already gives. What is left is the method an author wrote, which
+    /// runs once per run of the deconstruction and can read anything a named call can.
+    /// </remarks>
+    private static void FollowDeconstruction(
+        SyntaxNodeAnalysisContext context,
+        DeconstructionInfo deconstruction,
+        SyntaxNode node,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (deconstruction.Method is { } deconstruct)
+        {
+            FollowCall(
+                context,
+                deconstruct,
+                node,
+                RunsAStaticMethod(deconstruct) ? "static method" : "method",
+                depth,
+                walked,
+                report);
+        }
+
+        foreach (DeconstructionInfo nested in deconstruction.Nested)
+            FollowDeconstruction(context, nested, node, depth, walked, report);
     }
 
     /// <remarks>
