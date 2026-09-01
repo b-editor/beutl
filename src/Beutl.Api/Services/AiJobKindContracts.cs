@@ -92,7 +92,7 @@ public interface IAiJobRefreshHandler
 }
 
 /// <summary>
-/// The resource-free result of checking whether a failed AI job may be retried.
+/// The resource-free result of checking whether a terminal AI job is eligible for retry.
 /// </summary>
 /// <remarks>
 /// A preflight is only an estimate for presentation. It must not reserve
