@@ -3,8 +3,12 @@
 /// <summary>Declares how a target capture resolves its materialized pixel density.</summary>
 public readonly struct TargetCaptureScaleContract
 {
+    private static readonly object s_preserveTargetSupplyIdentity =
+        TargetCaptureScaleContractKind.PreserveTargetSupply;
+
     private readonly TargetCaptureScaleContractKind _kind;
     private readonly RenderScaleContract _declaredScale;
+    private readonly object? _structuralIdentity;
 
     private TargetCaptureScaleContract(
         TargetCaptureScaleContractKind kind,
@@ -12,6 +16,9 @@ public readonly struct TargetCaptureScaleContract
     {
         _kind = kind;
         _declaredScale = declaredScale;
+        _structuralIdentity = kind == TargetCaptureScaleContractKind.PreserveTargetSupply
+            ? s_preserveTargetSupplyIdentity
+            : new TargetCaptureScaleStructuralIdentity(kind, declaredScale.StructuralIdentity);
     }
 
     /// <summary>
@@ -76,9 +83,7 @@ public readonly struct TargetCaptureScaleContract
         get
         {
             ThrowIfUninitialized();
-            return _kind == TargetCaptureScaleContractKind.PreserveTargetSupply
-                ? _kind
-                : new TargetCaptureScaleStructuralIdentity(_kind, _declaredScale.StructuralIdentity);
+            return _structuralIdentity!;
         }
     }
 

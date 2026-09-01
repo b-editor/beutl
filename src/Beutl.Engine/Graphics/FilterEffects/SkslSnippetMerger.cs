@@ -166,6 +166,12 @@ internal sealed class SkslMergedProgram
         ProgramTokenCount = programTokenCount;
         OverflowReasons = new ReadOnlyCollection<SkslBackendLimit>(overflowReasons.ToArray());
         Identity = ShaderProgramIdentity.CreateSksl(Source, Bindings, Budget);
+        IsPremultipliedCoverageHomogeneous = true;
+        for (int index = 0; index < Stages.Count && IsPremultipliedCoverageHomogeneous; index++)
+        {
+            IsPremultipliedCoverageHomogeneous =
+                Stages[index].CoverageBehavior == SkslCoverageBehavior.PremultipliedCoverageHomogeneous;
+        }
     }
 
     public string Source { get; }
@@ -194,9 +200,7 @@ internal sealed class SkslMergedProgram
 
     public bool RequiresStandaloneExecution => OverflowReasons.Count != 0;
 
-    public bool IsPremultipliedCoverageHomogeneous
-        => Stages.All(static stage =>
-            stage.CoverageBehavior == SkslCoverageBehavior.PremultipliedCoverageHomogeneous);
+    public bool IsPremultipliedCoverageHomogeneous { get; }
 
     public bool RequiresResolvedCoverage => !IsPremultipliedCoverageHomogeneous;
 }

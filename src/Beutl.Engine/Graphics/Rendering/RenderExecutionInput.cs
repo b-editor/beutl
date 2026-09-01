@@ -589,7 +589,7 @@ internal sealed class RenderExecutionSessionToken
                 "The resource bound to the requested slot does not match the slot's declared type.");
         }
 
-        UseResource(resource, declaredResources.Select(static item => item.Resource).ToArray(), use);
+        UseResource(resource, declaredResources.SelectToArray(static item => item.Resource), use);
     }
 
     public bool IsResourceAuthorized(object resource)

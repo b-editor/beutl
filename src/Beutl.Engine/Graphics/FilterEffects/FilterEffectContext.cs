@@ -209,7 +209,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(description);
         _resourceState.ValidateResources(
-            description.Resources.Select(static binding => binding.Resource),
+            description.Resources,
+            static binding => binding.Resource,
             nameof(description));
         AppendDescription(new FEItem_Shader(description));
     }
@@ -222,7 +223,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(description);
         _resourceState.ValidateResources(
-            description.Resources.Select(static binding => binding.Resource),
+            description.Resources,
+            static binding => binding.Resource,
             nameof(description));
         AppendDescription(new FEItem_Geometry(description));
     }
@@ -888,12 +890,21 @@ internal sealed class FilterEffectResourceState
         return token;
     }
 
-    public void ValidateResources(IEnumerable<RenderResource> resources, string parameterName)
+    /// <remarks>
+    /// Shader and geometry stages declare their bindings as different types, so the resource is read through a
+    /// selector rather than by projecting each list into a common one.
+    /// </remarks>
+    public void ValidateResources<TBinding>(
+        IReadOnlyList<TBinding> bindings,
+        Func<TBinding, RenderResource> selectResource,
+        string parameterName)
     {
-        ArgumentNullException.ThrowIfNull(resources);
-        foreach (RenderResource resource in resources)
+        ArgumentNullException.ThrowIfNull(bindings);
+        ArgumentNullException.ThrowIfNull(selectResource);
+        for (int index = 0; index < bindings.Count; index++)
         {
-            if (!_resources.Any(item => ReferenceEquals(item.SlotIdentity, resource.SlotIdentity))
+            RenderResource resource = selectResource(bindings[index]);
+            if (!IsRegistered(resource)
                 || resource.RegistrationState == RenderResourceRegistrationState.Released)
             {
                 throw new ArgumentException(
@@ -901,6 +912,17 @@ internal sealed class FilterEffectResourceState
                     parameterName);
             }
         }
+    }
+
+    private bool IsRegistered(RenderResource resource)
+    {
+        for (int index = 0; index < _resources.Count; index++)
+        {
+            if (ReferenceEquals(_resources[index].SlotIdentity, resource.SlotIdentity))
+                return true;
+        }
+
+        return false;
     }
 
     public void RollbackTo(int count, Exception? primaryFailure = null)

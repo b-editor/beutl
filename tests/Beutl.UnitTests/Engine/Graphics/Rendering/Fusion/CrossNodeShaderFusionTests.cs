@@ -919,7 +919,7 @@ public sealed class CrossNodeShaderFusionTests
         foreach (RenderFragmentReference reference in references)
         {
             RenderValueId[] inputs = reference.Inputs.SelectMany(static input => input.ValueIds).ToArray();
-            reference.ValueIds = [builder.AddValue(inputs, provenance, reference)];
+            reference.ValueIds = [builder.AddValue([.. inputs], provenance, reference)];
             reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
         }
         foreach (RenderFragmentReference root in roots)

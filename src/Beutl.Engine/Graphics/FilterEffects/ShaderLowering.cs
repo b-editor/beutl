@@ -146,8 +146,7 @@ internal sealed class SpirvShaderLowering
         BinaryPrimitives.WriteInt32LittleEndian(bytes.Slice(sizeof(int), sizeof(int)), sourceTexelOffset.Y);
         foreach (SpirvPushConstantBinding mapping in _pushConstants)
         {
-            ShaderUniformBinding binding = description.Uniforms.Single(
-                item => string.Equals(item.Name, mapping.Name, StringComparison.Ordinal));
+            ShaderUniformBinding binding = FindUniform(description, mapping.Name);
             SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
             ShaderUniformValue value = binding.Bind(declaration, context);
             if (value.IsInteger)
@@ -172,6 +171,22 @@ internal sealed class SpirvShaderLowering
             }
         }
         return result;
+    }
+
+    /// <remarks>
+    /// <see cref="ValidateForDescription"/> already rejected a lowering whose push constant names no uniform,
+    /// so the miss here is unreachable rather than an author error.
+    /// </remarks>
+    private static ShaderUniformBinding FindUniform(ShaderDescription description, string name)
+    {
+        IReadOnlyList<ShaderUniformBinding> uniforms = description.Uniforms;
+        for (int index = 0; index < uniforms.Count; index++)
+        {
+            if (string.Equals(uniforms[index].Name, name, StringComparison.Ordinal))
+                return uniforms[index];
+        }
+
+        throw new InvalidOperationException($"The shader description declares no uniform '{name}'.");
     }
 
     private static (int Alignment, int ByteSize) GetLayout(

@@ -269,7 +269,7 @@ internal sealed partial class RenderRequestExecutor
 
                         float density = declaredScale.IsUnbounded
                             ? RenderScaleUtilities.ResolveWorkingScale(
-                                inputs.Select(static value => value.EffectiveScale).ToArray(),
+                                inputs.SelectToArray(static value => value.EffectiveScale),
                                 _options.OutputScale,
                                 _options.MaxWorkingScale)
                             : declaredScale.Value;

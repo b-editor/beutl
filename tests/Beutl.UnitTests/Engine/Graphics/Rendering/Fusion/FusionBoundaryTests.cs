@@ -655,7 +655,7 @@ public sealed class FusionBoundaryTests
             RenderValueId[] inputs = reference.Inputs.SelectMany(static input => input.ValueIds).ToArray();
             reference.ValueIds = reference.ValueCardinality.Maximum == 0
                 ? []
-                : [builder.AddValue(inputs, provenance, reference)];
+                : [builder.AddValue([.. inputs], provenance, reference)];
             reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
             if (cache.Contains(reference))
                 builder.AddCacheCandidate(reference.Id.Value, (typeof(FusionBoundaryTests), reference.Id.Value.Value));

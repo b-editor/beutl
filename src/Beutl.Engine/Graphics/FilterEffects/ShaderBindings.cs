@@ -200,7 +200,7 @@ public sealed class ShaderBindingBuilder
             throw new ArgumentException("A direct uniform span cannot be empty.", nameof(values));
         _uniforms.Add(new ShaderUniformBinding(
             name,
-            typeof(FloatSequenceIdentity),
+            typeof(float[]),
             readsExecutionContext: false,
             (writer, _) => writer.Set(copy),
             declaration => ShaderCanonicalValue.ThrowIfFloatSequenceIncompatible(copy, declaration)));
@@ -346,9 +346,14 @@ public sealed class ShaderBindingBuilder
             throw new ArgumentOutOfRangeException(nameof(coordinateSpace), coordinateSpace, "The coordinate space is invalid.");
     }
 
-    internal IReadOnlyList<ShaderUniformBinding> Uniforms => new ReadOnlyCollection<ShaderUniformBinding>(_uniforms);
+    /// <remarks>
+    /// The live list. A binding callback may retain the builder and append after the description was built, so
+    /// whoever keeps these bindings past construction has to copy them.
+    /// </remarks>
+    internal List<ShaderUniformBinding> Uniforms => _uniforms;
 
-    internal IReadOnlyList<ShaderResourceBinding> Resources => new ReadOnlyCollection<ShaderResourceBinding>(_resources);
+    /// <inheritdoc cref="Uniforms"/>
+    internal List<ShaderResourceBinding> Resources => _resources;
 
     private void ValidateName(string name)
     {
@@ -730,29 +735,11 @@ internal sealed record CustomUniformStructuralKey(Type Type, object Binder);
 
 internal sealed record ResourceBindingStructuralKey(Type Type, object Binder);
 
-internal sealed class FloatSequenceIdentity(int[] bits) : IEquatable<FloatSequenceIdentity>
-{
-    private readonly int[] _bits = bits;
-
-    public bool Equals(FloatSequenceIdentity? other)
-        => other is not null && _bits.AsSpan().SequenceEqual(other._bits);
-
-    public override bool Equals(object? obj) => obj is FloatSequenceIdentity other && Equals(other);
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        foreach (int value in _bits)
-            hash.Add(value);
-        return hash.ToHashCode();
-    }
-}
 
 internal readonly record struct ShaderCanonicalValue(
     float[]? Values,
     int[]? Integers,
-    bool IsInteger,
-    object Identity)
+    bool IsInteger)
 {
     public static ShaderCanonicalValue Create<T>(T value)
         where T : unmanaged
@@ -842,30 +829,8 @@ internal readonly record struct ShaderCanonicalValue(
         return count * (declaration.ArrayExtent ?? 1);
     }
 
-    private static ShaderCanonicalValue Float(float[] values)
-    {
-        var identity = new FloatSequenceIdentity(values.Select(BitConverter.SingleToInt32Bits).ToArray());
-        return new ShaderCanonicalValue(values, null, false, identity);
-    }
+    private static ShaderCanonicalValue Float(float[] values) => new(values, null, false);
 
-    private static ShaderCanonicalValue Integer(int[] values)
-        => new(null, values, true, new IntSequenceIdentity(values));
+    private static ShaderCanonicalValue Integer(int[] values) => new(null, values, true);
 }
 
-internal sealed class IntSequenceIdentity(int[] values) : IEquatable<IntSequenceIdentity>
-{
-    private readonly int[] _values = [.. values];
-
-    public bool Equals(IntSequenceIdentity? other)
-        => other is not null && _values.AsSpan().SequenceEqual(other._values);
-
-    public override bool Equals(object? obj) => obj is IntSequenceIdentity other && Equals(other);
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        foreach (int value in _values)
-            hash.Add(value);
-        return hash.ToHashCode();
-    }
-}

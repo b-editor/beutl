@@ -36,6 +36,9 @@ public enum RenderDeviceGridSensitivity : byte
 
 public sealed class OpaqueRenderDescription
 {
+    private static readonly ReadOnlyCollection<RenderInputReadback> s_noInputReadbacks =
+        Array.AsReadOnly(Array.Empty<RenderInputReadback>());
+
     private readonly RenderExecutionChannel<OpaqueRenderSession> _execution;
 
     private OpaqueRenderDescription(
@@ -358,7 +361,7 @@ public sealed class OpaqueRenderDescription
             RenderInputDemandContract.Unchanged,
             deviceGridSensitivity,
             definitionFingerprint,
-            Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
+            s_noInputReadbacks,
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
             RenderBackendBoundary.None,
             boundDirectReplay,
@@ -408,7 +411,7 @@ public sealed class OpaqueRenderDescription
             RenderInputDemandContract.Unchanged,
             deviceGridSensitivity,
             definitionFingerprint,
-            Array.AsReadOnly(Array.Empty<RenderInputReadback>()),
+            s_noInputReadbacks,
             BindInternalResources(resources),
             backendBoundary,
             directReplay: null,
@@ -1556,7 +1559,7 @@ public sealed class OpaqueRenderSession
         _intent = intent;
         _purpose = purpose;
         _resourceBindings = resources;
-        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        _resources = resources.SelectToArray(static binding => binding.Resource);
         _createOutput = createOutput;
         _publish = publish;
     }

@@ -253,7 +253,7 @@ public sealed class TargetCommandSession
         _purpose = purpose;
         _canvas = canvas;
         _resourceBindings = resources;
-        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        _resources = resources.SelectToArray(static binding => binding.Resource);
         _snapshotRequired = snapshotRequired;
         _createSnapshot = createSnapshot;
     }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -44,13 +45,10 @@ internal sealed class ResourcePlanUseSchedule
             Visit(root, terminalFragmentIds, visiting, visited, ordered);
         }
 
-        var positions = new Dictionary<RenderFragmentReference, int>(ReferenceEqualityComparer.Instance);
         var consumers = new Dictionary<RenderFragmentReference, List<int>>(ReferenceEqualityComparer.Instance);
         for (int index = 0; index < ordered.Count; index++)
         {
-            RenderFragmentReference fragment = ordered[index];
-            positions.Add(fragment, index);
-            consumers.Add(fragment, []);
+            consumers.Add(ordered[index], []);
         }
 
         for (int index = 0; index < ordered.Count; index++)
@@ -65,13 +63,20 @@ internal sealed class ResourcePlanUseSchedule
         for (int index = 0; index < roots.Count; index++)
             consumers[roots[index]].Add(checked(ordered.Count + index));
 
-        return new ResourcePlanUseSchedule(
-        [
-            .. ordered.Select(fragment => new ResourcePlanFragmentLifetime(
+        var lifetimes = new ResourcePlanFragmentLifetime[ordered.Count];
+        for (int index = 0; index < lifetimes.Length; index++)
+        {
+            RenderFragmentReference fragment = ordered[index];
+            // LastUsePosition reads the final element, so the positions have to arrive sorted.
+            int[] consumerPositions = [.. consumers[fragment]];
+            Array.Sort(consumerPositions);
+            lifetimes[index] = new ResourcePlanFragmentLifetime(
                 fragment,
-                positions[fragment],
-                [.. consumers[fragment].Order()])),
-        ]);
+                index,
+                ImmutableCollectionsMarshal.AsImmutableArray(consumerPositions));
+        }
+
+        return new ResourcePlanUseSchedule(ImmutableCollectionsMarshal.AsImmutableArray(lifetimes));
 
         static void Visit(
             RenderFragmentReference fragment,

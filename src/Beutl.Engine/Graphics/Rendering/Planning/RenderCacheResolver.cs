@@ -969,8 +969,16 @@ internal sealed class RenderCacheResolver
         {
             if (topology is not null)
             {
-                RenderCacheCandidateId superseding = selectedHits
-                    .FirstOrDefault(parent => topology.Descendants[parent].Contains(candidate.Id));
+                RenderCacheCandidateId superseding = default;
+                for (int hit = 0; hit < selectedHits.Count; hit++)
+                {
+                    if (topology.Descendants[selectedHits[hit]].Contains(candidate.Id))
+                    {
+                        superseding = selectedHits[hit];
+                        break;
+                    }
+                }
+
                 if (superseding.Value > 0)
                 {
                     decisions.Add(
@@ -1426,10 +1434,14 @@ internal sealed class RenderCacheResolver
             HashSet<RenderFragmentReference> affected = ExpandConnectedReferences(
                 sensitive,
                 consumers);
-            RenderFragmentReference[] transformRoots =
-            [
-                .. sensitive.Where(reference => HasGridRemappingAncestor(reference, consumers)),
-            ];
+            var transformRootList = new List<RenderFragmentReference>();
+            for (int index = 0; index < sensitive.Length; index++)
+            {
+                if (HasGridRemappingAncestor(sensitive[index], consumers))
+                    transformRootList.Add(sensitive[index]);
+            }
+
+            RenderFragmentReference[] transformRoots = [.. transformRootList];
             HashSet<RenderFragmentReference> transformDependent = ExpandConnectedReferences(
                 transformRoots,
                 consumers);

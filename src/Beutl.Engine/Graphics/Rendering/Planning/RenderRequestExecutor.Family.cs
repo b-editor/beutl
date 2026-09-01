@@ -375,8 +375,12 @@ internal sealed partial class RenderRequestExecutor
         ICollection<Exception> failures,
         Exception exception)
     {
-        if (failures.Any(existing => ReferenceEquals(existing, exception)))
-            return;
+        foreach (Exception existing in failures)
+        {
+            if (ReferenceEquals(existing, exception))
+                return;
+        }
+
         failures.Add(exception);
     }
 
@@ -384,14 +388,25 @@ internal sealed partial class RenderRequestExecutor
         RenderRequestOwner owner,
         IEnumerable<Exception> failures)
     {
-        Exception[] ownerCleanupFailures = [.. owner.CleanupFailures];
+        ImmutableArray<Exception> ownerCleanupFailures = owner.CleanupFailures;
         foreach (Exception failure in failures)
         {
             if (!ReferenceEquals(owner.PrimaryFailure?.SourceException, failure)
-                && !ownerCleanupFailures.Any(existing => ReferenceEquals(existing, failure)))
+                && !ContainsSame(ownerCleanupFailures, failure))
             {
                 owner.RecordPrimaryFailure(failure);
             }
+        }
+
+        static bool ContainsSame(ImmutableArray<Exception> failures, Exception failure)
+        {
+            for (int index = 0; index < failures.Length; index++)
+            {
+                if (ReferenceEquals(failures[index], failure))
+                    return true;
+            }
+
+            return false;
         }
     }
 

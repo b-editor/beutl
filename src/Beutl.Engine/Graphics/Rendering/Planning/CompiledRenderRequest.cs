@@ -76,21 +76,32 @@ internal sealed class CompiledRenderRequest : IDisposable
         if (regions.TargetAccessRequirements.Count == 0)
             return result;
 
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments
-            .ToDictionary(
-                static fragment => fragment.Id,
-                static fragment => (RenderFragmentReference)fragment.Payload!);
-        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
-            .ToDictionary(static scope => scope.Id);
-        var scopesByOwner = targetDependencies.Scopes
-            .Where(static scope => scope.OwnerFragmentId is not null)
-            .GroupBy(static scope => scope.OwnerFragmentId!.Value)
-            .ToDictionary(static group => group.Key, static group => group.ToArray());
-        var scopesByEffect = targetDependencies.Steps
-            .GroupBy(static step => step.FragmentId)
-            .ToDictionary(
-                static group => group.Key,
-                static group => group.Select(static step => step.ScopeId).Distinct().ToArray());
+        var references = new Dictionary<RenderFragmentId, RenderFragmentReference>(graph.Fragments.Length);
+        foreach (RecordedRenderFragment fragment in graph.Fragments)
+            references.Add(fragment.Id, (RenderFragmentReference)fragment.Payload!);
+
+        var scopes = new Dictionary<TargetScopeId, TargetScopePlan>(targetDependencies.Scopes.Length);
+        var scopesByOwner = new Dictionary<RenderFragmentId, List<TargetScopePlan>>();
+        foreach (TargetScopePlan scope in targetDependencies.Scopes)
+        {
+            scopes.Add(scope.Id, scope);
+            if (scope.OwnerFragmentId is not { } owner)
+                continue;
+            if (!scopesByOwner.TryGetValue(owner, out List<TargetScopePlan>? ownedScopes))
+                scopesByOwner.Add(owner, ownedScopes = []);
+            ownedScopes.Add(scope);
+        }
+
+        var scopesByEffect = new Dictionary<RenderFragmentId, List<TargetScopeId>>();
+        foreach (TargetDependencyStep step in targetDependencies.Steps)
+        {
+            if (!scopesByEffect.TryGetValue(step.FragmentId, out List<TargetScopeId>? stepScopes))
+                scopesByEffect.Add(step.FragmentId, stepScopes = []);
+            // A step may reach the same scope more than once; the lookup wants each scope once.
+            if (!stepScopes.Contains(step.ScopeId))
+                stepScopes.Add(step.ScopeId);
+        }
+
         var tokens = new TargetTokenConnectivity(targetDependencies);
 
         foreach ((RenderFragmentId fragmentId, RequiredRegion requirement)
@@ -99,15 +110,20 @@ internal sealed class CompiledRenderRequest : IDisposable
             if (requirement.IsEmpty)
                 continue;
 
-            TargetScopeId[] accessScopes = scopesByOwner.TryGetValue(fragmentId, out TargetScopePlan[]? owned)
-                ? owned.Select(static scope => scope.Id).ToArray()
-                : scopesByEffect.TryGetValue(fragmentId, out TargetScopeId[]? effected)
-                    ? effected
-                    : throw new InvalidOperationException(
-                        "A target-access requirement has no lowered target scope.");
-            foreach (TargetScopeId accessScopeId in accessScopes)
+            scopesByOwner.TryGetValue(fragmentId, out List<TargetScopePlan>? owned);
+            List<TargetScopeId>? effected = null;
+            if (owned is null && !scopesByEffect.TryGetValue(fragmentId, out effected))
             {
-                TargetScopePlan accessScope = scopes[accessScopeId];
+                throw new InvalidOperationException(
+                    "A target-access requirement has no lowered target scope.");
+            }
+
+            int accessScopeCount = owned?.Count ?? effected!.Count;
+            for (int access = 0; access < accessScopeCount; access++)
+            {
+                TargetScopePlan accessScope = owned is not null
+                    ? owned[access]
+                    : scopes[effected![access]];
                 Rect accessBounds = ResolveRequirement(requirement, accessScope);
                 if (TryMapToRoot(
                         accessScope,
@@ -537,9 +553,17 @@ internal sealed class ExecutionIslandExecutionLedger
         if (allowSkippedIslands)
             return;
 
-        bool hasIncompleteIsland = _expectedCompletionOrder.Keys.Any(
-            id => !_completed.Contains(id)
-                  && (regionEmptyIslands is null || !regionEmptyIslands.Contains(id)));
+        bool hasIncompleteIsland = false;
+        foreach (ExecutionIslandId id in _expectedCompletionOrder.Keys)
+        {
+            if (!_completed.Contains(id)
+                && (regionEmptyIslands is null || !regionEmptyIslands.Contains(id)))
+            {
+                hasIncompleteIsland = true;
+                break;
+            }
+        }
+
         if (hasIncompleteIsland)
         {
             throw new InvalidOperationException(

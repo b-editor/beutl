@@ -23,8 +23,8 @@ internal readonly record struct FilterEffectWorkingScalePolicy
     {
         ArgumentNullException.ThrowIfNull(inputs);
         return Resolve(
-            inputs.Select(static input => input.EffectiveScale).ToArray(),
-            inputs.Select(static input => input.Bounds).ToArray(),
+            inputs.SelectToArray(static input => input.EffectiveScale),
+            inputs.SelectToArray(static input => input.Bounds),
             outputBounds,
             outputScale,
             maxWorkingScale);

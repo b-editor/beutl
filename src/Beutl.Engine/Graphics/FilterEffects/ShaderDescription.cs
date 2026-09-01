@@ -34,8 +34,8 @@ public sealed class ShaderDescription
         InputDemand = inputDemand;
         HitTest = hitTest;
         HitTestResources = hitTestResources;
-        Uniforms = new ReadOnlyCollection<ShaderUniformBinding>(builder.Uniforms.ToArray());
-        Resources = new ReadOnlyCollection<ShaderResourceBinding>(builder.Resources.ToArray());
+        Uniforms = Snapshot(builder.Uniforms);
+        Resources = Snapshot(builder.Resources);
         // Every resource binding is produced by an execution binder; a uniform may or may not be. Indexed
         // rather than queried: a description is built once per recording, so an enumerator here is garbage
         // once a frame.
@@ -368,13 +368,16 @@ public sealed class ShaderDescription
                 nameof(hitTestResources)));
     }
 
+    private static IReadOnlyList<T> Snapshot<T>(List<T> bindings)
+        => bindings.Count == 0 ? [] : new ReadOnlyCollection<T>(bindings.ToArray());
+
     private static void ValidateBindings(
         SkslSource source,
-        IReadOnlyList<ShaderUniformBinding> uniforms,
-        IReadOnlyList<ShaderResourceBinding> resources,
+        List<ShaderUniformBinding> uniforms,
+        List<ShaderResourceBinding> resources,
         ShaderDescriptionKind kind)
     {
-        var supplied = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var supplied = new HashSet<string>(StringComparer.Ordinal);
         foreach (ShaderUniformBinding uniform in uniforms)
         {
             if (!source.Uniforms.TryGetValue(uniform.Name, out SkslUniformDeclaration declaration))
@@ -382,7 +385,7 @@ public sealed class ShaderDescription
             if (declaration.IsShader)
                 throw new ArgumentException($"Shader declaration '{uniform.Name}' requires a resource binding.", nameof(uniforms));
             uniform.ValidateDeclaration(declaration);
-            supplied.Add(uniform.Name, false);
+            supplied.Add(uniform.Name);
         }
 
         foreach (ShaderResourceBinding resource in resources)
@@ -405,7 +408,7 @@ public sealed class ShaderDescription
                     "CurrentPixel shader resources must use Value coordinates.",
                     nameof(resources));
             }
-            supplied.Add(resource.Name, true);
+            supplied.Add(resource.Name);
         }
 
         foreach ((string name, SkslUniformDeclaration declaration) in source.Uniforms)
@@ -417,7 +420,7 @@ public sealed class ShaderDescription
                 continue;
             }
 
-            if (!supplied.ContainsKey(name))
+            if (!supplied.Contains(name))
                 throw new ArgumentException($"Shader binding '{name}' was declared but not supplied.", nameof(uniforms));
         }
 

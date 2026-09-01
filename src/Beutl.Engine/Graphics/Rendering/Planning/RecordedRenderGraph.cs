@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering;
@@ -85,41 +86,46 @@ internal sealed class RecordedRenderGraphBuilder
         return id;
     }
 
+    /// <remarks>
+    /// <paramref name="inputs"/> is stored as given. It is already immutable, so a caller that hands over what
+    /// it built cannot change what was recorded.
+    /// </remarks>
     public RenderValueId AddValue(
-        IEnumerable<RenderValueId> inputs,
+        ImmutableArray<RenderValueId> inputs,
         RenderProvenanceId provenanceId,
         object? payload = null)
     {
         EnsureMutable();
-        ArgumentNullException.ThrowIfNull(inputs);
+        if (inputs.IsDefault)
+            throw new ArgumentException("The input values are uninitialized.", nameof(inputs));
         ValidateProvenance(provenanceId);
-        ImmutableArray<RenderValueId> inputCopy = [.. inputs];
-        foreach (RenderValueId input in inputCopy)
+        for (int index = 0; index < inputs.Length; index++)
         {
-            ValidateExistingValue(input);
+            ValidateExistingValue(inputs[index]);
         }
 
         RenderValueId id = new(RequestId, _values.Count + 1L);
-        _values.Add(new RecordedRenderValue(id, inputCopy, provenanceId, payload));
+        _values.Add(new RecordedRenderValue(id, inputs, provenanceId, payload));
         return id;
     }
 
+    /// <inheritdoc cref="AddValue" path="/remarks"/>
     public RenderFragmentId AddFragment(
-        IEnumerable<RenderValueId> values,
+        ImmutableArray<RenderValueId> values,
         RenderProvenanceId provenanceId,
         object? payload = null)
     {
         EnsureMutable();
-        ArgumentNullException.ThrowIfNull(values);
+        if (values.IsDefault)
+            throw new ArgumentException("The fragment values are uninitialized.", nameof(values));
         ValidateProvenance(provenanceId);
-        ImmutableArray<RenderValueId> valueCopy = [.. values];
-        foreach (RenderValueId value in valueCopy)
+        for (int index = 0; index < values.Length; index++)
         {
-            ValidateExistingValue(value);
+            ValidateExistingValue(values[index]);
         }
 
         RenderFragmentId id = new(RequestId, _fragments.Count + 1L);
-        _fragments.Add(new RecordedRenderFragment(id, _fragments.Count, valueCopy, provenanceId, payload));
+        _fragments.Add(new RecordedRenderFragment(id, _fragments.Count, values, provenanceId, payload));
         return id;
     }
 
@@ -208,8 +214,7 @@ internal sealed class RecordedRenderGraphBuilder
             }
 
             RenderFragmentReference reference = entry.Reference;
-            ImmutableArray<RenderValueId> inputValues =
-                [.. reference.Inputs.SelectMany(static item => item.ValueIds)];
+            ImmutableArray<RenderValueId> inputValues = FlattenValueIds(reference.Inputs);
             if (reference.ValueCardinality.Maximum != 0 || reference.ValueCardinality.Minimum != 0)
             {
                 reference.ValueIds = [AddValue(inputValues, provenanceId, reference)];
@@ -227,6 +232,31 @@ internal sealed class RecordedRenderGraphBuilder
         {
             AddNestedRequest(nestedRequest);
         }
+    }
+
+    /// <remarks>
+    /// The array is filled here and handed over without a copy, so nothing may keep a reference to it after
+    /// the wrap.
+    /// </remarks>
+    private static ImmutableArray<RenderValueId> FlattenValueIds(
+        ImmutableArray<RenderFragmentReference> inputs)
+    {
+        int count = 0;
+        for (int index = 0; index < inputs.Length; index++)
+            count += inputs[index].ValueIds.Length;
+        if (count == 0)
+            return [];
+
+        var values = new RenderValueId[count];
+        int next = 0;
+        for (int index = 0; index < inputs.Length; index++)
+        {
+            ImmutableArray<RenderValueId> ids = inputs[index].ValueIds;
+            for (int id = 0; id < ids.Length; id++)
+                values[next++] = ids[id];
+        }
+
+        return ImmutableCollectionsMarshal.AsImmutableArray(values);
     }
 
     public RecordedRenderGraph Build()

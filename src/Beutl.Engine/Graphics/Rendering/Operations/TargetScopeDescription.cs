@@ -306,7 +306,7 @@ public sealed class TargetScopeSession
         _purpose = purpose;
         _canvas = canvas;
         _resourceBindings = resources;
-        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        _resources = resources.SelectToArray(static binding => binding.Resource);
         _replayInput = replayInput;
     }
 
@@ -513,7 +513,7 @@ public sealed class RawTargetScopeSession
         _intent = intent;
         _purpose = purpose;
         _resourceBindings = resources;
-        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        _resources = resources.SelectToArray(static binding => binding.Resource);
         _replayInput = replayInput;
     }
 
@@ -711,7 +711,7 @@ public sealed class RawTargetCommandSession
         _intent = intent;
         _purpose = purpose;
         _resourceBindings = resources;
-        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        _resources = resources.SelectToArray(static binding => binding.Resource);
     }
 
     public ImmediateCanvas Canvas

@@ -166,8 +166,10 @@ internal sealed partial class RenderRequestExecutor
             EnsureOwnerPrimary(owner, primaryFailure?.SourceException);
             int ownerCleanupStart = owner.CleanupFailures.Length;
             owner.Cleanup();
-            foreach (Exception failure in owner.CleanupFailures.Skip(ownerCleanupStart))
+            ImmutableArray<Exception> ownerCleanupFailures = owner.CleanupFailures;
+            for (int index = ownerCleanupStart; index < ownerCleanupFailures.Length; index++)
             {
+                Exception failure = ownerCleanupFailures[index];
                 cleanupFailures.Add(failure);
                 if (primaryFailure is null)
                 {

@@ -1599,7 +1599,7 @@ public sealed class RenderCacheResolutionTests
             RenderValueId[] inputs = reference.Inputs.SelectMany(static item => item.ValueIds).ToArray();
             reference.ValueIds = reference.ValueCardinality.Maximum == 0
                 ? []
-                : [builder.AddValue(inputs, provenanceId, reference)];
+                : [builder.AddValue([.. inputs], provenanceId, reference)];
             reference.Id = builder.AddFragment(reference.ValueIds, provenanceId, reference);
         }
 

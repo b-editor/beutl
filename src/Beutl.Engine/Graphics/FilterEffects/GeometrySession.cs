@@ -40,7 +40,10 @@ public sealed class GeometrySession
 
         _token = token;
         _resourceBindings = resources;
-        _resources = resources.Select(static binding => binding.Resource).ToArray();
+        var resourceTokens = new RenderResource[resources.Count];
+        for (int index = 0; index < resourceTokens.Length; index++)
+            resourceTokens[index] = resources[index].Resource;
+        _resources = resourceTokens;
         _allocatedOutputBounds = outputBounds;
         _outputBounds = outputBounds;
         Input = input;

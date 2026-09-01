@@ -37,8 +37,9 @@ internal sealed partial class RenderRequestExecutor
         RenderRequestOwner owner = request.Request.Options.Owner;
         int ownerCleanupStart = owner.CleanupFailures.Length;
         owner.Cleanup();
-        foreach (Exception failure in owner.CleanupFailures.Skip(ownerCleanupStart))
-            AppendCleanupFailures(cleanupFailures, failure);
+        ImmutableArray<Exception> ownerCleanupFailures = owner.CleanupFailures;
+        for (int index = ownerCleanupStart; index < ownerCleanupFailures.Length; index++)
+            AppendCleanupFailures(cleanupFailures, ownerCleanupFailures[index]);
 
         try
         {

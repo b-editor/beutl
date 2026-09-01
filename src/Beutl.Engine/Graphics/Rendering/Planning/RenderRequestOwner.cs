@@ -21,9 +21,11 @@ internal sealed class RenderRequestOwner : IDisposable
 
     public ExceptionDispatchInfo? PrimaryFailure => _primaryFailure;
 
-    public ImmutableArray<Exception> SecondaryFailures => [.. _secondaryFailures];
+    public ImmutableArray<Exception> SecondaryFailures
+        => _secondaryFailures.Count == 0 ? [] : [.. _secondaryFailures];
 
-    public ImmutableArray<Exception> CleanupFailures => [.. _cleanupFailures];
+    public ImmutableArray<Exception> CleanupFailures
+        => _cleanupFailures.Count == 0 ? [] : [.. _cleanupFailures];
 
     public bool IsCleanedUp { get; private set; }
 

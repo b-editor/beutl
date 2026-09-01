@@ -171,7 +171,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             context.OutputScale,
             () => ResolveWorkingScale(
                 authorInputMetadata,
-                authorInputMetadata.Select(static item => item.Bounds).ToArray(),
+                authorInputMetadata.SelectToArray(static item => item.Bounds),
                 outputScale,
                 maxWorkingScale,
                 GetOrCreateWorkingScalePolicy()),
@@ -233,7 +233,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                     .Select(context.GetRecordedMetadataHint)
                     .ToArray();
                 Rect[] segmentBufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
-                        segmentInputMetadata.Select(static item => item.Bounds).ToArray(),
+                        segmentInputMetadata.SelectToArray(static item => item.Bounds),
                         effectItems,
                         effectItemBounds.IsInvalid ? segmentInputBounds : effectItemBounds);
                 FilterEffectContext? segment = FilterEffectContext.CreateEffectItemSegment(
@@ -337,15 +337,15 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         if (workingScalePolicy is { } policy)
         {
             return policy.Resolve(
-                metadata.Select(static item => item.EffectiveScale).ToArray(),
-                metadata.Select(static item => item.Bounds).ToArray(),
+                metadata.SelectToArray(static item => item.EffectiveScale),
+                metadata.SelectToArray(static item => item.Bounds),
                 bufferBounds,
                 outputScale,
                 maxWorkingScale).Value;
         }
 
         return FilterEffectWorkingScalePolicy.ResolveMaterialized(
-            metadata.Select(static item => item.EffectiveScale).ToArray(),
+            metadata.SelectToArray(static item => item.EffectiveScale),
             bufferBounds,
             outputScale,
             maxWorkingScale).Value;

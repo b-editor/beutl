@@ -202,7 +202,7 @@ internal sealed partial class RenderRequestExecutor
         {
             float scale = fragment.EffectiveScale.IsUnbounded
                 ? RenderScaleUtilities.ResolveWorkingScale(
-                    fragment.Inputs.Select(static input => input.EffectiveScale).ToArray(),
+                    fragment.Inputs.SelectToArray(static input => input.EffectiveScale),
                     _options.OutputScale,
                     _options.MaxWorkingScale)
                 : fragment.EffectiveScale.Value;

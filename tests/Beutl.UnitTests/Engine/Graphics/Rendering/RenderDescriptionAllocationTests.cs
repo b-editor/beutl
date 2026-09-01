@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Collections.Immutable;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -31,6 +32,7 @@ public sealed class RenderDescriptionAllocationTests
     private const long WarmCacheSceneBytesPerFrameCeiling = 251_300;
 
     private static readonly object s_explicitKey = new();
+    private static readonly ImmutableArray<int> s_projectionSource = [1, 2, 3, 4];
     private static readonly PixelSize s_frameSize = new(240, 160);
 
     [Test]
@@ -117,6 +119,43 @@ public sealed class RenderDescriptionAllocationTests
             bytesPerCall,
             Is.Zero,
             "a capture whose declared type already settles the verdict must not be read to reach it");
+    }
+
+    /// <remarks>
+    /// Planning projects the same fragment lists once per frame. The result array is the work; the query object
+    /// a LINQ projection puts in front of it is not.
+    /// </remarks>
+    [Test]
+    public void SelectToArray_AllocatesLessThanTheQueryItReplaces()
+    {
+        long projected = MeasureBytesPerCall(
+            static () => s_projectionSource.SelectToArray(static value => value * 2));
+        long queried = MeasureBytesPerCall(
+            static () => s_projectionSource.Select(static value => value * 2).ToArray());
+
+        TestContext.Out.WriteLine($"SelectToArray: {projected} bytes/call");
+        TestContext.Out.WriteLine($"Select().ToArray(): {queried} bytes/call");
+        Assert.That(
+            projected,
+            Is.LessThan(queried),
+            "projecting into an array must not also allocate the query object in front of it");
+    }
+
+    [Test]
+    public void SelectToArray_WithACount_StopsAtTheShorterOfTheCountAndTheSource()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                s_projectionSource.SelectToArray(2, static value => value * 2),
+                Is.EqualTo(new[] { 2, 4 }));
+            Assert.That(
+                s_projectionSource.SelectToArray(99, static value => value * 2),
+                Is.EqualTo(new[] { 2, 4, 6, 8 }));
+            Assert.That(
+                s_projectionSource.SelectToArray(0, static value => value * 2),
+                Is.Empty);
+        });
     }
 
     [Test]

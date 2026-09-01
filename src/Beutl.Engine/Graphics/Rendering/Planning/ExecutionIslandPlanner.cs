@@ -432,7 +432,7 @@ internal sealed class ExecutionIslandPlanner
         }
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
-            chain.Select(static item => item.Snippet).ToArray(),
+            chain.SelectToArray(static item => item.Snippet),
             budget);
         var result = new List<ProgramGroup>(programs.Count);
         foreach (SkslMergedProgram program in programs)

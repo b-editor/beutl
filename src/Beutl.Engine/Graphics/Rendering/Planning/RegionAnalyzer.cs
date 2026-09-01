@@ -627,8 +627,7 @@ internal sealed class RegionAnalyzer
         }
 
         IReadOnlyList<Rect> inputBounds = reference.Inputs
-            .Select(static input => input.Bounds)
-            .ToArray();
+            .SelectToArray(static input => input.Bounds);
         return reference.Kind switch
         {
             RenderFragmentKind.ContributeValues when inputBounds.Count == 0
@@ -691,8 +690,7 @@ internal sealed class RegionAnalyzer
         RenderRequestOptions options)
     {
         EffectiveScale[] inputScales = reference.Inputs
-            .Select(static input => input.EffectiveScale)
-            .ToArray();
+            .SelectToArray(static input => input.EffectiveScale);
         switch (reference.Kind)
         {
             case RenderFragmentKind.ContributeValues:
@@ -733,13 +731,9 @@ internal sealed class RegionAnalyzer
                 {
                     var payload = (FilterEffectSegmentRenderFragmentPayload)reference.Payload!;
                     Rect[] inputBounds = reference.Inputs
-                        .Take(payload.StreamInputCount)
-                        .Select(static input => input.Bounds)
-                        .ToArray();
+                        .SelectToArray(payload.StreamInputCount, static input => input.Bounds);
                     EffectiveScale[] streamScales = reference.Inputs
-                        .Take(payload.StreamInputCount)
-                        .Select(static input => input.EffectiveScale)
-                        .ToArray();
+                        .SelectToArray(payload.StreamInputCount, static input => input.EffectiveScale);
                     Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                         inputBounds,
                         payload.BoundsItems,
@@ -1171,7 +1165,7 @@ internal sealed class RegionAnalyzer
             return FullInputs(reference);
 
         Rect requested = outputRequirement.Resolve(reference.Bounds);
-        Rect[] inputBounds = reference.Inputs.Select(static input => input.Bounds).ToArray();
+        Rect[] inputBounds = reference.Inputs.SelectToArray(static input => input.Bounds);
         IReadOnlyList<Rect> required = bounds.GetRequiredInputBounds(requested, inputBounds);
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(required.Count);
         for (int index = 0; index < required.Count; index++)

@@ -333,7 +333,7 @@ public sealed class RenderCacheCandidateTopologyTests
         {
             RenderProvenanceId provenanceId = builder.AddProvenance(reference, "topology-test");
             RenderValueId[] valueInputs = reference.Inputs.SelectMany(static item => item.ValueIds).ToArray();
-            reference.ValueIds = [builder.AddValue(valueInputs, provenanceId, reference)];
+            reference.ValueIds = [builder.AddValue([.. valueInputs], provenanceId, reference)];
             reference.Id = builder.AddFragment(reference.ValueIds, provenanceId, reference);
         }
 

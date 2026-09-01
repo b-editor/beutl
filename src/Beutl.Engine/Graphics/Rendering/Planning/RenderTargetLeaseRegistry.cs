@@ -280,7 +280,9 @@ internal sealed class RenderTargetLeaseSession : IDisposable
     internal RenderTarget? ExternalTarget { get; }
 
     internal IReadOnlyList<Exception> CleanupFailures
-        => _cleanupFailures.Concat(Request.CleanupFailures).ToArray();
+        => _cleanupFailures.Count == 0 && Request.CleanupFailures.Count == 0
+            ? []
+            : [.. _cleanupFailures, .. Request.CleanupFailures];
 
     internal RenderTargetPoolStatistics PoolStatistics => _registry.Statistics;
 
@@ -358,10 +360,10 @@ internal sealed class RenderTargetLeaseSession : IDisposable
 
     public void ThrowIfCleanupFailed()
     {
-        Exception[] failures = [.. CleanupFailures];
-        if (failures.Length == 0)
+        IReadOnlyList<Exception> failures = CleanupFailures;
+        if (failures.Count == 0)
             return;
-        if (failures.Length == 1)
+        if (failures.Count == 1)
             ExceptionDispatchInfo.Capture(failures[0]).Throw();
 
         throw new AggregateException(

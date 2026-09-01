@@ -241,10 +241,10 @@ internal sealed partial class RenderRequestExecutor
                 }
 
                 Rect declaredBounds = description.Bounds.TransformBounds(
-                    flattened.Select(static value => value.CompleteBounds).ToArray());
+                    flattened.SelectToArray(static value => value.CompleteBounds));
                 EffectiveScale declaredScale = requestedScale
                     ?? description.Scale.Resolve(
-                        flattened.Select(static value => value.EffectiveScale).ToArray(),
+                        flattened.SelectToArray(static value => value.EffectiveScale),
                         declaredBounds,
                         _options.OutputScale,
                         _options.MaxWorkingScale);

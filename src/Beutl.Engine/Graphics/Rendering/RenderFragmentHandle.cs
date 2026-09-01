@@ -1083,7 +1083,13 @@ internal static class RenderFragmentTargetDependency
             return true;
         }
 
-        return reference.Inputs.Any(input => Visit(input, visited));
+        for (int index = 0; index < reference.Inputs.Length; index++)
+        {
+            if (Visit(reference.Inputs[index], visited))
+                return true;
+        }
+
+        return false;
     }
 }
 

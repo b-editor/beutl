@@ -421,7 +421,7 @@ public sealed class RenderNodeContext
         RenderFragmentReference reference = transaction.GetReference(input);
         EnsureValueInput(reference, nameof(input));
         ValidateDescriptionResources(
-            description.Resources.Select(static binding => binding.Resource).ToArray(),
+            description.Resources.SelectToArray(static binding => binding.Resource),
             nameof(description));
 
         Rect bounds = description.Bounds.TransformBounds(reference.Bounds);
@@ -921,15 +921,15 @@ public sealed class RenderNodeContext
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(effectContext));
         IReadOnlyList<IFEItem> recordedBoundsItems = boundsItems ?? [];
         Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
-            references.Select(static item => item.Bounds).ToArray(),
+            references.SelectToArray(static item => item.Bounds),
             recordedBoundsItems,
             outputBounds);
         EffectiveScale scale;
         if (workingScalePolicy is { } policy)
         {
             scale = policy.Resolve(
-                references.Select(static item => item.EffectiveScale).ToArray(),
-                references.Select(static item => item.Bounds).ToArray(),
+                references.SelectToArray(static item => item.EffectiveScale),
+                references.SelectToArray(static item => item.Bounds),
                 bufferBounds,
                 OutputScale,
                 MaxWorkingScale);
@@ -937,7 +937,7 @@ public sealed class RenderNodeContext
         else
         {
             scale = FilterEffectWorkingScalePolicy.ResolveMaterialized(
-                references.Select(static item => item.EffectiveScale).ToArray(),
+                references.SelectToArray(static item => item.EffectiveScale),
                 bufferBounds,
                 OutputScale,
                 MaxWorkingScale);
@@ -1591,9 +1591,9 @@ public sealed class RenderNodeContext
             nameof(description));
         ValidateDescriptionResources(description.Resources, nameof(description));
         Rect bounds = description.Bounds.TransformBounds(
-            references.Select(static item => item.Bounds).ToArray());
+            references.SelectToArray(static item => item.Bounds));
         EffectiveScale scale = description.Scale.Resolve(
-            references.Select(static item => item.EffectiveScale).ToArray(),
+            references.SelectToArray(static item => item.EffectiveScale),
             bounds,
             OutputScale,
             MaxWorkingScale);
@@ -1693,7 +1693,7 @@ public sealed class RenderNodeContext
         IReadOnlyList<RenderResourceBinding> resources,
         string parameterName)
         => ValidateDescriptionResources(
-            resources.Select(static binding => binding.Resource).ToArray(),
+            resources.SelectToArray(static binding => binding.Resource),
             parameterName);
 
     private static Rect CalculateReferenceBounds(
