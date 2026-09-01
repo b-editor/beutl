@@ -507,6 +507,138 @@ public sealed class ShaderDescriptionTests
         });
     }
 
+    /// <remarks>
+    /// The description keeps the builder's binding lists instead of copying them. A retained builder that could
+    /// still append would add a binding the description never validated against its source and never carried into
+    /// its structural identity, so the stage's cache key would stop describing what the stage binds.
+    /// </remarks>
+    [Test]
+    public void BuilderRetainedPastConstruction_RejectsFurtherDeclarations()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<object> resource = registry.RegisterBorrowed(new object());
+        ShaderBindingBuilder? retained = null;
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+            bindings =>
+            {
+                retained = bindings;
+                bindings.Uniform("gain", 0.5f);
+            });
+
+        Assert.That(retained, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => retained!.Uniform("late", 1f),
+                Throws.InvalidOperationException.With.Message.Contains("late")
+                    .And.Message.Contains("already been created"));
+            Assert.That(
+                () => retained!.Uniform("lateSpan", new float[] { 1f }),
+                Throws.InvalidOperationException);
+            Assert.That(
+                () => retained!.Uniform("lateBound", 1f, static (writer, value, _) => writer.Set(value)),
+                Throws.InvalidOperationException);
+            Assert.That(
+                () => retained!.Resource(
+                    "lateResource",
+                    resource,
+                    ShaderResourceCoordinateSpace.Value,
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(new SKColor(0xFFFFFFFF)))),
+                Throws.InvalidOperationException);
+            Assert.That(
+                () => retained!.Resource(
+                    "lateValuedResource",
+                    resource,
+                    ShaderResourceCoordinateSpace.Value,
+                    0f,
+                    static (writer, _, _, _) => writer.Set(SKShader.CreateColor(new SKColor(0xFFFFFFFF)))),
+                Throws.InvalidOperationException);
+            Assert.That(description.Uniforms, Has.Count.EqualTo(1));
+            Assert.That(description.Resources, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void BindingsDeclaredWhileTheCallbackRuns_ReachTheDescription()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<object> resource = registry.RegisterBorrowed(new object());
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float gain; uniform float2 offset; uniform shader lut; "
+            + "half4 apply(half4 color) { return lut.eval(color.rg + offset) * gain; }",
+            bindings =>
+            {
+                bindings.Uniform("gain", 0.5f);
+                bindings.Uniform("offset", Vector2.One);
+                bindings.Resource(
+                    "lut",
+                    resource,
+                    ShaderResourceCoordinateSpace.Value,
+                    static (writer, _, _) => writer.Set(SKShader.CreateColor(new SKColor(0xFFFFFFFF))));
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                description.Uniforms.Select(static uniform => uniform.Name),
+                Is.EqualTo(new[] { "gain", "offset" }));
+            Assert.That(
+                description.Resources.Select(static item => item.Name),
+                Is.EqualTo(new[] { "lut" }));
+        });
+    }
+
+    /// <remarks>
+    /// ValidateBindings reads the builder's own name set instead of rebuilding one, so a name may only join that
+    /// set together with the binding that carries it. A declaration that throws after its name is accepted must
+    /// leave nothing behind: the execution paths write only the bindings the description holds, and an SkSL
+    /// uniform nothing writes reads as zero in the shader without any error, so a stale name would turn a
+    /// rejected description into silently wrong pixels.
+    /// </remarks>
+    [Test]
+    public void DeclarationFailingAfterItsNameIsAccepted_LeavesThatNameUnsupplied()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<object> resource = registry.RegisterBorrowed(new object());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => ShaderDescription.CurrentPixel(
+                    "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+                    static bindings =>
+                    {
+                        try
+                        {
+                            bindings.Uniform("gain", ReadOnlySpan<float>.Empty);
+                        }
+                        catch (ArgumentException)
+                        {
+                        }
+                    }),
+                Throws.ArgumentException.With.Message.Contains("'gain' was declared but not supplied"));
+            Assert.That(
+                () => ShaderDescription.CurrentPixel(
+                    "uniform shader lut; half4 apply(half4 color) { return lut.eval(color.rg); }",
+                    bindings =>
+                    {
+                        try
+                        {
+                            bindings.Resource(
+                                "lut",
+                                resource,
+                                (ShaderResourceCoordinateSpace)(-1),
+                                static (writer, _, _) => writer.Set(SKShader.CreateColor(new SKColor(0xFFFFFFFF))));
+                        }
+                        catch (ArgumentOutOfRangeException)
+                        {
+                        }
+                    }),
+                Throws.ArgumentException.With.Message.Contains("'lut' was declared but not supplied"));
+        });
+    }
+
     private sealed record CollisionKey(string Value)
     {
         public override int GetHashCode() => 7;

@@ -146,17 +146,18 @@ internal sealed class ShaderResourceBinding
 
 /// <summary>Declares uniform and child-shader bindings while a <see cref="ShaderDescription"/> is created.</summary>
 /// <remarks>
-/// The description invokes its builder callback synchronously and snapshots the declared bindings before returning.
-/// Registered execution binders run later. Their writers, contexts, and callback-provided raw resources must not be
-/// retained, and binders must not dispose raw resources. Disposal ownership continues to follow each resource's owned
-/// or borrowed registration. Every binding name must be a unique SkSL identifier matching a declaration in the
-/// source.
+/// The description invokes its builder callback synchronously and takes ownership of the declared bindings when the
+/// callback returns; the builder is closed at that point and every later declaration throws. Registered execution
+/// binders run later. Their writers, contexts, and callback-provided raw resources must not be retained, and binders
+/// must not dispose raw resources. Disposal ownership continues to follow each resource's owned or borrowed
+/// registration. Every binding name must be a unique SkSL identifier matching a declaration in the source.
 /// </remarks>
 public sealed class ShaderBindingBuilder
 {
     private readonly List<ShaderUniformBinding> _uniforms = [];
     private readonly List<ShaderResourceBinding> _resources = [];
     private readonly HashSet<string> _names = new(StringComparer.Ordinal);
+    private bool _closed;
 
     internal ShaderBindingBuilder()
     {
@@ -172,12 +173,15 @@ public sealed class ShaderBindingBuilder
     /// uniform type.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
     public void Uniform<T>(string name, T value)
         where T : unmanaged
     {
-        ValidateName(name);
+        BeginBinding(name);
         ShaderCanonicalValue canonical = ShaderCanonicalValue.Create(value);
-        _uniforms.Add(new ShaderUniformBinding(
+        CompleteBinding(new ShaderUniformBinding(
             name,
             new DirectUniformStructuralKey(typeof(T)),
             readsExecutionContext: false,
@@ -192,13 +196,16 @@ public sealed class ShaderBindingBuilder
     /// <exception cref="ArgumentException">
     /// <paramref name="name"/> is invalid or duplicated, or <paramref name="values"/> is empty.
     /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
     public void Uniform(string name, ReadOnlySpan<float> values)
     {
-        ValidateName(name);
+        BeginBinding(name);
         float[] copy = values.ToArray();
         if (copy.Length == 0)
             throw new ArgumentException("A direct uniform span cannot be empty.", nameof(values));
-        _uniforms.Add(new ShaderUniformBinding(
+        CompleteBinding(new ShaderUniformBinding(
             name,
             typeof(float[]),
             readsExecutionContext: false,
@@ -225,15 +232,18 @@ public sealed class ShaderBindingBuilder
     /// a supported canonical uniform type.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
     public void Uniform<T>(
         string name,
         T value,
         Action<ShaderUniformWriter, T, ShaderExecutionContext> bind)
         where T : unmanaged
     {
-        ValidateName(name);
+        BeginBinding(name);
         ArgumentNullException.ThrowIfNull(bind);
-        _uniforms.Add(new ShaderUniformBinding(
+        CompleteBinding(new ShaderUniformBinding(
             name,
             new CustomUniformStructuralKey(
                 typeof(T),
@@ -263,6 +273,9 @@ public sealed class ShaderBindingBuilder
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="coordinateSpace"/> is not a defined <see cref="ShaderResourceCoordinateSpace"/> value.
     /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
     public void Resource<T>(
         string name,
         RenderResource<T> resource,
@@ -270,11 +283,11 @@ public sealed class ShaderBindingBuilder
         Action<ShaderResourceWriter, T, ShaderExecutionContext> bind)
         where T : class
     {
-        ValidateName(name);
+        BeginBinding(name);
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(bind);
         ThrowIfCoordinateSpaceUndefined(coordinateSpace);
-        _resources.Add(new ShaderResourceBinding(
+        CompleteBinding(new ShaderResourceBinding(
             name,
             resource,
             coordinateSpace,
@@ -313,6 +326,9 @@ public sealed class ShaderBindingBuilder
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="coordinateSpace"/> is not a defined <see cref="ShaderResourceCoordinateSpace"/> value.
     /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
     public void Resource<T, TValue>(
         string name,
         RenderResource<T> resource,
@@ -321,11 +337,11 @@ public sealed class ShaderBindingBuilder
         Action<ShaderResourceWriter, T, TValue, ShaderExecutionContext> bind)
         where T : class
     {
-        ValidateName(name);
+        BeginBinding(name);
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(bind);
         ThrowIfCoordinateSpaceUndefined(coordinateSpace);
-        _resources.Add(new ShaderResourceBinding(
+        CompleteBinding(new ShaderResourceBinding(
             name,
             resource,
             coordinateSpace,
@@ -347,20 +363,54 @@ public sealed class ShaderBindingBuilder
     }
 
     /// <remarks>
-    /// The live list. A binding callback may retain the builder and append after the description was built, so
-    /// whoever keeps these bindings past construction has to copy them.
+    /// The list itself, handed to the description that closed this builder. Nothing can append to it afterwards,
+    /// so the description keeps it rather than copying it.
     /// </remarks>
     internal List<ShaderUniformBinding> Uniforms => _uniforms;
 
     /// <inheritdoc cref="Uniforms"/>
     internal List<ShaderResourceBinding> Resources => _resources;
 
-    private void ValidateName(string name)
+    /// <summary>Gets the names of the bindings the two lists carry.</summary>
+    /// <remarks>
+    /// A name enters this set only in <see cref="CompleteBinding(ShaderUniformBinding)"/> or
+    /// <see cref="CompleteBinding(ShaderResourceBinding)"/>, alongside the binding that carries it, so the set is
+    /// exactly the union of the two lists' names and the description does not have to rebuild it. Committing the
+    /// name in <see cref="BeginBinding"/> instead would leave it behind when a declaration throws after its name
+    /// is accepted and the callback swallows that exception, and the description would then take a uniform the
+    /// shader declares but nothing writes.
+    /// </remarks>
+    internal HashSet<string> Names => _names;
+
+    /// <summary>Closes the builder so that the description taking its lists can rely on them never growing.</summary>
+    internal void Close() => _closed = true;
+
+    private void CompleteBinding(ShaderUniformBinding binding)
     {
+        _names.Add(binding.Name);
+        _uniforms.Add(binding);
+    }
+
+    private void CompleteBinding(ShaderResourceBinding binding)
+    {
+        _names.Add(binding.Name);
+        _resources.Add(binding);
+    }
+
+    private void BeginBinding(string name)
+    {
+        if (_closed)
+        {
+            throw new InvalidOperationException(
+                $"Cannot declare shader binding '{name}': the ShaderDescription that owns this builder has already "
+                + "been created. A binding callback must declare every binding before it returns and must not "
+                + "retain the builder.");
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!IsIdentifier(name))
             throw new ArgumentException("A shader binding name must be a valid identifier.", nameof(name));
-        if (!_names.Add(name))
+        if (_names.Contains(name))
             throw new ArgumentException($"Duplicate shader binding name '{name}'.", nameof(name));
     }
 
