@@ -68,7 +68,10 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
     private bool _proxyInvalidationScheduled;
     private volatile bool _disposed;
     private readonly object _disposeGate = new();
+    private static readonly AsyncLocal<PublicationScope?> s_publicationScope = new();
     private Task? _disposeTask;
+    private TaskCompletionSource? _publicationDrain;
+    private int _activePublications;
     private int _disposeFaultObserverAttached;
     private readonly Task _restoreTask;
     private readonly TaskCompletionSource _constructionCompleted = new(
@@ -635,8 +638,8 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         }
     }
 
-    // Publish under the same lifetime gate used by DisposeAsync, so shutdown cannot race
-    // publication even when the context was constructed directly (without a reservation token).
+    // Admission and completion are serialized with DisposeAsync, while observer callbacks run
+    // outside the gate. Teardown drains admitted callbacks after closing further admission.
     internal bool TryPublish(Action publish)
     {
         ArgumentNullException.ThrowIfNull(publish);
@@ -644,23 +647,79 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         {
             if (_disposeTask is not null)
                 return false;
+
+            if (_activePublications++ == 0)
+            {
+                _publicationDrain = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        PublicationScope? previous = s_publicationScope.Value;
+        var scope = new PublicationScope(this, previous);
+        s_publicationScope.Value = scope;
+        try
+        {
             publish();
-            return _disposeTask is null;
+            lock (_disposeGate)
+                return _disposeTask is null;
+        }
+        finally
+        {
+            TaskCompletionSource? drained = null;
+            lock (_disposeGate)
+            {
+                scope.Deactivate();
+                _activePublications--;
+                if (_activePublications == 0)
+                {
+                    drained = _publicationDrain;
+                    _publicationDrain = null;
+                }
+            }
+            s_publicationScope.Value = previous;
+            drained?.TrySetResult();
         }
     }
 
     bool IEditorContextPublicationGate.TryPublish(Action publish)
         => TryPublish(publish);
 
+    private static bool IsActivePublicationScope(EditViewModel owner)
+    {
+        for (PublicationScope? scope = s_publicationScope.Value; scope is not null; scope = scope.Parent)
+        {
+            if (scope.IsActive && ReferenceEquals(scope.Owner, owner))
+                return true;
+        }
+
+        return false;
+    }
+
+    private sealed class PublicationScope(EditViewModel owner, PublicationScope? parent)
+    {
+        private int _active = 1;
+
+        public EditViewModel Owner { get; } = owner;
+
+        public PublicationScope? Parent { get; } = parent;
+
+        public bool IsActive => Volatile.Read(ref _active) != 0;
+
+        public void Deactivate() => Interlocked.Exchange(ref _active, 0);
+    }
+
     public ValueTask DisposeAsync()
     {
         TaskCompletionSource<object?>? completion = null;
         Task task;
+        Task publicationDrain = Task.CompletedTask;
         bool startDisposal = false;
         bool reentrantOwnerCallback = ToolContextDisposal.IsActive
             || DockHost.IsOwnerCallbackScope;
         lock (_disposeGate)
         {
+            reentrantOwnerCallback |= IsActivePublicationScope(this);
             if (_disposeTask is not null)
             {
                 task = _disposeTask;
@@ -671,6 +730,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 _disposeTask = completion.Task;
                 task = completion.Task;
+                publicationDrain = _publicationDrain?.Task ?? Task.CompletedTask;
                 startDisposal = true;
             }
         }
@@ -679,7 +739,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         {
             DockHost.RequestOwnerShutdown();
             EditorService.RequestContextShutdown(this);
-            _ = DisposeCoreAsync(completion!);
+            _ = DisposeCoreAsync(publicationDrain, completion!);
         }
         if (reentrantOwnerCallback)
         {
@@ -700,11 +760,15 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             TaskScheduler.Default);
     }
 
-    private async Task DisposeCoreAsync(TaskCompletionSource<object?> completion)
+    private async Task DisposeCoreAsync(
+        Task publicationDrain,
+        TaskCompletionSource<object?> completion)
     {
         List<Exception>? failures = null;
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
         Scene scene = Scene;
+
+        await TryAsync(async () => await publicationDrain.ConfigureAwait(false));
 
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.

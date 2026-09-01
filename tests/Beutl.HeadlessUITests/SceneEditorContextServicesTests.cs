@@ -115,4 +115,36 @@ public class SceneEditorContextServicesTests
         await tab.DisposeAsync();
         HeadlessTestHelpers.Settle();
     }
+
+    [AvaloniaTest]
+    public async Task EditViewModelPublicationObserverCanWaitForDisposeWithoutDeadlock()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "context-publication-close");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "context-publication-close")
+        {
+            Uri = new Uri(Path.Combine(workspace, "context-publication-close.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
+
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
+            Is.True);
+        var gate = (IEditorContextPublicationGate)context!;
+        Task? close = null;
+
+        bool published = await Task.Run(() => gate.TryPublish(() =>
+        {
+            close = Task.Run(() => context!.DisposeAsync().AsTask());
+            close.GetAwaiter().GetResult();
+        })).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(close, Is.Not.Null);
+        await close!.WaitAsync(TimeSpan.FromSeconds(5));
+        await context!.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(published, Is.False);
+        HeadlessTestHelpers.Settle();
+    }
 }
