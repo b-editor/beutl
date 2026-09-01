@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
@@ -19,6 +20,7 @@ namespace Beutl.HeadlessUITests;
 public class ToolTabHeaderTests
 {
     private const int DefaultDisposalExtensionPackageId = 923_841;
+    private const int RestoreReentryExtensionPackageId = 923_842;
 
     private static string NewWorkspace(string name)
     {
@@ -667,6 +669,261 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
+    public async Task RestoredContextCanSynchronouslyRequestEditorDisposalDuringCreation()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new RestoreReentryToolExtension();
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("tooltab-restore-create-reentry");
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            JsonObject layout = editor.DockHost.CaptureLayout();
+            extension.DisposeInCreate = true;
+
+            Task<bool> restore = editor.DockHost.ApplyLayoutAsync(layout);
+            Assert.That(await restore.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+            await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(editor.DockHost.FindToolContext(extension.GetType()), Is.Null);
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RestoredContextCanSynchronouslyRequestEditorDisposalDuringStateRead()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new RestoreReentryToolExtension();
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("tooltab-restore-read-reentry");
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            var saved = new JsonObject();
+            editor.DockHost.WriteToJson(saved);
+            extension.DisposeInRead = true;
+
+            Task<bool> restore = editor.DockHost.ReadFromJsonAsync(saved);
+            Assert.That(await restore.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+            await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(editor.DockHost.FindToolContext(extension.GetType()), Is.Null);
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task RestoredContextThatClosesItselfIsNotPublished()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new RestoreReentryToolExtension();
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("tooltab-restore-self-close");
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            var saved = new JsonObject();
+            editor.DockHost.WriteToJson(saved);
+            extension.CloseInRead = true;
+
+            Assert.That(await editor.DockHost.ReadFromJsonAsync(saved)
+                .WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(editor.DockHost.FindToolContext(extension.GetType()), Is.Null);
+            await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task PublicationCloseCallbackDoesNotDeadlockOrPublishDisposedTool()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-publication-close-reentry");
+        var extension = new RestoreReentryToolExtension();
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        try
+        {
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            var saved = new JsonObject();
+            editor.DockHost.WriteToJson(saved);
+            editor.DockHost.BeforeLayoutPublication = restored =>
+            {
+                BeutlToolDockable? restoredTool = BeutlDockFactory.Traverse(restored)
+                    .OfType<BeutlToolDockable>()
+                    .FirstOrDefault(tool => tool.ToolContext.Extension == extension);
+                if (restoredTool?.ToolContext is { } context)
+                    editor.CloseToolTabAsync(context).AsTask().GetAwaiter().GetResult();
+            };
+
+            Assert.That(await editor.DockHost.ReadFromJsonAsync(saved)
+                .WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(editor.DockHost.FindToolContext(extension.GetType()), Is.Null);
+            await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            editor.DockHost.BeforeLayoutPublication = null;
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task DeferredPublicationCloseAttemptsEveryContextAfterDisposalFailures()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new RestoreReentryToolExtension();
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("tooltab-publication-close-batch");
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            var saved = new JsonObject();
+            editor.DockHost.WriteToJson(saved);
+            int previousContexts = extension.CreatedContexts.Count;
+            extension.ThrowOnDispose = true;
+            editor.DockHost.BeforeLayoutPublication = restored =>
+            {
+                foreach (BeutlToolDockable tool in BeutlDockFactory.Traverse(restored)
+                    .OfType<BeutlToolDockable>()
+                    .Where(tool => tool.ToolContext.Extension == extension))
+                {
+                    editor.CloseToolTabAsync(tool.ToolContext).AsTask().GetAwaiter().GetResult();
+                }
+            };
+
+            Assert.That(await editor.DockHost.ReadFromJsonAsync(saved)
+                .WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            FakeToolContext[] restoredContexts = extension.CreatedContexts
+                .Skip(previousContexts)
+                .ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(restoredContexts, Has.Length.EqualTo(2));
+                Assert.That(restoredContexts, Has.All.Matches<FakeToolContext>(context => context.DisposeCount == 1));
+                Assert.That(editor.DockHost.FindToolContext(extension.GetType()), Is.Null);
+            });
+            await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task DelayedOwnerCallbackCloseAfterApplyUsesNormalAdmission()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new RestoreReentryToolExtension
+        {
+            DelayCloseFromRead = true,
+        };
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("tooltab-delayed-owner-close");
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension,
+                editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            var saved = new JsonObject();
+            editor.DockHost.WriteToJson(saved);
+
+            Assert.That(await editor.DockHost.ReadFromJsonAsync(saved)
+                .WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            await extension.DelayedCloseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            extension.ReleaseDelayedClose.TrySetResult();
+            await extension.DelayedCloseCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(editor.DockHost.FindToolContext(extension.GetType()), Is.Null);
+            await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            extension.ReleaseDelayedClose.TrySetResult();
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ReplacementEditContextDisposedBeforePublicationIsRejected()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel owner = await OpenEditorForNewScene("tooltab-replacement-admission");
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Block the old context through a replacement callback while the new EditViewModel is
+        // disposed before its publication reservation can be consumed.
+        var replacementScene = new Scene(16, 16, "replacement-admission")
+        {
+            Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, "replacement-admission.scene"))
+        };
+        Assert.That(SceneEditorExtension.Instance.TryCreateContext(
+            replacementScene,
+            new EditorContextServices(TestShell.Editor, owner.ExtensionProvider),
+            out IEditorContext? replacementContext), Is.True);
+        var replacement = (EditViewModel)replacementContext!;
+        var oldBlocking = new BlockingEditorContext(entered, release);
+        var blockingTab = new EditorTabItem(oldBlocking);
+        TestShell.Editor.AddTabItem(blockingTab);
+        Task<bool> replace = blockingTab.ReplaceContextAsync(replacement).AsTask();
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _ = replacement.DisposeAsync();
+        release.TrySetResult();
+
+        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.That(blockingTab.Context.Value, Is.Null);
+        await blockingTab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await owner.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [AvaloniaTest]
+    public async Task ShutdownAdmissionRejectsResetAndApplyWhileDisposalDrains()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-shutdown-admission");
+        var context = new FakeToolContext("shutdown-block");
+        Assert.That(await editor.OpenToolTabAsync(context), Is.True);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.OnDispose = async () =>
+        {
+            entered.TrySetResult();
+            await release.Task;
+        };
+        JsonObject layout = editor.DockHost.CaptureLayout();
+        Task dispose = editor.DisposeAsync().AsTask();
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task reset = editor.DockHost.ResetLayoutAsync();
+        Assert.That(reset.IsCompleted, Is.True);
+        await reset.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(layout).WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        release.TrySetResult();
+        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [AvaloniaTest]
     public async Task DefaultFactoryCanSynchronouslyCloseEarlierDefaultWithoutDeadlock()
     {
         await TestReset.ResetShellAsync();
@@ -804,6 +1061,8 @@ public class ToolTabHeaderTests
 
         public Action<JsonObject>? OnWrite { get; set; }
 
+        public Action<JsonObject>? OnRead { get; set; }
+
         public int DisposeCount { get; private set; }
 
         // Keep HeaderSource alive to test the dockable's unsubscribe.
@@ -819,12 +1078,33 @@ public class ToolTabHeaderTests
 
         public void ReadFromJson(JsonObject json)
         {
+            OnRead?.Invoke(json);
         }
 
         public void WriteToJson(JsonObject json)
         {
             OnWrite?.Invoke(json);
         }
+    }
+
+    private sealed class BlockingEditorContext(
+        TaskCompletionSource entered,
+        TaskCompletionSource release) : IEditorContext
+    {
+        public CoreObject Object { get; } = new Scene(16, 16, "blocking");
+        public EditorExtension Extension => SceneEditorExtension.Instance;
+        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
+        public IKnownEditorCommands? Commands => null;
+        public async ValueTask DisposeAsync()
+        {
+            entered.TrySetResult();
+            await release.Task;
+        }
+        public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
+        public T? FindToolTab<T>() where T : IToolContext => default;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => new(false);
+        public ValueTask CloseToolTabAsync(IToolContext item) => ValueTask.CompletedTask;
+        public object? GetService(Type serviceType) => null;
     }
 
     private class BlockingToolExtension : ToolTabExtension
@@ -876,6 +1156,76 @@ public class ToolTabHeaderTests
             [NotNullWhen(true)] out IToolContext? context)
         {
             context = new FakeToolContext("default", this);
+            return true;
+        }
+    }
+
+    private sealed class RestoreReentryToolExtension : ToolTabExtension
+    {
+        public bool DisposeInCreate { get; set; }
+        public bool DisposeInRead { get; set; }
+        public bool CloseInRead { get; set; }
+        public bool DelayCloseFromRead { get; set; }
+        public bool ThrowOnDispose { get; set; }
+        public List<FakeToolContext> CreatedContexts { get; } = [];
+        public TaskCompletionSource DelayedCloseStarted { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseDelayedClose { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource DelayedCloseCompleted { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override bool CanMultiple => true;
+        public override string Name => "RestoreReentryToolTab";
+        public override string DisplayName => "Restore reentry tool tab";
+        public override string? Header => "Restore reentry tool tab";
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            if (DisposeInCreate)
+                editorContext.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            var created = new FakeToolContext("restore reentry", this);
+            CreatedContexts.Add(created);
+            if (ThrowOnDispose)
+            {
+                created.OnDispose = () => ValueTask.FromException(
+                    new InvalidOperationException("deferred close failed"));
+            }
+            if (DisposeInRead)
+                created.OnRead = _ => editorContext.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            if (CloseInRead)
+                created.OnRead = _ => editorContext.CloseToolTabAsync(created).AsTask().GetAwaiter().GetResult();
+            if (DelayCloseFromRead)
+            {
+                created.OnRead = _json =>
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            DelayedCloseStarted.TrySetResult();
+                            await ReleaseDelayedClose.Task;
+                            await editorContext.CloseToolTabAsync(created);
+                            DelayedCloseCompleted.TrySetResult();
+                        }
+                        catch (Exception ex)
+                        {
+                            DelayedCloseCompleted.TrySetException(ex);
+                        }
+                    });
+                };
+            }
+            context = created;
             return true;
         }
     }
