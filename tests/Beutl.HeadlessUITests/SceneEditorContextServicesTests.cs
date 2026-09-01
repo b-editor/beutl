@@ -89,4 +89,30 @@ public class SceneEditorContextServicesTests
             HeadlessTestHelpers.Settle();
         }
     }
+
+    [AvaloniaTest]
+    public async Task Context_disposal_before_tab_publication_is_not_published()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "publication-race");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "publication-race")
+        {
+            Uri = new Uri(Path.Combine(workspace, "publication-race.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
+
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
+            Is.True);
+        var tab = new EditorTabItem(context!);
+        await context!.DisposeAsync();
+
+        editorService.AddTabItem(tab);
+
+        Assert.That(editorService.TabItems, Does.Not.Contain(tab));
+        await tab.DisposeAsync();
+        HeadlessTestHelpers.Settle();
+    }
 }

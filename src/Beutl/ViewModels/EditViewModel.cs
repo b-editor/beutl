@@ -30,7 +30,7 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
+public sealed partial class EditViewModel : IEditorContext, IEditorContextPublicationGate, IAiJobResultEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -620,13 +620,30 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         }
     }
 
+    // Publish under the same lifetime gate used by DisposeAsync, so shutdown cannot race
+    // publication even when the context was constructed directly (without a reservation token).
+    internal bool TryPublish(Action publish)
+    {
+        ArgumentNullException.ThrowIfNull(publish);
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+                return false;
+            publish();
+            return _disposeTask is null;
+        }
+    }
+
+    bool IEditorContextPublicationGate.TryPublish(Action publish)
+        => TryPublish(publish);
+
     public ValueTask DisposeAsync()
     {
         TaskCompletionSource<object?>? completion = null;
         Task task;
         bool startDisposal = false;
         bool reentrantOwnerCallback = ToolContextDisposal.IsActive
-            || DockHost.IsMaterializingDefaultPluginCallback;
+            || DockHost.IsOwnerCallbackScope;
         lock (_disposeGate)
         {
             if (_disposeTask is not null)

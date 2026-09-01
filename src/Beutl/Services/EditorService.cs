@@ -3,9 +3,15 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.ViewModels;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
+
+internal interface IEditorContextPublicationGate
+{
+    bool TryPublish(Action publish);
+}
 
 public sealed class EditorTabItem : IAsyncDisposable
 {
@@ -159,8 +165,9 @@ public sealed class EditorTabItem : IAsyncDisposable
         {
             try
             {
-                MutableContext.Value = replacement;
-                published = true;
+                published = replacement is IEditorContextPublicationGate gate
+                    ? gate.TryPublish(() => MutableContext.Value = replacement)
+                    : PublishReplacementContext(replacement);
             }
             catch (Exception ex)
             {
@@ -215,11 +222,16 @@ public sealed class EditorTabItem : IAsyncDisposable
         {
             RecordFailure(ref failures, ex);
         }
-
         if (failures is null)
             result.TrySetResult(false);
         else
             result.TrySetException(CreateFailure(failures));
+    }
+
+    private bool PublishReplacementContext(IEditorContext replacement)
+    {
+        MutableContext.Value = replacement;
+        return true;
     }
 
     private static void RecordFailure(ref List<Exception>? failures, Exception exception)
@@ -378,9 +390,27 @@ public sealed class EditorService
 
     internal void AddTabItem(EditorTabItem item)
     {
+        if (!TryAddTabItem(item))
+            _ = item.DisposeAsync();
+    }
+
+    internal bool TryAddTabItem(EditorTabItem item)
+    {
+        if (item.Context.Value is IEditorContextPublicationGate gate)
+            return gate.TryPublish(() => AddTabItemCore(item)) && ContainsTabItem(item);
+
+        AddTabItemCore(item);
+        return true;
+    }
+
+    internal void AddTabItemCore(EditorTabItem item)
+    {
         item.AttachOwner(RemoveFailedTabItem);
         _tabItems.Add(item);
     }
+
+    internal bool ContainsTabItem(EditorTabItem item)
+        => _tabItems.Contains(item);
 
     internal bool RemoveTabItem(EditorTabItem item)
     {
@@ -452,8 +482,10 @@ public sealed class EditorService
             if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
             {
                 var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
-                AddTabItem(tabItem2);
-                SelectedTabItem.Value = tabItem2;
+                if (TryAddTabItem(tabItem2))
+                    SelectedTabItem.Value = tabItem2;
+                else
+                    _ = tabItem2.DisposeAsync();
             }
         }
     }
