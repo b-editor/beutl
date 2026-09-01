@@ -14,6 +14,146 @@ namespace Beutl.HeadlessUITests;
 public sealed class EditorTabItemLifetimeTests
 {
     [Test]
+    public async Task AddAndSelectIsLinearizedWithConcurrentDispose()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        var inserted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var shutdownRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int disposeRequested = 0;
+        context.OnDispose = () =>
+        {
+            shutdownRequested.TrySetResult();
+            if (Interlocked.Exchange(ref disposeRequested, 1) == 0)
+                service.RequestContextShutdown(context);
+            return ValueTask.CompletedTask;
+        };
+
+        Task<bool> publish = Task.Run(() => service.TryAddAndSelectTabItem(tab, () =>
+        {
+            inserted.TrySetResult();
+            release.Task.GetAwaiter().GetResult();
+        }));
+        await inserted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Context shutdown waits for the publication gate; once publication is released it must
+        // remove the tab and clear selection before completing.
+        Task dispose = Task.Run(async () =>
+        {
+            await context.DisposeAsync();
+        });
+        await shutdownRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        release.TrySetResult();
+
+        Assert.That(await publish.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+            Assert.That(tab.Context.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task RemovingAnAlreadyAbsentTabClearsStaleSelection()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
+        service.AddTabItem(tab);
+        service.SelectedTabItem.Value = tab;
+        service.ClearTabItems();
+
+        Assert.That(service.SelectedTabItem.Value, Is.Null);
+        Assert.That(service.RemoveTabItem(tab), Is.False);
+        Assert.That(service.SelectedTabItem.Value, Is.Null);
+        await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task SelectionAndRemovalDoNotInvertContextPublicationGate()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "publication-gate.scene"))
+        };
+        var context = new GatedEditorContext(scene);
+        var tab = new EditorTabItem(context);
+        service.AddTabItem(tab);
+        service.SelectedTabItem.Value = tab;
+        context.PauseNextPublication();
+
+        ((System.Collections.Specialized.INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+            {
+                context.EnterGate();
+                context.ExitGate();
+            }
+        };
+
+        Task activate = Task.Run(() => service.ActivateTabItem(scene));
+        await context.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task remove = Task.Run(() => service.RemoveTabItem(tab));
+        context.ReleasePublication();
+
+        await Task.WhenAll(
+            activate.WaitAsync(TimeSpan.FromSeconds(5)),
+            remove.WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+        await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task ReplacementAndRemovalDoNotInvertContextPublicationGate()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
+        service.AddTabItem(tab);
+        var replacement = new GatedEditorContext(new Scene(16, 16, string.Empty));
+        using IDisposable contextSubscription = tab.Context.Subscribe(value =>
+        {
+            if (ReferenceEquals(value, replacement))
+                tab.MutateLifetime(static () => { });
+        });
+        replacement.PauseNextPublication();
+
+        ((System.Collections.Specialized.INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+            {
+                replacement.EnterGate();
+                replacement.ExitGate();
+            }
+        };
+
+        Task<bool> replace = Task.Run(async () => await tab.ReplaceContextAsync(replacement));
+        await replacement.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task remove = Task.Run(() => service.RemoveTabItem(tab));
+        replacement.ReleasePublication();
+
+        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        await remove.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+        await tab.DisposeAsync();
+        Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
     public async Task DisposeAsync_PublishesOneSharedTaskBeforeContextTeardown()
     {
         var context = new BlockingEditorContext();
@@ -325,7 +465,7 @@ public sealed class EditorTabItemLifetimeTests
                 throw new InvalidOperationException("observer failed");
         });
 
-        Assert.CatchAsync<Exception>(async () =>
+        Assert.CatchAsync<InvalidOperationException>(async () =>
             await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Multiple(() =>
         {
@@ -333,6 +473,30 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(replacement.DisposeCount, Is.EqualTo(1));
         });
         await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task ThrowingReplacementSubscriberDisposesPublishedReplacement()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (ReferenceEquals(value, replacement))
+                throw new InvalidOperationException("replacement observer failed");
+        });
+
+        Assert.CatchAsync<InvalidOperationException>(async () =>
+            await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+            Assert.That(tab.Context.Value, Is.Null);
+        });
     }
 
     [Test]
@@ -428,9 +592,10 @@ public sealed class EditorTabItemLifetimeTests
         private readonly bool _blockDispose;
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public BlockingEditorContext(bool blockDispose = true)
+        public BlockingEditorContext(bool blockDispose = true, CoreObject? obj = null)
         {
             _blockDispose = blockDispose;
+            Object = obj ?? new Scene(16, 16, string.Empty);
         }
 
         public TaskCompletionSource DisposeStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -441,7 +606,7 @@ public sealed class EditorTabItemLifetimeTests
 
         public Func<ValueTask>? OnDispose { get; set; }
 
-        public CoreObject Object { get; } = new Scene(16, 16, string.Empty);
+        public CoreObject Object { get; }
 
         public EditorExtension Extension { get; } = TestEditorExtension.Instance;
 
@@ -475,6 +640,39 @@ public sealed class EditorTabItemLifetimeTests
         }
 
         public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class GatedEditorContext(Scene scene) : BlockingEditorContext(false, scene), IEditorContextPublicationGate
+    {
+        private readonly object _gate = new();
+        private bool _pauseNext;
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource PublicationPaused { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void PauseNextPublication() => _pauseNext = true;
+
+        public void ReleasePublication() => _release.TrySetResult();
+
+        public bool TryPublish(Action publish)
+        {
+            lock (_gate)
+            {
+                if (_pauseNext)
+                {
+                    _pauseNext = false;
+                    PublicationPaused.TrySetResult();
+                    _release.Task.GetAwaiter().GetResult();
+                }
+
+                publish();
+                return true;
+            }
+        }
+
+        public void EnterGate() => Monitor.Enter(_gate);
+
+        public void ExitGate() => Monitor.Exit(_gate);
     }
 
     private sealed class ThrowingEditorContext : BlockingEditorContext
