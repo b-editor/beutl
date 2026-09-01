@@ -18,18 +18,18 @@ public sealed class RenderDescriptionAllocationTests
     private const int SceneFrames = 40;
     private const int SceneWarmupFrames = 8;
 
-    // Measured steady state is ~172,800 bytes/frame, leaving about 12% headroom. That headroom is for the
+    // Measured steady state is ~161,600 bytes/frame, leaving about 12% headroom. That headroom is for the
     // platform-dependent part of the scene - font fallback for its TextBlock - rather than for measurement
     // noise, so a whole-frame regression fails here while per-call regressions are caught by the comparative
     // tests in this fixture. Most of the scene's nodes keep their recording across frames, so what this
     // measures after the first frame is the graph the reused fragments are rebased into.
-    private const long SceneBytesPerFrameCeiling = 193_500;
+    private const long SceneBytesPerFrameCeiling = 180_900;
 
-    // The same scene with the render cache warm allocates about 234,100 bytes/frame, leaving about 7%
+    // The same scene with the render cache warm allocates about 209,600 bytes/frame, leaving about 7%
     // headroom. Each machine reports one deterministic value, but not the same one: a Linux runner and a
     // macOS machine measured 261 bytes apart on the same commit, so the figure is platform-specific rather
     // than a property of the scene, and the spread is far below the headroom either budget keeps.
-    private const long WarmCacheSceneBytesPerFrameCeiling = 251_300;
+    private const long WarmCacheSceneBytesPerFrameCeiling = 224_900;
 
     private static readonly object s_explicitKey = new();
     private static readonly ImmutableArray<int> s_projectionSource = [1, 2, 3, 4];

@@ -163,6 +163,18 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
             public sealed class GeometrySession { }
 
+            public sealed class ShaderDescription
+            {
+                public static ShaderDescription CurrentPixel(
+                    string source,
+                    Action<ShaderBindingBuilder>? bindings = null) => null!;
+
+                public static ShaderDescription WholeSource(
+                    string source,
+                    RenderBoundsContract bounds,
+                    Action<ShaderBindingBuilder>? bindings = null) => null!;
+            }
+
             public sealed class GeometryDescription
             {
                 public static GeometryDescription Create<TState>(
@@ -4334,6 +4346,76 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(
             diagnostics.Select(static d => d.Id),
             Does.Contain("BESG003"));
+    }
+
+    /// <remarks>
+    /// The one description factory deliberately off this rule's roster, pinned so that removing it from the
+    /// exemption is a test failure rather than a silent tightening. Its bindings argument is not a retained
+    /// execution callback: it is invoked once, inside the factory, while the description is being
+    /// constructed, and is never stored - so there is no later recording at which a captured value could
+    /// make it answer differently, which is the whole of what this rule reports. Putting ShaderDescription
+    /// on the roster would report every declaratively-bound shader in the engine, <c>SKSLScriptEffect</c>'s
+    /// among them, whose declaration has to read the parsed source and the uniform state it is declaring
+    /// from.
+    /// </remarks>
+    [Test]
+    public void ACapturingBindingDeclarationOnAShaderDescriptionFactory_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics.Effects;
+
+            internal static class Author
+            {
+                public static void Build(float amount)
+                    => ShaderDescription.CurrentPixel(
+                        "half4 apply(half4 color) { return color; }",
+                        bindings => bindings.Uniform(
+                            "amount",
+                            amount,
+                            static (writer, value, context) => Consume(value)));
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the declaration runs while the description is being constructed and is never retained");
+    }
+
+    /// <remarks>
+    /// The control that keeps that exemption honest. What a shader description does retain is each binder
+    /// the declaration registers, and those reach this rule through <c>ShaderBindingBuilder</c> - so the
+    /// exemption covers the declaration and stops at the callbacks declared inside it. Without this, a
+    /// shader binder could be exempted by writing it inside a factory call and nothing would say so.
+    /// </remarks>
+    [Test]
+    public void ACapturingBinderRegisteredByThatDeclaration_IsStillReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics.Effects;
+
+            internal static class Author
+            {
+                public static void Build(float scale)
+                    => ShaderDescription.CurrentPixel(
+                        "half4 apply(half4 color) { return color; }",
+                        bindings => bindings.Uniform(
+                            "amount",
+                            1f,
+                            (writer, value, context) => Consume(value * scale)));
+
+                private static void Consume(float value) { }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG003"),
+            "a retained binder is judged the way every retained callback is, wherever it was written");
     }
 
     /// <remarks>

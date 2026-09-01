@@ -303,8 +303,8 @@ internal sealed class RenderTargetPool : IDisposable
         if (_factory is not null || IsCpuBound(request))
             return null;
 
-        // Everything else lands in RenderTarget.Create, so it attaches wherever that would - and off a
-        // dispatcher that is nowhere, because Create rasters there whatever context this request names.
+        // Everything else lands in RenderTarget.Create, so it attaches wherever that would - and off the
+        // render thread that is nowhere, because Create rasters there whatever context this request names.
         // Asking Create itself is what keeps the budget and the allocation from answering differently.
         // BeginImplicitRequest names a context in place of the live one, and a request bound to it has to be
         // measured against the device it named rather than against whichever context is live now.

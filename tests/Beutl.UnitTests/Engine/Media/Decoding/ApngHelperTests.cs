@@ -37,8 +37,10 @@ public class ApngHelperTests
         Assert.That(Helper.ConvertEndian(input), Is.EqualTo(LegacyConvertEndian(input)));
     }
 
-    // The signed overload is where a naive swap goes wrong: the sign bit moves between the high and
-    // low byte, so every one of these crosses zero in one direction or the other.
+    // The signed overload is where a naive swap goes wrong: the sign bit moves between the high and low
+    // byte. Five of these carry the value across zero in one direction or the other - 0x000000FF,
+    // 0xFF000000, int.MinValue, int.MaxValue and 0x80000001 - and the rest hold the reversal to the byte
+    // pattern for inputs whose sign it leaves where it was.
     [TestCase(0, 0)]
     [TestCase(0x000000FF, unchecked((int)0xFF000000))]
     [TestCase(0x0000FF00, 0x00FF0000)]
@@ -114,13 +116,26 @@ public class ApngHelperTests
         }
     }
 
+    // Composing the call with itself proves nothing on its own - the identity round-trips too - so each
+    // pair names the swapped value the other leg starts from. The call has to land on that exact
+    // intermediate, and only then come back.
     [Test]
-    public void ConvertEndian_RoundTripsBackToTheOriginalValue()
+    public void ConvertEndian_ReachesTheSwappedValueAndReturnsFromIt()
     {
-        Assert.That(Helper.ConvertEndian(Helper.ConvertEndian(0x12345678u)), Is.EqualTo(0x12345678u));
-        Assert.That(Helper.ConvertEndian(Helper.ConvertEndian(int.MinValue)), Is.EqualTo(int.MinValue));
-        Assert.That(Helper.ConvertEndian(Helper.ConvertEndian((ushort)0x1234)), Is.EqualTo((ushort)0x1234));
-        Assert.That(Helper.ConvertEndian(Helper.ConvertEndian(short.MinValue)), Is.EqualTo(short.MinValue));
+        Assert.Multiple(() =>
+        {
+            Assert.That(Helper.ConvertEndian(0x12345678u), Is.EqualTo(0x78563412u));
+            Assert.That(Helper.ConvertEndian(0x78563412u), Is.EqualTo(0x12345678u));
+
+            Assert.That(Helper.ConvertEndian(int.MinValue), Is.EqualTo(0x00000080));
+            Assert.That(Helper.ConvertEndian(0x00000080), Is.EqualTo(int.MinValue));
+
+            Assert.That(Helper.ConvertEndian((ushort)0x1234), Is.EqualTo((ushort)0x3412));
+            Assert.That(Helper.ConvertEndian((ushort)0x3412), Is.EqualTo((ushort)0x1234));
+
+            Assert.That(Helper.ConvertEndian(short.MinValue), Is.EqualTo((short)0x0080));
+            Assert.That(Helper.ConvertEndian((short)0x0080), Is.EqualTo(short.MinValue));
+        });
     }
 
     // Negative control. If the byte reversal is removed and ConvertEndian becomes the identity, every
@@ -165,9 +180,16 @@ public class ApngHelperTests
     // parse as 64x48 and re-serialize to the exact bytes it came from. With the reversal removed the
     // 13-byte length field parses as 0x0D000000 and Chunk's constructor throws "End reached." before
     // Width is even read.
+    //
+    // The decoder reads its fields through BitConverter over the raw bytes and then reverses, which is
+    // host-endianness dependent and therefore only defined on the little-endian platforms Beutl supports.
+    // The ConvertEndian cases above are not: BinaryPrimitives.ReverseEndianness and the legacy oracle both
+    // reverse bytes whatever the host does.
     [Test]
     public void IHDRChunk_ParsesBigEndianDimensionsAndRoundTripsToTheSameBytes()
     {
+        Assume.That(BitConverter.IsLittleEndian);
+
         byte[] raw = BuildIhdrChunk(64, 48);
 
         var chunk = new IHDRChunk(raw);

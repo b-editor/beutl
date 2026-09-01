@@ -47,7 +47,7 @@ public sealed class DeclaredPlannerTraitContractTests
     }
 
     [Test]
-    public void PublicTargetScopeCall_RemainsAnEffectBoundary()
+    public void PublicTargetScope_RemainsAnEffectBoundary()
     {
         bool valueEligible = true;
         using var node = new DelegateNode(context =>

@@ -113,8 +113,9 @@ public sealed class TargetScopeDescription
     internal bool BuiltInBackdropCapturesBackingTarget { get; }
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
-    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
+    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
+    /// <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="deviceGridSensitivity">
     /// Whether this scope's replay or surrounding clip state changes coverage with device-grid phase. The
@@ -397,8 +398,9 @@ public sealed class RawTargetScopeDescription
 
     /// <summary>Creates an immutable raw target-scope description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
-    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
+    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
+    /// <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="execute">
     /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
@@ -412,9 +414,10 @@ public sealed class RawTargetScopeDescription
     /// </param>
     /// <remarks>
     /// The raw canvas keeps the recorded work opaque to the renderer, so a raw scope is never eligible for
-    /// persistent output reuse whichever form built it. What the state-passing form buys is the identity the
-    /// planner keys the shape of the work by: a static callback recorded twice is one plan, where
-    /// <see cref="CreateRequestLocal"/> mints a fresh identity every recording.
+    /// persistent output reuse. What this form fixes instead is the identity the planner keys the shape of
+    /// the work by: <paramref name="execute"/> is a method rather than a closure, so the same scope recorded
+    /// on two frames is one plan, and everything that differs between those frames arrives as
+    /// <paramref name="state"/>.
     /// </remarks>
     public static RawTargetScopeDescription Create<TState>(
         TState state,
@@ -606,8 +609,9 @@ public sealed class RawTargetCommandDescription
 
     /// <summary>Creates an immutable raw target-command description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
-    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
+    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
+    /// <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="execute">
     /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
@@ -619,7 +623,13 @@ public sealed class RawTargetCommandDescription
     /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
     /// check, so binding a resource without declaring its slot is an error.
     /// </param>
-    /// <inheritdoc cref="RawTargetScopeDescription.Create{TState}" path="/remarks"/>
+    /// <remarks>
+    /// A raw command writes into the ambient target and publishes no value of its own, so there is no output
+    /// of it to reuse. What this form fixes is the identity the planner keys the shape of the work by:
+    /// <paramref name="execute"/> is a method rather than a closure, so the same command recorded on two
+    /// frames is one plan, and everything that differs between those frames arrives as
+    /// <paramref name="state"/>.
+    /// </remarks>
     public static RawTargetCommandDescription Create<TState>(
         TState state,
         Action<RawTargetCommandSession, TState> execute,

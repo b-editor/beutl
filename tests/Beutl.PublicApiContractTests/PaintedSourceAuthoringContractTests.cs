@@ -7,7 +7,7 @@ namespace Beutl.PublicApiContractTests;
 
 /// <summary>
 /// This project is not a friend of <c>Beutl.Engine</c>, so the nodes below compile only while the painted-source
-/// definition/call pair, the resource slot currency it binds, the stroke-bounds convention it pairs with, and the
+/// recording overload, the resource slot currency it binds, the stroke-bounds convention it pairs with, and the
 /// recorded-extent hint stay reachable from a type declared outside the engine assembly.
 /// </summary>
 [TestFixture]
@@ -46,7 +46,7 @@ public sealed class PaintedSourceAuthoringContractTests
     }
 
     [Test]
-    public void PaintedSourceCall_ResolvesTheHitTestSlotItBoundForThisRecording()
+    public void PaintedSource_ResolvesTheHitTestSlotItBoundForThisRecording()
     {
         var rect = new Rect(2, 2, 4, 4);
         using var fill = new SolidColorBrush.Resource { Color = Colors.White, Opacity = 100f };

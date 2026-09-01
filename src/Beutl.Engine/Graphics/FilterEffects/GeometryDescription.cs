@@ -68,8 +68,9 @@ public sealed class GeometryDescription
 
     /// <summary>Creates an immutable deferred geometry description.</summary>
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
-    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
+    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
+    /// <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="render">
     /// A non-capturing callback invoked only during execution. Declare it <see langword="static"/>: a capture
@@ -79,6 +80,11 @@ public sealed class GeometryDescription
     /// <param name="bounds">An initialized pure input-to-output bounds contract.</param>
     /// <param name="hitTest">An initialized pure CPU output hit-test contract.</param>
     /// <param name="requiresReadback">Whether the callback may request declared readback of its input.</param>
+    /// <param name="inputDemand">
+    /// What density this stage's one input has to reach for the stage's own resolved output demand. Without
+    /// one the input is asked for the unchanged output demand, which falls short wherever the stage samples
+    /// its input more densely than it writes.
+    /// </param>
     /// <param name="resources">
     /// An optional sequence of non-null declared resources. <see langword="null"/> means no resources; otherwise
     /// the sequence is copied immediately and no caller collection is retained.

@@ -109,7 +109,10 @@ internal sealed class RecordedRenderGraphBuilder
         return id;
     }
 
-    /// <inheritdoc cref="AddValue" path="/remarks"/>
+    /// <remarks>
+    /// <paramref name="values"/> is stored as given. It is already immutable, so a caller that hands over
+    /// what it built cannot change what was recorded.
+    /// </remarks>
     public RenderFragmentId AddFragment(
         ImmutableArray<RenderValueId> values,
         RenderProvenanceId provenanceId,

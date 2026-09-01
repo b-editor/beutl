@@ -52,8 +52,9 @@ public sealed class TargetCommandDescription
     internal void Execute(TargetCommandSession session) => _execution.Invoke(session);
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
-    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
+    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
+    /// <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="execute">
     /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
@@ -62,6 +63,11 @@ public sealed class TargetCommandDescription
     /// <param name="access">
     /// <see cref="TargetAccess.Readback"/> obliges the callback to consume
     /// <see cref="TargetCommandSession.UseSnapshot"/> exactly once.
+    /// </param>
+    /// <param name="inputDemand">
+    /// What density each input has to reach for this command's own resolved output demand, mapped by the
+    /// input's index. Without one every input is asked for the unchanged output demand, so an input the
+    /// command reads more densely than it writes materializes below the density that read consumes.
     /// </param>
     /// <param name="slots">
     /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them

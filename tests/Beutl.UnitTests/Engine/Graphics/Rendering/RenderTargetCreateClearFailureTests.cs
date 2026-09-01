@@ -27,7 +27,10 @@ public sealed class RenderTargetCreateClearFailureTests
     [Test]
     public void Create_ReleasesTheSurfaceAndTexture_WhenTheInitialClearThrows()
     {
-        var texture = new PlainBackendTexture(4, 4, failOnSkiaRendering: true);
+        var texture = new PlainBackendTexture(
+            4,
+            4,
+            static () => new InvalidOperationException("The device was lost before the clear could be submitted."));
         RenderTarget? created = null;
 
         RunWithStandInContext(texture, () =>
@@ -64,7 +67,7 @@ public sealed class RenderTargetCreateClearFailureTests
     [Test]
     public void Create_KeepsTheSurfaceAndTexture_WhenTheInitialClearSucceeds()
     {
-        var texture = new PlainBackendTexture(4, 4, failOnSkiaRendering: false);
+        var texture = new PlainBackendTexture(4, 4);
         RenderTarget? created = null;
         int disposeCountWhileHeld = -1;
 
@@ -86,6 +89,47 @@ public sealed class RenderTargetCreateClearFailureTests
                 Is.Zero,
                 "a target handed to the caller must still own its texture");
             Assert.That(texture.DisposeCount, Is.EqualTo(1), "the caller's own Dispose releases it");
+        });
+    }
+
+    /// <remarks>
+    /// The one failure <see cref="RenderTarget.Create"/> does not answer with <see langword="null"/>. A
+    /// refusal cannot be separated by type - a lost device surfaces as whatever the driver and the Skia
+    /// binding raise - so the catch takes everything except a cancellation, which is not a refusal: the
+    /// caller has already abandoned the request, and a null there would have it carry on inside a render
+    /// nobody is waiting for. Nothing may be stranded on the way out either, so the release the failing
+    /// clear performs is asserted here exactly as it is for a refusal.
+    /// </remarks>
+    [Test]
+    public void Create_PropagatesACancellation_RatherThanReportingItAsARefusal()
+    {
+        var texture = new PlainBackendTexture(
+            4,
+            4,
+            static () => new OperationCanceledException("The render was cancelled before the clear was submitted."));
+        Exception? thrown = null;
+
+        RunWithStandInContext(texture, () =>
+        {
+            thrown = Assert.Catch(() => RenderTarget.Create(4, 4));
+            GpuResourceReclaimQueue.DrainAfterContextSync();
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                thrown,
+                Is.InstanceOf<OperationCanceledException>(),
+                "a cancelled render must unwind through Create rather than be reported as a refusal");
+            Assert.That(
+                texture.PrepareForSkiaRenderingCount,
+                Is.EqualTo(1),
+                "the fixture must actually reach the step it cancels, or the test proves nothing");
+            Assert.That(
+                texture.DisposeCount,
+                Is.EqualTo(1),
+                "an escaping exception must release what the target already owned, exactly as a refusal does");
+            Assert.That(texture.CreatedSurface!.Handle, Is.EqualTo(IntPtr.Zero));
         });
     }
 
@@ -127,7 +171,8 @@ public sealed class RenderTargetCreateClearFailureTests
     /// A backend texture that records no transparent clear of its own, so the render target clears it
     /// through Skia — optionally failing that hand-off the way a lost device does.
     /// </summary>
-    private sealed class PlainBackendTexture(int width, int height, bool failOnSkiaRendering) : ITexture2D
+    private sealed class PlainBackendTexture(int width, int height, Func<Exception>? skiaRenderingFailure = null)
+        : ITexture2D
     {
         public int Width { get; } = width;
 
@@ -157,8 +202,8 @@ public sealed class RenderTargetCreateClearFailureTests
         public void PrepareForSkiaRendering()
         {
             PrepareForSkiaRenderingCount++;
-            if (failOnSkiaRendering)
-                throw new InvalidOperationException("The device was lost before the clear could be submitted.");
+            if (skiaRenderingFailure is not null)
+                throw skiaRenderingFailure();
         }
 
         public void Upload(ReadOnlySpan<byte> data) => throw new NotSupportedException();

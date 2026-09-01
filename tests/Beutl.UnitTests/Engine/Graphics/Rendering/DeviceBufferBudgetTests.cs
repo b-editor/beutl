@@ -458,33 +458,40 @@ public sealed class DeviceBufferBudgetTests
     {
         IGraphicsContext device = ContextAttaching(DeviceBudget);
 
-        // The one decision both the allocation and its budget read. Off a dispatcher RenderTarget.Create
-        // rasters, so the installed context bounds nothing; on one it attaches, so the device's limit binds.
-        IGraphicsContext? offDispatcher = RenderTarget.ResolveCreationContext(device);
-        IGraphicsContext? onDispatcher = RenderThread.Dispatcher.Invoke(
+        // The one decision both the allocation and its budget read. Off the render thread
+        // RenderTarget.Create rasters, so the installed context bounds nothing; on it the allocation
+        // attaches, so the device's limit binds.
+        IGraphicsContext? offRenderThread = RenderTarget.ResolveCreationContext(device);
+        IGraphicsContext? onRenderThread = RenderThread.Dispatcher.Invoke(
             () => RenderTarget.ResolveCreationContext(device));
 
         Assert.Multiple(() =>
         {
-            Assert.That(Dispatcher.Current, Is.Null, "the fixture must be off the render dispatcher");
-            Assert.That(offDispatcher, Is.Null);
-            Assert.That(onDispatcher, Is.SameAs(device));
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(offDispatcher),
+                RenderThread.Dispatcher.CheckAccess(),
+                Is.False,
+                "the fixture must ask from off the render thread");
+            Assert.That(offRenderThread, Is.Null);
+            Assert.That(onRenderThread, Is.SameAs(device));
+            Assert.That(
+                RenderScaleUtilities.ResolveMaxBufferDimension(offRenderThread),
                 Is.EqualTo(RenderScaleUtilities.MaxBufferDimension));
             Assert.That(
-                RenderScaleUtilities.ResolveMaxBufferDimension(onDispatcher),
+                RenderScaleUtilities.ResolveMaxBufferDimension(onRenderThread),
                 Is.EqualTo(DeviceBudget));
         });
     }
 
     [Test]
-    public void AnOffDispatcherRender_IsBudgetedAgainstTheCpuRasterItAllocates()
+    public void AnOffRenderThreadRender_IsBudgetedAgainstTheCpuRasterItAllocates()
     {
-        // Nothing here runs on a dispatcher, so RenderTarget.Create rasters on the CPU whatever context the
-        // request names, and no device's attachment limit bounds what it allocates. The limit is the named
-        // mock's rather than the running machine's, so the sub-ceiling device is forced on any GPU.
-        Assert.That(Dispatcher.Current, Is.Null, "the case only arises off a dispatcher");
+        // Nothing here runs on the render thread, so RenderTarget.Create rasters on the CPU whatever context
+        // the request names, and no device's attachment limit bounds what it allocates. The limit is the
+        // named mock's rather than the running machine's, so the sub-ceiling device is forced on any GPU.
+        Assert.That(
+            RenderThread.Dispatcher.CheckAccess(),
+            Is.False,
+            "the case only arises off the render thread");
         var pastTheDevice = new PixelSize(DeviceBudget + 1, 1);
         using var pool = new RenderTargetPool(factory: null);
         using RenderTargetPoolRequest request = pool.BeginImplicitRequest(ContextAttaching(DeviceBudget));
@@ -631,7 +638,7 @@ public sealed class DeviceBufferBudgetTests
         Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
 
         // Within the engine ceiling and past what this device can attach, so only the device's own limit is
-        // left to refuse it. The dispatcher is what makes the factory attach rather than raster.
+        // left to refuse it. The render thread is what makes the factory attach rather than raster.
         RenderTarget? created = WithAllocationDevice(
             device.Object,
             () => RenderThread.Dispatcher.Invoke(() => RenderTarget.Create(DeviceBudget + 1, 1)));
@@ -645,14 +652,16 @@ public sealed class DeviceBufferBudgetTests
     }
 
     /// <summary>
-    /// The negative control for the refusal above: off the render dispatcher the same call rasters on the
-    /// CPU, which no device's attachment limit bounds, so it has to keep allocating the extent it always
-    /// did.
+    /// The negative control for the refusal above: off the render thread the same call rasters on the CPU,
+    /// which no device's attachment limit bounds, so it has to keep allocating the extent it always did.
     /// </summary>
     [Test]
-    public void ADirectCreateOffTheDispatcher_IsStillAllocatedPastTheDevicesLimit()
+    public void ADirectCreateOffTheRenderThread_IsStillAllocatedPastTheDevicesLimit()
     {
-        Assert.That(Dispatcher.Current, Is.Null, "the case only arises off a dispatcher");
+        Assert.That(
+            RenderThread.Dispatcher.CheckAccess(),
+            Is.False,
+            "the case only arises off the render thread");
         Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
 
         RenderTarget? created = WithAllocationDevice(
@@ -754,7 +763,10 @@ public sealed class DeviceBufferBudgetTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(Dispatcher.Current, Is.Null, "the prediction must be taken from off the render thread");
+            Assert.That(
+                RenderThread.Dispatcher.CheckAccess(),
+                Is.False,
+                "the prediction must be taken from off the render thread");
             Assert.That(resolvedOnIt, Is.EqualTo(DeviceBudget));
             Assert.That(predictedOffIt, Is.EqualTo(resolvedOnIt));
             AssertNeverAttached(device);

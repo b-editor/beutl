@@ -189,8 +189,9 @@ public sealed class OpaqueRenderDescription
                 directReplayAtExactIntegerReduction: false);
 
     /// <param name="state">
-    /// Every pixel-affecting value the callback reads. It belongs in the call state; when it changes, the owning
-    /// node reports the change through <see cref="RenderNode.HasChanges"/>.
+    /// Every pixel-affecting value the callback reads. It belongs here rather than in a capture, so that the
+    /// plan stays keyed by the callback alone; when it changes, the owning node reports the change through
+    /// <see cref="RenderNode.HasChanges"/>.
     /// </param>
     /// <param name="execute">
     /// A non-capturing callback. Declare it <see langword="static"/>: a capture would let a per-frame value
@@ -2070,7 +2071,7 @@ internal static class RenderDescriptionValidation
         return Array.AsReadOnly(copy);
     }
 
-    public static IReadOnlyList<RenderResourceSlot> CopyResourceSlots(
+    private static IReadOnlyList<RenderResourceSlot> CopyResourceSlots(
         IEnumerable<RenderResourceSlot>? slots,
         string parameterName)
     {

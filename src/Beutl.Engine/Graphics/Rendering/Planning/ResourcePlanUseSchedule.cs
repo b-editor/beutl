@@ -63,6 +63,9 @@ internal sealed class ResourcePlanUseSchedule
         for (int index = 0; index < roots.Count; index++)
             consumers[roots[index]].Add(checked(ordered.Count + index));
 
+        // Both arrays below are filled here and wrapped without a copy, so neither may be reachable after
+        // its wrap: AsImmutableArray hands the same storage to an ImmutableArray, and a later write through
+        // the array would change a value the immutable one already published.
         var lifetimes = new ResourcePlanFragmentLifetime[ordered.Count];
         for (int index = 0; index < lifetimes.Length; index++)
         {

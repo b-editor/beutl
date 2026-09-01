@@ -118,6 +118,11 @@ public sealed class RenderScaleMappingContractTests
         });
     }
 
+    /// <remarks>
+    /// A many-input operation that resamples asymmetrically has nowhere but its description to say so: its
+    /// scale contract carries demand back only for a one-input map, so the description has to carry a
+    /// backward demand map of its own.
+    /// </remarks>
     [Test]
     public void ACombineCanRaiseTheDemandOfOnlyTheInputItEnlarges()
     {
@@ -136,64 +141,17 @@ public sealed class RenderScaleMappingContractTests
         });
     }
 
-    [Test]
-    public void ACombineThatDeclaresNoPerInputDemandAsksEveryInputForTheSameDensity()
-    {
-        var enlarged = new MaterializationDensityProbe();
-        var passedThrough = new MaterializationDensityProbe();
-        using var node = new AsymmetricCombineNode(enlarged, passedThrough, mapsPerInputDemand: false);
-        using var renderer = CreateRenderer(node);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(enlarged.ObservedWorkingScale, Is.EqualTo(1f));
-            Assert.That(passedThrough.ObservedWorkingScale, Is.EqualTo(1f));
-        });
-    }
-
-    /// <remarks>
-    /// A many-input operation that resamples asymmetrically has nowhere but its description to say so: its
-    /// scale contract carries demand back only for a one-input map, so the description has to carry a
-    /// backward demand map of its own.
-    /// </remarks>
-    [Test]
-    public void ACombineRecordedThroughItsDescriptionCanRaiseTheDemandOfOnlyTheInputItEnlarges()
-    {
-        var enlarged = new MaterializationDensityProbe();
-        var passedThrough = new MaterializationDensityProbe();
-        using var node = new AsymmetricCombineDescriptionNode(
-            enlarged,
-            passedThrough,
-            mapsPerInputDemand: true);
-        using var renderer = CreateRenderer(node);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(enlarged.ObservedWorkingScale, Is.EqualTo(2f), "the enlarged input");
-            Assert.That(passedThrough.ObservedWorkingScale, Is.EqualTo(1f), "the input it leaves alone");
-        });
-    }
-
     /// <remarks>
     /// The control for the case above: the same graph with the argument omitted asks both inputs for the
     /// density it was itself asked for, so the pair shows the mapping is what moved the density and not the
     /// shape of the node around it.
     /// </remarks>
     [Test]
-    public void ACombineRecordedThroughItsDescriptionWithNoDemandMappingAsksEveryInputForTheSameDensity()
+    public void ACombineThatDeclaresNoPerInputDemandAsksEveryInputForTheSameDensity()
     {
         var enlarged = new MaterializationDensityProbe();
         var passedThrough = new MaterializationDensityProbe();
-        using var node = new AsymmetricCombineDescriptionNode(
-            enlarged,
-            passedThrough,
-            mapsPerInputDemand: false);
+        using var node = new AsymmetricCombineNode(enlarged, passedThrough, mapsPerInputDemand: false);
         using var renderer = CreateRenderer(node);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -464,56 +422,8 @@ public sealed class RenderScaleMappingContractTests
             RenderFragmentHandle second = Source(context, passedThrough);
             context.Publish(context.OpaqueCombine(
                 [first, second],
-                RenderDescriptionFactory.Opaque(
-                    execute: static session =>
-                    {
-                        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                        output.Canvas.Use(static canvas => canvas.Clear(Colors.White));
-                        session.Publish(output);
-                    },
-                    bounds: OpaqueRenderBoundsContract.Combine(
-                        static inputs => inputs[0].Union(inputs[1]),
-                        static (_, inputs) => inputs),
-                    hitTest: RenderHitTestContract.OutputBounds,
-                    valueCardinality: RenderValueCardinality.Single,
-                    scale: RenderScaleContract.MaterializeAtWorkingScale,
-                    inputDemand: mapsPerInputDemand
-                        ? RenderInputDemandContract.MapOutputDemandPerInput(DoubleTheFirstInput)
-                        : default)));
-        }
-
-        private static RenderFragmentHandle Source(
-            RenderNodeContext context,
-            MaterializationDensityProbe probe)
-            => context.OpaqueSource(OpaqueRenderDescription.Create(
-                probe,
-                static (session, state) => state.Execute(session),
-                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector));
-
-        private static EffectiveScale DoubleTheFirstInput(int inputIndex, EffectiveScale outputDemand)
-            => inputIndex == 0
-                ? EffectiveScale.At(outputDemand.Value * 2)
-                : outputDemand;
-    }
-
-    private sealed class AsymmetricCombineDescriptionNode(
-        MaterializationDensityProbe enlarged,
-        MaterializationDensityProbe passedThrough,
-        bool mapsPerInputDemand) : RenderNode
-    {
-        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle first = Source(context, enlarged);
-            RenderFragmentHandle second = Source(context, passedThrough);
-            context.Publish(context.OpaqueCombine(
-                [first, second],
                 OpaqueRenderDescription.Create(
-                    nameof(AsymmetricCombineDescriptionNode),
+                    nameof(AsymmetricCombineNode),
                     static (session, _) =>
                     {
                         using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
@@ -537,10 +447,10 @@ public sealed class RenderScaleMappingContractTests
             => context.OpaqueSource(OpaqueRenderDescription.Create(
                 probe,
                 static (session, state) => state.Execute(session),
-                OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.Vector));
+                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
+                hitTest: RenderHitTestContract.OutputBounds,
+                valueCardinality: RenderValueCardinality.Single,
+                scale: RenderScaleContract.Vector));
 
         private static EffectiveScale DoubleTheFirstInput(int inputIndex, EffectiveScale outputDemand)
             => inputIndex == 0

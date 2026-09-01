@@ -292,12 +292,12 @@ description: "Dependency-ordered implementation tasks for renderer-wide GPU pass
 
 ## Post-T131 Delivery
 
-*Amended.* The task list closes at T131 and was last edited by `d803801fb`, and the branch kept moving after both. The work below landed without a task ID; it is recorded here rather than retro-fitted as new task IDs, which would misrepresent when it was planned. `contracts/breaking-changes.md` is the migration contract for every breaking entry.
+*Amended.* The task list closes at T131, and the branch kept moving past it. The work below landed without a task ID; it is recorded here rather than retro-fitted as new task IDs, which would misrepresent when it was planned. `contracts/breaking-changes.md` is the migration contract for every breaking entry.
 
 - `991f49e70 perf(engine)!: widen GPU pass fusion beyond current-pixel colour shaders` widened the fusion envelope past the restricted CurrentPixel form: six built-in Skia colour filters now record CurrentPixel stages, a filter-effect segment derives its cardinality from its items instead of always declaring `Dynamic`, the Vulkan and Metal sampler/children budget rose to 12, `SKSLScriptEffect` records declaratively, and a WholeSource shader may lead a fused run. See the T070 and T076 notes.
 - `87c746488 feat(engine): let external authors map backward render density`, renamed by `c8314e40f refactor(engine)!: name the supply map that drops backward demand`, made the public `RenderScaleContract.MapInputSupply` a two-callback forward/backward contract and kept the forward-only form as `MapInputSupplyPreservingDemand`.
 - `1ecec3159 feat(engine): let a public FilterEffectActivator supply a drawable-brush materializer` published the `DrawableBrushMaterializer` seam and its image-ownership rule.
-- Forty-four `!` commits sit on the branch in total, each with a literal `BREAKING CHANGE:` footer; T125 names only two of them. Seventeen of the remaining forty-two are `fix(engine)!` rendering-correctness commits. Thirty-one of the forty-four landed after this task list was last edited, in `d803801fb`. `contracts/breaking-changes.md` lists every one of them by SHA and is the place to keep that list current.
+- Forty-four `!` commits sit on the branch in total, each with a literal `BREAKING CHANGE:` footer; T125 names only two of them. Seventeen of the remaining forty-two are `fix(engine)!` rendering-correctness commits. Thirty-one of the forty-four landed after `d803801fb`, the commit that documented the branch's breaking changes and retired the withdrawn baseline. `contracts/breaking-changes.md` lists every one of them by SHA and is the place to keep that list current.
 - Five benchmark scenes beyond T112's eleven: `SpatialGroupChain` and `SpatialNodeChain` (`6a09384d7`), and `StaticSpatialPrefixAnimatedBlurTail`, `LayerCustomEffect` and `BlurCustomBlur` (`b37927c8f`).
 
 ## Requirement Traceability

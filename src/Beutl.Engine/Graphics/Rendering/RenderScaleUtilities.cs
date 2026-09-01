@@ -43,8 +43,9 @@ public static class RenderScaleUtilities
     /// out of the last one's memo is that same undefined behaviour whenever it can attach less. The memo is
     /// therefore keyed to the context that answered, so any other context re-reads however it was replaced.
     /// <para>
-    /// A buffer allocated off a dispatcher never reaches that device at all - <see cref="RenderTarget.Create"/>
-    /// rasters it on the CPU - so the shared context applies only where that allocation would attach to it.
+    /// A buffer allocated off the render thread never reaches that device at all -
+    /// <see cref="RenderTarget.Create"/> rasters it on the CPU - so the shared context applies only where
+    /// that allocation would attach to it.
     /// Where it does, the context is the one that allocation would build rather than whichever is installed
     /// now: before any GPU work there is none installed, and answering the engine ceiling there admits a
     /// buffer the device built moments later cannot attach.
@@ -60,7 +61,7 @@ public static class RenderScaleUtilities
     /// <remarks>
     /// Pre-validation is not allocation. A dialog that asks whether an export will fit is predicting the
     /// limit the render thread will resolve later, and <see cref="ResolveMaxBufferDimension()"/> cannot be
-    /// that prediction: it answers for the caller's own allocation, which off a dispatcher
+    /// that prediction: it answers for the caller's own allocation, which off the render thread
     /// <see cref="RenderTarget.Create"/> rasters on the CPU, so it correctly reports the engine ceiling
     /// there. Pre-validating against that clears a size the render then refuses once the user has already
     /// chosen a file.

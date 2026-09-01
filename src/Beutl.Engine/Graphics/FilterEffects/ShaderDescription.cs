@@ -282,6 +282,11 @@ public sealed class ShaderDescription
     /// execution.
     /// </param>
     /// <param name="sourceTileMode">The tile mode used when the implicit source is sampled outside its bounds.</param>
+    /// <param name="inputDemand">
+    /// What density this stage's one input has to reach for the stage's own resolved output demand. Without
+    /// one the input is asked for the unchanged output demand, which falls short wherever the stage samples
+    /// its input more densely than it writes.
+    /// </param>
     /// <returns>An immutable deferred shader description.</returns>
     /// <remarks>
     /// The stage may lead a fused run whose remaining stages are CurrentPixel transforms, but it never consumes an

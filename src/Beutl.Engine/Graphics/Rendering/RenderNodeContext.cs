@@ -1675,10 +1675,28 @@ public sealed class RenderNodeContext
     private void ValidateDescriptionResources(
         IReadOnlyList<RenderResource> resources,
         string parameterName)
+        => ValidateDeclaredResources(resources, static resource => resource, parameterName);
+
+    private void ValidateDescriptionResources(
+        IReadOnlyList<RenderResourceBinding> resources,
+        string parameterName)
+        => ValidateDeclaredResources(resources, static binding => binding.Resource, parameterName);
+
+    /// <remarks>
+    /// A description declares its resources either as bare tokens or as slot bindings, so the resource is
+    /// read through a selector rather than by projecting one list into the other. Every recording path below
+    /// reaches this once per operation per frame, and the projection was an array allocated per call to be
+    /// read once and dropped.
+    /// </remarks>
+    private void ValidateDeclaredResources<TDeclared>(
+        IReadOnlyList<TDeclared> declared,
+        Func<TDeclared, RenderResource> selectResource,
+        string parameterName)
     {
         NodeRecordingTransaction transaction = GetTransaction();
-        foreach (RenderResource resource in resources)
+        for (int index = 0; index < declared.Count; index++)
         {
+            RenderResource resource = selectResource(declared[index]);
             if (!ReferenceEquals(resource.Registry, transaction.Request.Options.Owner.ResourceRegistry)
                 || resource.RegistrationState == RenderResourceRegistrationState.Released)
             {
@@ -1688,13 +1706,6 @@ public sealed class RenderNodeContext
             }
         }
     }
-
-    private void ValidateDescriptionResources(
-        IReadOnlyList<RenderResourceBinding> resources,
-        string parameterName)
-        => ValidateDescriptionResources(
-            resources.SelectToArray(static binding => binding.Resource),
-            parameterName);
 
     private static Rect CalculateReferenceBounds(
         IEnumerable<RenderFragmentReference> references)

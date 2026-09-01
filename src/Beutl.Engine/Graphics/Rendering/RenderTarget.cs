@@ -167,11 +167,23 @@ public class RenderTarget : IDisposable
     /// Allocates a render target, or answers <see langword="null"/> when it cannot be made.
     /// </summary>
     /// <remarks>
-    /// Attaching one is bounded by what the device can attach; rastering one on the CPU is not, and which
-    /// of the two runs is <see cref="CreateAttachesToGraphicsContext"/>. A caller that wants the limit
-    /// named rather than a bare refusal measures against <see cref="RenderScaleUtilities.FitsBufferBudget"/>
-    /// itself first, as the renderer and the target pool do.
+    /// Which allocation runs is decided by the calling thread. On the render thread the target attaches to
+    /// the shared graphics context and is bounded by what that device can attach; on any other thread it is
+    /// rastered on the CPU, which no device's limit bounds. A caller that wants the limit named rather than
+    /// a bare refusal measures against <see cref="RenderScaleUtilities.FitsBufferBudget"/> itself first, as
+    /// the renderer and the target pool do.
     /// </remarks>
+    /// <returns>
+    /// The allocated target, or <see langword="null"/> where the extent, the device or the backend refused
+    /// it. Every refusal is reported that one way, because a lost device surfaces as whatever the driver
+    /// and the Skia binding happen to raise and so cannot be separated by type.
+    /// </returns>
+    /// <exception cref="OperationCanceledException">
+    /// The render this allocation belongs to was cancelled. This is the one failure not answered with
+    /// <see langword="null"/>, and it propagates deliberately: a cancellation is not a refusal, so
+    /// reporting it as one would hand a caller that has already abandoned its request an unallocated
+    /// target to carry on with instead of unwinding.
+    /// </exception>
     public static RenderTarget? Create(int width, int height)
     {
         try

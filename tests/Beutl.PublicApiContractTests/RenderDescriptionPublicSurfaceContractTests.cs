@@ -18,6 +18,32 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         "Beutl.Graphics.Effects",
     ];
 
+    private const string CurrentPixelSource = "half4 apply(half4 color) { return color; }";
+
+    private const string WholeSourceSource =
+        "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }";
+
+    private static readonly Rect s_slotProbeBounds = new(0, 0, 4, 4);
+
+    private static readonly string[] s_slotBindingFamilyNames =
+    [
+        "OpaqueRenderDescription.Create",
+        "TargetScopeDescription.Create",
+        "TargetCommandDescription.Create",
+        "RawTargetScopeDescription.Create",
+        "RawTargetCommandDescription.Create",
+        "GeometryDescription.Create",
+        "ShaderDescription.CurrentPixel",
+        "ShaderDescription.WholeSource",
+        "TargetCaptureDescription.Create",
+        "MaterializedInputDescription.FromRenderTarget",
+    ];
+
+    /// <summary>Binds <paramref name="resources"/> against <paramref name="slots"/> through one factory.</summary>
+    private delegate IReadOnlyList<RenderResourceBinding> BindSlots(
+        IReadOnlyList<RenderResourceBinding> resources,
+        IEnumerable<RenderResourceSlot>? slots);
+
     /// <remarks>
     /// The seven descriptions used to be plan-internal, reachable only by going through a Definition and a
     /// Call, and this file asserted their absence from the exported set. They are the recording surface
@@ -125,13 +151,14 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     }
 
     /// <remarks>
-    /// A description built from bindings alone has no slot list to check them against, so nothing there can
-    /// report a caller that bound one slot twice and another not at all. Every factory takes that list, which
-    /// is also what carries the normalization: the bindings are reordered into declared-slot order before
-    /// anything derived from them reaches a plan key.
+    /// The parameter half of the rule, and only that: this reads signatures, so it reports a factory that
+    /// stopped taking the declaration and nothing else. Whether the factory still applies what it takes is
+    /// asked of the running code by
+    /// <see cref="EveryDescriptionFactoryGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings"/>, which is
+    /// the test that fails when a factory keeps the parameter and drops the check behind it.
     /// </remarks>
     [Test]
-    public void EveryDescriptionFactory_AcceptsTheSlotsItValidatesItsBindingsAgainst()
+    public void EveryDescriptionFactory_DeclaresTheSlotListParameter()
     {
         (Type Description, string Factory)[] factories =
         [
@@ -143,6 +170,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             (typeof(GeometryDescription), "Create"),
             (typeof(ShaderDescription), "CurrentPixel"),
             (typeof(ShaderDescription), "WholeSource"),
+            (typeof(TargetCaptureDescription), "Create"),
+            (typeof(MaterializedInputDescription), "FromRenderTarget"),
         ];
 
         Assert.Multiple(() =>
@@ -331,107 +360,20 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
 
     /// <remarks>
     /// The behavioural half of the slot parameter, taken out-of-tree so it is exercised the way a plugin
-    /// author reaches it. Ordering is asserted rather than only the throwing cases because it is the part a
-    /// plan key depends on: <c>GeometryDescription</c> keys itself on the value types of its bindings in
-    /// order, so a caller writing the same two bindings the other way round would otherwise compile a second
-    /// plan for one operation.
+    /// author reaches it, and taken across every factory in the family rather than one of them. Signatures
+    /// are not the contract: a factory that keeps its <c>slots</c> parameter and binds through
+    /// <c>CopyResourceBindings</c> instead of <c>BindDeclaredSlots</c> still compiles, still reflects the
+    /// same way, and silently stops checking - which is what this table catches and the signature test
+    /// above cannot.
+    /// <para>
+    /// Ordering is asserted rather than only the throwing cases because it is the part a plan key depends
+    /// on: <c>GeometryDescription</c> keys itself on the value types of its bindings in order, so a caller
+    /// writing the same two bindings the other way round would otherwise compile a second plan for one
+    /// operation.
+    /// </para>
     /// </remarks>
     [Test]
-    public void ADescriptionGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings()
-    {
-        RenderResourceSlot<SlotSubject> slotA = new();
-        RenderResourceSlot<SlotSubject> slotB = new();
-        var a = new SlotSubject();
-        var b = new SlotSubject();
-        RenderResourceBinding? bindA = null;
-        RenderResourceBinding? bindB = null;
-        IReadOnlyList<RenderResourceBinding> normalized = [];
-        Exception? unbound = null;
-        Exception? undeclared = null;
-        Exception? boundTwice = null;
-
-        using var node = new DelegateNode(context =>
-        {
-            bindA = slotA.Bind(context.Borrow(a));
-            bindB = slotB.Bind(context.Borrow(b));
-
-            normalized = Geometry(resources: [bindB, bindA], slots: [slotA, slotB]).Resources;
-            unbound = Assert.Throws<ArgumentException>(
-                () => Geometry(resources: [bindA], slots: [slotA, slotB]));
-            undeclared = Assert.Throws<ArgumentException>(
-                () => Geometry(resources: [bindA, bindB], slots: [slotA]));
-            boundTwice = Assert.Throws<ArgumentException>(
-                () => Geometry(resources: [bindA, bindA], slots: [slotA, slotB]));
-
-            context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
-        });
-
-        using var renderer = CreateRenderer(node);
-        renderer.Measure();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                normalized,
-                Is.EqualTo(new[] { bindA, bindB }),
-                "the bindings are reordered into declared-slot order, so the order they were written in "
-                + "cannot reach the recorded operation");
-            Assert.That(unbound, Is.Not.Null);
-            Assert.That(undeclared, Is.Not.Null);
-            Assert.That(boundTwice, Is.Not.Null);
-        });
-    }
-
-    /// <remarks>
-    /// The same route without a slot list. Omitting <c>slots</c> declares none rather than leaving the check
-    /// out, so the common case - no slots and no bindings - still records, while a binding whose slot was
-    /// never declared is refused at record time. Nothing downstream could have applied the declared-order
-    /// normalization to it, so it would have carried the order the caller happened to write it in into the
-    /// plan key.
-    /// </remarks>
-    [Test]
-    public void ADescriptionWithoutDeclaredSlots_BindsNothingAndRefusesAnUndeclaredBinding()
-    {
-        RenderResourceSlot<SlotSubject> slot = new();
-        var subject = new SlotSubject();
-        IReadOnlyList<RenderResourceBinding>? recorded = null;
-        ArgumentException? undeclared = null;
-
-        using var node = new DelegateNode(context =>
-        {
-            RenderResourceBinding binding = slot.Bind(context.Borrow(subject));
-
-            recorded = Geometry(resources: [], slots: null).Resources;
-            undeclared = Assert.Throws<ArgumentException>(
-                () => Geometry(resources: [binding], slots: null));
-
-            context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
-        });
-
-        using var renderer = CreateRenderer(node);
-        renderer.Measure();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                recorded,
-                Is.Not.Null.And.Empty,
-                "declaring no slots and binding nothing is the default, and it still records");
-            Assert.That(
-                undeclared?.ParamName,
-                Is.EqualTo("slots"),
-                "the refusal names the declaration the author left out, not the bindings they wrote");
-        });
-    }
-
-    /// <remarks>
-    /// The two descriptions that run no callback of their own. They carry bindings all the same - a hit test
-    /// declared with <c>FromSlot</c> resolves against them - so they need the declaration for the same reason
-    /// the rest of the family does: without a slot list nothing checks that the bindings address slots the
-    /// description named, and the order the caller wrote them in is what the description keeps.
-    /// </remarks>
-    [Test]
-    public void ACallbacklessDescriptionGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings()
+    public void EveryDescriptionFactoryGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings()
     {
         RenderResourceSlot<SlotSubject> slotA = new();
         RenderResourceSlot<SlotSubject> slotB = new();
@@ -440,29 +382,23 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         using RenderTarget target = RenderTarget.CreateNull(4, 4);
         RenderResourceBinding? bindA = null;
         RenderResourceBinding? bindB = null;
-        IReadOnlyList<RenderResourceBinding> captureOrder = [];
-        IReadOnlyList<RenderResourceBinding> materializedOrder = [];
-        ArgumentException? captureUndeclared = null;
-        ArgumentException? materializedUndeclared = null;
-        Exception? captureUnbound = null;
-        Exception? materializedUnbound = null;
+        List<(string Name, IReadOnlyList<RenderResourceBinding> Normalized, Exception? Unbound,
+            Exception? Undeclared, Exception? BoundTwice)> observed = [];
 
         using var node = new DelegateNode(context =>
         {
             bindA = slotA.Bind(context.Borrow(a));
             bindB = slotB.Bind(context.Borrow(b));
-            RenderResource<RenderTarget> targetToken = context.Borrow(target);
 
-            captureOrder = Capture([bindB, bindA], [slotA, slotB]).Resources;
-            materializedOrder = Materialized(targetToken, [bindB, bindA], [slotA, slotB]).Resources;
-            captureUndeclared = Assert.Throws<ArgumentException>(
-                () => Capture([bindA], null));
-            materializedUndeclared = Assert.Throws<ArgumentException>(
-                () => Materialized(targetToken, [bindA], null));
-            captureUnbound = Assert.Throws<ArgumentException>(
-                () => Capture([bindA], [slotA, slotB]));
-            materializedUnbound = Assert.Throws<ArgumentException>(
-                () => Materialized(targetToken, [bindA], [slotA, slotB]));
+            foreach ((string name, BindSlots bind) in SlotBindingFamilies(context.Borrow(target)))
+            {
+                observed.Add((
+                    name,
+                    bind([bindB, bindA], [slotA, slotB]),
+                    Catch(() => bind([bindA], [slotA, slotB])),
+                    Catch(() => bind([bindA, bindB], [slotA])),
+                    Catch(() => bind([bindA, bindA], [slotA, slotB]))));
+            }
 
             context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
         });
@@ -470,23 +406,78 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         using var renderer = CreateRenderer(node);
         renderer.Measure();
 
+        Assert.That(
+            observed.Select(static entry => entry.Name),
+            Is.EqualTo(s_slotBindingFamilyNames),
+            "every factory in the family answers this table, so one joining or leaving is reported here");
         Assert.Multiple(() =>
         {
-            Assert.That(
-                captureOrder,
-                Is.EqualTo(new[] { bindA, bindB }),
-                "a capture reorders its bindings into declared-slot order like the rest of the family");
-            Assert.That(
-                materializedOrder,
-                Is.EqualTo(new[] { bindA, bindB }),
-                "and so does a materialized input");
-            Assert.That(
-                captureUndeclared?.ParamName,
-                Is.EqualTo("slots"),
-                "binding without declaring is refused, and the refusal names the missing declaration");
-            Assert.That(materializedUndeclared?.ParamName, Is.EqualTo("slots"));
-            Assert.That(captureUnbound, Is.Not.Null, "a declared slot left unbound is refused");
-            Assert.That(materializedUnbound, Is.Not.Null);
+            foreach ((string name, IReadOnlyList<RenderResourceBinding> normalized, Exception? unbound,
+                Exception? undeclared, Exception? boundTwice) in observed)
+            {
+                Assert.That(
+                    normalized,
+                    Is.EqualTo(new[] { bindA, bindB }),
+                    $"{name} must reorder its bindings into declared-slot order, so the order they were "
+                    + "written in cannot reach the recorded operation");
+                Assert.That(
+                    unbound,
+                    Is.InstanceOf<ArgumentException>(),
+                    $"{name} must refuse a declared slot left unbound");
+                Assert.That(
+                    undeclared,
+                    Is.InstanceOf<ArgumentException>(),
+                    $"{name} must refuse a binding whose slot it did not declare");
+                Assert.That(
+                    boundTwice,
+                    Is.InstanceOf<ArgumentException>(),
+                    $"{name} must refuse one slot bound twice while another goes unbound");
+            }
+        });
+    }
+
+    /// <remarks>
+    /// The same table without a slot list. Omitting <c>slots</c> declares none rather than leaving the check
+    /// out, so the common case - no slots and no bindings - still records, while a binding whose slot was
+    /// never declared is refused at record time. Nothing downstream could have applied the declared-order
+    /// normalization to it, so it would have carried the order the caller happened to write it in into the
+    /// plan key.
+    /// </remarks>
+    [Test]
+    public void EveryDescriptionFactoryWithoutDeclaredSlots_BindsNothingAndRefusesAnUndeclaredBinding()
+    {
+        RenderResourceSlot<SlotSubject> slot = new();
+        var subject = new SlotSubject();
+        using RenderTarget target = RenderTarget.CreateNull(4, 4);
+        List<(string Name, IReadOnlyList<RenderResourceBinding> Recorded, Exception? Undeclared)> observed = [];
+
+        using var node = new DelegateNode(context =>
+        {
+            RenderResourceBinding binding = slot.Bind(context.Borrow(subject));
+
+            foreach ((string name, BindSlots bind) in SlotBindingFamilies(context.Borrow(target)))
+                observed.Add((name, bind([], null), Catch(() => bind([binding], null))));
+
+            context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
+        });
+
+        using var renderer = CreateRenderer(node);
+        renderer.Measure();
+
+        Assert.That(observed.Select(static entry => entry.Name), Is.EqualTo(s_slotBindingFamilyNames));
+        Assert.Multiple(() =>
+        {
+            foreach ((string name, IReadOnlyList<RenderResourceBinding> recorded, Exception? undeclared) in observed)
+            {
+                Assert.That(
+                    recorded,
+                    Is.Empty,
+                    $"{name} must still record when nothing is declared and nothing is bound");
+                Assert.That(
+                    (undeclared as ArgumentException)?.ParamName,
+                    Is.EqualTo("slots"),
+                    $"{name} must name the declaration the author left out, not the bindings they wrote");
+            }
         });
     }
 
@@ -617,41 +608,124 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(ShaderDescription);
     }
 
-    private static GeometryDescription Geometry(
-        IEnumerable<RenderResourceBinding> resources,
-        IEnumerable<RenderResourceSlot>? slots)
-        => GeometryDescription.Create(
-            (byte)0,
-            static (_, _) => { },
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.OutputBounds,
-            resources: resources,
-            slots: slots);
+    /// <summary>
+    /// Every public factory in the family, reduced to the one thing they all do with a slot declaration:
+    /// bind the supplied resources against it and publish the result.
+    /// </summary>
+    /// <remarks>
+    /// The rest of each signature is filled with the least the factory will accept, so what differs between
+    /// rows is the factory under test and nothing else. <c>ShaderDescription</c> publishes the bound list as
+    /// <see cref="ShaderDescription.HitTestResources"/> rather than as <c>Resources</c>, which is the only
+    /// shape difference the table has to carry.
+    /// </remarks>
+    private static IEnumerable<(string Name, BindSlots Bind)> SlotBindingFamilies(
+        RenderResource<RenderTarget> materializedTarget)
+    {
+        yield return ("OpaqueRenderDescription.Create", static (resources, slots)
+            => OpaqueRenderDescription.Create(
+                (byte)0,
+                static (_, _) => { },
+                OpaqueRenderBoundsContract.Source(s_slotProbeBounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.Vector,
+                resources: resources,
+                slots: slots).Resources);
 
-    private static TargetCaptureDescription Capture(
-        IEnumerable<RenderResourceBinding> resources,
-        IEnumerable<RenderResourceSlot>? slots)
-        => TargetCaptureDescription.Create(
-            TargetRegion.Full,
-            new Rect(0, 0, 4, 4),
-            RenderHitTestContract.OutputBounds,
-            TargetCaptureScaleContract.MaterializeAtWorkingScale,
-            resources,
-            slots);
+        yield return ("TargetScopeDescription.Create", static (resources, slots)
+            => TargetScopeDescription.Create(
+                (byte)0,
+                static (_, _) => { },
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.PreserveInputSupply,
+                resources: resources,
+                slots: slots).Resources);
 
-    private static MaterializedInputDescription Materialized(
-        RenderResource<RenderTarget> target,
-        IEnumerable<RenderResourceBinding> resources,
-        IEnumerable<RenderResourceSlot>? slots)
-        => MaterializedInputDescription.FromRenderTarget(
-            target,
-            new Rect(0, 0, 4, 4),
-            EffectiveScale.At(1),
-            PixelRect.FromRect(new Rect(0, 0, 4, 4), 1),
-            default,
-            RenderHitTestContract.OutputBounds,
-            resources,
-            slots);
+        yield return ("TargetCommandDescription.Create", static (resources, slots)
+            => TargetCommandDescription.Create(
+                (byte)0,
+                static (_, _) => { },
+                TargetRegion.Full,
+                s_slotProbeBounds,
+                RenderHitTestContract.OutputBounds,
+                resources: resources,
+                slots: slots).Resources);
+
+        yield return ("RawTargetScopeDescription.Create", static (resources, slots)
+            => RawTargetScopeDescription.Create(
+                (byte)0,
+                static (_, _) => { },
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.OutputBounds,
+                RenderScaleContract.PreserveInputSupply,
+                resources,
+                slots).Resources);
+
+        yield return ("RawTargetCommandDescription.Create", static (resources, slots)
+            => RawTargetCommandDescription.Create(
+                (byte)0,
+                static (_, _) => { },
+                s_slotProbeBounds,
+                RenderHitTestContract.OutputBounds,
+                resources,
+                slots).Resources);
+
+        yield return ("GeometryDescription.Create", static (resources, slots)
+            => GeometryDescription.Create(
+                (byte)0,
+                static (_, _) => { },
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.OutputBounds,
+                resources: resources,
+                slots: slots).Resources);
+
+        yield return ("ShaderDescription.CurrentPixel", static (resources, slots)
+            => ShaderDescription.CurrentPixel(
+                CurrentPixelSource,
+                hitTestResources: resources,
+                slots: slots).HitTestResources);
+
+        yield return ("ShaderDescription.WholeSource", static (resources, slots)
+            => ShaderDescription.WholeSource(
+                WholeSourceSource,
+                RenderBoundsContract.Identity,
+                hitTestResources: resources,
+                slots: slots).HitTestResources);
+
+        yield return ("TargetCaptureDescription.Create", static (resources, slots)
+            => TargetCaptureDescription.Create(
+                TargetRegion.Full,
+                s_slotProbeBounds,
+                RenderHitTestContract.OutputBounds,
+                TargetCaptureScaleContract.MaterializeAtWorkingScale,
+                resources,
+                slots).Resources);
+
+        yield return ("MaterializedInputDescription.FromRenderTarget", (resources, slots)
+            => MaterializedInputDescription.FromRenderTarget(
+                materializedTarget,
+                s_slotProbeBounds,
+                EffectiveScale.At(1),
+                PixelRect.FromRect(s_slotProbeBounds, 1),
+                default,
+                RenderHitTestContract.OutputBounds,
+                resources,
+                slots).Resources);
+    }
+
+    private static Exception? Catch(Func<IReadOnlyList<RenderResourceBinding>> bind)
+    {
+        try
+        {
+            bind();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex;
+        }
+    }
 
     private static OpaqueRenderDescription MetadataSource(Rect bounds)
         => OpaqueRenderDescription.Create(
