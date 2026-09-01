@@ -135,10 +135,13 @@ public sealed class DetachedGeometryResourceTests
     }
 
     /// <remarks>
-    /// Both segments are freshly built, so their versions match and only their identities tell them apart.
+    /// A resource list is handed out as a plain <see cref="List{T}"/>, so replacing an entry runs no setter
+    /// and moves nothing. A cache over a hand-built resource is invalidated by a change to its
+    /// <c>Version</c> and by nothing else, so the caller that reached into the list is the one that has to
+    /// move it; the rebuild it asks for then reads the whole subtree as it stands.
     /// </remarks>
     [Test]
-    public void ReplacingASegmentOfADetachedPathGeometry_RebuildsItsCachedPath()
+    public void ReplacingASegmentOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheCallerBumpsTheVersion()
     {
         using var figure = new PathFigure.Resource
         {
@@ -146,52 +149,17 @@ public sealed class DetachedGeometryResourceTests
             Segments = { new LineSegment.Resource { Point = new Point(10, 0) } },
         };
         using var detached = new PathGeometry.Resource { Figures = { figure } };
-        _ = detached.Bounds;
+        Rect beforeReplacement = detached.Bounds;
 
         figure.Segments[0] = new LineSegment.Resource { Point = new Point(80, 40) };
 
-        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)));
-    }
+        Assert.That(detached.Bounds, Is.EqualTo(beforeReplacement),
+            "reaching into the list moves no version, so the path built before the edit still stands");
 
-    /// <remarks>
-    /// A reorder leaves every version and the count alone, so the fold has to weigh each entry by where it
-    /// sits rather than sum them.
-    /// </remarks>
-    [Test]
-    public void ReorderingTheSegmentsOfADetachedFigure_MovesItsEffectiveVersion()
-    {
-        using var first = new LineSegment.Resource { Point = new Point(10, 0) };
-        using var second = new LineSegment.Resource { Point = new Point(10, 10) };
-        second.Point = new Point(10, 20);
-        using var figure = new PathFigure.Resource
-        {
-            StartPoint = new Point(0, 0),
-            Segments = { first, second },
-        };
-        int before = figure.EffectiveVersion;
+        detached.Version++;
 
-        (figure.Segments[0], figure.Segments[1]) = (figure.Segments[1], figure.Segments[0]);
-
-        Assert.That(figure.EffectiveVersion, Is.Not.EqualTo(before));
-    }
-
-    /// <remarks>
-    /// Reconciling already folds a child's version into its parent's, so the per-frame record path must not
-    /// pay to walk the subtree again.
-    /// </remarks>
-    [Test]
-    public void AnAttachedGeometry_AnswersItsOwnVersionWithoutWalkingItsChildren()
-    {
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(new PathFigure
-        {
-            StartPoint = { CurrentValue = new Point(0, 0) },
-            Segments = { new LineSegment(new Point(10, 0)) },
-        });
-        using PathGeometry.Resource resource =
-            (PathGeometry.Resource)geometry.ToResource(CompositionContext.Default);
-
-        Assert.That(resource.EffectiveVersion, Is.EqualTo(resource.Version));
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)),
+            "bumping the version is what invalidates the path, and the rebuild reads the segment in place");
     }
 
     [Test]

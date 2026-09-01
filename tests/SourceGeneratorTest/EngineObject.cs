@@ -30,10 +30,6 @@ public class EngineObject
 
         public int Version { get; protected set; }
 
-        public int EffectiveVersion => GetOriginal() is null ? FoldChildVersions(Version) : Version;
-
-        protected virtual int FoldChildVersions(int seed) => seed;
-
         public EngineObject? GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)

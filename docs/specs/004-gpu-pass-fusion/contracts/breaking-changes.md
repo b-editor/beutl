@@ -834,6 +834,44 @@ Drawable drawable = resource.GetOriginal()!;
 A caller that may hold a detached resource handles the null it was already able to receive, or keys on
 `EngineResourceIdentity` when it only needs an equality-stable identity.
 
+## A hand-built resource's version is the author's to move
+
+`EngineObject.Resource.Version` is what every cache over a resource keys on, and a change to it is the only
+thing that invalidates one. `ResourceExtension.Capture()` records it and `Compare()` tests it; the geometry
+path and stroke caches, the mesh cache, and the `(resource, version)` snapshot every render node takes all
+read the same number.
+
+Reconciling against an engine object moves it whenever a parameter of the resource or of one it owns changed,
+so a resource obtained from `EngineObject.ToResource` asks nothing of its caller. A resource built by hand —
+`new PathGeometry.Resource { ... }` — never reconciles, and its resource lists are handed out as plain
+`List<T>`, so an author reaches its children without running a setter that could move anything:
+
+```csharp
+using var figure = new PathFigure.Resource
+{
+    StartPoint = new Point(0, 0),
+    Segments = { new LineSegment.Resource { Point = new Point(10, 0) } },
+};
+using var geometry = new PathGeometry.Resource { Figures = { figure } };
+_ = geometry.Bounds;
+
+// None of these move geometry.Version, so geometry keeps serving the path it already built.
+geometry.Figures.Add(anotherFigure);
+figure.Segments[0] = new LineSegment.Resource { Point = new Point(80, 40) };
+figure.StartPoint = new Point(40, 15);
+
+geometry.Version++;   // the author's job — now Bounds, hit testing and any recording over it are current
+```
+
+Whoever creates or mutates a hand-built resource bumps its `Version`. This is a documented contract rather
+than a mechanism: there is no helper, marker interface, or analyzer that enforces it, and nothing folds a
+child's version into its parent's on the author's behalf. `DetachedResourceAuthoringContractTests` and
+`DetachedGeometryResourceTests` pin both halves — unchanged until the bump, current after it.
+
+A generated property setter on the resource itself still moves the version, as does the hand-written
+`IsEnabled` setter, so mutating a hand-built resource's own parameters needs nothing extra. Only reaching
+*past* those setters, into a child, does.
+
 ## A render host states what its output is for
 
 `Renderer`, `SceneRenderer` and `BrushConstructor` took `RenderIntent` as a trailing optional argument

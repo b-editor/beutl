@@ -47,7 +47,7 @@ public abstract partial class Geometry : EngineObject
         internal SKPath GetCachedPath()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            int version = EffectiveVersion;
+            int version = Version;
             if (_capturedVersion != version || _cachedPath == null)
             {
                 // A throwing ApplyTo must not leave a half-built path behind the version guard, so the
@@ -82,8 +82,8 @@ public abstract partial class Geometry : EngineObject
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             // GetOriginal() is null for every detached pen, so keying on it makes any two of them compare equal.
             Guid penIdentity = EngineResourceIdentity.Of(pen);
-            int penVersion = pen.EffectiveVersion;
-            if (_capturedVersion != EffectiveVersion
+            int penVersion = pen.Version;
+            if (_capturedVersion != Version
                 || _cachedPath == null
                 || _cachedStrokePath == null
                 || _cachedPen == null
@@ -98,9 +98,9 @@ public abstract partial class Geometry : EngineObject
             return _cachedStrokePath;
         }
 
-        // Version feeds both the fill/stroke path cache and any render node's (resource, version) snapshot
-        // through EffectiveVersion, so bumping it invalidates both. Stale paths are disposed lazily (a
-        // render thread may hold the old one).
+        // Version feeds both the fill/stroke path cache and any render node's (resource, version) snapshot,
+        // so bumping it invalidates both. Stale paths are disposed lazily (a render thread may hold the old
+        // one).
         internal void InvalidateCachedPaths()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);

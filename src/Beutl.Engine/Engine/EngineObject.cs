@@ -382,32 +382,20 @@ public class EngineObject : Hierarchical, INotifyEdited
         private EngineObject? _original;
         private bool _isEnabled;
 
+        /// <summary>
+        /// The number every cache over this resource keys on.
+        /// </summary>
+        /// <remarks>
+        /// A change to this number invalidates such a cache, and nothing else does. Reconciling against an
+        /// engine object moves it whenever a parameter of this resource or of one it owns changed, so an
+        /// attached resource asks nothing of its caller. A resource built by hand never reconciles, and its
+        /// resource lists are handed out as plain <see cref="List{T}"/>, so a caller reaches its children -
+        /// adding, removing, reordering, or mutating one - without ever running a setter that could move
+        /// this. Moving it is then the caller's job: whoever edits a child of a hand-built resource bumps
+        /// the parent's version themselves, or every cache keyed on it goes on serving what it built before
+        /// the edit.
+        /// </remarks>
         public int Version { get; set; }
-
-        /// <summary>
-        /// <see cref="Version"/> folded together with the versions of the resources this one owns.
-        /// </summary>
-        /// <remarks>
-        /// A cache that can be handed a resource an out-of-tree caller built - anything reachable from the
-        /// public authoring surface - has to key on this rather than on <see cref="Version"/>. Reconciling
-        /// against an engine object already folds every child's version into the parent's, so an attached
-        /// resource answers with <see cref="Version"/> and pays nothing for the distinction. A detached one
-        /// never reconciles, and its resource lists are handed out as plain <see cref="List{T}"/>, so a
-        /// caller reaches its children - adding, removing, reordering, or mutating one - without ever
-        /// running a setter that could move <see cref="Version"/>.
-        /// </remarks>
-        public int EffectiveVersion => GetOriginal() is null ? FoldChildVersions(Version) : Version;
-
-        /// <summary>
-        /// Folds the versions of the resources this one owns into <paramref name="seed"/>.
-        /// </summary>
-        /// <remarks>
-        /// The generated override covers every resource and resource-list property; overriding this by hand
-        /// is only needed for a child a resource keeps outside those. Fold each child's
-        /// <see cref="EffectiveVersion"/> so that the whole subtree is covered, and mix positionally rather
-        /// than summing, or a reorder reads as no change at all.
-        /// </remarks>
-        protected virtual int FoldChildVersions(int seed) => seed;
 
         /// <summary>
         /// Whether the engine acts on this resource at all.
@@ -415,7 +403,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// <remarks>
         /// The setter moves <see cref="Version"/> for the same reason the generated ones do: a detached
         /// resource never reconciles, so assigning the property is the only way it ever changes, and the
-        /// render node's recording is replayed until <see cref="EffectiveVersion"/> says otherwise. The guard
+        /// render node's recording is replayed until <see cref="Version"/> says otherwise. The guard
         /// mirrors <see cref="CompareAndUpdate{TValue}"/> so that storing the value already held stays free,
         /// and <see cref="Update"/> writes the field directly so reconciling keeps deciding on its own
         /// whether the change is worth a version.

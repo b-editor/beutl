@@ -195,11 +195,13 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     /// <remarks>
-    /// A list-bearing resource is authored by reaching into the list the getter hands back, so the setter
-    /// that moves <c>Version</c> never runs, and the count is all that separates the two states.
+    /// This is the rule a hand-built resource is authored under: a capture is invalidated by a change to
+    /// <c>Version</c> and by nothing else. A list-bearing resource is authored by reaching into the list the
+    /// getter hands back, so the setter that moves <c>Version</c> never runs, and moving it is the author's
+    /// own job.
     /// </remarks>
     [Test]
-    public void AddingAFigureToADetachedPathGeometry_RebuildsItsCachedPath()
+    public void AddingAFigureToADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
         using var detached = new PathGeometry.Resource
         {
@@ -212,7 +214,7 @@ public sealed class DetachedResourceAuthoringContractTests
                 },
             },
         };
-        _ = detached.Bounds;
+        Rect beforeAdding = detached.Bounds;
 
         detached.Figures.Add(new PathFigure.Resource
         {
@@ -220,15 +222,21 @@ public sealed class DetachedResourceAuthoringContractTests
             Segments = { new PluginSegment.Resource { To = new Point(40, 15) } },
         });
 
-        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)));
+        Assert.That(detached.Bounds, Is.EqualTo(beforeAdding),
+            "adding to the list runs no setter, so nothing about the resource has changed yet");
+
+        detached.Version++;
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)),
+            "the author's bump is what invalidates the path, and the rebuild reads the added figure");
     }
 
     /// <remarks>
-    /// Mutating a child already in the list moves only the child's <c>Version</c>, so a parent that reads
-    /// nothing but its own would keep serving the path it built from the child's previous parameters.
+    /// Mutating a child already in the list moves only the child's <c>Version</c>, and the parent reads
+    /// nothing but its own, so the author that mutated the child moves the parent's too.
     /// </remarks>
     [Test]
-    public void MutatingAFigureOfADetachedPathGeometry_RebuildsItsCachedPath()
+    public void MutatingAFigureOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
         using var figure = new PathFigure.Resource
         {
@@ -236,19 +244,24 @@ public sealed class DetachedResourceAuthoringContractTests
             Segments = { new PluginSegment.Resource { To = new Point(10, 10) } },
         };
         using var detached = new PathGeometry.Resource { Figures = { figure } };
-        _ = detached.Bounds;
+        Rect beforeMutation = detached.Bounds;
 
         figure.StartPoint = new Point(40, 15);
+
+        Assert.That(detached.Bounds, Is.EqualTo(beforeMutation),
+            "the child's version moved and the parent's did not, so the parent still answers as before");
+
+        detached.Version++;
 
         Assert.That(detached.Bounds, Is.EqualTo(new Rect(10, 10, 30, 5)));
     }
 
     /// <remarks>
-    /// The child that moved is two levels down, so the invalidation has to reach through the figure that
-    /// owns the segment as well as the geometry that owns the figure.
+    /// The child that moved is two levels down. The version the author bumps is still the one on the
+    /// resource whose cache they need invalidated, and the rebuild reads the whole subtree from there.
     /// </remarks>
     [Test]
-    public void MutatingASegmentOfADetachedPathGeometry_RebuildsItsCachedPath()
+    public void MutatingASegmentOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
         using var segment = new PluginSegment.Resource { To = new Point(10, 10) };
         using var detached = new PathGeometry.Resource
@@ -258,40 +271,45 @@ public sealed class DetachedResourceAuthoringContractTests
                 new PathFigure.Resource { StartPoint = new Point(0, 0), Segments = { segment } },
             },
         };
-        _ = detached.Bounds;
+        Rect beforeMutation = detached.Bounds;
 
         segment.To = new Point(40, 15);
+
+        Assert.That(detached.Bounds, Is.EqualTo(beforeMutation),
+            "nothing between the segment and the geometry moved the geometry's own version");
+
+        detached.Version++;
 
         Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 40, 15)));
     }
 
     /// <remarks>
-    /// A detached resource never reconciles, so a setter is the only thing that can move its version, and
-    /// every cache keyed on it - the render node's recording included - keeps replaying what it built before
-    /// until one does. <c>IsEnabled</c> is declared by hand on the base rather than generated, which is how
-    /// it came to be the one setter that stood still.
+    /// A detached resource never reconciles, so a setter is the only thing that moves its version without the
+    /// author saying so, and every cache keyed on it - the render node's recording included - keeps replaying
+    /// what it built before until something does. <c>IsEnabled</c> is declared by hand on the base rather
+    /// than generated, which is how it came to be the one setter that stood still.
     /// </remarks>
     [Test]
-    public void EnablingADetachedResource_MovesItsEffectiveVersion()
+    public void EnablingADetachedResource_MovesItsVersion()
     {
         using var detached = new Blur.Resource();
-        int whileDisabled = detached.EffectiveVersion;
+        int whileDisabled = detached.Version;
 
         detached.IsEnabled = true;
 
-        Assert.That(detached.EffectiveVersion, Is.Not.EqualTo(whileDisabled),
+        Assert.That(detached.Version, Is.Not.EqualTo(whileDisabled),
             "enabling a detached resource must invalidate what was recorded while it was disabled");
     }
 
     [Test]
-    public void DisablingADetachedResource_MovesItsEffectiveVersion()
+    public void DisablingADetachedResource_MovesItsVersion()
     {
         using var detached = new Blur.Resource { IsEnabled = true };
-        int whileEnabled = detached.EffectiveVersion;
+        int whileEnabled = detached.Version;
 
         detached.IsEnabled = false;
 
-        Assert.That(detached.EffectiveVersion, Is.Not.EqualTo(whileEnabled),
+        Assert.That(detached.Version, Is.Not.EqualTo(whileEnabled),
             "disabling a detached resource must invalidate what was recorded while it was enabled");
     }
 
@@ -300,14 +318,14 @@ public sealed class DetachedResourceAuthoringContractTests
     /// pass tells them apart from a run where nothing here can fail.
     /// </remarks>
     [Test]
-    public void MutatingAGeneratedPropertyOfADetachedResource_MovesItsEffectiveVersion()
+    public void MutatingAGeneratedPropertyOfADetachedResource_MovesItsVersion()
     {
         using var detached = new Blur.Resource { Sigma = new Size(4, 4) };
-        int beforeMutation = detached.EffectiveVersion;
+        int beforeMutation = detached.Version;
 
         detached.Sigma = new Size(12, 12);
 
-        Assert.That(detached.EffectiveVersion, Is.Not.EqualTo(beforeMutation));
+        Assert.That(detached.Version, Is.Not.EqualTo(beforeMutation));
     }
 
     /// <remarks>

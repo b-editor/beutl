@@ -4,23 +4,36 @@ public static class ResourceExtension
 {
     extension<T>(T? resource) where T : EngineObject.Resource
     {
+        /// <summary>
+        /// Takes the snapshot <see cref="Compare"/> tests a later state against.
+        /// </summary>
         /// <remarks>
-        /// The captured version is <see cref="EngineObject.Resource.EffectiveVersion"/>, so a recording
-        /// taken from a detached resource is also dropped when the caller reaches past the setters and
-        /// edits the resource list itself or a child already in it.
+        /// What is captured is <see cref="EngineObject.Resource.Version"/>, so a change to that number
+        /// invalidates the capture and nothing else does. A resource built by hand never reconciles, so a
+        /// caller that edits one of its children - adding to, removing from, reordering, or replacing an
+        /// entry of a resource list, or setting a property on a child already stored - bumps the parent's
+        /// version themselves, or every recording taken from it is replayed as if nothing had changed.
         /// </remarks>
         public (T Resource, int Version)? Capture()
         {
             if (resource == null)
                 return null;
-            return (resource, resource.EffectiveVersion);
+            return (resource, resource.Version);
         }
 
+        /// <summary>
+        /// Whether <paramref name="captured"/> still describes this resource.
+        /// </summary>
+        /// <remarks>
+        /// This answers <see langword="false"/> for a change to
+        /// <see cref="EngineObject.Resource.Version"/> and for no other change, so a caller that edits a
+        /// child of a hand-built resource has to bump the parent's version itself to be told about it.
+        /// </remarks>
         public bool Compare((T Resource, int Version)? captured)
         {
             return ReferenceEquals(captured?.Resource, resource)
                    && ReferenceEquals(captured?.Resource.GetOriginal(), resource?.GetOriginal())
-                   && captured?.Version == resource?.EffectiveVersion;
+                   && captured?.Version == resource?.Version;
         }
     }
 }
