@@ -25,9 +25,9 @@ public sealed class EditorTabItemLifetimeTests
         int disposeRequested = 0;
         context.OnDispose = () =>
         {
-            shutdownRequested.TrySetResult();
             if (Interlocked.Exchange(ref disposeRequested, 1) == 0)
                 service.RequestContextShutdown(context);
+            shutdownRequested.TrySetResult();
             return ValueTask.CompletedTask;
         };
 
@@ -47,7 +47,7 @@ public sealed class EditorTabItemLifetimeTests
         await shutdownRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
         release.TrySetResult();
 
-        Assert.That(await publish.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(await publish.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
         await dispose.WaitAsync(TimeSpan.FromSeconds(5));
         await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -72,6 +72,356 @@ public sealed class EditorTabItemLifetimeTests
         Assert.That(service.RemoveTabItem(tab), Is.False);
         Assert.That(service.SelectedTabItem.Value, Is.Null);
         await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task SameTabCannotBeAttachedTwice()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TryAddTabItem(tab), Is.True);
+            Assert.That(service.TryAddTabItem(tab), Is.False);
+            Assert.That(service.TabItems.Count, Is.EqualTo(1));
+        });
+
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task ConcurrentRemovalHasOnePhysicalExecutor()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
+        service.AddTabItem(tab);
+        int removeNotifications = 0;
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Remove)
+                Interlocked.Increment(ref removeNotifications);
+        };
+        using var start = new ManualResetEventSlim();
+
+        Task<bool> first = Task.Run(() =>
+        {
+            start.Wait();
+            return service.RemoveTabItem(tab);
+        });
+        Task<bool> second = Task.Run(() =>
+        {
+            start.Wait();
+            return service.RemoveTabItem(tab);
+        });
+        start.Set();
+
+        bool[] results = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Count(static value => value), Is.EqualTo(1));
+            Assert.That(removeNotifications, Is.EqualTo(1));
+            Assert.That(service.TabItems, Is.Empty);
+        });
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task AddObserverCanWaitForCloseWithoutDeadlock()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
+        Task? close = null;
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+            {
+                close = Task.Run(() => service.CloseTabItem(tab).AsTask());
+                close.GetAwaiter().GetResult();
+            }
+        };
+
+        bool added = await Task.Run(() => service.TryAddTabItem(tab))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(close, Is.Not.Null);
+        await close!.WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(added, Is.False);
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task RemovalBeforePhysicalAddCannotLeaveAClosedTabPublished()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        var beforeAdd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseAdd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<bool> add = Task.Run(() => service.TryAddTabItem(tab, () =>
+        {
+            beforeAdd.TrySetResult();
+            releaseAdd.Task.GetAwaiter().GetResult();
+        }));
+        await beforeAdd.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.RemoveTabItem(tab), Is.False);
+        releaseAdd.TrySetResult();
+
+        Assert.That(await add.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task ThrowingLateAddReconciliationCannotLeakContext()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        var beforeAdd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseAdd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Remove)
+                throw new InvalidOperationException("reconciliation observer failed");
+        };
+
+        Task<bool> add = Task.Run(() => service.TryAddTabItem(tab, () =>
+        {
+            beforeAdd.TrySetResult();
+            releaseAdd.Task.GetAwaiter().GetResult();
+        }));
+        await beforeAdd.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.RemoveTabItem(tab), Is.False);
+        releaseAdd.TrySetResult();
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await add.WaitAsync(TimeSpan.FromSeconds(5)));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task RemoveObserverCanWaitForCloseWithoutDeadlock()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
+        service.AddTabItem(tab);
+        Task? nestedClose = null;
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Remove)
+            {
+                nestedClose = Task.Run(() => service.CloseTabItem(tab).AsTask());
+                nestedClose.GetAwaiter().GetResult();
+            }
+        };
+
+        bool removed = await Task.Run(() => service.RemoveTabItem(tab))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(nestedClose, Is.Not.Null);
+        await nestedClose!.WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task IsSelectedObserverClosingTabCannotLeaveStaleSelection()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        using IDisposable selectionObserver = tab.IsSelected.Subscribe(isSelected =>
+        {
+            if (isSelected)
+                service.CloseTabItem(tab).AsTask().GetAwaiter().GetResult();
+        });
+
+        Assert.That(service.TryAddAndSelectTabItem(tab), Is.False);
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+            Assert.That(tab.Context.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ThrowingSelectionObserverCannotLeakNewTabContext()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        using IDisposable observer = tab.IsSelected.Subscribe(value =>
+        {
+            if (value)
+                throw new InvalidOperationException("selection observer failed");
+        });
+
+        Assert.Throws<InvalidOperationException>(() => service.TryAddAndSelectTabItem(tab));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task ExistingTabSelectionObserverCanWaitForCloseWithoutDeadlock()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "existing-selection-close.scene"))
+        };
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false, scene));
+        service.AddTabItem(tab);
+        Task? close = null;
+        using IDisposable observer = tab.IsSelected.Subscribe(value =>
+        {
+            if (value)
+            {
+                close = Task.Run(() => service.CloseTabItem(tab).AsTask());
+                close.GetAwaiter().GetResult();
+            }
+        });
+
+        await Task.Run(() => service.ActivateTabItem(scene))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(close, Is.Not.Null);
+        await close!.WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task ExistingTabSelectionObserverCloseCannotReexposeStaleSelection()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "existing-selection-fire-and-forget.scene"))
+        };
+        var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false, scene));
+        service.AddTabItem(tab);
+        Task? close = null;
+        using IDisposable observer = tab.IsSelected.Subscribe(value =>
+        {
+            if (value)
+                close = service.CloseTabItem(tab).AsTask();
+        });
+
+        service.ActivateTabItem(scene);
+        Assert.That(close, Is.Not.Null);
+        await close!.WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task DelayedSelectionObserverChildUsesNormalDisposeSemantics()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "delayed-selection-close.scene"))
+        };
+        var context = new BlockingEditorContext(obj: scene);
+        var tab = new EditorTabItem(context);
+        service.AddTabItem(tab);
+        var releaseChild = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? delayedClose = null;
+        using IDisposable observer = tab.IsSelected.Subscribe(value =>
+        {
+            if (value)
+            {
+                delayedClose = Task.Run(async () =>
+                {
+                    await releaseChild.Task;
+                    await service.CloseTabItem(tab);
+                });
+            }
+        });
+
+        service.ActivateTabItem(scene);
+        Assert.That(delayedClose, Is.Not.Null);
+        releaseChild.TrySetResult();
+        await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(delayedClose!.IsCompleted, Is.False);
+
+        context.ReleaseDispose();
+        await delayedClose.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.TabItems, Is.Empty);
+    }
+
+    [Test]
+    public async Task SelectionObserverCannotStartACompetingReplacement()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "selection-replacement.scene"))
+        };
+        var original = new BlockingEditorContext(blockDispose: false, scene);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(original);
+        service.AddTabItem(tab);
+        bool? replaced = null;
+        using IDisposable observer = tab.IsSelected.Subscribe(value =>
+        {
+            if (value)
+            {
+                replaced = tab.ReplaceContextAsync(replacement)
+                    .AsTask()
+                    .GetAwaiter()
+                    .GetResult();
+            }
+        });
+
+        await Task.Run(() => service.ActivateTabItem(scene))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replaced, Is.False);
+            Assert.That(tab.Context.Value, Is.SameAs(original));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.SelectedTabItem.Value, Is.SameAs(tab));
+        });
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
@@ -124,7 +474,7 @@ public sealed class EditorTabItemLifetimeTests
         using IDisposable contextSubscription = tab.Context.Subscribe(value =>
         {
             if (ReferenceEquals(value, replacement))
-                tab.MutateLifetime(static () => { });
+                _ = tab.IsPublicationCurrent();
         });
         replacement.PauseNextPublication();
 
@@ -140,9 +490,12 @@ public sealed class EditorTabItemLifetimeTests
         Task<bool> replace = Task.Run(async () => await tab.ReplaceContextAsync(replacement));
         await replacement.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Task remove = Task.Run(() => service.RemoveTabItem(tab));
+        Assert.That(
+            SpinWait.SpinUntil(() => !service.ContainsTabItem(tab), TimeSpan.FromSeconds(5)),
+            Is.True);
         replacement.ReleasePublication();
 
-        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
         await remove.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {
@@ -316,6 +669,36 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
+    public async Task ContextSubscriberCanSynchronouslyWaitForCloseWhenReplacementPublishesNull()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        bool closeReturned = false;
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (value is null)
+            {
+                Task close = Task.Run(() => tab.DisposeAsync().AsTask());
+                close.GetAwaiter().GetResult();
+                closeReturned = true;
+            }
+        });
+
+        bool replaced = await Task.Run(async () => await tab.ReplaceContextAsync(replacement))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replaced, Is.False);
+            Assert.That(closeReturned, Is.True);
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task CloseStartedByReplacementPublicationWinsTheResult()
     {
         var oldContext = new BlockingEditorContext(blockDispose: false);
@@ -364,6 +747,37 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(tab.Context.Value!, Is.SameAs(replacement));
         });
         await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task DelayedOwnedDisposalChildUsesNormalDisposeSemanticsAfterScopeEnds()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext();
+        var tab = new EditorTabItem(oldContext);
+        var releaseChild = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? delayedClose = null;
+        oldContext.OnDispose = () =>
+        {
+            delayedClose = Task.Run(async () =>
+            {
+                await releaseChild.Task;
+                await tab.DisposeAsync();
+            });
+            return ValueTask.CompletedTask;
+        };
+
+        Assert.That(
+            await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)),
+            Is.True);
+        Assert.That(delayedClose, Is.Not.Null);
+        releaseChild.TrySetResult();
+        await replacement.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(delayedClose!.IsCompleted, Is.False);
+
+        replacement.ReleaseDispose();
+        await delayedClose.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replacement.DisposeCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -664,10 +1078,10 @@ public sealed class EditorTabItemLifetimeTests
                     PublicationPaused.TrySetResult();
                     _release.Task.GetAwaiter().GetResult();
                 }
-
-                publish();
-                return true;
             }
+
+            publish();
+            return true;
         }
 
         public void EnterGate() => Monitor.Enter(_gate);
