@@ -380,20 +380,21 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
 
         private EngineObject? _original;
-        private bool _isEnabled;
 
         /// <summary>
         /// The number every cache over this resource keys on.
         /// </summary>
         /// <remarks>
         /// A change to this number invalidates such a cache, and nothing else does. Reconciling against an
-        /// engine object moves it whenever a parameter of this resource or of one it owns changed, so an
-        /// attached resource asks nothing of its caller. A resource built by hand never reconciles, and its
-        /// resource lists are handed out as plain <see cref="List{T}"/>, so a caller reaches its children -
-        /// adding, removing, reordering, or mutating one - without ever running a setter that could move
-        /// this. Moving it is then the caller's job: whoever edits a child of a hand-built resource bumps
-        /// the parent's version themselves, or every cache keyed on it goes on serving what it built before
-        /// the edit.
+        /// engine object is the one thing that moves it on its own: <see cref="Update"/> and the
+        /// <c>CompareAndUpdate</c> family step it whenever a parameter of this resource or of one it owns
+        /// changed, so an attached resource asks nothing of its caller. No setter moves it. A resource built
+        /// by hand never reconciles, so nothing moves it there at all - assigning a property stores the
+        /// value and stops, and resource lists are handed out as plain <see cref="List{T}"/>, so a caller
+        /// reaches the children the same way. Moving it is then the caller's job: whoever edits a hand-built
+        /// resource - setting one of its properties, or adding to, removing from, reordering, or mutating a
+        /// child of it - bumps its version themselves, or every cache keyed on it goes on serving what it
+        /// built before the edit.
         /// </remarks>
         public int Version { get; set; }
 
@@ -401,23 +402,11 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// Whether the engine acts on this resource at all.
         /// </summary>
         /// <remarks>
-        /// The setter moves <see cref="Version"/> for the same reason the generated ones do: a detached
-        /// resource never reconciles, so assigning the property is the only way it ever changes, and the
-        /// render node's recording is replayed until <see cref="Version"/> says otherwise. The guard
-        /// mirrors <see cref="CompareAndUpdate{TValue}"/> so that storing the value already held stays free,
-        /// and <see cref="Update"/> writes the field directly so reconciling keeps deciding on its own
-        /// whether the change is worth a version.
+        /// Assigning this stores the value and does nothing else, as every other setter here does.
+        /// Reconciling moves <see cref="Version"/> when it copies a changed value across; a caller that sets
+        /// this on a hand-built resource moves the version themselves.
         /// </remarks>
-        public bool IsEnabled
-        {
-            get => _isEnabled;
-            set
-            {
-                if (_isEnabled == value) return;
-                _isEnabled = value;
-                Version++;
-            }
-        }
+        public bool IsEnabled { get; set; }
 
         public bool IsDisposed { get; private set; }
 
@@ -433,9 +422,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
-            if (_isEnabled != obj.IsEnabled)
+            if (IsEnabled != obj.IsEnabled)
             {
-                _isEnabled = obj.IsEnabled;
+                IsEnabled = obj.IsEnabled;
                 if (!updateOnly)
                 {
                     Version++;

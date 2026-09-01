@@ -115,17 +115,27 @@ public sealed class DetachedGeometryResourceTests
     }
 
     /// <remarks>
-    /// A detached resource never reconciles against an engine object, so its generated setters are the only
-    /// thing that can move its parameters. Every cache here is keyed on <c>Version</c>.
+    /// A detached resource never reconciles against an engine object, and a generated setter stores its
+    /// value without moving <c>Version</c>, so every cache here - all of them keyed on that number - stays
+    /// as it was until the author moves it.
     /// </remarks>
     [Test]
-    public void MutatingADetachedEllipse_RebuildsItsCachedPath()
+    public void MutatingADetachedEllipse_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
         using var detached = new EllipseGeometry.Resource { Width = 100, Height = 50 };
-        _ = detached.Bounds;
+        Rect beforeMutation = detached.Bounds;
 
         detached.Width = 200;
         detached.Height = 80;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Width, Is.EqualTo(200), "the setters still store what they were given");
+            Assert.That(detached.Bounds, Is.EqualTo(beforeMutation),
+                "they moved no version, so the path built before the assignments still stands");
+        }
+
+        detached.Version++;
 
         using (Assert.EnterMultipleScope())
         {

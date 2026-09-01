@@ -57,9 +57,13 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(source, Does.Contain("partial class Resource"));
             Assert.That(source, Does.Contain("global::Beutl.Engine.EngineObject.Resource"));
 
-            // Value properties X and Y are surfaced on the Resource.
+            // Value properties X and Y are surfaced on the Resource, as plain assignments: a setter moves
+            // no version, so reconciling and the author are the only things that invalidate a resource.
             Assert.That(source, Does.Contain("public float X"));
             Assert.That(source, Does.Contain("public float Y"));
+            Assert.That(source, Does.Contain("set => _x = value;"));
+            Assert.That(source, Does.Contain("set => _y = value;"));
+            Assert.That(source, Does.Not.Contain("Version++"));
 
             // Update override compares-and-updates each value property.
             Assert.That(source, Does.Contain("public override void Update"));
@@ -107,8 +111,8 @@ public class EngineObjectResourceGeneratorTests
             // surfaced as a Derived.Resource and compared via CompareAndUpdateObject.
             Assert.That(source, Does.Contain("Child"));
             Assert.That(source, Does.Contain("CompareAndUpdateObject(context"));
-            Assert.That(source, Does.Contain("global::System.Object.ReferenceEquals(_child, value)"));
-            Assert.That(source, Does.Contain("global::System.Object.ReferenceEquals(_optionalChild, value)"));
+            Assert.That(source, Does.Contain("set => _child = value;"));
+            Assert.That(source, Does.Contain("set => _optionalChild = value;"));
             Assert.That(source, Does.Not.Contain("SetOwnedResource"));
             Assert.That(source, Does.Not.Contain("ReplaceChild("));
             Assert.That(source, Does.Not.Contain("DetachChild()"));
@@ -119,53 +123,6 @@ public class EngineObjectResourceGeneratorTests
             // The disposable object property is released by its backing field in Dispose.
             Assert.That(source, Does.Contain("_child?.Dispose();"));
         });
-    }
-
-    /// <summary>
-    /// A resource's caches - path, stroke, mesh, and every render node's (resource, Version) snapshot - key
-    /// on <c>Version</c>, and the reconcile path writes the backing fields directly rather than through
-    /// these setters. A detached resource has no reconcile path at all, so the setter is the only thing that
-    /// can invalidate it.
-    /// </summary>
-    [Test]
-    public void ValuePropertySetters_BumpVersionWhenTheStoredValueChanges()
-    {
-        string source = Run().GetSource("Derived_Resource.g.cs");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                source,
-                Does.Contain("global::System.Collections.Generic.EqualityComparer<float>.Default.Equals(_x, value)"),
-                "Assigning the value already stored must stay free, as it is on the reconcile path.");
-            Assert.That(source, Does.Contain("_x = value;"));
-            Assert.That(source, Does.Contain("Version++;"));
-            Assert.That(source, Does.Not.Contain("set => _x = value;"));
-            Assert.That(source, Does.Not.Contain("set => _y = value;"));
-        });
-    }
-
-    [Test]
-    public void ObjectAndListPropertySetters_BumpVersionWhenTheStoredReferenceChanges()
-    {
-        string source = Run().GetSource("Derived3_Resource.g.cs");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(source, Does.Contain("global::System.Object.ReferenceEquals(_child, value)"));
-            Assert.That(source, Does.Contain("global::System.Object.ReferenceEquals(_items, value)"));
-            Assert.That(source, Does.Not.Contain("set => _child = value;"));
-            Assert.That(source, Does.Not.Contain("set => _items = value;"));
-        });
-    }
-
-    [Test]
-    public void NodePortSetters_DoNotBumpVersion()
-    {
-        string source = Run().GetSource("Derived3_Resource.g.cs");
-
-        // A node port writes through into the node graph's shared item value, not into resource state.
-        Assert.That(source, Does.Not.Contain("_ItemValue.Value = value; Version++"));
     }
 
     [Test]

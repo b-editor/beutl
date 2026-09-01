@@ -104,11 +104,7 @@ public static class ResourceClassEmitter
             sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {property.Name}");
             sb.Append(innerIndent).AppendLine("{");
             sb.Append(innerIndent).AppendLine($"    get => {fieldName};");
-            EmitVersionBumpingSetter(
-                sb,
-                innerIndent,
-                fieldName,
-                $"global::System.Collections.Generic.EqualityComparer<{valueTypeDisplay}>.Default.Equals({fieldName}, value)");
+            sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
         }
@@ -135,11 +131,7 @@ public static class ResourceClassEmitter
                     .Append(property.Name)
                     .AppendLine(" did not contain an owned resource.\");");
             }
-            EmitVersionBumpingSetter(
-                sb,
-                innerIndent,
-                fieldName,
-                $"global::System.Object.ReferenceEquals({fieldName}, value)");
+            sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
         }
@@ -153,11 +145,7 @@ public static class ResourceClassEmitter
             sb.Append(innerIndent).AppendLine($"public global::System.Collections.Generic.List<{resourceType}> {property.Name}");
             sb.Append(innerIndent).AppendLine("{");
             sb.Append(innerIndent).AppendLine($"    get => {fieldName};");
-            EmitVersionBumpingSetter(
-                sb,
-                innerIndent,
-                fieldName,
-                $"global::System.Object.ReferenceEquals({fieldName}, value)");
+            sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
         }
@@ -173,28 +161,6 @@ public static class ResourceClassEmitter
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
         }
-    }
-
-    /// <summary>
-    /// Emits a setter that moves <c>Version</c> whenever the stored value actually changes.
-    /// </summary>
-    /// <remarks>
-    /// Version is the only invalidation signal a resource has: the path, stroke, mesh and render-node caches
-    /// all key on it. The reconcile path reaches the backing fields through <c>CompareAndUpdate*</c>, so a
-    /// resource mutated directly - which is the only way a detached resource ever changes - would otherwise
-    /// keep serving what it built before. The guard mirrors <c>CompareAndUpdate</c> so that assigning the
-    /// value already stored stays free, and node-port setters are excluded because they write through into
-    /// the node graph's shared item value rather than into resource state.
-    /// </remarks>
-    private static void EmitVersionBumpingSetter(
-        StringBuilder sb, string innerIndent, string fieldName, string unchangedCondition)
-    {
-        sb.Append(innerIndent).AppendLine("    set");
-        sb.Append(innerIndent).AppendLine("    {");
-        sb.Append(innerIndent).AppendLine($"        if ({unchangedCondition}) return;");
-        sb.Append(innerIndent).AppendLine($"        {fieldName} = value;");
-        sb.Append(innerIndent).AppendLine("        Version++;");
-        sb.Append(innerIndent).AppendLine("    }");
     }
 
     private static void EmitGetOriginal(StringBuilder sb, string innerIndent, string currentTypeDisplay)

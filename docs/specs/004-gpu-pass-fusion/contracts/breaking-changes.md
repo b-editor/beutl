@@ -841,10 +841,13 @@ thing that invalidates one. `ResourceExtension.Capture()` records it and `Compar
 path and stroke caches, the mesh cache, and the `(resource, version)` snapshot every render node takes all
 read the same number.
 
-Reconciling against an engine object moves it whenever a parameter of the resource or of one it owns changed,
-so a resource obtained from `EngineObject.ToResource` asks nothing of its caller. A resource built by hand —
-`new PathGeometry.Resource { ... }` — never reconciles, and its resource lists are handed out as plain
-`List<T>`, so an author reaches its children without running a setter that could move anything:
+`Version` moves on its own in exactly one place: reconciling against an engine object. `Resource.Update` and
+the `CompareAndUpdate*` family step it whenever a parameter of the resource or of one it owns changed, so a
+resource obtained from `EngineObject.ToResource` asks nothing of its caller. No setter moves it — neither a
+generated property setter nor the hand-written `IsEnabled` — so a resource built by hand —
+`new PathGeometry.Resource { ... }` — has nothing moving it at all: assigning a property stores the value and
+stops there, and its resource lists are handed out as plain `List<T>`, so an author reaches the children the
+same way.
 
 ```csharp
 using var figure = new PathFigure.Resource
@@ -856,6 +859,7 @@ using var geometry = new PathGeometry.Resource { Figures = { figure } };
 _ = geometry.Bounds;
 
 // None of these move geometry.Version, so geometry keeps serving the path it already built.
+geometry.FillType = PathFillType.EvenOdd;
 geometry.Figures.Add(anotherFigure);
 figure.Segments[0] = new LineSegment.Resource { Point = new Point(80, 40) };
 figure.StartPoint = new Point(40, 15);
@@ -863,14 +867,11 @@ figure.StartPoint = new Point(40, 15);
 geometry.Version++;   // the author's job — now Bounds, hit testing and any recording over it are current
 ```
 
-Whoever creates or mutates a hand-built resource bumps its `Version`. This is a documented contract rather
-than a mechanism: there is no helper, marker interface, or analyzer that enforces it, and nothing folds a
-child's version into its parent's on the author's behalf. `DetachedResourceAuthoringContractTests` and
+Whoever creates or edits a hand-built resource bumps its `Version` — for a property assigned on the resource
+itself as much as for a child reached past it. This is a documented contract rather than a mechanism: no
+helper, marker interface, or analyzer enforces it, no setter invalidates on the author's behalf, and nothing
+folds a child's version into its parent's. `DetachedResourceAuthoringContractTests` and
 `DetachedGeometryResourceTests` pin both halves — unchanged until the bump, current after it.
-
-A generated property setter on the resource itself still moves the version, as does the hand-written
-`IsEnabled` setter, so mutating a hand-built resource's own parameters needs nothing extra. Only reaching
-*past* those setters, into a child, does.
 
 ## A render host states what its output is for
 

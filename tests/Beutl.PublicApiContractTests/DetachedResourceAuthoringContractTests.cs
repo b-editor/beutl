@@ -152,17 +152,27 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     /// <remarks>
-    /// A detached resource has no engine object to reconcile against, so its generated setters are the only
-    /// way its parameters ever change. The path, bounds and hit-test caches all key on <c>Version</c>, and
-    /// the helper the engine invalidates them through is internal.
+    /// A generated setter stores what it is given and moves nothing else, so a detached resource - which has
+    /// no engine object to reconcile against either - is only ever invalidated by its author. The path,
+    /// bounds and hit-test caches all key on <c>Version</c>, and the helper the engine bumps it through is
+    /// internal, so that bump is the whole of an out-of-tree author's invalidation.
     /// </remarks>
     [Test]
-    public void MutatingADetachedGeometry_RebuildsItsCachedPath()
+    public void MutatingADetachedGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
     {
         using var detached = new PluginGeometry.Resource { Side = 10 };
-        _ = detached.Bounds;
+        Rect beforeMutation = detached.Bounds;
 
         detached.Side = 40;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Side, Is.EqualTo(40), "the setter still stores what it was given");
+            Assert.That(detached.Bounds, Is.EqualTo(beforeMutation),
+                "it moved no version, so the path built before the assignment still stands");
+        }
+
+        detached.Version++;
 
         using (Assert.EnterMultipleScope())
         {
@@ -172,33 +182,43 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     [Test]
-    public void MutatingADetachedGeometry_RebuildsItsCachedStrokePath()
+    public void MutatingADetachedGeometry_RebuildsItsCachedStrokePathOnceTheAuthorBumpsTheVersion()
     {
         using var detached = new PluginGeometry.Resource { Side = 10 };
         using var pen = DetachedPen(thickness: 4);
-        _ = detached.GetRenderBounds(pen);
+        Rect beforeMutation = detached.GetRenderBounds(pen);
 
         detached.Side = 100;
+
+        Assert.That(detached.GetRenderBounds(pen), Is.EqualTo(beforeMutation),
+            "the stroke path keys on the same version the setter left where it was");
+
+        detached.Version++;
 
         Assert.That(detached.GetRenderBounds(pen), Is.EqualTo(new Rect(-2, -2, 104, 104)));
     }
 
     [Test]
-    public void MutatingADetachedMesh_RegeneratesItsGeometry()
+    public void MutatingADetachedMesh_RegeneratesItsGeometryOnceTheAuthorBumpsTheVersion()
     {
         using var detached = new PluginMesh.Resource { Extent = 3 };
         _ = detached.GetVertices();
 
         detached.Extent = 9;
 
+        Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(3),
+            "the mesh cache keys on the version too, so it still serves the vertices it generated");
+
+        detached.Version++;
+
         Assert.That(detached.GetBoundingBox().Max.X, Is.EqualTo(9));
     }
 
     /// <remarks>
     /// This is the rule a hand-built resource is authored under: a capture is invalidated by a change to
-    /// <c>Version</c> and by nothing else. A list-bearing resource is authored by reaching into the list the
-    /// getter hands back, so the setter that moves <c>Version</c> never runs, and moving it is the author's
-    /// own job.
+    /// <c>Version</c> and by nothing else, and nothing moves that number on the author's behalf. A
+    /// list-bearing resource is authored by reaching into the list the getter hands back, which does not
+    /// even run a setter, so moving the version is the author's own job.
     /// </remarks>
     [Test]
     public void AddingAFigureToADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
@@ -232,8 +252,9 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     /// <remarks>
-    /// Mutating a child already in the list moves only the child's <c>Version</c>, and the parent reads
-    /// nothing but its own, so the author that mutated the child moves the parent's too.
+    /// Mutating a child already in the list moves no version at all - not the child's, and so not the
+    /// parent's, which is the only one the parent reads - so the author that mutated the child moves the
+    /// parent's themselves.
     /// </remarks>
     [Test]
     public void MutatingAFigureOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
@@ -249,7 +270,7 @@ public sealed class DetachedResourceAuthoringContractTests
         figure.StartPoint = new Point(40, 15);
 
         Assert.That(detached.Bounds, Is.EqualTo(beforeMutation),
-            "the child's version moved and the parent's did not, so the parent still answers as before");
+            "assigning a property on the child moved no version, so the parent still answers as before");
 
         detached.Version++;
 
@@ -284,55 +305,67 @@ public sealed class DetachedResourceAuthoringContractTests
     }
 
     /// <remarks>
-    /// A detached resource never reconciles, so a setter is the only thing that moves its version without the
-    /// author saying so, and every cache keyed on it - the render node's recording included - keeps replaying
-    /// what it built before until something does. <c>IsEnabled</c> is declared by hand on the base rather
-    /// than generated, which is how it came to be the one setter that stood still.
+    /// <c>IsEnabled</c> is declared by hand on the base rather than generated, and it follows the same rule
+    /// the generated ones do: it stores the value and moves nothing. Whatever a render node recorded while
+    /// the resource was disabled therefore stays current - <c>Capture</c> and <c>Compare</c> are how a
+    /// caller asks - until the author moves the version.
     /// </remarks>
     [Test]
-    public void EnablingADetachedResource_MovesItsVersion()
+    public void TogglingADetachedResource_LeavesACaptureCurrentUntilTheAuthorBumpsTheVersion()
     {
         using var detached = new Blur.Resource();
-        int whileDisabled = detached.Version;
+        (Blur.Resource Resource, int Version)? whileDisabled = detached.Capture();
 
         detached.IsEnabled = true;
 
-        Assert.That(detached.Version, Is.Not.EqualTo(whileDisabled),
-            "enabling a detached resource must invalidate what was recorded while it was disabled");
-    }
-
-    [Test]
-    public void DisablingADetachedResource_MovesItsVersion()
-    {
-        using var detached = new Blur.Resource { IsEnabled = true };
-        int whileEnabled = detached.Version;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.IsEnabled, Is.True, "the setter still stores what it was given");
+            Assert.That(detached.Compare(whileDisabled), Is.True,
+                "enabling it moved no version, so what was recorded while it was disabled still matches");
+        }
 
         detached.IsEnabled = false;
 
-        Assert.That(detached.Version, Is.Not.EqualTo(whileEnabled),
-            "disabling a detached resource must invalidate what was recorded while it was enabled");
+        Assert.That(detached.Compare(whileDisabled), Is.True,
+            "disabling it again moves no version either - neither direction invalidates on its own");
+
+        detached.Version++;
+
+        Assert.That(detached.Compare(whileDisabled), Is.False,
+            "the author's bump is what tells a recording the enabled state it was taken under is stale");
     }
 
     /// <remarks>
-    /// The control for the two above: a generated setter already moves the version, so a run where all three
-    /// pass tells them apart from a run where nothing here can fail.
+    /// The sibling of the one above, on a generated setter rather than the hand-written one, so that the two
+    /// member kinds are pinned to one rule instead of two.
     /// </remarks>
     [Test]
-    public void MutatingAGeneratedPropertyOfADetachedResource_MovesItsVersion()
+    public void MutatingAGeneratedPropertyOfADetachedResource_LeavesACaptureCurrentUntilTheAuthorBumps()
     {
         using var detached = new Blur.Resource { Sigma = new Size(4, 4) };
-        int beforeMutation = detached.Version;
+        (Blur.Resource Resource, int Version)? beforeMutation = detached.Capture();
 
         detached.Sigma = new Size(12, 12);
 
-        Assert.That(detached.Version, Is.Not.EqualTo(beforeMutation));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Sigma, Is.EqualTo(new Size(12, 12)));
+            Assert.That(detached.Compare(beforeMutation), Is.True,
+                "a generated setter stores the value and moves no version");
+        }
+
+        detached.Version++;
+
+        Assert.That(detached.Compare(beforeMutation), Is.False);
     }
 
     /// <remarks>
-    /// Reconciling writes the backing field instead of going through the setter, so a resource just built
-    /// from an engine object still reports the version a cache reads as never yet invalidated. Going through
-    /// the setter would move it on every first build, because <c>IsEnabled</c> starts <see langword="true"/>
-    /// on the object and <see langword="false"/> on the resource and the two therefore always differ.
+    /// Nothing that runs during a first build can move the version: the setter is a plain store, and
+    /// <see cref="EngineObject.Resource.Update"/> only steps the version when it is reconciling a resource
+    /// that was already built. That matters because <c>IsEnabled</c> starts <see langword="true"/> on the
+    /// object and <see langword="false"/> on the resource, so the two always differ on a first build - a
+    /// setter that invalidated would invalidate every node's cache the first time it recorded.
     /// </remarks>
     [Test]
     public void BuildingAResourceFromAnEnabledObject_LeavesItsVersionUnmoved()
