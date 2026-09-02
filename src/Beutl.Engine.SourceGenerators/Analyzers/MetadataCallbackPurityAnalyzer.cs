@@ -545,12 +545,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 bool runsStatic = RunsAStaticMethod(called);
 
                 // A static method has no receiver to read, so the follow is not even asked for.
-                if (runsStatic
-                    || FollowReceiverCreation(context, model, body, name, depth, walked, report))
+                INamedTypeSymbol? made = runsStatic
+                    ? null
+                    : FollowReceiverCreation(context, model, body, name, depth, walked, report);
+
+                if (runsStatic || made is not null)
                 {
                     FollowCall(
                         context,
-                        called,
+                        RunsAsMade(made, called),
                         name,
                         runsStatic ? "static method" : "method",
                         depth,
@@ -1099,17 +1102,21 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         HashSet<ISymbol> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (!FollowReceiverCreation(context, model, body, reference, depth, walked, report))
+        if (FollowReceiverCreation(context, model, body, reference, depth, walked, report)
+            is not { } made)
+        {
             return;
+        }
 
         if (RunsGetter(access) && property.GetMethod is { } getter)
-            FollowCall(context, getter, reference, "property", depth, walked, report);
+            FollowCall(context, RunsAsMade(made, getter), reference, "property", depth, walked, report);
 
         if (RunsSetter(access) && property.SetMethod is { } setter)
-            FollowCall(context, setter, reference, "property", depth, walked, report);
+            FollowCall(context, RunsAsMade(made, setter), reference, "property", depth, walked, report);
     }
 
-    private static bool FollowReceiverCreation(
+    /// <summary>The type the receiver was made as, or null where its making cannot be read.</summary>
+    private static INamedTypeSymbol? FollowReceiverCreation(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
         SyntaxNode body,
@@ -1119,7 +1126,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (GetReceiverCreation(context, model, reference) is not { } made)
-            return false;
+            return null;
 
         if (RunsWith(body, made.Creation)
             && made.Model.GetSymbolInfo(made.Creation, context.CancellationToken).Symbol
@@ -1128,16 +1135,61 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             FollowConstructor(context, constructor, reference, depth, walked, report);
         }
 
-        return true;
+        return made.Made;
+    }
+
+    /// <summary>The member an instance made as <paramref name="made"/> runs.</summary>
+    /// <remarks>
+    /// A receiver whose making is readable carries an instance of exactly one type for its whole life, so
+    /// a virtual member reached through a base declaration, and an interface member reached through the
+    /// interface, both run a body the declaration the call bound to does not name - and that body, not the
+    /// declaration, is what the callback answers with. A member nothing overrides, and one on a receiver
+    /// whose making was not read, are already what runs and are handed back unchanged.
+    /// </remarks>
+    private static IMethodSymbol RunsAsMade(INamedTypeSymbol? made, IMethodSymbol member)
+    {
+        if (made is null)
+            return member;
+
+        if (member.ContainingType is { TypeKind: TypeKind.Interface })
+            return RunsOn(made, member) ?? member;
+
+        if (!member.IsVirtual && !member.IsAbstract && !member.IsOverride)
+            return member;
+
+        IMethodSymbol declaration = member.OriginalDefinition;
+
+        for (INamedTypeSymbol? current = made; current is not null; current = current.BaseType)
+        {
+            foreach (ISymbol candidate in current.GetMembers(member.Name))
+            {
+                if (candidate is IMethodSymbol overriding && Overrides(overriding, declaration))
+                    return overriding;
+            }
+        }
+
+        return member;
+    }
+
+    private static bool Overrides(IMethodSymbol candidate, IMethodSymbol declaration)
+    {
+        for (IMethodSymbol? current = candidate; current is not null; current = current.OverriddenMethod)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, declaration))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool RunsWith(SyntaxNode body, ExpressionSyntax expression)
         => expression.SyntaxTree == body.SyntaxTree && body.Span.Contains(expression.Span);
 
-    private static (ExpressionSyntax Creation, SemanticModel Model)? GetReceiverCreation(
-        SyntaxNodeAnalysisContext context,
-        SemanticModel model,
-        SyntaxNode reference)
+    private static (ExpressionSyntax Creation, SemanticModel Model, INamedTypeSymbol Made)?
+        GetReceiverCreation(
+            SyntaxNodeAnalysisContext context,
+            SemanticModel model,
+            SyntaxNode reference)
     {
         if (GetReceiver(reference) is not { } receiver)
             return null;
@@ -1155,10 +1207,36 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        return SymbolEqualityComparer.Default.Equals(
-            created, model.GetTypeInfo(receiver, context.CancellationToken).Type)
-            ? creation
+        return IsHeldBy(created, model.GetTypeInfo(receiver, context.CancellationToken).Type)
+            ? (creation.Creation, creation.Model, created)
             : null;
+    }
+
+    /// <summary>Whether an instance made as <paramref name="created"/> is what the receiver holds.</summary>
+    /// <remarks>
+    /// A making that reaches a receiver of a base type or of an interface it implements is the instance
+    /// that receiver holds, and the derived body is what a call on it runs. One that reaches a receiver of
+    /// an unrelated type got there through a user-defined conversion, which hands back something else
+    /// entirely and says nothing about what the receiver ends up holding.
+    /// </remarks>
+    private static bool IsHeldBy(INamedTypeSymbol created, ITypeSymbol? receiver)
+    {
+        if (receiver is null)
+            return false;
+
+        for (INamedTypeSymbol? current = created; current is not null; current = current.BaseType)
+        {
+            if (SymbolEqualityComparer.Default.Equals(current, receiver))
+                return true;
+        }
+
+        foreach (INamedTypeSymbol implemented in created.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(implemented, receiver))
+                return true;
+        }
+
+        return false;
     }
 
     private static (ExpressionSyntax Creation, SemanticModel Model)? GetHeldCreation(

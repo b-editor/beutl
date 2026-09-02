@@ -3300,7 +3300,52 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
-    public void ANodeLambdaCallingAReadonlyFieldDeclaredAsABaseOfWhatItHolds_IsNotReported()
+    public void ANodeLambdaCallingAReadonlyFieldWhoseOverrideReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class Shifter
+            {
+                public virtual float Shift(float value) => value;
+            }
+
+            internal sealed class LoudShifter : Shifter
+            {
+                public override float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Shifter _shifter = new LoudShifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            _shifter.Shift(value.X), value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the field holds an instance made as LoudShifter for its whole life, so the override is what "
+            + "the call runs and the declaration it binds to is not evidence of anything");
+    }
+
+    /// <remarks>
+    /// The control for the case above: the same spelling with the read on the other side of the override,
+    /// which reports only if the walk answers to the shape rather than to the body it runs.
+    /// </remarks>
+    [Test]
+    public void ANodeLambdaCallingAReadonlyFieldWhoseOverrideReadsNothingStatic_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using Beutl.Graphics;
@@ -3336,8 +3381,90 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         Assert.That(
             diagnostics.Select(static d => d.Id),
             Does.Not.Contain("BESG004"),
-            "the call binds against the field's declared type, so the body the walk would read is not the "
-            + "override the created instance runs");
+            "the override the created instance runs reads nothing static, and the base body it replaces is "
+            + "not a body the callback ever reaches");
+    }
+
+    [Test]
+    public void ANodeLambdaReadingAReadonlyFieldWhosePropertyOverrideReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal class Shifter
+            {
+                public virtual float Shift => 0f;
+            }
+
+            internal sealed class LoudShifter : Shifter
+            {
+                public override float Shift => Settings.Offset;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly Shifter _shifter = new LoudShifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            value.X + _shifter.Shift, value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a getter dispatches the same way a method does, so reading through the base declaration reads "
+            + "the override's body");
+    }
+
+    [Test]
+    public void ANodeLambdaCallingAReadonlyFieldDeclaredAsAnInterfaceItImplements_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal interface IShifter
+            {
+                float Shift(float value);
+            }
+
+            internal sealed class Shifter : IShifter
+            {
+                public float Shift(float value) => value + Settings.Offset;
+            }
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                private readonly IShifter _shifter = new Shifter();
+
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value => new Rect(
+                            _shifter.Shift(value.X), value.Y, value.Width, value.Height),
+                        value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "an interface declaration has no body to read, and the implementation the made instance "
+            + "carries does");
     }
 
     [Test]
