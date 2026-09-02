@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -180,11 +181,23 @@ public class GraphicsContextFactory
     {
         RenderThread.Dispatcher.Invoke(static () =>
         {
-            Exception? flushFailure = null;
-            Exception? dischargeFailure = null;
+            List<Exception> failures = [];
 
             try
             {
+                // A pool holds its targets until a request names a different context, which after this call
+                // never arrives, so nothing else ever destroys them on the device that owns them. Retiring
+                // first rather than last is what puts their backend releases ahead of both the flush that
+                // submits them and the destruction of the device they name.
+                try
+                {
+                    RenderTargetPool.RetireRetainedTargetsBeforeContextTeardown();
+                }
+                catch (Exception ex)
+                {
+                    AppendTeardownFailure(failures, ex);
+                }
+
                 // The flush speaks for a device that may already be abandoned or lost, so its failure has
                 // to reach the caller. What it must not decide is whether the queue is discharged.
                 try
@@ -193,7 +206,7 @@ public class GraphicsContextFactory
                 }
                 catch (Exception ex)
                 {
-                    flushFailure = ex;
+                    AppendTeardownFailure(failures, ex);
                 }
 
                 // Everything still queued is owned by the context released below and destroys itself
@@ -207,30 +220,37 @@ public class GraphicsContextFactory
                 }
                 catch (Exception ex)
                 {
-                    dischargeFailure = ex;
+                    AppendTeardownFailure(failures, ex);
                 }
             }
             finally
             {
-                // A context left installed is handed straight back by the next GetOrCreateShared, and both
-                // RenderTargetPool's retained slots and the buffer-dimension memo are only invalidated by
-                // the context changing, so neither failure above may decide whether the release happens.
+                // A context left installed is handed straight back by the next GetOrCreateShared, and the
+                // buffer-dimension memo is only invalidated by the context changing, so no failure above may
+                // decide whether the release happens.
                 ReleaseInstalledGraphics();
             }
 
-            if (flushFailure is not null && dischargeFailure is not null)
+            if (failures.Count == 1)
             {
-                throw new AggregateException(
-                    "The graphics reclaim flush and the queue discharge both failed.",
-                    flushFailure,
-                    dischargeFailure);
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
             }
 
-            if ((flushFailure ?? dischargeFailure) is { } failure)
+            if (failures.Count > 1)
             {
-                ExceptionDispatchInfo.Capture(failure).Throw();
+                throw new AggregateException(
+                    "More than one graphics teardown step ahead of the context release failed.",
+                    failures);
             }
         });
+    }
+
+    private static void AppendTeardownFailure(List<Exception> failures, Exception failure)
+    {
+        if (failure is AggregateException aggregate)
+            failures.AddRange(aggregate.Flatten().InnerExceptions);
+        else
+            failures.Add(failure);
     }
 
     /// <summary>Clears the installed graphics state before destroying it, so a failure cannot strand it.</summary>

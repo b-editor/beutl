@@ -15,6 +15,14 @@ internal sealed class RenderTargetPool : IDisposable
 {
     private static readonly object s_cpuContextIdentity = new();
 
+    /// <summary>Every constructed, undisposed pool, so context teardown can reach what they retain.</summary>
+    /// <remarks>
+    /// A pool belongs to one renderer and nothing enumerates the live renderers, so a single teardown hook on
+    /// <see cref="GraphicsContextFactory"/> would have nothing to call. Only the constructor adds and only
+    /// <see cref="Dispose"/> removes, so a pool is listed for exactly as long as it can be holding a target.
+    /// </remarks>
+    private static readonly HashSet<RenderTargetPool> s_livePools = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
     /// The identity a target-less request on the engine's own allocator uses, and the shared context it was
     /// minted for.
@@ -77,6 +85,9 @@ internal sealed class RenderTargetPool : IDisposable
             AfterTargetRegistrationStep = options.AfterTargetRegistrationStep,
             BeforeLeaseRegistration = options.BeforeLeaseRegistration,
         };
+
+        lock (s_livePools)
+            s_livePools.Add(this);
     }
 
     public RenderTargetPoolStatistics Statistics => new(
@@ -153,6 +164,9 @@ internal sealed class RenderTargetPool : IDisposable
             return;
 
         _disposed = true;
+        lock (s_livePools)
+            s_livePools.Remove(this);
+
         List<Exception> failures = [];
         RenderTargetPoolRequest? activeRequest = _activeRequest;
         try
@@ -174,6 +188,42 @@ internal sealed class RenderTargetPool : IDisposable
         _availableLru.Clear();
         _knownTargets.Clear();
         _knownSurfaces.Clear();
+        ThrowCleanupFailures(failures);
+    }
+
+    /// <summary>Evicts every live pool's retained targets, for a caller about to destroy the context.</summary>
+    /// <remarks>
+    /// A pool learns a context is gone only from the next request naming a different one, which after a
+    /// shutdown is never. By then the eviction's backend releases cannot even be deferred - with no shared
+    /// context installed <see cref="GpuResourceReclaimQueue.TryDefer"/> declines - so each one reaches a
+    /// device <c>vkDestroyDevice</c> has already taken, and the backend drops it rather than destroy against
+    /// a dangling handle. Calling this while the context is still installed is what keeps those releases on
+    /// the live device. Leased targets stay: their holder releases them, and a release that lands after
+    /// teardown is the backend's own guard to refuse.
+    /// </remarks>
+    internal static void RetireRetainedTargetsBeforeContextTeardown()
+    {
+        RenderTargetPool[] pools;
+        lock (s_livePools)
+            pools = [.. s_livePools];
+
+        List<Exception> failures = [];
+        foreach (RenderTargetPool pool in pools)
+        {
+            try
+            {
+                pool.ReleaseRetainedTargets();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposed after the snapshot was taken; it released what it held on the way out.
+            }
+            catch (Exception ex)
+            {
+                AppendFailure(failures, ex);
+            }
+        }
+
         ThrowCleanupFailures(failures);
     }
 
