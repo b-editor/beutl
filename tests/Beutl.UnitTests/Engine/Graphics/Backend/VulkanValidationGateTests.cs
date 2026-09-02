@@ -79,7 +79,8 @@ public sealed class VulkanValidationGateTests
     {
         Assert.That(
             () => VulkanTestEnvironment.InvokeOnRenderThread(
-                () => VulkanValidationErrorLog.Shared.Record("VUID-synthetic-gate-probe: undefined behaviour")),
+                () => VulkanTestEnvironment.RecordDeliberateValidationError(
+                    "VUID-synthetic-gate-probe: undefined behaviour")),
             Throws.InstanceOf<AssertionException>()
                 .With.Message.Contains("VUID-synthetic-gate-probe"));
     }
