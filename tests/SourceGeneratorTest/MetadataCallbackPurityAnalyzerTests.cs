@@ -4996,6 +4996,156 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "replaces nothing, so a rule that read it would report a body this callback never enters");
     }
 
+    [Test]
+    public void AStaticLambdaWhosePropertyPatternGetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsState
+            {
+                public float Width => Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new BoundsState() is { Width: var width }
+                            ? new Rect(value.X, value.Y, width, value.Height)
+                            : value,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a property pattern is a getter call written without a receiver, and what the pattern is "
+            + "matched against is the receiver it runs on");
+    }
+
+    /// <remarks>
+    /// The control for the case above: the same spelling over a getter that reads nothing, which reports
+    /// only if the walk answers to the pattern rather than to the accessor it selects.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaWhosePropertyPatternGetterReadsNothingStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsState
+            {
+                public float Width => 4f;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new BoundsState() is { Width: var width }
+                            ? new Rect(value.X, value.Y, width, value.Height)
+                            : value,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the getter the pattern selects reads nothing that moves between recordings");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseSwitchPropertyPatternGetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsState
+            {
+                public float Width => Settings.Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new BoundsState() switch
+                        {
+                            { Width: > 0f } => new Rect(value.X, value.Y, 0f, value.Height),
+                            _ => value,
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a switch spells what it matches beside the arms exactly as an is does, so the receiver the "
+            + "arm's pattern reads off is as readable there");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseNestedPropertyPatternGetterReadsAMutableStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Inner
+            {
+                public float Width => Settings.Offset;
+            }
+
+            internal sealed class Holder
+            {
+                public Inner Inner { get; } = new Inner();
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Holder() is { Inner: { Width: var width } }
+                            ? new Rect(value.X, value.Y, width, value.Height)
+                            : value,
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the inner pattern reads off whatever the outer member handed back, which is not a making, so "
+            + "the walk has not been shown which body that getter belongs to");
+    }
+
     /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// description's Create takes metadata and planner traits beside its callback, and none of those carry a

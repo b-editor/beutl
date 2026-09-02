@@ -1434,9 +1434,43 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             Parent: InitializerExpressionSyntax { Parent: BaseObjectCreationExpressionSyntax made },
         } member && member.Left == name
             => made,
+        // A property pattern names its member with no receiver beside it either, because the receiver is
+        // whatever the pattern is matched against, which the is or the switch spells beside it.
+        SimpleNameSyntax name when name.Parent is BaseExpressionColonSyntax
+        {
+            Parent: SubpatternSyntax subpattern,
+        }
+            => GetMatchedExpression(subpattern),
         ElementAccessExpressionSyntax element => element.Expression,
         _ => null,
     };
+
+    /// <summary>The expression the pattern a subpattern belongs to is matched against.</summary>
+    /// <remarks>
+    /// An is, a switch expression and a switch statement each spell what they match beside the pattern,
+    /// and the combinators between hand that same value down unchanged. A subpattern of a nested property
+    /// pattern reads off what the outer member returned, and one of a positional or list pattern reads off
+    /// an element a Deconstruct or an indexer produced; none of those is a making, so none is answered.
+    /// </remarks>
+    private static ExpressionSyntax? GetMatchedExpression(SubpatternSyntax subpattern)
+    {
+        SyntaxNode? matched = subpattern.Parent;
+
+        while (matched is PropertyPatternClauseSyntax or RecursivePatternSyntax
+               or ParenthesizedPatternSyntax or BinaryPatternSyntax or UnaryPatternSyntax)
+        {
+            matched = matched.Parent;
+        }
+
+        return matched switch
+        {
+            IsPatternExpressionSyntax match => match.Expression,
+            SwitchExpressionArmSyntax { Parent: SwitchExpressionSyntax chosen } => chosen.GoverningExpression,
+            CasePatternSwitchLabelSyntax { Parent.Parent: SwitchStatementSyntax statement }
+                => statement.Expression,
+            _ => null,
+        };
+    }
 
     private static ExpressionSyntax StripParentheses(ExpressionSyntax expression)
     {
