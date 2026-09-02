@@ -8,6 +8,7 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 internal sealed unsafe class VulkanCommandPool : IDisposable
 {
     private static readonly AsyncLocal<ObservationScope?> s_observer = new();
+    private readonly VulkanDevice _vulkanDevice;
     private readonly Vk _vk;
     private readonly Device _device;
     private readonly Queue _graphicsQueue;
@@ -24,12 +25,13 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private bool _isCompletingSubmissions;
     private bool _disposed;
 
-    public VulkanCommandPool(Vk vk, Device device, Queue graphicsQueue, uint graphicsQueueFamilyIndex)
+    public VulkanCommandPool(VulkanDevice device)
     {
-        _vk = vk;
-        _device = device;
-        _graphicsQueue = graphicsQueue;
-        _graphicsQueueFamilyIndex = graphicsQueueFamilyIndex;
+        _vulkanDevice = device;
+        _vk = device.Vk;
+        _device = device.Device;
+        _graphicsQueue = device.GraphicsQueue;
+        _graphicsQueueFamilyIndex = device.GraphicsQueueFamilyIndex;
 
         _commandPool = CreateCommandPool();
     }
@@ -363,6 +365,12 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     public void DeferRelease(Action release)
     {
         ArgumentNullException.ThrowIfNull(release);
+
+        // The device outlives this pool during context teardown, so a release arriving after Dispose
+        // still owns live Vulkan objects and has to run. Once the device is destroyed those objects
+        // went with it, and the destroy calls would target a dangling VkDevice.
+        if (_vulkanDevice.IsDisposed)
+            return;
 
         if (_disposed)
         {

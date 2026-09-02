@@ -43,11 +43,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     {
         _vulkanInstance = vulkanInstance;
         _vulkanDevice = new VulkanDevice(vulkanInstance.Vk, vulkanInstance.Instance, physicalDevice.Device);
-        _vulkanCommandPool = new VulkanCommandPool(
-            vulkanInstance.Vk,
-            _vulkanDevice.Device,
-            _vulkanDevice.GraphicsQueue,
-            _vulkanDevice.GraphicsQueueFamilyIndex);
+        _vulkanCommandPool = new VulkanCommandPool(_vulkanDevice);
         _createImage = GetDeviceDelegate<VkCreateImageDelegate>("vkCreateImage");
         _destroyImage = GetDeviceDelegate<VkDestroyImageDelegate>("vkDestroyImage");
         _bindImageMemory = GetDeviceDelegate<VkBindImageMemoryDelegate>("vkBindImageMemory");

@@ -54,6 +54,10 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     public Device Device => _device;
 
+    /// <summary>Whether <see cref="Device"/> has been destroyed and can no longer be called.</summary>
+    /// <remarks>The handle keeps its old value after destruction, so consult this before issuing work.</remarks>
+    public bool IsDisposed => _disposed;
+
     public Queue GraphicsQueue => _graphicsQueue;
 
     public uint GraphicsQueueFamilyIndex => _graphicsQueueFamilyIndex;
