@@ -15,6 +15,8 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 {
     private readonly WeakReference<RenderNode> _node = new(node);
     private CacheStorage _storage = CacheStorage.Empty;
+    private long[] _dependencyChildIdentities = [];
+    private int _dependencyChildCount;
 
     internal const int StableRequestCount = 3;
 
@@ -46,6 +48,30 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
     /// </summary>
     internal long DependencySignature { get; set; }
 
+    /// <summary>
+    /// The identities of the children folded into <see cref="DependencySignature"/>, in recording order.
+    /// </summary>
+    /// <remarks>
+    /// The signature is a 64-bit fold, so two closures agreeing on it are not thereby the same closure.
+    /// These settle that: a child swapped for another is a different identity here whatever the fold does.
+    /// </remarks>
+    internal ReadOnlySpan<long> DependencyChildIdentities
+        => _dependencyChildIdentities.AsSpan(0, _dependencyChildCount);
+
+    /// <summary>Reserves <paramref name="count"/> child-identity slots for the caller to stamp.</summary>
+    /// <remarks>
+    /// The buffer is reused while the child count holds, which is every request of a stable graph, so
+    /// stamping a signature does not allocate on the render path.
+    /// </remarks>
+    internal Span<long> PrepareDependencyChildIdentities(int count)
+    {
+        if (_dependencyChildIdentities.Length < count)
+            _dependencyChildIdentities = new long[count];
+
+        _dependencyChildCount = count;
+        return _dependencyChildIdentities.AsSpan(0, count);
+    }
+
     internal void RecordSuccessfulStableRequest()
     {
         if (!IsDisposed && _successfulStableRequests < StableRequestCount)
@@ -59,6 +85,7 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
         _successfulStableRequests = 0;
         DependencySignature = 0;
+        _dependencyChildCount = 0;
         InvalidateStorage();
     }
 
@@ -93,6 +120,8 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
         IsDisposed = true;
         DependencySignature = 0;
+        _dependencyChildCount = 0;
+        _dependencyChildIdentities = [];
         CacheStorage storage = DetachStorage();
         if (disposing)
         {

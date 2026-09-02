@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-namespace Beutl.Graphics.Rendering.Cache;
+﻿namespace Beutl.Graphics.Rendering.Cache;
 
 internal sealed class RenderNodeCacheLifecycle
 {
@@ -108,17 +106,45 @@ internal sealed class RenderNodeCacheLifecycle
         ResolveSignatures(_nodes, useCurrentChangeVersion: true);
         foreach (NodeSnapshot snapshot in _nodes)
         {
-            if (!snapshot.Node.IsDisposed)
-                snapshot.Node.Cache.DependencySignature = snapshot.Signature;
+            if (snapshot.Node.IsDisposed)
+                continue;
+
+            RenderNodeCache cache = snapshot.Node.Cache;
+            cache.DependencySignature = snapshot.Signature;
+            List<NodeSnapshot> children = snapshot.Children;
+            Span<long> identities = cache.PrepareDependencyChildIdentities(children.Count);
+            for (int index = 0; index < identities.Length; index++)
+                identities[index] = children[index].Node.Identity;
         }
     }
 
     private static bool HasStaleSignature(NodeSnapshot snapshot)
     {
         RenderNodeCache cache = snapshot.Node.Cache;
-        return cache.IsCached
-               && cache.DependencySignature != 0
-               && cache.DependencySignature != snapshot.Signature;
+        if (!cache.IsCached || cache.DependencySignature == 0)
+            return false;
+
+        return cache.DependencySignature != snapshot.Signature
+               || !MatchesStampedChildren(snapshot, cache);
+    }
+
+    // Equal signatures do not establish an equal closure: the fold is 64 bits wide and the closure is not.
+    // Comparing the stamped child identities as themselves is what makes an unreported swap detectable
+    // rather than probabilistically detectable, which FR-033 requires of identity comparison.
+    private static bool MatchesStampedChildren(NodeSnapshot snapshot, RenderNodeCache cache)
+    {
+        ReadOnlySpan<long> stamped = cache.DependencyChildIdentities;
+        List<NodeSnapshot> children = snapshot.Children;
+        if (stamped.Length != children.Count)
+            return false;
+
+        for (int index = 0; index < children.Count; index++)
+        {
+            if (stamped[index] != children[index].Node.Identity)
+                return false;
+        }
+
+        return true;
     }
 
     private static void ResolveSignatures(
@@ -152,9 +178,10 @@ internal sealed class RenderNodeCacheLifecycle
         }
     }
 
-    // The child's runtime identity is mixed in alongside its signature: two freshly built children both sit at
+    // The child's identity is mixed in alongside its signature: two freshly built children both sit at
     // change version 0, so a container that swaps one for the other would otherwise reproduce the parent's
-    // previous signature exactly and keep serving the replaced child's cached pixels.
+    // previous signature exactly and keep serving the replaced child's cached pixels. The fold narrows that
+    // identity, so MatchesStampedChildren settles what it cannot.
     private static long ComputeSignature(NodeSnapshot snapshot, long changeVersion)
     {
         unchecked
@@ -163,7 +190,7 @@ internal sealed class RenderNodeCacheLifecycle
             ulong hash = Mix(Basis, (ulong)changeVersion);
             foreach (NodeSnapshot child in snapshot.Children)
             {
-                hash = Mix(hash, (ulong)(uint)RuntimeHelpers.GetHashCode(child.Node));
+                hash = Mix(hash, (ulong)child.Node.Identity);
                 hash = Mix(hash, (ulong)child.Signature);
             }
 
