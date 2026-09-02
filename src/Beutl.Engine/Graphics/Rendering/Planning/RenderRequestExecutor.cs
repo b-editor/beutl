@@ -174,14 +174,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                AppendCleanupFailures(cleanupFailures, ex);
-                if (primaryFailure is null)
-                {
-                    primaryFailure = ExceptionDispatchInfo.Capture(
-                        ex is AggregateException aggregate
-                            ? aggregate.Flatten().InnerExceptions[0]
-                            : ex);
-                }
+                RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
             }
 
             if (primaryFailure is null)
@@ -233,14 +226,7 @@ internal sealed partial class RenderRequestExecutor
                 }
                 catch (Exception ex)
                 {
-                    AppendCleanupFailures(cleanupFailures, ex);
-                    if (primaryFailure is null)
-                    {
-                        primaryFailure = ExceptionDispatchInfo.Capture(
-                            ex is AggregateException aggregate
-                                ? aggregate.Flatten().InnerExceptions[0]
-                                : ex);
-                    }
+                    RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
                 }
             }
 
@@ -258,14 +244,7 @@ internal sealed partial class RenderRequestExecutor
                 }
                 catch (Exception ex)
                 {
-                    AppendCleanupFailures(cleanupFailures, ex);
-                    if (primaryFailure is null)
-                    {
-                        primaryFailure = ExceptionDispatchInfo.Capture(
-                            ex is AggregateException aggregate
-                                ? aggregate.Flatten().InnerExceptions[0]
-                                : ex);
-                    }
+                    RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
                 }
             }
         }
@@ -279,6 +258,25 @@ internal sealed partial class RenderRequestExecutor
         }
 
         CompleteFamily(request);
+    }
+
+    /// <summary>
+    /// Records one teardown failure, and promotes it to the primary failure when nothing has failed yet.
+    /// </summary>
+    /// <remarks>
+    /// An aggregate is recorded as the whole set of leaves it carries, but only one exception can be
+    /// rethrown as the primary, so the promotion takes the first leaf while the record keeps them all.
+    /// </remarks>
+    private static void RecordCleanupFailure(
+        ICollection<Exception> cleanupFailures,
+        ref ExceptionDispatchInfo? primaryFailure,
+        Exception exception)
+    {
+        AppendCleanupFailures(cleanupFailures, exception);
+        primaryFailure ??= ExceptionDispatchInfo.Capture(
+            exception is AggregateException aggregate
+                ? aggregate.Flatten().InnerExceptions[0]
+                : exception);
     }
 
     private sealed partial class RenderRequestExecutionState : IDisposable
@@ -631,6 +629,16 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
+        /// <summary>Opens a canvas over one materialized value's buffer, sized and placed from the value.</summary>
+        private ImmediateCanvas CreateValueCanvas(MaterializedRenderValue value)
+            => CreateExecutorCanvas(
+                value.Target,
+                value.EffectiveScale.Value,
+                _options.MaxWorkingScale,
+                value.RasterBounds.Size,
+                _options.Intent,
+                value.DeviceBounds.Position);
+
         private sealed record PendingRenderCacheCapture(
             RenderCacheMissCapture Descriptor,
             IReadOnlyList<MaterializedRenderValue> Values);
@@ -750,6 +758,22 @@ internal sealed partial class RenderRequestExecutor
             => DeviceBounds
                 .ToRect(EffectiveScale.Value)
                 .Translate(-DeviceGridOffset);
+
+        /// <summary>
+        /// Gets the transform from this value's own coordinates to the buffer its device bounds were
+        /// allocated against, carrying the device-grid phase the allocation was aligned to.
+        /// </summary>
+        public Matrix RasterAlignmentTransform
+        {
+            get
+            {
+                Vector translation = DeviceGridAlignment.ResolveRasterTranslation(
+                    DeviceBounds,
+                    DeviceGridOffset,
+                    EffectiveScale.Value);
+                return Matrix.CreateTranslation(translation.X, translation.Y);
+            }
+        }
 
         public bool OwnsTarget { get; }
 

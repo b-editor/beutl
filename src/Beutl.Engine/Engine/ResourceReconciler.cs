@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using Beutl.Collections.Pooled;
+using Beutl.Composition;
 
 namespace Beutl.Engine;
 
@@ -158,4 +159,40 @@ public static class ResourceReconciler
         }
     }
 
+    internal static bool ReconcileChildrenFromFlow<TItem, TResource>(
+        CompositionContext context, IListProperty<TItem> property,
+        List<TResource> field, IList<int> versions)
+        where TItem : EngineObject where TResource : EngineObject.Resource
+    {
+        using var consumed = new PooledList<TResource>();
+        if (context.Flow != null)
+        {
+            for (int i = context.Flow.Count - 1; i >= 0; i--)
+            {
+                if (context.Flow[i] is TResource d)
+                {
+                    consumed.Insert(0, d);
+                    context.Flow.RemoveAt(i);
+                }
+            }
+        }
+
+        bool changed = false;
+        ReconcileListFromFlow(context, property, consumed, field, versions, ref changed);
+        return changed;
+    }
+
+    // The leading versions.Count entries came out of the flow and belong to whoever produced them; only
+    // the trailing ones, created here from the property, are ours to dispose.
+    internal static void ReleaseReconciledChildren<TResource>(List<TResource> field, PooledList<int> versions)
+        where TResource : EngineObject.Resource
+    {
+        for (int i = versions.Count; i < field.Count; i++)
+        {
+            field[i].Dispose();
+        }
+
+        field.Clear();
+        versions.Dispose();
+    }
 }

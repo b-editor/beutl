@@ -27,10 +27,9 @@ public sealed partial class LineWaveformShape : WaveformShape
 
     public new partial class Resource
     {
+        private readonly CornerPathEffectCache _cornerEffect = new();
         private SKPath? _path;
         private SKPaint? _paint;
-        private float _lastCornerRadius = -1f;
-        private SKPathEffect? _cornerEffect;
 
         protected internal override void Render(in WaveformRenderContext context)
         {
@@ -55,18 +54,8 @@ public sealed partial class LineWaveformShape : WaveformShape
             bool mirrored = Mirrored;
 
             _paint ??= new SKPaint();
-            canvas.CreateBrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
-            _paint.Style = SKPaintStyle.Stroke;
-            _paint.StrokeCap = SKStrokeCap.Round;
-            _paint.StrokeJoin = SKStrokeJoin.Round;
-            _paint.StrokeWidth = thickness;
-            if (_lastCornerRadius != cornerRadius)
-            {
-                _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
-                _lastCornerRadius = cornerRadius;
-            }
-            _paint.PathEffect = _cornerEffect;
+            VisualizerPaint.ConfigureStroke(_paint, canvas, bounds, fill, thickness);
+            _paint.PathEffect = _cornerEffect.GetOrCreate(cornerRadius);
 
             _path ??= new SKPath();
             _path.Reset();
@@ -103,11 +92,10 @@ public sealed partial class LineWaveformShape : WaveformShape
             {
                 _path?.Dispose();
                 _paint?.Dispose();
-                _cornerEffect?.Dispose();
+                _cornerEffect.Dispose();
             }
             _path = null;
             _paint = null;
-            _cornerEffect = null;
         }
     }
 }

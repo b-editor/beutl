@@ -116,11 +116,7 @@ void main() {
 
     private void CreateShadowMap(int width, int height)
     {
-        // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        ShadowDepthTexture?.Dispose();
-        DummyColorTexture?.Dispose();
+        DisposeShadowMap();
 
         // Create shadow depth texture
         ShadowDepthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
@@ -265,13 +261,8 @@ void main() {
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
     {
-        var meshResource = obj.GetMesh();
+        var meshResource = MeshDrawHelper.Prepare(Context, obj);
         if (meshResource == null)
-            return;
-
-        MeshBufferUploadHelper.Ensure(Context, meshResource);
-
-        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
             return;
 
         // Set push constants with model and light VP matrices
@@ -282,20 +273,20 @@ void main() {
         };
         RenderPass!.SetPushConstants(pushConstants);
 
-        // Bind vertex and index buffers
-        RenderPass.BindVertexBuffer(meshResource.VertexBuffer);
-        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
+        MeshDrawHelper.Draw(RenderPass, meshResource);
+    }
 
-        // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
+    private void DisposeShadowMap()
+    {
+        Framebuffer?.Dispose();
+        RenderPass?.Dispose();
+        ShadowDepthTexture?.Dispose();
+        DummyColorTexture?.Dispose();
     }
 
     protected override void OnDispose()
     {
         _shadowPipeline?.Dispose();
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        ShadowDepthTexture?.Dispose();
-        DummyColorTexture?.Dispose();
+        DisposeShadowMap();
     }
 }

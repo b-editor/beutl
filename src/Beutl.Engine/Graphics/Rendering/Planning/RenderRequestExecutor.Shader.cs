@@ -249,20 +249,8 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    normalized.DeviceBounds,
-                    normalized.DeviceGridOffset,
-                    normalized.EffectiveScale.Value);
-                using var canvas = CreateExecutorCanvas(
-                    normalized.Target,
-                    normalized.EffectiveScale.Value,
-                    _options.MaxWorkingScale,
-                    normalized.RasterBounds.Size,
-                    _options.Intent,
-                    normalized.DeviceBounds.Position);
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using var canvas = CreateValueCanvas(normalized);
+                using (canvas.PushTransform(normalized.RasterAlignmentTransform))
                 {
                     canvas.DrawRenderTargetScaledWithoutFlush(input.Target, input.RasterBounds);
                 }
@@ -336,24 +324,7 @@ internal sealed partial class RenderRequestExecutor
                 output.DeviceBounds,
                 output.RasterBounds,
                 output.EffectiveScale.Value,
-                shader =>
-                {
-                    using var paint = new SKPaint { Shader = shader };
-                    using var canvas = CreateExecutorCanvas(
-                        output.Target,
-                        output.EffectiveScale.Value,
-                        _options.MaxWorkingScale,
-                        output.RasterBounds.Size,
-                        _options.Intent,
-                        output.DeviceBounds.Position);
-                    canvas.Clear();
-                    using (canvas.PushDeviceSpace())
-                    {
-                        canvas.Canvas.DrawRect(
-                            SKRect.Create(output.Target.Width, output.Target.Height),
-                            paint);
-                    }
-                });
+                shader => PaintOverValue(output, shader));
         }
 
         private bool TryExecuteSpirvShaderRun(
@@ -591,7 +562,11 @@ internal sealed partial class RenderRequestExecutor
                                 ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
                                 SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
                                 ShaderUniformValue value = binding.Bind(declaration, context);
-                                SetUniform(uniforms, layout.MergedName, declaration, value);
+                                SkslUniformAssignment.SetUniform(
+                                    uniforms,
+                                    layout.MergedName,
+                                    declaration,
+                                    value);
                             }
                             else
                             {
@@ -745,25 +720,17 @@ internal sealed partial class RenderRequestExecutor
             return lease;
         }
 
-        private static void SetUniform(
-            SKRuntimeEffectUniforms uniforms,
-            string name,
-            SkslUniformDeclaration declaration,
-            ShaderUniformValue value)
+        /// <summary>Repaints one materialized value's whole buffer with <paramref name="shader"/>.</summary>
+        private void PaintOverValue(MaterializedRenderValue output, SKShader shader)
         {
-            if (value.IsInteger)
+            using var paint = new SKPaint { Shader = shader };
+            using var canvas = CreateValueCanvas(output);
+            canvas.Clear();
+            using (canvas.PushDeviceSpace())
             {
-                uniforms[name] = declaration.ArrayExtent is null
-                    && declaration.Type is "int" or "bool"
-                        ? value.Integers![0]
-                        : value.Integers!;
-            }
-            else
-            {
-                uniforms[name] = declaration.ArrayExtent is null
-                    && declaration.Type is "float" or "half"
-                        ? value.Floats![0]
-                        : value.Floats!;
+                canvas.Canvas.DrawRect(
+                    SKRect.Create(output.Target.Width, output.Target.Height),
+                    paint);
             }
         }
 
@@ -834,7 +801,11 @@ internal sealed partial class RenderRequestExecutor
                             }
 
                             ShaderUniformValue value = binding.Bind(declaration, context);
-                            SetUniform(uniforms, binding.Name, declaration, value);
+                            SkslUniformAssignment.SetUniform(
+                                uniforms,
+                                binding.Name,
+                                declaration,
+                                value);
                         }
 
                         SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
@@ -862,24 +833,7 @@ internal sealed partial class RenderRequestExecutor
                 DrawInEvaluationFrame(
                     shader,
                     frame,
-                    rebased =>
-                    {
-                        using var paint = new SKPaint { Shader = rebased };
-                        using var canvas = CreateExecutorCanvas(
-                            output.Target,
-                            output.EffectiveScale.Value,
-                            _options.MaxWorkingScale,
-                            output.RasterBounds.Size,
-                            _options.Intent,
-                            output.DeviceBounds.Position);
-                        canvas.Clear();
-                        using (canvas.PushDeviceSpace())
-                        {
-                            canvas.Canvas.DrawRect(
-                                SKRect.Create(output.Target.Width, output.Target.Height),
-                                paint);
-                        }
-                    });
+                    rebased => PaintOverValue(output, rebased));
             }
             finally
             {

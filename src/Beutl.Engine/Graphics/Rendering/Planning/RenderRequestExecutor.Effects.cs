@@ -59,20 +59,8 @@ internal sealed partial class RenderRequestExecutor
                 bool succeeded = false;
                 try
                 {
-                    Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                        value.DeviceBounds,
-                        value.DeviceGridOffset,
-                        scale.Value);
-                    using var canvas = CreateExecutorCanvas(
-                        value.Target,
-                        scale.Value,
-                        _options.MaxWorkingScale,
-                        value.RasterBounds.Size,
-                        _options.Intent,
-                        value.DeviceBounds.Position);
-                    using (canvas.PushTransform(Matrix.CreateTranslation(
-                               rasterTranslation.X,
-                               rasterTranslation.Y)))
+                    using var canvas = CreateValueCanvas(value);
+                    using (canvas.PushTransform(value.RasterAlignmentTransform))
                     using (canvas.PushOpacity(((OpacityRenderFragmentPayload)fragment.Payload!).Opacity))
                         DrawValues(values, canvas);
                     succeeded = true;
@@ -121,20 +109,8 @@ internal sealed partial class RenderRequestExecutor
                 bool succeeded = false;
                 try
                 {
-                    Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                        value.DeviceBounds,
-                        value.DeviceGridOffset,
-                        scale.Value);
-                    using var canvas = CreateExecutorCanvas(
-                        value.Target,
-                        scale.Value,
-                        _options.MaxWorkingScale,
-                        value.RasterBounds.Size,
-                        _options.Intent,
-                        value.DeviceBounds.Position);
-                    using (canvas.PushTransform(Matrix.CreateTranslation(
-                               rasterTranslation.X,
-                               rasterTranslation.Y)))
+                    using var canvas = CreateValueCanvas(value);
+                    using (canvas.PushTransform(value.RasterAlignmentTransform))
                     {
                         var payload = (OpacityMaskRenderFragmentPayload)fragment.Payload!;
                         _ = payload.Mask.Registry.Use(
@@ -442,20 +418,8 @@ internal sealed partial class RenderRequestExecutor
                 using var paint = builder.HasFilter()
                     ? new SKPaint { ImageFilter = builder.GetFilter() }
                     : null;
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    output.DeviceBounds,
-                    output.DeviceGridOffset,
-                    scale.Value);
-                using var canvas = CreateExecutorCanvas(
-                    output.Target,
-                    scale.Value,
-                    _options.MaxWorkingScale,
-                    output.RasterBounds.Size,
-                    _options.Intent,
-                    output.DeviceBounds.Position);
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using var canvas = CreateValueCanvas(output);
+                using (canvas.PushTransform(output.RasterAlignmentTransform))
                 {
                     if (paint is not null)
                     {
@@ -548,20 +512,8 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    normalized.DeviceBounds,
-                    normalized.DeviceGridOffset,
-                    normalized.EffectiveScale.Value);
-                using var canvas = CreateExecutorCanvas(
-                    normalized.Target,
-                    normalized.EffectiveScale.Value,
-                    _options.MaxWorkingScale,
-                    normalized.RasterBounds.Size,
-                    _options.Intent,
-                    normalized.DeviceBounds.Position);
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using var canvas = CreateValueCanvas(normalized);
+                using (canvas.PushTransform(normalized.RasterAlignmentTransform))
                 {
                     canvas.DrawRenderTargetScaledWithoutFlush(renderTarget, target.RasterBounds);
                 }

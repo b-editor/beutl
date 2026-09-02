@@ -537,7 +537,13 @@ public class CustomFilterEffectContext
         Vector effectItemGridOffset = deviceBounds
             .ToRect(density)
             .Position - bounds.Position;
-        EffectTarget? allocated = Allocate(bounds, density, deviceBounds, effectItemGridOffset);
+        EffectTarget? allocated = EffectTargetAllocation.Allocate(
+            _renderTargetLeaseSession,
+            bounds,
+            density,
+            deviceBounds,
+            effectItemGridOffset,
+            preserveImperativeRasterPlacement: true);
         if (allocated != null)
         {
             return allocated;
@@ -563,47 +569,6 @@ public class CustomFilterEffectContext
     // Only a caller-supplied factory redirects allocation through the lease session.
     private RenderTargetLeaseSession? FactoryBackedSession
         => _renderTargetLeaseSession is { HasTargetFactory: true } session ? session : null;
-
-    private EffectTarget? Allocate(
-        Rect bounds,
-        float density,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset)
-    {
-        if (FactoryBackedSession is { } leaseSession)
-        {
-            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
-            if (lease is null)
-                return null;
-
-            try
-            {
-                return EffectTarget.FromLease(
-                    lease,
-                    bounds,
-                    EffectiveScale.At(density),
-                    deviceBounds,
-                    deviceGridOffset,
-                    preserveImperativeRasterPlacement: true);
-            }
-            catch
-            {
-                lease.Dispose();
-                throw;
-            }
-        }
-
-        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
-        return renderTarget is null
-            ? null
-            : new EffectTarget(
-                renderTarget,
-                bounds,
-                EffectiveScale.At(density),
-                deviceBounds,
-                deviceGridOffset,
-                preserveImperativeRasterPlacement: true);
-    }
 
     /// <summary>
     /// Opens an <see cref="ImmediateCanvas"/> over <paramref name="target"/>'s buffer.

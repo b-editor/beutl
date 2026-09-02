@@ -69,35 +69,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         }
         _image = image;
 
-        // Get memory requirements
-        MemoryRequirements memReqs;
-        vk.GetImageMemoryRequirements(device, _image, &memReqs);
-
-        // Allocate memory
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
-        };
-
-        DeviceMemory memory;
-        result = vk.AllocateMemory(device, &allocInfo, null, &memory);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan texture array image memory: {result}");
-        }
-        _memory = memory;
-
-        // Bind memory to image
-        result = vk.BindImageMemory(device, _image, _memory, 0);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
-            throw new InvalidOperationException($"Failed to bind texture array image memory: {result}");
-        }
+        _memory = context.AllocateAndBindImageMemory(_image, "texture array image", out _);
 
         // Create array image view (for sampling all layers at once as sampler2DArray)
         var arrayViewInfo = new ImageViewCreateInfo
@@ -129,24 +101,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         // Create individual layer views (for framebuffer attachment)
         for (uint i = 0; i < arraySize; i++)
         {
-            var layerViewInfo = new ImageViewCreateInfo
-            {
-                SType = StructureType.ImageViewCreateInfo,
-                Image = _image,
-                ViewType = ImageViewType.Type2D,  // Individual layer as 2D view
-                Format = format.ToVulkanFormat(),
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = format.GetAspectMask(),
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = i,
-                    LayerCount = 1
-                }
-            };
-
-            ImageView layerView;
-            result = vk.CreateImageView(device, &layerViewInfo, null, &layerView);
+            result = context.TryCreateSingleLayerView(_image, format, i, out ImageView layerView);
             if (result != Result.Success)
             {
                 // Clean up previously created views
@@ -253,41 +208,16 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         if (layerIndex >= _arraySize)
             throw new ArgumentOutOfRangeException(nameof(layerIndex));
 
-        // Create staging buffer
-        using var stagingBuffer = new VulkanBuffer(
-            _context,
-            (ulong)data.Length,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        // Copy data to staging buffer
-        stagingBuffer.Upload(data);
-
         // Transition layer to transfer destination
         TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
 
-        // Copy buffer to image
-        _context.RecordCommands(cmd =>
-        {
-            var region = new BufferImageCopy
-            {
-                BufferOffset = 0,
-                BufferRowLength = 0,
-                BufferImageHeight = 0,
-                ImageSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = _format.GetAspectMask(),
-                    MipLevel = 0,
-                    BaseArrayLayer = layerIndex,
-                    LayerCount = 1
-                },
-                ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
-            };
-
-            // ReSharper disable once AccessToDisposedClosure
-            _context.Vk.CmdCopyBufferToImage(cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
-        });
+        _context.UploadToImageLayer(
+            data,
+            _image,
+            _format.GetAspectMask(),
+            layerIndex,
+            (uint)_width,
+            (uint)_height);
 
         // Transition to shader read
         TransitionLayer(layerIndex, ImageLayout.ShaderReadOnlyOptimal);

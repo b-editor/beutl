@@ -17,22 +17,11 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
         uniform float2 uScale;
         uniform float2 uPivot;
-        uniform int uChannel;
-        uniform int uSigned;
 
-        float getDisplacement(half4 dispColor) {
-            float d;
-            if (uChannel == 0) d = dispColor.a;
-            else {
-                if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
-                else if (uChannel == 2) d = dispColor.r;
-                else if (uChannel == 3) d = dispColor.g;
-                else d = dispColor.b;
-                d = d * dispColor.a;
-            }
-            if (uSigned != 0) d = d * 2.0 - 1.0;
-            return d;
-        }
+        """
+        + DisplacementSamplingSource
+        + """
+
 
         half4 main(float2 coord) {
             half4 dispColor = uDisplacementMap.eval(coord);

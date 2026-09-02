@@ -405,7 +405,8 @@ public sealed class FilterEffectActivator : IDisposable
                 w,
                 hasFilter,
                 imperativeSegmentBoundary);
-            EffectTarget? newTarget = AllocateFlushTarget(
+            EffectTarget? newTarget = EffectTargetAllocation.Allocate(
+                _renderTargetLeaseSession,
                 target.Bounds,
                 w,
                 geometry.DeviceBounds,
@@ -563,56 +564,6 @@ public sealed class FilterEffectActivator : IDisposable
             destination.Dispose();
             throw;
         }
-    }
-
-    /// <summary>
-    /// Allocates one flush buffer, through the caller's lease session when there is one.
-    /// </summary>
-    /// <remarks>
-    /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets
-    /// may come from a context the global allocator knows nothing about, so going around it here would both
-    /// ignore the caller's allocation policy and mix surfaces from two contexts inside one flush.
-    /// </remarks>
-    private EffectTarget? AllocateFlushTarget(
-        Rect bounds,
-        float w,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset,
-        bool preserveImperativeRasterPlacement)
-    {
-        if (_renderTargetLeaseSession is { HasTargetFactory: true } leaseSession)
-        {
-            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
-            if (lease is null)
-                return null;
-
-            try
-            {
-                return EffectTarget.FromLease(
-                    lease,
-                    bounds,
-                    EffectiveScale.At(w),
-                    deviceBounds,
-                    deviceGridOffset,
-                    preserveImperativeRasterPlacement);
-            }
-            catch
-            {
-                lease.Dispose();
-                throw;
-            }
-        }
-
-        using RenderTarget? surface = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
-        return surface is null
-            ? null
-            : new EffectTarget(
-                surface,
-                bounds,
-                EffectiveScale.At(w),
-                deviceBounds,
-                deviceGridOffset,
-                preserveImperativeRasterPlacement);
     }
 
     internal void CompletePolicyBoundary(bool materializationRequired)

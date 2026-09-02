@@ -1,7 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -68,37 +65,9 @@ public partial class SourceVideo : IThumbnailsProvider
 
     public string? GetThumbnailsCacheKey()
     {
-        var fullJson = CoreSerializer.SerializeToJsonObject(this);
-        var cacheJson = new JsonObject();
-        string[] targetProps = ["Source", "OffsetPosition", "Speed", "IsLoop"];
-
-        foreach (var prop in targetProps)
-        {
-            if (fullJson.TryGetPropertyValue(prop, out var node))
-                cacheJson[prop] = node?.DeepClone();
-        }
-
-        if (fullJson.TryGetPropertyValue("Animations", out var anims) && anims is JsonObject animObj)
-        {
-            var filtered = new JsonObject();
-            foreach (var prop in targetProps)
-                if (animObj.TryGetPropertyValue(prop, out var n))
-                    filtered[prop] = n?.DeepClone();
-            if (filtered.Count > 0) cacheJson["Animations"] = filtered;
-        }
-
-        if (fullJson.TryGetPropertyValue("Expressions", out var exprs) && exprs is JsonObject exprObj)
-        {
-            var filtered = new JsonObject();
-            foreach (var prop in targetProps)
-                if (exprObj.TryGetPropertyValue(prop, out var n))
-                    filtered[prop] = n?.DeepClone();
-            if (filtered.Count > 0) cacheJson["Expressions"] = filtered;
-        }
-
-        var jsonStr = cacheJson.ToJsonString();
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(jsonStr));
-        return Convert.ToHexString(hash);
+        return ThumbnailsCacheKey.Compute(
+            CoreSerializer.SerializeToJsonObject(this),
+            ["Source", "OffsetPosition", "Speed", "IsLoop"]);
     }
 
     public IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(

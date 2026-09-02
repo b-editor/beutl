@@ -782,39 +782,13 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionFaceToTransferDestination(faceIndex);
 
-        RecordCommands(cmd =>
-        {
-            // Copy from 2D texture to cube face
-            var copyRegion = new ImageCopy
-            {
-                SrcSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = ImageAspectFlags.DepthBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                SrcOffset = new Offset3D(0, 0, 0),
-                DstSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = ImageAspectFlags.DepthBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = (uint)faceIndex,
-                    LayerCount = 1
-                },
-                DstOffset = new Offset3D(0, 0, 0),
-                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
-            };
-
-            Vk.CmdCopyImage(
-                cmd,
-                vulkanSource.ImageHandle,
-                ImageLayout.TransferSrcOptimal,
-                vulkanDest.ImageHandle,
-                ImageLayout.TransferDstOptimal,
-                1,
-                &copyRegion);
-        });
+        RecordCopyToArrayLayer(
+            vulkanSource.ImageHandle,
+            vulkanDest.ImageHandle,
+            ImageAspectFlags.DepthBit,
+            (uint)faceIndex,
+            (uint)source.Width,
+            (uint)source.Height);
 
         vulkanDest.TransitionFaceToSampled(faceIndex);
 
@@ -839,39 +813,13 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionLayerToTransferDestination((uint)layerIndex);
 
-        RecordCommands(cmd =>
-        {
-            // Copy from 2D texture to array layer
-            var copyRegion = new ImageCopy
-            {
-                SrcSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = aspectMask,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                SrcOffset = new Offset3D(0, 0, 0),
-                DstSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = aspectMask,
-                    MipLevel = 0,
-                    BaseArrayLayer = (uint)layerIndex,
-                    LayerCount = 1
-                },
-                DstOffset = new Offset3D(0, 0, 0),
-                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
-            };
-
-            Vk.CmdCopyImage(
-                cmd,
-                vulkanSource.ImageHandle,
-                ImageLayout.TransferSrcOptimal,
-                vulkanDest.ImageHandle,
-                ImageLayout.TransferDstOptimal,
-                1,
-                &copyRegion);
-        });
+        RecordCopyToArrayLayer(
+            vulkanSource.ImageHandle,
+            vulkanDest.ImageHandle,
+            aspectMask,
+            (uint)layerIndex,
+            (uint)source.Width,
+            (uint)source.Height);
 
         vulkanDest.TransitionLayerToSampled((uint)layerIndex);
 
@@ -901,9 +849,36 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionFaceToTransferDestination((uint)arrayIndex, faceIndex);
 
+        RecordCopyToArrayLayer(
+            vulkanSource.ImageHandle,
+            vulkanDest.ImageHandle,
+            aspectMask,
+            layerIndex,
+            (uint)source.Width,
+            (uint)source.Height);
+
+        vulkanDest.TransitionFaceToSampled((uint)arrayIndex, faceIndex);
+
+        // Transition source back to shader read optimal
+        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    /// <summary>
+    /// Copies a single-layer 2D image into one array layer of the destination. The caller owns the
+    /// transitions: when the recorded batch runs the source must be in
+    /// <see cref="ImageLayout.TransferSrcOptimal"/> and the destination layer in
+    /// <see cref="ImageLayout.TransferDstOptimal"/>.
+    /// </summary>
+    private unsafe void RecordCopyToArrayLayer(
+        Image sourceImage,
+        Image destinationImage,
+        ImageAspectFlags aspectMask,
+        uint destinationArrayLayer,
+        uint width,
+        uint height)
+    {
         RecordCommands(cmd =>
         {
-            // Copy from 2D texture to cube array face
             var copyRegion = new ImageCopy
             {
                 SrcSubresource = new ImageSubresourceLayers
@@ -918,27 +893,22 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
                 {
                     AspectMask = aspectMask,
                     MipLevel = 0,
-                    BaseArrayLayer = layerIndex,
+                    BaseArrayLayer = destinationArrayLayer,
                     LayerCount = 1
                 },
                 DstOffset = new Offset3D(0, 0, 0),
-                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
+                Extent = new Extent3D(width, height, 1)
             };
 
             Vk.CmdCopyImage(
                 cmd,
-                vulkanSource.ImageHandle,
+                sourceImage,
                 ImageLayout.TransferSrcOptimal,
-                vulkanDest.ImageHandle,
+                destinationImage,
                 ImageLayout.TransferDstOptimal,
                 1,
                 &copyRegion);
         });
-
-        vulkanDest.TransitionFaceToSampled((uint)arrayIndex, faceIndex);
-
-        // Transition source back to shader read optimal
-        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
     public void WaitIdle()
@@ -1030,6 +1000,134 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         }
 
         throw new InvalidOperationException("Failed to find suitable memory type");
+    }
+
+    /// <summary>
+    /// Allocates device-local memory sized for <paramref name="image"/> and binds it. On failure the image
+    /// is destroyed and nothing stays allocated, so the caller never has to unwind a partial binding.
+    /// </summary>
+    /// <param name="resourceName">
+    /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
+    /// </param>
+    internal unsafe DeviceMemory AllocateAndBindImageMemory(
+        Image image,
+        string resourceName,
+        out ulong allocationSize)
+    {
+        var vk = Vk;
+        var device = Device;
+
+        MemoryRequirements memReqs;
+        vk.GetImageMemoryRequirements(device, image, &memReqs);
+        allocationSize = memReqs.Size;
+
+        var allocInfo = new MemoryAllocateInfo
+        {
+            SType = StructureType.MemoryAllocateInfo,
+            AllocationSize = memReqs.Size,
+            MemoryTypeIndex = FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+        };
+
+        DeviceMemory memory;
+        Result result = vk.AllocateMemory(device, &allocInfo, null, &memory);
+        if (result != Result.Success)
+        {
+            vk.DestroyImage(device, image, null);
+            throw new InvalidOperationException($"Failed to allocate Vulkan {resourceName} memory: {result}");
+        }
+
+        result = vk.BindImageMemory(device, image, memory, 0);
+        if (result != Result.Success)
+        {
+            vk.DestroyImage(device, image, null);
+            vk.FreeMemory(device, memory, null);
+            throw new InvalidOperationException($"Failed to bind {resourceName} memory: {result}");
+        }
+
+        return memory;
+    }
+
+    /// <summary>
+    /// Creates a view of exactly one array layer as a plain 2D image - the whole of a single-layer
+    /// texture, and the shape a framebuffer attachment needs onto an array slice or a cube face.
+    /// </summary>
+    /// <remarks>
+    /// Returns the result instead of throwing because every caller has its own partially built views to
+    /// release before it can report the failure.
+    /// </remarks>
+    internal unsafe Result TryCreateSingleLayerView(
+        Image image,
+        TextureFormat format,
+        uint arrayLayer,
+        out ImageView view)
+    {
+        var viewInfo = new ImageViewCreateInfo
+        {
+            SType = StructureType.ImageViewCreateInfo,
+            Image = image,
+            ViewType = ImageViewType.Type2D,
+            Format = format.ToVulkanFormat(),
+            SubresourceRange = new ImageSubresourceRange
+            {
+                AspectMask = format.GetAspectMask(),
+                BaseMipLevel = 0,
+                LevelCount = 1,
+                BaseArrayLayer = arrayLayer,
+                LayerCount = 1
+            }
+        };
+
+        ImageView created;
+        Result result = Vk.CreateImageView(Device, &viewInfo, null, &created);
+        view = created;
+        return result;
+    }
+
+    /// <summary>
+    /// Stages <paramref name="data"/> and records its copy into one array layer of the destination.
+    /// </summary>
+    /// <remarks>
+    /// The caller owns the transitions: the layer must be in <see cref="ImageLayout.TransferDstOptimal"/>
+    /// when the recorded batch runs.
+    /// </remarks>
+    internal unsafe void UploadToImageLayer(
+        ReadOnlySpan<byte> data,
+        Image destinationImage,
+        ImageAspectFlags aspectMask,
+        uint destinationArrayLayer,
+        uint width,
+        uint height)
+    {
+        using var stagingBuffer = new VulkanBuffer(
+            this,
+            (ulong)data.Length,
+            BufferUsage.TransferSource,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+
+        stagingBuffer.Upload(data);
+
+        RecordCommands(cmd =>
+        {
+            var region = new BufferImageCopy
+            {
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = aspectMask,
+                    MipLevel = 0,
+                    BaseArrayLayer = destinationArrayLayer,
+                    LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D(width, height, 1)
+            };
+
+            // ReSharper disable once AccessToDisposedClosure
+            Vk.CmdCopyBufferToImage(
+                cmd, stagingBuffer.Handle, destinationImage, ImageLayout.TransferDstOptimal, 1, &region);
+        });
     }
 
     public void Dispose()

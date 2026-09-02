@@ -57,103 +57,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _depthFormat = depthFormat;
         _colorAttachmentCount = colorFormats.Count;
 
-        var vk = context.Vk;
-        var device = context.Device;
-
-        int totalAttachments = colorFormats.Count + (depthFormat.HasValue ? 1 : 0);
-
-        // Create attachment descriptions
-        var attachments = stackalloc AttachmentDescription[totalAttachments];
-        var colorAttachmentRefs = stackalloc AttachmentReference[colorFormats.Count];
-
-        var vulkanColorLoadOp = ToVulkanLoadOp(colorLoadOp);
-        for (int i = 0; i < colorFormats.Count; i++)
-        {
-            attachments[i] = new AttachmentDescription
-            {
-                Format = colorFormats[i],
-                Samples = SampleCountFlags.Count1Bit,
-                LoadOp = vulkanColorLoadOp,
-                StoreOp = AttachmentStoreOp.Store,
-                StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
-                StencilStoreOp = AttachmentStoreOp.DontCare,
-                InitialLayout = ImageLayout.ColorAttachmentOptimal,
-                FinalLayout = ImageLayout.ColorAttachmentOptimal
-            };
-
-            colorAttachmentRefs[i] = new AttachmentReference
-            {
-                Attachment = (uint)i,
-                Layout = ImageLayout.ColorAttachmentOptimal
-            };
-        }
-
-        var depthAttachmentRef = default(AttachmentReference);
-        if (depthFormat is Format actualDepthFormat)
-        {
-            attachments[colorFormats.Count] = new AttachmentDescription
-            {
-                Format = actualDepthFormat,
-                Samples = SampleCountFlags.Count1Bit,
-                LoadOp = ToVulkanLoadOp(depthLoadOp),
-                StoreOp = AttachmentStoreOp.Store,
-                StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
-                StencilStoreOp = AttachmentStoreOp.DontCare,
-                InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
-                FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
-            };
-
-            depthAttachmentRef = new AttachmentReference
-            {
-                Attachment = (uint)colorFormats.Count,
-                Layout = ImageLayout.DepthStencilAttachmentOptimal
-            };
-        }
-
-        var subpass = new SubpassDescription
-        {
-            PipelineBindPoint = PipelineBindPoint.Graphics,
-            ColorAttachmentCount = (uint)colorFormats.Count,
-            PColorAttachments = colorAttachmentRefs,
-            PDepthStencilAttachment = depthFormat.HasValue ? &depthAttachmentRef : null
-        };
-
-        PipelineStageFlags attachmentStages = PipelineStageFlags.ColorAttachmentOutputBit;
-        AccessFlags attachmentWrites = AccessFlags.ColorAttachmentWriteBit;
-        if (depthFormat.HasValue)
-        {
-            attachmentStages |= PipelineStageFlags.EarlyFragmentTestsBit;
-            attachmentWrites |= AccessFlags.DepthStencilAttachmentWriteBit;
-        }
-
-        var dependency = new SubpassDependency
-        {
-            SrcSubpass = Vk.SubpassExternal,
-            DstSubpass = 0,
-            SrcStageMask = attachmentStages,
-            SrcAccessMask = 0,
-            DstStageMask = attachmentStages,
-            DstAccessMask = attachmentWrites
-        };
-
-        var renderPassInfo = new RenderPassCreateInfo
-        {
-            SType = StructureType.RenderPassCreateInfo,
-            AttachmentCount = (uint)totalAttachments,
-            PAttachments = attachments,
-            SubpassCount = 1,
-            PSubpasses = &subpass,
-            DependencyCount = 1,
-            PDependencies = &dependency
-        };
-
-        RenderPass renderPass;
-        var result = vk.CreateRenderPass(device, &renderPassInfo, null, &renderPass);
-        if (result != Result.Success)
-        {
-            throw new InvalidOperationException($"Failed to create render pass: {result}");
-        }
-        _renderPass = renderPass;
+        _renderPass = CreateRenderPass(
+            context,
+            _colorFormats,
+            depthFormat,
+            ToVulkanLoadOp(colorLoadOp),
+            ToVulkanLoadOp(depthLoadOp));
     }
 
     /// <summary>

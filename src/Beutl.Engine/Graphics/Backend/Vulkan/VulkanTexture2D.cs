@@ -77,57 +77,10 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
         _image = image;
 
-        // Get memory requirements
-        MemoryRequirements memReqs;
-        vk.GetImageMemoryRequirements(device, _image, &memReqs);
-        _allocationSize = memReqs.Size;
+        _memory = context.AllocateAndBindImageMemory(_image, "image", out ulong allocationSize);
+        _allocationSize = allocationSize;
 
-        // Allocate memory
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
-        };
-
-        DeviceMemory memory;
-        result = vk.AllocateMemory(device, &allocInfo, null, &memory);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan image memory: {result}");
-        }
-
-        _memory = memory;
-
-        // Bind memory to image
-        result = vk.BindImageMemory(device, _image, _memory, 0);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
-            throw new InvalidOperationException($"Failed to bind image memory: {result}");
-        }
-
-        // Create image view
-        var viewInfo = new ImageViewCreateInfo
-        {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = _image,
-            ViewType = ImageViewType.Type2D,
-            Format = format.ToVulkanFormat(),
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = format.GetAspectMask(),
-                BaseMipLevel = 0,
-                LevelCount = 1,
-                BaseArrayLayer = 0,
-                LayerCount = 1
-            }
-        };
-
-        ImageView imageView;
-        result = vk.CreateImageView(device, &viewInfo, null, &imageView);
+        result = context.TryCreateSingleLayerView(_image, format, arrayLayer: 0, out ImageView imageView);
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
@@ -156,42 +109,16 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Create staging buffer
-        using var stagingBuffer = new VulkanBuffer(
-            _context,
-            (ulong)data.Length,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        // Copy data to staging buffer
-        stagingBuffer.Upload(data);
-
         // Transition to transfer destination
         TransitionTo(ImageLayout.TransferDstOptimal);
 
-        // Copy buffer to image
-        _context.RecordCommands(cmd =>
-        {
-            var region = new BufferImageCopy
-            {
-                BufferOffset = 0,
-                BufferRowLength = 0,
-                BufferImageHeight = 0,
-                ImageSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
-            };
-
-            // ReSharper disable once AccessToDisposedClosure
-            _context.Vk.CmdCopyBufferToImage(
-                cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
-        });
+        _context.UploadToImageLayer(
+            data,
+            _image,
+            ImageAspectFlags.ColorBit,
+            destinationArrayLayer: 0,
+            (uint)_width,
+            (uint)_height);
 
         // Transition to shader read
         TransitionTo(ImageLayout.ShaderReadOnlyOptimal);

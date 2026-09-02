@@ -45,8 +45,7 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
             float halfHeight = height * 0.5f;
             float centerY = (float)bounds.Y + halfHeight;
             float slotWidth = width / barCount;
-            float requested = BarWidth;
-            float barWidth = requested > 0f ? MathF.Max(0.5f, requested) : MathF.Max(1f, slotWidth - 0.5f);
+            float barWidth = BarGeometry.ResolveWidth(BarWidth, slotWidth);
             float offsetX = (slotWidth - barWidth) * 0.5f;
 
             CornerRadius cr = CornerRadius;
@@ -55,8 +54,7 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
             if (round)
             {
                 _paint ??= new SKPaint();
-                canvas.CreateBrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
-                _paint.Style = SKPaintStyle.Fill;
+                VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
                 _path ??= new SKPath();
                 _path.Reset();
             }
@@ -72,23 +70,7 @@ public sealed partial class FilledMirrorWaveformShape : WaveformShape
 
                 if (round)
                 {
-                    float maxRadius = MathF.Min(barWidth, barHeight) * 0.5f;
-                    float tl = MathF.Min(cr.TopLeft, maxRadius);
-                    float tr = MathF.Min(cr.TopRight, maxRadius);
-                    float br = MathF.Min(cr.BottomRight, maxRadius);
-                    float bl = MathF.Min(cr.BottomLeft, maxRadius);
-
-                    var rect = new SKRect(x, topY, x + barWidth, topY + barHeight);
-                    var radii = new SKPoint[4]
-                    {
-                        new SKPoint(tl, tl),
-                        new SKPoint(tr, tr),
-                        new SKPoint(br, br),
-                        new SKPoint(bl, bl),
-                    };
-                    using var roundRect = new SKRoundRect();
-                    roundRect.SetRectRadii(rect, radii);
-                    _path!.AddRoundRect(roundRect);
+                    BarGeometry.AddRoundedBar(_path!, x, topY, barWidth, barHeight, cr);
                 }
                 else
                 {

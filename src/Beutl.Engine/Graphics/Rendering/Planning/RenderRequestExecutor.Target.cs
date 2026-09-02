@@ -213,21 +213,9 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    output.DeviceBounds,
-                    output.DeviceGridOffset,
-                    density);
-                using var canvas = CreateExecutorCanvas(
-                    output.Target,
-                    density,
-                    _options.MaxWorkingScale,
-                    output.RasterBounds.Size,
-                    _options.Intent,
-                    output.DeviceBounds.Position);
+                using var canvas = CreateValueCanvas(output);
                 canvas.Clear();
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using (canvas.PushTransform(output.RasterAlignmentTransform))
                 {
                     ExecuteTargetScope(fragment, canvas);
                 }
@@ -424,20 +412,8 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    value.DeviceBounds,
-                    value.DeviceGridOffset,
-                    scale.Value);
-                using (var canvas = CreateExecutorCanvas(
-                           value.Target,
-                           scale.Value,
-                           _options.MaxWorkingScale,
-                           value.RasterBounds.Size,
-                           _options.Intent,
-                           value.DeviceBounds.Position))
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using (var canvas = CreateValueCanvas(value))
+                using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
                     if (fragment.Inputs.Length == 1
                         && IsMatchingTargetLayerScope(fragment.Inputs[0], canvas, domain))
@@ -500,20 +476,8 @@ internal sealed partial class RenderRequestExecutor
             try
             {
                 _afterCaptureAllocation?.Invoke(fragment.Kind);
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    value.DeviceBounds,
-                    value.DeviceGridOffset,
-                    scale.Value);
-                using (var canvas = CreateExecutorCanvas(
-                           value.Target,
-                           scale.Value,
-                           _options.MaxWorkingScale,
-                           value.RasterBounds.Size,
-                           _options.Intent,
-                           value.DeviceBounds.Position))
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using (var canvas = CreateValueCanvas(value))
+                using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
                     canvas.ClipRect(bounds);
                     bool capturesBackingTarget = fragment.Id is { } fragmentId
@@ -559,20 +523,8 @@ internal sealed partial class RenderRequestExecutor
                 deviceGridOffset: deviceGridOffset);
             try
             {
-                Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                    value.DeviceBounds,
-                    value.DeviceGridOffset,
-                    scale.Value);
-                using (var canvas = CreateExecutorCanvas(
-                           value.Target,
-                           scale.Value,
-                           _options.MaxWorkingScale,
-                           value.RasterBounds.Size,
-                           _options.Intent,
-                           value.DeviceBounds.Position))
-                using (canvas.PushTransform(Matrix.CreateTranslation(
-                           rasterTranslation.X,
-                           rasterTranslation.Y)))
+                using (var canvas = CreateValueCanvas(value))
+                using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
                     int backdropSourceCount = _backdropSources.Count;
                     _backdropSources.Add(destination);

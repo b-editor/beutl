@@ -129,41 +129,13 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
         partial void PreUpdate(SoundGroup obj, CompositionContext context)
         {
-            using var consumed = new PooledList<Sound.Resource>();
-            if (context.Flow != null)
-            {
-                for (int i = context.Flow.Count - 1; i >= 0; i--)
-                {
-                    if (context.Flow[i] is Sound.Resource d)
-                    {
-                        consumed.Insert(0, d);
-                        context.Flow.RemoveAt(i);
-                    }
-                }
-            }
-
-            bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: Children,
-                versions: _childrenVersion,
-                changed: ref changed);
-
-            if (changed)
+            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
                 Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < Children.Count; i++)
-            {
-                Children[i].Dispose();
-            }
-
-            Children.Clear();
-            _childrenVersion.Dispose();
+            ResourceReconciler.ReleaseReconciledChildren(Children, _childrenVersion);
         }
     }
 }

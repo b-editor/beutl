@@ -51,8 +51,7 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
             float cx = (float)bounds.X + width * 0.5f;
             float cy = (float)bounds.Y + height * 0.5f;
             float outerRadius = MathF.Min(width, height) * 0.5f;
-            float innerRadius = MathF.Min(InnerRadius, outerRadius - 1f);
-            if (innerRadius < 0f) innerRadius = 0f;
+            float innerRadius = BarGeometry.ResolveInnerRadius(InnerRadius, outerRadius);
             float maxLen = outerRadius - innerRadius;
             if (maxLen <= 0f) return;
 
@@ -81,10 +80,7 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
                 float angleDeg = startAngleDeg + angleStep * i;
                 float angleRad = angleDeg * MathF.PI / 180f;
 
-                float translateX = cx + r1 * MathF.Cos(angleRad);
-                float translateY = cy + r1 * MathF.Sin(angleRad);
-
-                Matrix transform = Matrix.CreateRotation(angleRad) * Matrix.CreateTranslation(translateX, translateY);
+                Matrix transform = BarGeometry.RadialBarTransform(cx, cy, r1, angleRad);
                 using (canvas.PushTransform(transform))
                 {
                     float half = barWidth * 0.5f;

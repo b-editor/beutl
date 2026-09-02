@@ -60,35 +60,7 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         }
         _image = image;
 
-        // Get memory requirements
-        MemoryRequirements memReqs;
-        vk.GetImageMemoryRequirements(device, _image, &memReqs);
-
-        // Allocate memory
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
-        };
-
-        DeviceMemory memory;
-        result = vk.AllocateMemory(device, &allocInfo, null, &memory);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan cube map image memory: {result}");
-        }
-        _memory = memory;
-
-        // Bind memory to image
-        result = vk.BindImageMemory(device, _image, _memory, 0);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
-            throw new InvalidOperationException($"Failed to bind cube map image memory: {result}");
-        }
+        _memory = context.AllocateAndBindImageMemory(_image, "cube map image", out _);
 
         // Create cube map image view (for sampling all 6 faces at once)
         var cubeViewInfo = new ImageViewCreateInfo
@@ -120,24 +92,7 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         // Create individual face views (for framebuffer attachment)
         for (int i = 0; i < 6; i++)
         {
-            var faceViewInfo = new ImageViewCreateInfo
-            {
-                SType = StructureType.ImageViewCreateInfo,
-                Image = _image,
-                ViewType = ImageViewType.Type2D,  // Individual face as 2D view
-                Format = format.ToVulkanFormat(),
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = format.GetAspectMask(),
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = (uint)i,  // Face index
-                    LayerCount = 1
-                }
-            };
-
-            ImageView faceView;
-            result = vk.CreateImageView(device, &faceViewInfo, null, &faceView);
+            result = context.TryCreateSingleLayerView(_image, format, (uint)i, out ImageView faceView);
             if (result != Result.Success)
             {
                 // Clean up previously created views
@@ -256,41 +211,16 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube, IVulkanContextRes
         if (faceIndex < 0 || faceIndex >= 6)
             throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
 
-        // Create staging buffer
-        using var stagingBuffer = new VulkanBuffer(
-            _context,
-            (ulong)data.Length,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        // Copy data to staging buffer
-        stagingBuffer.Upload(data);
-
         // Transition face to transfer destination
         TransitionFace(faceIndex, ImageLayout.TransferDstOptimal);
 
-        // Copy buffer to image
-        _context.RecordCommands(cmd =>
-        {
-            var region = new BufferImageCopy
-            {
-                BufferOffset = 0,
-                BufferRowLength = 0,
-                BufferImageHeight = 0,
-                ImageSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = _format.GetAspectMask(),
-                    MipLevel = 0,
-                    BaseArrayLayer = (uint)faceIndex,
-                    LayerCount = 1
-                },
-                ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_size, (uint)_size, 1)
-            };
-
-            // ReSharper disable once AccessToDisposedClosure
-            _context.Vk.CmdCopyBufferToImage(cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
-        });
+        _context.UploadToImageLayer(
+            data,
+            _image,
+            _format.GetAspectMask(),
+            (uint)faceIndex,
+            (uint)_size,
+            (uint)_size);
 
         // Transition back to shader read
         TransitionFace(faceIndex, ImageLayout.ShaderReadOnlyOptimal);

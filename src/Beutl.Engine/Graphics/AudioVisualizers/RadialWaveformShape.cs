@@ -43,8 +43,7 @@ public sealed partial class RadialWaveformShape : WaveformShape
             float cx = (float)bounds.X + width * 0.5f;
             float cy = (float)bounds.Y + height * 0.5f;
             float outerRadius = MathF.Min(width, height) * 0.5f;
-            float innerRadius = MathF.Min(InnerRadius, outerRadius - 1f);
-            if (innerRadius < 0f) innerRadius = 0f;
+            float innerRadius = BarGeometry.ResolveInnerRadius(InnerRadius, outerRadius);
             float maxOut = outerRadius - innerRadius;
             float maxIn = innerRadius;
             if (maxOut <= 0f && maxIn <= 0f) return;
@@ -64,10 +63,8 @@ public sealed partial class RadialWaveformShape : WaveformShape
 
                 float angleDeg = startAngleDeg + angleStep * i;
                 float angleRad = angleDeg * MathF.PI / 180f;
-                float translateX = cx + innerRadius * MathF.Cos(angleRad);
-                float translateY = cy + innerRadius * MathF.Sin(angleRad);
 
-                Matrix transform = Matrix.CreateRotation(angleRad) * Matrix.CreateTranslation(translateX, translateY);
+                Matrix transform = BarGeometry.RadialBarTransform(cx, cy, innerRadius, angleRad);
                 using (canvas.PushTransform(transform))
                 {
                     if (outLen > 0.5f)

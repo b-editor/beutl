@@ -48,8 +48,7 @@ public sealed partial class BlockWaveformShape : WaveformShape
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
             float slotWidth = width / barCount;
-            float requested = BarWidth;
-            float barWidth = requested > 0f ? MathF.Max(0.5f, requested) : MathF.Max(1f, slotWidth - 0.5f);
+            float barWidth = BarGeometry.ResolveWidth(BarWidth, slotWidth);
             float offsetX = (slotWidth - barWidth) * 0.5f;
             bool mirrored = Mirrored;
 

@@ -371,13 +371,8 @@ void main() {
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
     {
-        var meshResource = obj.GetMesh();
+        var meshResource = MeshDrawHelper.Prepare(Context, obj);
         if (meshResource == null)
-            return;
-
-        MeshBufferUploadHelper.Ensure(Context, meshResource);
-
-        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
             return;
 
         // Set push constants (128 bytes: Model + LightViewProjection)
@@ -388,12 +383,7 @@ void main() {
         };
         RenderPass!.SetPushConstants(pushConstants);
 
-        // Bind vertex and index buffers
-        RenderPass.BindVertexBuffer(meshResource.VertexBuffer);
-        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-        // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
+        MeshDrawHelper.Draw(RenderPass, meshResource);
     }
 
     protected override void OnDispose()

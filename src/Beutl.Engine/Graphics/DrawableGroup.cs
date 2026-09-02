@@ -81,43 +81,13 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         partial void PreUpdate(DrawableGroup obj, CompositionContext context)
         {
-            // Consume all Drawables from flow
-            using var consumed = new PooledList<Drawable.Resource>();
-            if (context.Flow != null)
-            {
-                for (int i = context.Flow.Count - 1; i >= 0; i--)
-                {
-                    if (context.Flow[i] is Drawable.Resource d)
-                    {
-                        consumed.Insert(0, d);
-                        context.Flow.RemoveAt(i);
-                    }
-                }
-            }
-
-            // Reconcile children from consumed drawables
-            bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: Children,
-                versions: _childrenVersion,
-                changed: ref changed);
-
-            if (changed)
+            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
                 Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < Children.Count; i++)
-            {
-                Children[i].Dispose();
-            }
-
-            Children.Clear();
-            _childrenVersion.Dispose();
+            ResourceReconciler.ReleaseReconciledChildren(Children, _childrenVersion);
         }
     }
 

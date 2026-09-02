@@ -123,44 +123,10 @@ public sealed class TransparentPass : GraphicsNode3D
             // Already sorted far to near.
             foreach (var entry in transparentObjects)
             {
-                RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);
+                MeshDrawHelper.DrawWithMaterial(context3D, entry.Object, entry.WorldMatrix, null);
             }
         }
     }
-
-    private void RenderTransparentObject(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
-    {
-        // Get mesh resource from object
-        var meshResource = obj.GetMesh();
-        if (meshResource == null)
-            return;
-
-        // Ensure GPU buffers are created/updated
-        MeshBufferUploadHelper.Ensure(Context, meshResource);
-
-        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
-            return;
-
-        // Get the transparent material
-        var materialResource = obj.Material;
-        if (materialResource == null)
-            return;
-
-        // Ensure material pipeline is created
-        materialResource.EnsurePipeline(context);
-
-        // Bind material (pipeline, uniforms, descriptor sets) with combined matrix
-        materialResource.Bind(context, obj, worldMatrix);
-
-        // Bind vertex and index buffers
-        RenderPass!.BindVertexBuffer(meshResource.VertexBuffer);
-        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-        // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.UploadedIndexCount);
-    }
-
-
 
     protected override void OnDispose()
     {

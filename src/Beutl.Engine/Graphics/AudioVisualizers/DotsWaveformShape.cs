@@ -47,8 +47,7 @@ public sealed partial class DotsWaveformShape : WaveformShape
             bool minmax = Mode == DotsWaveformMode.MinMax;
 
             _paint ??= new SKPaint();
-            canvas.CreateBrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
-            _paint.Style = SKPaintStyle.Fill;
+            VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
             _paint.IsAntialias = true;
             _path ??= new SKPath();
             _path.Reset();

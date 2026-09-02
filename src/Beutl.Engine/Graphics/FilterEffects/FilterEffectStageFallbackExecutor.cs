@@ -283,7 +283,11 @@ internal static class FilterEffectStageFallbackExecutor
                             $"Shader uniform '{binding.Name}' was not declared.");
                     }
 
-                    SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
+                    SkslUniformAssignment.SetUniform(
+                        uniforms,
+                        binding.Name,
+                        declaration,
+                        binding.Bind(declaration, context));
                 }
 
                 SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
@@ -626,7 +630,7 @@ internal static class FilterEffectStageFallbackExecutor
             density,
             deviceGridOffset,
             physicalDeviceBounds);
-        EffectTarget? result = Allocate(
+        EffectTarget? result = EffectTargetAllocation.Allocate(
             leaseSession,
             bounds,
             density,
@@ -709,54 +713,6 @@ internal static class FilterEffectStageFallbackExecutor
         leaseSession?.MarkContentDropped();
     }
 
-    /// <summary>
-    /// Allocates one effect-item stage target, through the caller's lease session when there is one.
-    /// </summary>
-    /// <remarks>
-    /// A configured <see cref="IRenderTargetFactory"/> is reachable only through the session, and its targets
-    /// may come from a context the global allocator knows nothing about. Going around it here would both ignore
-    /// the caller's allocation policy and mix surfaces from two contexts inside one stage.
-    /// </remarks>
-    private static EffectTarget? Allocate(
-        RenderTargetLeaseSession? leaseSession,
-        Rect bounds,
-        float density,
-        PixelRect deviceBounds,
-        Vector deviceGridOffset)
-    {
-        if (leaseSession is { HasTargetFactory: true })
-        {
-            RenderTargetLease? lease = leaseSession.TryAcquire(deviceBounds.Size);
-            if (lease is null)
-                return null;
-
-            try
-            {
-                return EffectTarget.FromLease(
-                    lease,
-                    bounds,
-                    EffectiveScale.At(density),
-                    deviceBounds,
-                    deviceGridOffset);
-            }
-            catch
-            {
-                lease.Dispose();
-                throw;
-            }
-        }
-
-        using RenderTarget? renderTarget = RenderTarget.Create(deviceBounds.Width, deviceBounds.Height);
-        return renderTarget is null
-            ? null
-            : new EffectTarget(
-                renderTarget,
-                bounds,
-                EffectiveScale.At(density),
-                deviceBounds,
-                deviceGridOffset);
-    }
-
     private static void ReplaceTargets(
         EffectTargets targets,
         Func<EffectTarget, EffectTarget?> execute)
@@ -777,28 +733,6 @@ internal static class FilterEffectStageFallbackExecutor
             EffectTarget replacement = replacements[0];
             replacements.RemoveAt(0);
             targets.Add(replacement);
-        }
-    }
-
-    private static void SetUniform(
-        SKRuntimeEffectUniforms uniforms,
-        string name,
-        SkslUniformDeclaration declaration,
-        ShaderUniformValue value)
-    {
-        if (value.IsInteger)
-        {
-            uniforms[name] = declaration.ArrayExtent is null
-                && declaration.Type is "int" or "bool"
-                    ? value.Integers![0]
-                    : value.Integers!;
-        }
-        else
-        {
-            uniforms[name] = declaration.ArrayExtent is null
-                && declaration.Type is "float" or "half"
-                    ? value.Floats![0]
-                    : value.Floats!;
         }
     }
 

@@ -12,15 +12,16 @@ namespace Beutl.Graphics.Effects;
 
 public abstract partial class DisplacementMapTransform : EngineObject
 {
-    private const string DrawableMapShaderSource =
+    /// <summary>
+    /// The displacement sample every transform reads: the uniforms that name the source channel and its
+    /// signedness, and the function that resolves one sample through them.
+    /// </summary>
+    /// <remarks>
+    /// Concatenated into each transform's program rather than declared once, because every SKSL program is
+    /// compiled on its own and shares no declarations with the next.
+    /// </remarks>
+    private protected const string DisplacementSamplingSource =
         """
-        uniform shader src;
-        uniform shader uDisplacementMap;
-
-        uniform int uMode;
-        uniform float2 uVector;
-        uniform float uAngle;
-        uniform float2 uPivot;
         uniform int uChannel;
         uniform int uSigned;
 
@@ -37,6 +38,22 @@ public abstract partial class DisplacementMapTransform : EngineObject
             if (uSigned != 0) d = d * 2.0 - 1.0;
             return d;
         }
+        """;
+
+    private const string DrawableMapShaderSource =
+        """
+        uniform shader src;
+        uniform shader uDisplacementMap;
+
+        uniform int uMode;
+        uniform float2 uVector;
+        uniform float uAngle;
+        uniform float2 uPivot;
+
+        """
+        + DisplacementSamplingSource
+        + """
+
 
         half4 main(float2 coord) {
             float disp = getDisplacement(uDisplacementMap.eval(coord));

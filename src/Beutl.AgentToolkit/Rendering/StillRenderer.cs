@@ -29,11 +29,10 @@ public sealed class StillRenderer
             Directory.CreateDirectory(directory);
         }
 
-        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         using Bitmap snapshot = await RenderBitmapAsync(
             scene,
             time,
-            normalizedScale,
+            renderScale,
             cancellationToken).ConfigureAwait(false);
 
         if (!snapshot.Save(outputPath, EncodedImageFormat.Png))
@@ -52,36 +51,44 @@ public sealed class StillRenderer
             CreateActiveElementSummaries(scene, time));
     }
 
-    public async ValueTask<Bitmap> RenderBitmapAsync(
+    public ValueTask<Bitmap> RenderBitmapAsync(
         Scene scene,
         TimeSpan time,
         float renderScale,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(scene);
-        if (ContainsGpuOnlyContent(scene, time)
-            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new RenderingUnavailableException(
-                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
-        }
-
-        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
-        return await RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
-
-            ThrowIfSourcesMissing(scene, time + scene.Start);
-            var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
-            renderer.Render(frame);
-            return renderer.Snapshot();
-        }, ct: cancellationToken).ConfigureAwait(false);
+        return RenderRenderedFrameAsync(
+            scene,
+            time,
+            renderScale,
+            static (_, renderer, _) => renderer.Snapshot(),
+            cancellationToken);
     }
 
-    public async ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
+    public ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
         Scene scene,
         TimeSpan time,
         float renderScale,
+        CancellationToken cancellationToken)
+    {
+        return RenderRenderedFrameAsync(
+            scene,
+            time,
+            renderScale,
+            static (renderedScene, renderer, renderedTime) =>
+            {
+                IReadOnlyList<RenderedTextBounds> textBounds =
+                    CreateRenderedTextBounds(renderedScene, renderer, renderedTime);
+                return new RenderedFrameAnalysis(renderedTime, renderer.Snapshot(), textBounds);
+            },
+            cancellationToken);
+    }
+
+    private static async ValueTask<TResult> RenderRenderedFrameAsync<TResult>(
+        Scene scene,
+        TimeSpan time,
+        float renderScale,
+        Func<Scene, SceneRenderer, TimeSpan, TResult> project,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -100,8 +107,7 @@ public sealed class StillRenderer
             ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
-            IReadOnlyList<RenderedTextBounds> textBounds = CreateRenderedTextBounds(scene, renderer, time);
-            return new RenderedFrameAnalysis(time, renderer.Snapshot(), textBounds);
+            return project(scene, renderer, time);
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 

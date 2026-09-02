@@ -6,6 +6,8 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class GLSLShader : IDisposable
 {
+    private const string No3DRenderingMessage = "Vulkan 3D rendering is not supported on this platform.";
+
     private readonly GLSLFilterPipeline _pipeline;
     private bool _disposed;
 
@@ -14,13 +16,18 @@ public sealed class GLSLShader : IDisposable
         _pipeline = pipeline;
     }
 
+    /// <summary>Gets the shared graphics context, or <see langword="null"/> when it cannot run a pipeline.</summary>
+    private static IGraphicsContext? TryGetGraphicsContext()
+        => GraphicsContextFactory.SharedContext is { Supports3DRendering: true } context ? context : null;
+
+    /// <inheritdoc cref="TryGetGraphicsContext"/>
+    /// <exception cref="InvalidOperationException">The platform cannot run a 3D pipeline.</exception>
+    private static IGraphicsContext RequireGraphicsContext()
+        => TryGetGraphicsContext() ?? throw new InvalidOperationException(No3DRenderingMessage);
+
     public static GLSLShader Create(string fragmentShaderSource)
     {
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null || !context.Supports3DRendering)
-        {
-            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
-        }
+        IGraphicsContext context = RequireGraphicsContext();
 
         GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
             context,
@@ -37,11 +44,7 @@ public sealed class GLSLShader : IDisposable
     // Creates a shader that reads from two textures (binding 0 = source, binding 1 = mask)
     public static GLSLShader CreateDualTexture(string fragmentShaderSource)
     {
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null || !context.Supports3DRendering)
-        {
-            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
-        }
+        IGraphicsContext context = RequireGraphicsContext();
 
         GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
             context,
@@ -67,10 +70,9 @@ public sealed class GLSLShader : IDisposable
             return false;
         }
 
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null || !context.Supports3DRendering)
+        if (TryGetGraphicsContext() is not { } context)
         {
-            errorText = "Vulkan 3D rendering is not supported on this platform.";
+            errorText = No3DRenderingMessage;
             return false;
         }
 
@@ -111,11 +113,7 @@ public sealed class GLSLShader : IDisposable
         ImmutableArray<SpecializationConstant> specializationConstants = default,
         bool hasMaskTexture = false)
     {
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null || !context.Supports3DRendering)
-        {
-            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
-        }
+        IGraphicsContext context = RequireGraphicsContext();
 
         GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
             context,
@@ -147,8 +145,7 @@ public sealed class GLSLShader : IDisposable
         if (_pipeline.HasMaskTexture)
             throw new InvalidOperationException("Cannot use single-texture Apply on a dual-texture shader. Use ExecuteSingleTargetWithMask instead.");
 
-        IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
+        if (TryGetGraphicsContext() is null)
             return;
 
         for (int i = 0; i < context.Targets.Count; i++)
@@ -226,8 +223,7 @@ public sealed class GLSLShader : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
+        if (TryGetGraphicsContext() is not { } graphicsContext)
             return;
 
         for (int i = 0; i < context.Targets.Count; i++)
@@ -336,8 +332,7 @@ public sealed class GLSLShader : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
+        if (TryGetGraphicsContext() is null)
             return;
 
         for (int i = 0; i < context.Targets.Count; i++)

@@ -79,35 +79,7 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
         }
         _image = image;
 
-        // Get memory requirements
-        MemoryRequirements memReqs;
-        vk.GetImageMemoryRequirements(device, _image, &memReqs);
-
-        // Allocate memory
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
-        };
-
-        DeviceMemory memory;
-        result = vk.AllocateMemory(device, &allocInfo, null, &memory);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan cube map array image memory: {result}");
-        }
-        _memory = memory;
-
-        // Bind memory to image
-        result = vk.BindImageMemory(device, _image, _memory, 0);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
-            throw new InvalidOperationException($"Failed to bind cube map array image memory: {result}");
-        }
+        _memory = context.AllocateAndBindImageMemory(_image, "cube map array image", out _);
 
         // Create cube map array image view (for sampling all cubes at once as samplerCubeArray)
         var cubeArrayViewInfo = new ImageViewCreateInfo
@@ -144,24 +116,7 @@ internal sealed unsafe class VulkanTextureCubeArray : ITextureCubeArray, IVulkan
                 // Layer index = arrIdx * 6 + faceIdx
                 uint layerIndex = arrIdx * 6 + (uint)faceIdx;
 
-                var faceViewInfo = new ImageViewCreateInfo
-                {
-                    SType = StructureType.ImageViewCreateInfo,
-                    Image = _image,
-                    ViewType = ImageViewType.Type2D,  // Individual face as 2D view
-                    Format = format.ToVulkanFormat(),
-                    SubresourceRange = new ImageSubresourceRange
-                    {
-                        AspectMask = format.GetAspectMask(),
-                        BaseMipLevel = 0,
-                        LevelCount = 1,
-                        BaseArrayLayer = layerIndex,
-                        LayerCount = 1
-                    }
-                };
-
-                ImageView faceView;
-                result = vk.CreateImageView(device, &faceViewInfo, null, &faceView);
+                result = context.TryCreateSingleLayerView(_image, format, layerIndex, out ImageView faceView);
                 if (result != Result.Success)
                 {
                     // Clean up previously created views
