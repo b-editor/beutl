@@ -118,6 +118,8 @@ internal sealed class AiRequestRecoveryLease : IDisposable
 
     internal Action? BeforeReacquirePublish { get; set; }
 
+    internal Action? BeforeDispatchCompareExchange { get; set; }
+
     internal AiRequestRecoveryLease(
         FileAiRequestRecoveryStore store,
         string accountId,
@@ -161,6 +163,8 @@ internal sealed class AiRequestRecoveryLease : IDisposable
 
     internal bool MarkDispatched()
     {
+        SpinWait spinner = new();
+        bool compareHookInvoked = false;
         while (true)
         {
             int state = Volatile.Read(ref _state);
@@ -168,12 +172,18 @@ internal sealed class AiRequestRecoveryLease : IDisposable
                 return true;
             if (state == DispatchingState)
             {
-                Thread.Yield();
+                spinner.SpinOnce();
                 continue;
             }
-            if (state != ActiveState
-                || Interlocked.CompareExchange(ref _state, DispatchingState, ActiveState) != ActiveState)
+            if (state != ActiveState)
                 return false;
+            if (!compareHookInvoked)
+            {
+                BeforeDispatchCompareExchange?.Invoke();
+                compareHookInvoked = true;
+            }
+            if (Interlocked.CompareExchange(ref _state, DispatchingState, ActiveState) != ActiveState)
+                continue;
             break;
         }
 

@@ -577,19 +577,39 @@ public sealed class FileAiRequestRecoveryStoreTests
     public void ConcurrentDispatchCallsPublishOneFence()
     {
         var store = new FileAiRequestRecoveryStore(_directory);
-        var attempt = new AiPendingAttempt(
-            "account", "image.generate", "concurrent-dispatch", "concurrent-key", null,
-            new AiRequestFormSnapshot(Prompt: "concurrent"));
-        store.WriteOrGet(attempt);
-        using AiRequestRecoveryLease claim = store.Claim(
-            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        for (int round = 0; round < 50; round++)
+        {
+            var attempt = new AiPendingAttempt(
+                "account", "image.generate", $"concurrent-dispatch-{round}", $"concurrent-key-{round}", null,
+                new AiRequestFormSnapshot(Prompt: "concurrent"));
+            store.WriteOrGet(attempt);
+            using AiRequestRecoveryLease claim = store.Claim(
+                attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+            using var beforeCas = new Barrier(2);
+            claim.BeforeDispatchCompareExchange = () =>
+            {
+                if (!beforeCas.SignalAndWait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("Concurrent callers did not reach the dispatch CAS together.");
+            };
 
-        bool[] results = new bool[16];
-        Parallel.For(0, results.Length, index => results[index] = claim.MarkDispatched());
+            bool[] results = new bool[16];
+            Task first = Task.Factory.StartNew(
+                () => results[0] = claim.MarkDispatched(),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+            Task second = Task.Factory.StartNew(
+                () => results[1] = claim.MarkDispatched(),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+            Assert.That(Task.WaitAll([first, second], TimeSpan.FromSeconds(5)), Is.True);
+            Parallel.For(2, results.Length, index => results[index] = claim.MarkDispatched());
 
-        Assert.That(results, Has.All.True);
-        Assert.That(claim.IsDispatched, Is.True);
-        Assert.That(store.Abandon(attempt), Is.False);
+            Assert.That(results, Has.All.True, $"round {round}");
+            Assert.That(claim.IsDispatched, Is.True, $"round {round}");
+            Assert.That(store.Abandon(attempt), Is.False, $"round {round}");
+        }
     }
 
     [Test]
