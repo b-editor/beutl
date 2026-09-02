@@ -514,7 +514,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         foreach (SyntaxNode node in body.DescendantNodesAndSelf(
-            child => RunsNestedFunction(context, model, body, child)))
+            child => Runs(context, model, body, child)))
         {
             // A user-defined implicit conversion is spelled nowhere at all - it is implied by the type the
             // expression is used as - so it is asked for rather than found.
@@ -596,13 +596,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool RunsNestedFunction(
+    /// <summary>Whether what is written inside <paramref name="child"/> runs when the body does.</summary>
+    private static bool Runs(
         SyntaxNodeAnalysisContext context,
         SemanticModel model,
         SyntaxNode body,
-        SyntaxNode nested)
+        SyntaxNode child)
     {
-        switch (nested)
+        switch (child)
         {
             // A local function is reached only by its own name, so a name written for it somewhere else in
             // the body is the whole of what can run it.
@@ -612,6 +613,17 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
             case AnonymousFunctionExpressionSyntax lambda:
                 return RunsLambda(context, model, body, lambda);
+
+            // A call the build removes takes the whole expression with it, arguments and receiver included,
+            // so nothing written inside one runs - which is why the question is asked here, where it also
+            // covers what the arguments read, rather than where the callee's own body is followed.
+            case InvocationExpressionSyntax invocation:
+                return model.GetSymbolInfo(invocation, context.CancellationToken).Symbol
+                           is not IMethodSymbol called
+                       || ConditionalCompilation.IsCallCompiled(
+                           context.Compilation,
+                           called,
+                           invocation.SyntaxTree);
 
             default:
                 return true;
@@ -765,6 +777,24 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A using scope names no method at all: the compiler picks Dispose off the resource's own type and
+        // runs it where the scope ends. Only the disposal is asked for here - the resource expression is a
+        // node of the body like any other and is walked as one.
+        if (node is UsingStatementSyntax
+            or LocalDeclarationStatementSyntax { UsingKeyword.RawKind: (int)SyntaxKind.UsingKeyword })
+        {
+            FollowDisposal(context, model, node, depth, walked, report);
+            return;
+        }
+
+        // A collection expression spells its construction nowhere either: the elements are written and the
+        // method that turns them into the collection is chosen from the type the expression is used as.
+        if (node is CollectionExpressionSyntax collection)
+        {
+            FollowCollectionConstruction(context, model, collection, depth, walked, report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -819,6 +849,133 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         => type.InstanceConstructors.FirstOrDefault(
             constructor => constructor.Parameters.Length == 1
                            && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, type));
+
+    /// <summary>Follows the disposal a <c>using</c> scope runs when it ends.</summary>
+    /// <remarks>
+    /// A declaration form declares one local per resource and every one of them is disposed, so every one
+    /// is followed. What the resource expression itself reads is not asked for here: that expression is a
+    /// node of the body and the walk reaches it on its own.
+    /// </remarks>
+    private static void FollowDisposal(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode scope,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        VariableDeclarationSyntax? declaration;
+        ExpressionSyntax? resource;
+        bool asynchronous;
+
+        switch (scope)
+        {
+            case UsingStatementSyntax statement:
+                (declaration, resource) = (statement.Declaration, statement.Expression);
+                asynchronous = !statement.AwaitKeyword.IsKind(SyntaxKind.None);
+                break;
+
+            case LocalDeclarationStatementSyntax local:
+                (declaration, resource) = (local.Declaration, null);
+                asynchronous = !local.AwaitKeyword.IsKind(SyntaxKind.None);
+                break;
+
+            default:
+                return;
+        }
+
+        void Follow(ITypeSymbol? type)
+        {
+            if (type is not null && GetDisposeMethod(context, type, asynchronous) is { } dispose)
+                FollowCall(context, dispose, scope, "method", depth, walked, report);
+        }
+
+        if (declaration is not null)
+        {
+            foreach (VariableDeclaratorSyntax declarator in declaration.Variables)
+            {
+                if (model.GetDeclaredSymbol(declarator, context.CancellationToken) is ILocalSymbol declared)
+                    Follow(declared.Type);
+            }
+        }
+
+        if (resource is not null)
+            Follow(model.GetTypeInfo(resource, context.CancellationToken).Type);
+    }
+
+    /// <summary>The disposal the compiler runs on a resource of <paramref name="type"/>.</summary>
+    /// <remarks>
+    /// No public operation carries the chosen method, so it is resolved the way the compiler chooses it:
+    /// through <see cref="IDisposable"/> where the type implements it - which is also the only spelling
+    /// that finds an explicit implementation - and otherwise by the name alone, which is how a
+    /// <c>ref struct</c>, the one shape disposed without naming the interface, declares its own.
+    /// </remarks>
+    private static IMethodSymbol? GetDisposeMethod(
+        SyntaxNodeAnalysisContext context,
+        ITypeSymbol type,
+        bool asynchronous)
+    {
+        string name = asynchronous
+            ? WellKnownMemberNames.DisposeAsyncMethodName
+            : WellKnownMemberNames.DisposeMethodName;
+
+        string disposableName = asynchronous ? AsyncDisposableTypeName : DisposableTypeName;
+
+        if (context.Compilation.GetTypeByMetadataName(disposableName) is { } disposable
+            && disposable.GetMembers(name).FirstOrDefault() is { } declared
+            && type.FindImplementationForInterfaceMember(declared) is IMethodSymbol implementation)
+        {
+            return implementation;
+        }
+
+        foreach (ISymbol member in type.GetMembers(name))
+        {
+            if (member is IMethodSymbol { IsStatic: false, Parameters.Length: 0 } pattern)
+                return pattern;
+        }
+
+        return null;
+    }
+
+    private const string DisposableTypeName = "System.IDisposable";
+
+    private const string AsyncDisposableTypeName = "System.IAsyncDisposable";
+
+    /// <summary>Follows the method a collection expression is built through.</summary>
+    /// <remarks>
+    /// That method is the <c>[CollectionBuilder]</c> builder for a builder type and the collection type's
+    /// own constructor otherwise, so both kinds are dispatched here; an array, a span and a type parameter
+    /// are built by the compiler itself and carry no method to follow.
+    /// </remarks>
+    private static void FollowCollectionConstruction(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        CollectionExpressionSyntax collection,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (model.GetOperation(collection, context.CancellationToken)
+            is not ICollectionExpressionOperation { ConstructMethod: { } construct })
+        {
+            return;
+        }
+
+        if (construct.MethodKind == MethodKind.Constructor)
+        {
+            FollowConstructor(context, construct, collection, depth, walked, report);
+            return;
+        }
+
+        FollowCall(
+            context,
+            construct,
+            collection,
+            RunsAStaticMethod(construct) ? "static method" : "method",
+            depth,
+            walked,
+            report);
+    }
 
     private static void FollowDeconstruction(
         SyntaxNodeAnalysisContext context,

@@ -4818,6 +4818,521 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <summary>
+    /// A scope whose constructor is pure and whose <c>Dispose</c> is not, with the callback's answer taken
+    /// from what the disposal wrote.
+    /// </summary>
+    /// <remarks>
+    /// Keeping the impurity out of the constructor is what leaves the disposal as the only thing to find:
+    /// a rule that followed only the creation walks this body and reports nothing.
+    /// </remarks>
+    private const string DisposalStubs = """
+        using System;
+        using Beutl.Graphics;
+        using Beutl.Graphics.Rendering;
+
+        internal sealed class Box
+        {
+            public float Value;
+        }
+
+        internal sealed class Scope : IDisposable
+        {
+            private static float s_counter;
+
+            private readonly Box _box;
+
+            public Scope(Box box) => _box = box;
+
+            public void Dispose() => _box.Value = s_counter++;
+        }
+        """;
+
+    [Test]
+    public void AUsingStatementWhoseDisposeReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{DisposalStubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using (new Scope(box))
+                            {
+                            }
+
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the scope's Dispose runs at the closing brace and is as much of what the callback runs as the "
+            + "block it closes");
+    }
+
+    [Test]
+    public void AMethodGroupWhoseUsingScopeDisposeReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{DisposalStubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Transform, static value => value);
+
+                private static Rect Transform(Rect value)
+                {
+                    var box = new Box();
+                    using (new Scope(box))
+                    {
+                    }
+
+                    return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a method group is read as the body it names, so the disposal in that body is reached too");
+    }
+
+    [Test]
+    public void AUsingDeclarationWhoseDisposeReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{DisposalStubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using Scope scope = new Scope(box);
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a using declaration moves where Dispose runs to the enclosing brace, not whether it runs");
+    }
+
+    [Test]
+    public void ANonStaticLambdaWhoseUsingScopeDisposeReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{DisposalStubs}}
+
+            internal sealed class Author
+            {
+                public RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        value =>
+                        {
+                            var box = new Box();
+                            using (new Scope(box))
+                            {
+                            }
+
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "this rule reads a lambda's body whether or not it is static, because being static says what "
+            + "the lambda closed over and nothing about what its body runs");
+    }
+
+    [Test]
+    public void AStaticLambdaReadingAMutableStaticBesideAPureUsingScope_IsReportedOnce()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{DisposalStubs.Replace("_box.Value = s_counter++", "_box.Value = 1f")}}
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using (new Scope(box))
+                            {
+                            }
+
+                            return new Rect(value.X + Settings.Offset, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Has.Exactly(1).EqualTo("BESG004"),
+            "one mutable static read directly is one diagnostic, and a disposal that reads nothing must "
+            + "not add a second");
+    }
+
+    [Test]
+    public void AUsingScopeWhoseConstructorReadsAMutableStatic_IsReportedOnce()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class Box
+            {
+                public float Value;
+            }
+
+            internal sealed class Scope : IDisposable
+            {
+                private static float s_counter;
+
+                public Scope(Box box) => box.Value = s_counter++;
+
+                public void Dispose() { }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using (new Scope(box))
+                            {
+                            }
+
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Has.Exactly(1).EqualTo("BESG004"),
+            "the creation was already followed before the disposal was, and following the disposal too "
+            + "must not report the same scope twice");
+    }
+
+    [Test]
+    public void AUsingScopeAlsoDisposedExplicitly_IsReportedOnce()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{DisposalStubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using Scope scope = new Scope(box);
+                            scope.Dispose();
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Has.Exactly(1).EqualTo("BESG004"),
+            "the scope's Dispose is one body however many times this one is run, and the walk reports a "
+            + "body once");
+    }
+
+    [Test]
+    public void ACollectionExpressionWhoseBuilderReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            [CollectionBuilder(typeof(TallyBuilder), nameof(TallyBuilder.Create))]
+            internal readonly struct Tally
+            {
+                public Tally(float total) => Total = total;
+
+                public float Total { get; }
+
+                public IEnumerator<float> GetEnumerator() => null;
+            }
+
+            internal static class TallyBuilder
+            {
+                private static float s_bias;
+
+                public static Tally Create(ReadOnlySpan<float> values) => new Tally(s_bias);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Tally tally = [value.X, value.Y];
+                            return new Rect(tally.Total, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the brackets name no method, and the builder they run is where the mutable static is read");
+    }
+
+    [Test]
+    public void ACollectionExpressionWhoseConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{BagStubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Bag bag = [value.X, value.Y];
+                            return new Rect(bag.Total, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a collection type with no builder is constructed by its own constructor, which the brackets "
+            + "name no more than they name a builder");
+    }
+
+    [Test]
+    public void AnObjectCreationWhoseCollectionConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{BagStubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var bag = new Bag { value.X, value.Y };
+                            return new Rect(bag.Total, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the same constructor spelled as an object creation is the control the collection expression "
+            + "is measured against");
+    }
+
+    /// <summary>A collection type built by its own constructor, which reads a mutable static.</summary>
+    private const string BagStubs = """
+        using System.Collections;
+        using System.Collections.Generic;
+        using Beutl.Graphics;
+        using Beutl.Graphics.Rendering;
+
+        internal sealed class Bag : IEnumerable<float>
+        {
+            private static float s_bias;
+
+            public Bag() => Total = s_bias;
+
+            public float Total { get; }
+
+            public void Add(float value) { }
+
+            public IEnumerator<float> GetEnumerator() => null;
+
+            IEnumerator IEnumerable.GetEnumerator() => null;
+        }
+        """;
+
+    [Test]
+    public void AConditionalHelperReadingAMutableStatic_IsReportedWhenTheSymbolIsDefined()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze(
+            RecordingCallback("""[Conditional("DEBUG")]"""),
+            parseOptions: CSharpParseOptions.Default.WithPreprocessorSymbols("DEBUG"));
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "DEBUG is defined, so the call is compiled and what the helper reads is what the callback reads");
+    }
+
+    [Test]
+    public void AConditionalHelperReadingAMutableStatic_IsNotReportedWhenTheSymbolIsNotDefined()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze(RecordingCallback("""[Conditional("DEBUG")]"""));
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the compiler removes the call, and a read in a body no shipped build runs is not a read the "
+            + "callback makes");
+    }
+
+    [Test]
+    public void ANonConditionalHelperReadingAMutableStatic_IsReportedEitherWay()
+    {
+        string source = RecordingCallback(string.Empty);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                Analyze(source).Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "no attribute means no omission, so the preprocessor symbols decide nothing here");
+            Assert.That(
+                Analyze(source, parseOptions: CSharpParseOptions.Default.WithPreprocessorSymbols("DEBUG"))
+                    .Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "and defining DEBUG changes nothing either");
+        });
+    }
+
+    /// <summary>A callback whose only read of a mutable static is inside a helper carrying <paramref name="attribute"/>.</summary>
+    private static string RecordingCallback(string attribute) => $$"""
+        using System.Diagnostics;
+        using Beutl.Graphics;
+        using Beutl.Graphics.Rendering;
+
+        internal static class Author
+        {
+            private static float s_offset;
+
+            private static float s_recorded;
+
+            {{attribute}}
+            private static void Record() => s_recorded = s_offset;
+
+            public static RenderBoundsContract Build()
+                => RenderBoundsContract.Create(
+                    static value =>
+                    {
+                        Record();
+                        return value;
+                    },
+                    static value => value);
+        }
+        """;
+
+    [Test]
+    public void ADebugAssertReadingAMutableStatic_IsReportedOnlyWhereItIsCompiled()
+    {
+        string source = """
+            using System.Diagnostics;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                private static float s_offset;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Debug.Assert(s_offset >= 0f);
+                            return value;
+                        },
+                        static value => value);
+            }
+            """;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                Analyze(source).Select(static d => d.Id),
+                Is.Empty,
+                "the whole call goes, arguments included, so the read is in no shipped build");
+            Assert.That(
+                Analyze(source, parseOptions: CSharpParseOptions.Default.WithPreprocessorSymbols("DEBUG"))
+                    .Select(static d => d.Id),
+                Does.Contain("BESG004"),
+                "with DEBUG the assert is compiled and the callback really does read the static");
+        });
+    }
+
+    [Test]
+    public void AConditionalHelperArgumentReadingAMutableStatic_IsNotReportedWhenTheSymbolIsNotDefined()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Diagnostics;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Author
+            {
+                private static float s_offset;
+
+                [Conditional("DEBUG")]
+                private static void Record(float value) { }
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            Record(s_offset);
+                            return value;
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a removed call evaluates none of its arguments, so a read written as one is not a read the "
+            + "callback makes");
+    }
+
+    /// <summary>
     /// Compiles the contract stubs and <paramref name="librarySource"/> into an assembly, then analyzes
     /// <paramref name="source"/> against it rather than against the stubs as source.
     /// </summary>
@@ -4847,13 +5362,28 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         return Analyze(source, MetadataReference.CreateFromStream(image));
     }
 
-    private static ImmutableArray<Diagnostic> Analyze(string source, MetadataReference? library = null)
+    /// <summary>Runs the analyzer over <paramref name="source"/> parsed with <paramref name="parseOptions"/>.</summary>
+    /// <remarks>
+    /// The parse options are a parameter for the sake of the preprocessor symbols: a <c>[Conditional]</c>
+    /// call is kept or dropped by the symbols defined where it is written, so a harness that could not vary
+    /// them could not tell a callee the build keeps from one it removes.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> Analyze(
+        string source,
+        MetadataReference? library = null,
+        CSharpParseOptions? parseOptions = null)
     {
+        parseOptions ??= CSharpParseOptions.Default;
+
         CSharpCompilation compilation = CSharpCompilation.Create(
             "AnalyzerTest",
             library is null
-                ? [CSharpSyntaxTree.ParseText(ContractStubs), CSharpSyntaxTree.ParseText(source)]
-                : [CSharpSyntaxTree.ParseText(source)],
+                ?
+                [
+                    CSharpSyntaxTree.ParseText(ContractStubs, parseOptions),
+                    CSharpSyntaxTree.ParseText(source, parseOptions),
+                ]
+                : [CSharpSyntaxTree.ParseText(source, parseOptions)],
             library is null ? FrameworkReferences : [.. FrameworkReferences, library],
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

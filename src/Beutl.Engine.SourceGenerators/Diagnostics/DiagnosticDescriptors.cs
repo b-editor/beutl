@@ -64,10 +64,12 @@ public static class DiagnosticDescriptors
             + "user-defined operators and conversions, the extension methods it calls in instance form - "
             + "which are static methods however they are spelled - and any member - a method, a property "
             + "or an indexer accessor, the Add a collection initialiser spells as an element included - "
-            + "called on an instance the expression makes right there. What a "
-            + "callee whose body has no source here reads, and what an instance member computes on a "
-            + "receiver the call did not make, are still invisible, so it staying silent is not proof "
-            + "that the callback is state-free.",
+            + "called on an instance the expression makes right there. What a callee whose body has "
+            + "no source here reads, what an instance member computes on a receiver the call did "
+            + "not make, and what a call this build removes would have read - a [Conditional] one "
+            + "whose symbol is not defined here, which is why this rule can answer differently in "
+            + "Debug and in Release - are still invisible, so it staying silent is not proof that "
+            + "the callback is state-free.",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
@@ -148,9 +150,13 @@ public static class DiagnosticDescriptors
             + "because it cannot be identified: these callbacks are handed the objects they work through, "
             + "so a member called on one of those is the engine behind it, whose loggers, shared contexts "
             + "and pools say nothing about whether the callback answers the same way twice. What is still "
-            + "invisible to it: what a callee with no source here reads, and what an instance member "
-            + "computes on a receiver the call did not make. Treat silence as the absence of the shape "
-            + "authors usually write, not as a purity proof.");
+            + "invisible to it: what a callee with no source here reads, what an instance member "
+            + "computes on a receiver the call did not make, and what a call this build removes "
+            + "would have read, because a [Conditional] helper whose symbol is not defined here is "
+            + "in no program this build ships - so a callback whose only unproven read is inside "
+            + "one is reported in Debug and accepted in Release, which is the honest answer for "
+            + "each. Treat silence as the absence of the shape authors usually write, not as a "
+            + "purity proof.");
 
     public static readonly DiagnosticDescriptor UnmarkedRenderNodeMutation = new(
         id: "BESG005",

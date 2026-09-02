@@ -22,7 +22,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     private const string ProcessMethodName = "Process";
     private const string MarkChangedMethodName = "MarkChanged";
     private const string DisposeCallbackName = "OnDispose";
-    private const string ConditionalAttributeMetadataName = "System.Diagnostics.ConditionalAttribute";
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(DiagnosticDescriptors.UnmarkedRenderNodeMutation);
@@ -269,9 +268,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol type,
         INamedTypeSymbol renderNodeType)
     {
-        private readonly INamedTypeSymbol? _conditionalAttribute =
-            compilation.GetTypeByMetadataName(ConditionalAttributeMetadataName);
-
         /// <summary>The methods reachable from <paramref name="entryPoint"/> without leaving the node's own type chain.</summary>
         /// <remarks>
         /// Property and indexer accesses are followed as well as invocations, so a node that exposes its
@@ -353,10 +349,10 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         /// <para>
         /// Anywhere in the member means anywhere the member runs, which is the one place path-insensitivity
         /// stops. A nested function the body cannot reach is not walked, and a call the compiler removes is
-        /// not followed - see <see cref="RunsNestedFunction"/> and <see cref="IsCallCompiled"/> - because a
-        /// mark that is not in the program the author ships leaves the node exactly as stale as no mark at
-        /// all, and this is the rule's one unrecoverable failure: silence here is what the author reads as
-        /// approval.
+        /// not followed - see <see cref="RunsNestedFunction"/> and
+        /// <see cref="ConditionalCompilation.IsCallCompiled"/> - because a mark that is not in the program
+        /// the author ships leaves the node exactly as stale as no mark at all, and this is the rule's one
+        /// unrecoverable failure: silence here is what the author reads as approval.
         /// </para>
         /// </remarks>
         public bool MarksChanged(IMethodSymbol method)
@@ -516,8 +512,11 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     ISymbol? symbol = body.Model.GetSymbolInfo(name).Symbol;
 
                     // A call the compiler removes is not a mark; asked here so both branches answer alike.
-                    if (symbol is IMethodSymbol called && !IsCallCompiled(called, name.SyntaxTree))
+                    if (symbol is IMethodSymbol called
+                        && !ConditionalCompilation.IsCallCompiled(compilation, called, name.SyntaxTree))
+                    {
                         continue;
+                    }
 
                     if (IsMarkChanged(symbol))
                         return true;
@@ -603,37 +602,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             }
 
             return false;
-        }
-
-        private bool IsCallCompiled(IMethodSymbol callee, SyntaxTree tree)
-        {
-            if (_conditionalAttribute is null)
-                return true;
-
-            bool conditional = false;
-            for (IMethodSymbol? current = callee; current is not null; current = current.OverriddenMethod)
-            {
-                foreach (AttributeData attribute in current.OriginalDefinition.GetAttributes())
-                {
-                    if (!SymbolEqualityComparer.Default.Equals(
-                            attribute.AttributeClass,
-                            _conditionalAttribute))
-                    {
-                        continue;
-                    }
-
-                    conditional = true;
-                    if (attribute.ConstructorArguments.Length == 1
-                        && attribute.ConstructorArguments[0].Value is string defined
-                        && tree.Options is CSharpParseOptions options
-                        && options.PreprocessorSymbolNames.Contains(defined))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return !conditional;
         }
 
         private bool IsMarkChanged(ISymbol? symbol)
