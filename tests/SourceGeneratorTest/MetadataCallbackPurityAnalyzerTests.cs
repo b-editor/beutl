@@ -6103,6 +6103,99 @@ public sealed class MetadataCallbackPurityAnalyzerTests
         """;
 
     [Test]
+    public void AnInterpolatedStringWhoseHandlerConstructorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeInterpolatedStringHandler("""
+            public BoundsHandler(int literalLength, int formattedCount) => _total = Settings.Offset;
+
+            public void AppendLiteral(string text) { }
+
+            public void AppendFormatted<T>(T formatted) { }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the handler is made by the compiler from the type the argument is used as, so the string "
+            + "spells a constructor call that has no name anywhere in it");
+    }
+
+    [Test]
+    public void AnInterpolatedStringWhoseHandlerAppendReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeInterpolatedStringHandler("""
+            public BoundsHandler(int literalLength, int formattedCount) => _total = 0f;
+
+            public void AppendLiteral(string text) { }
+
+            public void AppendFormatted<T>(T formatted) => _total += Settings.Offset;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "each hole in the string is an AppendFormatted call the string does not name either");
+    }
+
+    /// <remarks>
+    /// The control for the two above: the same handler with nothing static behind any of its members,
+    /// which reports only if the walk answers to the string rather than to the bodies it runs.
+    /// </remarks>
+    [Test]
+    public void AnInterpolatedStringWhoseHandlerReadsNothingStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeInterpolatedStringHandler("""
+            public BoundsHandler(int literalLength, int formattedCount) => _total = 0f;
+
+            public void AppendLiteral(string text) { }
+
+            public void AppendFormatted<T>(T formatted) => _total += 1f;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a handler that reads nothing that moves between recordings answers the same way twice");
+    }
+
+    /// <remarks>
+    /// A handler is the shape that spells none of the members it runs: the compiler picks the constructor
+    /// and the appends off the parameter's type and fills them from the string's own parts.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeInterpolatedStringHandler(string members)
+        => Analyze($$"""
+            using System.Runtime.CompilerServices;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            [InterpolatedStringHandler]
+            internal ref struct BoundsHandler
+            {
+                private float _total;
+
+                {{members}}
+
+                public readonly float Total => _total;
+            }
+
+            internal static class Author
+            {
+                private static float Measure(BoundsHandler handler) => handler.Total;
+
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            Measure($"x{value.Y}"), value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+    [Test]
     public void AConditionalHelperReadingAMutableStatic_IsReportedWhenTheSymbolIsDefined()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze(

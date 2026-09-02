@@ -813,6 +813,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // An interpolated string used as a handler spells nothing it runs either: the compiler makes the
+        // handler and appends the string's own parts to it, choosing both off the type it is used as.
+        if (node is InterpolatedStringExpressionSyntax interpolated)
+        {
+            FollowInterpolatedStringHandler(context, model, interpolated, depth, walked, report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -993,6 +1001,61 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             depth,
             walked,
             report);
+    }
+
+    /// <summary>Follows the handler an interpolated string is filled through.</summary>
+    /// <remarks>
+    /// A string used as a string carries no handler the walk can read: the compiler fills it through
+    /// <c>DefaultInterpolatedStringHandler</c> or <c>string.Concat</c>, neither of which has source here,
+    /// so only an argument a handler declared in this compilation is asked for reaches a body at all. The
+    /// binder has already chosen the constructor and every append off that type, so both are read off its
+    /// answer rather than resolved a second time.
+    /// </remarks>
+    private static void FollowInterpolatedStringHandler(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        InterpolatedStringExpressionSyntax interpolated,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        IOperation? operation = model.GetOperation(interpolated, context.CancellationToken);
+
+        // The handler creation, the conversion to it and the string it fills all carry this same syntax,
+        // so which of the three the model answers with is not fixed.
+        while (operation?.Parent is { } outer && outer.Syntax == interpolated)
+            operation = outer;
+
+        while (operation is IConversionOperation or IParenthesizedOperation)
+        {
+            operation = operation is IConversionOperation conversion
+                ? conversion.Operand
+                : ((IParenthesizedOperation)operation).Operand;
+        }
+
+        if (operation is not IInterpolatedStringHandlerCreationOperation creation)
+            return;
+
+        if (creation.HandlerCreation is IObjectCreationOperation { Constructor: { } constructor })
+            FollowConstructor(context, constructor, interpolated, depth, walked, report);
+
+        foreach (IOperation part in creation.Descendants())
+        {
+            if (part is not IInterpolatedStringAppendOperation
+                { AppendCall: IInvocationOperation { TargetMethod: { } appended } })
+            {
+                continue;
+            }
+
+            FollowCall(
+                context,
+                appended,
+                interpolated,
+                RunsAStaticMethod(appended) ? "static method" : "method",
+                depth,
+                walked,
+                report);
+        }
     }
 
     /// <summary>Follows the members a <c>foreach</c> runs on the enumerator it makes.</summary>
