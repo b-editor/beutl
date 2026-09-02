@@ -523,10 +523,11 @@ public readonly struct Rect
         }
 
         // The divisor is affine over the rectangle, so a single sign at the corners means the singularity
-        // lies outside it and the mapped-corner box is already exact. A rectangle wholly in front of the eye
-        // is still measured against the cutoff rather than against zero: when even its farthest corner falls
-        // short of the cutoff, nothing reaches it and the clip below keeps nothing.
-        if ((min > 0 && max >= nearPlane) || max < 0)
+        // lies outside it. That alone is not what makes the mapped-corner box exact: a rectangle wholly in
+        // front of the eye can still hold a corner nearer than the cutoff, and mapping that corner is the
+        // unbounded box the cutoff exists to refuse. So the box is taken whole only when every corner reaches
+        // the cutoff, or when the rectangle sits wholly behind the eye and there is no cutoff to reach.
+        if (min >= nearPlane || max < 0)
             return TransformToMappedCornerAABB(matrix);
 
         Span<Point> clipped = stackalloc Point[8];

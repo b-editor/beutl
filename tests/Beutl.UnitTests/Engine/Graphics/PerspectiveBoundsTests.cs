@@ -21,12 +21,16 @@ public sealed class PerspectiveBoundsTests
     [TestCase(0.010f)]
     [TestCase(-0.010f)]
     [TestCase(0.0150f)]
-    [TestCase(0.0160f)]
-    [TestCase(0.0161f)]
-    public void NonCrossingPerspective_IsBitIdenticalToTheMappedCornerBox(float persX)
+    public void PerspectiveReachingTheCutoffEverywhere_IsBitIdenticalToTheMappedCornerBox(float persX)
     {
         Matrix matrix = Compose(Perspective(persX));
-        Assert.That(matrix.GetTransformDivisor(s_local.TopLeft), Is.GreaterThan(0));
+        foreach (Point corner in Corners(s_local))
+        {
+            Assert.That(
+                matrix.GetTransformDivisor(corner),
+                Is.GreaterThanOrEqualTo(Rect.DefaultNearPlane),
+                "no corner may fall short of the cutoff, or the box is not the mapped-corner one");
+        }
 
         Rect expected = s_local.TransformToMappedCornerAABB(matrix);
         Rect actual = s_local.TransformToAABB(matrix);
@@ -37,6 +41,41 @@ public sealed class PerspectiveBoundsTests
             Assert.That(actual.Y, Is.EqualTo(expected.Y));
             Assert.That(actual.Width, Is.EqualTo(expected.Width));
             Assert.That(actual.Height, Is.EqualTo(expected.Height));
+        });
+    }
+
+    [TestCase(0.0160f)]
+    [TestCase(0.0161f)]
+    public void PerspectiveInFrontOfTheEyeButShortOfTheCutoff_IsStillClippedToIt(float persX)
+    {
+        // Between the cutoff and the straddle threshold: every corner is in front of the eye, so no
+        // singularity lies inside, yet the near edge sits far closer than the cutoff. Mapping that edge
+        // is the unbounded box the cutoff exists to refuse.
+        Assert.That(MathF.Abs(persX), Is.LessThan(StraddleThreshold));
+        Matrix matrix = Compose(Perspective(persX));
+        foreach (Point corner in Corners(s_local))
+            Assert.That(matrix.GetTransformDivisor(corner), Is.GreaterThan(0));
+
+        float crossing = 62f + ((Rect.DefaultNearPlane - 1f) / persX);
+        var reachingTheCutoff = new Rect(crossing, 0, s_local.Right - crossing, s_local.Height);
+
+        Rect actual = s_local.TransformToAABB(matrix);
+        Rect expected = reachingTheCutoff.TransformToMappedCornerAABB(matrix);
+        Rect unclipped = s_local.TransformToMappedCornerAABB(matrix);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual.Left, Is.EqualTo(expected.Left).Within(0.05f));
+            Assert.That(actual.Right, Is.EqualTo(expected.Right).Within(0.05f));
+            Assert.That(actual.Width, Is.LessThan(unclipped.Width / 4f),
+                "the fixture must exercise a case where the cutoff changes the answer");
+
+            // What nearPlane documents: a lower cutoff widens the box. While the sign of the divisor
+            // decided this case, the two answers were identical whatever cutoff was asked for.
+            Assert.That(
+                s_local.TransformToAABB(matrix, 0.005f).Width,
+                Is.GreaterThan(actual.Width),
+                "a cutoff the near edge does reach must keep more of the box");
         });
     }
 
