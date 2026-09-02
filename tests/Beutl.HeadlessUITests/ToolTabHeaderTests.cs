@@ -163,10 +163,17 @@ public class ToolTabHeaderTests
         EditViewModel editor = await OpenEditorForNewScene("tooltab-reentrant-editor-dispose");
         var context = new FakeToolContext("editor dispose");
         Assert.That(await editor.OpenToolTabAsync(context), Is.True);
-        context.OnDispose = () => editor.DisposeAsync();
+        var closeService = (IEditorContextCloseService)editor.GetService(
+            typeof(IEditorContextCloseService))!;
+        EditorContextCloseRequest closeRequest = default;
+        context.OnDispose = () =>
+        {
+            closeRequest = closeService.RequestClose(editor);
+            return ValueTask.CompletedTask;
+        };
 
         await editor.CloseToolTabAsync(context).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-        await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.That(context.DisposeCount, Is.EqualTo(1));
     }
@@ -593,7 +600,7 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
-    public async Task DefaultContextCanSynchronouslyRequestEditorDisposalWithoutDeadlock()
+    public async Task DefaultContextCanRequestEditorCloseWithoutDeadlock()
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("tooltab-default-dispose-reentry");
@@ -607,6 +614,8 @@ public class ToolTabHeaderTests
         Assert.Multiple(() =>
         {
             Assert.That(extension.ContextCreationCount, Is.EqualTo(1));
+            Assert.That(extension.CloseRequests, Is.Not.Empty);
+            Assert.That(extension.CloseRequestsWerePending, Is.True);
             Assert.That(extension.CreatedContext?.DisposeCount, Is.EqualTo(1));
             Assert.That(TestShell.Editor.TabItems, Does.Not.Contain(ownerTab));
             Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.Not.SameAs(ownerTab));
@@ -618,7 +627,7 @@ public class ToolTabHeaderTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("tooltab-default-dispose-admission");
-        var extension = new DisposingDefaultToolExtension(waitForDisposal: false);
+        var extension = new DisposingDefaultToolExtension();
         editor.DockHost.DefaultExtensionsOverride = [extension];
 
         await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
@@ -627,6 +636,7 @@ public class ToolTabHeaderTests
         Assert.Multiple(() =>
         {
             Assert.That(extension.ContextCreationCount, Is.EqualTo(1));
+            Assert.That(extension.CloseRequests, Is.Not.Empty);
             Assert.That(extension.CreatedContext?.DisposeCount, Is.EqualTo(1));
             Assert.That(editor.DockHost.Factory.EnumerateTools(), Does.Not.Contain(
                 Has.Property(nameof(BeutlToolDockable.ToolContext))
@@ -635,7 +645,7 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
-    public async Task InitialDefaultContextCanSynchronouslyRequestEditorDisposal()
+    public async Task InitialDefaultContextCanRequestEditorClose()
     {
         await TestReset.ResetShellAsync();
         var extension = new DisposingDefaultToolExtension();
@@ -657,6 +667,8 @@ public class ToolTabHeaderTests
             Assert.Multiple(() =>
             {
                 Assert.That(extension.ContextCreationCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(extension.CloseRequests, Is.Not.Empty);
+                Assert.That(extension.CloseRequestsWerePending, Is.True);
                 Assert.That(extension.CreatedContexts, Is.All.Matches<FakeToolContext>(
                     context => context.DisposeCount == 1));
                 Assert.That(TestShell.Editor.TryGetTabItem(scene, out _), Is.False);
@@ -1193,7 +1205,7 @@ public class ToolTabHeaderTests
             [NotNullWhen(true)] out IToolContext? context)
         {
             if (DisposeInCreate)
-                editorContext.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                RequestEditorClose(editorContext);
             var created = new FakeToolContext("restore reentry", this);
             CreatedContexts.Add(created);
             if (ThrowOnDispose)
@@ -1202,7 +1214,7 @@ public class ToolTabHeaderTests
                     new InvalidOperationException("deferred close failed"));
             }
             if (DisposeInRead)
-                created.OnRead = _ => editorContext.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                created.OnRead = _ => RequestEditorClose(editorContext);
             if (CloseInRead)
                 created.OnRead = _ => editorContext.CloseToolTabAsync(created).AsTask().GetAwaiter().GetResult();
             if (DelayCloseFromRead)
@@ -1228,17 +1240,26 @@ public class ToolTabHeaderTests
             context = created;
             return true;
         }
+
+        private static void RequestEditorClose(IEditorContext editorContext)
+        {
+            var closeService = (IEditorContextCloseService?)editorContext.GetService(
+                typeof(IEditorContextCloseService));
+            _ = closeService?.RequestClose(editorContext);
+        }
     }
 
-    private sealed class DisposingDefaultToolExtension(
-        bool waitForDisposal = true,
-        int disposeCalls = 1) : ToolTabExtension
+    private sealed class DisposingDefaultToolExtension(int disposeCalls = 1) : ToolTabExtension
     {
         public int ContextCreationCount { get; private set; }
 
         public FakeToolContext? CreatedContext { get; private set; }
 
         public List<FakeToolContext> CreatedContexts { get; } = [];
+
+        public List<EditorContextCloseRequest> CloseRequests { get; } = [];
+
+        public bool CloseRequestsWerePending { get; private set; } = true;
 
         public override bool CanMultiple => true;
         public override string Name => "DisposingDefaultToolTab";
@@ -1259,11 +1280,13 @@ public class ToolTabHeaderTests
             [NotNullWhen(true)] out IToolContext? context)
         {
             ContextCreationCount++;
+            var closeService = (IEditorContextCloseService)editorContext.GetService(
+                typeof(IEditorContextCloseService))!;
             for (int i = 0; i < disposeCalls; i++)
             {
-                ValueTask disposal = editorContext.DisposeAsync();
-                if (waitForDisposal)
-                    disposal.AsTask().GetAwaiter().GetResult();
+                EditorContextCloseRequest request = closeService.RequestClose(editorContext);
+                CloseRequests.Add(request);
+                CloseRequestsWerePending &= !request.Completion.IsCompleted;
             }
             context = CreatedContext = new FakeToolContext("disposing-default", this);
             CreatedContexts.Add(CreatedContext);
