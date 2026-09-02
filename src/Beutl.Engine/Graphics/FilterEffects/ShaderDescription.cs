@@ -189,7 +189,7 @@ public sealed class ShaderDescription
         Action<ShaderBindingBuilder>? bindings = null,
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         => CurrentPixel(
             new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
             bindings,
@@ -209,7 +209,7 @@ public sealed class ShaderDescription
         Action<ShaderBindingBuilder>? bindings,
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         if (source.Kind != ShaderDescriptionKind.CurrentPixel)
             throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
@@ -232,7 +232,7 @@ public sealed class ShaderDescription
     }
 
     /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
-    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IEnumerable{RenderResourceSlot})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
+    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IReadOnlyList{RenderResourceSlot})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
     internal static ShaderDescription CurrentPixel(
         SkslSource source,
         SpirvShaderLowering spirvLowering,
@@ -292,7 +292,7 @@ public sealed class ShaderDescription
         RenderInputDemandContract inputDemand = default,
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest?.ThrowIfUninitialized(nameof(hitTest));
@@ -316,7 +316,7 @@ public sealed class ShaderDescription
     }
 
     /// <summary>Creates a materializing shader stage from a source that was already normalized and validated.</summary>
-    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderBindingBuilder}, SKShaderTileMode, RenderInputDemandContract, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IEnumerable{RenderResourceSlot})" path="/param|/remarks|/exception"/>
+    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderBindingBuilder}, SKShaderTileMode, RenderInputDemandContract, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IReadOnlyList{RenderResourceSlot})" path="/param|/remarks|/exception"/>
     public static ShaderDescription WholeSource(
         SkslSource source,
         RenderBoundsContract bounds,
@@ -325,7 +325,7 @@ public sealed class ShaderDescription
         RenderInputDemandContract inputDemand = default,
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));

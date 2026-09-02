@@ -70,7 +70,7 @@ public sealed class GeometrySessionTests
             RenderBoundsContract bounds,
             RenderHitTestContract hitTest,
             bool requiresReadback,
-            IEnumerable<RenderResourceBinding> resources)
+            IReadOnlyList<RenderResourceBinding> resources)
         {
             return GeometryDescription.CreateRequestLocal(
                 static _ => { },

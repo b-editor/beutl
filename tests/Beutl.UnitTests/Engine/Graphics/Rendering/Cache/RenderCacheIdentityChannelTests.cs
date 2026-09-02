@@ -121,8 +121,8 @@ public sealed class RenderCacheIdentityChannelTests
     private static OpaqueRenderDescription Describe<TState>(
         TState state,
         Action<OpaqueRenderSession, TState> execute,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => OpaqueRenderDescription.Create(
             state,

@@ -85,8 +85,8 @@ public sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -125,7 +125,7 @@ public sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
@@ -156,7 +156,7 @@ public sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
         bool builtInBackdropCapturesBackingTarget = false,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -186,7 +186,7 @@ public sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         RenderDeviceGridMapping deviceGridMapping,
         object definitionFingerprint,
-        IEnumerable<RenderResourceBinding>? resources,
+        IReadOnlyList<RenderResourceBinding>? resources,
         bool isValueReplayMap,
         RenderScopeTransformSpace transformSpace,
         bool builtInBackdropCapturesBackingTarget = false)

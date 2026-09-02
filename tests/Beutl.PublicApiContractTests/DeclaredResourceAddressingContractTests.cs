@@ -21,7 +21,7 @@ public sealed class DeclaredResourceAddressingContractTests
     private static readonly Color s_fill = Colors.Red;
 
     private static OpaqueRenderDescription TwoPayloadDescription(
-        IEnumerable<RenderResourceBinding> bindings)
+        IReadOnlyList<RenderResourceBinding> bindings)
         => OpaqueRenderDescription.Create(
             (byte)0,
             static (session, _) => session.UseResource(s_leftSlot, left =>

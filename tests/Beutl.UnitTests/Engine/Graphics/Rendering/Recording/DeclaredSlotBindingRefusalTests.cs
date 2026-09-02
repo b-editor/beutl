@@ -70,6 +70,70 @@ public sealed class DeclaredSlotBindingRefusalTests
         });
     }
 
+    /// <remarks>
+    /// The declaration is checked before the bindings addressed to it, so a slot named twice is refused as
+    /// itself rather than as the count mismatch it would otherwise turn into one line later.
+    /// </remarks>
+    [Test]
+    public void DeclaringOneSlotTwice_IsRefused()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        var slot = new RenderResourceSlot<Payload>();
+
+        ArgumentException refusal = AssertRefuses([slot, slot], [slot.Bind(Borrow(registry))]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                refusal.Message,
+                Does.StartWith("A render resource slot cannot be declared more than once."));
+            Assert.That(refusal.ParamName, Is.EqualTo("slots"));
+        });
+    }
+
+    /// <remarks>
+    /// Past eight slots the repeat check stops being a scan and builds a set instead, so the refusal has a
+    /// second implementation to answer for.
+    /// </remarks>
+    [Test]
+    public void DeclaringOneSlotTwice_IsRefusedPastTheLinearScanWidth()
+    {
+        const int Width = 12;
+        using var registry = new RenderRequestResourceRegistry();
+        var slots = new RenderResourceSlot[Width];
+        for (int index = 0; index < Width; index++)
+            slots[index] = new RenderResourceSlot<Payload>();
+
+        slots[Width - 1] = slots[0];
+
+        ArgumentException refusal = AssertRefuses(
+            slots,
+            [((RenderResourceSlot<Payload>)slots[0]).Bind(Borrow(registry))]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                refusal.Message,
+                Does.StartWith("A render resource slot cannot be declared more than once."));
+            Assert.That(refusal.ParamName, Is.EqualTo("slots"));
+        });
+    }
+
+    [Test]
+    public void DeclaringANullSlot_IsRefused()
+    {
+        using var registry = new RenderRequestResourceRegistry();
+        var slot = new RenderResourceSlot<Payload>();
+
+        ArgumentException refusal = AssertRefuses([slot, null!], [slot.Bind(Borrow(registry))]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(refusal.Message, Does.StartWith("A render resource slot cannot be null."));
+            Assert.That(refusal.ParamName, Is.EqualTo("slots"));
+        });
+    }
+
     [Test]
     public void BindingASlotTheDescriptionDidNotDeclare_IsRefused()
     {
@@ -305,8 +369,8 @@ public sealed class DeclaredSlotBindingRefusalTests
         => registry.RegisterBorrowed(new Payload());
 
     private static OpaqueRenderDescription Describe(
-        IEnumerable<RenderResourceSlot>? slots,
-        IEnumerable<RenderResourceBinding>? bindings)
+        IReadOnlyList<RenderResourceSlot>? slots,
+        IReadOnlyList<RenderResourceBinding>? bindings)
         => OpaqueRenderDescription.Create(
             s_bounds,
             static (session, bounds) =>
@@ -322,8 +386,8 @@ public sealed class DeclaredSlotBindingRefusalTests
             slots: slots);
 
     private static ArgumentException AssertRefuses(
-        IEnumerable<RenderResourceSlot>? slots,
-        IEnumerable<RenderResourceBinding>? bindings)
+        IReadOnlyList<RenderResourceSlot>? slots,
+        IReadOnlyList<RenderResourceBinding>? bindings)
         => Assert.Throws<ArgumentException>(() => Describe(slots, bindings))!;
 
     private sealed class RefusalProbeNode(Action<RenderNodeContext> probe) : RenderNode

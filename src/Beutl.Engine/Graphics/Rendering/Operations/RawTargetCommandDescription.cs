@@ -46,8 +46,8 @@ public sealed class RawTargetCommandDescription
         Action<RawTargetCommandSession, TState> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -72,7 +72,7 @@ public sealed class RawTargetCommandDescription
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             queryBounds,
@@ -85,7 +85,7 @@ public sealed class RawTargetCommandDescription
         Rect queryBounds,
         RenderHitTestContract hitTest,
         object definitionFingerprint,
-        IEnumerable<RenderResourceBinding>? resources)
+        IReadOnlyList<RenderResourceBinding>? resources)
     {
         RenderRectValidation.ThrowIfInvalidInput(queryBounds, nameof(queryBounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));

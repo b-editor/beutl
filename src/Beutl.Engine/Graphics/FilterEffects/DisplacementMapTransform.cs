@@ -139,7 +139,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
     private protected readonly record struct HitTestDeclaration(
         RenderHitTestContract? Contract,
         IReadOnlyList<RenderResourceBinding>? Resources,
-        IEnumerable<RenderResourceSlot>? Slots);
+        IReadOnlyList<RenderResourceSlot>? Slots);
 
     /// <summary>Declares a hit test that resolves a coordinate the way the shader fallback resamples one.</summary>
     /// <remarks>

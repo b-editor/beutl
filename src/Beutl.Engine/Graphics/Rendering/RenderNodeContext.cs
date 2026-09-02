@@ -581,7 +581,7 @@ public sealed class RenderNodeContext
         bool directReplayAtExactIntegerReduction,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         bool supportsDirectDstOut = true,
-        IEnumerable<RenderResource>? resources = null,
+        IReadOnlyList<RenderResource>? resources = null,
         Thickness rasterOutset = default)
     {
         ArgumentNullException.ThrowIfNull(draw);
@@ -590,10 +590,10 @@ public sealed class RenderNodeContext
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
 
         // The engine binds each declared resource to a slot of its own, one per entry, so the result is
-        // sized from the copy rather than grown into by a projection. Declaring none is what every painted
-        // primitive that only fills and strokes does, so that case reaches the shared empty array.
-        IReadOnlyList<RenderResource> declared =
-            RenderDescriptionValidation.CopyResources(resources, nameof(resources));
+        // sized from the declaration rather than grown into by a projection. Declaring none is what every
+        // painted primitive that only fills and strokes does, so that case reaches the shared empty array.
+        IReadOnlyList<RenderResource> declared = resources ?? Array.Empty<RenderResource>();
+        RenderDescriptionValidation.ThrowIfResourcesUndeclarable(declared, nameof(resources));
         RenderResourceBinding[] engineBindings = declared.Count == 0
             ? []
             : new RenderResourceBinding[declared.Count];
@@ -677,8 +677,8 @@ public sealed class RenderNodeContext
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         bool supportsDirectDstOut = true,
-        IEnumerable<RenderResourceBinding>? bindings = null,
-        IEnumerable<RenderResourceSlot>? slots = null,
+        IReadOnlyList<RenderResourceBinding>? bindings = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null,
         Thickness rasterOutset = default)
         where TState : notnull
     {

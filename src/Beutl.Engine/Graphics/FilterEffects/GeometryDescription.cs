@@ -99,8 +99,8 @@ public sealed class GeometryDescription
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -132,7 +132,7 @@ public sealed class GeometryDescription
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(render, nameof(render)),
             bounds,
@@ -149,7 +149,7 @@ public sealed class GeometryDescription
         object definitionFingerprint,
         bool requiresReadback,
         RenderInputDemandContract inputDemand,
-        IEnumerable<RenderResourceBinding>? resources)
+        IReadOnlyList<RenderResourceBinding>? resources)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));

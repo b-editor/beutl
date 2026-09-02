@@ -59,8 +59,8 @@ public sealed class MaterializedInputDescription
         PixelRect deviceBounds,
         Vector deviceGridOffset,
         RenderHitTestContract hitTest,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (target.RegistrationState == RenderResourceRegistrationState.Released)

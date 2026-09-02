@@ -73,9 +73,9 @@ public sealed class TargetCommandDescription
         RenderHitTestContract hitTest,
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceBinding>? resources = null,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -111,7 +111,7 @@ public sealed class TargetCommandDescription
         RenderHitTestContract hitTest,
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceBinding>? resources = null,
         RenderInputDemandContract inputDemand = default)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
@@ -133,7 +133,7 @@ public sealed class TargetCommandDescription
         IEnumerable<RenderInputReadback>? inputReadbacks,
         object definitionFingerprint,
         RenderInputDemandContract inputDemand,
-        IEnumerable<RenderResourceBinding>? resources)
+        IReadOnlyList<RenderResourceBinding>? resources)
     {
         affectedRegion.ThrowIfUninitialized(nameof(affectedRegion));
         RenderRectValidation.ThrowIfInvalidInput(queryBounds, nameof(queryBounds));

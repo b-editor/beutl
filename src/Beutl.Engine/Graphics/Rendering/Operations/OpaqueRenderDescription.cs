@@ -171,9 +171,9 @@ public sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceBinding>? resources = null,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -211,7 +211,7 @@ public sealed class OpaqueRenderDescription
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
@@ -232,7 +232,7 @@ public sealed class OpaqueRenderDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         object definitionFingerprint,
         IEnumerable<RenderInputReadback>? inputReadbacks,
-        IEnumerable<RenderResourceBinding>? resources,
+        IReadOnlyList<RenderResourceBinding>? resources,
         RenderInputDemandContract inputDemand = default)
     {
         ArgumentNullException.ThrowIfNull(bounds);
@@ -337,7 +337,7 @@ public sealed class OpaqueRenderDescription
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity,
-        IEnumerable<RenderResource>? resources = null)
+        IReadOnlyList<RenderResource>? resources = null)
         where TState : notnull
     {
         if (backendBoundary == RenderBackendBoundary.None || !Enum.IsDefined(backendBoundary))
@@ -389,11 +389,11 @@ public sealed class OpaqueRenderDescription
     }
 
     private static IReadOnlyList<RenderResourceBinding> BindInternalResources(
-        IEnumerable<RenderResource>? resources)
+        IReadOnlyList<RenderResource>? resources)
     {
-        IReadOnlyList<RenderResource> copy =
-            RenderDescriptionValidation.CopyResources(resources, nameof(resources));
-        return copy
+        IReadOnlyList<RenderResource> declared = resources ?? Array.Empty<RenderResource>();
+        RenderDescriptionValidation.ThrowIfResourcesUndeclarable(declared, nameof(resources));
+        return declared
             .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
             .ToArray();
     }

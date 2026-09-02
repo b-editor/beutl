@@ -44,7 +44,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     /// <summary>Binds <paramref name="resources"/> against <paramref name="slots"/> through one factory.</summary>
     private delegate IReadOnlyList<RenderResourceBinding> BindSlots(
         IReadOnlyList<RenderResourceBinding> resources,
-        IEnumerable<RenderResourceSlot>? slots);
+        IReadOnlyList<RenderResourceSlot>? slots);
 
     [Test]
     public void EffectItemDescriptions_AreTheExternalRecordingSurface()
@@ -114,11 +114,11 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             Assert.That(
                 parameters.Any(static parameter =>
                     parameter.Name == "bindings"
-                    && parameter.ParameterType == typeof(IEnumerable<RenderResourceBinding>)),
+                    && parameter.ParameterType == typeof(IReadOnlyList<RenderResourceBinding>)),
                 Is.True,
                 "a bare RenderResource cannot be addressed by a slot, so a declared hit test could never read it");
             Assert.That(
-                parameters.Any(static parameter => parameter.ParameterType == typeof(IEnumerable<RenderResource>)),
+                parameters.Any(static parameter => parameter.ParameterType == typeof(IReadOnlyList<RenderResource>)),
                 Is.False);
             Assert.That(
                 parameters.Any(static parameter => parameter.Name == "directReplayAtExactIntegerReduction"),
@@ -127,7 +127,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             Assert.That(
                 parameters.Any(static parameter =>
                     parameter.Name == "slots"
-                    && parameter.ParameterType == typeof(IEnumerable<RenderResourceSlot>)),
+                    && parameter.ParameterType == typeof(IReadOnlyList<RenderResourceSlot>)),
                 Is.True);
         });
     }
@@ -165,7 +165,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                     Assert.That(
                         overload.GetParameters().Any(static parameter =>
                             parameter.Name == "slots"
-                            && parameter.ParameterType == typeof(IEnumerable<RenderResourceSlot>)),
+                            && parameter.ParameterType == typeof(IReadOnlyList<RenderResourceSlot>)),
                         Is.True,
                         label);
                 }

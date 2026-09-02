@@ -51,8 +51,8 @@ public sealed class RawTargetScopeDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -83,7 +83,7 @@ public sealed class RawTargetScopeDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         => CreateCore(
             RenderDescriptionValidation.CreateRequestLocalChannel(execute, nameof(execute)),
             bounds,
@@ -98,7 +98,7 @@ public sealed class RawTargetScopeDescription
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         object definitionFingerprint,
-        IEnumerable<RenderResourceBinding>? resources)
+        IReadOnlyList<RenderResourceBinding>? resources)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest.ThrowIfUninitialized(nameof(hitTest));

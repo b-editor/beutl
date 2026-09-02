@@ -19,9 +19,9 @@ internal static class RenderDescriptionFactory
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceBinding>? resources = null,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         return OpaqueRenderDescription.Create(
             execute,
@@ -43,8 +43,8 @@ internal static class RenderDescriptionFactory
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         return GeometryDescription.Create(
             render,
@@ -65,8 +65,8 @@ internal static class RenderDescriptionFactory
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         return TargetScopeDescription.Create(
             execute,
@@ -88,9 +88,9 @@ internal static class RenderDescriptionFactory
         RenderHitTestContract hitTest,
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IEnumerable<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceBinding>? resources = null,
         RenderInputDemandContract inputDemand = default,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         return TargetCommandDescription.Create(
             execute,

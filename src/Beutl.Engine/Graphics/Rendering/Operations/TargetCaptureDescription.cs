@@ -43,8 +43,8 @@ public sealed class TargetCaptureDescription
         Rect bounds,
         RenderHitTestContract hitTest,
         TargetCaptureScaleContract scale,
-        IEnumerable<RenderResourceBinding>? resources = null,
-        IEnumerable<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null,
+        IReadOnlyList<RenderResourceSlot>? slots = null)
     {
         sourceRegion.ThrowIfUninitialized(nameof(sourceRegion));
         if (sourceRegion.Kind == TargetRegionKind.Empty)
