@@ -6196,6 +6196,132 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             """);
 
     [Test]
+    public void AQueryWhoseWhereReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            public BoundsQuery Where(Func<float, bool> predicate)
+                => new BoundsQuery { Total = Settings.Offset };
+
+            public BoundsQuery Select(Func<float, float> selector) => this;
+            """,
+            "from x in new BoundsQuery() where x > 0f select x * 2f");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a query clause is a call on the source's own type that the clause never spells");
+    }
+
+    [Test]
+    public void AQueryWhoseSelectReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            public BoundsQuery Select(Func<float, float> selector)
+                => new BoundsQuery { Total = Settings.Offset };
+            """,
+            "from x in new BoundsQuery() select x * 2f");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "select and group are chosen off the source the same way the clauses before them are");
+    }
+
+    [Test]
+    public void AQueryWhoseOrderByReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            public BoundsQuery OrderBy<TKey>(Func<float, TKey> selector)
+                => new BoundsQuery { Total = Settings.Offset };
+
+            public BoundsQuery Select(Func<float, float> selector) => this;
+            """,
+            "from x in new BoundsQuery() orderby x select x * 2f");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "an ordering carries its own chosen method rather than the clause it is written in");
+    }
+
+    [Test]
+    public void AQueryWhoseRangeVariableTypeRunsACastReadingAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            public BoundsQuery Cast<T>() => new BoundsQuery { Total = Settings.Offset };
+
+            public BoundsQuery Select(Func<float, float> selector) => this;
+            """,
+            "from float x in new BoundsQuery() select x * 2f");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "spelling the range variable's type adds a Cast call the clause spells no more than the rest");
+    }
+
+    /// <remarks>
+    /// The control for the four above: the same queries over operators that read nothing, which report
+    /// only if the walk answers to the query rather than to the bodies it selects.
+    /// </remarks>
+    [Test]
+    public void AQueryWhoseOperatorsReadNothingStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeQuery(
+            """
+            public BoundsQuery Cast<T>() => this;
+
+            public BoundsQuery Where(Func<float, bool> predicate) => this;
+
+            public BoundsQuery OrderBy<TKey>(Func<float, TKey> selector) => this;
+
+            public BoundsQuery Select(Func<float, float> selector) => this;
+            """,
+            "from float x in new BoundsQuery() where x > 0f orderby x select x * 2f");
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "operators that hand the source back read nothing that moves between recordings");
+    }
+
+    /// <remarks>
+    /// A query names none of the operators it runs: the compiler picks them off the source's own type and
+    /// calls them in the order the clauses are written.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeQuery(string operators, string query)
+        => Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsQuery
+            {
+                public float Total { get; set; }
+
+                {{operators}}
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value => new Rect(
+                            ({{query}}).Total, value.Y, value.Width, value.Height),
+                        static value => value);
+            }
+            """);
+
+    [Test]
     public void AConditionalHelperReadingAMutableStatic_IsReportedWhenTheSymbolIsDefined()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze(

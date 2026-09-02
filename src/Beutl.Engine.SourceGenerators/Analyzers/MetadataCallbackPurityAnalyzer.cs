@@ -821,6 +821,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A query names none of the operators it runs: the compiler picks Where, Select, OrderBy and the
+        // rest off the source's own type and calls them in the order the clauses are written.
+        if (node is QueryClauseSyntax or SelectOrGroupClauseSyntax or OrderingSyntax)
+        {
+            FollowQueryOperators(context, model, node, depth, walked, report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -1055,6 +1063,56 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                 depth,
                 walked,
                 report);
+        }
+    }
+
+    /// <summary>Follows the query-pattern operator a clause runs.</summary>
+    /// <remarks>
+    /// The binder has already chosen each operator off the source it is written over, so it is read off
+    /// that answer rather than resolved a second time. An <c>orderby</c> carries nothing itself - each
+    /// ordering under it carries its own <c>OrderBy</c> or <c>ThenBy</c> - and a range variable written
+    /// with a type adds the <c>Cast</c> that gives it that type. A query over a framework sequence
+    /// resolves to <c>Enumerable</c> or <c>Queryable</c>, which have no source here and stop at
+    /// <see cref="FollowCall"/>.
+    /// </remarks>
+    private static void FollowQueryOperators(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode clause,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        void Follow(ISymbol? symbol)
+        {
+            if (symbol is not IMethodSymbol chosen)
+                return;
+
+            FollowCall(
+                context,
+                chosen,
+                clause,
+                RunsAStaticMethod(chosen) ? "static method" : "method",
+                depth,
+                walked,
+                report);
+        }
+
+        switch (clause)
+        {
+            case QueryClauseSyntax query:
+                QueryClauseInfo written = model.GetQueryClauseInfo(query, context.CancellationToken);
+                Follow(written.CastInfo.Symbol);
+                Follow(written.OperationInfo.Symbol);
+                break;
+
+            case SelectOrGroupClauseSyntax selectOrGroup:
+                Follow(model.GetSymbolInfo(selectOrGroup, context.CancellationToken).Symbol);
+                break;
+
+            case OrderingSyntax ordering:
+                Follow(model.GetSymbolInfo(ordering, context.CancellationToken).Symbol);
+                break;
         }
     }
 
