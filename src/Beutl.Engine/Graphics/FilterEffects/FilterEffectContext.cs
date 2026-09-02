@@ -1136,13 +1136,3 @@ internal record FEItem_CustomEffect<T>(
         Action.Invoke(Data, context);
     }
 }
-
-internal sealed record FEItem_Shader(ShaderDescription Description) : IFEItem
-{
-    public Rect TransformBounds(Rect bounds) => Description.Bounds.TransformBounds(bounds);
-}
-
-internal sealed record FEItem_Geometry(GeometryDescription Description) : IFEItem
-{
-    public Rect TransformBounds(Rect bounds) => Description.Bounds.TransformBounds(bounds);
-}

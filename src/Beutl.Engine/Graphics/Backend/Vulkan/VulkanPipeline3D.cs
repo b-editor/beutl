@@ -430,12 +430,3 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         });
     }
 }
-
-/// <summary>
-/// Vulkan-specific vertex input description.
-/// </summary>
-internal struct VulkanVertexInputDescription
-{
-    public VertexInputBindingDescription[] Bindings;
-    public VertexInputAttributeDescription[] Attributes;
-}

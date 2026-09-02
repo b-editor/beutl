@@ -14,19 +14,6 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
 
-public sealed record ExportVideoResponse(
-    string OutputPath,
-    long Frames,
-    long Samples,
-    string Duration,
-    string Encoder,
-    IReadOnlyList<string> Warnings);
-
-public sealed record ExportVideoResult(
-    string Status,
-    string? JobId,
-    ExportVideoResponse? Result);
-
 public sealed class VideoExporter(EncoderRegistration encoders)
 {
     // True only when FFmpeg is the sole encoder for this container, so a missing worker leaves no

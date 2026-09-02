@@ -8,16 +8,6 @@ using Beutl.Media;
 namespace Beutl.Graphics3D.Nodes;
 
 /// <summary>
-/// Entry for a transparent object to be rendered.
-/// </summary>
-public struct TransparentObjectEntry
-{
-    public Object3D.Resource Object;
-    public Matrix4x4 WorldMatrix;
-    public float DistanceToCamera;
-}
-
-/// <summary>
 /// Forward rendering pass for transparent objects.
 /// Draws transparent objects over the lit scene from LightingPass with alpha blending.
 /// Uses the depth buffer from GeometryPass for depth testing (without writing).

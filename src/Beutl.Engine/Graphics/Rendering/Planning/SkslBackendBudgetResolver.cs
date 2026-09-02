@@ -3,14 +3,6 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-internal enum SkslBackendCapabilityClass : byte
-{
-    Portable,
-    Vulkan,
-    Metal,
-    SpirvVulkan,
-}
-
 /// <summary>
 /// Selects finite fusion budgets for the active Skia backend and the Vulkan-native lowering.
 /// </summary>

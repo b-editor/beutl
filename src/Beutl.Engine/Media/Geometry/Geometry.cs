@@ -9,8 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-public sealed partial class FallbackGeometry : Geometry, IFallback;
-
 [FallbackType(typeof(FallbackGeometry))]
 public abstract partial class Geometry : EngineObject
 {

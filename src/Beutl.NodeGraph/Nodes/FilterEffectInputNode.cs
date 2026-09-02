@@ -30,12 +30,3 @@ public partial class FilterEffectInputNode : GraphNode
         }
     }
 }
-
-internal sealed class FilterEffectInputRenderNode : RenderNode
-{
-    internal FilterEffectInputBinding Bind(RenderNodeContext context)
-        => new(this, context);
-
-    public override void Process(RenderNodeContext context)
-        => context.PassThrough();
-}

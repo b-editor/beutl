@@ -1,6 +1,5 @@
 ﻿using System.Buffers.Binary;
 using System.Collections.ObjectModel;
-using System.Runtime.CompilerServices;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -198,24 +197,6 @@ internal sealed class SpirvShaderLowering
                 nameof(declaration)),
         };
     }
-}
-
-internal enum ShaderBackendPreference : byte
-{
-    Auto,
-    Sksl,
-    Spirv,
-}
-
-internal readonly record struct SpirvPushConstantBinding(string Name, int Offset);
-
-[InlineArray(ByteSize)]
-internal struct SpirvPushConstants
-{
-    public const int ByteSize = 128;
-    public const int UserByteOffset = 16;
-
-    private byte _element0;
 }
 
 internal sealed class SpirvShaderLoweringStructuralIdentity(

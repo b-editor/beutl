@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -11,19 +10,6 @@ using VkSemaphore = Silk.NET.Vulkan.Semaphore;
 namespace Beutl.Graphics.Backend.Vulkan;
 
 using Image = Silk.NET.Vulkan.Image;
-
-/// <summary>
-/// Parameters for bitmap rendering.
-/// </summary>
-internal readonly record struct RenderParams(
-    float SourceWidth,
-    float SourceHeight,
-    float DestWidth,
-    float DestHeight,
-    Stretch Stretch,
-    UIToneMappingOperator ToneMapping,
-    float Exposure,
-    bool IsSourceLinear);
 
 /// <summary>
 /// Orchestrates Vulkan swapchain rendering with a dedicated presentation thread and device.

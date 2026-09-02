@@ -49,11 +49,3 @@ public readonly struct TargetRegion
         }
     }
 }
-
-internal enum TargetRegionKind : byte
-{
-    Uninitialized,
-    Full,
-    Empty,
-    Region,
-}

@@ -6,12 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-public enum DotsWaveformMode
-{
-    MinMax,
-    Center,
-}
-
 [Display(Name = nameof(GraphicsStrings.WaveformShape_Dots), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DotsWaveformShape : WaveformShape
 {

@@ -165,15 +165,3 @@ internal sealed class RenderRequestOptions
         }
     }
 }
-
-internal readonly record struct RenderRequestPlanIdentity(
-    RenderRequestPurpose Purpose,
-    FusionMode FusionMode,
-    bool CacheEnabled,
-    RenderCacheRules CacheRules);
-
-internal enum FusionMode : byte
-{
-    Enabled,
-    Disabled,
-}

@@ -122,57 +122,6 @@ internal sealed class NestedRenderTargetBinding : IDisposable
     }
 }
 
-internal sealed class NestedRenderTargetImage
-{
-    private readonly RenderExecutionSessionToken _token;
-    private readonly SKImage _image;
-
-    public NestedRenderTargetImage(
-        RenderExecutionSessionToken token,
-        SKImage image,
-        Rect logicalBounds,
-        float density,
-        PixelRect deviceBounds)
-    {
-        _token = token;
-        _image = image;
-        LogicalBounds = logicalBounds;
-        Density = density;
-        DeviceBounds = deviceBounds;
-    }
-
-    public Rect LogicalBounds
-    {
-        get { _token.ThrowIfInactive(); return field; }
-    }
-
-    public float Density
-    {
-        get { _token.ThrowIfInactive(); return field; }
-    }
-
-    public PixelRect DeviceBounds
-    {
-        get { _token.ThrowIfInactive(); return field; }
-    }
-
-    public Rect RasterBounds
-    {
-        get
-        {
-            _token.ThrowIfInactive();
-            return DeviceBounds.ToRect(Density);
-        }
-    }
-
-    public void Draw(ImmediateCanvas canvas)
-    {
-        ArgumentNullException.ThrowIfNull(canvas);
-        _token.VerifyActiveCanvas(canvas);
-        canvas.DrawImageScaled(_image, RasterBounds);
-    }
-}
-
 internal enum NestedRenderTargetBindingState : byte
 {
     Empty,
@@ -180,58 +129,4 @@ internal enum NestedRenderTargetBindingState : byte
     Ready,
     Rejected,
     Disposed,
-}
-
-internal static class NestedRenderTargetBindingScope
-{
-    private static readonly AsyncLocal<Scope?> s_current = new();
-
-    public static void Use(object identity, NestedRenderTargetBinding binding, Action use)
-    {
-        ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(binding);
-        ArgumentNullException.ThrowIfNull(use);
-
-        Scope? previous = s_current.Value;
-        s_current.Value = new Scope(identity, binding, previous);
-        try
-        {
-            use();
-        }
-        finally
-        {
-            s_current.Value = previous;
-        }
-    }
-
-    public static bool TryGet(object identity, out NestedRenderTargetBinding binding)
-    {
-        ArgumentNullException.ThrowIfNull(identity);
-        for (Scope? current = s_current.Value; current is not null; current = current.Parent)
-        {
-            if (ReferenceEquals(current.Identity, identity))
-            {
-                binding = current.Binding;
-                return true;
-            }
-        }
-
-        binding = null!;
-        return false;
-    }
-
-    private sealed record Scope(
-        object Identity,
-        NestedRenderTargetBinding Binding,
-        Scope? Parent);
-}
-
-internal sealed record RecordedNestedRenderTarget(
-    RecordedNestedRenderRequest Recording,
-    RenderResource<NestedRenderTargetBinding> Binding,
-    NestedRenderTargetBinding Target)
-{
-    public RenderRequest Request => Recording.Request;
-
-    public RecordedRenderGraph Graph => Recording.Graph;
 }

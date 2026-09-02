@@ -831,9 +831,3 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         }
     }
 }
-
-internal enum VulkanCommandPoolEvent : byte
-{
-    Submission,
-    FenceWait,
-}

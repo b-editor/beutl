@@ -167,25 +167,3 @@ internal sealed class RenderRequestOwner : IDisposable
         }
     }
 }
-
-internal sealed class RenderOwnershipToken
-{
-    public RenderOwnershipToken(RenderRequestOwner owner, Action cleanup)
-    {
-        Owner = owner;
-        Cleanup = cleanup;
-    }
-
-    public RenderRequestOwner Owner { get; }
-
-    public Action Cleanup { get; }
-
-    public RenderOwnershipState State { get; set; }
-}
-
-internal enum RenderOwnershipState : byte
-{
-    Pending,
-    Discharged,
-    CacheTransferred,
-}

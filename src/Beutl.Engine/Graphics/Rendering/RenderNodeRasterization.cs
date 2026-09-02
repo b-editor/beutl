@@ -63,12 +63,3 @@ public sealed class RenderNodeRasterization : IDisposable
         bitmap?.Dispose();
     }
 }
-
-public readonly record struct RenderNodeMeasurement(
-    Rect OutputBounds,
-    Rect QueryBounds,
-    EffectiveScale EffectiveScale,
-    RenderValueCardinality ValueCardinality,
-    bool HasFragments,
-    bool HasContributingValues,
-    bool HasTargetEffects);

@@ -51,5 +51,3 @@ internal sealed class ShaderUniformBinding
         }
     }
 }
-
-internal sealed record ShaderUniformValue(float[]? Floats, int[]? Integers, bool IsInteger);

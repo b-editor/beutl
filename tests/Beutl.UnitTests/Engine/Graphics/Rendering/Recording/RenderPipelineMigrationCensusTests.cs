@@ -25,6 +25,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["src/Beutl.Engine/Graphics/Particles/ParticleRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/BlendModeRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/ClearRenderNode.cs"] = 1,
+            ["src/Beutl.Engine/Graphics/Rendering/CompleteTargetRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/ContainerRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/DrawBackdropRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/EllipseRenderNode.cs"] = 1,
@@ -40,14 +41,13 @@ public sealed class RenderPipelineMigrationCensusTests
             ["src/Beutl.Engine/Graphics/Rendering/RectClipRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/RectangleRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/ReferencesChildRenderNode.cs"] = 1,
-            ["src/Beutl.Engine/Graphics/Rendering/Renderer.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/SnapshotBackdropRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/TextRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics/Rendering/VideoSourceRenderNode.cs"] = 1,
             ["src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs"] = 1,
             ["src/Beutl.NodeGraph/NodeGraphFilterEffectRenderNode.cs"] = 1,
-            ["src/Beutl.NodeGraph/Nodes/FilterEffectInputNode.cs"] = 1,
+            ["src/Beutl.NodeGraph/Nodes/FilterEffectInputRenderNode.cs"] = 1,
             ["src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs"] = 1,
         };
 
@@ -56,9 +56,9 @@ public sealed class RenderPipelineMigrationCensusTests
     private static readonly IReadOnlyDictionary<string, int> s_startingProductionOverrideBaseline =
         s_productionOverrideBaseline
             .Where(static item =>
-                item.Key != "src/Beutl.Engine/Graphics/Rendering/Renderer.cs"
+                item.Key != "src/Beutl.Engine/Graphics/Rendering/CompleteTargetRenderNode.cs"
                 && item.Key != "src/Beutl.Engine/Graphics/DrawableGroup.cs"
-                && item.Key != "src/Beutl.NodeGraph/Nodes/FilterEffectInputNode.cs")
+                && item.Key != "src/Beutl.NodeGraph/Nodes/FilterEffectInputRenderNode.cs")
             .Append(new KeyValuePair<string, int>(
                 "src/Beutl.Engine/Graphics/DrawableGroup.cs",
                 2))

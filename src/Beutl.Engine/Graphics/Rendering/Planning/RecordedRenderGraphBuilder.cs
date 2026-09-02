@@ -1,0 +1,272 @@
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+using Beutl.Graphics.Rendering.Cache;
+
+namespace Beutl.Graphics.Rendering;
+
+internal sealed class RecordedRenderGraphBuilder
+{
+    private readonly List<RecordedRenderFragment> _fragments = [];
+    private readonly List<RecordedRenderValue> _values = [];
+    private readonly List<RenderFragmentId> _publicationRoots = [];
+    private readonly List<RootProvenance> _provenance = [];
+    private readonly List<RenderCacheCandidate> _cacheCandidates = [];
+    private readonly List<RenderResourceRegistration> _resources = [];
+    private readonly List<RecordedNestedRenderRequest> _nestedRequests = [];
+
+    // Append validates one commit at a time and calls no user code, so a nested recording cannot re-enter it
+    // on the same builder: RenderRequestRecorder gives every nested request a builder of its own.
+    private readonly HashSet<RenderFragmentReference> _appendScratchAvailable =
+        new(ReferenceEqualityComparer.Instance);
+
+    private readonly Dictionary<object, RenderProvenanceId> _appendScratchProvenance =
+        new(ReferenceEqualityComparer.Instance);
+
+    private bool _built;
+
+    public RecordedRenderGraphBuilder(RenderRequestId requestId)
+    {
+        if (requestId.Value <= 0)
+        {
+            throw new ArgumentException("A graph requires an initialized request ID.", nameof(requestId));
+        }
+
+        RequestId = requestId;
+    }
+
+    public RenderRequestId RequestId { get; }
+
+    public RenderProvenanceId AddProvenance(object origin, string role)
+    {
+        EnsureMutable();
+        ArgumentNullException.ThrowIfNull(origin);
+        ArgumentException.ThrowIfNullOrWhiteSpace(role);
+
+        RenderProvenanceId id = new(RequestId, _provenance.Count + 1L);
+        _provenance.Add(new RootProvenance(id, origin, role, _provenance.Count));
+        return id;
+    }
+
+    /// <remarks>
+    /// <paramref name="inputs"/> is stored as given. It is already immutable, so a caller that hands over what
+    /// it built cannot change what was recorded.
+    /// </remarks>
+    public RenderValueId AddValue(
+        ImmutableArray<RenderValueId> inputs,
+        RenderProvenanceId provenanceId,
+        object? payload = null)
+    {
+        EnsureMutable();
+        if (inputs.IsDefault)
+            throw new ArgumentException("The input values are uninitialized.", nameof(inputs));
+        ValidateProvenance(provenanceId);
+        for (int index = 0; index < inputs.Length; index++)
+        {
+            ValidateExistingValue(inputs[index]);
+        }
+
+        RenderValueId id = new(RequestId, _values.Count + 1L);
+        _values.Add(new RecordedRenderValue(id, inputs, provenanceId, payload));
+        return id;
+    }
+
+    /// <remarks>
+    /// <paramref name="values"/> is stored as given. It is already immutable, so a caller that hands over
+    /// what it built cannot change what was recorded.
+    /// </remarks>
+    public RenderFragmentId AddFragment(
+        ImmutableArray<RenderValueId> values,
+        RenderProvenanceId provenanceId,
+        object? payload = null)
+    {
+        EnsureMutable();
+        if (values.IsDefault)
+            throw new ArgumentException("The fragment values are uninitialized.", nameof(values));
+        ValidateProvenance(provenanceId);
+        for (int index = 0; index < values.Length; index++)
+        {
+            ValidateExistingValue(values[index]);
+        }
+
+        RenderFragmentId id = new(RequestId, _fragments.Count + 1L);
+        _fragments.Add(new RecordedRenderFragment(id, _fragments.Count, values, provenanceId, payload));
+        return id;
+    }
+
+    public void PublishRoot(RenderFragmentId fragmentId)
+    {
+        EnsureMutable();
+        ValidateExistingFragment(fragmentId);
+        _publicationRoots.Add(fragmentId);
+    }
+
+    public RenderCacheCandidateId AddCacheCandidate(
+        RenderFragmentId fragmentId,
+        object cacheKey,
+        RenderNodeCache? cache = null)
+    {
+        EnsureMutable();
+        ValidateExistingFragment(fragmentId);
+        ArgumentNullException.ThrowIfNull(cacheKey);
+
+        RenderCacheCandidateId id = new(RequestId, _cacheCandidates.Count + 1L);
+        _cacheCandidates.Add(new RenderCacheCandidate(
+            id,
+            fragmentId,
+            cacheKey,
+            cache,
+            _cacheCandidates.Count));
+        return id;
+    }
+
+    public void AddResource(RenderResourceRegistration resource)
+    {
+        EnsureMutable();
+        ArgumentNullException.ThrowIfNull(resource);
+        if (!_resources.Contains(resource))
+        {
+            _resources.Add(resource);
+        }
+    }
+
+    public void AddNestedRequest(RecordedNestedRenderRequest nestedRequest)
+    {
+        EnsureMutable();
+        ArgumentNullException.ThrowIfNull(nestedRequest);
+        if (nestedRequest.Request.ParentId != RequestId)
+        {
+            throw new InvalidOperationException("The nested request does not belong to this graph's request.");
+        }
+
+        _nestedRequests.Add(nestedRequest);
+    }
+
+    public void Append(in NodeRecordingCommit commit)
+    {
+        EnsureMutable();
+
+        HashSet<RenderFragmentReference> available = _appendScratchAvailable;
+        available.Clear();
+        foreach (RecordedRenderFragmentEntry entry in commit.Fragments)
+        {
+            RenderFragmentReference reference = entry.Reference;
+            if (reference.Id is not null)
+            {
+                throw new InvalidOperationException("A recorded fragment was already committed to a graph.");
+            }
+
+            foreach (RenderFragmentReference input in reference.Inputs)
+            {
+                if (input.Id is null && !available.Contains(input))
+                {
+                    throw new InvalidOperationException(
+                        "A recorded fragment input must be committed earlier in the request graph.");
+                }
+            }
+
+            available.Add(reference);
+        }
+
+        Dictionary<object, RenderProvenanceId> provenance = _appendScratchProvenance;
+        provenance.Clear();
+        foreach (RecordedRenderFragmentEntry entry in commit.Fragments)
+        {
+            if (!provenance.TryGetValue(entry.Origin, out RenderProvenanceId provenanceId))
+            {
+                provenanceId = AddProvenance(entry.Origin, entry.Role);
+                provenance.Add(entry.Origin, provenanceId);
+            }
+
+            RenderFragmentReference reference = entry.Reference;
+            ImmutableArray<RenderValueId> inputValues = FlattenValueIds(reference.Inputs);
+            if (reference.ValueCardinality.Maximum != 0 || reference.ValueCardinality.Minimum != 0)
+            {
+                reference.ValueIds = [AddValue(inputValues, provenanceId, reference)];
+            }
+
+            reference.Id = AddFragment(reference.ValueIds, provenanceId, reference);
+        }
+
+        foreach (RenderResource resource in commit.Resources)
+        {
+            AddResource(resource.Slot);
+        }
+
+        foreach (RecordedNestedRenderRequest nestedRequest in commit.NestedRequests)
+        {
+            AddNestedRequest(nestedRequest);
+        }
+    }
+
+    /// <remarks>
+    /// The array is filled here and handed over without a copy, so nothing may keep a reference to it after
+    /// the wrap.
+    /// </remarks>
+    private static ImmutableArray<RenderValueId> FlattenValueIds(
+        ImmutableArray<RenderFragmentReference> inputs)
+    {
+        int count = 0;
+        for (int index = 0; index < inputs.Length; index++)
+            count += inputs[index].ValueIds.Length;
+        if (count == 0)
+            return [];
+
+        var values = new RenderValueId[count];
+        int next = 0;
+        for (int index = 0; index < inputs.Length; index++)
+        {
+            ImmutableArray<RenderValueId> ids = inputs[index].ValueIds;
+            for (int id = 0; id < ids.Length; id++)
+                values[next++] = ids[id];
+        }
+
+        return ImmutableCollectionsMarshal.AsImmutableArray(values);
+    }
+
+    public RecordedRenderGraph Build()
+    {
+        EnsureMutable();
+        _built = true;
+        return new RecordedRenderGraph(
+            RequestId,
+            [.. _fragments],
+            [.. _values],
+            [.. _publicationRoots],
+            [.. _provenance],
+            [.. _cacheCandidates],
+            [.. _resources],
+            [.. _nestedRequests]);
+    }
+
+    private void ValidateProvenance(RenderProvenanceId id)
+    {
+        if (id.RequestId != RequestId || id.Value <= 0 || id.Value > _provenance.Count)
+        {
+            throw new InvalidOperationException("The provenance ID does not belong to this request graph.");
+        }
+    }
+
+    private void ValidateExistingValue(RenderValueId id)
+    {
+        if (id.RequestId != RequestId || id.Value <= 0 || id.Value > _values.Count)
+        {
+            throw new InvalidOperationException("The value ID does not identify an earlier value in this request graph.");
+        }
+    }
+
+    private void ValidateExistingFragment(RenderFragmentId id)
+    {
+        if (id.RequestId != RequestId || id.Value <= 0 || id.Value > _fragments.Count)
+        {
+            throw new InvalidOperationException("The fragment ID does not belong to this request graph.");
+        }
+    }
+
+    private void EnsureMutable()
+    {
+        if (_built)
+        {
+            throw new InvalidOperationException("A recorded render graph builder cannot change after Build.");
+        }
+    }
+}

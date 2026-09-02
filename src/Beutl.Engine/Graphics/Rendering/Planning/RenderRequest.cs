@@ -160,34 +160,3 @@ internal sealed class RenderRequest : IDisposable
                && nested.FusionMode == parent.FusionMode;
     }
 }
-
-internal readonly record struct RenderRequestId
-{
-    public RenderRequestId(long value)
-    {
-        if (value <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(value), value, "A render request ID must be positive.");
-        }
-
-        Value = value;
-    }
-
-    public long Value { get; }
-}
-
-internal enum RenderRequestState : byte
-{
-    Created,
-    Recording,
-    Recorded,
-    TargetDependenciesLowered,
-    MetadataResolved,
-    RegionsResolved,
-    CachesResolved,
-    Planned,
-    Executing,
-    Completed,
-    Failed,
-    Disposed,
-}
