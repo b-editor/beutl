@@ -1,20 +1,18 @@
-﻿using System.Collections.ObjectModel;
-
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 public sealed class RenderHitTestContext
 {
     private readonly IReadOnlyList<RenderResourceBinding> _resources;
 
+    // Nothing here is copied: both lists are read for the duration of one hit test, and the caller that
+    // builds them must not hand over anything it lets others mutate while the test runs.
     internal RenderHitTestContext(
         Rect outputBounds,
         IReadOnlyList<RenderHitTestInput> inputs,
         IReadOnlyList<RenderResourceBinding> resources)
     {
         OutputBounds = outputBounds;
-        Inputs = inputs is ReadOnlyCollection<RenderHitTestInput>
-            ? inputs
-            : Array.AsReadOnly(inputs.ToArray());
+        Inputs = inputs;
         _resources = resources;
     }
 
