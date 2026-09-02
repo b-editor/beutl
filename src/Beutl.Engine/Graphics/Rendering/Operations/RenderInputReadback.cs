@@ -22,9 +22,6 @@ public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>
         RenderInputReadbackKind.All,
         Array.AsReadOnly(Array.Empty<int>()));
 
-    /// <summary>Gets whether every runtime value produced by the authored input requires CPU readback.</summary>
-    public bool ReadsAllValues => _kind == RenderInputReadbackKind.All;
-
     /// <summary>Gets the sorted local runtime-value indices selected by <see cref="Values"/>.</summary>
     public IReadOnlyList<int> ValueIndices => _valueIndices ?? Array.Empty<int>();
 

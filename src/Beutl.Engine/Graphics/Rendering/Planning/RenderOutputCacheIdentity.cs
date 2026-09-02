@@ -59,8 +59,6 @@ internal sealed class RenderOutputCacheIdentity : IEquatable<RenderOutputCacheId
         _deviceGridOffset = deviceGridOffset;
     }
 
-    public object CandidateKey => _candidateKey;
-
     public Rect Bounds => _bounds;
 
     public RequiredRegion Coverage => _coverage;

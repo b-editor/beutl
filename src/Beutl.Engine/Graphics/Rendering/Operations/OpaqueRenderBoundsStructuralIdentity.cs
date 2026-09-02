@@ -3,5 +3,4 @@
 internal readonly record struct OpaqueRenderBoundsStructuralIdentity(
     OpaqueRenderBoundsKind Kind,
     object? ForwardIdentity,
-    object? BackwardIdentity,
-    object? ExplicitKey);
+    object? BackwardIdentity);

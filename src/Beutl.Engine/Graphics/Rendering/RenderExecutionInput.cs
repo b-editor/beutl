@@ -12,7 +12,6 @@ public sealed class RenderExecutionInput
     private readonly Rect _rasterBounds;
     private readonly Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> _draw;
     private readonly Action<ImmediateCanvas, Point> _drawDeviceSpace;
-    private readonly Func<SKShaderTileMode, SKShaderTileMode, SKShader>? _createShader;
     private readonly Func<Bitmap>? _createSnapshot;
     private readonly bool _readbackDeclared;
     private bool _snapshotUsed;
@@ -23,7 +22,6 @@ public sealed class RenderExecutionInput
         EffectiveScale effectiveScale,
         Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
         Action<ImmediateCanvas, Point> drawDeviceSpace,
-        Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
         bool readbackDeclared)
         : this(
@@ -33,7 +31,6 @@ public sealed class RenderExecutionInput
             PixelRect.FromRect(bounds, effectiveScale.Value),
             draw,
             drawDeviceSpace,
-            createShader,
             createSnapshot,
             readbackDeclared)
     {
@@ -46,7 +43,6 @@ public sealed class RenderExecutionInput
         PixelRect deviceBounds,
         Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
         Action<ImmediateCanvas, Point> drawDeviceSpace,
-        Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
         bool readbackDeclared)
         : this(
@@ -57,7 +53,6 @@ public sealed class RenderExecutionInput
             deviceBounds.ToRect(effectiveScale.Value),
             draw,
             drawDeviceSpace,
-            createShader,
             createSnapshot,
             readbackDeclared)
     {
@@ -71,7 +66,6 @@ public sealed class RenderExecutionInput
         Rect rasterBounds,
         Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
         Action<ImmediateCanvas, Point> drawDeviceSpace,
-        Func<SKShaderTileMode, SKShaderTileMode, SKShader>? createShader,
         Func<Bitmap>? createSnapshot,
         bool readbackDeclared)
     {
@@ -104,7 +98,6 @@ public sealed class RenderExecutionInput
         _rasterBounds = rasterBounds;
         _draw = draw;
         _drawDeviceSpace = drawDeviceSpace;
-        _createShader = createShader;
         _createSnapshot = createSnapshot;
         _readbackDeclared = readbackDeclared;
     }
@@ -127,15 +120,6 @@ public sealed class RenderExecutionInput
             (canvas, destination, paint, sampling) =>
                 canvas.DrawExecutionInput(image, destination, paint, sampling),
             (canvas, point) => canvas.DrawExecutionInputDeviceSpace(image, point),
-            (x, y) => image.ToShader(
-                x,
-                y,
-                SKSamplingOptions.Default,
-                SKMatrix.CreateScaleTranslation(
-                    1f / effectiveScale.Value,
-                    1f / effectiveScale.Value,
-                    (float)rasterBounds.X,
-                    (float)rasterBounds.Y)),
             createSnapshot,
             readbackDeclared)
     {
@@ -231,25 +215,6 @@ public sealed class RenderExecutionInput
         _drawDeviceSpace(
             canvas,
             new Point(devicePoint.X - canvasOrigin.X, devicePoint.Y - canvasOrigin.Y));
-    }
-
-    public void UseShader(
-        Action<SKShader> use,
-        SKShaderTileMode x = SKShaderTileMode.Decal,
-        SKShaderTileMode y = SKShaderTileMode.Decal)
-    {
-        _token.ThrowIfInactive();
-        ArgumentNullException.ThrowIfNull(use);
-        if (!Enum.IsDefined(x))
-            throw new ArgumentOutOfRangeException(nameof(x), x, "The shader tile mode is invalid.");
-        if (!Enum.IsDefined(y))
-            throw new ArgumentOutOfRangeException(nameof(y), y, "The shader tile mode is invalid.");
-        if (_createShader is null)
-            throw new InvalidOperationException("This execution input does not expose a GPU shader view.");
-
-        using SKShader shader = _createShader(x, y)
-            ?? throw new InvalidOperationException("The input shader provider returned null.");
-        _token.AuthorizeResource(shader, () => use(shader));
     }
 
     public void UseSnapshot(Action<Bitmap> use)

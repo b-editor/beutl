@@ -602,13 +602,6 @@ internal readonly record struct DirectRenderTargetGeometry(float Density, Matrix
         return new DirectRenderTargetGeometry(canvas.Density, canvas.Transform);
     }
 
-    public static DirectRenderTargetGeometry FromRasterBounds(Rect rasterBounds, float density)
-    {
-        Matrix transform = Matrix.CreateScale(density, density)
-            .Prepend(Matrix.CreateTranslation(-rasterBounds.X, -rasterBounds.Y));
-        return new DirectRenderTargetGeometry(density, transform);
-    }
-
     public bool CanDrawPixelAligned(Rect destination, float sourceDensity, PixelSize sourceSize)
         => ImmediateCanvas.CanDrawPixelAligned(
             destination,

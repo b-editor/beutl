@@ -297,7 +297,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
             EffectiveScale.At(2),
             draw: (_, destination, _, _) => logicalPlacement = destination,
             drawDeviceSpace: (_, point) => devicePlacement = point,
-            createShader: null,
             createSnapshot: null,
             readbackDeclared: false);
         var callbackBounds = new Rect(10.25f, 20.25f, 8, 8);
@@ -350,7 +349,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
             EffectiveScale.At(1),
             draw: static (_, _, _, _) => { },
             drawDeviceSpace: static (_, _) => { },
-            createShader: null,
             createSnapshot: () => supplied = new Bitmap(2, 2),
             readbackDeclared: true);
         var expected = new InvalidOperationException("callback failed");

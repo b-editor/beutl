@@ -123,7 +123,6 @@ public sealed class GeometrySessionTests
             EffectiveScale.At(1),
             static (_, _, _, _) => { },
             static (_, _) => { },
-            createShader: null,
             createSnapshot: null,
             readbackDeclared: false);
         PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);

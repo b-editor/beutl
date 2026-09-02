@@ -134,7 +134,8 @@ internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRe
             boundsRequirement,
             hasDirectSymbolicBoundsDependency);
         OwnedReferences.Add(reference);
-        _fragments.Add(new RecordedRenderFragmentEntry(reference, _origin, "RenderNode.Process"));
+        _fragments.Add(
+            new RecordedRenderFragmentEntry(reference, _origin, RenderNodeRecordingCache.ProcessRole));
         _hasOwnTargetEffectFragment |= IsTargetEffect(kind);
         return new RenderFragmentHandle(this, reference);
     }

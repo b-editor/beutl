@@ -30,8 +30,6 @@ internal sealed class RegionAnalysis
 
     public RenderNodeMeasurement Measurement { get; }
 
-    public Rect RootOutputExtent => Measurement.OutputBounds;
-
     public Rect QueryBounds => Measurement.QueryBounds;
 
     public Rect? TargetDomain { get; }
@@ -54,9 +52,6 @@ internal sealed class RegionAnalysis
 
     public RequiredRegion GetFragmentRequirement(RenderFragmentReference reference)
         => FragmentRequirements[GetId(reference)];
-
-    public RequiredRegion GetValueRequirement(RenderValueId valueId)
-        => ValueRequirements[valueId];
 
     public RequiredRegion GetTargetAccessRequirement(RenderFragmentReference reference)
         => TargetAccessRequirements.TryGetValue(GetId(reference), out RequiredRegion requirement)

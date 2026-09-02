@@ -127,16 +127,6 @@ public sealed class OpaqueRenderDescription
         }
     }
 
-    internal object GetStructuralIdentity(OpaqueRenderTopology topology)
-        => new OpaqueRenderStructuralIdentity(
-            topology,
-            DefinitionFingerprint,
-            DeviceGridSensitivity,
-            BackendBoundary,
-            HasDirectReplayMaterializationContract,
-            DirectReplayAtExactIntegerReduction,
-            SupportsDirectDstOut);
-
     internal OpaqueRenderDescription WithoutDirectReplay()
         => DirectReplay is null
             ? this
@@ -461,15 +451,6 @@ internal readonly record struct RenderScaleContractStructuralIdentity(
 internal readonly record struct RenderScaleBidirectionalMappingStructuralIdentity(
     MethodInfo SupplyMap,
     MethodInfo DemandMap);
-
-internal readonly record struct OpaqueRenderStructuralIdentity(
-    OpaqueRenderTopology Topology,
-    object DescriptionKey,
-    RenderDeviceGridSensitivity DeviceGridSensitivity,
-    RenderBackendBoundary BackendBoundary,
-    bool HasDirectReplayMaterializationContract,
-    bool DirectReplayAtExactIntegerReduction,
-    bool SupportsDirectDstOut);
 
 internal sealed record EngineOpaqueDefinition(
     RenderBackendBoundary BackendBoundary,

@@ -29,7 +29,6 @@ public sealed class RasterFootprintMetadataTests
             deviceBounds,
             draw: (_, destination, _, _) => drawnBounds = destination,
             drawDeviceSpace: static (_, _) => { },
-            createShader: null,
             createSnapshot: null,
             readbackDeclared: false);
 
@@ -105,7 +104,6 @@ public sealed class RasterFootprintMetadataTests
             EffectiveScale.At(1),
             draw: static (_, _, _, _) => { },
             drawDeviceSpace: (_, point) => observedLocalPoint = point,
-            createShader: null,
             createSnapshot: null,
             readbackDeclared: false);
         using RenderTarget target = RenderTarget.CreateNull(64, 48);
@@ -249,7 +247,6 @@ public sealed class RasterFootprintMetadataTests
                     rasterBounds,
                     draw: static (_, _, _, _) => { },
                     drawDeviceSpace: static (_, _) => { },
-                    createShader: null,
                     createSnapshot: null,
                     readbackDeclared: false),
                 Throws.Nothing);

@@ -14,7 +14,7 @@ public sealed class OpaqueRenderBoundsContract
         Kind = OpaqueRenderBoundsKind.Source;
         _sourceBounds = sourceBounds;
         RasterOutset = rasterOutset;
-        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(Kind, null, null, null);
+        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(Kind, null, null);
     }
 
     private OpaqueRenderBoundsContract(RenderBoundsContract mapBounds)
@@ -24,7 +24,6 @@ public sealed class OpaqueRenderBoundsContract
         StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
             Kind,
             mapBounds.StructuralIdentity,
-            null,
             null);
     }
 
@@ -45,8 +44,7 @@ public sealed class OpaqueRenderBoundsContract
         StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
             kind,
             RenderDescriptionValidation.StructuralIdentityOf(forwardIdentity ?? transformBounds),
-            backward is null ? null : RenderDescriptionValidation.StructuralIdentityOf(backward),
-            null);
+            backward is null ? null : RenderDescriptionValidation.StructuralIdentityOf(backward));
     }
 
     /// <summary>

@@ -25,7 +25,7 @@ public sealed class RegionAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.RootOutputExtent, Is.EqualTo(new Rect(5, 5, 110, 110)));
+            Assert.That(result.Measurement.OutputBounds, Is.EqualTo(new Rect(5, 5, 110, 110)));
             Assert.That(result.FinalCommitBounds, Is.EqualTo(new Rect(5, 5, 15, 15)));
             Assert.That(result.GetFragmentRequirement(output),
                 Is.EqualTo(RequiredRegion.Region(new Rect(5, 5, 15, 15))));
@@ -52,8 +52,8 @@ public sealed class RegionAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.RootOutputExtent, Is.EqualTo(new Rect(10, 10, 80, 80)));
-            Assert.That(result.FinalCommitBounds, Is.EqualTo(result.RootOutputExtent));
+            Assert.That(result.Measurement.OutputBounds, Is.EqualTo(new Rect(10, 10, 80, 80)));
+            Assert.That(result.FinalCommitBounds, Is.EqualTo(result.Measurement.OutputBounds));
             Assert.That(result.FinalCommitRegion,
                 Is.EqualTo(RequiredRegion.Region(new Rect(10, 10, 80, 80))));
             Assert.That(result.GetFragmentRequirement(source),
@@ -106,7 +106,7 @@ public sealed class RegionAnalyzerTests
                 Is.EqualTo(RequiredRegion.Region(new Rect(30, 20, 10, 10))));
             Assert.That(result.GetFragmentRequirement(identity), Is.EqualTo(RequiredRegion.Full));
             Assert.That(result.GetFragmentRequirement(source), Is.EqualTo(RequiredRegion.Full));
-            Assert.That(result.GetValueRequirement(source.ValueIds.Single()), Is.EqualTo(RequiredRegion.Full));
+            Assert.That(result.ValueRequirements[source.ValueIds.Single()], Is.EqualTo(RequiredRegion.Full));
         });
     }
 
@@ -401,9 +401,8 @@ public sealed class RegionAnalyzerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.RootOutputExtent, Is.EqualTo(new Rect(0, 0, 60, 60)));
+            Assert.That(result.Measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 60, 60)));
             Assert.That(result.QueryBounds, Is.EqualTo(new Rect(0, 0, 105, 105)));
-            Assert.That(result.Measurement.OutputBounds, Is.EqualTo(result.RootOutputExtent));
             Assert.That(result.Measurement.QueryBounds, Is.EqualTo(result.QueryBounds));
             Assert.That(result.TargetDomain, Is.EqualTo(targetDomain));
             Assert.That(result.RequestedRegion, Is.EqualTo(requested));

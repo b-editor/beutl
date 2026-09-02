@@ -1087,9 +1087,9 @@ public class NodeGraphFilterEffectRenderNodeTests
         {
             Assert.That(source.ExecutionCount, Is.EqualTo(1));
             Assert.That(monitor.Value, Is.Not.Null);
-            // A Full isolation scope makes the composition domain the root output extent
-            // (RootOutputExtent covers conservative final writes; only Measure/HitTest
-            // report the tight query bounds).
+            // A Full isolation scope makes the composition domain the root output extent,
+            // which covers conservative final writes; only Measure/HitTest report the tight
+            // query bounds.
             Assert.That(monitor.Value!.Value.Width, Is.EqualTo(64));
             Assert.That(monitor.Value.Value.Height, Is.EqualTo(48));
         });

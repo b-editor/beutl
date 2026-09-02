@@ -182,8 +182,9 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         }
     }
 
-    // Mirrors the members OpaqueRenderDescription.GetStructuralIdentity composes, one component each, so that
-    // the identity carries them without the record struct that call would allocate on every frame.
+    // The opaque description's topology, definition fingerprint, device-grid sensitivity, backend boundary,
+    // and three direct-replay flags, one component each, so that the identity carries them without allocating
+    // a record struct to hold them on every frame.
     private static void AddOpaqueStructuralIdentity(
         OpaqueRenderFragmentPayload opaque,
         ref ComponentBuilder components)
