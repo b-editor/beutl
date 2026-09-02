@@ -1443,6 +1443,88 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     [Test]
+    public void APrivateHelperWhoseOnlyCallerMarks_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+
+                private bool SetBounds(Rect bounds)
+                {
+                    if (_bounds == bounds)
+                        return false;
+
+                    _bounds = bounds;
+                    return true;
+                }
+
+                public bool Update(Rect bounds)
+                {
+                    bool changed = SetBounds(bounds);
+                    if (changed)
+                        MarkChanged();
+
+                    return changed;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "nothing outside the node can reach the write except through an update that marks, so there "
+            + "is no way to leave this node holding a recording of the old bounds");
+    }
+
+    [Test]
+    public void APublicMutatorAMarkingMemberAlsoCalls_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _bounds;
+                private float _opacity;
+
+                public void UpdateBounds(Rect bounds)
+                {
+                    _bounds = bounds;
+                }
+
+                public void UpdateAll(Rect bounds, float opacity)
+                {
+                    UpdateBounds(bounds);
+                    _opacity = opacity;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                    context.Publish(new Rect(_opacity, 0, 0, 0));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a public mutator is its own way in, so a marking caller elsewhere says nothing about the "
+            + "holder that calls this one on its own");
+    }
+
+    [Test]
     public void ABaseHelperWhoseDerivedCallerMarks_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
@@ -1505,7 +1587,7 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     [Test]
-    public void AnUnmarkedMutatorOnABaseType_IsAKnownGapTheRuleMisses()
+    public void AnUnmarkedMutatorOnABaseType_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using Beutl.Graphics;
@@ -1531,9 +1613,117 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
         Assert.That(
             diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the base declares the mutator and the derived node's Process reads what it writes, so this "
+            + "node goes stale for a write no member of its own type list carries");
+    }
+
+    [Test]
+    public void AMutatorOnABaseTypeThatMarksTheNode_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShapeRenderNode : RenderNode
+            {
+                protected Rect Bounds { get; private set; }
+
+                protected void UpdateBounds(Rect bounds)
+                {
+                    Bounds = bounds;
+                    MarkChanged();
+                }
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode
+            {
+                public void Update(Rect bounds) => UpdateBounds(bounds);
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
             Is.Empty,
-            "this node really does go stale; the silence is a recorded limit of the rule, not a verdict "
-            + "that the node is correct");
+            "the mark is what the rule asks for, wherever in the chain the write is declared");
+    }
+
+    [Test]
+    public void AMutatorOnABaseTypeWritingStateProcessDoesNotRead_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShapeRenderNode : RenderNode
+            {
+                private Rect _measured;
+
+                protected Rect Bounds { get; private set; }
+
+                public Rect Measured => _measured;
+
+                protected void Measure(Rect bounds) => _measured = bounds;
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode
+            {
+                public void Update(Rect bounds) => Measure(bounds);
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "no recording was built from the field the base writes, so nothing about it can go stale");
+    }
+
+    [Test]
+    public void AnUnmarkedMutatorOnABaseTypeWithItsOwnProcess_IsReportedOnce()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal class ShapeRenderNode : RenderNode
+            {
+                protected Rect Bounds { get; private set; }
+
+                protected void UpdateBounds(Rect bounds) => Bounds = bounds;
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode
+            {
+                public void Update(Rect bounds) => UpdateBounds(bounds);
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG005"),
+            Has.Exactly(1).Items,
+            "the base reads the same state its own Process reads, so its analysis already reports the "
+            + "write; saying it again once per derived node would report one line as many times as the "
+            + "type is inherited");
     }
 
     [Test]
