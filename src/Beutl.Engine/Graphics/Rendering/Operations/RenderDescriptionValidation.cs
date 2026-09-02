@@ -153,8 +153,13 @@ internal static class RenderDescriptionValidation
         IEnumerable<RenderResource>? resources,
         string parameterName)
     {
-        if (resources is null)
+        if (resources is null or IReadOnlyCollection<RenderResource> { Count: 0 })
             return Array.Empty<RenderResource>();
+
+        // A bare declaration carries no cross-element check, so unlike the binding copy beside it this
+        // needs no width limit to stay cheap: one indexed read per element serves any length.
+        if (resources is IReadOnlyList<RenderResource> declared)
+            return CopyDeclaredResources(declared, parameterName);
 
         var result = new List<RenderResource>();
         foreach (RenderResource? resource in resources)
@@ -168,6 +173,30 @@ internal static class RenderDescriptionValidation
         }
 
         return result.Count == 0 ? Array.Empty<RenderResource>() : result.AsReadOnly();
+    }
+
+    /// <remarks>
+    /// Unlike the slot and binding copies beside it there is no cross-element scan to feed, so the copy is
+    /// here for what it returns: the list keeps saying what was declared however the caller treats its own
+    /// afterwards.
+    /// </remarks>
+    private static IReadOnlyList<RenderResource> CopyDeclaredResources(
+        IReadOnlyList<RenderResource> resources,
+        string parameterName)
+    {
+        var copy = new RenderResource[resources.Count];
+        for (int index = 0; index < copy.Length; index++)
+        {
+            RenderResource resource = resources[index];
+            if (resource is null)
+                throw new ArgumentException("A declared render resource cannot be null.", parameterName);
+            if (resource.RegistrationState == RenderResourceRegistrationState.Released)
+                throw new ArgumentException("A released render resource cannot be declared.", parameterName);
+
+            copy[index] = resource;
+        }
+
+        return Array.AsReadOnly(copy);
     }
 
     public static IReadOnlyList<RenderResourceBinding> CopyResourceBindings(
@@ -203,16 +232,64 @@ internal static class RenderDescriptionValidation
         IReadOnlyList<RenderResourceBinding> bindings,
         string parameterName)
     {
+        ThrowIfBindingsUndeclarable(bindings, parameterName);
+
         var copy = new RenderResourceBinding[bindings.Count];
         for (int index = 0; index < copy.Length; index++)
+            copy[index] = bindings[index];
+
+        return Array.AsReadOnly(copy);
+    }
+
+    /// <summary>
+    /// Runs every per-element check a description's bindings owe - not null, addressing a distinct slot,
+    /// carrying a resource that can still be declared - over a list that already offers indexed reads.
+    /// </summary>
+    /// <remarks>
+    /// A pass of its own rather than work folded into <see cref="OrderByDeclaredSlots"/>: that scan walks
+    /// the declared slots, so a fault found in declared-slot order would answer a doubly-bound slot with
+    /// the message for an undeclared one. Reading the bindings in their own order keeps each fault
+    /// reported as itself.
+    /// </remarks>
+    private static void ThrowIfBindingsUndeclarable(
+        IReadOnlyList<RenderResourceBinding> bindings,
+        string parameterName)
+    {
+        if (bindings.Count > LinearSlotScanLimit)
         {
-            RenderResourceBinding binding = bindings[index];
+            var slots = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
+            for (int index = 0; index < bindings.Count; index++)
+            {
+                RenderResourceBinding? binding = bindings[index];
+                if (binding is null)
+                {
+                    throw new ArgumentException(
+                        "A declared render resource binding cannot be null.",
+                        parameterName);
+                }
+
+                if (!slots.Add(binding.Slot))
+                {
+                    throw new ArgumentException(
+                        "A render resource slot cannot be bound more than once.",
+                        parameterName);
+                }
+
+                ThrowIfUndeclarable(binding.Resource, parameterName);
+            }
+
+            return;
+        }
+
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            RenderResourceBinding? binding = bindings[index];
             if (binding is null)
                 throw new ArgumentException("A declared render resource binding cannot be null.", parameterName);
 
             for (int bound = 0; bound < index; bound++)
             {
-                if (ReferenceEquals(copy[bound].Slot, binding.Slot))
+                if (ReferenceEquals(bindings[bound].Slot, binding.Slot))
                 {
                     throw new ArgumentException(
                         "A render resource slot cannot be bound more than once.",
@@ -221,10 +298,7 @@ internal static class RenderDescriptionValidation
             }
 
             ThrowIfUndeclarable(binding.Resource, parameterName);
-            copy[index] = binding;
         }
-
-        return Array.AsReadOnly(copy);
     }
 
     private static IReadOnlyList<RenderResourceSlot> CopyResourceSlots(
@@ -283,13 +357,16 @@ internal static class RenderDescriptionValidation
     }
 
     /// <summary>
-    /// Puts already-copied bindings into declared-slot order, refusing a set that does not match.
+    /// Puts a description's bindings into declared-slot order, refusing a set that does not match.
     /// </summary>
     /// <remarks>
-    /// The bindings arrive copied, so this neither re-enumerates them nor re-checks what the copy already
-    /// refused. Which binding answers for a declared slot is found by scanning, which for the widths a
-    /// declaration reaches is cheaper than the index built to avoid the scan; past
-    /// <see cref="LinearSlotScanLimit"/> that reverses and the index is built.
+    /// The bindings arrive already read into a list and already checked by
+    /// <see cref="ThrowIfBindingsUndeclarable"/>, so this neither re-enumerates them nor re-checks what
+    /// that pass refused, and it does not copy them first: every element is written into the array built
+    /// here, so a copy taken beforehand would only be overwritten by it. Which binding answers for a
+    /// declared slot is found by scanning, which for the widths a declaration reaches is cheaper than the
+    /// index built to avoid the scan; past <see cref="LinearSlotScanLimit"/> that reverses and the index
+    /// is built.
     /// </remarks>
     private static IReadOnlyList<RenderResourceBinding> OrderByDeclaredSlots(
         IReadOnlyList<RenderResourceSlot> declaredSlots,
@@ -330,7 +407,7 @@ internal static class RenderDescriptionValidation
             ordered[index] = bound;
         }
 
-        return Array.AsReadOnly(ordered);
+        return ordered;
     }
 
     private static RenderResourceBinding? FindBinding(
@@ -370,11 +447,14 @@ internal static class RenderDescriptionValidation
     {
         IReadOnlyList<RenderResourceSlot> declaredSlots = CopyResourceSlots(slots, slotsParameterName);
 
-        // Copied once, before the count is read: a caller-supplied sequence may be a generator, so every
-        // check below and the list this returns have to read one enumeration of it.
-        IReadOnlyList<RenderResourceBinding> declaredBindings = CopyResourceBindings(
-            bindings,
-            bindingsParameterName);
+        // Read once, before the count is: a caller-supplied sequence may be a generator, so every check
+        // below and the list this returns have to read one enumeration of it. A sequence that already
+        // offers indexed reads is read where it lies - what arrives through a read-only interface is held
+        // to being stable for the length of this call, and the ordering below writes every element into
+        // an array of its own, so a copy taken here would only be overwritten by it.
+        IReadOnlyList<RenderResourceBinding> declaredBindings =
+            bindings as IReadOnlyList<RenderResourceBinding> ?? MaterializeBindings(bindings);
+        ThrowIfBindingsUndeclarable(declaredBindings, bindingsParameterName);
         if (declaredSlots.Count == 0)
         {
             if (declaredBindings.Count > 0)
@@ -392,6 +472,13 @@ internal static class RenderDescriptionValidation
 
         return OrderByDeclaredSlots(declaredSlots, declaredBindings, bindingsParameterName);
     }
+
+    /// <summary>Reads a bindings sequence that offers no indexed access into one that does.</summary>
+    private static IReadOnlyList<RenderResourceBinding> MaterializeBindings(
+        IEnumerable<RenderResourceBinding>? bindings)
+        => bindings is null
+            ? Array.Empty<RenderResourceBinding>()
+            : new List<RenderResourceBinding>(bindings);
 
     public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)
     {

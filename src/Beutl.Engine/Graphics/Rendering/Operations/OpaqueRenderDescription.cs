@@ -279,6 +279,12 @@ public sealed class OpaqueRenderDescription
     /// <see cref="RenderNodeContext"/>'s <c>PaintedSource</c>, whose caller-supplied draw callback is held
     /// purely by BESG003 rather than by the shape being unreachable.
     /// </remarks>
+    /// <param name="resources">
+    /// Bindings the engine has already checked, stored as they arrive. Each entry reaches this having been
+    /// refused if it were null, addressed an already-bound slot, or carried a released resource, so the list
+    /// is taken on that basis rather than re-read: the caller assembles it and hands over the only reference
+    /// to it.
+    /// </param>
     internal static OpaqueRenderDescription CreateEngineSource<TState>(
         TState state,
         Action<OpaqueRenderSession, TState> execute,
@@ -289,7 +295,7 @@ public sealed class OpaqueRenderDescription
         RenderDeviceGridSensitivity deviceGridSensitivity,
         bool directReplayAtExactIntegerReduction = false,
         bool supportsDirectDstOut = true,
-        IEnumerable<RenderResourceBinding>? resources = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
     {
         ArgumentNullException.ThrowIfNull(execute);
@@ -322,7 +328,7 @@ public sealed class OpaqueRenderDescription
             deviceGridSensitivity,
             definitionFingerprint,
             s_noInputReadbacks,
-            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)),
+            resources ?? Array.Empty<RenderResourceBinding>(),
             RenderBackendBoundary.None,
             boundDirectReplay,
             supportsDirectDstOut && directReplay is not null,

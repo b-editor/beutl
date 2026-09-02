@@ -587,6 +587,17 @@ public sealed class RenderNodeContext
         scale.ThrowIfUninitialized(nameof(scale));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
 
+        // The engine binds each declared resource to a slot of its own, one per entry, so the result is
+        // sized from the copy rather than grown into by a projection. Declaring none is what every painted
+        // primitive that only fills and strokes does, so that case reaches the shared empty array.
+        IReadOnlyList<RenderResource> declared =
+            RenderDescriptionValidation.CopyResources(resources, nameof(resources));
+        RenderResourceBinding[] engineBindings = declared.Count == 0
+            ? []
+            : new RenderResourceBinding[declared.Count];
+        for (int index = 0; index < engineBindings.Length; index++)
+            engineBindings[index] = RenderResourceBinding.CreateEngineBinding(declared[index]);
+
         return PaintedSourceCore(
             state,
             draw,
@@ -598,9 +609,7 @@ public sealed class RenderNodeContext
             directReplayAtExactIntegerReduction,
             deviceGridSensitivity,
             supportsDirectDstOut,
-            RenderDescriptionValidation.CopyResources(resources, nameof(resources))
-                .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
-                .ToArray());
+            engineBindings);
     }
 
 
@@ -709,11 +718,18 @@ public sealed class RenderNodeContext
     {
         GetTransaction();
 
-        var bindings = new List<RenderResourceBinding>(declaredBindings);
+        // Sized for what goes in it: the declared bindings, then the fill and the pen where present. A
+        // list sized to the declaration alone reallocates on the first of those two appends.
+        var bindings = new RenderResourceBinding[
+            declaredBindings.Count + (fill is null ? 0 : 1) + (pen is null ? 0 : 1)];
+        for (int index = 0; index < declaredBindings.Count; index++)
+            bindings[index] = declaredBindings[index];
+
+        int appended = declaredBindings.Count;
         if (fill is not null)
-            bindings.Add(RenderResourceBinding.CreateEngineBinding(Borrow(fill)));
+            bindings[appended++] = RenderResourceBinding.CreateEngineBinding(Borrow(fill));
         if (pen is not null)
-            bindings.Add(RenderResourceBinding.CreateEngineBinding(Borrow(pen)));
+            bindings[appended++] = RenderResourceBinding.CreateEngineBinding(Borrow(pen));
 
         var source = new PlainPaintedSource<TState>(
             state,
@@ -747,11 +763,11 @@ public sealed class RenderNodeContext
     /// most a handful of entries and a scan settles membership for less than a set costs to build. This runs
     /// once per painted primitive per recording.
     /// </remarks>
-    private static RenderResource[] DistinctResources(List<RenderResourceBinding> bindings)
+    private static RenderResource[] DistinctResources(RenderResourceBinding[] bindings)
     {
-        var distinct = new RenderResource[bindings.Count];
+        var distinct = new RenderResource[bindings.Length];
         int count = 0;
-        for (int index = 0; index < bindings.Count; index++)
+        for (int index = 0; index < bindings.Length; index++)
         {
             RenderResource resource = bindings[index].Resource;
             bool seen = false;
