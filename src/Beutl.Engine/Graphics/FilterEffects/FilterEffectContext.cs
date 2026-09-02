@@ -844,3 +844,305 @@ public sealed class FilterEffectContext : IDisposable
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }
+
+internal sealed class FilterEffectResourceState
+{
+    private readonly RenderNodeContext? _renderContext;
+    private readonly RenderRequestResourceRegistry? _standaloneRegistry;
+    private readonly List<RenderResource> _resources = [];
+    private int _references = 1;
+    private bool _transferred;
+
+    public FilterEffectResourceState(RenderNodeContext? renderContext)
+    {
+        _renderContext = renderContext;
+        if (renderContext is null)
+            _standaloneRegistry = new RenderRequestResourceRegistry();
+    }
+
+    public int Count => _resources.Count;
+
+    public FilterEffectResourceState AddReference()
+    {
+        if (_references <= 0)
+            throw new ObjectDisposedException(nameof(FilterEffectResourceState));
+        _references++;
+        return this;
+    }
+
+    public RenderResource<T> Own<T>(T resource)
+        where T : class, IDisposable
+    {
+        ThrowIfTransferred();
+        RenderResource<T> token = _renderContext is not null
+            ? _renderContext.Own(resource)
+            : _standaloneRegistry!.RegisterOwned(resource);
+        _resources.Add(token);
+        return token;
+    }
+
+    public RenderResource<T> Borrow<T>(T resource)
+        where T : class
+    {
+        ThrowIfTransferred();
+        RenderResource<T> token = _renderContext is not null
+            ? _renderContext.Borrow(resource)
+            : _standaloneRegistry!.RegisterBorrowed(resource);
+        _resources.Add(token);
+        return token;
+    }
+
+    /// <remarks>
+    /// Shader and geometry stages declare their bindings as different types, so the resource is read through a
+    /// selector rather than by projecting each list into a common one.
+    /// </remarks>
+    public void ValidateResources<TBinding>(
+        IReadOnlyList<TBinding> bindings,
+        Func<TBinding, RenderResource> selectResource,
+        string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(bindings);
+        ArgumentNullException.ThrowIfNull(selectResource);
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            RenderResource resource = selectResource(bindings[index]);
+            if (!IsRegistered(resource)
+                || resource.RegistrationState == RenderResourceRegistrationState.Released)
+            {
+                throw new ArgumentException(
+                    "Every declared resource must be registered by this FilterEffectContext family.",
+                    parameterName);
+            }
+        }
+    }
+
+    private bool IsRegistered(RenderResource resource)
+    {
+        for (int index = 0; index < _resources.Count; index++)
+        {
+            if (ReferenceEquals(_resources[index].SlotIdentity, resource.SlotIdentity))
+                return true;
+        }
+
+        return false;
+    }
+
+    public void RollbackTo(int count, Exception? primaryFailure = null)
+    {
+        if (count < 0 || count > _resources.Count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == _resources.Count)
+            return;
+
+        RenderResource[] removed = _resources.Skip(count).ToArray();
+        _resources.RemoveRange(count, _resources.Count - count);
+        Rollback(removed, primaryFailure);
+    }
+
+    private void Rollback(RenderResource[] removed, Exception? primaryFailure)
+    {
+        if (_renderContext is not null)
+        {
+            if (primaryFailure is null)
+                _renderContext.RollbackResources(removed);
+            else
+            {
+                Exception? cleanupFailure =
+                    _renderContext.RollbackResourcesAndCapture(removed, primaryFailure);
+                if (cleanupFailure is not null)
+                    throw cleanupFailure;
+            }
+
+            return;
+        }
+
+        List<Exception>? failures = null;
+        for (int index = removed.Length - 1; index >= 0; index--)
+        {
+            try
+            {
+                _standaloneRegistry!.Rollback(removed[index]);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
+
+        if (failures is not null)
+            throw new AggregateException("Filter-effect resource rollback failed.", failures);
+    }
+
+    public void Transfer()
+    {
+        ThrowIfTransferred();
+        _transferred = true;
+    }
+
+    public void CommitStandaloneResources()
+    {
+        if (_standaloneRegistry is null)
+            return;
+
+        foreach (RenderResource resource in _resources)
+        {
+            if (resource.RegistrationState == RenderResourceRegistrationState.Pending)
+                _standaloneRegistry.Commit(resource);
+        }
+    }
+
+    public void ReleaseReference()
+    {
+        if (_references <= 0)
+            return;
+        _references--;
+        if (_references != 0)
+            return;
+
+        if (_standaloneRegistry is not null)
+        {
+            _standaloneRegistry.Dispose();
+            return;
+        }
+
+        if (!_transferred)
+            RollbackTo(0);
+    }
+
+    private void ThrowIfTransferred()
+    {
+        if (_transferred)
+            throw new InvalidOperationException("Filter-effect resources were already transferred to the render request.");
+    }
+}
+
+internal record FEItem_Skia<T>(
+    T Data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> Factory, Func<T, Rect, Rect> TransformBounds)
+    : FEItem<T>(Data, TransformBounds), IFEItem_Skia
+{
+    public Func<T, SKImageFilter?, SKImageFilter?>? DirectFactory { get; init; }
+
+    /// <summary>
+    /// Always <see langword="false"/>: this item's mapping is fixed at construction. Deferral is
+    /// <see cref="IFEItem_DeferredBounds"/>, which hands each activation its own resolution instead of
+    /// letting one recorded item carry the first activation's.
+    /// </summary>
+    public bool ResolveBoundsAtExecutionTime => false;
+
+    /// <summary>
+    /// Maps a requested output region to the input region the built <see cref="SKImageFilter"/> reads, or
+    /// <see langword="null"/> when the footprint is not proven.
+    /// </summary>
+    public Func<T, Rect, Rect>? TransformSamplingBounds { get; init; }
+
+    public bool TryTransformSamplingBounds(Rect output, out Rect input)
+    {
+        if (TransformSamplingBounds is null)
+        {
+            input = default;
+            return false;
+        }
+
+        input = TransformSamplingBounds(Data, output);
+        return true;
+    }
+
+    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+    {
+        builder.AppendSkiaFilter(Data, activator, Factory);
+    }
+
+    public bool SupportsDirectReplay => DirectFactory is not null;
+
+    public void AcceptsDirect(SKImageFilterBuilder builder)
+    {
+        builder.AppendSkiaFilter(Data, DirectFactory!);
+    }
+}
+
+internal record FEItem_SKColorFilter<T>(
+    T Data, Func<T, FilterEffectActivator, SKColorFilter?> Factory)
+    : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
+{
+    public bool ResolveBoundsAtExecutionTime => false;
+
+    public bool TryTransformSamplingBounds(Rect output, out Rect input)
+    {
+        // A color filter is evaluated per pixel, so it never reads outside the requested region.
+        input = output;
+        return true;
+    }
+
+    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+    {
+        builder.AppendSKColorFilter(Data, activator, Factory);
+    }
+
+    public bool SupportsDirectReplay => false;
+
+    public void AcceptsDirect(SKImageFilterBuilder builder)
+        => throw new InvalidOperationException("This color filter has no direct-replay factory.");
+}
+
+/// <summary>
+/// A matrix filter whose matrix is resolved from the combined execution-time target bounds, because its
+/// origin depends on input bounds a preceding custom effect may only re-target at execution time.
+/// </summary>
+internal sealed record FEItem_SkiaDeferredMatrix<T>(
+    T Data,
+    Func<T, Rect, Matrix> MatrixFactory,
+    BitmapInterpolationMode InterpolationMode) : IFEItem_DeferredBounds
+{
+    public bool ResolveBoundsAtExecutionTime => true;
+
+    public bool SupportsDirectReplay => false;
+
+    // Unresolved, the mapping is unknown; a recording-time bounds walk that took a concrete answer here
+    // would freeze a matrix built from provisional bounds.
+    Rect IFEItem.TransformBounds(Rect bounds) => Rect.Invalid;
+
+    public bool TryTransformSamplingBounds(Rect output, out Rect input)
+    {
+        // No sampling footprint: the resampling apron is a device-pixel quantity, and the density the
+        // segment finally runs at is unknown here, so no logical margin can bound it.
+        input = default;
+        return false;
+    }
+
+    public IFEItem_Skia ResolveForActivation(Rect targetBounds)
+    {
+        Matrix matrix = MatrixFactory(Data, targetBounds);
+        return new FEItem_Skia<(Matrix Matrix, BitmapInterpolationMode InterpolationMode)>(
+            (matrix, InterpolationMode),
+            static (d, input, _) => SKImageFilter.CreateMatrix(
+                d.Matrix.ToSKMatrix(), d.InterpolationMode.ToSKSamplingOptions(), input),
+            static (d, rect) => rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(d.Matrix));
+    }
+
+    public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
+        => throw new InvalidOperationException(
+            "A deferred-bound item runs only through the resolution of one activation.");
+
+    public void AcceptsDirect(SKImageFilterBuilder builder)
+        => throw new InvalidOperationException("A deferred-bound matrix item has no direct-replay factory.");
+}
+
+internal record FEItem_CustomEffect<T>(
+    T Data, Action<T, CustomFilterEffectContext> Action, Func<T, Rect, Rect>? TransformBounds)
+    : FEItem<T>(Data, TransformBounds), IFEItem_Custom
+{
+    public void Accepts(CustomFilterEffectContext context)
+    {
+        Action.Invoke(Data, context);
+    }
+}
+
+internal sealed record FEItem_Shader(ShaderDescription Description) : IFEItem
+{
+    public Rect TransformBounds(Rect bounds) => Description.Bounds.TransformBounds(bounds);
+}
+
+internal sealed record FEItem_Geometry(GeometryDescription Description) : IFEItem
+{
+    public Rect TransformBounds(Rect bounds) => Description.Bounds.TransformBounds(bounds);
+}
