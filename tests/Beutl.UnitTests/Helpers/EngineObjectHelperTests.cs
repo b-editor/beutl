@@ -48,6 +48,52 @@ public class EngineObjectHelperTests
             "the render thread stopped taking work after the failed callback");
     }
 
+    // Every production subscriber reaches this through a Subscribe overload that installs no error handler,
+    // and Rx's default one rethrows the failure from inside OnError. The report runs inline on the
+    // dispatcher callback that raised it, past the catch that would have contained it, so that rethrow
+    // escapes into the loop - which installs no unhandled-exception handler and dies with it.
+    [Test]
+    public void A_failure_reported_to_a_subscriber_without_an_error_handler_spares_the_dispatcher()
+    {
+        var probe = new ProbeObject();
+        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var attempted = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        // An unwound loop rethrows off the dispatcher's own thread, which would end the test host rather
+        // than the test; catching it there leaves the dead loop to be observed instead.
+        dispatcher._catchExceptions = true;
+        IDisposable? subscription = null;
+
+        try
+        {
+            subscription = probe
+                .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
+                    time,
+                    (_, _) =>
+                    {
+                        attempted.Set();
+                        throw new InvalidOperationException("the resource factory rejected the current state");
+                    },
+                    dispatcher)
+                .Subscribe(_ => { });
+
+            Assert.That(attempted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the resource was never built");
+
+            using var stillAlive = new ManualResetEventSlim();
+            dispatcher.Dispatch(stillAlive.Set);
+            Assert.That(
+                stillAlive.Wait(TimeSpan.FromSeconds(30)), Is.True,
+                "the dispatcher stopped taking work after reporting the failure");
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+        }
+    }
+
     // Teardown releases the resource from a posted render-thread callback, where a throwing Dispose
     // would unwind the loop just as a throwing factory would.
     [Test]

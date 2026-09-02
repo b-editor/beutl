@@ -155,7 +155,20 @@ public static class EngineObjectHelper
                                         ex.Data["EngineVersionedResourceDisposeFailure"] = disposeFailure;
                                     }
 
-                                    observer.OnError(ex);
+                                    try
+                                    {
+                                        observer.OnError(ex);
+                                    }
+                                    catch (Exception reportFailure)
+                                    {
+                                        // The report runs inline, and a subscriber that passes no onError
+                                        // gets Rx's default handler, which rethrows the failure straight
+                                        // back into this catch - the one place left that could contain it.
+                                        s_logger.LogError(
+                                            reportFailure,
+                                            "Nothing handled the versioned-resource failure for '{Object}'.",
+                                            obj);
+                                    }
                                 }
                                 finally
                                 {
