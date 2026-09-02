@@ -94,7 +94,7 @@ public sealed class MaterializedInputDescription
         Rect rasterBounds = deviceBounds
             .ToRect(effectiveScale.Value)
             .Translate(-deviceGridOffset);
-        if (!RenderDescriptionValidation.Contains(rasterBounds, bounds))
+        if (!rasterBounds.Contains(bounds))
         {
             throw new ArgumentException(
                 "The materialized input's physical footprint must contain its semantic bounds on the declared device grid.",

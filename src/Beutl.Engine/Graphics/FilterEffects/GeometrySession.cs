@@ -123,7 +123,7 @@ public sealed class GeometrySession
     {
         _token.ThrowIfInactive();
         RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
-        if (!RenderDescriptionValidation.Contains(_allocatedOutputBounds, logicalBounds))
+        if (!_allocatedOutputBounds.Contains(logicalBounds))
         {
             throw new ArgumentException(
                 "Geometry output bounds may only shrink within the allocated output bounds.",

@@ -1633,7 +1633,7 @@ public sealed class OpaqueRenderSession
                 density,
                 "An opaque output density must be finite and positive.");
         }
-        if (!RenderDescriptionValidation.Contains(_outputBounds, logicalBounds))
+        if (!_outputBounds.Contains(logicalBounds))
         {
             throw new ArgumentException("An opaque output must be contained by the declared output bounds.", nameof(logicalBounds));
         }
@@ -1720,7 +1720,7 @@ public sealed class OpaqueRenderOutput : IDisposable
     {
         ThrowIfUnavailable();
         RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
-        if (!RenderDescriptionValidation.Contains(_allocationBounds, logicalBounds))
+        if (!_allocationBounds.Contains(logicalBounds))
         {
             throw new ArgumentException(
                 "Output bounds may only shrink within the allocated output bounds.",
@@ -2240,12 +2240,6 @@ internal static class RenderDescriptionValidation
         if (bounds.Width == 0 || bounds.Height == 0)
             throw new ArgumentException("Bounds must be non-empty.", parameterName);
     }
-
-    public static bool Contains(Rect outer, Rect inner)
-        => inner.Left >= outer.Left
-           && inner.Top >= outer.Top
-           && inner.Right <= outer.Right
-           && inner.Bottom <= outer.Bottom;
 
     private static void ThrowIfExecutionFacadeIdentity(object value, string parameterName)
     {

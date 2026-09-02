@@ -52,7 +52,7 @@ public sealed class TargetCaptureDescription
 
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds, nameof(bounds));
         if (sourceRegion.Kind == TargetRegionKind.Region
-            && !RenderDescriptionValidation.Contains(sourceRegion.Value, bounds))
+            && !sourceRegion.Value.Contains(bounds))
         {
             throw new ArgumentException(
                 "Target capture bounds must be contained by a finite source region.",
