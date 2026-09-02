@@ -1762,6 +1762,197 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     [Test]
+    public void AMutatorAddingToACollectionProcessReads_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private readonly List<Rect> _items = new();
+
+                public void Update(Rect bounds)
+                {
+                    _items.Add(bounds);
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    foreach (Rect item in _items)
+                        context.Publish(item);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the list Process reads holds something it did not before, so the recording built from the "
+            + "old contents is as stale as one built from an overwritten field");
+    }
+
+    [Test]
+    public void AMutatorAddingThroughAConditionalAccess_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private List<Rect>? _items;
+
+                public void Update(Rect bounds)
+                {
+                    _items?.Add(bounds);
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    if (_items is null)
+                        return;
+
+                    foreach (Rect item in _items)
+                        context.Publish(item);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a conditional access spells the receiver once, in front of the chain, and the call it guards "
+            + "is the same call on the same state");
+    }
+
+    [Test]
+    public void AMutatorMarkingAfterAddingToACollection_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private readonly List<Rect> _items = new();
+
+                public void Update(Rect bounds)
+                {
+                    _items.Add(bounds);
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    foreach (Rect item in _items)
+                        context.Publish(item);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the mark is what the rule asks for, however the contents changed");
+    }
+
+    [Test]
+    public void AMemberOnlyReadingACollection_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private readonly List<Rect> _items = new();
+
+                public bool Holds(Rect bounds) => _items.Contains(bounds);
+
+                public int Find(Rect bounds) => _items.IndexOf(bounds);
+
+                public int Count => _items.Count;
+
+                public override void Process(RenderNodeContext context)
+                {
+                    foreach (Rect item in _items)
+                        context.Publish(item);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "Contains, IndexOf and Count answer a question about the list and leave it as it was, so a "
+            + "rule that asked for a mark here would ask it of every read");
+    }
+
+    [Test]
+    public void AMutatorAddingToACollectionProcessDoesNotRead_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private readonly List<Rect> _measured = new();
+                private Rect _bounds;
+
+                public void Measure(Rect bounds) => _measured.Add(bounds);
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "no recording was built from that list, so nothing about it can go stale");
+    }
+
+    [Test]
+    public void AMemberCallingAMutatorNameOnAnImmutableValue_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private string _label = string.Empty;
+                private TimeSpan _offset;
+
+                public string Sanitized() => _label.Replace(" ", string.Empty);
+
+                public TimeSpan Delayed(TimeSpan delay) => _offset.Add(delay);
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(new Rect(_label.Length, (float)_offset.TotalSeconds, 0, 0));
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a string and a readonly struct answer with a new value and leave the state holding what it "
+            + "held, so the mutator name on one of them writes nothing");
+    }
+
+    [Test]
     public void AMutatorWritingThroughARefLocalAlias_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""

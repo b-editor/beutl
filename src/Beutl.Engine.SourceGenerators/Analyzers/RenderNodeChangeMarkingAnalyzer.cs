@@ -608,7 +608,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     // to ask about: which storage it aliases was decided where it was declared.
                     if (aliases.TryGetValue(symbol, out ISymbol? aliased))
                     {
-                        if (ChangesTheValueBehind(reference.Access))
+                        if (ChangesTheState(body.Model, reference.Access))
                             yield return new StateAssignment(aliased, reference.Access.GetLocation());
 
                         continue;
@@ -622,7 +622,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     if (!reference.OnThisInstance)
                         continue;
 
-                    if (ChangesTheValueBehind(reference.Access))
+                    if (ChangesTheState(body.Model, reference.Access))
                         yield return new StateAssignment(symbol, reference.Access.GetLocation());
                 }
             }
@@ -939,6 +939,117 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             && assignment.Left == expression
             && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
            || (expression.Parent is ArgumentSyntax argument && IsDeconstructionTarget(argument));
+
+    /// <summary>Whether <paramref name="expression"/> leaves the state naming it holding something else.</summary>
+    private static bool ChangesTheState(SemanticModel model, ExpressionSyntax expression)
+        => ChangesTheValueBehind(expression) || MutatesInPlace(model, expression);
+
+    /// <summary>Whether a call written on <paramref name="state"/> changes what it holds.</summary>
+    /// <remarks>
+    /// <para>
+    /// <c>_items.Add(bounds)</c> is not a write target anywhere in the syntax, so nothing above this reads
+    /// it, and a node whose <c>Process</c> walks <c>_items</c> can have the list it recorded from replaced
+    /// under it. The call is read by name: a curated set of the in-place mutators the collection types are
+    /// written with. That is unsound in both directions, and deliberately so - a type of one's own with a
+    /// pure <c>Add</c> is reported and a mutating <c>Bump</c> is not - because the alternative measured
+    /// against this repository, asking for a mark on any instance call on tracked state, reported
+    /// <c>Contains</c> and <c>IndexOf</c> as mutations: every diagnostic it added was a false one, and
+    /// this rule is documented never to err in that direction.
+    /// </para>
+    /// <para>
+    /// A call that cannot write its receiver is skipped whatever it is named. A static method - an
+    /// extension called in instance form - is handed the receiver by value; a <c>readonly</c> member and a
+    /// member of a <c>readonly struct</c> are barred from writing it; and a member of <c>string</c>
+    /// answers with a new string, which is what <c>Replace</c>, <c>Insert</c> and <c>Remove</c> on one
+    /// are, and what <c>Add</c> on a date or a duration is.
+    /// </para>
+    /// </remarks>
+    private static bool MutatesInPlace(SemanticModel model, ExpressionSyntax state)
+        => FindCallOnReceiver(state) is { } call
+           && model.GetSymbolInfo(call).Symbol is IMethodSymbol method
+           && IsInPlaceMutator(method);
+
+    /// <summary>The name of a call written directly on <paramref name="receiver"/>.</summary>
+    /// <remarks>
+    /// Directly, so that <c>_children[0].Add(x)</c> is not one: what it changes is the child the element
+    /// hands back, which is another object's state and outside what this rule reads.
+    /// </remarks>
+    private static SimpleNameSyntax? FindCallOnReceiver(ExpressionSyntax receiver)
+    {
+        switch (receiver.Parent)
+        {
+            case MemberAccessExpressionSyntax memberAccess
+                when memberAccess.Expression == receiver
+                     && memberAccess.Parent is InvocationExpressionSyntax invocation
+                     && invocation.Expression == memberAccess:
+                return memberAccess.Name;
+
+            // A conditional access spells its receiver in the expression that guards the chain, so the
+            // call it runs is written in the binding rather than beside the name.
+            case ConditionalAccessExpressionSyntax conditional
+                when conditional.Expression == receiver
+                     && conditional.WhenNotNull is InvocationExpressionSyntax
+                     {
+                         Expression: MemberBindingExpressionSyntax binding,
+                     }:
+                return binding.Name;
+
+            default:
+                return null;
+        }
+    }
+
+    private static bool IsInPlaceMutator(IMethodSymbol method)
+        => !method.IsStatic
+           && !method.IsReadOnly
+           && method.ContainingType is { IsReadOnly: false, SpecialType: not SpecialType.System_String }
+           && InPlaceMutatorNames.Contains(method.Name);
+
+    /// <summary>The names the collection and buffer types spell an in-place change with.</summary>
+    private static readonly ImmutableHashSet<string> InPlaceMutatorNames = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "Add",
+        "AddAfter",
+        "AddBefore",
+        "AddFirst",
+        "AddLast",
+        "AddOrUpdate",
+        "AddRange",
+        "Append",
+        "AppendFormat",
+        "AppendJoin",
+        "AppendLine",
+        "Clear",
+        "Dequeue",
+        "Enqueue",
+        "ExceptWith",
+        "Fill",
+        "GetOrAdd",
+        "Insert",
+        "InsertRange",
+        "IntersectWith",
+        "Pop",
+        "Push",
+        "Remove",
+        "RemoveAll",
+        "RemoveAt",
+        "RemoveFirst",
+        "RemoveLast",
+        "RemoveRange",
+        "Replace",
+        "Reverse",
+        "Set",
+        "SetAll",
+        "SetValue",
+        "Sort",
+        "SymmetricExceptWith",
+        "TryAdd",
+        "TryDequeue",
+        "TryPop",
+        "TryRemove",
+        "TryTake",
+        "TryUpdate",
+        "UnionWith");
 
     private static bool ChangesTheValueBehind(ExpressionSyntax expression)
         => IsWriteTarget(expression)
