@@ -262,9 +262,12 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     private static bool RequiresClippedLayer(Rect bounds, float scale)
     {
+        // The pool refuses this layer against the device's attachment limit, not against the engine ceiling,
+        // so a union between the two has to be clipped here or the pool drops the whole emitter. Predicted
+        // rather than resolved: resolving builds a shared context, which Process may not do.
+        int maxBufferDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
         PixelRect footprint = PixelRect.FromRect(bounds, scale);
-        if (footprint.Width > RenderScaleUtilities.MaxBufferDimension
-            || footprint.Height > RenderScaleUtilities.MaxBufferDimension)
+        if (footprint.Width > maxBufferDimension || footprint.Height > maxBufferDimension)
         {
             return true;
         }

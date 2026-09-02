@@ -1,8 +1,11 @@
-﻿using Beutl.Composition;
+﻿using System.Runtime.InteropServices;
+
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Particles;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
@@ -30,6 +33,12 @@ public sealed class DeviceBufferBudgetTests
     // Over the named budget and under the engine ceiling, so planning leaves the density alone at output
     // scale 1 and only the device budget can refuse the buffer.
     private static readonly Rect s_overBudgetDomain = new(0, 0, 10000, 8);
+
+    // Small enough that clipping a particle union to it is unmistakable against the union's own extent.
+    private static readonly Size s_particleFrame = new(256, 144);
+
+    // Between the named budget and the engine ceiling, so only a budget that knows the device clips it.
+    private const float ParticleUnionWidth = 9000f;
 
     [Test]
     public void ClampToDeviceBudget_FitsTheNamedBudgetRatherThanTheEngineCeiling()
@@ -746,6 +755,28 @@ public sealed class DeviceBufferBudgetTests
     }
 
     [Test]
+    public void AParticleUnionPastTheDeviceLimit_IsClippedRatherThanLeftForThePoolToRefuse()
+    {
+        int underTheEngineCeiling = WidestParticleAllocation(device: null, ParticleUnionWidth);
+        int onASubCeilingDevice = WidestParticleAllocation(
+            ContextAttaching(DeviceBudget),
+            ParticleUnionWidth);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                underTheEngineCeiling,
+                Is.GreaterThan(DeviceBudget).And.LessThan(RenderScaleUtilities.MaxBufferDimension),
+                "the fixture must produce a union the engine ceiling admits and the device cannot attach");
+            Assert.That(
+                onASubCeilingDevice,
+                Is.LessThanOrEqualTo(DeviceBudget),
+                "a union the pool would refuse has to be clipped to its owning target while recording, or "
+                + "the emitter drops out of a preview and fails a delivery render");
+        });
+    }
+
+    [Test]
     public void ADeviceClampedEffectItem_IsNeverKeyedOnThePlannedDensity()
     {
         float plannedDensity = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
@@ -840,6 +871,74 @@ public sealed class DeviceBufferBudgetTests
 
     private static CompiledRenderRequest CompileOverBudgetRequest(RenderRequest request, RenderNode node)
         => new RenderRequestCompiler().Compile(request, new RenderRequestRecorder(request).Record(node));
+
+    /// <summary>
+    /// The widest buffer a particle emitter asks for when one particle sits <paramref name="unionWidth"/>
+    /// logical pixels away, with <paramref name="device"/> installed as the shared context.
+    /// </summary>
+    /// <remarks>
+    /// The allocation is what the pool refuses on a real device, so the request the emitter makes is what the
+    /// clip decision has to be read from. The strict device answers only its limit, so a recording that
+    /// reached it any other way fails here rather than silently.
+    /// </remarks>
+    private static int WidestParticleAllocation(IGraphicsContext? device, float unionWidth)
+    {
+        var emitter = new ParticleEmitter
+        {
+            Seed = { CurrentValue = 7 },
+            EmissionRate = { CurrentValue = 4 },
+            Lifetime = { CurrentValue = 1.2f },
+            MaxParticles = { CurrentValue = 8 },
+            Speed = { CurrentValue = 0 },
+            SpeedRandom = { CurrentValue = 0 },
+            Gravity = { CurrentValue = 0 },
+            Spread = { CurrentValue = 0 },
+            ParticleSize = { CurrentValue = 40 },
+            ParticleColor = { CurrentValue = Colors.OrangeRed },
+        };
+        using ParticleEmitter.Resource resource = emitter.ToResource(
+            new CompositionContext(TimeSpan.FromSeconds(1)));
+
+        // The simulator owns the buffer the render node reads, so poking it here is how a fixture reaches a
+        // single distant particle the emitter's own properties can only produce for all of them.
+        Span<Particle> particles = MemoryMarshal.AsMemory(resource.GetAliveParticles()).Span;
+        Assert.That(particles.Length, Is.GreaterThan(1),
+            "the fixture must emit several particles so one can be singled out");
+        particles[0].X = unionWidth;
+
+        using var root = new DrawableRenderNode(resource);
+        using (var recording = new GraphicsContext2D(root, s_particleFrame, outputScale: 1))
+            emitter.Render(recording, resource);
+
+        var factory = new RecordingCpuTargetFactory();
+        using var renderer = new RenderNodeRenderer(
+            root,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(default, s_particleFrame),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = factory,
+            });
+        using var destination = new CpuRenderTarget(
+            new PixelSize((int)s_particleFrame.Width, (int)s_particleFrame.Height));
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: s_particleFrame);
+
+        WithInstalledDevice<object?>(device, () =>
+        {
+            renderer.Render(canvas);
+            return null;
+        });
+
+        Assert.That(factory.Requests, Is.Not.Empty, "the fixture must reach the particle layer allocation");
+        return factory.Requests.Max(static size => size.Width);
+    }
 
     private static IGraphicsContext ContextAttaching(int maxAttachmentDimension)
         => MockAttaching(maxAttachmentDimension).Object;
