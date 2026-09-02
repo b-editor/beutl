@@ -66,10 +66,10 @@ public sealed class EditorTabItemLifetimeTests
         var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false));
         service.AddTabItem(tab);
         service.SelectedTabItem.Value = tab;
-        service.ClearTabItems();
+        await service.ClearTabItemsAsync();
 
         Assert.That(service.SelectedTabItem.Value, Is.Null);
-        Assert.That(service.RemoveTabItem(tab), Is.False);
+        Assert.That(await service.RemoveTabItemAsync(tab), Is.False);
         Assert.That(service.SelectedTabItem.Value, Is.Null);
         await tab.DisposeAsync();
     }
@@ -248,22 +248,22 @@ public sealed class EditorTabItemLifetimeTests
         };
         using var start = new ManualResetEventSlim();
 
-        Task<bool> first = Task.Run(() =>
+        Task<bool> first = Task.Run(async () =>
         {
             start.Wait();
-            return service.RemoveTabItem(tab);
+            return await service.RemoveTabItemAsync(tab);
         });
-        Task<bool> second = Task.Run(() =>
+        Task<bool> second = Task.Run(async () =>
         {
             start.Wait();
-            return service.RemoveTabItem(tab);
+            return await service.RemoveTabItemAsync(tab);
         });
         start.Set();
 
         bool[] results = await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {
-            Assert.That(results.Count(static value => value), Is.EqualTo(1));
+            Assert.That(results, Has.Some.True);
             Assert.That(removeNotifications, Is.EqualTo(1));
             Assert.That(service.TabItems, Is.Empty);
         });
@@ -352,10 +352,11 @@ public sealed class EditorTabItemLifetimeTests
             releaseAdd.Task.GetAwaiter().GetResult();
         }));
         await beforeAdd.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(service.RemoveTabItem(tab), Is.True);
+        Assert.That(service.RequestTabRemoval(tab), Is.False);
         releaseAdd.TrySetResult();
 
         Assert.That(await add.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        await tab.GetRemovalCompletion().WaitAsync(TimeSpan.FromSeconds(5));
         await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {
@@ -363,6 +364,43 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(service.SelectedTabItem.Value, Is.Null);
             Assert.That(context.DisposeCount, Is.EqualTo(1));
             Assert.That(addNotifications, Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task AttachmentCommitBeforePhysicalAddCannotPublishAfterRemovalReservation()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        var attachmentCommitted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePhysicalAdd = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int addNotifications = 0;
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+                Interlocked.Increment(ref addNotifications);
+        };
+        service.BeforePhysicalAdd = () =>
+        {
+            attachmentCommitted.TrySetResult();
+            releasePhysicalAdd.Task.GetAwaiter().GetResult();
+        };
+
+        Task<bool> add = Task.Run(() => service.TryAddTabItem(tab));
+        await attachmentCommitted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.RequestTabRemoval(tab), Is.False);
+        releasePhysicalAdd.TrySetResult();
+
+        Assert.That(await add.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        await tab.GetRemovalCompletion().WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(addNotifications, Is.Zero);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
         });
     }
 
@@ -380,7 +418,7 @@ public sealed class EditorTabItemLifetimeTests
                 nestedClose = service.RequestClose(context);
         };
 
-        bool removed = await Task.Run(() => service.RemoveTabItem(tab))
+        bool removed = await Task.Run(async () => await service.RemoveTabItemAsync(tab))
             .WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(nestedClose.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
         await nestedClose.Completion.WaitAsync(TimeSpan.FromSeconds(5));
@@ -388,6 +426,33 @@ public sealed class EditorTabItemLifetimeTests
         Assert.Multiple(() =>
         {
             Assert.That(removed, Is.True);
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task RemoveObserverCanWaitForCrossThreadCloseAdmission()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        service.AddTabItem(tab);
+        EditorContextCloseRequest nested = default;
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Remove)
+            {
+                Task<EditorContextCloseRequest> request = Task.Run(() => service.RequestClose(context));
+                nested = request.GetAwaiter().GetResult();
+            }
+        };
+
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nested.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
             Assert.That(service.TabItems, Is.Empty);
             Assert.That(service.SelectedTabItem.Value, Is.Null);
         });
@@ -572,41 +637,44 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task SelectionAndRemovalDoNotInvertContextPublicationGate()
     {
-        var service = new EditorService(new ExtensionProvider());
-        var scene = new Scene(16, 16, string.Empty)
+        for (int iteration = 0; iteration < 20; iteration++)
         {
-            Uri = new Uri(Path.Combine(Path.GetTempPath(), "publication-gate.scene"))
-        };
-        var context = new GatedEditorContext(scene);
-        var tab = new EditorTabItem(context);
-        service.AddTabItem(tab);
-        service.SelectedTabItem.Value = tab;
-        context.PauseNextPublication();
-
-        ((System.Collections.Specialized.INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
-        {
-            if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+            var service = new EditorService(new ExtensionProvider());
+            var scene = new Scene(16, 16, string.Empty)
             {
-                context.EnterGate();
-                context.ExitGate();
-            }
-        };
+                Uri = new Uri(Path.Combine(Path.GetTempPath(), $"publication-gate-{iteration}.scene"))
+            };
+            var context = new GatedEditorContext(scene);
+            var tab = new EditorTabItem(context);
+            service.AddTabItem(tab);
+            service.SelectedTabItem.Value = tab;
+            context.PauseNextPublication();
 
-        Task activate = Task.Run(() => service.ActivateTabItem(scene));
-        await context.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Task<bool> remove = Task.Run(() => service.RemoveTabItem(tab));
-        context.ReleasePublication();
+            ((System.Collections.Specialized.INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
+            {
+                if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+                {
+                    context.EnterGate();
+                    context.ExitGate();
+                }
+            };
 
-        await Task.WhenAll(
-            activate.WaitAsync(TimeSpan.FromSeconds(5)),
-            remove.WaitAsync(TimeSpan.FromSeconds(5)));
+            Task activate = Task.Run(() => service.ActivateTabItem(scene));
+            await context.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task<bool> remove = Task.Run(async () => await service.RemoveTabItemAsync(tab));
+            context.ReleasePublication();
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(service.TabItems, Is.Empty);
-            Assert.That(service.SelectedTabItem.Value, Is.Null);
-        });
-        await tab.DisposeAsync();
+            await Task.WhenAll(
+                activate.WaitAsync(TimeSpan.FromSeconds(5)),
+                remove.WaitAsync(TimeSpan.FromSeconds(5)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(service.TabItems, Is.Empty, $"iteration {iteration}");
+                Assert.That(service.SelectedTabItem.Value, Is.Null, $"iteration {iteration}");
+            });
+            await tab.DisposeAsync();
+        }
     }
 
     [Test]
@@ -634,8 +702,7 @@ public sealed class EditorTabItemLifetimeTests
 
         Task<bool> replace = Task.Run(async () => await tab.ReplaceContextAsync(replacement));
         await replacement.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Task<bool> remove = Task.Run(() => service.RemoveTabItem(tab));
-        Assert.That(await remove.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(service.RequestTabRemoval(tab), Is.False);
         Assert.That(service.ContainsTabItem(tab), Is.True,
             "Physical removal waits for the admitted replacement publication to drain.");
         replacement.ReleasePublication();
@@ -862,6 +929,80 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(closeRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
             Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task StaleContextCloseGenerationCannotCloseReplacement()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
+        var lookupCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseAdmission = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.BeforeContextCloseAdmission = () =>
+        {
+            lookupCompleted.TrySetResult();
+            releaseAdmission.Task.GetAwaiter().GetResult();
+        };
+
+        Task<EditorContextCloseRequest> staleClose = Task.Run(() => service.RequestClose(oldContext));
+        await lookupCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(
+            await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)),
+            Is.True);
+        releaseAdmission.TrySetResult();
+
+        EditorContextCloseRequest request = await staleClose.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Status, Is.EqualTo(EditorContextCloseRequestStatus.NotOwned));
+            Assert.That(tab.Context.Value, Is.SameAs(replacement));
+            Assert.That(service.TabItems, Does.Contain(tab));
+            Assert.That(replacement.DisposeCount, Is.Zero);
+        });
+
+        service.BeforeContextCloseAdmission = null;
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostCloseReservationRejectsReplacementBeforeCloseStarts()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
+        var reservationCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCloseStart = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.BeforeHostCloseStart = () =>
+        {
+            reservationCompleted.TrySetResult();
+            releaseCloseStart.Task.GetAwaiter().GetResult();
+        };
+
+        Task<EditorContextCloseRequest> close = Task.Run(() => service.RequestClose(oldContext));
+        await reservationCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        bool replaced = await tab.ReplaceContextAsync(replacement)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replaced, Is.False);
+        Assert.That(oldContext.DisposeCount, Is.Zero);
+        Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+
+        releaseCloseStart.TrySetResult();
+        EditorContextCloseRequest request = await close.WaitAsync(TimeSpan.FromSeconds(5));
+        await request.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Is.Empty);
         });
     }
 
@@ -1413,6 +1554,8 @@ public sealed class EditorTabItemLifetimeTests
 
         public EditorExtension Extension { get; } = TestEditorExtension.Instance;
 
+        public IEditorContextCloseService CloseService { get; } = new UnownedCloseService();
+
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
 
         public IKnownEditorCommands? Commands => null;
@@ -1443,6 +1586,12 @@ public sealed class EditorTabItemLifetimeTests
         }
 
         public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class UnownedCloseService : IEditorContextCloseService
+    {
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+            => new(EditorContextCloseRequestStatus.NotOwned, Task.CompletedTask);
     }
 
     private sealed class GatedEditorContext(Scene scene) : BlockingEditorContext(false, scene), IEditorContextPublicationGate

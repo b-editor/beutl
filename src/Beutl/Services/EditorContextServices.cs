@@ -12,6 +12,8 @@ internal sealed class EditorContextServices(EditorService editorService, Extensi
 {
     IExtensionProvider IEditorContextServices.ExtensionProvider => extensionProvider;
 
+    IEditorContextCloseService IEditorContextServices.CloseService => editorService;
+
     public bool TryGetService<T>([NotNullWhen(true)] out T? service)
         where T : class
     {

@@ -109,6 +109,8 @@ public class ToolTabReuseTests
 
     private sealed class TestEditorContext(params FakeTab[] tabs) : IEditorContext
     {
+        public IEditorContextCloseService CloseService => TestEditorContextCloseService.Instance;
+
         public CoreObject Object => null!;
 
         public EditorExtension Extension => null!;

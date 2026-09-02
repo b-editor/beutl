@@ -39,27 +39,42 @@ synchronous wrapper or blocking with `GetAwaiter().GetResult()`.
 
 Host publication and dispatcher callbacks must not synchronously wait for
 `DisposeAsync` or `EditorService.CloseTabItem`, because both retain terminal
-completion semantics. Resolve `IEditorContextCloseService` from the supplied
-`IEditorContextServices` and request closure instead:
+completion semantics. `TryCreateContext` must retain the close capability supplied
+by `IEditorContextServices` and expose it through the required
+`IEditorContext.CloseService` property, either directly or through a
+context-specific wrapper. Request closure instead:
 
 ```csharp
-services.TryGetService<IEditorContextCloseService>(out var closeService);
-EditorContextCloseRequest request = closeService!.RequestClose(this);
+EditorContextCloseRequest request = CloseService.RequestClose(this);
 // Return from the callback. Observe request.Completion afterward if needed.
 ```
 
-`ToolTabExtension` callbacks receive only `IEditorContext`; resolve the same
-service through its inherited `IServiceProvider` surface:
+`ToolTabExtension` callbacks receive only `IEditorContext`; use its required
+retained close capability:
 
 ```csharp
-var closeService = (IEditorContextCloseService?)editorContext.GetService(
-    typeof(IEditorContextCloseService));
-EditorContextCloseRequest request = closeService!.RequestClose(editorContext);
+EditorContextCloseRequest request = editorContext.CloseService.RequestClose(editorContext);
 ```
 
 The request distinguishes `Accepted`, `AlreadyClosing`, and `NotOwned`.
 `Completion` is the stable terminal task for physical tab removal and context
 teardown, including failures.
+
+## Project shutdown
+
+`ProjectService.CloseProject()` has been replaced by `CloseProjectAsync()`.
+Await it before unloading packages, replacing the editor host, or releasing any
+resource that an editor context can still reach. Repeated calls join the queued
+project transition, including a close that has already cleared `CurrentProject`.
+
+`ProjectObservable` is now a post-commit notification stream. Notifications are
+ordered and run only after the editor reaches a stable state, but project methods
+do not wait for observers to finish. Observers must not synchronously block on a
+new project operation; enqueue or await the operation after returning from the
+callback. The event payload identifies the historical transition; a later
+transition may already be visible through `CurrentProject`. Use
+`WaitForPendingProjectChangesAsync()` when code that mutates
+`Project.Items` needs an explicit editor-state barrier.
 
 Dock layout application and reset are asynchronous for the same reason. Await
 the operation so outgoing tools finish teardown before replacement tools begin

@@ -5,7 +5,9 @@ namespace Beutl.Extensibility;
 /// <summary>
 /// Host services supplied to <see cref="EditorExtension.TryCreateContext"/> so a created
 /// <see cref="IEditorContext"/> can reach host capabilities. The host owns the instance and
-/// passes it in explicitly; an extension that needs nothing from the host may ignore it.
+/// passes it in explicitly. Every successful context creation must retain
+/// <see cref="CloseService"/> and expose it, directly or through a context-specific wrapper,
+/// through <see cref="IEditorContext.CloseService"/>.
 /// </summary>
 public interface IEditorContextServices
 {
@@ -14,6 +16,9 @@ public interface IEditorContextServices
     /// Executable extension instances must not be retained beyond their lease.
     /// </summary>
     IExtensionProvider ExtensionProvider { get; }
+
+    /// <summary>Gets the required host close capability to retain on the created context.</summary>
+    IEditorContextCloseService CloseService { get; }
 
     /// <summary>
     /// Resolves a host-provided service of type <typeparamref name="T"/> by type. This is the

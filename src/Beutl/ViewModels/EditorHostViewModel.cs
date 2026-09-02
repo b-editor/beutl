@@ -7,89 +7,72 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public class EditorHostViewModel
+public class EditorHostViewModel : IAsyncDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<EditorHostViewModel>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
-    private readonly object _operationGate = new();
-    private Task _operationTail = Task.CompletedTask;
-    private Project? _subscribedProject;
-    private long _subscriptionGeneration;
+    private readonly ProjectService.ProjectChangeRegistration _projectChangeRegistration;
+    private readonly object _projectChangeGate = new();
+    private Task _projectChangeTask = Task.CompletedTask;
+    private Task? _disposeTask;
+    private object? _activeProjectItems;
+    private int _disposed;
 
     public EditorHostViewModel(ProjectService projectService, EditorService editorService)
     {
         _projectService = projectService;
         _editorService = editorService;
-        _projectService.Closing += OnProjectClosingAsync;
-        _projectService.Opened += OnProjectOpenedAsync;
+        _projectChangeRegistration = _projectService.RegisterProjectChangeHandler(
+            new ProjectChangeHandler(this));
     }
 
-    private Task OnProjectClosingAsync(
-        ProjectService.ProjectCloseContext closeContext,
-        CancellationToken _)
+    internal Task WaitForPendingProjectChangesAsync()
     {
-        return QueueOperationAsync(async () =>
+        lock (_projectChangeGate)
         {
-            Project? project = _projectService.CurrentProject.Value;
-            CoreObject? selectedObject = _editorService.SelectedTabItem.Value?.Context.Value?.Object;
-            if (project is not null)
-            {
-                closeContext.RegisterCompletion(projectClosed =>
-                    RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
-            }
-
-            await DispatchProjectChangeAsync(null, project);
-        });
-    }
-
-    private Task OnProjectOpenedAsync(Project project)
-    {
-        return QueueOperationAsync(() => DispatchProjectChangeAsync(project, null));
-    }
-
-    private async Task DispatchProjectChangeAsync(Project? @new, Project? old)
-    {
-        if (Dispatcher.UIThread.CheckAccess())
-        {
-            await OnProjectChangedAsync(@new, old);
-        }
-        else
-        {
-            await Dispatcher.UIThread.InvokeAsync(async () =>
-                await OnProjectChangedAsync(@new, old));
+            return _projectChangeTask;
         }
     }
 
-    private Task RestoreAfterAbortedCloseAsync(
-        Project project,
-        CoreObject? selectedObject,
-        bool projectClosed)
+    private Task QueueProjectChange(Project? @new, Project? old)
     {
-        if (projectClosed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
+        Task previous;
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_projectChangeGate)
         {
-            return Task.CompletedTask;
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
+            previous = _projectChangeTask;
+            _projectChangeTask = completion.Task;
         }
-
-        return QueueOperationAsync(async () =>
-        {
-            await DispatchProjectChangeAsync(project, null);
-            if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
-            {
-                await DispatchAsync(() => _editorService.ActivateTabItem(selectedItem));
-            }
-        });
+        _ = AwaitPreviousAndApplyAsync(previous, @new, old, completion);
+        return completion.Task;
     }
 
-    private static async Task DispatchAsync(Action action)
+    private async Task AwaitPreviousAndApplyAsync(
+        Task previous,
+        Project? @new,
+        Project? old,
+        TaskCompletionSource completion)
     {
-        if (Dispatcher.UIThread.CheckAccess())
+        try
         {
-            action();
+            await previous;
         }
-        else
+        catch (Exception ex)
         {
-            await Dispatcher.UIThread.InvokeAsync(action);
+            _logger.LogError(ex, "A previous project change failed before the next change could run.");
+        }
+
+        try
+        {
+            await RunOnUiThreadAsync(() => OnProjectChangedAsync(@new, old));
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
         }
     }
 
@@ -97,56 +80,27 @@ public class EditorHostViewModel
 
     private async Task OnProjectChangedAsync(Project? @new, Project? old)
     {
-        var oldItems = _editorService.TabItems.ToArray();
+        _activeProjectItems = @new?.Items;
+        if (old is not null)
+        {
+            old.Items.CollectionChanged -= Project_Items_CollectionChanged;
+        }
+
+        if (@new is not null)
+        {
+            @new.Items.CollectionChanged += Project_Items_CollectionChanged;
+        }
+
         try
         {
-            try
-            {
-                _editorService.ClearTabItems();
-
-                if (old != null)
-                {
-                    UnsubscribeFromProject(old);
-                }
-
-                if (@new != null)
-                {
-                    SubscribeToProject(@new);
-                    foreach (ProjectItem item in @new.Items)
-                    {
-                        _editorService.ActivateTabItem(item);
-                    }
-                }
-            }
-            finally
-            {
-                foreach (var item in oldItems)
-                {
-                    // Capture FilePath before DisposeAsync nulls out the underlying context.
-                    var filePath = item.FilePath.Value;
-                    try
-                    {
-                        await item.DisposeAsync();
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", filePath);
-                    }
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
+            CoreObject[] items = @new?.Items.Cast<CoreObject>().ToArray() ?? [];
+            await _editorService.ReconcileTabItemsAsync(items);
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "Unhandled exception in {Method}. OldProject={OldProject} NewProject={NewProject}",
-                nameof(OnProjectChangedAsync),
+                "Failed to reconcile editor tabs while changing projects. OldProject={OldProject} NewProject={NewProject}",
                 SafeLocalPath(old?.Uri),
                 SafeLocalPath(@new?.Uri));
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
@@ -155,68 +109,92 @@ public class EditorHostViewModel
 
     private void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        long generation;
-        lock (_operationGate)
-        {
-            generation = _subscriptionGeneration;
-        }
-
-        _ = QueueOperationAsync(() => HandleProjectItemsChangedAsync(sender, e, generation));
+        ProjectItemsChange change = ProjectItemsChange.Capture(sender, e);
+        QueueProjectItemChange(sender, change);
     }
 
-    private async Task HandleProjectItemsChangedAsync(
-        object? sender,
-        NotifyCollectionChangedEventArgs e,
-        long generation)
+    private void QueueProjectItemChange(object? sender, ProjectItemsChange change)
     {
-        lock (_operationGate)
+        Task previous;
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_projectChangeGate)
         {
-            if (generation != _subscriptionGeneration
-                || _subscribedProject is null
-                || !ReferenceEquals(sender, _subscribedProject.Items))
-            {
+            if (_disposed != 0)
                 return;
-            }
+
+            previous = _projectChangeTask;
+            _projectChangeTask = completion.Task;
+        }
+        _ = AwaitPreviousAndHandleItemsAsync(previous, sender, change, completion);
+    }
+
+    private async Task AwaitPreviousAndHandleItemsAsync(
+        Task previous,
+        object? sender,
+        ProjectItemsChange change,
+        TaskCompletionSource completion)
+    {
+        try
+        {
+            await previous;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "A previous project change failed before an item change could run.");
+        }
+
+        if (!ReferenceEquals(sender, _activeProjectItems))
+        {
+            completion.TrySetResult();
+            return;
         }
 
         try
         {
-            if (e.Action == NotifyCollectionChangedAction.Add &&
-                e.NewItems != null)
+            await RunOnUiThreadAsync(() => HandleProjectItemsChangedAsync(change));
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private static async Task RunOnUiThreadAsync(Func<Task> action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            await action();
+        }
+        else
+        {
+            await Dispatcher.UIThread.InvokeAsync(action);
+        }
+    }
+
+    private async Task HandleProjectItemsChangedAsync(ProjectItemsChange change)
+    {
+        try
+        {
+            if (change.Action == NotifyCollectionChangedAction.Add)
             {
-                foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
+                foreach (ProjectItem item in change.NewItems)
                 {
                     _editorService.ActivateTabItem(item);
                 }
             }
-            else if (e.Action == NotifyCollectionChangedAction.Remove &&
-                     e.OldItems != null)
+            else if (change.Action == NotifyCollectionChangedAction.Remove)
             {
-                foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
-                {
-                    try
-                    {
-                        await _editorService.CloseTabItem(item);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(
-                            ex,
-                            "Failed to close tab for removed project item. FilePath={FilePath}",
-                            SafeLocalPath(item.Uri));
-                    }
-                }
+                await CloseProjectItemsAsync(change.OldItems);
             }
-            else
+            else if (change.Action == NotifyCollectionChangedAction.Replace)
             {
-                _logger.LogWarning(
-                    "Unhandled project items collection change. Action={Action} NewCount={NewCount} OldCount={OldCount}",
-                    e.Action,
-                    e.NewItems?.Count,
-                    e.OldItems?.Count);
+                await _editorService.ReconcileTabItemsAsync(change.CurrentItems);
+            }
+            else if (change.Action == NotifyCollectionChangedAction.Reset)
+            {
+                await _editorService.ReconcileTabItemsAsync(change.CurrentItems);
             }
         }
         catch (OperationCanceledException)
@@ -228,89 +206,144 @@ public class EditorHostViewModel
                 ex,
                 "Unhandled exception in {Method}. Action={Action}",
                 nameof(HandleProjectItemsChangedAsync),
-                e.Action);
+                change.Action);
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
 
-    private Task QueueOperationAsync(Func<Task> operation)
+    private async Task CloseProjectItemsAsync(IEnumerable<ProjectItem> items)
     {
-        ArgumentNullException.ThrowIfNull(operation);
-        Task previous;
-        TaskCompletionSource completion = new(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (_operationGate)
-        {
-            previous = _operationTail;
-            _operationTail = completion.Task;
-        }
-
-        _ = CompleteOperationAsync(previous, operation, completion);
-        return completion.Task;
-    }
-
-    private async Task CompleteOperationAsync(
-        Task previous,
-        Func<Task> operation,
-        TaskCompletionSource completion)
-    {
-        try
+        foreach (ProjectItem item in items)
         {
             try
             {
-                await previous;
+                await _editorService.CloseTabItem(item);
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
                 _logger.LogError(
                     ex,
-                    "A previous editor-host operation failed before the next operation ran.");
+                    "Failed to close tab for removed project item. FilePath={FilePath}",
+                    SafeLocalPath(item.Uri));
+            }
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Task task;
+        TaskCompletionSource? completion = null;
+        lock (_projectChangeGate)
+        {
+            if (_disposeTask is null)
+            {
+                completion = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
             }
 
-            await operation();
-            completion.TrySetResult();
+            task = _disposeTask;
         }
-        catch (OperationCanceledException ex)
+
+        if (completion is not null)
         {
-            completion.TrySetCanceled(ex.CancellationToken);
+            _ = DisposeCoreAsync(completion);
+        }
+
+        return new ValueTask(task);
+    }
+
+    private async Task DisposeCoreAsync(TaskCompletionSource completion)
+    {
+        Exception? failure = null;
+        try
+        {
+            await _projectChangeRegistration.BeginDisposeAsync();
+
+            Task pending;
+            lock (_projectChangeGate)
+            {
+                _disposed = 1;
+                pending = _projectChangeTask;
+            }
+
+            await pending;
+            await RunOnUiThreadAsync(async () =>
+            {
+                DetachActiveProjectItems();
+                await _editorService.ReconcileTabItemsAsync([]);
+            });
         }
         catch (Exception ex)
         {
-            completion.TrySetException(ex);
+            failure = ex;
+            lock (_projectChangeGate)
+            {
+                _disposed = 1;
+            }
+
+            try
+            {
+                await RunOnUiThreadAsync(async () =>
+                {
+                    DetachActiveProjectItems();
+                    await _editorService.ReconcileTabItemsAsync([]);
+                });
+            }
+            catch (Exception cleanupEx)
+            {
+                failure = new AggregateException(ex, cleanupEx);
+            }
+        }
+        finally
+        {
+            _projectChangeRegistration.CompleteDispose();
+            if (failure is null)
+                completion.TrySetResult();
+            else
+                completion.TrySetException(failure);
         }
     }
 
-    private void SubscribeToProject(Project project)
+    private void DetachActiveProjectItems()
     {
-        lock (_operationGate)
+        if (_activeProjectItems is INotifyCollectionChanged items)
         {
-            if (ReferenceEquals(_subscribedProject, project))
-            {
-                return;
-            }
+            items.CollectionChanged -= Project_Items_CollectionChanged;
+        }
 
-            if (_subscribedProject is { } previous)
-            {
-                previous.Items.CollectionChanged -= Project_Items_CollectionChanged;
-            }
+        _activeProjectItems = null;
+    }
 
-            project.Items.CollectionChanged += Project_Items_CollectionChanged;
-            _subscribedProject = project;
-            _subscriptionGeneration++;
+    private readonly record struct ProjectItemsChange(
+        NotifyCollectionChangedAction Action,
+        ProjectItem[] NewItems,
+        ProjectItem[] OldItems,
+        ProjectItem[] CurrentItems)
+    {
+        public static ProjectItemsChange Capture(object? sender, NotifyCollectionChangedEventArgs args)
+        {
+            ProjectItem[] newItems = args.NewItems?.OfType<ProjectItem>().ToArray() ?? [];
+            ProjectItem[] oldItems = args.OldItems?.OfType<ProjectItem>().ToArray() ?? [];
+            ProjectItem[] currentItems = (args.Action is
+                NotifyCollectionChangedAction.Reset or NotifyCollectionChangedAction.Replace)
+                && sender is IEnumerable<ProjectItem> items
+                    ? items.ToArray()
+                    : [];
+            return new ProjectItemsChange(args.Action, newItems, oldItems, currentItems);
         }
     }
 
-    private void UnsubscribeFromProject(Project project)
+    private sealed class ProjectChangeHandler(EditorHostViewModel owner) : IProjectChangeHandler
     {
-        lock (_operationGate)
-        {
-            if (ReferenceEquals(_subscribedProject, project))
-            {
-                project.Items.CollectionChanged -= Project_Items_CollectionChanged;
-                _subscribedProject = null;
-                _subscriptionGeneration++;
-            }
-        }
+        public Task ApplyProjectChangeAsync(Project? @new, Project? old)
+            => owner.QueueProjectChange(@new, old);
+
+        public Task WaitForPendingProjectChangesAsync()
+            => owner.WaitForPendingProjectChangesAsync();
     }
 
     // Uri.LocalPath throws InvalidOperationException for relative URIs; protect log

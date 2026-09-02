@@ -15,13 +15,19 @@ namespace PackageSample;
 public sealed class TextEditorContext : IEditorContext
 {
     private int _disposed;
-    public TextEditorContext(CoreObject obj, SampleEditorExtension extension)
+    public TextEditorContext(
+        CoreObject obj,
+        SampleEditorExtension extension,
+        IEditorContextCloseService closeService)
     {
         Extension = extension;
         Object = obj;
+        CloseService = new BoundCloseService(this, closeService);
         Text.Value = File.ReadAllText(obj.Uri!.LocalPath);
         Commands = new CommandsImpl(this);
     }
+
+    public IEditorContextCloseService CloseService { get; }
 
     public EditorExtension Extension { get; }
 
@@ -60,6 +66,9 @@ public sealed class TextEditorContext : IEditorContext
 
     public object? GetService(Type serviceType)
     {
+        if (serviceType == typeof(IEditorContextCloseService))
+            return CloseService;
+
         return null;
     }
 
@@ -82,6 +91,20 @@ public sealed class TextEditorContext : IEditorContext
             {
                 return false;
             }
+        }
+    }
+
+    private sealed class BoundCloseService(
+        TextEditorContext owner,
+        IEditorContextCloseService closeService) : IEditorContextCloseService
+    {
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+        {
+            return ReferenceEquals(context, owner)
+                ? closeService.RequestClose(owner)
+                : new EditorContextCloseRequest(
+                    EditorContextCloseRequestStatus.NotOwned,
+                    Task.CompletedTask);
         }
     }
 }
@@ -129,7 +152,7 @@ public sealed class SampleEditorExtension : EditorExtension
         context = null;
         if (obj is Scene)
         {
-            context = new TextEditorContext(obj, this);
+            context = new TextEditorContext(obj, this, services.CloseService);
             return true;
         }
         else

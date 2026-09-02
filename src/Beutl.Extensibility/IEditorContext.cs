@@ -4,11 +4,20 @@ namespace Beutl.Extensibility;
 
 public interface IEditorContext : IAsyncDisposable, IServiceProvider
 {
+    /// <summary>Gets the host close capability retained by this editor context.</summary>
+    /// <remarks>
+    /// Every context returned from <see cref="EditorExtension.TryCreateContext"/> must expose
+    /// the capability supplied by <see cref="IEditorContextServices"/>, directly or through a
+    /// context-specific wrapper. Tool-tab extensions call it with this context and must not fall
+    /// back to synchronous disposal.
+    /// </remarks>
+    IEditorContextCloseService CloseService { get; }
+
     /// <summary>Asynchronously releases the editor context and completes after all owned resources are closed.</summary>
     /// <remarks>
-    /// Do not synchronously wait for disposal from a host publication or dispatcher callback. Resolve
-    /// <see cref="IEditorContextCloseService"/> from <see cref="IEditorContextServices"/> and request
-    /// host closure instead; its completion can be observed after the callback returns.
+    /// Do not synchronously wait for disposal from a host publication or dispatcher callback. Call
+    /// <see cref="CloseService"/>.<see cref="IEditorContextCloseService.RequestClose"/> instead; its
+    /// completion can be observed after the callback returns.
     /// </remarks>
     new ValueTask DisposeAsync();
 
