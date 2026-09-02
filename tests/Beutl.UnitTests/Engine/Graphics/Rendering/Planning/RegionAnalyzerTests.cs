@@ -402,8 +402,7 @@ public sealed class RegionAnalyzerTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 60, 60)));
-            Assert.That(result.QueryBounds, Is.EqualTo(new Rect(0, 0, 105, 105)));
-            Assert.That(result.Measurement.QueryBounds, Is.EqualTo(result.QueryBounds));
+            Assert.That(result.Measurement.QueryBounds, Is.EqualTo(new Rect(0, 0, 105, 105)));
             Assert.That(result.TargetDomain, Is.EqualTo(targetDomain));
             Assert.That(result.RequestedRegion, Is.EqualTo(requested));
             Assert.That(result.FinalCommitBounds, Is.EqualTo(Rect.Empty));

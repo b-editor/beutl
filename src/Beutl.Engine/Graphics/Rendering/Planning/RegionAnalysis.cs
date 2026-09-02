@@ -30,8 +30,6 @@ internal sealed class RegionAnalysis
 
     public RenderNodeMeasurement Measurement { get; }
 
-    public Rect QueryBounds => Measurement.QueryBounds;
-
     public Rect? TargetDomain { get; }
 
     public Rect? RequestedRegion { get; }
