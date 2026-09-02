@@ -5,7 +5,7 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RenderRequestExecutor
 {

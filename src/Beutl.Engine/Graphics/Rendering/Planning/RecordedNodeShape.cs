@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// A comparable description of everything one <see cref="RenderNode.Process(RenderNodeContext)"/> call

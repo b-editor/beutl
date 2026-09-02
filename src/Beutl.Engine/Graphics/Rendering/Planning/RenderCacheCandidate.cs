@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics.Rendering.Cache;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed record RenderCacheCandidate(
     RenderCacheCandidateId Id,

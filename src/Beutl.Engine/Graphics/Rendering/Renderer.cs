@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Logging;
 using Beutl.Media;

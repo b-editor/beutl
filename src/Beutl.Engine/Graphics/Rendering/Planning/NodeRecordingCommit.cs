@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>What one recording hands to whoever absorbs it.</summary>
 /// <remarks>

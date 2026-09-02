@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Complete runtime identity for one materialized render-cache value. The hash is a bucket hint only;

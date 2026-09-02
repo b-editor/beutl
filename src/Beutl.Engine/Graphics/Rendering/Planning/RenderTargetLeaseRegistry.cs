@@ -6,7 +6,7 @@ using Beutl.Media;
 
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Compatibility-facing adapter over the renderer-lifetime target pool. Request code keeps the

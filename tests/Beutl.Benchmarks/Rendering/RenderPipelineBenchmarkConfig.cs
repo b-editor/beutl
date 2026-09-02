@@ -7,6 +7,7 @@ using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Loggers;
 
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.Benchmarks.Rendering;
 

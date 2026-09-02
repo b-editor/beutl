@@ -1,6 +1,6 @@
 ﻿using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed record RenderMaterializationDemandResolution(
     IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> Demands,

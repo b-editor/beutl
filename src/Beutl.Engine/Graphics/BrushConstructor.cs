@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;

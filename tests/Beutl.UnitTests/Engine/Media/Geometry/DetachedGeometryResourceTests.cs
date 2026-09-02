@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Media.Geometry;

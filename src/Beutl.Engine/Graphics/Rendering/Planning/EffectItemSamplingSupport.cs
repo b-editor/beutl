@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Graphics.Effects;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Resolves the input region a recorded effect-item filter segment reads to produce a requested output region.

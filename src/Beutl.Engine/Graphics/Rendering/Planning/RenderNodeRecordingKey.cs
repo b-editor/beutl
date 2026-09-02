@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics.Rendering.Cache;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Everything about a request that a <see cref="RenderNode"/> can read while it records.

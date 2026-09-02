@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using Beutl.Graphics.Effects;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Fails a request whose symbolic fragment carries a metadata callback that no longer answers what it

@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Materials;

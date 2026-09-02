@@ -1,5 +1,6 @@
 ﻿using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
 

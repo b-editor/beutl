@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering.Requests;
+
+namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// The request values a node needs before its children are recorded.

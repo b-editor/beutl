@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.Graphics.Rendering;
 

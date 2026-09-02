@@ -4,6 +4,7 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Media.Pixel;

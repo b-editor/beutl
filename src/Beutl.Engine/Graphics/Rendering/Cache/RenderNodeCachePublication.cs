@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Graphics.Rendering.Requests;
+
+namespace Beutl.Graphics.Rendering.Cache;
 
 internal sealed record RenderNodeCachePublication(
     RenderNodeCache Cache,

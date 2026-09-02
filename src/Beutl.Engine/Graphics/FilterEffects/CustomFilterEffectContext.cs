@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Logging;
 using Beutl.Media;

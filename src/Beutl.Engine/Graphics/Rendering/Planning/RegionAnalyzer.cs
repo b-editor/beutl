@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class RegionAnalyzer
 {

@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;

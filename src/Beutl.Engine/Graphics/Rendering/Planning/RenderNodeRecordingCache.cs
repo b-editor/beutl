@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>One hit-test answer a recording read, stated over an input slot so it can be read again.</summary>
 /// <remarks>

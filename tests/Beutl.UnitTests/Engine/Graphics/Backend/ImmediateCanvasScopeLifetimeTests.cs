@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 

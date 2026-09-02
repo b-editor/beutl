@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.Graphics.Rendering;
 

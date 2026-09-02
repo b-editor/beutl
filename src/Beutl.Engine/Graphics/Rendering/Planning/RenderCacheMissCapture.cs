@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Describes a capture to insert immediately after the original producer. The executor keeps the actual payload

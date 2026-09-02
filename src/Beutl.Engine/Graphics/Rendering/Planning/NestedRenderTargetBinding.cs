@@ -2,7 +2,7 @@
 using Beutl.Media;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Owns the target produced by one nested render request until its request family completes.

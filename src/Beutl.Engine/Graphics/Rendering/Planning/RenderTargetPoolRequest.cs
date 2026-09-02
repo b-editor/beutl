@@ -3,7 +3,7 @@ using System.Runtime.ExceptionServices;
 using Beutl.Media;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class RenderTargetPoolRequest : IDisposable
 {

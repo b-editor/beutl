@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Retains the last structural request family for a renderer. Each stable depth-first family slot keeps

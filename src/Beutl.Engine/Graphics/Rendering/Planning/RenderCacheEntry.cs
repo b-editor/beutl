@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// An acquired cache entry. Payload ownership remains defined by the lookup implementation; the resolver only

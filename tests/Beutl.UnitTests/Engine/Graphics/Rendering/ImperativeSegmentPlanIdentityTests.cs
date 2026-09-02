@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 

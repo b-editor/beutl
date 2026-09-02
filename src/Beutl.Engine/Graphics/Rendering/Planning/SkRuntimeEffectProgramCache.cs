@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Shaders;

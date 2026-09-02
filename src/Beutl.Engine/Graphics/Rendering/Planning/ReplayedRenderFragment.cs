@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>One fragment of a reusable recording, with its inputs stored as slots rather than references.</summary>
 internal readonly struct ReplayedRenderFragment(

@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed record RecordedNestedRenderTarget(
     RecordedNestedRenderRequest Recording,

@@ -2,7 +2,7 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRenderResourceRecordingScope
 {

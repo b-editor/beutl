@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Prevents a deferred execution callback from launching an unplanned renderer recursively.

@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;

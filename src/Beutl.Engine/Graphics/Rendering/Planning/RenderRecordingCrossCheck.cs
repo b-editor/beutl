@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Records a node a second way for one request and fails the request when the two recordings disagree.

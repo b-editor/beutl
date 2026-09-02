@@ -6,7 +6,7 @@ using Beutl.Media;
 
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Renderer-lifetime owner for exact-size, linear-premultiplied RGBA16F intermediate targets.

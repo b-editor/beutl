@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>What one <see cref="RenderNode.Process(RenderNodeContext)"/> call produced, kept for reuse.</summary>
 /// <remarks>

@@ -2,7 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Rejects a value that must not stand for a recorded operation's identity.

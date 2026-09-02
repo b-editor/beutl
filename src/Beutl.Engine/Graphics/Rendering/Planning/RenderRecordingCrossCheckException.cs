@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>Reports that one node recorded two different graphs for the same request.</summary>
 internal sealed class RenderRecordingCrossCheckException(Type nodeType, string difference)

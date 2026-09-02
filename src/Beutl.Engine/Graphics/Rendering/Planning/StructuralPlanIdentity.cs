@@ -2,7 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Complete parameter-independent identity for one recorded request graph.

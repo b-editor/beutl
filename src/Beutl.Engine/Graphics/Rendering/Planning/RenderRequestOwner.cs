@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.ExceptionServices;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class RenderRequestOwner : IDisposable
 {

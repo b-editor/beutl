@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed record RecordedRenderFragment(
     RenderFragmentId Id,
