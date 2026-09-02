@@ -318,3 +318,8 @@ public sealed class OpaqueRenderBoundsContract
         }
     }
 }
+
+internal readonly record struct OpaqueRenderBoundsStructuralIdentity(
+    OpaqueRenderBoundsKind Kind,
+    object? ForwardIdentity,
+    object? BackwardIdentity);

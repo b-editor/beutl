@@ -173,3 +173,8 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         return _registry.TransferToAcceptedCache(lease);
     }
 }
+
+internal readonly record struct RenderTargetCleanupFailureCheckpoint(
+    RenderTargetLeaseSession Session,
+    int SessionFailureCount,
+    int RequestFailureCount);

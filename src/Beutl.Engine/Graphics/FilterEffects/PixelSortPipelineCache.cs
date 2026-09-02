@@ -81,3 +81,9 @@ internal sealed class PixelSortPipelineCache<TPipeline>
         public TPipeline? Value;
     }
 }
+
+internal readonly record struct PixelSortPipelines<TPipeline>(
+    TPipeline Prepare,
+    TPipeline Rank,
+    TPipeline Gather)
+    where TPipeline : class;

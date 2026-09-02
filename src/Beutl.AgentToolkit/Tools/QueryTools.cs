@@ -1510,3 +1510,109 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                && property.CurrentValue is not null;
     }
 }
+
+public sealed record CreativeDirectionResponse(
+    string SchemaVersion,
+    IReadOnlyList<string> DirectionAxes,
+    IReadOnlyList<CreativeInspirationSeed> InspirationSeeds,
+    IReadOnlyList<string> CombinationRules,
+    IReadOnlyList<string> OriginalityConstraints,
+    IReadOnlyList<string> VariationPrompts,
+    IReadOnlyList<string> OverusedMotifs,
+    IReadOnlyList<string> WorkflowHints,
+    IReadOnlyList<string> StyleGuardrails,
+    IReadOnlyList<string> PaletteGuidelines,
+    IReadOnlyList<string> TypographyGuidelines,
+    IReadOnlyList<string> MotionGuidelines,
+    IReadOnlyList<CreativeDirectionFingerprint> RecentToAvoid,
+    string SelectionHint,
+    CreativeDirectionSelectionTrace? SelectionTrace = null);
+
+public sealed record DocumentSummaryResponse(
+    string Session,
+    string Source,
+    string RootId,
+    string Name,
+    int Width,
+    int Height,
+    string Duration,
+    int ElementCount,
+    IReadOnlyList<ElementSummary> Elements);
+
+public sealed record GetCompositionResponse(
+    string SchemaVersion,
+    CompositionTemplateDetail Composition);
+
+public sealed record GetEffectRecipeResponse(
+    string SchemaVersion,
+    EffectRecipe Recipe,
+    string UsageHint);
+
+public sealed record GetExamplesResponse(
+    string SchemaVersion,
+    IReadOnlyList<DeclarativeExample> Examples,
+    string SelectionHint);
+
+public sealed record GettingStartedResponse(
+    string SchemaVersion,
+    IReadOnlyList<string> RecommendedCalls,
+    IReadOnlyList<RecommendedSkill> RecommendedSkills,
+    IReadOnlyDictionary<string, string> CategoryAliases,
+    string RawHttpNote,
+    IReadOnlyList<VideoTypeSummary>? VideoTypes = null,
+    VideoTypeSummary? SelectedVideoType = null);
+
+public sealed record ListCompositionsResponse(
+    string SchemaVersion,
+    string Seed,
+    IReadOnlyList<CompositionTemplateSummary> Compositions,
+    IReadOnlyList<string> RecentlyUsedCompositions,
+    IReadOnlyList<string> PreAttachPreviewedCompositions,
+    bool PreviewOnly,
+    string SelectionHint);
+
+public sealed record ListEffectRecipesResponse(
+    string SchemaVersion,
+    IReadOnlyList<EffectRecipeSummary> Recipes,
+    string SelectionHint);
+
+public sealed record ListEffectsResponse(
+    string SchemaVersion,
+    IReadOnlyList<EffectSummary> Effects,
+    string SelectionHint);
+
+public sealed record ListExamplesResponse(
+    string SchemaVersion,
+    IReadOnlyList<DeclarativeExampleSummary> Examples,
+    string SelectionHint);
+
+public sealed record ObjectBoundsMeasurementResponse(
+    string SchemaVersion,
+    string Session,
+    string Source,
+    string SceneId,
+    int FrameWidth,
+    int FrameHeight,
+    ObjectBoundsPoint FrameCenter,
+    string Time,
+    bool TimeFiltered,
+    string CoordinateSpace,
+    string MeasurementNote,
+    IReadOnlyList<ObjectBoundsMeasurement> Objects);
+
+public sealed record OriginalScaffoldResponse(
+    string SchemaVersion,
+    OriginalScaffold Scaffold,
+    string UsageHint);
+
+public sealed record RenderCompositionPatchResponse(
+    string SchemaVersion,
+    CompositionRender Composition,
+    string UsageHint);
+
+public sealed record ValidateShaderResponse(
+    string SchemaVersion,
+    string EffectType,
+    string Status,
+    string? Error,
+    string Hint);
