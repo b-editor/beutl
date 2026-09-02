@@ -48,7 +48,7 @@ public sealed class FilterEffectLoweringSeamContractTests
     }
 
     [Test]
-    public void RequiresInputIsolationOverride_IsAskedForEveryInputAndWideningItPreservesTheRenderedResult()
+    public void RequiresInputIsolationOverride_IsAskedAndWideningItPreservesTheRenderedResult()
     {
         using FilterEffect.Resource baselineResource = CreateIdentityEffectResource();
         using FilterEffect.Resource isolatingResource = CreateIdentityEffectResource();

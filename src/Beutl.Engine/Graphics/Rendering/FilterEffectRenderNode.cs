@@ -30,19 +30,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     /// </remarks>
     protected virtual RenderScaleContract? GetWorkingScaleContract() => null;
 
-    /// <summary>
-    /// Gets whether an effect input must be isolated into an off-screen layer before the effect consumes it.
-    /// </summary>
-    /// <param name="input">A non-null effect input recorded for the current <see cref="Process"/> call.</param>
-    /// <returns><see langword="true"/> to isolate the input set before lowering.</returns>
-    /// <remarks>
-    /// The base implementation isolates exactly when an input cannot be consumed as a materialized value
-    /// (<see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/>). Every input is asked, and the node isolates when
-    /// any of them answers <see langword="true"/>, so an override may widen isolation — an effect that must always
-    /// read flattened pixels, for instance — but must never narrow it. Answering <see langword="false"/> for an
-    /// input the base implementation would isolate hands the effect a fragment it cannot sample. Add conditions to
-    /// the base answer; do not replace it.
-    /// </remarks>
     /// <summary>Reads each input's recorded metadata hint into one array.</summary>
     /// <remarks>
     /// Written out rather than passed to <c>Select</c> because the hint reader is an instance method: a
@@ -58,6 +45,20 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         return hints;
     }
 
+    /// <summary>
+    /// Gets whether an effect input must be isolated into an off-screen layer before the effect consumes it.
+    /// </summary>
+    /// <param name="input">A non-null effect input recorded for the current <see cref="Process"/> call.</param>
+    /// <returns><see langword="true"/> to isolate the input set before lowering.</returns>
+    /// <remarks>
+    /// The base implementation isolates exactly when an input cannot be consumed as a materialized value
+    /// (<see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/>). Inputs are asked in order and the node isolates
+    /// as soon as one answers <see langword="true"/>, so an override may widen isolation — an effect that must
+    /// always read flattened pixels, for instance — but must never narrow it. The poll stops at that first
+    /// <see langword="true"/>, so an override must not depend on being asked about every input. Answering
+    /// <see langword="false"/> for an input the base implementation would isolate hands the effect a fragment it
+    /// cannot sample. Add conditions to the base answer; do not replace it.
+    /// </remarks>
     protected virtual bool RequiresInputIsolation(RenderFragmentHandle input)
         => !input.CanBeUsedAsValueInput;
 
