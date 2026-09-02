@@ -1609,6 +1609,8 @@ public sealed class ProxiesTabViewModelTests
 
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext
     {
+        public IEditorContextCloseService CloseService => TestEditorContextCloseService.Instance;
+
         private readonly Dictionary<Type, object> _services = [];
 
         public CoreObject Object { get; } = obj;

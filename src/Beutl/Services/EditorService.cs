@@ -23,6 +23,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     private Task? _disposeTask;
     private Task? _transitionTask;
     private TaskCompletionSource? _publicationDrain;
+    private TaskCompletionSource? _membershipDrain;
     private TaskCompletionSource? _removalCompletion;
     private bool _closing;
     private bool _contextDisposeAttempted;
@@ -156,9 +157,43 @@ public sealed class EditorTabItem : IAsyncDisposable
             if (_closing || _membershipState != MembershipState.Adding)
                 return false;
 
-            _membershipState = MembershipState.Attached;
+            _membershipState = MembershipState.AttachmentCommitted;
             return true;
         }
+    }
+
+    // Keep attachment commit distinct from physical insertion so terminal removal can cancel a
+    // pending add; collection observers still run outside the lifetime gate.
+    internal bool TryBeginPhysicalAdd()
+    {
+        lock (_lifetimeGate)
+        {
+            if (_closing || _membershipState != MembershipState.AttachmentCommitted)
+                return false;
+
+            _membershipState = MembershipState.PhysicalAdding;
+            var drain = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _membershipDrain = drain;
+            return true;
+        }
+    }
+
+    internal void CompletePhysicalAdd(bool added)
+    {
+        TaskCompletionSource? drain;
+        lock (_lifetimeGate)
+        {
+            if (_membershipState == MembershipState.PhysicalAdding)
+            {
+                _membershipState = added
+                    ? MembershipState.Attached
+                    : MembershipState.AttachmentCommitted;
+            }
+            drain = _membershipDrain;
+            _membershipDrain = null;
+        }
+        drain?.TrySetResult();
     }
 
     internal bool TryBeginHostClose(
@@ -178,16 +213,21 @@ public sealed class EditorTabItem : IAsyncDisposable
                 TaskCreationOptions.RunContinuationsAsynchronously);
             completion = completionSource.Task;
             _hostCloseTask = completion;
+            _closing = true;
             return true;
         }
     }
 
-    internal bool TryBeginRemoval(out Task completion, out Task? publicationDrain)
+    internal bool TryBeginRemoval(
+        out Task completion,
+        out Task? publicationDrain,
+        out Task? membershipDrain)
     {
         lock (_lifetimeGate)
         {
             _closing = true;
             publicationDrain = _publicationDrain?.Task;
+            membershipDrain = _membershipDrain?.Task;
             if (_membershipState is MembershipState.Removing or MembershipState.Removed)
             {
                 completion = _removalCompletion?.Task ?? Task.CompletedTask;
@@ -250,6 +290,8 @@ public sealed class EditorTabItem : IAsyncDisposable
     {
         Fresh,
         Adding,
+        AttachmentCommitted,
+        PhysicalAdding,
         Attached,
         Removing,
         Removed
@@ -603,6 +645,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     {
         Task? transition;
         Task? publicationDrain;
+        Task? membershipDrain;
         Task? removalCompletion;
         TaskCompletionSource<object?>? completion = null;
         lock (_lifetimeGate)
@@ -613,6 +656,7 @@ public sealed class EditorTabItem : IAsyncDisposable
             _closing = true;
             transition = _transitionTask;
             publicationDrain = _publicationDrain?.Task;
+            membershipDrain = _membershipDrain?.Task;
             removalCompletion = _removalCompletion?.Task;
             completion = new TaskCompletionSource<object?>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -622,6 +666,7 @@ public sealed class EditorTabItem : IAsyncDisposable
         _ = DisposeCoreAsync(
             transition,
             publicationDrain,
+            membershipDrain,
             removalCompletion,
             completion);
         return new ValueTask(completion.Task);
@@ -630,6 +675,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     private async Task DisposeCoreAsync(
         Task? transition,
         Task? publicationDrain,
+        Task? membershipDrain,
         Task? removalCompletion,
         TaskCompletionSource<object?> completion)
     {
@@ -639,6 +685,12 @@ public sealed class EditorTabItem : IAsyncDisposable
             if (publicationDrain is not null)
             {
                 try { await publicationDrain.ConfigureAwait(true); }
+                catch (Exception ex) { RecordFailure(ref failures, ex); }
+            }
+
+            if (membershipDrain is not null)
+            {
+                try { await membershipDrain.ConfigureAwait(true); }
                 catch (Exception ex) { RecordFailure(ref failures, ex); }
             }
 
@@ -713,6 +765,11 @@ public sealed class EditorService : IEditorContextCloseService
 {
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly object _tabAdmissionGate = new();
+    private readonly SemaphoreSlim _tabReconciliationGate = new(1, 1);
+    private TaskCompletionSource? _tabAdmissionDrain;
+    private int _activeTabAdmissions;
+    private bool _tabAdmissionClosed;
     private readonly object _contextRegistryGate = new();
     private readonly Dictionary<IEditorContext, (EditorTabItem Item, long Generation)> _contextItems =
         new(ReferenceEqualityComparer.Instance);
@@ -724,6 +781,11 @@ public sealed class EditorService : IEditorContextCloseService
 
     internal Action? BeforeInitialContextClaimPublish { get; set; }
 
+    internal Action? BeforeContextCloseAdmission { get; set; }
+
+    internal Action? BeforeHostCloseStart { get; set; }
+
+    internal Action? BeforePhysicalAdd { get; set; }
 
     public EditorService(ExtensionProvider extensionProvider)
     {
@@ -735,17 +797,88 @@ public sealed class EditorService : IEditorContextCloseService
 
     public ICoreReadOnlyList<EditorTabItem> TabItems => _tabItems;
 
-    internal void ClearTabItems()
+    internal async ValueTask ClearTabItemsAsync()
+        => await ReconcileTabItemsAsync([]);
+
+    internal async ValueTask ReconcileTabItemsAsync(IReadOnlyList<CoreObject> items)
     {
-        List<Exception>? failures = null;
-        foreach (EditorTabItem item in _tabItems.ToArray())
+        ArgumentNullException.ThrowIfNull(items);
+        await _tabReconciliationGate.WaitAsync();
+        Task admissionDrain = CloseTabAdmission();
+        try
         {
-            try { RemoveTabItem(item); }
-            catch (Exception ex) { (failures ??= []).Add(ex); }
+            await admissionDrain;
+            List<Exception>? failures = null;
+            foreach (EditorTabItem item in _tabItems.ToArray())
+            {
+                try { await CloseTabItem(item); }
+                catch (Exception ex) { (failures ??= []).Add(ex); }
+            }
+
+            foreach (CoreObject item in items)
+            {
+                try { ActivateTabItemCore(item); }
+                catch (Exception ex) { (failures ??= []).Add(ex); }
+            }
+
+            if (failures is not null)
+                throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
+        }
+        finally
+        {
+            OpenTabAdmission();
+            _tabReconciliationGate.Release();
+        }
+    }
+
+    private bool TryEnterTabAdmission()
+    {
+        lock (_tabAdmissionGate)
+        {
+            if (_tabAdmissionClosed)
+                return false;
+
+            _activeTabAdmissions++;
+            return true;
+        }
+    }
+
+    private void ExitTabAdmission()
+    {
+        TaskCompletionSource? drain = null;
+        lock (_tabAdmissionGate)
+        {
+            _activeTabAdmissions--;
+            if (_tabAdmissionClosed && _activeTabAdmissions == 0)
+            {
+                drain = _tabAdmissionDrain;
+                _tabAdmissionDrain = null;
+            }
         }
 
-        if (failures is not null)
-            throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
+        drain?.TrySetResult();
+    }
+
+    private Task CloseTabAdmission()
+    {
+        lock (_tabAdmissionGate)
+        {
+            _tabAdmissionClosed = true;
+            if (_activeTabAdmissions == 0)
+                return Task.CompletedTask;
+
+            _tabAdmissionDrain ??= new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            return _tabAdmissionDrain.Task;
+        }
+    }
+
+    private void OpenTabAdmission()
+    {
+        lock (_tabAdmissionGate)
+        {
+            _tabAdmissionClosed = false;
+        }
     }
 
     internal void AddTabItem(EditorTabItem item)
@@ -755,15 +888,46 @@ public sealed class EditorService : IEditorContextCloseService
     }
 
     internal bool TryAddTabItem(EditorTabItem item)
-        => TryAddTabItem(item, select: false, beforeAdd: null, beforeSelection: null);
+        => TryAddTabItemWithAdmission(
+            item,
+            select: false,
+            beforeAdd: null,
+            beforeSelection: null);
 
     internal bool TryAddTabItem(EditorTabItem item, Action beforeAdd)
-        => TryAddTabItem(item, select: false, beforeAdd: beforeAdd, beforeSelection: null);
+        => TryAddTabItemWithAdmission(
+            item,
+            select: false,
+            beforeAdd: beforeAdd,
+            beforeSelection: null);
 
     internal bool TryAddAndSelectTabItem(EditorTabItem item, Action? beforeSelection = null)
-        => TryAddTabItem(item, select: true, beforeAdd: null, beforeSelection: beforeSelection);
+        => TryAddTabItemWithAdmission(
+            item,
+            select: true,
+            beforeAdd: null,
+            beforeSelection: beforeSelection);
 
-    private bool TryAddTabItem(
+    private bool TryAddTabItemWithAdmission(
+        EditorTabItem item,
+        bool select,
+        Action? beforeAdd,
+        Action? beforeSelection)
+    {
+        if (!TryEnterTabAdmission())
+            return false;
+
+        try
+        {
+            return TryAddTabItemCore(item, select, beforeAdd, beforeSelection);
+        }
+        finally
+        {
+            ExitTabAdmission();
+        }
+    }
+
+    private bool TryAddTabItemCore(
         EditorTabItem item,
         bool select,
         Action? beforeAdd,
@@ -775,6 +939,7 @@ public sealed class EditorService : IEditorContextCloseService
             return false;
 
         bool published = false;
+        bool itemAdded = false;
         void Publish()
         {
             void Mutate()
@@ -783,7 +948,11 @@ public sealed class EditorService : IEditorContextCloseService
                 if (!item.TryCompleteAttachment())
                     return;
 
-                AddTabItemCore(item);
+                BeforePhysicalAdd?.Invoke();
+                if (!AddTabItemCore(item))
+                    return;
+
+                itemAdded = true;
                 if (select && _tabItems.Contains(item))
                 {
                     try
@@ -837,7 +1006,7 @@ public sealed class EditorService : IEditorContextCloseService
                 else if (item.IsPublicationCurrent())
                     Mutate();
             });
-            published = itemPublished && contextPublished;
+            published = itemPublished && contextPublished && itemAdded;
         }
 
         try
@@ -876,26 +1045,42 @@ public sealed class EditorService : IEditorContextCloseService
         }
     }
 
-    internal void AddTabItemCore(EditorTabItem item)
+    internal bool AddTabItemCore(EditorTabItem item)
     {
-        _tabItems.Add(item);
+        if (!item.TryBeginPhysicalAdd())
+            return false;
+
+        bool added = false;
+        try
+        {
+            _tabItems.Add(item);
+            added = _tabItems.Contains(item);
+            return added;
+        }
+        finally
+        {
+            item.CompletePhysicalAdd(added);
+        }
     }
 
     internal bool ContainsTabItem(EditorTabItem item)
         => _tabItems.Contains(item);
 
-    internal bool RemoveTabItem(EditorTabItem item)
+    internal bool RequestTabRemoval(EditorTabItem item)
     {
         // Reserve terminal removal without running any collection or reactive observers while
         // the lifetime gate is held.
-        if (!item.TryBeginRemoval(out Task completion, out Task? publicationDrain))
+        if (!item.TryBeginRemoval(
+                out Task completion,
+                out Task? publicationDrain,
+                out Task? membershipDrain))
             return false;
 
-        if (publicationDrain is not null)
+        if (publicationDrain is not null || membershipDrain is not null)
         {
-            _ = CompleteRemovalAfterPublicationAsync(item, publicationDrain);
+            _ = CompleteRemovalAfterDrainsAsync(item, publicationDrain, membershipDrain);
             ObserveDeferredTaskFailure(completion);
-            return true;
+            return false;
         }
 
         try
@@ -908,14 +1093,27 @@ public sealed class EditorService : IEditorContextCloseService
         }
     }
 
-    private async Task CompleteRemovalAfterPublicationAsync(
+    internal async ValueTask<bool> RemoveTabItemAsync(EditorTabItem item)
+    {
+        bool wasPresent = ContainsTabItem(item);
+        bool removed = RequestTabRemoval(item);
+        if (!removed)
+            await item.GetRemovalCompletion().ConfigureAwait(false);
+        return wasPresent && (removed || !ContainsTabItem(item));
+    }
+
+    private async Task CompleteRemovalAfterDrainsAsync(
         EditorTabItem item,
-        Task publicationDrain)
+        Task? publicationDrain,
+        Task? membershipDrain)
     {
         Exception? failure = null;
         try
         {
-            await publicationDrain.ConfigureAwait(false);
+            if (publicationDrain is not null)
+                await publicationDrain.ConfigureAwait(false);
+            if (membershipDrain is not null)
+                await membershipDrain.ConfigureAwait(false);
             _ = RemoveTabItemFacade(item);
         }
         catch (Exception ex)
@@ -958,7 +1156,7 @@ public sealed class EditorService : IEditorContextCloseService
 
     private void ReconcileRejectedAttachment(EditorTabItem item)
     {
-        if (!RemoveTabItem(item))
+        if (!RequestTabRemoval(item))
             ObserveDeferredTaskFailure(item.GetRemovalCompletion());
     }
 
@@ -1056,11 +1254,12 @@ public sealed class EditorService : IEditorContextCloseService
 
     internal void RequestContextShutdown(IEditorContext context)
     {
-        EditorTabItem? item = GetRegisteredItem(context);
-        if (item is null || item.IsHostDisposingContext(context))
+        var registration = GetRegisteredItem(context);
+        if (registration is null || registration.Value.Item.IsHostDisposingContext(context))
             return;
 
-        EditorContextCloseRequest request = RequestClose(item);
+        BeforeContextCloseAdmission?.Invoke();
+        EditorContextCloseRequest request = RequestClose(context, registration.Value);
         if (request.Status != EditorContextCloseRequestStatus.NotOwned)
             ObserveDeferredTaskFailure(request.Completion);
     }
@@ -1068,25 +1267,56 @@ public sealed class EditorService : IEditorContextCloseService
     public EditorContextCloseRequest RequestClose(IEditorContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        EditorTabItem? item = GetRegisteredItem(context);
-        if (item is null)
+        var registration = GetRegisteredItem(context);
+        if (registration is null)
         {
             return new EditorContextCloseRequest(
                 EditorContextCloseRequestStatus.NotOwned,
                 Task.CompletedTask);
         }
 
-        return RequestClose(item);
+        BeforeContextCloseAdmission?.Invoke();
+        return RequestClose(context, registration.Value);
     }
 
-    private EditorTabItem? GetRegisteredItem(IEditorContext context)
+    private (EditorTabItem Item, long Generation)? GetRegisteredItem(IEditorContext context)
     {
         lock (_contextRegistryGate)
         {
             return _contextItems.TryGetValue(context, out var registration)
-                ? registration.Item
+                ? registration
                 : null;
         }
+    }
+
+    private EditorContextCloseRequest RequestClose(
+        IEditorContext context,
+        (EditorTabItem Item, long Generation) registration)
+    {
+        bool accepted;
+        Task completion;
+        TaskCompletionSource<object?>? completionSource;
+        lock (_contextRegistryGate)
+        {
+            if (!_contextItems.TryGetValue(context, out var current)
+                || !ReferenceEquals(current.Item, registration.Item)
+                || current.Generation != registration.Generation)
+            {
+                return new EditorContextCloseRequest(
+                    EditorContextCloseRequestStatus.NotOwned,
+                    Task.CompletedTask);
+            }
+
+            accepted = registration.Item.TryBeginHostClose(
+                out completion,
+                out completionSource);
+        }
+
+        return StartHostClose(
+            registration.Item,
+            accepted,
+            completion,
+            completionSource);
     }
 
     private EditorContextCloseRequest RequestClose(EditorTabItem item)
@@ -1094,8 +1324,18 @@ public sealed class EditorService : IEditorContextCloseService
         bool accepted = item.TryBeginHostClose(
             out Task completion,
             out TaskCompletionSource<object?>? completionSource);
+        return StartHostClose(item, accepted, completion, completionSource);
+    }
+
+    private EditorContextCloseRequest StartHostClose(
+        EditorTabItem item,
+        bool accepted,
+        Task completion,
+        TaskCompletionSource<object?>? completionSource)
+    {
         if (accepted)
         {
+            BeforeHostCloseStart?.Invoke();
             _ = CompleteHostCloseAsync(item, completionSource!);
             ObserveDeferredTaskFailure(completion);
         }
@@ -1112,10 +1352,7 @@ public sealed class EditorService : IEditorContextCloseService
         TaskCompletionSource<object?> completion)
     {
         List<Exception>? failures = null;
-        try { RemoveTabItem(item); }
-        catch (Exception ex) { failures = [ex]; }
-
-        try { await item.GetRemovalCompletion().ConfigureAwait(false); }
+        try { await RemoveTabItemAsync(item).ConfigureAwait(false); }
         catch (Exception ex) { (failures ??= []).Add(ex); }
 
         try { await item.DisposeResourcesAsync().ConfigureAwait(false); }
@@ -1141,6 +1378,21 @@ public sealed class EditorService : IEditorContextCloseService
 
     public void ActivateTabItem(CoreObject obj)
     {
+        if (!TryEnterTabAdmission())
+            return;
+
+        try
+        {
+            ActivateTabItemCore(obj);
+        }
+        finally
+        {
+            ExitTabAdmission();
+        }
+    }
+
+    private void ActivateTabItemCore(CoreObject obj)
+    {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         string path = Uri.UnescapeDataString(obj.Uri!.LocalPath);
         viewConfig.UpdateRecentFile(path);
@@ -1156,7 +1408,12 @@ public sealed class EditorService : IEditorContextCloseService
             if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
             {
                 var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
-                if (!TryAddAndSelectTabItem(tabItem2) && tabItem2.IsHostOwned)
+                if (!TryAddTabItemCore(
+                        tabItem2,
+                        select: true,
+                        beforeAdd: null,
+                        beforeSelection: null)
+                    && tabItem2.IsHostOwned)
                     ObserveDeferredTabDisposal(tabItem2.DisposeAsync().AsTask());
             }
         }

@@ -312,8 +312,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
         try
         {
-            _projectService.CloseProject();
-            await EditorHost.WaitForPendingProjectChangesAsync();
+            await _projectService.CloseProjectAsync();
+            await EditorHost.DisposeAsync();
         }
         catch (Exception ex)
         {

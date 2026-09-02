@@ -126,7 +126,11 @@ public sealed class SceneEditorExtension : EditorExtension
             && services.TryGetService<EditorService>(out EditorService? editorService)
             && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider))
         {
-            var editViewModel = new EditViewModel(scene, extensionProvider, editorService);
+            var editViewModel = new EditViewModel(
+                scene,
+                extensionProvider,
+                editorService,
+                services.CloseService);
             if (editViewModel.IsDisposeRequested)
             {
                 context = null;

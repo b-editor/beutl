@@ -21,14 +21,17 @@ public abstract class EditorExtension : ViewExtension
     /// </summary>
     /// <param name="obj">The object to open in the editor.</param>
     /// <param name="services">
-    /// Host services the created context may need — e.g. <see cref="IEditorContextServices.ExtensionProvider"/>
-    /// for querying other extensions. Owned by the composition root and passed in explicitly. An
-    /// extension that needs nothing from the host may ignore it.
+    /// Host services owned by the composition root and passed in explicitly. A successful
+    /// implementation must retain <see cref="IEditorContextServices.CloseService"/> and expose it,
+    /// directly or through a context-specific wrapper, through
+    /// <see cref="IEditorContext.CloseService"/>. The extension provider is available for querying
+    /// other extensions.
     /// </param>
     /// <param name="context">The created editor context, set when this returns <see langword="true"/>.</param>
     /// <returns><see langword="true"/> if a context was created for <paramref name="obj"/>.</returns>
     /// <remarks>
-    /// When a ProjectItem is needed here, obtain it from the ProjectItemContainer.
+    /// When a ProjectItem is needed here, obtain it from the ProjectItemContainer. Returning a
+    /// context without the supplied close capability violates the host ownership contract.
     /// </remarks>
     public abstract bool TryCreateContext(
         CoreObject obj,

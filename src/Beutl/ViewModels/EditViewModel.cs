@@ -73,18 +73,23 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
     private readonly TaskCompletionSource _constructionCompleted = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
+    public EditViewModel(
+        Scene scene,
+        Beutl.Api.Services.ExtensionProvider extensionProvider,
+        EditorService editorService,
+        IEditorContextCloseService closeService)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(editorService);
+        ArgumentNullException.ThrowIfNull(closeService);
 
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
 
         Scene = scene;
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
-        _contextCloseService = new BoundContextCloseService(this, editorService);
+        _contextCloseService = new BoundContextCloseService(this, closeService);
         SceneId = scene.Id.ToString();
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
@@ -606,6 +611,8 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
+    public IEditorContextCloseService CloseService => _contextCloseService;
+
     public CoreObject Object => Scene;
 
     public IKnownEditorCommands? Commands { get; private set; }
@@ -1062,20 +1069,24 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
 
     private sealed class BoundContextCloseService(
         EditViewModel owner,
-        EditorService editorService) : IEditorContextCloseService
+        IEditorContextCloseService closeService) : IEditorContextCloseService
     {
         public EditorContextCloseRequest RequestClose(IEditorContext context)
         {
-            EditorContextCloseRequest request = editorService.RequestClose(context);
-            if (request.Status != EditorContextCloseRequestStatus.NotOwned
-                || !ReferenceEquals(context, owner))
+            if (!ReferenceEquals(context, owner))
             {
-                return request;
+                return new EditorContextCloseRequest(
+                    EditorContextCloseRequestStatus.NotOwned,
+                    Task.CompletedTask);
             }
+
+            EditorContextCloseRequest request = closeService.RequestClose(owner);
+            if (request.Status != EditorContextCloseRequestStatus.NotOwned)
+                return request;
 
             owner.BeforePreOwnershipCloseStart?.Invoke();
             (bool started, Task completion) = owner.GetOrStartDisposal();
-            EditorContextCloseRequest attachedRequest = editorService.RequestClose(owner);
+            EditorContextCloseRequest attachedRequest = closeService.RequestClose(owner);
             if (attachedRequest.Status != EditorContextCloseRequestStatus.NotOwned)
                 return attachedRequest;
             _ = completion.ContinueWith(
@@ -1102,7 +1113,7 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
         if (serviceType.IsAssignableTo(typeof(IEditorContext)))
             return this;
 
-        if (serviceType.IsAssignableTo(typeof(IEditorContextCloseService)))
+        if (serviceType == typeof(IEditorContextCloseService))
             return _contextCloseService;
 
         if (serviceType == typeof(HistoryManager))

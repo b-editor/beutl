@@ -209,7 +209,10 @@ internal class PackageOperationHandler
     public async Task<bool> EnsureProjectClosed()
     {
         if (!_projectService.IsOpened.Value)
+        {
+            await _projectService.CloseProjectAsync();
             return true;
+        }
 
         var dialog = new ContentDialog
         {
@@ -226,13 +229,13 @@ internal class PackageOperationHandler
         if (result == ContentDialogResult.Secondary)
         {
             await SaveAll();
-            _projectService.CloseProject();
+            await _projectService.CloseProjectAsync();
             return true;
         }
 
         if (result == ContentDialogResult.Primary)
         {
-            _projectService.CloseProject();
+            await _projectService.CloseProjectAsync();
             return true;
         }
 

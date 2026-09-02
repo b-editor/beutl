@@ -55,16 +55,20 @@ public static class TutorialHelpers
             }
         }
 
-        Scene? scene = currentProject.Items.OfType<Scene>().FirstOrDefault();
-        if (scene != null)
+        await projectService.WaitForPendingProjectChangesAsync();
+        return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            editorService.ActivateTabItem(scene);
-        }
+            if (!ReferenceEquals(projectService.CurrentProject.Value, currentProject))
+                return false;
 
-        // UIの更新を待つ
-        await Task.Delay(200);
+            Scene? scene = currentProject.Items.OfType<Scene>().FirstOrDefault();
+            if (scene is not null)
+            {
+                editorService.ActivateTabItem(scene);
+            }
 
-        return GetEditViewModel(editorService) != null;
+            return GetEditViewModel(editorService) is not null;
+        });
     }
 
     public static IDisposable? SubscribeToElementSelection(EditViewModel? editVm, Action onSelected)

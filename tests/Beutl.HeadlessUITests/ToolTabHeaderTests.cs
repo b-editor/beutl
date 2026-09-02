@@ -1105,6 +1105,7 @@ public class ToolTabHeaderTests
     {
         public CoreObject Object { get; } = new Scene(16, 16, "blocking");
         public EditorExtension Extension => SceneEditorExtension.Instance;
+        public IEditorContextCloseService CloseService { get; } = new UnownedCloseService();
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
         public IKnownEditorCommands? Commands => null;
         public async ValueTask DisposeAsync()
@@ -1117,6 +1118,12 @@ public class ToolTabHeaderTests
         public ValueTask<bool> OpenToolTabAsync(IToolContext item) => new(false);
         public ValueTask CloseToolTabAsync(IToolContext item) => ValueTask.CompletedTask;
         public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class UnownedCloseService : IEditorContextCloseService
+    {
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+            => new(EditorContextCloseRequestStatus.NotOwned, Task.CompletedTask);
     }
 
     private class BlockingToolExtension : ToolTabExtension

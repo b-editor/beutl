@@ -24,6 +24,8 @@ public class SceneEditorContextServicesTests
     {
         public IExtensionProvider ExtensionProvider => extensionProvider;
 
+        public IEditorContextCloseService CloseService => editorService;
+
         public bool TryGetService<T>([NotNullWhen(true)] out T? service)
             where T : class
         {
@@ -48,6 +50,7 @@ public class SceneEditorContextServicesTests
                 services.TryGetService<IEditorContextCloseService>(out IEditorContextCloseService? closeService),
                 Is.True);
             Assert.That(closeService, Is.SameAs(editorService));
+            Assert.That(services.CloseService, Is.SameAs(editorService));
 
             Assert.That(services.TryGetService<ExtensionProvider>(out ExtensionProvider? resolvedProvider), Is.True);
             Assert.That(resolvedProvider, Is.SameAs(extensionProvider));
@@ -58,6 +61,47 @@ public class SceneEditorContextServicesTests
             Assert.That(services.TryGetService<string>(out string? missing), Is.False);
             Assert.That(missing, Is.Null);
         });
+    }
+
+    [AvaloniaTest]
+    public async Task ContextCloseService_rejects_a_foreign_context()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "foreign-context-close");
+        Directory.CreateDirectory(workspace);
+        var firstScene = new Scene(640, 480, "first")
+        {
+            Uri = new Uri(Path.Combine(workspace, "first.scene"))
+        };
+        var secondScene = new Scene(640, 480, "second")
+        {
+            Uri = new Uri(Path.Combine(workspace, "second.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
+
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(firstScene, services, out IEditorContext? first),
+            Is.True);
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(secondScene, services, out IEditorContext? second),
+            Is.True);
+
+        try
+        {
+            EditorContextCloseRequest request = first!.CloseService.RequestClose(second!);
+            Assert.Multiple(() =>
+            {
+                Assert.That(request.Status, Is.EqualTo(EditorContextCloseRequestStatus.NotOwned));
+                Assert.That(request.Completion.IsCompletedSuccessfully, Is.True);
+                Assert.That(((EditViewModel)second!).IsDisposeRequested, Is.False);
+            });
+        }
+        finally
+        {
+            await first!.DisposeAsync();
+            await second!.DisposeAsync();
+        }
     }
 
     [AvaloniaTest]
@@ -177,6 +221,7 @@ public class SceneEditorContextServicesTests
         };
         var closeService = (IEditorContextCloseService)editor.GetService(
             typeof(IEditorContextCloseService))!;
+        Assert.That(editor.GetService(typeof(EditorService)), Is.Null);
 
         Task<EditorContextCloseRequest> close = Task.Run(() => closeService.RequestClose(editor));
         await beforeDispose.Task.WaitAsync(TimeSpan.FromSeconds(5));
