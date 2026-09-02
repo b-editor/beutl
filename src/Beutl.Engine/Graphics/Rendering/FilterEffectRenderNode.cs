@@ -43,6 +43,21 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     /// input the base implementation would isolate hands the effect a fragment it cannot sample. Add conditions to
     /// the base answer; do not replace it.
     /// </remarks>
+    /// <summary>Reads each input's recorded metadata hint into one array.</summary>
+    /// <remarks>
+    /// Written out rather than passed to <c>Select</c> because the hint reader is an instance method: a
+    /// method group over it builds a delegate on every recording, and this runs twice per recorded effect.
+    /// </remarks>
+    private static RenderFragmentMetadata[] RecordedMetadataHints(
+        RenderNodeContext context,
+        IReadOnlyList<RenderFragmentHandle> inputs)
+    {
+        var hints = new RenderFragmentMetadata[inputs.Count];
+        for (int index = 0; index < hints.Length; index++)
+            hints[index] = context.GetRecordedMetadataHint(inputs[index]);
+        return hints;
+    }
+
     protected virtual bool RequiresInputIsolation(RenderFragmentHandle input)
         => !input.CanBeUsedAsValueInput;
 
@@ -106,7 +121,16 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             ? inputBounds
             : context.CalculateRecordedInputBoundsHint();
         IReadOnlyList<RenderFragmentHandle> effectInputs = context.Inputs;
-        bool requiresInputIsolation = effectInputs.Any(input => RequiresInputIsolation(input));
+        bool requiresInputIsolation = false;
+        for (int index = 0; index < effectInputs.Count; index++)
+        {
+            if (!RequiresInputIsolation(effectInputs[index]))
+                continue;
+
+            requiresInputIsolation = true;
+            break;
+        }
+
         bool hasFiniteIsolationDomain = false;
         Rect isolationDomain = default;
         RenderFragmentMetadata[] authorInputMetadata;
@@ -138,9 +162,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         }
         else
         {
-            authorInputMetadata = effectInputs
-                .Select(context.GetRecordedMetadataHint)
-                .ToArray();
+            authorInputMetadata = RecordedMetadataHints(context, effectInputs);
         }
         float outputScale = context.OutputScale;
         float maxWorkingScale = context.MaxWorkingScale;
@@ -213,9 +235,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                     return;
 
                 Rect segmentInputBounds = CalculateRecordedBoundsHint(context, current);
-                RenderFragmentMetadata[] segmentInputMetadata = current
-                    .Select(context.GetRecordedMetadataHint)
-                    .ToArray();
+                RenderFragmentMetadata[] segmentInputMetadata = RecordedMetadataHints(context, current);
                 Rect[] segmentBufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
                         segmentInputMetadata.SelectToArray(static item => item.Bounds),
                         effectItems,
@@ -267,22 +287,30 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                 {
                     case FEItem_Shader shader when !opaqueTail:
                         FlushEffectItems();
-                        current = current
-                            .Select(input => context.Shader(
-                                input,
+                        var shaderOutputs = new RenderFragmentHandle[current.Count];
+                        for (int index = 0; index < shaderOutputs.Length; index++)
+                        {
+                            shaderOutputs[index] = context.Shader(
+                                current[index],
                                 shader.Description,
-                                pendingWorkingScalePolicy))
-                            .ToArray();
+                                pendingWorkingScalePolicy);
+                        }
+
+                        current = shaderOutputs;
                         pendingWorkingScalePolicy = null;
                         break;
                     case FEItem_Geometry geometry when !opaqueTail:
                         FlushEffectItems();
-                        current = current
-                            .Select(input => context.Geometry(
-                                input,
+                        var geometryOutputs = new RenderFragmentHandle[current.Count];
+                        for (int index = 0; index < geometryOutputs.Length; index++)
+                        {
+                            geometryOutputs[index] = context.Geometry(
+                                current[index],
                                 geometry.Description,
-                                pendingWorkingScalePolicy))
-                            .ToArray();
+                                pendingWorkingScalePolicy);
+                        }
+
+                        current = geometryOutputs;
                         pendingWorkingScalePolicy = null;
                         break;
                     default:

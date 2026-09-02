@@ -407,7 +407,9 @@ internal sealed partial class RenderRequestExecutor
 
                 foreach (MaterializedRenderValue value in outputLeases.Values)
                 {
-                    if (!succeeded || !published.Contains(value, ReferenceEqualityComparer.Instance))
+                    // MaterializedRenderValue does not override Equals, so the list's own Contains already
+                    // compares by reference - the LINQ form only adds a boxed enumerator.
+                    if (!succeeded || !published.Contains(value))
                         ReleaseUnpublished(value);
                 }
             }

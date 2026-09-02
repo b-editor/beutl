@@ -520,7 +520,7 @@ internal sealed partial class RenderRequestExecutor
                 target.Bounds.Translate(target.DeviceGridOffset),
                 target.Scale.Value);
             if (target.RasterBounds == canonicalRasterBounds
-                && Contains(target.DeviceBounds, semanticDeviceBounds))
+                && target.DeviceBounds.Contains(semanticDeviceBounds))
             {
                 return CreateOwnedEffectItemValue(
                     target,
@@ -616,12 +616,6 @@ internal sealed partial class RenderRequestExecutor
                 throw;
             }
         }
-
-        private static bool Contains(PixelRect outer, PixelRect inner)
-            => outer.X <= inner.X
-               && outer.Y <= inner.Y
-               && outer.Right >= inner.Right
-               && outer.Bottom >= inner.Bottom;
 
     }
 }

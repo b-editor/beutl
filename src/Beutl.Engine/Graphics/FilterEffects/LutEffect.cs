@@ -237,10 +237,7 @@ public sealed partial class LutEffect : FilterEffect
         private LutShaderResource(Vector3[] data)
         {
             _data = data;
-            ContentIdentity = new LutContentIdentity();
         }
-
-        public LutContentIdentity ContentIdentity { get; }
 
         public static LutShaderResource Create(ReadOnlySpan<Vector3> data)
             => new(data.ToArray());
@@ -264,9 +261,5 @@ public sealed partial class LutEffect : FilterEffect
 
             return image.ToShader();
         }
-    }
-
-    private sealed class LutContentIdentity
-    {
     }
 }

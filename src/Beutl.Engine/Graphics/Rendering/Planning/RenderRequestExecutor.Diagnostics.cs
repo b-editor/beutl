@@ -39,7 +39,7 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                foreach (MaterializedRenderValue value in _backdropCaptures.Select(static item => item.Value))
+                foreach ((_, MaterializedRenderValue value) in _backdropCaptures)
                     ReleaseValueReference(value);
                 _backdropCaptures.Clear();
             }

@@ -251,8 +251,10 @@ internal sealed class CompiledRenderRequest : IDisposable
             return;
 
         IsDisposed = true;
-        foreach (CompiledRenderRequest nestedRequest in NestedRequests.Reverse())
-            nestedRequest.Dispose();
+        // ImmutableArray has no instance Reverse, so the LINQ form boxes it and buffers a copy; this runs
+        // on every frame's teardown.
+        for (int index = NestedRequests.Length - 1; index >= 0; index--)
+            NestedRequests[index].Dispose();
         Request.Dispose();
     }
 }
@@ -268,17 +270,22 @@ internal sealed class ExecutionIslandPlan
         Islands = islands;
         Boundaries = boundaries;
         _membershipByFragment = [];
-        var islandIds = new HashSet<ExecutionIslandId>();
-        foreach (ExecutionIsland island in islands)
+        for (int index = 0; index < islands.Length; index++)
         {
-            if (!islandIds.Add(island.Id))
-                throw new ArgumentException("Execution-island IDs must be unique.", nameof(islands));
+            ExecutionIsland island = islands[index];
+            // A plan holds few islands and this constructor runs on every plan rebind, so the pairwise scan
+            // is cheaper than the set it replaced - the same trade the fragment check below already makes.
+            for (int earlier = 0; earlier < index; earlier++)
+            {
+                if (islands[earlier].Id.Equals(island.Id))
+                    throw new ArgumentException("Execution-island IDs must be unique.", nameof(islands));
+            }
 
             ValidateIsland(island, nameof(islands));
-            for (int index = 0; index < island.Fragments.Length; index++)
+            for (int fragment = 0; fragment < island.Fragments.Length; fragment++)
             {
-                RenderFragmentId fragmentId = island.Fragments[index];
-                bool terminal = index == island.Fragments.Length - 1;
+                RenderFragmentId fragmentId = island.Fragments[fragment];
+                bool terminal = fragment == island.Fragments.Length - 1;
                 if (!_membershipByFragment.TryAdd(
                         fragmentId,
                         new ExecutionIslandMembership(island, island.ShaderRun, terminal)))
@@ -288,7 +295,6 @@ internal sealed class ExecutionIslandPlan
                         nameof(islands));
                 }
             }
-
         }
     }
 
@@ -644,7 +650,11 @@ internal sealed class ExecutionIslandExecutionLedger
         IReadOnlySet<RenderFragmentId> cacheHits)
     {
         var result = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        var pending = new Stack<RenderFragmentReference>(roots.Reverse());
+        // Pushing in reverse leaves the roots on top in their declared order, which is what Reverse() was
+        // for; going through LINQ boxes the ImmutableArray and buffers a copy on every frame.
+        var pending = new Stack<RenderFragmentReference>(roots.Length);
+        for (int index = roots.Length - 1; index >= 0; index--)
+            pending.Push(roots[index]);
         while (pending.TryPop(out RenderFragmentReference? reference))
         {
             RenderFragmentId id = reference.Id
@@ -737,9 +747,11 @@ internal sealed class CompiledShaderRun
         ShaderDescription? wholeSourceHead = stages[0].Description.Kind == ShaderDescriptionKind.WholeSource
             ? stages[0].Description
             : null;
-        if (stages.Skip(wholeSourceHead is null ? 0 : 1)
-            .Any(static stage => stage.Description.Kind == ShaderDescriptionKind.WholeSource))
+        for (int index = wholeSourceHead is null ? 0 : 1; index < stages.Length; index++)
         {
+            if (stages[index].Description.Kind != ShaderDescriptionKind.WholeSource)
+                continue;
+
             throw new ArgumentException(
                 "A WholeSource shader can appear only at the head of a compiled Shader run.",
                 nameof(stages));

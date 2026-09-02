@@ -24,6 +24,9 @@ public partial class MosaicEffect : FilterEffect
         }
         """;
 
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.WholeSource);
+
     public MosaicEffect()
     {
         ScanProperties<MosaicEffect>();
@@ -42,14 +45,14 @@ public partial class MosaicEffect : FilterEffect
         var tileSize = new Vector2(r.TileSize.Width, r.TileSize.Height);
         var origin = new Vector2(r.Origin.Point.X, r.Origin.Point.Y);
         context.Shader(ShaderDescription.WholeSource(
-            ShaderSource,
+            s_shaderSource,
             RenderBoundsContract.FullInput,
             bindings =>
             {
                 bindings.Uniform(
                     "tileSize",
                     tileSize,
-                    BindScaledVector);
+                    static (writer, tile, execution) => writer.Set(tile * execution.WorkingScale));
                 if (r.Origin.Unit == RelativeUnit.Relative)
                 {
                     bindings.Uniform(
@@ -70,12 +73,6 @@ public partial class MosaicEffect : FilterEffect
                 new MosaicSampling(r.TileSize, r.Origin),
                 static (state, context, point) => state.HitTest(context, point))));
     }
-
-    private static void BindScaledVector(
-        ShaderUniformWriter writer,
-        Vector2 value,
-        ShaderExecutionContext context)
-        => writer.Set(value * context.WorkingScale);
 
     private static void BindRelativeOrigin(
         ShaderUniformWriter writer,

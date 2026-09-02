@@ -3,7 +3,8 @@
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Pure working-density calculations shared by recording, planning, 3D, brushes, and export policy.
+/// Pure working-density and buffer-allocatability calculations shared by recording, planning, 3D, brushes,
+/// and export policy.
 /// </summary>
 public static class RenderScaleUtilities
 {
@@ -133,6 +134,33 @@ public static class RenderScaleUtilities
         ValidateMaxDimension(budget);
         return deviceSize.Width <= budget && deviceSize.Height <= budget;
     }
+
+    /// <summary>Answers whether a logical rectangle can be asked of a buffer allocator at all.</summary>
+    /// <remarks>
+    /// Prior to <see cref="FitsBufferBudget"/>, which asks whether a device size is within the axis limit.
+    /// A non-finite or non-positive extent is not a size the allocator can be given a budget for: it reaches
+    /// the native allocator as a nonsense request rather than as a failed one.
+    /// </remarks>
+    internal static bool IsAllocatableBounds(Rect bounds)
+        => double.IsFinite(bounds.X)
+           && double.IsFinite(bounds.Y)
+           && double.IsFinite(bounds.Width)
+           && double.IsFinite(bounds.Height)
+           && bounds.Width > 0
+           && bounds.Height > 0;
+
+    /// <summary>Answers whether a logical rectangle is renderable but covers nothing.</summary>
+    /// <remarks>
+    /// A finite, non-negative rectangle with a zero extent on either axis. Distinct from the bounds
+    /// <see cref="IsAllocatableBounds"/> rejects: those are an allocation failure a caller reports, while
+    /// this is a target with nothing to draw, which a caller drops in every render intent.
+    /// </remarks>
+    internal static bool IsEmptyBounds(Rect bounds)
+        => double.IsFinite(bounds.Width)
+           && double.IsFinite(bounds.Height)
+           && bounds.Width >= 0
+           && bounds.Height >= 0
+           && (bounds.Width == 0 || bounds.Height == 0);
 
     private const int RasterApronPixels = 2;
 

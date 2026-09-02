@@ -87,22 +87,21 @@ internal static class FilterEffectStageFallbackExecutor
         if (IsEmpty(outputBounds))
             return null;
 
+        // A current-pixel stage rewrites the colour of the sample it was handed, so its supply is the
+        // input's own density; a whole-source stage resolves one from the supply the way any stage does.
         float density = description.Kind == ShaderDescriptionKind.CurrentPixel
             ? input.Scale.Value
             : RenderScaleUtilities.ResolveWorkingScale(
                 [input.Scale],
                 outputScale,
                 maxWorkingScale);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
-            outputBounds.Translate(input.DeviceGridOffset),
-            density);
-        EffectTarget? output = AllocateTarget(
+        EffectTarget? output = AllocateStageOutput(
+            input,
             outputBounds,
             density,
             maxWorkingScale,
             intent,
-            leaseSession,
-            deviceGridOffset: input.DeviceGridOffset);
+            leaseSession);
         if (output?.RenderTarget is not { } outputTarget)
         {
             output?.Dispose();
@@ -112,101 +111,19 @@ internal static class FilterEffectStageFallbackExecutor
         try
         {
             using SKImage inputImage = inputTarget.Value.Snapshot();
-            string childName;
-            string programSource;
-            SKShaderTileMode tileMode;
-            if (description.Kind == ShaderDescriptionKind.CurrentPixel)
-            {
-                childName = "__beutl_src";
-                tileMode = SKShaderTileMode.Decal;
-                programSource = $"uniform shader {childName};\n{description.Source.Text}\n"
-                    + $"half4 main(float2 __beutl_coord) {{ return apply({childName}.eval(__beutl_coord)); }}\n";
-            }
-            else
-            {
-                childName = "src";
-                tileMode = description.SourceTileMode;
-                programSource = description.Source.Text;
-            }
-
-            using ProgramCacheLease<CachedSkRuntimeEffect> lease = acquireProgram(output, programSource);
-            using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
-            using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
-            var children = new List<SKShader>();
-            var bindingToken = new RenderExecutionSessionToken();
-            try
-            {
-                bindingToken.RunAndComplete(
-                    () =>
-                    {
-                        var context = new ShaderExecutionContext(
-                            bindingToken,
-                            input.Bounds,
-                            outputBounds,
-                            outputBounds,
-                            output.DeviceBounds,
-                            output.RasterBounds,
-                            input.Scale,
-                            outputScale,
-                            output.Scale.Value,
-                            maxWorkingScale,
-                            intent,
-                            purpose);
-                        foreach (ShaderUniformBinding binding in description.Uniforms)
-                        {
-                            if (!description.Source.Uniforms.TryGetValue(
-                                    binding.Name,
-                                    out SkslUniformDeclaration declaration))
-                            {
-                                throw new InvalidOperationException(
-                                    $"Shader uniform '{binding.Name}' was not declared.");
-                            }
-
-                            SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
-                        }
-
-                        SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
-                            inputImage,
-                            inputTarget.RawValue.Context,
-                            input.Bounds,
-                            input.Scale.Value,
-                            input.DeviceBounds,
-                            input.RasterBounds,
-                            output.Scale.Value,
-                            output.RasterBounds,
-                            tileMode);
-                        children.Add(inputShader);
-                        runtimeChildren[childName] = inputShader;
-
-                        foreach (ShaderResourceBinding binding in description.Resources)
-                        {
-                            SKShader child = binding.Bind(context);
-                            children.Add(child);
-                            runtimeChildren[binding.Name] = child;
-                        }
-                    });
-
-                using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
-                using var paint = new SKPaint { Shader = shader };
-                using var canvas = ImmediateCanvas.CreateExecutorManaged(
-                    outputTarget,
-                    output.Scale.Value,
-                    maxWorkingScale,
-                    output.RasterBounds.Size,
-                    intent);
-                canvas.Clear();
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.Canvas.DrawRect(
-                        SKRect.Create(outputTarget.Width, outputTarget.Height),
-                        paint);
-                }
-            }
-            finally
-            {
-                foreach (SKShader child in children.AsEnumerable().Reverse())
-                    child.Dispose();
-            }
+            RunShaderStage(
+                description,
+                input,
+                inputImage,
+                inputTarget,
+                output,
+                outputTarget,
+                outputBounds,
+                outputScale,
+                maxWorkingScale,
+                intent,
+                purpose,
+                acquireProgram);
 
             EffectTarget result = output;
             output = null;
@@ -215,6 +132,206 @@ internal static class FilterEffectStageFallbackExecutor
         finally
         {
             output?.Dispose();
+        }
+    }
+
+    /// <summary>Allocates the buffer a stage writes, at the density its supply and the axis limit allow.</summary>
+    private static EffectTarget? AllocateStageOutput(
+        EffectTarget input,
+        Rect outputBounds,
+        float density,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderTargetLeaseSession? leaseSession)
+    {
+        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
+            outputBounds.Translate(input.DeviceGridOffset),
+            density);
+        return AllocateTarget(
+            outputBounds,
+            density,
+            maxWorkingScale,
+            intent,
+            leaseSession,
+            deviceGridOffset: input.DeviceGridOffset);
+    }
+
+    /// <summary>Compiles the stage's program, binds its inputs, and fills the output buffer with it.</summary>
+    private static void RunShaderStage(
+        ShaderDescription description,
+        EffectTarget input,
+        SKImage inputImage,
+        RenderTarget inputTarget,
+        EffectTarget output,
+        RenderTarget outputTarget,
+        Rect outputBounds,
+        float outputScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        SkRuntimeEffectProgramAcquirer acquireProgram)
+    {
+        ShaderProgram program = ResolveShaderProgram(description);
+        using ProgramCacheLease<CachedSkRuntimeEffect> lease = acquireProgram(output, program.Source);
+        using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
+        using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
+        var children = new List<SKShader>();
+        try
+        {
+            BindShaderStage(
+                description,
+                program,
+                input,
+                inputImage,
+                inputTarget,
+                output,
+                outputBounds,
+                outputScale,
+                maxWorkingScale,
+                intent,
+                purpose,
+                uniforms,
+                runtimeChildren,
+                children);
+            PaintShaderStage(
+                lease.Program.Effect,
+                uniforms,
+                runtimeChildren,
+                output,
+                outputTarget,
+                maxWorkingScale,
+                intent);
+        }
+        finally
+        {
+            // Children are released in the reverse of the order they were created, which is what a
+            // 'using' stack over them would have done had the count been known at compile time.
+            for (int index = children.Count - 1; index >= 0; index--)
+                children[index].Dispose();
+        }
+    }
+
+    /// <summary>The program text a stage runs, and the name its upstream input is bound under.</summary>
+    private readonly record struct ShaderProgram(string ChildName, string Source, SKShaderTileMode TileMode);
+
+    /// <summary>
+    /// Resolves the SkSL a stage runs from its description.
+    /// </summary>
+    /// <remarks>
+    /// A current-pixel description declares only an <c>apply</c> over a colour, so the entry point that feeds
+    /// it the fragment's own sample is written here rather than by the author; a whole-source description
+    /// already carries its own entry point and is run as given.
+    /// </remarks>
+    private static ShaderProgram ResolveShaderProgram(ShaderDescription description)
+    {
+        if (description.Kind != ShaderDescriptionKind.CurrentPixel)
+            return new ShaderProgram("src", description.Source.Text, description.SourceTileMode);
+
+        const string childName = "__beutl_src";
+        return new ShaderProgram(
+            childName,
+            $"uniform shader {childName};\n{description.Source.Text}\n"
+            + $"half4 main(float2 __beutl_coord) {{ return apply({childName}.eval(__beutl_coord)); }}\n",
+            SKShaderTileMode.Decal);
+    }
+
+    /// <summary>Runs the description's binders and hands their results to the runtime effect.</summary>
+    /// <remarks>
+    /// One execution session covers the whole phase: every binder is handed the same context, and the token
+    /// is completed once so none of them can retain what it was given past the phase.
+    /// </remarks>
+    private static void BindShaderStage(
+        ShaderDescription description,
+        ShaderProgram program,
+        EffectTarget input,
+        SKImage inputImage,
+        RenderTarget inputTarget,
+        EffectTarget output,
+        Rect outputBounds,
+        float outputScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        SKRuntimeEffectUniforms uniforms,
+        SKRuntimeEffectChildren runtimeChildren,
+        List<SKShader> children)
+    {
+        var bindingToken = new RenderExecutionSessionToken();
+        bindingToken.RunAndComplete(
+            () =>
+            {
+                var context = new ShaderExecutionContext(
+                    bindingToken,
+                    input.Bounds,
+                    outputBounds,
+                    outputBounds,
+                    output.DeviceBounds,
+                    output.RasterBounds,
+                    input.Scale,
+                    outputScale,
+                    output.Scale.Value,
+                    maxWorkingScale,
+                    intent,
+                    purpose);
+                foreach (ShaderUniformBinding binding in description.Uniforms)
+                {
+                    if (!description.Source.Uniforms.TryGetValue(
+                            binding.Name,
+                            out SkslUniformDeclaration declaration))
+                    {
+                        throw new InvalidOperationException(
+                            $"Shader uniform '{binding.Name}' was not declared.");
+                    }
+
+                    SetUniform(uniforms, binding.Name, declaration, binding.Bind(declaration, context));
+                }
+
+                SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                    inputImage,
+                    inputTarget.RawValue.Context,
+                    input.Bounds,
+                    input.Scale.Value,
+                    input.DeviceBounds,
+                    input.RasterBounds,
+                    output.Scale.Value,
+                    output.RasterBounds,
+                    program.TileMode);
+                children.Add(inputShader);
+                runtimeChildren[program.ChildName] = inputShader;
+
+                foreach (ShaderResourceBinding binding in description.Resources)
+                {
+                    SKShader child = binding.Bind(context);
+                    children.Add(child);
+                    runtimeChildren[binding.Name] = child;
+                }
+            });
+    }
+
+    /// <summary>Fills the output buffer with the bound program.</summary>
+    private static void PaintShaderStage(
+        SKRuntimeEffect effect,
+        SKRuntimeEffectUniforms uniforms,
+        SKRuntimeEffectChildren runtimeChildren,
+        EffectTarget output,
+        RenderTarget outputTarget,
+        float maxWorkingScale,
+        RenderIntent intent)
+    {
+        using SKShader shader = effect.ToShader(uniforms, runtimeChildren);
+        using var paint = new SKPaint { Shader = shader };
+        using var canvas = ImmediateCanvas.CreateExecutorManaged(
+            outputTarget,
+            output.Scale.Value,
+            maxWorkingScale,
+            output.RasterBounds.Size,
+            intent);
+        canvas.Clear();
+        using (canvas.PushDeviceSpace())
+        {
+            canvas.Canvas.DrawRect(
+                SKRect.Create(outputTarget.Width, outputTarget.Height),
+                paint);
         }
     }
 
@@ -245,16 +362,13 @@ internal static class FilterEffectStageFallbackExecutor
             [input.Scale],
             outputScale,
             maxWorkingScale);
-        density = RenderScaleUtilities.ClampWorkingScaleToExactDeviceBufferBudget(
-            outputBounds.Translate(input.DeviceGridOffset),
-            density);
-        EffectTarget? output = AllocateTarget(
+        EffectTarget? output = AllocateStageOutput(
+            input,
             outputBounds,
             density,
             maxWorkingScale,
             intent,
-            leaseSession,
-            deviceGridOffset: input.DeviceGridOffset);
+            leaseSession);
         if (output?.RenderTarget is not { } outputTarget)
         {
             output?.Dispose();
@@ -264,54 +378,18 @@ internal static class FilterEffectStageFallbackExecutor
         try
         {
             using SKImage inputImage = inputTarget.Value.Snapshot();
-            var token = new RenderExecutionSessionToken();
-            Rect? selectedBounds = token.RunAndComplete<Rect?>(
-                () =>
-                {
-                    Func<Bitmap>? createSnapshot = description.RequiresReadback
-                        ? inputTarget.Snapshot
-                        : null;
-                    var executionInput = new RenderExecutionInput(
-                        token,
-                        input.Bounds,
-                        input.Scale,
-                        input.DeviceBounds,
-                        input.RasterBounds,
-                        inputImage,
-                        createSnapshot,
-                        description.RequiresReadback);
-                    var callbackCanvas = new RenderCallbackCanvas(
-                        token,
-                        output.Scale.Value,
-                        outputBounds,
-                        output.DeviceBounds,
-                        () => ImmediateCanvas.CreateExecutorManaged(
-                            outputTarget,
-                            output.Scale.Value,
-                            maxWorkingScale,
-                            output.RasterBounds.Size,
-                            intent,
-                            output.DeviceBounds.Position),
-                        CallbackCanvasCapability.Draw,
-                        rasterBounds: output.RasterBounds);
-                    var session = new GeometrySession(
-                        token,
-                        executionInput,
-                        outputBounds,
-                        outputBounds,
-                        output.DeviceBounds,
-                        outputScale,
-                        output.Scale.Value,
-                        maxWorkingScale,
-                        intent,
-                        purpose,
-                        callbackCanvas,
-                        description.Resources);
-                    description.Render(session);
-                    return session.IsOutputDiscarded
-                        ? null
-                        : session.OutputBounds.Intersect(outputBounds);
-                });
+            Rect? selectedBounds = RenderGeometryStage(
+                description,
+                input,
+                inputImage,
+                inputTarget,
+                output,
+                outputTarget,
+                outputBounds,
+                outputScale,
+                maxWorkingScale,
+                intent,
+                purpose);
 
             if (selectedBounds is not { Width: > 0, Height: > 0 } selected)
                 return null;
@@ -329,6 +407,76 @@ internal static class FilterEffectStageFallbackExecutor
         {
             output?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Runs the description's render callback against the output buffer, and reports what it painted.
+    /// </summary>
+    /// <returns>
+    /// The part of <paramref name="outputBounds"/> the callback selected, or <see langword="null"/> when it
+    /// discarded its output altogether.
+    /// </returns>
+    private static Rect? RenderGeometryStage(
+        GeometryDescription description,
+        EffectTarget input,
+        SKImage inputImage,
+        RenderTarget inputTarget,
+        EffectTarget output,
+        RenderTarget outputTarget,
+        Rect outputBounds,
+        float outputScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose)
+    {
+        var token = new RenderExecutionSessionToken();
+        return token.RunAndComplete<Rect?>(
+            () =>
+            {
+                Func<Bitmap>? createSnapshot = description.RequiresReadback
+                    ? inputTarget.Snapshot
+                    : null;
+                var executionInput = new RenderExecutionInput(
+                    token,
+                    input.Bounds,
+                    input.Scale,
+                    input.DeviceBounds,
+                    input.RasterBounds,
+                    inputImage,
+                    createSnapshot,
+                    description.RequiresReadback);
+                var callbackCanvas = new RenderCallbackCanvas(
+                    token,
+                    output.Scale.Value,
+                    outputBounds,
+                    output.DeviceBounds,
+                    () => ImmediateCanvas.CreateExecutorManaged(
+                        outputTarget,
+                        output.Scale.Value,
+                        maxWorkingScale,
+                        output.RasterBounds.Size,
+                        intent,
+                        output.DeviceBounds.Position),
+                    CallbackCanvasCapability.Draw,
+                    rasterBounds: output.RasterBounds);
+                var session = new GeometrySession(
+                    token,
+                    executionInput,
+                    outputBounds,
+                    outputBounds,
+                    output.DeviceBounds,
+                    outputScale,
+                    output.Scale.Value,
+                    maxWorkingScale,
+                    intent,
+                    purpose,
+                    callbackCanvas,
+                    description.Resources);
+                description.Render(session);
+                return session.IsOutputDiscarded
+                    ? null
+                    : session.OutputBounds.Intersect(outputBounds);
+            });
     }
 
     private static EffectTarget? NormalizeInput(
@@ -349,7 +497,7 @@ internal static class FilterEffectStageFallbackExecutor
                 == source.DeviceBounds
                     .ToRect(density)
                     .Translate(-source.DeviceGridOffset)
-            && Contains(source.DeviceBounds, semanticDeviceBounds))
+            && source.DeviceBounds.Contains(semanticDeviceBounds))
         {
             return source.Clone();
         }
@@ -472,31 +620,12 @@ internal static class FilterEffectStageFallbackExecutor
                 bounds.Translate(deviceGridOffset),
                 density);
         }
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(
-            bounds.Translate(deviceGridOffset),
-            density);
-        PixelRect deviceBounds;
-        if (physicalDeviceBounds is not { } requestedPhysicalBounds)
-        {
-            deviceBounds = semanticDeviceBounds;
-        }
-        else if (deviceGridOffset == default)
-        {
-            deviceBounds = requestedPhysicalBounds;
-        }
-        else
-        {
-            PixelRect localSemanticBounds = PixelRect.FromRect(bounds, density);
-            int leftApron = localSemanticBounds.X - requestedPhysicalBounds.X;
-            int topApron = localSemanticBounds.Y - requestedPhysicalBounds.Y;
-            int rightApron = requestedPhysicalBounds.Right - localSemanticBounds.Right;
-            int bottomApron = requestedPhysicalBounds.Bottom - localSemanticBounds.Bottom;
-            deviceBounds = new PixelRect(
-                semanticDeviceBounds.X - leftApron,
-                semanticDeviceBounds.Y - topApron,
-                semanticDeviceBounds.Width + leftApron + rightApron,
-                semanticDeviceBounds.Height + topApron + bottomApron);
-        }
+
+        PixelRect deviceBounds = ResolveAllocationDeviceBounds(
+            bounds,
+            density,
+            deviceGridOffset,
+            physicalDeviceBounds);
         EffectTarget? result = Allocate(
             leaseSession,
             bounds,
@@ -505,15 +634,7 @@ internal static class FilterEffectStageFallbackExecutor
             deviceGridOffset);
         if (result is null)
         {
-            string message =
-                $"EffectItem typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
-                + $"w {density}, bounds {bounds}).";
-            s_logger.LogWarning(
-                "{Message} Preview drops this target; delivery render fails fast.",
-                message);
-            if (intent == RenderIntent.Delivery)
-                throw new InvalidOperationException(message);
-            leaseSession?.MarkContentDropped();
+            ReportAllocationFailure(bounds, density, deviceBounds, intent, leaseSession);
             return null;
         }
 
@@ -534,6 +655,58 @@ internal static class FilterEffectStageFallbackExecutor
             result.Dispose();
             throw;
         }
+    }
+
+    /// <summary>Places the buffer on the device grid, keeping the caller's apron around the semantic area.</summary>
+    /// <remarks>
+    /// Without a requested physical footprint the buffer is exactly the semantic rectangle. With one, the
+    /// apron it carries on each side is measured in the caller's own local space and re-applied around the
+    /// semantic device rectangle, because rounding the physical rectangle and the grid offset separately
+    /// cannot reproduce the rounding the semantic rectangle already used.
+    /// </remarks>
+    private static PixelRect ResolveAllocationDeviceBounds(
+        Rect bounds,
+        float density,
+        Vector deviceGridOffset,
+        PixelRect? physicalDeviceBounds)
+    {
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            bounds.Translate(deviceGridOffset),
+            density);
+        if (physicalDeviceBounds is not { } requestedPhysicalBounds)
+            return semanticDeviceBounds;
+        if (deviceGridOffset == default)
+            return requestedPhysicalBounds;
+
+        PixelRect localSemanticBounds = PixelRect.FromRect(bounds, density);
+        int leftApron = localSemanticBounds.X - requestedPhysicalBounds.X;
+        int topApron = localSemanticBounds.Y - requestedPhysicalBounds.Y;
+        int rightApron = requestedPhysicalBounds.Right - localSemanticBounds.Right;
+        int bottomApron = requestedPhysicalBounds.Bottom - localSemanticBounds.Bottom;
+        return new PixelRect(
+            semanticDeviceBounds.X - leftApron,
+            semanticDeviceBounds.Y - topApron,
+            semanticDeviceBounds.Width + leftApron + rightApron,
+            semanticDeviceBounds.Height + topApron + bottomApron);
+    }
+
+    /// <summary>Reports a stage buffer the allocator would not give.</summary>
+    private static void ReportAllocationFailure(
+        Rect bounds,
+        float density,
+        PixelRect deviceBounds,
+        RenderIntent intent,
+        RenderTargetLeaseSession? leaseSession)
+    {
+        string message =
+            $"EffectItem typed-effect target allocation failed ({deviceBounds.Width}x{deviceBounds.Height} px, "
+            + $"w {density}, bounds {bounds}).";
+        s_logger.LogWarning(
+            "{Message} Preview drops this target; delivery render fails fast.",
+            message);
+        if (intent == RenderIntent.Delivery)
+            throw new InvalidOperationException(message);
+        leaseSession?.MarkContentDropped();
     }
 
     /// <summary>
@@ -628,12 +801,6 @@ internal static class FilterEffectStageFallbackExecutor
                     : value.Floats!;
         }
     }
-
-    private static bool Contains(PixelRect outer, PixelRect inner)
-        => outer.X <= inner.X
-           && outer.Y <= inner.Y
-           && outer.Right >= inner.Right
-           && outer.Bottom >= inner.Bottom;
 
     private static bool IsEmpty(Rect bounds)
         => bounds.Width == 0 || bounds.Height == 0;

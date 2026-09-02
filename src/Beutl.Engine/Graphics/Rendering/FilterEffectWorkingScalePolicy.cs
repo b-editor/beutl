@@ -39,9 +39,17 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         => Resolve(
             inputSupplies,
             inputBounds,
-            Enumerable.Repeat(outputBounds, inputSupplies.Count).ToArray(),
+            // Array.Fill over a sized array: Repeat allocates an iterator that ToArray must then walk.
+            FillBufferBounds(outputBounds, inputSupplies.Count),
             outputScale,
             maxWorkingScale);
+
+    private static Rect[] FillBufferBounds(Rect bounds, int count)
+    {
+        var bufferBounds = new Rect[count];
+        Array.Fill(bufferBounds, bounds);
+        return bufferBounds;
+    }
 
     public EffectiveScale Resolve(
         IReadOnlyList<EffectiveScale> inputSupplies,

@@ -88,9 +88,11 @@ internal sealed partial class RenderRequestExecutor
                         }
                         finally
                         {
-                            foreach (SKImage image in images.AsEnumerable().Reverse())
+                            // Reverse index walk: the LINQ form buffers the whole list before yielding,
+                            // and this runs in a per-frame teardown path.
+                            for (int index = images.Count - 1; index >= 0; index--)
                             {
-                                image.Dispose();
+                                images[index].Dispose();
                             }
                         }
                     });
@@ -398,6 +400,11 @@ internal sealed partial class RenderRequestExecutor
                     "Every selected render-cache miss must materialize exactly one staged capture.");
             }
 
+            // Nothing to index when nothing was selected for capture, which is every frame the resolver
+            // took no cache decision - and this runs on every published frame.
+            if (_cacheResolution.MissCaptures.IsEmpty)
+                return;
+
             var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
             foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
             {
@@ -424,6 +431,11 @@ internal sealed partial class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(transferredTargets);
             if (PreviewAllocationDropObserved)
                 return;
+            // Nothing to index when nothing was selected for capture, which is every frame the resolver
+            // took no cache decision - and this runs on every published frame.
+            if (_cacheResolution.MissCaptures.IsEmpty)
+                return;
+
             var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
             foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
             {
@@ -512,7 +524,11 @@ internal sealed partial class RenderRequestExecutor
         private void DisposeValues(Func<MaterializedRenderValue, bool, bool> predicate)
         {
             List<Exception>? failures = null;
-            foreach (MaterializedRenderValue value in _ownedValues.Reverse().ToArray())
+            // The loop removes from _ownedValues, so it needs a snapshot; Reverse() already buffers the set
+            // into an array that ToArray() then copies a second time, and a set has no order to preserve.
+            var snapshot = new MaterializedRenderValue[_ownedValues.Count];
+            _ownedValues.CopyTo(snapshot);
+            foreach (MaterializedRenderValue value in snapshot)
             {
                 bool isCapture = _cacheCaptureValues.Contains(value);
                 if (!predicate(value, isCapture))

@@ -720,10 +720,7 @@ public sealed class RenderNodeContext
             draw,
             fill,
             pen,
-            bindings
-                .Select(static binding => binding.Resource)
-                .DistinctBy(static resource => resource.SlotIdentity)
-                .ToArray());
+            DistinctResources(bindings));
         // Both callbacks are static, so the description's identity is the pair of declarations rather than
         // this frame's helper instance, which a method group over `source` would have made it.
         Action<EngineDirectRenderSession, PlainPaintedSource<TState>>? directReplay =
@@ -744,14 +741,47 @@ public sealed class RenderNodeContext
         return OpaqueSource(description);
     }
 
+    /// <summary>Lists a painted source's declared resources once each, in declaration order.</summary>
+    /// <remarks>
+    /// The list this de-duplicates carries a drawable's declared bindings plus its fill and pen, so it is at
+    /// most a handful of entries and a scan settles membership for less than a set costs to build. This runs
+    /// once per painted primitive per recording.
+    /// </remarks>
+    private static RenderResource[] DistinctResources(List<RenderResourceBinding> bindings)
+    {
+        var distinct = new RenderResource[bindings.Count];
+        int count = 0;
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            RenderResource resource = bindings[index].Resource;
+            bool seen = false;
+            for (int other = 0; other < count; other++)
+            {
+                if (ReferenceEquals(distinct[other].SlotIdentity, resource.SlotIdentity))
+                {
+                    seen = true;
+                    break;
+                }
+            }
+
+            if (!seen)
+                distinct[count++] = resource;
+        }
+
+        return count == distinct.Length ? distinct : distinct[..count];
+    }
+
     private static bool ContainsDrawableBrush(Brush.Resource? fill, Pen.Resource? pen)
         => ContainsDrawableBrush(fill) || ContainsDrawableBrush(pen?.Brush);
 
     private static bool ContainsDrawableBrush(Brush.Resource? brush)
     {
-        var visited = new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
+        // A presenter chain is normally absent and never long, so the cycle guard is built only once one
+        // is actually being walked - this runs once per fill and once per pen on every recording.
+        HashSet<Brush.Resource>? visited = null;
         while (brush is BrushPresenter.Resource presenter)
         {
+            visited ??= new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
             if (!visited.Add(brush))
                 return true;
 

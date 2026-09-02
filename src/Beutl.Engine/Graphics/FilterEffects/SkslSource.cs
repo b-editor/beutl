@@ -5,30 +5,6 @@ using System.Text.RegularExpressions;
 
 namespace Beutl.Graphics.Effects;
 
-/// <summary>Identifies the execution model and entry-point contract of a shader description.</summary>
-public enum ShaderDescriptionKind
-{
-    /// <summary>
-    /// Transforms one coverage-resolved, premultiplied linear-light pixel through
-    /// <c>half4 apply(half4 color)</c>.
-    /// </summary>
-    /// <remarks>
-    /// Current-pixel stages have no output-position coordinate and may fuse only with structurally compatible
-    /// adjacent stages after analytic or antialiased coverage has been resolved.
-    /// </remarks>
-    CurrentPixel,
-
-    /// <summary>
-    /// Materializes a complete source through <c>half4 main(float2 coord)</c> and may sample arbitrary upstream
-    /// locations.
-    /// </summary>
-    /// <remarks>
-    /// Whole-source stages must declare the implicit <c>src</c> child shader. They may lead a fused run but cannot
-    /// consume an earlier stage inside that run.
-    /// </remarks>
-    WholeSource,
-}
-
 /// <summary>Provides normalized SkSL source that passed Beutl's description-level contract checks.</summary>
 /// <remarks>
 /// Instances are created by <see cref="ShaderDescription.CurrentPixel"/> and
@@ -921,9 +897,4 @@ public sealed partial class SkslSource
 
         return hash.ToString("x16");
     }
-}
-
-internal readonly record struct SkslUniformDeclaration(string Type, int? ArrayExtent)
-{
-    public bool IsShader => Type == "shader";
 }

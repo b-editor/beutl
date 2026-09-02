@@ -626,31 +626,35 @@ internal sealed class RegionAnalyzer
                     : "A symbolic full-target capture requires a finite owning target domain.");
         }
 
-        IReadOnlyList<Rect> inputBounds = reference.Inputs
-            .SelectToArray(static input => input.Bounds);
+        // Only the two arms below read more than the first input's bounds, so the projection array is built
+        // there rather than for every fragment: this runs once per fragment in each of two metadata passes.
+        switch (reference.Kind)
+        {
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.OpaqueMap:
+            case RenderFragmentKind.OpaqueCombine:
+            case RenderFragmentKind.OpaqueExpand:
+                return ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Bounds
+                    .TransformBounds(reference.Inputs.SelectToArray(static input => input.Bounds));
+            case RenderFragmentKind.FilterEffectSegment:
+                return ResolveEffectItemBounds(reference);
+        }
+
         return reference.Kind switch
         {
-            RenderFragmentKind.ContributeValues when inputBounds.Count == 0
+            RenderFragmentKind.ContributeValues when reference.Inputs.Length == 0
                 => reference.RecordedBounds,
             RenderFragmentKind.ContributeValues
                 or RenderFragmentKind.Opacity
                 or RenderFragmentKind.Blend
-                => inputBounds[0],
-            RenderFragmentKind.OpacityMask => inputBounds[0],
+                => reference.Inputs[0].Bounds,
+            RenderFragmentKind.OpacityMask => reference.Inputs[0].Bounds,
             RenderFragmentKind.Shader
                 => ((ShaderRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(inputBounds[0]),
+                    .TransformBounds(reference.Inputs[0].Bounds),
             RenderFragmentKind.Geometry
                 => ((GeometryRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(inputBounds[0]),
-            RenderFragmentKind.OpaqueSource
-                or RenderFragmentKind.OpaqueMap
-                or RenderFragmentKind.OpaqueCombine
-                or RenderFragmentKind.OpaqueExpand
-                => ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(inputBounds),
-            RenderFragmentKind.FilterEffectSegment
-                => ResolveEffectItemBounds(reference, inputBounds),
+                    .TransformBounds(reference.Inputs[0].Bounds),
             RenderFragmentKind.Layer
                 => ResolveLayerBounds(
                     reference,
@@ -660,17 +664,15 @@ internal sealed class RegionAnalyzer
             RenderFragmentKind.TargetLayerScope => UnionInputBounds(reference),
             RenderFragmentKind.TargetScope
                 => ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(inputBounds[0]),
+                    .TransformBounds(reference.Inputs[0].Bounds),
             RenderFragmentKind.RawTargetScope
                 => ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(inputBounds[0]),
+                    .TransformBounds(reference.Inputs[0].Bounds),
             _ => reference.RecordedBounds,
         };
     }
 
-    private static Rect ResolveEffectItemBounds(
-        RenderFragmentReference reference,
-        IReadOnlyList<Rect> inputBounds)
+    private static Rect ResolveEffectItemBounds(RenderFragmentReference reference)
     {
         var payload = (FilterEffectSegmentRenderFragmentPayload)reference.Payload!;
         if (payload.BoundsItems.IsDefaultOrEmpty)
@@ -678,7 +680,7 @@ internal sealed class RegionAnalyzer
 
         Rect bounds = default;
         for (int index = 0; index < payload.StreamInputCount; index++)
-            bounds = bounds.Union(inputBounds[index]);
+            bounds = bounds.Union(reference.Inputs[index].Bounds);
         foreach (IFEItem item in payload.BoundsItems)
             bounds = item.TransformBounds(bounds);
         return bounds;
@@ -689,15 +691,15 @@ internal sealed class RegionAnalyzer
         Rect resolvedBounds,
         RenderRequestOptions options)
     {
-        EffectiveScale[] inputScales = reference.Inputs
-            .SelectToArray(static input => input.EffectiveScale);
+        // The projection array is built only in the arms that read more than the first input's scale, because
+        // this runs once per fragment in each of two metadata passes.
         switch (reference.Kind)
         {
             case RenderFragmentKind.ContributeValues:
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.Blend:
             case RenderFragmentKind.OpacityMask:
-                return inputScales[0];
+                return reference.Inputs[0].EffectiveScale;
             case RenderFragmentKind.Shader:
                 {
                     var payload = (ShaderRenderFragmentPayload)reference.Payload!;
@@ -712,9 +714,9 @@ internal sealed class RegionAnalyzer
                     }
 
                     if (!materializes)
-                        return inputScales[0];
+                        return reference.Inputs[0].EffectiveScale;
 
-                    return ResolveMaterializedScale(inputScales, resolvedBounds, options);
+                    return ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
                 }
             case RenderFragmentKind.Geometry:
                 {
@@ -725,7 +727,7 @@ internal sealed class RegionAnalyzer
                             resolvedBounds,
                             options.OutputScale,
                             options.MaxWorkingScale)
-                        : ResolveMaterializedScale(inputScales, resolvedBounds, options);
+                        : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
                 }
             case RenderFragmentKind.FilterEffectSegment:
                 {
@@ -756,7 +758,7 @@ internal sealed class RegionAnalyzer
             case RenderFragmentKind.OpaqueCombine:
             case RenderFragmentKind.OpaqueExpand:
                 return ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    inputScales,
+                    InputScales(reference),
                     resolvedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
@@ -773,13 +775,13 @@ internal sealed class RegionAnalyzer
                 }
             case RenderFragmentKind.TargetScope:
                 return ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    inputScales,
+                    InputScales(reference),
                     resolvedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
             case RenderFragmentKind.RawTargetScope:
                 return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    inputScales,
+                    InputScales(reference),
                     resolvedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
@@ -787,6 +789,9 @@ internal sealed class RegionAnalyzer
                 return reference.RecordedEffectiveScale;
         }
     }
+
+    private static EffectiveScale[] InputScales(RenderFragmentReference reference)
+        => reference.Inputs.SelectToArray(static input => input.EffectiveScale);
 
     /// <summary>
     /// The rule a symbolic fragment answers with once its own bounds and its inputs' are known.
@@ -1056,8 +1061,7 @@ internal sealed class RegionAnalyzer
         if (reference.Inputs.IsDefaultOrEmpty)
             return [];
         if (outputRequirement.IsEmpty)
-            return ImmutableArray.CreateRange(
-                Enumerable.Repeat(RequiredRegion.Empty, reference.Inputs.Length));
+            return RepeatInputs(RequiredRegion.Empty, reference.Inputs.Length);
 
         return reference.Payload switch
         {
@@ -1299,8 +1303,7 @@ internal sealed class RegionAnalyzer
     {
         if (domain.Width == 0 || domain.Height == 0)
         {
-            return ImmutableArray.CreateRange(
-                Enumerable.Repeat(RequiredRegion.Empty, reference.Inputs.Length));
+            return RepeatInputs(RequiredRegion.Empty, reference.Inputs.Length);
         }
 
         var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
@@ -1340,8 +1343,23 @@ internal sealed class RegionAnalyzer
     }
 
     private static ImmutableArray<RequiredRegion> FullInputs(RenderFragmentReference reference)
-        => ImmutableArray.CreateRange(
-            Enumerable.Repeat(RequiredRegion.Full, reference.Inputs.Length));
+        => RepeatInputs(RequiredRegion.Full, reference.Inputs.Length);
+
+    /// <summary>Builds one requirement per input, all the same.</summary>
+    /// <remarks>
+    /// The propagation loop calls this once per fragment per pass and runs at least twice, so filling a
+    /// sized builder is preferred to the iterator <c>Repeat</c> would allocate for the range to walk.
+    /// </remarks>
+    private static ImmutableArray<RequiredRegion> RepeatInputs(RequiredRegion region, int count)
+    {
+        if (count == 0)
+            return [];
+
+        ImmutableArray<RequiredRegion>.Builder builder = ImmutableArray.CreateBuilder<RequiredRegion>(count);
+        for (int index = 0; index < count; index++)
+            builder.Add(region);
+        return builder.MoveToImmutable();
+    }
 
     private static RequiredRegion? GetTargetAccessRequirement(
         RenderFragmentReference reference,

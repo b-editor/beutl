@@ -4,8 +4,6 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed partial class FallbackFilterEffect : FilterEffect, IFallback;
-
 [FallbackType(typeof(FallbackFilterEffect))]
 [PresenterType(typeof(FilterEffectPresenter))]
 public abstract partial class FilterEffect : EngineObject

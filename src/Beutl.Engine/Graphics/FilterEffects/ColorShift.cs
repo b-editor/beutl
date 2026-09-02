@@ -34,6 +34,9 @@ public partial class ColorShift : FilterEffect
         }
         """;
 
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.WholeSource);
+
     public ColorShift()
     {
         ScanProperties<ColorShift>();
@@ -65,7 +68,7 @@ public partial class ColorShift : FilterEffect
             static (state, bounds) => state.GetRequiredInputBounds(bounds));
 
         context.Shader(ShaderDescription.WholeSource(
-            ShaderSource,
+            s_shaderSource,
             bounds,
             bindings =>
             {
@@ -87,14 +90,8 @@ public partial class ColorShift : FilterEffect
         bindings.Uniform(
             name,
             new Vector2(value.X, value.Y),
-            BindScaledOffset);
+            static (writer, offset, execution) => writer.Set(offset * execution.WorkingScale));
     }
-
-    private static void BindScaledOffset(
-        ShaderUniformWriter writer,
-        Vector2 value,
-        ShaderExecutionContext context)
-        => writer.Set(value * context.WorkingScale);
 
     private readonly record struct ColorShiftOffsets(
         PixelPoint RedOffset,
@@ -165,11 +162,9 @@ public partial class ColorShift : FilterEffect
                 .Union(bounds.Translate(AlphaOffset.ToPoint(1)));
 
         public Rect GetRequiredInputBounds(Rect bounds)
-            => bounds.Translate(ToInverseOffset(RedOffset))
-                .Union(bounds.Translate(ToInverseOffset(GreenOffset)))
-                .Union(bounds.Translate(ToInverseOffset(BlueOffset)))
-                .Union(bounds.Translate(ToInverseOffset(AlphaOffset)));
-
-        private static Point ToInverseOffset(PixelPoint value) => new(-value.X, -value.Y);
+            => bounds.Translate(-RedOffset.ToPoint(1))
+                .Union(bounds.Translate(-GreenOffset.ToPoint(1)))
+                .Union(bounds.Translate(-BlueOffset.ToPoint(1)))
+                .Union(bounds.Translate(-AlphaOffset.ToPoint(1)));
     }
 }

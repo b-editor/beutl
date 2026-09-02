@@ -308,7 +308,7 @@ internal sealed partial class RenderRequestExecutor
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
-        private readonly HashSet<ExecutionIslandId> _regionEmptyIslands;
+        private readonly HashSet<ExecutionIslandId>? _regionEmptyIslands;
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedParentScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedAccessDomains = [];
@@ -320,6 +320,11 @@ internal sealed partial class RenderRequestExecutor
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<MaterializedRenderValue, int> _valueReferences =
             new(ReferenceEqualityComparer.Instance);
+        private static readonly Dictionary<RenderFragmentId, RenderCacheHitSubstitution> s_noCacheHits = [];
+
+        private static readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>>
+            s_noCacheMisses = [];
+
         private readonly Dictionary<RenderFragmentId, RenderCacheHitSubstitution> _cacheHits;
         private readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>> _cacheMisses;
         private readonly HashSet<RenderFragmentId> _skippedExecutionSubjects = [];
@@ -360,10 +365,17 @@ internal sealed partial class RenderRequestExecutor
             _executionPlan = executionPlan;
             _executionLedger = executionPlan.CreateExecutionLedger(graph, roots, cacheResolution);
             _regions = regions;
-            _regionEmptyIslands = executionPlan.Islands
-                .Where(island => IsRegionEmpty(island, regions))
-                .Select(static island => island.Id)
-                .ToHashSet();
+            // The lambda LINQ needs would capture `regions`, so it cannot be cached, and the set is empty in
+            // every ordinary frame - this constructor runs once per family member per frame.
+            HashSet<ExecutionIslandId>? regionEmptyIslands = null;
+            for (int index = 0; index < executionPlan.Islands.Length; index++)
+            {
+                ExecutionIsland island = executionPlan.Islands[index];
+                if (IsRegionEmpty(island, regions))
+                    (regionEmptyIslands ??= []).Add(island.Id);
+            }
+
+            _regionEmptyIslands = regionEmptyIslands;
             HashSet<RenderFragmentId> cacheHitFragmentIds = cacheResolution.CollectPrunedHitProducers();
             _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
             _cacheResolution = cacheResolution;
@@ -381,12 +393,18 @@ internal sealed partial class RenderRequestExecutor
             _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
             _afterCaptureAllocation = afterCaptureAllocation;
-            _cacheHits = cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
-            _cacheMisses = cacheResolution.MissCaptures
-                .GroupBy(static item => item.ProducerId)
-                .ToDictionary(
-                    static group => group.Key,
-                    static group => group.ToImmutableArray());
+            // Both are empty whenever the request resolved no cache decision, which is the ordinary frame;
+            // GroupBy alone costs a lookup with its buckets before it can report that nothing was grouped.
+            _cacheHits = cacheResolution.Hits.IsEmpty
+                ? s_noCacheHits
+                : cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
+            _cacheMisses = cacheResolution.MissCaptures.IsEmpty
+                ? s_noCacheMisses
+                : cacheResolution.MissCaptures
+                    .GroupBy(static item => item.ProducerId)
+                    .ToDictionary(
+                        static group => group.Key,
+                        static group => group.ToImmutableArray());
 
             var scopes = targetDependencies.Scopes.ToDictionary(static scope => scope.Id);
             foreach (TargetScopePlan scope in targetDependencies.Scopes)

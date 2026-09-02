@@ -127,15 +127,15 @@ public sealed partial class Curves : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        RenderResource<CurveMap> master = Borrow(context, r.MasterCurve);
-        RenderResource<CurveMap> red = Borrow(context, r.RedCurve);
-        RenderResource<CurveMap> green = Borrow(context, r.GreenCurve);
-        RenderResource<CurveMap> blue = Borrow(context, r.BlueCurve);
-        RenderResource<CurveMap> hueHue = Borrow(context, r.HueVsHue);
-        RenderResource<CurveMap> hueSaturation = Borrow(context, r.HueVsSaturation);
-        RenderResource<CurveMap> hueLuminance = Borrow(context, r.HueVsLuminance);
-        RenderResource<CurveMap> luminanceSaturation = Borrow(context, r.LuminanceVsSaturation);
-        RenderResource<CurveMap> saturationSaturation = Borrow(context, r.SaturationVsSaturation);
+        RenderResource<CurveMap> master = context.Borrow(r.MasterCurve);
+        RenderResource<CurveMap> red = context.Borrow(r.RedCurve);
+        RenderResource<CurveMap> green = context.Borrow(r.GreenCurve);
+        RenderResource<CurveMap> blue = context.Borrow(r.BlueCurve);
+        RenderResource<CurveMap> hueHue = context.Borrow(r.HueVsHue);
+        RenderResource<CurveMap> hueSaturation = context.Borrow(r.HueVsSaturation);
+        RenderResource<CurveMap> hueLuminance = context.Borrow(r.HueVsLuminance);
+        RenderResource<CurveMap> luminanceSaturation = context.Borrow(r.LuminanceVsSaturation);
+        RenderResource<CurveMap> saturationSaturation = context.Borrow(r.SaturationVsSaturation);
 
         context.Shader(ShaderDescription.CurrentPixel(
             s_shaderSource,
@@ -152,9 +152,6 @@ public sealed partial class Curves : FilterEffect
                 BindCurve(bindings, "satVsSat", saturationSaturation);
             }));
     }
-
-    private static RenderResource<CurveMap> Borrow(FilterEffectContext context, CurveMap curve)
-        => context.Borrow(curve);
 
     private static void BindCurve(
         ShaderBindingBuilder bindings,

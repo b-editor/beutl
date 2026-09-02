@@ -155,14 +155,3 @@ internal static class SkslLexer
         return i + 1 >= source.Length ? source.Length : i + 1;
     }
 }
-
-internal readonly record struct SkslToken(
-    string Text,
-    bool IsIdentifier,
-    int BraceDepth,
-    int ParenthesisDepth,
-    int Start,
-    int Length)
-{
-    public int Depth => BraceDepth + ParenthesisDepth;
-}
