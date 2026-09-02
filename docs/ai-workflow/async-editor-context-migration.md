@@ -37,6 +37,30 @@ to their asynchronous counterparts. Disposal and context replacement are
 idempotent host operations: callers should await them rather than adding a
 synchronous wrapper or blocking with `GetAwaiter().GetResult()`.
 
+Host publication and dispatcher callbacks must not synchronously wait for
+`DisposeAsync` or `EditorService.CloseTabItem`, because both retain terminal
+completion semantics. Resolve `IEditorContextCloseService` from the supplied
+`IEditorContextServices` and request closure instead:
+
+```csharp
+services.TryGetService<IEditorContextCloseService>(out var closeService);
+EditorContextCloseRequest request = closeService!.RequestClose(this);
+// Return from the callback. Observe request.Completion afterward if needed.
+```
+
+`ToolTabExtension` callbacks receive only `IEditorContext`; resolve the same
+service through its inherited `IServiceProvider` surface:
+
+```csharp
+var closeService = (IEditorContextCloseService?)editorContext.GetService(
+    typeof(IEditorContextCloseService));
+EditorContextCloseRequest request = closeService!.RequestClose(editorContext);
+```
+
+The request distinguishes `Accepted`, `AlreadyClosing`, and `NotOwned`.
+`Completion` is the stable terminal task for physical tab removal and context
+teardown, including failures.
+
 Dock layout application and reset are asynchronous for the same reason. Await
 the operation so outgoing tools finish teardown before replacement tools begin
 using the editor.
@@ -49,7 +73,9 @@ The host-owned editor collections are now read-only to consumers:
 
 Use `EditorTabItem.ReplaceContextAsync` to replace a context. It serializes
 replacement with tab close, awaits the outgoing context, and consumes the new
-context if close wins. If outgoing teardown fails, the tab is terminally removed
-and the replacement task faults after cleanup. Add and remove tabs through
+context if close wins. A context identity already owned by the same or another
+tab is rejected before outgoing teardown and remains caller-owned. If outgoing
+teardown fails, the tab is terminally removed and the replacement task faults
+after cleanup. Add and remove tabs through
 `EditorService`; do not cast
 the read-only collections back to their concrete mutable implementations.

@@ -41,6 +41,7 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
     private readonly ElementAdderImpl _elementAdder;
+    private readonly IEditorContextCloseService _contextCloseService;
     private SceneTimeRangeService? _sceneTimeRangeService;
     private ElementResizeService? _elementResizeService;
     private ElementSlipService? _elementSlipService;
@@ -65,11 +66,9 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
     private bool _proxyInvalidationScheduled;
     private volatile bool _disposed;
     private readonly object _disposeGate = new();
-    private static readonly AsyncLocal<PublicationScope?> s_publicationScope = new();
     private Task? _disposeTask;
     private TaskCompletionSource? _publicationDrain;
     private int _activePublications;
-    private int _disposeFaultObserverAttached;
     private readonly Task _restoreTask;
     private readonly TaskCompletionSource _constructionCompleted = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
@@ -85,6 +84,7 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
         Scene = scene;
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
+        _contextCloseService = new BoundContextCloseService(this, editorService);
         SceneId = scene.Id.ToString();
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
@@ -623,6 +623,8 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
         }
     }
 
+    internal Action? BeforePreOwnershipCloseStart { get; set; }
+
     // Admission and completion are serialized with DisposeAsync, while observer callbacks run
     // outside the gate. Teardown drains admitted callbacks after closing further admission.
     internal bool TryPublish(Action publish)
@@ -640,9 +642,6 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
             }
         }
 
-        PublicationScope? previous = s_publicationScope.Value;
-        var scope = new PublicationScope(this, previous);
-        s_publicationScope.Value = scope;
         try
         {
             publish();
@@ -654,7 +653,6 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
             TaskCompletionSource? drained = null;
             lock (_disposeGate)
             {
-                scope.Deactivate();
                 _activePublications--;
                 if (_activePublications == 0)
                 {
@@ -662,7 +660,6 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
                     _publicationDrain = null;
                 }
             }
-            s_publicationScope.Value = previous;
             drained?.TrySetResult();
         }
     }
@@ -670,41 +667,17 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
     bool IEditorContextPublicationGate.TryPublish(Action publish)
         => TryPublish(publish);
 
-    private static bool IsActivePublicationScope(EditViewModel owner)
-    {
-        for (PublicationScope? scope = s_publicationScope.Value; scope is not null; scope = scope.Parent)
-        {
-            if (scope.IsActive && ReferenceEquals(scope.Owner, owner))
-                return true;
-        }
+    /// <summary>Requests terminal disposal of the editor context.</summary>
+    public ValueTask DisposeAsync() => new(GetOrStartDisposal().Completion);
 
-        return false;
-    }
-
-    private sealed class PublicationScope(EditViewModel owner, PublicationScope? parent)
-    {
-        private int _active = 1;
-
-        public EditViewModel Owner { get; } = owner;
-
-        public PublicationScope? Parent { get; } = parent;
-
-        public bool IsActive => Volatile.Read(ref _active) != 0;
-
-        public void Deactivate() => Interlocked.Exchange(ref _active, 0);
-    }
-
-    public ValueTask DisposeAsync()
+    private (bool Started, Task Completion) GetOrStartDisposal()
     {
         TaskCompletionSource<object?>? completion = null;
         Task task;
         Task publicationDrain = Task.CompletedTask;
         bool startDisposal = false;
-        bool reentrantOwnerCallback = ToolContextDisposal.IsActive
-            || DockHost.IsOwnerCallbackScope;
         lock (_disposeGate)
         {
-            reentrantOwnerCallback |= IsActivePublicationScope(this);
             if (_disposeTask is not null)
             {
                 task = _disposeTask;
@@ -720,36 +693,32 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
             }
         }
 
+        Exception? startupFailure = null;
         if (startDisposal)
         {
-            DockHost.RequestOwnerShutdown();
-            EditorService.RequestContextShutdown(this);
-            _ = DisposeCoreAsync(publicationDrain, completion!);
+            try
+            {
+                DockHost.RequestOwnerShutdown();
+                EditorService.RequestContextShutdown(this);
+            }
+            catch (Exception ex)
+            {
+                startupFailure = ex;
+            }
+            finally
+            {
+                _ = DisposeCoreAsync(publicationDrain, completion!, startupFailure);
+            }
         }
-        if (reentrantOwnerCallback)
-        {
-            ObserveReentrantDisposalFailure(task);
-            return ValueTask.CompletedTask;
-        }
-        return new ValueTask(task);
-    }
-
-    private void ObserveReentrantDisposalFailure(Task task)
-    {
-        if (Interlocked.CompareExchange(ref _disposeFaultObserverAttached, 1, 0) != 0)
-            return;
-        _ = task.ContinueWith(
-            t => _logger.LogError(t.Exception, "Reentrant editor disposal failed ({SceneId}).", SceneId),
-            CancellationToken.None,
-            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+        return (startDisposal, task);
     }
 
     private async Task DisposeCoreAsync(
         Task publicationDrain,
-        TaskCompletionSource<object?> completion)
+        TaskCompletionSource<object?> completion,
+        Exception? startupFailure)
     {
-        List<Exception>? failures = null;
+        List<Exception>? failures = startupFailure is null ? null : [startupFailure];
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
         Scene scene = Scene;
 
@@ -1091,6 +1060,40 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
         }
     }
 
+    private sealed class BoundContextCloseService(
+        EditViewModel owner,
+        EditorService editorService) : IEditorContextCloseService
+    {
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+        {
+            EditorContextCloseRequest request = editorService.RequestClose(context);
+            if (request.Status != EditorContextCloseRequestStatus.NotOwned
+                || !ReferenceEquals(context, owner))
+            {
+                return request;
+            }
+
+            owner.BeforePreOwnershipCloseStart?.Invoke();
+            (bool started, Task completion) = owner.GetOrStartDisposal();
+            EditorContextCloseRequest attachedRequest = editorService.RequestClose(owner);
+            if (attachedRequest.Status != EditorContextCloseRequestStatus.NotOwned)
+                return attachedRequest;
+            _ = completion.ContinueWith(
+                task => owner._logger.LogError(
+                    task.Exception,
+                    "Requested editor close failed ({SceneId}).",
+                    owner.SceneId),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return new EditorContextCloseRequest(
+                started
+                    ? EditorContextCloseRequestStatus.Accepted
+                    : EditorContextCloseRequestStatus.AlreadyClosing,
+                completion);
+        }
+    }
+
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(Scene))
@@ -1098,6 +1101,9 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
 
         if (serviceType.IsAssignableTo(typeof(IEditorContext)))
             return this;
+
+        if (serviceType.IsAssignableTo(typeof(IEditorContextCloseService)))
+            return _contextCloseService;
 
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
@@ -42,6 +43,11 @@ public class SceneEditorContextServicesTests
         {
             Assert.That(services.TryGetService<EditorService>(out EditorService? resolvedEditor), Is.True);
             Assert.That(resolvedEditor, Is.SameAs(editorService));
+
+            Assert.That(
+                services.TryGetService<IEditorContextCloseService>(out IEditorContextCloseService? closeService),
+                Is.True);
+            Assert.That(closeService, Is.SameAs(editorService));
 
             Assert.That(services.TryGetService<ExtensionProvider>(out ExtensionProvider? resolvedProvider), Is.True);
             Assert.That(resolvedProvider, Is.SameAs(extensionProvider));
@@ -117,7 +123,77 @@ public class SceneEditorContextServicesTests
     }
 
     [AvaloniaTest]
-    public async Task EditViewModelPublicationObserverCanWaitForDisposeWithoutDeadlock()
+    public async Task AttachedContextDisposalRemovesRegisteredTab()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "registered-context-close");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "registered-context-close")
+        {
+            Uri = new Uri(Path.Combine(workspace, "registered-context-close.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
+
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
+            Is.True);
+        var tab = new EditorTabItem(context!);
+        editorService.AddTabItem(tab);
+
+        await context!.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(editorService.TabItems, Is.Empty);
+            Assert.That(editorService.SelectedTabItem.Value, Is.Null);
+        });
+        HeadlessTestHelpers.Settle();
+    }
+
+    [AvaloniaTest]
+    public async Task PreOwnershipCloseRechecksAConcurrentInitialClaim()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "preownership-close-claim");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "preownership-close-claim")
+        {
+            Uri = new Uri(Path.Combine(workspace, "preownership-close-claim.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
+            Is.True);
+        var editor = (EditViewModel)context!;
+        var tab = new EditorTabItem(editor);
+        var beforeDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        editor.BeforePreOwnershipCloseStart = () =>
+        {
+            beforeDispose.TrySetResult();
+            releaseDispose.Task.GetAwaiter().GetResult();
+        };
+        var closeService = (IEditorContextCloseService)editor.GetService(
+            typeof(IEditorContextCloseService))!;
+
+        Task<EditorContextCloseRequest> close = Task.Run(() => closeService.RequestClose(editor));
+        await beforeDispose.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        editorService.AddTabItem(tab);
+        releaseDispose.TrySetResult();
+
+        EditorContextCloseRequest request = await close.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(
+            request.Status,
+            Is.AnyOf(EditorContextCloseRequestStatus.Accepted, EditorContextCloseRequestStatus.AlreadyClosing));
+        await request.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(editorService.TabItems, Is.Empty);
+        HeadlessTestHelpers.Settle();
+    }
+
+    [AvaloniaTest]
+    public async Task EditViewModelPublicationObserverCanRequestCloseAcrossDispatcher()
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "context-publication-close");
         Directory.CreateDirectory(workspace);
@@ -132,19 +208,87 @@ public class SceneEditorContextServicesTests
         Assert.That(
             SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
             Is.True);
+        var tab = new EditorTabItem(context!);
+        editorService.AddTabItem(tab);
         var gate = (IEditorContextPublicationGate)context!;
-        Task? close = null;
-
-        bool published = await Task.Run(() => gate.TryPublish(() =>
+        Assert.That(
+            services.TryGetService<IEditorContextCloseService>(out IEditorContextCloseService? closeService),
+            Is.True);
+        EditorContextCloseRequest closeRequest = default;
+        bool requestReturned = false;
+        bool completionWasPending = false;
+        Task<bool> publication;
+        using (ExecutionContext.SuppressFlow())
         {
-            close = Task.Run(() => context!.DisposeAsync().AsTask());
-            close.GetAwaiter().GetResult();
-        })).WaitAsync(TimeSpan.FromSeconds(5));
+            publication = Task.Run(() => gate.TryPublish(() =>
+            {
+                Dispatcher.UIThread.Invoke(() =>
+                {
+                    closeRequest = closeService!.RequestClose(context!);
+                    requestReturned = true;
+                    completionWasPending = !closeRequest.Completion.IsCompleted;
+                });
+            }));
+        }
 
-        Assert.That(close, Is.Not.Null);
-        await close!.WaitAsync(TimeSpan.FromSeconds(5));
-        await context!.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(published, Is.False);
+        bool published = await publication.WaitAsync(TimeSpan.FromSeconds(5));
+        await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(requestReturned, Is.True);
+            Assert.That(completionWasPending, Is.True);
+            Assert.That(closeRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(published, Is.False);
+            Assert.That(editorService.TabItems, Is.Empty);
+        });
+        HeadlessTestHelpers.Settle();
+    }
+
+    [AvaloniaTest]
+    public async Task TabSelectionObserverCanDispatchCloseWithoutExecutionContext()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "tab-publication-dispatch-close");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "tab-publication-dispatch-close")
+        {
+            Uri = new Uri(Path.Combine(workspace, "tab-publication-dispatch-close.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
+
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
+            Is.True);
+        var tab = new EditorTabItem(context!);
+        editorService.AddTabItem(tab);
+        Assert.That(
+            services.TryGetService<IEditorContextCloseService>(out IEditorContextCloseService? closeService),
+            Is.True);
+        EditorContextCloseRequest closeRequest = default;
+        using IDisposable observer = tab.IsSelected.Subscribe(selected =>
+        {
+            if (selected)
+            {
+                Dispatcher.UIThread.Invoke(() =>
+                {
+                    closeRequest = closeService!.RequestClose(context!);
+                });
+            }
+        });
+
+        Task activation;
+        using (ExecutionContext.SuppressFlow())
+            activation = Task.Run(() => editorService.ActivateTabItem(scene));
+
+        await activation.WaitAsync(TimeSpan.FromSeconds(5));
+        await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(closeRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(editorService.TabItems, Is.Empty);
+            Assert.That(editorService.SelectedTabItem.Value, Is.Null);
+        });
         HeadlessTestHelpers.Settle();
     }
 }

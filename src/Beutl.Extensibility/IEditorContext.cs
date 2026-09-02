@@ -5,6 +5,11 @@ namespace Beutl.Extensibility;
 public interface IEditorContext : IAsyncDisposable, IServiceProvider
 {
     /// <summary>Asynchronously releases the editor context and completes after all owned resources are closed.</summary>
+    /// <remarks>
+    /// Do not synchronously wait for disposal from a host publication or dispatcher callback. Resolve
+    /// <see cref="IEditorContextCloseService"/> from <see cref="IEditorContextServices"/> and request
+    /// host closure instead; its completion can be observed after the callback returns.
+    /// </remarks>
     new ValueTask DisposeAsync();
 
     CoreObject Object { get; }
