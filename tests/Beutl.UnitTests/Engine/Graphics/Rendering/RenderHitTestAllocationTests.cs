@@ -33,6 +33,16 @@ public sealed class RenderHitTestAllocationTests
     private static readonly RenderHitTestContract s_custom =
         RenderHitTestContract.Custom(static (context, point) => context.OutputBounds.Contains(point));
 
+    // What the clip nodes' custom bodies do: ask the inputs without building a predicate to do it.
+    private static readonly RenderHitTestContract s_customAskingInputs =
+        RenderHitTestContract.Custom(
+            static (context, point) => RenderHitTestContract.AnyInputAccepts(context.Inputs, point));
+
+    // The LINQ the clip nodes used to write, kept as the control for what the shared helper avoids.
+    private static readonly RenderHitTestContract s_customAskingInputsWithLinq =
+        RenderHitTestContract.Custom(
+            static (context, point) => context.Inputs.Any(input => input.HitTest(point)));
+
     [Test]
     public void ContractsThatAnswerFromTheirArguments_DoNotAllocate()
     {
@@ -68,6 +78,28 @@ public sealed class RenderHitTestAllocationTests
             bytes,
             Is.LessThanOrEqualTo(CustomContextBytesPerEvaluationCeiling),
             "the context is the only thing a custom hit test needs; the inputs it reads are the caller's");
+    }
+
+    [Test]
+    public void ACustomContractAskingItsInputs_CostsNoMoreThanTheContext()
+    {
+        long shared = MeasureBytesPerEvaluation(s_customAskingInputs);
+        long linq = MeasureBytesPerEvaluation(s_customAskingInputsWithLinq);
+
+        TestContext.Out.WriteLine($"AnyInputAccepts: {shared} bytes/evaluation");
+        TestContext.Out.WriteLine($"LINQ Any: {linq} bytes/evaluation");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                shared,
+                Is.LessThanOrEqualTo(CustomContextBytesPerEvaluationCeiling),
+                "asking the inputs must cost nothing beyond the context the callback was handed");
+            Assert.That(
+                linq,
+                Is.GreaterThan(shared),
+                "the control: the predicate closing over the point is what the shared helper avoids");
+        });
     }
 
     [Test]

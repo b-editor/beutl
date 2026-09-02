@@ -59,7 +59,7 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
     {
         bool insideClip = Clip.Contains(point);
         bool clipAcceptsPoint = Operation == ClipOperation.Intersect ? insideClip : !insideClip;
-        return clipAcceptsPoint && context.Inputs.Any(input => input.HitTest(point));
+        return clipAcceptsPoint && RenderHitTestContract.AnyInputAccepts(context.Inputs, point);
     }
 
     private readonly record struct RectClipMetadata(Rect Clip, ClipOperation Operation);

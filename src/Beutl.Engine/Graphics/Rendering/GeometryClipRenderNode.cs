@@ -100,7 +100,7 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
         {
             bool insideClip = geometry.FillContains(point);
             bool clipAcceptsPoint = operation == ClipOperation.Intersect ? insideClip : !insideClip;
-            return clipAcceptsPoint && context.Inputs.Any(input => input.HitTest(point));
+            return clipAcceptsPoint && RenderHitTestContract.AnyInputAccepts(context.Inputs, point);
         }
     }
 }
