@@ -4090,6 +4090,478 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             + "makes");
     }
 
+    /// <summary>Runs a loop over the sequence a case declares, inside a callback that reads its result.</summary>
+    /// <remarks>
+    /// Exactly one member of the sequence is impure in each reported case, so a report can only have come
+    /// from the member that case is about, and the accepted cases keep the same shape so that silence
+    /// means the walk looked and found nothing rather than that it never looked.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeIteration(string declarations, string loop)
+        => Analyze($$"""
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            {{declarations}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            float width = 0f;
+                            {{loop}}
+
+                            return new Rect(value.X, value.Y, width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+    [Test]
+    public void AStaticLambdaWhoseForEachGetEnumeratorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+                public Enumerator GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the loop asks the sequence for that enumerator before its first pass, which is a call the "
+            + "callback makes and spells nowhere");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseForEachMoveNextReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => Settings.Offset > 0f;
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the loop runs MoveNext to decide whether to keep going, so what it reads decides how many "
+            + "times this callback's own body runs");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseForEachCurrentReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => Settings.Offset;
+
+                public bool MoveNext() => false;
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "Current is the getter the loop runs to produce each element, and the element is what the "
+            + "callback answers with");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseForEachDisposesARefStructReadingAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal ref struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+
+                public void Dispose() => _ = Settings.Offset;
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a ref struct enumerator is disposed by the name alone, and the loop runs that Dispose where "
+            + "it ends whether or not the body ever ran");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseForEachDisposesThroughIDisposableReadingAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class Enumerator : IDisposable
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+
+                public void Dispose() => _ = Settings.Offset;
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the loop names IDisposable.Dispose, which has a body nowhere, so reading the enumerator's own "
+            + "implementation is the only way to see what the disposal runs");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseForEachExtensionGetEnumeratorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+            }
+
+            internal static class WidthsExtensions
+            {
+                public static Enumerator GetEnumerator(this Widths widths)
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a sequence with no GetEnumerator of its own still runs one, and an extension picked by the "
+            + "loop is the static method it is written as");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseForEachEnumerableGetEnumeratorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths : IEnumerable<float>
+            {
+                IEnumerator<float> IEnumerable<float>.GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+
+                IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<float>)this).GetEnumerator();
+            }
+
+            internal sealed class Enumerator : IEnumerator<float>
+            {
+                public float Current => 0f;
+
+                object IEnumerator.Current => Current;
+
+                public bool MoveNext() => false;
+
+                public void Reset()
+                {
+                }
+
+                public void Dispose()
+                {
+                }
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the loop names IEnumerable<float>.GetEnumerator, and the explicit implementation behind it is "
+            + "the body that actually runs");
+    }
+
+    [Test]
+    public void AStaticLambdaDeconstructingAForEachWhoseGetEnumeratorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal readonly struct Pair
+            {
+                public void Deconstruct(out float x, out float y)
+                {
+                    x = 0f;
+                    y = 0f;
+                }
+            }
+
+            internal sealed class Pairs
+            {
+                public Enumerator GetEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+            }
+
+            internal struct Enumerator
+            {
+                public Pair Current => new Pair();
+
+                public bool MoveNext() => false;
+            }
+            """,
+            """
+            foreach (var (x, y) in new Pairs())
+                width += x + y;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the deconstructing form runs the iteration too, so the Deconstruct it does spell is not the "
+            + "whole of what it runs");
+    }
+
+    [Test]
+    public void AMethodGroupWhoseAwaitForEachGetAsyncEnumeratorReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using System.Threading.Tasks;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Widths
+            {
+                public Enumerator GetAsyncEnumerator()
+                {
+                    _ = Settings.Offset;
+                    return new Enumerator();
+                }
+            }
+
+            internal struct Enumerator
+            {
+                public float Current => 0f;
+
+                public ValueTask<bool> MoveNextAsync() => new ValueTask<bool>(false);
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(Transform, static value => value);
+
+                private static Rect Transform(Rect value)
+                {
+                    _ = SumAsync();
+
+                    return value;
+                }
+
+                private static async Task<float> SumAsync()
+                {
+                    float total = 0f;
+                    await foreach (float item in new Widths())
+                        total += item;
+
+                    return total;
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "an await foreach asks for its enumerator exactly as a foreach does, and awaiting the answer "
+            + "is not a reason the ask went unmade");
+    }
+
+    [Test]
+    public void AStaticLambdaIteratingAnArray_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "",
+            """
+            foreach (float item in new float[1])
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the compiler indexes an array itself, and what it does instead of calling has no body to read");
+    }
+
+    [Test]
+    public void AStaticLambdaIteratingAString_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "",
+            """
+            foreach (char item in "ab")
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a string answers with framework members, and a callee with no source here is where the walk "
+            + "stops without reporting");
+    }
+
+    [Test]
+    public void AStaticLambdaIteratingASpan_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "",
+            """
+            ReadOnlySpan<float> items = new float[1];
+            foreach (float item in items)
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a span's enumerator is the framework's, and the conversion that made the span is too");
+    }
+
+    [Test]
+    public void AStaticLambdaIteratingAList_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            "",
+            """
+            foreach (float item in new List<float>())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the whole of what a List<float> loop runs is declared in another assembly");
+    }
+
+    [Test]
+    public void AStaticLambdaIteratingAPureSourceEnumerator_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeIteration(
+            """
+            internal sealed class Widths
+            {
+                public Enumerator GetEnumerator() => new Enumerator();
+            }
+
+            internal sealed class Enumerator : IDisposable
+            {
+                public float Current => 0f;
+
+                public bool MoveNext() => false;
+
+                public void Dispose()
+                {
+                }
+            }
+            """,
+            """
+            foreach (float item in new Widths())
+                width += item;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "all four members are here to be read and none of them reads a static, which is the answer a "
+            + "rule that never looked would give as well - the reported cases beside this one are what "
+            + "tell the two apart");
+    }
+
     [Test]
     public void AStaticLambdaUsingWithWhoseCopyConstructorReadsAMutableStatic_IsReported()
     {
@@ -4240,6 +4712,161 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Is.Empty,
             "the copy constructor and the setters are all the compiler's, and none of them has source here "
             + "to read");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseObjectInitialiserSetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsState
+            {
+                private float _width;
+
+                public float Width
+                {
+                    get => _width;
+                    set => _width = value + Settings.Offset;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState { Width = value.Width };
+
+                            return new Rect(value.X, value.Y, state.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "an initialiser member is a setter call written without a receiver, and the object being made "
+            + "is the receiver it runs on");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseNestedObjectInitialiserGetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Inner
+            {
+                public float Width { get; set; }
+            }
+
+            internal sealed class BoundsState
+            {
+                private Inner _inner = new Inner();
+
+                private float _read;
+
+                public Inner Inner
+                {
+                    get
+                    {
+                        _read = Settings.Offset;
+                        return _inner;
+                    }
+
+                    set => _inner = value;
+                }
+
+                public float Read => _read;
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState { Inner = { Width = value.Width } };
+
+                            return new Rect(value.X, value.Y, state.Read, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a nested initialiser writes into what the member hands back, so the accessor it runs is the "
+            + "getter and following the setter instead would read the wrong body");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseNestedObjectInitialiserSetterReadsAMutableStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class Inner
+            {
+                public float Width { get; set; }
+            }
+
+            internal sealed class BoundsState
+            {
+                private Inner _inner = new Inner();
+
+                public Inner Inner
+                {
+                    get => _inner;
+                    set
+                    {
+                        _inner = value;
+                        _inner.Width += Settings.Offset;
+                    }
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState { Inner = { Width = value.Width } };
+
+                            return new Rect(value.X, value.Y, state.Inner.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "that setter never runs: the nested form assigns into the object the getter returned and "
+            + "replaces nothing, so a rule that read it would report a body this callback never enters");
     }
 
     /// <remarks>

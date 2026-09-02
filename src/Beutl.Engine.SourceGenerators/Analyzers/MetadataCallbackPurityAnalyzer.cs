@@ -771,9 +771,24 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (node is ForEachVariableStatementSyntax loop)
+        // A foreach spells none of the methods it runs: the loop asks the sequence for an enumerator and
+        // advances, reads and disposes it on its own. Only the deconstructing form names anything at all -
+        // the Deconstruct it runs on each element - and that is a separate question from the iteration.
+        if (node is CommonForEachStatementSyntax loop)
         {
-            FollowDeconstruction(context, model.GetDeconstructionInfo(loop), node, depth, walked, report);
+            FollowIteration(context, model, loop, depth, walked, report);
+
+            if (loop is ForEachVariableStatementSyntax deconstructing)
+            {
+                FollowDeconstruction(
+                    context,
+                    model.GetDeconstructionInfo(deconstructing),
+                    node,
+                    depth,
+                    walked,
+                    report);
+            }
+
             return;
         }
 
@@ -975,6 +990,63 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             depth,
             walked,
             report);
+    }
+
+    /// <summary>Follows the members a <c>foreach</c> runs on the enumerator it makes.</summary>
+    /// <remarks>
+    /// The binder has already applied every rule the loop is allowed to pick a sequence apart by - a
+    /// pattern <c>GetEnumerator</c>, an extension one, <see cref="IEnumerable{T}"/>, a <c>ref struct</c>
+    /// enumerator, <c>await foreach</c> - so the members are read off its answer rather than resolved a
+    /// second time here. An array, a string and a span answer with framework members that have no source,
+    /// which <see cref="FollowCall"/> already stops at, so none of them needs a case of its own.
+    /// </remarks>
+    private static void FollowIteration(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        CommonForEachStatementSyntax loop,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        ForEachStatementInfo iteration = model.GetForEachStatementInfo(loop);
+        ITypeSymbol? sequence = model.GetTypeInfo(loop.Expression, context.CancellationToken).Type;
+        ITypeSymbol? enumerator = iteration.GetEnumeratorMethod?.ReturnType;
+
+        void Follow(ITypeSymbol? receiver, IMethodSymbol? member, string? kind = null)
+        {
+            if (RunsOn(receiver, member) is not { } run)
+                return;
+
+            FollowCall(
+                context,
+                run,
+                loop,
+                kind ?? (RunsAStaticMethod(run) ? "static method" : "method"),
+                depth,
+                walked,
+                report);
+        }
+
+        Follow(sequence, iteration.GetEnumeratorMethod);
+        Follow(enumerator, iteration.MoveNextMethod);
+        Follow(enumerator, iteration.CurrentProperty?.GetMethod, "property");
+        Follow(enumerator, iteration.DisposeMethod);
+    }
+
+    /// <summary>The member that runs where the loop names one an interface declares.</summary>
+    /// <remarks>
+    /// A sequence reached through <see cref="IEnumerable{T}"/>, and an enumerator disposed through
+    /// <see cref="IDisposable"/>, are named by the interface declaration, which has a body nowhere. The
+    /// implementation is what runs, and asking the receiver for it is also the only spelling that finds an
+    /// explicit one. Everything picked by pattern - a <c>ref struct</c> disposing itself, an extension
+    /// <c>GetEnumerator</c> - already is the member that runs and is handed back unchanged.
+    /// </remarks>
+    private static IMethodSymbol? RunsOn(ITypeSymbol? receiver, IMethodSymbol? member)
+    {
+        if (member is null || receiver is null || member.ContainingType is not { TypeKind: TypeKind.Interface })
+            return member;
+
+        return receiver.FindImplementationForInterfaceMember(member) as IMethodSymbol ?? member;
     }
 
     private static void FollowDeconstruction(
@@ -1276,6 +1348,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             => access.Expression,
         SimpleNameSyntax name when name.Parent is MemberBindingExpressionSyntax binding && binding.Name == name
             => ConditionalAccessSyntax.FindReceiver(binding),
+        // An object initializer writes its member with no receiver beside it, because the receiver is the
+        // object the initializer belongs to. A member of a nested initializer has no such spelling: the
+        // object it writes into is whatever the outer member handed back, which is not a making.
+        SimpleNameSyntax name when name.Parent is AssignmentExpressionSyntax
+        {
+            Parent: InitializerExpressionSyntax { Parent: BaseObjectCreationExpressionSyntax made },
+        } member && member.Left == name
+            => made,
         ElementAccessExpressionSyntax element => element.Expression,
         _ => null,
     };
@@ -1294,17 +1374,30 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     private static bool RunsGetter(ExpressionSyntax access)
         => access.Parent is not AssignmentExpressionSyntax assignment
             || assignment.Left != access
-            || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression);
+            || !assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            || WritesThroughTheMember(assignment);
 
     private static bool RunsSetter(ExpressionSyntax access) => access.Parent switch
     {
-        AssignmentExpressionSyntax assignment => assignment.Left == access,
+        AssignmentExpressionSyntax assignment
+            => assignment.Left == access && !WritesThroughTheMember(assignment),
         PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression)
             || prefix.IsKind(SyntaxKind.PreDecrementExpression),
         PostfixUnaryExpressionSyntax postfix => postfix.IsKind(SyntaxKind.PostIncrementExpression)
             || postfix.IsKind(SyntaxKind.PostDecrementExpression),
         _ => false,
     };
+
+    /// <summary>
+    /// Whether an assignment writes into what its left side hands back rather than replacing it.
+    /// </summary>
+    /// <remarks>
+    /// A nested initializer - <c>new A { B = { C = 1 } }</c> - is written as an assignment but sets
+    /// nothing: it reads <c>B</c> and writes into the object that read returns. It is the one assignment
+    /// whose left side runs the getter, and the only place an initializer body appears on the right.
+    /// </remarks>
+    private static bool WritesThroughTheMember(AssignmentExpressionSyntax assignment)
+        => assignment.Right is InitializerExpressionSyntax;
 
     private static void FollowCall(
         SyntaxNodeAnalysisContext context,
