@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -299,11 +300,11 @@ public sealed class ShaderAuthoringContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Effects.ShaderDescription"));
-            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Effects.ShaderBindingBuilder"));
-            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.ShaderUniformBinding"));
-            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.ShaderResourceBinding"));
-            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Effects.SpirvShaderLowering"));
+            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Shaders.ShaderDescription"));
+            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Shaders.ShaderBindingBuilder"));
+            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Shaders.ShaderUniformBinding"));
+            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Shaders.ShaderResourceBinding"));
+            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Shaders.SpirvShaderLowering"));
             Assert.That(methods, Has.Length.EqualTo(1), "the description is the only route into a stage");
             Assert.That(
                 methods.Count(static method =>

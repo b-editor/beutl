@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Shaders;
 
 internal enum SkslBackendCapabilityClass : byte
 {

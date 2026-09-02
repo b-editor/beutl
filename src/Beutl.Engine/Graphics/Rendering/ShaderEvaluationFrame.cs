@@ -1,6 +1,6 @@
 ﻿using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Describes the device frame a shader stage's <c>coord</c> argument is expressed in.

@@ -1,6 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 internal sealed class SkslMergedProgram
 {

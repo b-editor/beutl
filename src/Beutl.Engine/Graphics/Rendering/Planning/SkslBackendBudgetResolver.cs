@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics.Effects;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Selects finite fusion budgets for the active Skia backend and the Vulkan-native lowering.

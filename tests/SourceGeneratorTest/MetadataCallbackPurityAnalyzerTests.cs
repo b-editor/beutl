@@ -135,7 +135,7 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             }
         }
 
-        namespace Beutl.Graphics.Effects
+        namespace Beutl.Graphics.Shaders
         {
             using System;
             using Beutl.Graphics.Rendering;
@@ -152,8 +152,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Action<ShaderUniformWriter, T, ShaderExecutionContext> bind) { }
             }
 
-            public sealed class GeometrySession { }
-
             public sealed class ShaderDescription
             {
                 public static ShaderDescription CurrentPixel(
@@ -165,6 +163,14 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     RenderBoundsContract bounds,
                     Action<ShaderBindingBuilder>? bindings = null) => null!;
             }
+        }
+
+        namespace Beutl.Graphics.Effects
+        {
+            using System;
+            using Beutl.Graphics.Rendering;
+
+            public sealed class GeometrySession { }
 
             public sealed class GeometryDescription
             {
@@ -4373,8 +4379,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     public void AShaderBinderReadingOnlyTheDeclaringNode_IsNotReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics.Effects;
             using Beutl.Graphics.Rendering;
+            using Beutl.Graphics.Shaders;
 
             internal sealed class ScalingNode : RenderNode
             {
@@ -4396,8 +4402,8 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     public void AShaderBinderClosingOverALocal_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using Beutl.Graphics.Effects;
             using Beutl.Graphics.Rendering;
+            using Beutl.Graphics.Shaders;
 
             internal sealed class ScalingNode : RenderNode
             {
@@ -4421,7 +4427,7 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using System;
-            using Beutl.Graphics.Effects;
+            using Beutl.Graphics.Shaders;
 
             internal static class Author
             {
@@ -4448,7 +4454,7 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using System;
-            using Beutl.Graphics.Effects;
+            using Beutl.Graphics.Shaders;
 
             internal static class Author
             {

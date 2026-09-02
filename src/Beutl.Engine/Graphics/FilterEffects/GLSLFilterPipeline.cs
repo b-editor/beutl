@@ -6,7 +6,7 @@ using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 internal sealed class GLSLFilterPipeline : IDisposable
 {

@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Shaders;
+
+namespace Beutl.Graphics.Effects;
 
 internal sealed record FEItem_Shader(ShaderDescription Description) : IFEItem
 {

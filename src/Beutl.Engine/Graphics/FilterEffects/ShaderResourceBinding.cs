@@ -2,7 +2,7 @@
 using Beutl.Media;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>Describes one immutable child-shader resource binding declared for a shader.</summary>
 /// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>

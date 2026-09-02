@@ -2,7 +2,7 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>Exposes resolved, stage-local metadata to an execution-time shader binder.</summary>
 /// <remarks>

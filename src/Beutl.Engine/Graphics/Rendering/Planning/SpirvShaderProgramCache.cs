@@ -1,7 +1,8 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Shaders;
 
 internal static class SpirvShaderProgramCache
 {

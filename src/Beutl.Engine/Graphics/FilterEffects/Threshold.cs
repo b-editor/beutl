@@ -2,6 +2,7 @@
 
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;

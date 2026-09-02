@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Rendering;
 

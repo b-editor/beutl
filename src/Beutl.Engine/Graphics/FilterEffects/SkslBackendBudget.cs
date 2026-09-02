@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
 {

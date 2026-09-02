@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;

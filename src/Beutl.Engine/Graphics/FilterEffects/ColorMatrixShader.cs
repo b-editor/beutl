@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Shaders;
+
+namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// Provides the shared <see cref="ShaderDescriptionKind.CurrentPixel"/> stage that reproduces

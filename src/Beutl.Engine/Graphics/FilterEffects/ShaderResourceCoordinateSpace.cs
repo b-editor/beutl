@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>Declares how coordinates passed to a child shader are interpreted.</summary>
 /// <remarks>

@@ -1,3 +1,3 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 internal readonly record struct SpirvPushConstantBinding(string Name, int Offset);

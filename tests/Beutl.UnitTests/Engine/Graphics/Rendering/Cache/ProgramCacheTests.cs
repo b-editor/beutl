@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 

@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
 namespace Beutl.PublicApiContractTests;
@@ -16,6 +17,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     [
         "Beutl.Graphics.Rendering",
         "Beutl.Graphics.Effects",
+        "Beutl.Graphics.Shaders",
     ];
 
     private const string CurrentPixelSource = "half4 apply(half4 color) { return color; }";
@@ -238,9 +240,9 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     {
         string[] planInternalTypes =
         [
-            "Beutl.Graphics.Effects.ShaderUniformBinding",
-            "Beutl.Graphics.Effects.ShaderResourceBinding",
-            "Beutl.Graphics.Effects.SpirvShaderLowering",
+            "Beutl.Graphics.Shaders.ShaderUniformBinding",
+            "Beutl.Graphics.Shaders.ShaderResourceBinding",
+            "Beutl.Graphics.Shaders.SpirvShaderLowering",
             "Beutl.Graphics.Rendering.RenderExecutionChannel`1",
             "Beutl.Graphics.Rendering.RenderExecutionBinding`1",
             "Beutl.Graphics.Rendering.RenderBackendBoundary",
@@ -264,9 +266,9 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             "Beutl.Graphics.Rendering.RawTargetCommandCall`1",
             "Beutl.Graphics.Effects.GeometryDefinition`1",
             "Beutl.Graphics.Effects.GeometryCall`1",
-            "Beutl.Graphics.Effects.ShaderDefinition`1",
-            "Beutl.Graphics.Effects.ShaderCall`1",
-            "Beutl.Graphics.Effects.ShaderDefinitionBuilder`1",
+            "Beutl.Graphics.Shaders.ShaderDefinition`1",
+            "Beutl.Graphics.Shaders.ShaderCall`1",
+            "Beutl.Graphics.Shaders.ShaderDefinitionBuilder`1",
         ];
         string?[] exportedTypes = typeof(RenderNode).Assembly
             .GetExportedTypes()
@@ -286,7 +288,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         string[] roster =
         [
             "Beutl.Graphics.Effects.GeometryDescription",
-            "Beutl.Graphics.Effects.ShaderDescription",
             "Beutl.Graphics.Rendering.MaterializedInputDescription",
             "Beutl.Graphics.Rendering.OpaqueRenderDescription",
             "Beutl.Graphics.Rendering.RawTargetCommandDescription",
@@ -294,6 +295,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             "Beutl.Graphics.Rendering.TargetCaptureDescription",
             "Beutl.Graphics.Rendering.TargetCommandDescription",
             "Beutl.Graphics.Rendering.TargetScopeDescription",
+            "Beutl.Graphics.Shaders.ShaderDescription",
         ];
 
         string[] exported = typeof(RenderNode).Assembly

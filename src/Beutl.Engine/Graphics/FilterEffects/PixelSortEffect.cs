@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;

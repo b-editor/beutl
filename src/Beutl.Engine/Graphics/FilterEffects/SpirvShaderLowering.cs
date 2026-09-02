@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Describes an engine-authored Vulkan fragment program that is compiled to SPIR-V for one

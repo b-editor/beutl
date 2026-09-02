@@ -4,7 +4,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>Declares uniform and child-shader bindings while a <see cref="ShaderDescription"/> is created.</summary>
 /// <remarks>

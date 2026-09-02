@@ -2,7 +2,7 @@
 
 using Beutl.Graphics.Effects;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Renderer-owned cache for compiled shader programs. The merged-program hash selects a bucket only; exact

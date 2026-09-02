@@ -28,7 +28,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Rendering.TargetCaptureScaleContract",
 
         // ShaderBindingBuilder retains callbacks under the same identity rules as the factories below.
-        "Beutl.Graphics.Effects.ShaderBindingBuilder");
+        "Beutl.Graphics.Shaders.ShaderBindingBuilder");
 
     private static readonly ImmutableHashSet<string> s_contractMethods = ImmutableHashSet.Create(
         StringComparer.Ordinal,

@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Identifies the backend lifetime and compile contract in which a merged shader program is valid.

@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 using Beutl.UnitTests.Engine.Graphics.Backend;

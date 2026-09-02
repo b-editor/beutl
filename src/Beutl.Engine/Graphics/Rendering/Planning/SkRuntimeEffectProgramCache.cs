@@ -1,8 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Shaders;
 
 internal static class SkRuntimeEffectProgramCache
 {

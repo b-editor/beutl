@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Declares whether a fragment shader is proven to write every output pixel, allowing a filter render pass to

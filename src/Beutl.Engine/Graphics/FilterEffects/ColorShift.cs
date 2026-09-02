@@ -2,6 +2,7 @@
 using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Media;
 using SkiaSharp;

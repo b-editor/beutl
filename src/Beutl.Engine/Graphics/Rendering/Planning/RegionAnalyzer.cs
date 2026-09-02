@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Rendering;
 

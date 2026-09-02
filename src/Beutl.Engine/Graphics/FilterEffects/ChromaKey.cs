@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Media;
 

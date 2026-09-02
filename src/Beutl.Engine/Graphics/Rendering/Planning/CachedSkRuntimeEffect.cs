@@ -2,7 +2,7 @@
 using Beutl.Graphics.Effects;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Owns one backend-validated immutable runtime effect. Runtime values live in fresh

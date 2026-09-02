@@ -1,8 +1,9 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 public sealed class GLSLShader : IDisposable
 {

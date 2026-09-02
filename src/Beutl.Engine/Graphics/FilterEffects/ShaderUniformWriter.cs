@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>Writes the single value produced by an execution-time uniform binder.</summary>
 /// <remarks>

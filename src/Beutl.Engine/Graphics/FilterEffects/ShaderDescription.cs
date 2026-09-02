@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>Declares one immutable renderer-neutral shader stage recorded into a render graph.</summary>
 /// <remarks>

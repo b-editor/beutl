@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>Identifies the execution model and entry-point contract of a shader description.</summary>
 public enum ShaderDescriptionKind

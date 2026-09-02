@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// A program-cache bucket identity. The stable hash is only the bucket selector; equality compares the complete

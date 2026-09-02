@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>Provides normalized SkSL source that passed Beutl's description-level contract checks.</summary>
 /// <remarks>

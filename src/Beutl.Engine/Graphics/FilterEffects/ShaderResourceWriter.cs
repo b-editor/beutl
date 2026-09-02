@@ -1,6 +1,6 @@
 ﻿using SkiaSharp;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>Transfers the single child shader produced by an execution-time resource binder to the renderer.</summary>
 /// <remarks>

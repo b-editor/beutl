@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Shaders;
 
 /// <summary>A checkout that keeps one cached program alive until the lease is returned.</summary>
 internal sealed class ProgramCacheLease<TProgram> : IDisposable

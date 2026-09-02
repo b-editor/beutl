@@ -1,4 +1,5 @@
-﻿using Beutl.Utilities;
+﻿using Beutl.Graphics.Shaders;
+using Beutl.Utilities;
 
 namespace Beutl.Graphics.Effects;
 

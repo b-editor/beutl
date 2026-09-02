@@ -5,6 +5,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Lighting;

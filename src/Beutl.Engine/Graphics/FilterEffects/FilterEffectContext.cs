@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;

@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Shaders;
 
 internal readonly record struct SkslUniformDeclaration(string Type, int? ArrayExtent)
 {

@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Shared significant-token scanner for the validation and alpha-renaming sides of the SKSL authoring contract.

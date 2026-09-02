@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
 namespace Beutl.Graphics3DTests;

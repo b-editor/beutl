@@ -1,6 +1,7 @@
-﻿using SkiaSharp;
+﻿using Beutl.Graphics.Effects;
+using SkiaSharp;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 public sealed class SKSLShader : IDisposable
 {

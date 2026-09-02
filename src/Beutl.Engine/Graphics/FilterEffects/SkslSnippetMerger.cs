@@ -1,7 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Text;
 
-namespace Beutl.Graphics.Effects;
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// Composes a leading WholeSource shader and validated CurrentPixel snippets into whole-source SkSL while preserving
