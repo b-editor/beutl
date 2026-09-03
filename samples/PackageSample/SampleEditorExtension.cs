@@ -66,9 +66,6 @@ public sealed class TextEditorContext : IEditorContext
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(IEditorContextCloseService))
-            return CloseService;
-
         return null;
     }
 

@@ -56,6 +56,18 @@ retained close capability:
 EditorContextCloseRequest request = editorContext.CloseService.RequestClose(editorContext);
 ```
 
+`IEditorContext.CloseService` is the canonical close-capability access path. The
+`IServiceProvider` surface remains available for other editor-scoped services,
+but contexts must not expose a second `IEditorContextCloseService` lookup through
+`GetService`.
+
+A successful `TryCreateContext` transfers a new, non-null context to the host. The
+host disposes that context exactly once even when a subsequent attachment or
+publication step fails. A failed creation returns `false` with `context == null`
+and the extension is responsible for cleaning up partial state. Direct
+replacement APIs separately reject foreign or already-owned contexts without
+consuming them; those values remain caller-owned.
+
 The request distinguishes `Accepted`, `AlreadyClosing`, and `NotOwned`.
 `Completion` is the stable terminal task for physical tab removal and context
 teardown, including failures.

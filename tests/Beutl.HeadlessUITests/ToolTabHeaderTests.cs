@@ -163,8 +163,7 @@ public class ToolTabHeaderTests
         EditViewModel editor = await OpenEditorForNewScene("tooltab-reentrant-editor-dispose");
         var context = new FakeToolContext("editor dispose");
         Assert.That(await editor.OpenToolTabAsync(context), Is.True);
-        var closeService = (IEditorContextCloseService)editor.GetService(
-            typeof(IEditorContextCloseService))!;
+        IEditorContextCloseService closeService = editor.CloseService;
         EditorContextCloseRequest closeRequest = default;
         context.OnDispose = () =>
         {
@@ -1245,9 +1244,7 @@ public class ToolTabHeaderTests
 
         private static void RequestEditorClose(IEditorContext editorContext)
         {
-            var closeService = (IEditorContextCloseService?)editorContext.GetService(
-                typeof(IEditorContextCloseService));
-            _ = closeService?.RequestClose(editorContext);
+            _ = editorContext.CloseService.RequestClose(editorContext);
         }
     }
 
@@ -1282,8 +1279,7 @@ public class ToolTabHeaderTests
             [NotNullWhen(true)] out IToolContext? context)
         {
             ContextCreationCount++;
-            var closeService = (IEditorContextCloseService)editorContext.GetService(
-                typeof(IEditorContextCloseService))!;
+            IEditorContextCloseService closeService = editorContext.CloseService;
             for (int i = 0; i < disposeCalls; i++)
             {
                 EditorContextCloseRequest request = closeService.RequestClose(editorContext);

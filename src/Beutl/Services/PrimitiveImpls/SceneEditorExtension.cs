@@ -123,13 +123,15 @@ public sealed class SceneEditorExtension : EditorExtension
         // TryCreate* must not throw: when the host does not supply the services EditViewModel needs,
         // fail (return false) rather than pushing nulls into EditViewModel.
         if (obj is Scene scene
-            && services.TryGetService<EditorService>(out EditorService? editorService))
+            && services.TryGetService<EditorService>(out EditorService? editorService)
+            && services.CloseService is { HostToken: not null } closeService
+            && ReferenceEquals(editorService.HostToken, closeService.HostToken))
         {
             var editViewModel = new EditViewModel(
                 scene,
                 editorService.ExtensionProvider,
                 editorService,
-                services.CloseService);
+                closeService);
             if (editViewModel.IsDisposeRequested)
             {
                 context = null;

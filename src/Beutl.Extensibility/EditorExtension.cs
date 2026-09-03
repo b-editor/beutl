@@ -30,10 +30,18 @@ public abstract class EditorExtension : ViewExtension
     /// extensions.
     /// </param>
     /// <param name="context">The created editor context, set when this returns <see langword="true"/>.</param>
-    /// <returns><see langword="true"/> if a context was created for <paramref name="obj"/>.</returns>
+    /// <returns>
+    /// <see langword="true"/> when a new, non-null context was created and ownership is transferred
+    /// to the host; otherwise <see langword="false"/> with <paramref name="context"/> set to
+    /// <see langword="null"/>.
+    /// </returns>
     /// <remarks>
     /// When a ProjectItem is needed here, obtain it from the ProjectItemContainer. Returning a
-    /// context without the supplied close capability violates the host ownership contract.
+    /// context without the supplied close capability violates the host ownership contract. After a
+    /// successful return, the host owns disposal exactly once, including when a later attachment or
+    /// publication step fails. On failure, the extension must dispose any partially initialized
+    /// state and must not return a context. A context rejected because it is foreign or already
+    /// owned by another tab is a caller-owned value in direct replacement APIs and is not consumed.
     /// </remarks>
     public abstract bool TryCreateContext(
         CoreObject obj,

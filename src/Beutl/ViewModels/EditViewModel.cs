@@ -1130,9 +1130,6 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         if (serviceType.IsAssignableTo(typeof(IEditorContext)))
             return this;
 
-        if (serviceType == typeof(IEditorContextCloseService))
-            return _contextCloseService;
-
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
 
