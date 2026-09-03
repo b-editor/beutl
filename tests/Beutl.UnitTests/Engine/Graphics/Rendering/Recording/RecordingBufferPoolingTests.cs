@@ -351,7 +351,7 @@ public sealed class RecordingBufferPoolingTests
 
     private static RecordedRenderGraph Record(RenderNode node)
     {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node, cacheEnabled: false);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
         using var owner = new RenderRequestOwner();
         using var request = new RenderRequest(CreateOptions(owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);

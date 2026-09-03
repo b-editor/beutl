@@ -5,14 +5,11 @@ namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNode : IDisposable
 {
-    private static long s_lastIdentity;
-
     private long _changeVersion;
     private long _clearedVersion;
 
     protected RenderNode()
     {
-        Identity = Interlocked.Increment(ref s_lastIdentity);
         Cache = new RenderNodeCache(this);
     }
 
@@ -26,14 +23,6 @@ public abstract class RenderNode : IDisposable
     }
 
     public bool IsDisposed { get; private set; }
-
-    /// <summary>This instance's identity, distinct from every other node's for the process lifetime.</summary>
-    /// <remarks>
-    /// <c>RuntimeHelpers.GetHashCode</c> is not this: it is a narrow value two live nodes collide on often
-    /// enough to matter, and cache validity turns on telling one child from another. A counter is never
-    /// reused, so comparing two identities is an answer rather than a likelihood.
-    /// </remarks>
-    internal long Identity { get; }
 
     /// <summary>Whether this node would record something other than what its last consumed recording holds.</summary>
     /// <remarks>

@@ -110,7 +110,7 @@ public sealed class RecordingIdentityCollisionTests
 
     private static RecordedRenderGraph Record(RenderNode node)
     {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node, cacheEnabled: false);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
         using var owner = new RenderRequestOwner();
         using var request = new RenderRequest(
             new RenderNodeRecordingCacheTests.RequestSetup().CreateOptions(owner));

@@ -338,7 +338,7 @@ public sealed class RenderNodeRecordingCacheTests
     /// </remarks>
     private static RecordedRenderGraph Record(RenderNode node, RequestSetup? setup = null)
     {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node, cacheEnabled: false);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
         using var owner = new RenderRequestOwner();
         using var request = new RenderRequest((setup ?? new RequestSetup()).CreateOptions(owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);

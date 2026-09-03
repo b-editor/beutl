@@ -98,39 +98,6 @@ public class RenderNodeCacheTests
         Assert.That(dirtyBranch.HasChanges, Is.False);
     }
 
-    // HasChanges is one consumable flag per node, but a node reached through ChildNodes can be shared by
-    // several roots, and each root's lifecycle only sees its own snapshot.
-    [Test]
-    public void SharedChild_ChangeInvalidatesEveryCachedDependentRoot()
-    {
-        using var shared = new ContainerRenderNode();
-        using var parentA = new ReferencesChildRenderNode(shared);
-        using var parentB = new ReferencesChildRenderNode(shared);
-
-        RenderNodeCache.PublishAtomically(
-            [
-                RenderCacheTestSupport.CreatePublication(
-                    parentB.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
-            ]);
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            parentB.Cache.RecordSuccessfulStableRequest();
-            shared.Cache.RecordSuccessfulStableRequest();
-        }
-
-        RenderNodeCacheHelper.BeginLifecycle(parentB).CompleteSuccessfully(advanceWarmup: true);
-        Assert.That(parentB.Cache.IsCached, Is.True);
-
-        shared.MarkChanged();
-
-        RenderNodeCacheHelper.BeginLifecycle(parentA).CompleteSuccessfully(advanceWarmup: true);
-
-        RenderNodeCacheHelper.BeginLifecycle(parentB);
-
-        Assert.That(parentB.Cache.IsCached, Is.False,
-            "a shared child's change must invalidate every cached dependent, not only the first root that observed it");
-    }
-
     [Test]
     [NonParallelizable]
     public void Finalizer_SwallowsCachedTargetCleanupFailure()

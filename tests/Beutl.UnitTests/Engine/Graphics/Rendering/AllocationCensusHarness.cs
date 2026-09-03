@@ -387,9 +387,7 @@ public sealed class AllocationCensusHarness
         RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
         Mark();
 
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(
-            root,
-            cacheOptions.IsEnabled);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
         Mark();
 
         var request = new RenderRequest(new RenderRequestOptions(

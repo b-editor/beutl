@@ -7,15 +7,10 @@ internal static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
-    /// <param name="cacheEnabled">
-    /// Whether the request may look up or publish render-node cache entries. When it may not, the lifecycle
-    /// still snapshots the tree - it is what clears <see cref="RenderNode.HasChanges"/> - but skips resolving
-    /// and restamping the dependency signatures, which only a cache read consults.
-    /// </param>
-    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root, bool cacheEnabled = true)
+    internal static RenderNodeCacheLifecycle BeginLifecycle(RenderNode root)
     {
         ArgumentNullException.ThrowIfNull(root);
-        return RenderNodeCacheLifecycle.Create(root, cacheEnabled);
+        return RenderNodeCacheLifecycle.Create(root);
     }
 
     /// <summary>Resets the cache of <paramref name="node"/> and of every node it owns.</summary>
