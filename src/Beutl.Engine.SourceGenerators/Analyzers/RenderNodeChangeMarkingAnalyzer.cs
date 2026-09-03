@@ -435,7 +435,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             case SimpleNameSyntax name when !IsInsideNameOf(name):
                 return new StateReference(
                     model.GetSymbolInfo(name).Symbol,
-                    GetAccessExpression(name),
+                    MemberAccessSyntax.GetAccessExpression(name),
                     IsOnThisInstance(name));
 
             // field names the backing store of the property being declared, and no receiver can be written
@@ -670,68 +670,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             SyntaxNode body,
             SyntaxNode nested,
             bool localFunctionsFollowedAsCallees)
-            => nested switch
-            {
-                LocalFunctionStatementSyntax when localFunctionsFollowedAsCallees => false,
-
-                LocalFunctionStatementSyntax function
-                    => model.GetDeclaredSymbol(function) is not { } declared
-                       || IsNamedOutside(model, body, declared, function),
-
-                AnonymousFunctionExpressionSyntax lambda => RunsLambda(model, body, lambda),
-
-                _ => true,
-            };
-
-        private static bool RunsLambda(
-            SemanticModel model,
-            SyntaxNode body,
-            AnonymousFunctionExpressionSyntax lambda)
-        {
-            ExpressionSyntax stored = lambda;
-            while (stored.Parent is ParenthesizedExpressionSyntax or CastExpressionSyntax)
-                stored = (ExpressionSyntax)stored.Parent;
-
-            if (stored.Parent is AssignmentExpressionSyntax assignment
-                && assignment.Right == stored
-                && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
-                && model.GetSymbolInfo(assignment.Left).Symbol is IDiscardSymbol)
-            {
-                return false;
-            }
-
-            if (stored.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
-                && model.GetDeclaredSymbol(declarator) is ILocalSymbol local)
-            {
-                return IsNamedOutside(model, body, local, lambda);
-            }
-
-            return true;
-        }
-
-        private static bool IsNamedOutside(
-            SemanticModel model,
-            SyntaxNode body,
-            ISymbol symbol,
-            SyntaxNode declaration)
-        {
-            foreach (SyntaxNode node in body.DescendantNodesAndSelf())
-            {
-                // The text test is what keeps this affordable: it costs a string compare per node and leaves
-                // a semantic query only for the names that could be this one.
-                if (node is not IdentifierNameSyntax name
-                    || name.Identifier.ValueText != symbol.Name
-                    || declaration.Span.Contains(name.Span))
-                {
-                    continue;
-                }
-
-                if (SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(name).Symbol, symbol))
-                    return true;
-            }
-
-            return false;
-        }
+            => (!localFunctionsFollowedAsCallees || nested is not LocalFunctionStatementSyntax)
+               && NestedFunctionSyntax.Runs(model, body, nested, CancellationToken.None);
 
         private bool IsMarkChanged(ISymbol? symbol)
             => symbol is IMethodSymbol { Name: MarkChangedMethodName, IsStatic: false } method
@@ -811,7 +751,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     yield return method;
                     break;
                 case IPropertySymbol property:
-                    ExpressionSyntax access = GetAccessExpression(name);
+                    ExpressionSyntax access = MemberAccessSyntax.GetAccessExpression(name);
                     if (!IsSimpleAssignmentTarget(access) && property.GetMethod is { } getter)
                         yield return getter;
                     if (IsWriteTarget(access) && property.SetMethod is { } setter)
@@ -822,11 +762,6 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
         private readonly record struct BodyWithModel(SyntaxNode Body, SemanticModel Model);
     }
-
-    private static ExpressionSyntax GetAccessExpression(SimpleNameSyntax name)
-        => name.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == name
-            ? memberAccess
-            : name;
 
     private static bool IsOnThisInstance(SimpleNameSyntax name)
     {

@@ -574,7 +574,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                     body,
                     instanceProperty,
                     name,
-                    GetAccessExpression(name),
+                    MemberAccessSyntax.GetAccessExpression(name),
                     depth,
                     walked,
                     report);
@@ -586,7 +586,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             // the accessor a reference runs. A field-like event has no body anywhere and is the subscriber
             // list itself, which the branch below reports.
             if (symbol is IEventSymbol { IsStatic: true } staticEvent
-                && GetRunAccessor(staticEvent, GetAccessExpression(name)) is { } accessor)
+                && GetRunAccessor(staticEvent, MemberAccessSyntax.GetAccessExpression(name)) is { } accessor)
             {
                 FollowCall(context, accessor, name, "event", depth, walked, report);
                 continue;
@@ -606,87 +606,20 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNode body,
         SyntaxNode child)
     {
-        switch (child)
+        // A call the build removes takes the whole expression with it, arguments and receiver included,
+        // so nothing written inside one runs - which is why the question is asked here, where it also
+        // covers what the arguments read, rather than where the callee's own body is followed.
+        if (child is InvocationExpressionSyntax invocation)
         {
-            // A local function is reached only by its own name, so a name written for it somewhere else in
-            // the body is the whole of what can run it.
-            case LocalFunctionStatementSyntax function:
-                return model.GetDeclaredSymbol(function, context.CancellationToken) is not { } declared
-                       || IsNamedOutside(context, model, body, declared, function);
-
-            case AnonymousFunctionExpressionSyntax lambda:
-                return RunsLambda(context, model, body, lambda);
-
-            // A call the build removes takes the whole expression with it, arguments and receiver included,
-            // so nothing written inside one runs - which is why the question is asked here, where it also
-            // covers what the arguments read, rather than where the callee's own body is followed.
-            case InvocationExpressionSyntax invocation:
-                return model.GetSymbolInfo(invocation, context.CancellationToken).Symbol
-                           is not IMethodSymbol called
-                       || ConditionalCompilation.IsCallCompiled(
-                           context.Compilation,
-                           called,
-                           invocation.SyntaxTree);
-
-            default:
-                return true;
-        }
-    }
-
-    private static bool RunsLambda(
-        SyntaxNodeAnalysisContext context,
-        SemanticModel model,
-        SyntaxNode body,
-        AnonymousFunctionExpressionSyntax lambda)
-    {
-        ExpressionSyntax stored = lambda;
-        while (stored.Parent is ParenthesizedExpressionSyntax or CastExpressionSyntax)
-            stored = (ExpressionSyntax)stored.Parent;
-
-        if (stored.Parent is AssignmentExpressionSyntax assignment
-            && assignment.Right == stored
-            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
-            && model.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IDiscardSymbol)
-        {
-            return false;
+            return model.GetSymbolInfo(invocation, context.CancellationToken).Symbol
+                       is not IMethodSymbol called
+                   || ConditionalCompilation.IsCallCompiled(
+                       context.Compilation,
+                       called,
+                       invocation.SyntaxTree);
         }
 
-        if (stored.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
-            && model.GetDeclaredSymbol(declarator, context.CancellationToken) is ILocalSymbol local)
-        {
-            return IsNamedOutside(context, model, body, local, lambda);
-        }
-
-        return true;
-    }
-
-    private static bool IsNamedOutside(
-        SyntaxNodeAnalysisContext context,
-        SemanticModel model,
-        SyntaxNode body,
-        ISymbol symbol,
-        SyntaxNode declaration)
-    {
-        foreach (SyntaxNode node in body.DescendantNodesAndSelf())
-        {
-            // The text test is what keeps this affordable: it costs a string compare per node and leaves a
-            // semantic query only for the names that could be this one.
-            if (node is not IdentifierNameSyntax name
-                || name.Identifier.ValueText != symbol.Name
-                || declaration.Span.Contains(name.Span))
-            {
-                continue;
-            }
-
-            if (SymbolEqualityComparer.Default.Equals(
-                    model.GetSymbolInfo(name, context.CancellationToken).Symbol,
-                    symbol))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return NestedFunctionSyntax.Runs(model, body, child, context.CancellationToken);
     }
 
     private static IMethodSymbol? GetRunAccessor(IEventSymbol @event, ExpressionSyntax access)
@@ -1541,9 +1474,6 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 
         return expression;
     }
-
-    private static ExpressionSyntax GetAccessExpression(SimpleNameSyntax name)
-        => name.Parent is MemberAccessExpressionSyntax access && access.Name == name ? access : name;
 
     private static bool RunsGetter(ExpressionSyntax access)
         => access.Parent is not AssignmentExpressionSyntax assignment
