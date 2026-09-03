@@ -2169,13 +2169,13 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     [Test]
-    public void AMutatorWritingThroughARebindableAlias_IsAKnownGapTheRuleMisses()
+    public void AMutatorWritingThroughARebindableAlias_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
             using Beutl.Graphics;
             using Beutl.Graphics.Rendering;
 
-            internal sealed class ForgetfulNode : RenderNode
+            internal sealed class DriftingNode : RenderNode
             {
                 private Rect _bounds;
                 private Rect _scratch;
@@ -2198,9 +2198,117 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
 
         Assert.That(
             diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the alias still reaches _bounds on the path that skips the rebinding, so a rule that dropped "
+            + "it for not knowing which one the write lands on missed the one it does read back");
+    }
+
+    [Test]
+    public void AMutatorMarkingAfterWritingThroughARebindableAlias_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+                private Rect _scratch;
+
+                public void Update(Rect bounds, bool other)
+                {
+                    ref Rect alias = ref _bounds;
+                    if (other)
+                        alias = ref _scratch;
+
+                    alias = bounds;
+                    MarkChanged();
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
             Is.Empty,
-            "which storage the alias holds at the write is a question about paths this rule does not read; "
-            + "the silence is a recorded limit, not a verdict that the node is correct");
+            "the mark covers whichever storage the alias held, which is the one thing the rule can say "
+            + "without reading the paths");
+    }
+
+    [Test]
+    public void AMutatorRebindingBetweenStateProcessDoesNotRead_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class WellBehavedNode : RenderNode
+            {
+                private Rect _bounds;
+                private Rect _first;
+                private Rect _second;
+
+                public void Measure(Rect bounds, bool other)
+                {
+                    ref Rect alias = ref _first;
+                    if (other)
+                        alias = ref _second;
+
+                    alias = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "neither storage the alias can hold was ever recorded from, so keeping both of them still "
+            + "leaves nothing that can go stale");
+    }
+
+    [Test]
+    public void AMutatorRebindingBetweenTwoStatesProcessReads_IsReportedForEach()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class DriftingNode : RenderNode
+            {
+                private Rect _first;
+                private Rect _second;
+
+                public void Update(Rect bounds, bool other)
+                {
+                    ref Rect alias = ref _first;
+                    if (other)
+                        alias = ref _second;
+
+                    alias = bounds;
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(_first);
+                    context.Publish(_second);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG005").Select(static d => d.GetMessage()),
+            Has.Exactly(2).Items,
+            "the write lands on one of the two and this rule cannot say which, so it names both rather "
+            + "than picking one of them to be wrong about");
     }
 
     [Test]

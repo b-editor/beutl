@@ -592,7 +592,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         {
             foreach (BodyWithModel body in GetBodies(method))
             {
-                Dictionary<ISymbol, ISymbol> aliases = CollectRefLocalAliases(body, trackedState);
+                Dictionary<ISymbol, List<ISymbol>> aliases = CollectRefLocalAliases(body, trackedState);
 
                 foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf(
                     child => RunsNestedFunction(
@@ -605,11 +605,16 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         continue;
 
                     // A ref local is the state itself under another name, and the name carries no receiver
-                    // to ask about: which storage it aliases was decided where it was declared.
-                    if (aliases.TryGetValue(symbol, out ISymbol? aliased))
+                    // to ask about: which storage it aliases was decided where it was declared, and where
+                    // it was rebound. A write reaches whichever of them the path it is on left the name
+                    // holding, so each of them is one this node can be left stale by.
+                    if (aliases.TryGetValue(symbol, out List<ISymbol>? aliased))
                     {
                         if (ChangesTheState(body.Model, reference.Access))
-                            yield return new StateAssignment(aliased, reference.Access.GetLocation());
+                        {
+                            foreach (ISymbol state in aliased)
+                                yield return new StateAssignment(state, reference.Access.GetLocation());
+                        }
 
                         continue;
                     }
@@ -628,11 +633,21 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        private static Dictionary<ISymbol, ISymbol> CollectRefLocalAliases(
+        /// <summary>The tracked state each ref local in the body can reach, by the name it reaches it under.</summary>
+        /// <remarks>
+        /// A ref local is rebindable, and this reads a body in source order rather than along its paths, so
+        /// which storage a name holds at a given write is a question it cannot answer. It keeps the set of
+        /// storages the name can hold instead of dropping the name: <c>alias = ref _scratch</c> on one
+        /// branch does not stop the write after it from landing on the <c>_bounds</c> the declaration bound,
+        /// and a rule that dropped the name there would go quiet about the field the recording is built
+        /// from. Keeping both costs a write attributed to a field the run it happened on did not touch,
+        /// which asks for a mark that the other field needed anyway.
+        /// </remarks>
+        private static Dictionary<ISymbol, List<ISymbol>> CollectRefLocalAliases(
             BodyWithModel body,
             ImmutableHashSet<ISymbol> trackedState)
         {
-            var aliases = new Dictionary<ISymbol, ISymbol>(SymbolEqualityComparer.Default);
+            var aliases = new Dictionary<ISymbol, List<ISymbol>>(SymbolEqualityComparer.Default);
 
             foreach (SyntaxNode node in body.Body.DescendantNodesAndSelf(
                 child => RunsNestedFunction(
@@ -645,17 +660,15 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                 {
                     case VariableDeclaratorSyntax { Initializer.Value: RefExpressionSyntax aliased } declarator
                         when body.Model.GetDeclaredSymbol(declarator) is ILocalSymbol { IsRef: true } local:
-                        if (GetAliasedState(body.Model, aliases, trackedState, aliased) is { } state)
-                            aliases[local] = state;
-
+                        AddAliasedState(body.Model, aliases, trackedState, local, aliased);
                         break;
 
-                    // alias = ref other rebinds which storage the name reaches, and this reads a body in
-                    // source order rather than along its paths, so a rebound alias is one whose referent it
-                    // cannot say. Dropping it can cost a report and can never invent one.
-                    case AssignmentExpressionSyntax { Right: RefExpressionSyntax } rebind
-                        when body.Model.GetSymbolInfo(rebind.Left).Symbol is { } rebound:
-                        aliases.Remove(rebound);
+                    // A ref parameter is left out: what it reached before the rebinding is the caller's
+                    // storage, and reading a write made then as a write to this node's field would report a
+                    // node that never changed.
+                    case AssignmentExpressionSyntax { Right: RefExpressionSyntax rebound } rebind
+                        when body.Model.GetSymbolInfo(rebind.Left).Symbol is ILocalSymbol { IsRef: true } alias:
+                        AddAliasedState(body.Model, aliases, trackedState, alias, rebound);
                         break;
                 }
             }
@@ -663,22 +676,55 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return aliases;
         }
 
-        private static ISymbol? GetAliasedState(
+        private static void AddAliasedState(
             SemanticModel model,
-            Dictionary<ISymbol, ISymbol> aliases,
+            Dictionary<ISymbol, List<ISymbol>> aliases,
+            ImmutableHashSet<ISymbol> trackedState,
+            ILocalSymbol alias,
+            RefExpressionSyntax aliased)
+        {
+            foreach (ISymbol state in GetAliasedState(model, aliases, trackedState, aliased))
+            {
+                if (!aliases.TryGetValue(alias, out List<ISymbol>? referents))
+                {
+                    referents = [];
+                    aliases[alias] = referents;
+                }
+
+                if (!Holds(referents, state))
+                    referents.Add(state);
+            }
+        }
+
+        private static bool Holds(List<ISymbol> referents, ISymbol state)
+        {
+            foreach (ISymbol referent in referents)
+            {
+                if (SymbolEqualityComparer.Default.Equals(referent, state))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static IReadOnlyList<ISymbol> GetAliasedState(
+            SemanticModel model,
+            Dictionary<ISymbol, List<ISymbol>> aliases,
             ImmutableHashSet<ISymbol> trackedState,
             RefExpressionSyntax aliased)
         {
             if (GetStateReference(model, GetAliasedName(aliased.Expression))
                 is not { Symbol: { } symbol } reference)
             {
-                return null;
+                return [];
             }
 
-            if (aliases.TryGetValue(symbol, out ISymbol? chained))
-                return chained;
+            // Copied, because the name being aliased can be the one being bound - alias = ref alias - and
+            // the caller adds into the list this returns.
+            if (aliases.TryGetValue(symbol, out List<ISymbol>? chained))
+                return [.. chained];
 
-            return reference.OnThisInstance && trackedState.Contains(symbol) ? symbol : null;
+            return reference.OnThisInstance && trackedState.Contains(symbol) ? new[] { symbol } : [];
         }
 
         private static SyntaxNode GetAliasedName(ExpressionSyntax expression)
@@ -1061,8 +1107,10 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     {
         switch (expression.Parent)
         {
+            // alias = ref other moves the name onto another storage and leaves the value in both of them
+            // as it was, so the one thing it is not is a write.
             case AssignmentExpressionSyntax assignment when assignment.Left == expression:
-                return true;
+                return assignment.Right is not RefExpressionSyntax;
 
             case PrefixUnaryExpressionSyntax prefix:
                 return prefix.IsKind(SyntaxKind.PreIncrementExpression)
