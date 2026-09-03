@@ -212,7 +212,6 @@ public sealed class ShaderAndAllocationFailureTests
     public void ProgramCacheDisposal_ContinuesAfterEachProgramFaultAndSurfacesTheFirstFailure()
     {
         var cache = new ProgramCache<ThrowingProgram>(
-            static _ => { },
             static _ => 1,
             maxRetainedBytes: 16);
         var programs = new List<ThrowingProgram>();
@@ -258,7 +257,6 @@ public sealed class ShaderAndAllocationFailureTests
     public void ProgramCreationFailure_LeavesNoEntryAndAValidRetryCanBeRetained()
     {
         using var cache = new ProgramCache<TrackingProgram>(
-            static _ => { },
             static _ => 1,
             maxRetainedBytes: 16);
         ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSksl(

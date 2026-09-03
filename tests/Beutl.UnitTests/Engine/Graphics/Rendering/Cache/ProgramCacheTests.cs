@@ -59,7 +59,7 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void GetOrCreate_WarmedEquivalentIdentity_IsAHitWithoutAnotherCreation()
+    public void GetOrCreate_WarmedEquivalentIdentity_ReusesOneImmutableProgram()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
         ShaderProgramIdentity firstIdentity = Identity(SourceA);
@@ -74,13 +74,7 @@ public sealed class ProgramCacheTests
                    () => new FakeProgram(++nextId, 16)))
         {
             firstProgram = first.Program;
-            first.Program.Bindings["gain"] = 7;
-            Assert.Multiple(() =>
-            {
-                Assert.That(first.IsCacheHit, Is.False);
-                Assert.That(first.IsTransient, Is.False);
-                Assert.That(first.Program.ResetCount, Is.EqualTo(1));
-            });
+            Assert.That(first.IsCacheHit, Is.False);
         }
 
         using (ProgramCacheLease<FakeProgram> warmed = cache.GetOrCreate(
@@ -91,12 +85,7 @@ public sealed class ProgramCacheTests
             Assert.Multiple(() =>
             {
                 Assert.That(warmed.IsCacheHit, Is.True);
-                Assert.That(warmed.IsTransient, Is.False);
                 Assert.That(warmed.Program, Is.SameAs(firstProgram));
-                Assert.That(warmed.Program.Bindings, Is.Empty,
-                    "runtime bindings from the preceding lease must never survive a warmed hit");
-                Assert.That(warmed.Program.ResetCount, Is.EqualTo(3),
-                    "a cached program is reset both when returned and immediately before it is leased again");
             });
         }
 
@@ -217,75 +206,9 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void GetOrCreate_ReentrantExactKey_UsesResetTransientWithoutCorruptingOuterBindings()
+    public void GetOrCreate_ConcurrentLeasesReuseOneProgramUntilTheLastLeaseReturns()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
-        ShaderProgramIdentity identity = Identity(SourceA);
-        ProgramCacheContextKey context = Context("device-a", "context-a");
-        var created = new List<FakeProgram>();
-
-        FakeProgram outerProgram;
-        using (ProgramCacheLease<FakeProgram> outer = cache.GetOrCreate(identity, context, Create))
-        {
-            outerProgram = outer.Program;
-            outer.Program.Bindings["outer"] = 41;
-            using (ProgramCacheLease<FakeProgram> inner = cache.GetOrCreate(identity, context, Create))
-            {
-                Assert.Multiple(() =>
-                {
-                    Assert.That(inner.IsCacheHit, Is.True,
-                        "the exact cached identity was found even though its mutable instance was already leased");
-                    Assert.That(inner.IsTransient, Is.True);
-                    Assert.That(inner.Program, Is.Not.SameAs(outer.Program));
-                    Assert.That(inner.Program.Bindings, Is.Empty);
-                });
-
-                inner.Program.Bindings["inner"] = 99;
-                Assert.That(outer.Program.Bindings["outer"], Is.EqualTo(41));
-            }
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(created[1].Bindings, Is.Empty);
-                Assert.That(created[1].DisposeCount, Is.EqualTo(1));
-                Assert.That(outer.Program.Bindings["outer"], Is.EqualTo(41));
-            });
-        }
-
-        using (ProgramCacheLease<FakeProgram> warmed = cache.GetOrCreate(identity, context, Create))
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(warmed.IsCacheHit, Is.True);
-                Assert.That(warmed.IsTransient, Is.False);
-                Assert.That(warmed.Program, Is.SameAs(outerProgram));
-                Assert.That(warmed.Program.Bindings, Is.Empty);
-            });
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cache.Statistics.Hits, Is.EqualTo(2));
-            Assert.That(cache.Statistics.Misses, Is.EqualTo(1));
-            Assert.That(cache.Statistics.Creations, Is.EqualTo(2));
-        });
-
-        FakeProgram Create()
-        {
-            var program = new FakeProgram(created.Count + 1, 16);
-            created.Add(program);
-            return program;
-        }
-    }
-
-    [Test]
-    public void GetOrCreate_SharedImmutableMode_ReusesOneProgramUntilTheLastLeaseReturns()
-    {
-        using var cache = new ProgramCache<FakeProgram>(
-            resetRuntimeBindings: static _ => { },
-            retainedByteSize: static program => program.RetainedBytes,
-            maxRetainedBytes: 64,
-            shareLeasedPrograms: true);
         ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int creations = 0;
@@ -304,7 +227,6 @@ public sealed class ProgramCacheTests
         {
             Assert.That(inner.Program, Is.SameAs(program));
             Assert.That(inner.IsCacheHit, Is.True);
-            Assert.That(inner.IsTransient, Is.False);
             Assert.That(creations, Is.EqualTo(1));
         });
 
@@ -427,7 +349,67 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void OversizedProgram_IsTransientAndNeverBecomesAWarmedHit()
+    public void ByteBudget_TrimsAnAvailableProgramAfterAConcurrentLeaseReturns()
+    {
+        using var cache = CreateCache(maxRetainedBytes: 16);
+        ProgramCacheContextKey context = Context("device-a", "context-a");
+        ProgramCacheLease<FakeProgram> first = cache.GetOrCreate(
+            Identity(SourceA),
+            context,
+            () => new FakeProgram(1, 16));
+        ProgramCacheLease<FakeProgram> second = cache.GetOrCreate(
+            Identity(SourceB),
+            context,
+            () => new FakeProgram(2, 16));
+        FakeProgram firstProgram = first.Program;
+        FakeProgram secondProgram = second.Program;
+
+        Assert.That(cache.Statistics.RetainedBytes, Is.EqualTo(32));
+        second.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstProgram.DisposeCount, Is.Zero);
+            Assert.That(secondProgram.DisposeCount, Is.EqualTo(1));
+            Assert.That(cache.Statistics.RetainedPrograms, Is.EqualTo(1));
+            Assert.That(cache.Statistics.RetainedBytes, Is.EqualTo(16));
+        });
+        first.Dispose();
+    }
+
+    [Test]
+    public void ByteBudget_EvictionDefersItsCleanupFailureUntilCacheDisposal()
+    {
+        var failure = new InvalidOperationException("evicted-program-dispose");
+        var cache = CreateCache(maxRetainedBytes: 8);
+        ProgramCacheContextKey context = Context("device-a", "context-a");
+        var evicted = new FakeProgram(1, 8, failure);
+        var retained = new FakeProgram(2, 8);
+        using (cache.GetOrCreate(Identity(SourceA), context, () => evicted))
+        {
+        }
+
+        Assert.DoesNotThrow(() =>
+        {
+            using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
+                Identity(SourceB),
+                context,
+                () => retained);
+        });
+
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(cache.Dispose);
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(failure));
+            Assert.That(evicted.DisposeCount, Is.EqualTo(1));
+            Assert.That(retained.DisposeCount, Is.EqualTo(1));
+            Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
+            Assert.DoesNotThrow(cache.Dispose);
+        });
+    }
+
+    [Test]
+    public void OversizedProgram_IsNotRetainedAndNeverBecomesAWarmedHit()
     {
         using var cache = CreateCache(maxRetainedBytes: 8);
         ShaderProgramIdentity identity = Identity(SourceA);
@@ -437,11 +419,7 @@ public sealed class ProgramCacheTests
         for (int i = 0; i < 2; i++)
         {
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(identity, context, Create);
-            Assert.Multiple(() =>
-            {
-                Assert.That(lease.IsCacheHit, Is.False);
-                Assert.That(lease.IsTransient, Is.True);
-            });
+            Assert.That(lease.IsCacheHit, Is.False);
         }
 
         Assert.Multiple(() =>
@@ -462,7 +440,7 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void EvictContextAndDevice_RemoveOnlyMatchingEntries()
+    public void EvictContext_RemovesOnlyMatchingEntries()
     {
         using var cache = CreateCache(maxRetainedBytes: 128);
         ShaderProgramIdentity identity = Identity(SourceA);
@@ -483,7 +461,7 @@ public sealed class ProgramCacheTests
             Assert.That(programB1.DisposeCount, Is.Zero);
         });
 
-        Assert.That(cache.EvictDevice("device-a"), Is.EqualTo(1));
+        Assert.That(cache.EvictContext("device-a", "context-2"), Is.EqualTo(1));
         Assert.Multiple(() =>
         {
             Assert.That(programA2.DisposeCount, Is.EqualTo(1));
@@ -508,7 +486,7 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void EvictDevice_WhileLeased_DefersDisposalAndMakesLaterLookupMiss()
+    public void EvictContext_WhileLeased_DefersDisposalAndMakesLaterLookupMiss()
     {
         using var cache = CreateCache(maxRetainedBytes: 64);
         ShaderProgramIdentity identity = Identity(SourceA);
@@ -520,19 +498,21 @@ public sealed class ProgramCacheTests
             () => new FakeProgram(++nextId, 16));
         FakeProgram invalidated = outer.Program;
 
-        Assert.That(cache.EvictDevice("device-a"), Is.EqualTo(1));
+        Assert.That(cache.EvictContext("device-a", "context-a"), Is.EqualTo(1));
         Assert.Multiple(() =>
         {
             Assert.That(invalidated.DisposeCount, Is.Zero,
-                "device loss cannot invalidate a mutable program while its outer lease is still executing");
+                "context eviction cannot dispose an immutable program while its lease is still executing");
             Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
         });
 
+        FakeProgram replacementProgram;
         using (ProgramCacheLease<FakeProgram> replacement = cache.GetOrCreate(
                    identity,
                    context,
                    () => new FakeProgram(++nextId, 16)))
         {
+            replacementProgram = replacement.Program;
             Assert.Multiple(() =>
             {
                 Assert.That(replacement.IsCacheHit, Is.False);
@@ -547,34 +527,35 @@ public sealed class ProgramCacheTests
             Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
             Assert.That(cache.Statistics.Creations, Is.EqualTo(2));
         });
+        using ProgramCacheLease<FakeProgram> warmed = cache.GetOrCreate(
+            identity,
+            context,
+            () => new FakeProgram(++nextId, 16));
+        Assert.That(warmed.Program, Is.SameAs(replacementProgram));
     }
 
     [Test]
-    public void RuntimeResetFailure_EvictsAndDisposesPoisonedProgram()
+    public void RetainedSizeFailure_DisposesTheCreatedProgramAndPreservesTheFailure()
     {
-        using var cache = CreateCache(maxRetainedBytes: 64);
-        ShaderProgramIdentity identity = Identity(SourceA);
-        ProgramCacheContextKey context = Context("device-a", "context-a");
-        int nextId = 0;
-        ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
-            identity,
-            context,
-            () => new FakeProgram(++nextId, 16));
-        FakeProgram poisoned = lease.Program;
-        poisoned.ThrowOnNextReset = true;
+        var failure = new InvalidOperationException("retained-size");
+        using var cache = new ProgramCache<FakeProgram>(
+            _ => throw failure,
+            maxRetainedBytes: 64);
+        var program = new FakeProgram(1, 16);
 
-        Assert.Throws<InvalidOperationException>(lease.Dispose);
+        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
+            cache.GetOrCreate(
+                Identity(SourceA),
+                Context("device-a", "context-a"),
+                () => program));
+
         Assert.Multiple(() =>
         {
-            Assert.That(poisoned.DisposeCount, Is.EqualTo(1));
+            Assert.That(actual, Is.SameAs(failure));
+            Assert.That(program.DisposeCount, Is.EqualTo(1));
+            Assert.That(cache.Statistics.Creations, Is.EqualTo(1));
             Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
         });
-
-        using ProgramCacheLease<FakeProgram> replacement = cache.GetOrCreate(
-            identity,
-            context,
-            () => new FakeProgram(++nextId, 16));
-        Assert.That(replacement.IsCacheHit, Is.False);
     }
 
     [Test]
@@ -607,7 +588,6 @@ public sealed class ProgramCacheTests
 
     private static ProgramCache<FakeProgram> CreateCache(long maxRetainedBytes)
         => new(
-            static program => program.ResetRuntimeBindings(),
             static program => program.RetainedBytes,
             maxRetainedBytes);
 
@@ -634,34 +614,22 @@ public sealed class ProgramCacheTests
             SkslBackendBudget.Unlimited,
             bucketHashOverride);
 
-    private sealed class FakeProgram(int id, long retainedBytes) : IDisposable
+    private sealed class FakeProgram(
+        int id,
+        long retainedBytes,
+        Exception? disposeFailure = null) : IDisposable
     {
         public int Id { get; } = id;
 
         public long RetainedBytes { get; } = retainedBytes;
 
-        public Dictionary<string, int> Bindings { get; } = [];
-
-        public int ResetCount { get; private set; }
-
         public int DisposeCount { get; private set; }
-
-        public bool ThrowOnNextReset { get; set; }
-
-        public void ResetRuntimeBindings()
-        {
-            ResetCount++;
-            Bindings.Clear();
-            if (ThrowOnNextReset)
-            {
-                ThrowOnNextReset = false;
-                throw new InvalidOperationException("Injected runtime reset failure.");
-            }
-        }
 
         public void Dispose()
         {
             DisposeCount++;
+            if (disposeFailure is not null)
+                throw disposeFailure;
         }
 
         public override string ToString() => $"FakeProgram {Id}";

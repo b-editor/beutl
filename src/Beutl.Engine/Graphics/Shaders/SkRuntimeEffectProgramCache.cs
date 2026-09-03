@@ -16,10 +16,8 @@ internal static class SkRuntimeEffectProgramCache
 
     public static ProgramCache<CachedSkRuntimeEffect> Create()
         => new(
-            resetRuntimeBindings: static _ => { },
             retainedByteSize: static program => program.RetainedBytes,
-            maxRetainedBytes: DefaultRetainedByteBudget,
-            shareLeasedPrograms: true);
+            maxRetainedBytes: DefaultRetainedByteBudget);
 
     public static ProgramCacheContextKey CreateContextKey(
         RenderCacheDeviceContextIdentity context,

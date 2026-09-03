@@ -15,10 +15,8 @@ internal static class SpirvShaderProgramCache
 
     public static ProgramCache<GLSLFilterPipeline> Create()
         => new(
-            resetRuntimeBindings: static _ => { },
             retainedByteSize: static program => program.RetainedByteSize,
-            maxRetainedBytes: DefaultRetainedByteBudget,
-            shareLeasedPrograms: true);
+            maxRetainedBytes: DefaultRetainedByteBudget);
 
     public static bool SupportsExecution(IGraphicsContext? context)
         => context is VulkanContext { Supports3DRendering: true }

@@ -355,7 +355,7 @@ Every public Shader form has a supported unfused ordinary-2D path. GPU-specific 
 
 - `SkslSource`, `SkslLexer`, uniform/child binding logic, and `SkslSnippetMerger`;
 - `RenderBoundsContract` concepts and Geometry session/input math;
-- program-cache collision, reset, LRU, and re-entrant lease behavior;
+- program-cache collision, shared immutable lease lifetime, LRU, and context-eviction behavior;
 - render-target pool exact-size buckets, LRU/byte cap, generation checks, context eviction, and cleanup patterns;
 - raw linear-RGBA16F golden storage, Alpha MAE, immutable/provenance tooling;
 - ROI, binding, merger, failure-injection, cache, pool, and persistent-lifetime benchmark tests.
