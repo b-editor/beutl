@@ -125,7 +125,6 @@ public partial class ChromaKey : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        Vector4 linear = r.Color.ToLinear();
         context.Shader(ShaderDescription.CurrentPixel(
             s_shaderSource,
             bindings =>
@@ -136,7 +135,7 @@ public partial class ChromaKey : FilterEffect
                         r.Color.R / 255f,
                         r.Color.G / 255f,
                         r.Color.B / 255f));
-                bindings.Uniform("keyColorLinear", new Vector3(linear.X, linear.Y, linear.Z));
+                bindings.Uniform("keyColorLinear", r.Color.ToLinear().AsVector3());
                 bindings.Uniform("hueRange", r.HueRange / 360f);
                 bindings.Uniform("saturationRange", r.SaturationRange / 100f);
                 bindings.Uniform("boundary", r.Boundary / 100f);

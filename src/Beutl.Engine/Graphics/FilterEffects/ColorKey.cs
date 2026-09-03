@@ -63,12 +63,11 @@ public partial class ColorKey : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        Vector4 linear = r.Color.ToLinear();
         context.Shader(ShaderDescription.CurrentPixel(
             s_shaderSource,
             bindings =>
             {
-                bindings.Uniform("keyColor", new Vector3(linear.X, linear.Y, linear.Z));
+                bindings.Uniform("keyColor", r.Color.ToLinear().AsVector3());
                 bindings.Uniform("range", r.Range / 100f);
                 bindings.Uniform("boundary", r.Boundary / 100f);
             }));
