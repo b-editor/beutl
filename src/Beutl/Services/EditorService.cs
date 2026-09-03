@@ -34,6 +34,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     private bool _publicationActive;
     private MembershipState _membershipState;
     private Task? _hostCloseTask;
+    private EditorContextHostToken? _ownerHostToken;
     private Action<EditorTabItem>? _terminalFailureHandler;
     private Func<EditorTabItem, IEditorContext, EditorContextRegistration?>? _claimContextHandler;
     private Func<EditorTabItem, EditorContextRegistration, bool>? _publishContextHandler;
@@ -69,6 +70,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     public IReadOnlyReactiveProperty<IEditorContext?> Context => MutableContext;
 
     internal bool TryAttachOwner(
+        EditorContextHostToken hostToken,
         Action<EditorTabItem> terminalFailureHandler,
         EditorContextRegistration registration,
         Func<EditorTabItem, IEditorContext, EditorContextRegistration?> claimContextHandler,
@@ -80,6 +82,7 @@ public sealed class EditorTabItem : IAsyncDisposable
             if (_closing || _disposeTask is not null || _claimContextHandler is not null)
                 return false;
 
+            _ownerHostToken = hostToken;
             _terminalFailureHandler = terminalFailureHandler;
             _contextRegistration = registration;
             _claimContextHandler = claimContextHandler;
@@ -96,6 +99,12 @@ public sealed class EditorTabItem : IAsyncDisposable
             lock (_lifetimeGate)
                 return _claimContextHandler is not null;
         }
+    }
+
+    internal bool IsOwnedBy(EditorContextHostToken hostToken)
+    {
+        lock (_lifetimeGate)
+            return ReferenceEquals(_ownerHostToken, hostToken);
     }
 
     // Serialize publication admission with disposal, then run observer callbacks outside the
@@ -331,8 +340,9 @@ public sealed class EditorTabItem : IAsyncDisposable
     /// Replaces the owned editor context after the previous context has fully torn down.
     /// </summary>
     /// <remarks>
-    /// A context already claimed by this or another tab is rejected without being consumed.
-    /// All other supplied contexts are consumed for both return values.
+    /// A context already active in this tab, claimed by this or another tab, or bound to another
+    /// editor host is rejected without being consumed. All other supplied contexts are consumed
+    /// for both return values.
     /// </remarks>
     public ValueTask<bool> ReplaceContextAsync(IEditorContext context)
     {
@@ -767,6 +777,7 @@ public sealed class EditorTabItem : IAsyncDisposable
 
 public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContextCloseService
 {
+    private readonly EditorContextHostToken _hostToken = new();
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;
@@ -824,6 +835,9 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         ProjectVersionControlService = _projectVersionControlService
             .ToReadOnlyReactivePropertySlim();
     }
+
+    /// <summary>Gets the opaque identity retained by contexts created for this host.</summary>
+    public EditorContextHostToken HostToken => _hostToken;
 
     public ICoreReadOnlyList<EditorTabItem> TabItems => _tabItems;
 
@@ -913,7 +927,9 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
 
     internal void AddTabItem(EditorTabItem item)
     {
-        if (!TryAddTabItem(item) && item.IsHostOwned && !ContainsTabItem(item))
+        if (!TryAddTabItem(item)
+            && item.IsOwnedBy(_hostToken)
+            && !ContainsTabItem(item))
             ObserveDeferredTabDisposal(item.DisposeAsync().AsTask());
     }
 
@@ -963,6 +979,9 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         Action? beforeAdd,
         Action? beforeSelection)
     {
+        if (item.Context.Value is not { } context || !HasMatchingHostToken(context))
+            return false;
+
         if (!item.IsHostOwned && !TryAttachOwner(item))
             return false;
         if (!item.TryBeginAttachment())
@@ -1199,7 +1218,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     private bool TryAttachOwner(EditorTabItem item)
     {
         IEditorContext? context = item.Context.Value;
-        if (context is null)
+        if (context is null || !HasMatchingHostToken(context))
             return false;
 
         lock (_contextRegistryGate)
@@ -1211,6 +1230,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             var registration = new EditorContextRegistration(context, generation);
             BeforeInitialOwnerAttach?.Invoke();
             if (!item.TryAttachOwner(
+                    _hostToken,
                     RemoveFailedTabItem,
                     registration,
                     TryClaimContext,
@@ -1230,6 +1250,9 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         EditorTabItem item,
         IEditorContext context)
     {
+        if (!HasMatchingHostToken(context))
+            return null;
+
         lock (_contextRegistryGate)
         {
             if (_contextItems.ContainsKey(context) || _reservedContextItems.ContainsKey(context))
@@ -1239,6 +1262,11 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             _reservedContextItems.Add(context, (item, generation));
             return new EditorContextRegistration(context, generation);
         }
+    }
+
+    private bool HasMatchingHostToken(IEditorContext context)
+    {
+        return ReferenceEquals(context.CloseService.HostToken, _hostToken);
     }
 
     private bool PublishContextClaim(

@@ -60,12 +60,23 @@ The request distinguishes `Accepted`, `AlreadyClosing`, and `NotOwned`.
 `Completion` is the stable terminal task for physical tab removal and context
 teardown, including failures.
 
+Every `IEditorContextCloseService` also exposes a required, opaque
+`EditorContextHostToken`. The host creates one stable token and contexts must retain the supplied
+close capability (or a wrapper that forwards both `RequestClose` and the exact `HostToken`).
+`EditorService` rejects initial attachment and replacement when the token belongs to another host;
+do not construct a fresh token in a context wrapper.
+
 ## Project shutdown
 
 `ProjectService.CloseProject()` has been replaced by `CloseProjectAsync()`.
 Await it before unloading packages, replacing the editor host, or releasing any
 resource that an editor context can still reach. Repeated calls join the queued
 project transition, including a close that has already cleared `CurrentProject`.
+
+When an editor host starts unregistering, transitions accepted before the fence
+finish through that host. New `OpenProject`, `CreateProject`, and `CloseProjectAsync`
+operations fail without changing `CurrentProject` until a replacement host has
+finished replaying the current project. Callers may retry after host initialization.
 
 `ProjectObservable` is now a post-commit notification stream. Notifications are
 ordered and run only after the editor reaches a stable state, but project methods

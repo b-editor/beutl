@@ -895,7 +895,7 @@ public class ToolTabHeaderTests
             new EditorContextServices(TestShell.Editor, owner.ExtensionProvider),
             out IEditorContext? replacementContext), Is.True);
         var replacement = (EditViewModel)replacementContext!;
-        var oldBlocking = new BlockingEditorContext(entered, release);
+        var oldBlocking = new BlockingEditorContext(entered, release, TestShell.Editor);
         var blockingTab = new EditorTabItem(oldBlocking);
         TestShell.Editor.AddTabItem(blockingTab);
         Task<bool> replace = blockingTab.ReplaceContextAsync(replacement).AsTask();
@@ -1101,11 +1101,12 @@ public class ToolTabHeaderTests
 
     private sealed class BlockingEditorContext(
         TaskCompletionSource entered,
-        TaskCompletionSource release) : IEditorContext
+        TaskCompletionSource release,
+        IEditorContextCloseService closeService) : IEditorContext
     {
         public CoreObject Object { get; } = new Scene(16, 16, "blocking");
         public EditorExtension Extension => SceneEditorExtension.Instance;
-        public IEditorContextCloseService CloseService { get; } = new UnownedCloseService();
+        public IEditorContextCloseService CloseService { get; } = closeService;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
         public IKnownEditorCommands? Commands => null;
         public async ValueTask DisposeAsync()
@@ -1118,12 +1119,6 @@ public class ToolTabHeaderTests
         public ValueTask<bool> OpenToolTabAsync(IToolContext item) => new(false);
         public ValueTask CloseToolTabAsync(IToolContext item) => ValueTask.CompletedTask;
         public object? GetService(Type serviceType) => null;
-    }
-
-    private sealed class UnownedCloseService : IEditorContextCloseService
-    {
-        public EditorContextCloseRequest RequestClose(IEditorContext context)
-            => new(EditorContextCloseRequestStatus.NotOwned, Task.CompletedTask);
     }
 
     private class BlockingToolExtension : ToolTabExtension

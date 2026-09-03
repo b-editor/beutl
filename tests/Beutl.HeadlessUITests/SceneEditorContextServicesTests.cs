@@ -53,6 +53,7 @@ public class SceneEditorContextServicesTests
                 Is.True);
             Assert.That(closeService, Is.SameAs(editorService));
             Assert.That(services.CloseService, Is.SameAs(editorService));
+            Assert.That(services.CloseService.HostToken, Is.SameAs(editorService.HostToken));
 
 
             Assert.That(services.TryGetService<IExtensionProvider>(out IExtensionProvider? resolvedInterface), Is.True);
@@ -211,6 +212,7 @@ public class SceneEditorContextServicesTests
             SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
             Is.True);
         var editor = (EditViewModel)context!;
+        Assert.That(editor.CloseService.HostToken, Is.SameAs(services.CloseService.HostToken));
         var tab = new EditorTabItem(editor);
         var beforeDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDispose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

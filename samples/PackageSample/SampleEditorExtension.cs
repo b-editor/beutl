@@ -98,6 +98,8 @@ public sealed class TextEditorContext : IEditorContext
         TextEditorContext owner,
         IEditorContextCloseService closeService) : IEditorContextCloseService
     {
+        public EditorContextHostToken HostToken => closeService.HostToken;
+
         public EditorContextCloseRequest RequestClose(IEditorContext context)
         {
             return ReferenceEquals(context, owner)

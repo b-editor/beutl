@@ -24,8 +24,10 @@ public abstract class EditorExtension : ViewExtension
     /// Host services owned by the composition root and passed in explicitly. A successful
     /// implementation must retain <see cref="IEditorContextServices.CloseService"/> and expose it,
     /// directly or through a context-specific wrapper, through
-    /// <see cref="IEditorContext.CloseService"/>. The extension provider is available for querying
-    /// other extensions.
+    /// <see cref="IEditorContext.CloseService"/>. The wrapper must forward the same stable,
+    /// non-null <see cref="IEditorContextCloseService.HostToken"/> so the context cannot be
+    /// attached to another editor host. The extension provider is available for querying other
+    /// extensions.
     /// </param>
     /// <param name="context">The created editor context, set when this returns <see langword="true"/>.</param>
     /// <returns><see langword="true"/> if a context was created for <paramref name="obj"/>.</returns>
