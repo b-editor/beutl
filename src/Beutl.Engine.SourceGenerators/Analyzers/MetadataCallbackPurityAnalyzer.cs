@@ -829,6 +829,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A list pattern spells nothing it runs: the brackets ask the matched value for its Length or
+        // Count to decide the arity, read each element off its indexer, and hand a slice element what a
+        // Slice or a range indexer returned.
+        if (node is ListPatternSyntax list)
+        {
+            FollowListPatternMembers(context, model, body, list, depth, walked, report);
+            return;
+        }
+
         if (node is not (BaseObjectCreationExpressionSyntax or ConstructorInitializerSyntax
             or PrimaryConstructorBaseTypeSyntax or CastExpressionSyntax or BinaryExpressionSyntax
             or PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax or AssignmentExpressionSyntax))
@@ -1113,6 +1122,74 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             case OrderingSyntax ordering:
                 Follow(model.GetSymbolInfo(ordering, context.CancellationToken).Symbol);
                 break;
+        }
+    }
+
+    /// <summary>Follows the members a list pattern runs on the value it is matched against.</summary>
+    /// <remarks>
+    /// The members are spelled nowhere in the pattern, so they are read off the binder's answer rather
+    /// than resolved a second time here; an array answers with <see cref="Array.Length"/> and no indexer
+    /// at all, which has no source and stops at <see cref="FollowCall"/>. Every one of them runs on what
+    /// the pattern is matched against, which is the receiver <see cref="GetMatchedExpression"/> resolves
+    /// and the same one a property pattern beside it reads off. A list pattern nested in a subpattern,
+    /// another list pattern or a slice reads off an element the outer indexer handed back rather than off
+    /// a making, and is refused there exactly as a nested property pattern already is.
+    /// </remarks>
+    private static void FollowListPatternMembers(
+        SyntaxNodeAnalysisContext context,
+        SemanticModel model,
+        SyntaxNode body,
+        ListPatternSyntax list,
+        int depth,
+        HashSet<ISymbol> walked,
+        Action<SyntaxNode, string, ISymbol, string> report)
+    {
+        if (model.GetOperation(list, context.CancellationToken) is not IListPatternOperation matched
+            || FollowReceiverCreation(context, model, body, list, depth, walked, report) is not { } made)
+        {
+            return;
+        }
+
+        void Follow(ISymbol? member)
+        {
+            switch (member)
+            {
+                case IPropertySymbol { GetMethod: { } getter }:
+                    FollowCall(
+                        context,
+                        RunsAsMade(made, getter),
+                        list,
+                        "property",
+                        depth,
+                        walked,
+                        report);
+                    break;
+
+                case IMethodSymbol called:
+                    FollowCall(
+                        context,
+                        RunsAsMade(made, called),
+                        list,
+                        RunsAStaticMethod(called) ? "static method" : "method",
+                        depth,
+                        walked,
+                        report);
+                    break;
+            }
+        }
+
+        Follow(matched.LengthSymbol);
+        Follow(matched.IndexerSymbol);
+
+        foreach (PatternSyntax element in list.Patterns)
+        {
+            // A slice is the one element that reads through a member of its own, and it answers with a
+            // Slice method or with a range indexer depending on which the matched type offers.
+            if (element is SlicePatternSyntax slice
+                && model.GetOperation(slice, context.CancellationToken) is ISlicePatternOperation cut)
+            {
+                Follow(cut.SliceSymbol);
+            }
         }
     }
 
@@ -1562,20 +1639,25 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             Parent: SubpatternSyntax subpattern,
         }
             => GetMatchedExpression(subpattern),
+        // A list pattern names no member at all, and the value it reads its Length or Count, its indexer
+        // and a slice's Slice off is that same matched value.
+        ListPatternSyntax list => GetMatchedExpression(list),
         ElementAccessExpressionSyntax element => element.Expression,
         _ => null,
     };
 
-    /// <summary>The expression the pattern a subpattern belongs to is matched against.</summary>
+    /// <summary>The expression the pattern <paramref name="pattern"/> belongs to is matched against.</summary>
     /// <remarks>
     /// An is, a switch expression and a switch statement each spell what they match beside the pattern,
     /// and the combinators between hand that same value down unchanged. A subpattern of a nested property
     /// pattern reads off what the outer member returned, and one of a positional or list pattern reads off
     /// an element a Deconstruct or an indexer produced; none of those is a making, so none is answered.
+    /// A list pattern written as one of those elements is refused by the same walk and for the same
+    /// reason: what it matches is an element, not something whose making this rule was shown.
     /// </remarks>
-    private static ExpressionSyntax? GetMatchedExpression(SubpatternSyntax subpattern)
+    private static ExpressionSyntax? GetMatchedExpression(SyntaxNode pattern)
     {
-        SyntaxNode? matched = subpattern.Parent;
+        SyntaxNode? matched = pattern.Parent;
 
         while (matched is PropertyPatternClauseSyntax or RecursivePatternSyntax
                or ParenthesizedPatternSyntax or BinaryPatternSyntax or UnaryPatternSyntax)

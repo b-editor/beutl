@@ -5147,6 +5147,229 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     /// <remarks>
+    /// A list pattern chooses its members off the matched type, so each case varies that type and the
+    /// pattern written over it and keeps everything else - the making beside the pattern, the callback
+    /// around it - fixed.
+    /// </remarks>
+    private static ImmutableArray<Diagnostic> AnalyzeListPattern(string declarations, string match)
+        => Analyze($$"""
+            using System;
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            {{declarations}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            float width = 0f;
+                            {{match}}
+
+                            return new Rect(value.X, value.Y, width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+    [Test]
+    public void AStaticLambdaWhoseListPatternCountReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => (int)Settings.Offset;
+
+                public float this[int index] => 4f;
+            }
+            """,
+            """
+            if (new Widths() is [var first])
+                width = first;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the brackets ask the matched value for its Count before they read anything, and that getter "
+            + "is a call the pattern spells nowhere");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseListPatternIndexerReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => 1;
+
+                public float this[int index] => Settings.Offset;
+            }
+            """,
+            """
+            if (new Widths() is [var first])
+                width = first;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the element the pattern binds comes off the indexer, which the pattern resolves separately "
+            + "from the Count it checks the arity with");
+    }
+
+    /// <remarks>
+    /// The control for the two cases above: the same spellings over a Count and an indexer that read
+    /// nothing, which report only if the walk answers to the brackets rather than to the members they
+    /// select.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaWhoseListPatternMembersReadNothingStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => 1;
+
+                public float this[int index] => 4f;
+            }
+            """,
+            """
+            if (new Widths() is [var first])
+                width = first;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "neither member the pattern runs reads anything that moves between recordings");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseSwitchListPatternCountReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => (int)Settings.Offset;
+
+                public float this[int index] => 4f;
+            }
+            """,
+            """
+            width = new Widths() switch
+            {
+                [var first] => first,
+                _ => 0f,
+            };
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a switch spells what it matches beside the arms exactly as an is does, so the value the "
+            + "brackets run their members on is as readable there");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseSlicePatternSliceReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => 1;
+
+                public float this[int index] => 4f;
+
+                public float Slice(int start, int length)
+                {
+                    _ = Settings.Offset;
+                    return length;
+                }
+            }
+            """,
+            """
+            if (new Widths() is [.. var rest])
+                width = rest;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "a slice element is handed what Slice returned, which is a third member of the matched type "
+            + "the pattern runs without naming it");
+    }
+
+    /// <remarks>
+    /// The control for the case above: the same spelling over a Slice that reads nothing.
+    /// </remarks>
+    [Test]
+    public void AStaticLambdaWhoseSlicePatternSliceReadsNothingStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => 1;
+
+                public float this[int index] => 4f;
+
+                public float Slice(int start, int length) => length;
+            }
+            """,
+            """
+            if (new Widths() is [.. var rest])
+                width = rest;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the Slice the pattern runs reads nothing that moves between recordings");
+    }
+
+    [Test]
+    public void AStaticLambdaWhoseNestedListPatternCountReadsAMutableStatic_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = AnalyzeListPattern(
+            """
+            internal sealed class Widths
+            {
+                public int Count => (int)Settings.Offset;
+
+                public float this[int index] => 4f;
+            }
+
+            internal sealed class Holder
+            {
+                public Widths Items { get; } = new Widths();
+            }
+            """,
+            """
+            if (new Holder() is { Items: [var first] })
+                width = first;
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "the brackets read off whatever the outer member handed back, which is not a making, so the "
+            + "walk has not been shown which Count they run");
+    }
+
+    /// <remarks>
     /// The bounds argument is there so the cases prove the rule reaches the delegate parameter alone: a
     /// description's Create takes metadata and planner traits beside its callback, and none of those carry a
     /// closure to report.
