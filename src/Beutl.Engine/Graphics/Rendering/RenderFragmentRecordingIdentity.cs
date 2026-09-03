@@ -27,7 +27,6 @@ namespace Beutl.Graphics.Rendering;
 /// </remarks>
 internal sealed class RenderFragmentRecordingIdentity
 {
-    private readonly long _fingerprint;
     private readonly RenderFragmentKind _kind;
     private readonly Rect _bounds;
     private readonly EffectiveScale _effectiveScale;
@@ -47,7 +46,6 @@ internal sealed class RenderFragmentRecordingIdentity
 
     internal RenderFragmentRecordingIdentity(RenderFragmentReference reference)
     {
-        _fingerprint = reference.RecordingFingerprint;
         _kind = reference.Kind;
         _bounds = reference.RecordedBounds;
         _effectiveScale = reference.RecordedEffectiveScale;
@@ -87,8 +85,7 @@ internal sealed class RenderFragmentRecordingIdentity
         if (ReferenceEquals(reference.SettledRecordingIdentity, this))
             return true;
 
-        if (_fingerprint != reference.RecordingFingerprint
-            || _kind != reference.Kind
+        if (_kind != reference.Kind
             || !_bounds.Equals(reference.RecordedBounds)
             || !_effectiveScale.Equals(reference.RecordedEffectiveScale)
             || _boundsRequirement != reference.BoundsRequirement
