@@ -13,9 +13,23 @@ internal interface IEditorContextPublicationGate
     bool TryPublish(Action publish);
 }
 
+internal enum EditorContextClaimStatus
+{
+    Claimed,
+    AlreadyOwned,
+    InvalidHost,
+    InvalidHostClaimedForCleanup
+}
+
 internal readonly record struct EditorContextRegistration(
     IEditorContext Context,
-    long Generation);
+    long Generation,
+    EditorContextOwnershipLease OwnershipLease);
+
+internal readonly record struct EditorContextClaimResult(
+    EditorContextClaimStatus Status,
+    EditorContextRegistration? Registration = null,
+    EditorContextOwnershipLease? CleanupLease = null);
 
 public sealed class EditorTabItem : IAsyncDisposable
 {
@@ -32,7 +46,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     private Task? _hostCloseTask;
     private EditorContextHostToken? _ownerHostToken;
     private Action<EditorTabItem>? _terminalFailureHandler;
-    private Func<EditorTabItem, IEditorContext, EditorContextRegistration?>? _claimContextHandler;
+    private Func<EditorTabItem, IEditorContext, EditorContextClaimResult>? _claimContextHandler;
     private Func<EditorTabItem, EditorContextRegistration, bool>? _publishContextHandler;
     private Action<EditorTabItem, EditorContextRegistration>? _releaseContextHandler;
     private EditorContextRegistration? _contextRegistration;
@@ -69,7 +83,7 @@ public sealed class EditorTabItem : IAsyncDisposable
         EditorContextHostToken hostToken,
         Action<EditorTabItem> terminalFailureHandler,
         EditorContextRegistration registration,
-        Func<EditorTabItem, IEditorContext, EditorContextRegistration?> claimContextHandler,
+        Func<EditorTabItem, IEditorContext, EditorContextClaimResult> claimContextHandler,
         Func<EditorTabItem, EditorContextRegistration, bool> publishContextHandler,
         Action<EditorTabItem, EditorContextRegistration> releaseContextHandler)
     {
@@ -88,12 +102,58 @@ public sealed class EditorTabItem : IAsyncDisposable
         }
     }
 
+    internal bool TryDetachOwner(EditorContextRegistration registration)
+    {
+        lock (_lifetimeGate)
+        {
+            if (_membershipState != MembershipState.Fresh
+                || _closing
+                || _disposeTask is not null
+                || !_contextRegistration.Equals(registration))
+            {
+                return false;
+            }
+
+            _ownerHostToken = null;
+            _terminalFailureHandler = null;
+            _contextRegistration = null;
+            _claimContextHandler = null;
+            _publishContextHandler = null;
+            _releaseContextHandler = null;
+            return true;
+        }
+    }
+
     internal bool IsHostOwned
     {
         get
         {
             lock (_lifetimeGate)
                 return _claimContextHandler is not null;
+        }
+    }
+
+    internal bool TryGetAttachedContext(
+        EditorContextHostToken hostToken,
+        out IEditorContext? context,
+        out EditorContextRegistration registration)
+    {
+        lock (_lifetimeGate)
+        {
+            if (!ReferenceEquals(_ownerHostToken, hostToken)
+                || _membershipState != MembershipState.Attached
+                || _contextRegistration is not { } current
+                || MutableContext.Value is not { } active
+                || !ReferenceEquals(current.Context, active))
+            {
+                context = null;
+                registration = default;
+                return false;
+            }
+
+            context = active;
+            registration = current;
+            return true;
         }
     }
 
@@ -344,44 +404,83 @@ public sealed class EditorTabItem : IAsyncDisposable
     /// Replaces the owned editor context after the previous context has fully torn down.
     /// </summary>
     /// <remarks>
-    /// A context already active in this tab, claimed by this or another tab, or bound to another
-    /// editor host is rejected without being consumed. All other supplied contexts are consumed
-    /// for both return values.
+    /// Replacement is host-mediated: an unowned tab cannot adopt a context. A context already
+    /// active in this tab, claimed by this or another tab, or bound to another editor host is
+    /// rejected without being consumed. Once this tab claims a context, the host consumes it even
+    /// when a later transition step fails; inspect <see cref="EditorContextReplacementResult.InputConsumed"/>
+    /// to determine whether the host consumed the supplied value.
     /// </remarks>
-    public ValueTask<bool> ReplaceContextAsync(IEditorContext context)
+    internal ValueTask<EditorContextReplacementResult> ReplaceContextAsync(IEditorContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        bool sameInstance;
+        Func<EditorTabItem, IEditorContext, EditorContextClaimResult>? claimContextHandler;
+        lock (_lifetimeGate)
+        {
+            sameInstance = ReferenceEquals(MutableContext.Value, context);
+            claimContextHandler = _claimContextHandler;
+
+            // Replacement is deliberately mediated by the owning host. An unowned tab must not
+            // publish a context or dispose one that belongs to another tab/host.
+            if (claimContextHandler is null
+                || _membershipState != MembershipState.Attached)
+            {
+                return new ValueTask<EditorContextReplacementResult>(
+                    new EditorContextReplacementResult(
+                        EditorContextReplacementStatus.NotOwned,
+                        inputConsumed: false));
+            }
+        }
+
+        if (sameInstance)
+            return new ValueTask<EditorContextReplacementResult>(
+                new EditorContextReplacementResult(
+                    EditorContextReplacementStatus.AlreadyActive,
+                    inputConsumed: false));
+
+        EditorContextClaimResult claim = claimContextHandler.Invoke(this, context);
+        if (claim.Status != EditorContextClaimStatus.Claimed)
+        {
+            return new ValueTask<EditorContextReplacementResult>(
+                new EditorContextReplacementResult(
+                    EditorContextReplacementStatus.NotOwned,
+                    inputConsumed: false));
+        }
+
+        return ReplaceClaimedContextAsync(context, claim.Registration!.Value);
+    }
+
+    internal ValueTask<EditorContextReplacementResult> ReplaceClaimedContextAsync(
+        IEditorContext context,
+        EditorContextRegistration replacementRegistration,
+        EditorContextRegistration? expectedRegistration = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         IEditorContext? oldContext = null;
         EditorContextRegistration? oldRegistration = null;
         TaskCompletionSource? transition = null;
-        TaskCompletionSource<bool>? result = null;
+        TaskCompletionSource<EditorContextReplacementResult>? result = null;
         Exception? publicationFailure = null;
-        bool sameInstance;
-        Func<EditorTabItem, IEditorContext, EditorContextRegistration?>? claimContextHandler;
-        lock (_lifetimeGate)
-        {
-            sameInstance = ReferenceEquals(MutableContext.Value, context);
-            claimContextHandler = _claimContextHandler;
-        }
-
-        if (sameInstance)
-            return new ValueTask<bool>(false);
-
-        EditorContextRegistration? replacementRegistration = claimContextHandler?.Invoke(this, context);
-        if (claimContextHandler is not null && replacementRegistration is null)
-            return new ValueTask<bool>(false);
 
         bool rejected;
         lock (_lifetimeGate)
         {
-            rejected = _closing || _transitionTask is not null || _publicationActive;
+            bool staleExpected = expectedRegistration is { } expected
+                && (!_contextRegistration.Equals(expected)
+                    || !ReferenceEquals(MutableContext.Value, expected.Context));
+            rejected = staleExpected
+                || _claimContextHandler is null
+                || _membershipState != MembershipState.Attached
+                || _closing
+                || _transitionTask is not null
+                || _publicationActive;
             if (!rejected)
             {
                 oldContext = MutableContext.Value;
                 oldRegistration = _contextRegistration;
                 transition = new TaskCompletionSource(
                     TaskCreationOptions.RunContinuationsAsynchronously);
-                result = new TaskCompletionSource<bool>(
+                result = new TaskCompletionSource<EditorContextReplacementResult>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 _transitionTask = transition.Task;
             }
@@ -389,18 +488,34 @@ public sealed class EditorTabItem : IAsyncDisposable
 
         if (rejected)
         {
-            return replacementRegistration is { } reserved
-                ? new ValueTask<bool>(DisposeRejectedAndReleaseContextAsync(context, reserved))
-                : new ValueTask<bool>(DisposeRejectedAndReturnFalseAsync(context));
+            return new ValueTask<EditorContextReplacementResult>(
+                DisposeRejectedAndReleaseContextAsync(context, replacementRegistration));
         }
 
-        if (replacementRegistration is { } claimed
-            && _publishContextHandler?.Invoke(this, claimed) != true)
+        bool claimPublished;
+        try
+        {
+            claimPublished = _publishContextHandler?.Invoke(this, replacementRegistration) == true;
+        }
+        catch (Exception publicationException)
         {
             lock (_lifetimeGate)
                 _transitionTask = null;
             transition!.TrySetResult();
-            return new ValueTask<bool>(DisposeRejectedAndReleaseContextAsync(context, claimed));
+            return new ValueTask<EditorContextReplacementResult>(
+                DisposeClaimedContextAfterFailureAsync(
+                    context,
+                    replacementRegistration,
+                    publicationException));
+        }
+
+        if (!claimPublished)
+        {
+            lock (_lifetimeGate)
+                _transitionTask = null;
+            transition!.TrySetResult();
+            return new ValueTask<EditorContextReplacementResult>(
+                DisposeRejectedAndReleaseContextAsync(context, replacementRegistration));
         }
 
         try
@@ -423,7 +538,7 @@ public sealed class EditorTabItem : IAsyncDisposable
             transition!,
             result!,
             publicationFailure);
-        return new ValueTask<bool>(result!.Task);
+        return new ValueTask<EditorContextReplacementResult>(result!.Task);
     }
 
     private async Task CompleteReplacementAsync(
@@ -432,7 +547,7 @@ public sealed class EditorTabItem : IAsyncDisposable
         EditorContextRegistration? oldRegistration,
         EditorContextRegistration? replacementRegistration,
         TaskCompletionSource transition,
-        TaskCompletionSource<bool> result,
+        TaskCompletionSource<EditorContextReplacementResult> result,
         Exception? publicationFailure)
     {
         bool published = false;
@@ -488,11 +603,16 @@ public sealed class EditorTabItem : IAsyncDisposable
         if (published)
         {
             if (oldRegistration is { } old)
-                _releaseContextHandler?.Invoke(this, old);
-        }
-        else if (replacementRegistration is { } reserved)
-        {
-            _releaseContextHandler?.Invoke(this, reserved);
+            {
+                try
+                {
+                    _releaseContextHandler?.Invoke(this, old);
+                }
+                catch (Exception ex)
+                {
+                    RecordFailure(ref failures, ex);
+                }
+            }
         }
 
         bool closeWonAfterPublication;
@@ -516,12 +636,25 @@ public sealed class EditorTabItem : IAsyncDisposable
                 .ConfigureAwait(true);
             if (rejectionFailure is not null)
                 RecordFailure(ref failures, rejectionFailure);
+            if (replacementRegistration is { } reserved)
+            {
+                try
+                {
+                    _releaseContextHandler?.Invoke(this, reserved);
+                }
+                catch (Exception ex)
+                {
+                    RecordFailure(ref failures, ex);
+                }
+            }
         }
 
         transition.TrySetResult();
         if (failures is null && accepted && !closeWonAfterPublication)
         {
-            result.TrySetResult(true);
+            result.TrySetResult(new EditorContextReplacementResult(
+                EditorContextReplacementStatus.Succeeded,
+                inputConsumed: true));
             return;
         }
 
@@ -546,7 +679,9 @@ public sealed class EditorTabItem : IAsyncDisposable
             RecordFailure(ref failures, ex);
         }
         if (failures is null)
-            result.TrySetResult(false);
+            result.TrySetResult(new EditorContextReplacementResult(
+                EditorContextReplacementStatus.Busy,
+                inputConsumed: true));
         else
             result.TrySetException(CreateFailure(failures));
     }
@@ -613,26 +748,51 @@ public sealed class EditorTabItem : IAsyncDisposable
         }
     }
 
-    private async Task<bool> DisposeRejectedAndReturnFalseAsync(IEditorContext context)
+    private async Task<EditorContextReplacementResult> DisposeRejectedAndReturnResultAsync(
+        IEditorContext context,
+        EditorContextReplacementStatus status)
     {
         Exception? failure = await TryDisposeRejectedContextOwnedAsync(context).ConfigureAwait(true);
         if (failure is not null)
             throw failure;
-        return false;
+        return new EditorContextReplacementResult(status, inputConsumed: true);
     }
 
-    private async Task<bool> DisposeRejectedAndReleaseContextAsync(
+    private async Task<EditorContextReplacementResult> DisposeRejectedAndReleaseContextAsync(
         IEditorContext context,
         EditorContextRegistration registration)
     {
         try
         {
-            return await DisposeRejectedAndReturnFalseAsync(context).ConfigureAwait(true);
+            return await DisposeRejectedAndReturnResultAsync(
+                context,
+                EditorContextReplacementStatus.Busy).ConfigureAwait(true);
         }
         finally
         {
             _releaseContextHandler?.Invoke(this, registration);
         }
+    }
+
+    private async Task<EditorContextReplacementResult> DisposeClaimedContextAfterFailureAsync(
+        IEditorContext context,
+        EditorContextRegistration registration,
+        Exception failure)
+    {
+        List<Exception> failures = [failure];
+        Exception? disposalFailure = await TryDisposeRejectedContextOwnedAsync(context).ConfigureAwait(true);
+        if (disposalFailure is not null)
+            failures.Add(disposalFailure);
+        try
+        {
+            _releaseContextHandler?.Invoke(this, registration);
+        }
+        catch (Exception releaseFailure)
+        {
+            failures.Add(releaseFailure);
+        }
+
+        throw CreateFailure(failures);
     }
 
     /// <summary>Requests terminal disposal of the tab and its owned context.</summary>
@@ -819,6 +979,8 @@ public sealed class EditorService : IEditorContextCloseService
     /// <summary>Gets the opaque identity retained by contexts created for this host.</summary>
     public EditorContextHostToken HostToken => _hostToken;
 
+    internal ExtensionProvider ExtensionProvider => _extensionProvider;
+
     public ICoreReadOnlyList<EditorTabItem> TabItems => _tabItems;
 
     internal async ValueTask ClearTabItemsAsync()
@@ -911,6 +1073,92 @@ public sealed class EditorService : IEditorContextCloseService
             && item.IsOwnedBy(_hostToken)
             && !ContainsTabItem(item))
             ObserveDeferredTabDisposal(item.DisposeAsync().AsTask());
+    }
+
+    /// <summary>
+    /// Creates and host-mediates a replacement context for an attached tab.
+    /// </summary>
+    /// <remarks>
+    /// A successful context factory call transfers ownership to this host. New factory results are
+    /// disposed here when replacement is rejected; a context already claimed by any host remains
+    /// with that owner. Callers never own a context returned by this operation.
+    /// </remarks>
+    /// <param name="item">The attached tab whose context will be replaced.</param>
+    /// <param name="extension">The extension that creates the replacement context.</param>
+    /// <returns>The terminal replacement status.</returns>
+    public async ValueTask<EditorContextReplacementStatus> ReplaceContextAsync(
+        EditorTabItem item,
+        EditorExtension extension)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(extension);
+
+        if (!item.TryGetAttachedContext(_hostToken, out IEditorContext? current, out EditorContextRegistration registration)
+            || current is null)
+        {
+            return EditorContextReplacementStatus.NotOwned;
+        }
+
+        if (!extension.TryCreateContext(
+                current.Object,
+                new EditorContextServices(this, _extensionProvider),
+                out IEditorContext? replacement)
+            || replacement is null)
+        {
+            return EditorContextReplacementStatus.CreationFailed;
+        }
+
+        EditorContextClaimResult claim;
+        try
+        {
+            claim = TryClaimContext(item, replacement, claimInvalidHostForCleanup: true);
+        }
+        catch (Exception claimException)
+        {
+            try
+            {
+                await replacement.DisposeAsync().ConfigureAwait(true);
+            }
+            catch (Exception disposalException)
+            {
+                throw new AggregateException(claimException, disposalException);
+            }
+
+            throw;
+        }
+
+        if (claim.Status == EditorContextClaimStatus.AlreadyOwned)
+        {
+            return ReferenceEquals(replacement, current)
+                ? EditorContextReplacementStatus.AlreadyActive
+                : EditorContextReplacementStatus.NotOwned;
+        }
+
+        if (claim.Status == EditorContextClaimStatus.InvalidHostClaimedForCleanup)
+        {
+            try
+            {
+                await replacement.DisposeAsync().ConfigureAwait(true);
+            }
+            finally
+            {
+                claim.CleanupLease!.Dispose();
+            }
+
+            return EditorContextReplacementStatus.NotOwned;
+        }
+
+        if (claim.Status != EditorContextClaimStatus.Claimed)
+        {
+            await replacement.DisposeAsync().ConfigureAwait(true);
+            return EditorContextReplacementStatus.NotOwned;
+        }
+
+        EditorContextReplacementResult result = await item.ReplaceClaimedContextAsync(
+            replacement,
+            claim.Registration!.Value,
+            registration);
+        return result.Status;
     }
 
     internal bool TryAddTabItem(EditorTabItem item)
@@ -1205,42 +1453,94 @@ public sealed class EditorService : IEditorContextCloseService
         {
             if (_contextItems.ContainsKey(context) || _reservedContextItems.ContainsKey(context))
                 return false;
-
-            long generation = ++_contextRegistrationGeneration;
-            var registration = new EditorContextRegistration(context, generation);
-            BeforeInitialOwnerAttach?.Invoke();
-            if (!item.TryAttachOwner(
-                    _hostToken,
-                    RemoveFailedTabItem,
-                    registration,
-                    TryClaimContext,
-                    PublishContextClaim,
-                    ReleaseContext))
-            {
+            if (!_hostToken.TryAcquireContext(context, out EditorContextOwnershipLease? ownershipLease))
                 return false;
-            }
 
-            BeforeInitialContextClaimPublish?.Invoke();
-            _contextItems.Add(context, (item, generation));
-            return true;
+            bool registered = false;
+            bool ownerAttached = false;
+            long generation = ++_contextRegistrationGeneration;
+            var registration = new EditorContextRegistration(context, generation, ownershipLease);
+            try
+            {
+                BeforeInitialOwnerAttach?.Invoke();
+                if (!item.TryAttachOwner(
+                        _hostToken,
+                        RemoveFailedTabItem,
+                        registration,
+                        TryClaimContext,
+                        PublishContextClaim,
+                        ReleaseContext))
+                {
+                    return false;
+                }
+                ownerAttached = true;
+
+                BeforeInitialContextClaimPublish?.Invoke();
+                _contextItems.Add(context, (item, generation));
+                registered = true;
+                return true;
+            }
+            finally
+            {
+                if (!registered && (!ownerAttached || item.TryDetachOwner(registration)))
+                    ownershipLease.Dispose();
+            }
         }
     }
 
-    private EditorContextRegistration? TryClaimContext(
+    private EditorContextClaimResult TryClaimContext(
         EditorTabItem item,
         IEditorContext context)
+        => TryClaimContext(item, context, claimInvalidHostForCleanup: false);
+
+    private EditorContextClaimResult TryClaimContext(
+        EditorTabItem item,
+        IEditorContext context,
+        bool claimInvalidHostForCleanup)
     {
-        if (!HasMatchingHostToken(context))
-            return null;
+        EditorContextHostToken contextHostToken = context.CloseService.HostToken;
+        if (!ReferenceEquals(contextHostToken, _hostToken))
+        {
+            if (!claimInvalidHostForCleanup)
+                return new EditorContextClaimResult(EditorContextClaimStatus.InvalidHost);
+
+            bool cleanupClaimed = contextHostToken.TryAcquireContext(
+                context,
+                out EditorContextOwnershipLease? cleanupLease);
+            return cleanupClaimed
+                ? new EditorContextClaimResult(
+                    EditorContextClaimStatus.InvalidHostClaimedForCleanup,
+                    CleanupLease: cleanupLease)
+                : new EditorContextClaimResult(EditorContextClaimStatus.AlreadyOwned);
+        }
 
         lock (_contextRegistryGate)
         {
             if (_contextItems.ContainsKey(context) || _reservedContextItems.ContainsKey(context))
-                return null;
+                return new EditorContextClaimResult(EditorContextClaimStatus.AlreadyOwned);
+
+            if (!_hostToken.TryAcquireContext(context, out EditorContextOwnershipLease? ownershipLease))
+                return new EditorContextClaimResult(EditorContextClaimStatus.AlreadyOwned);
 
             long generation = ++_contextRegistrationGeneration;
-            _reservedContextItems.Add(context, (item, generation));
-            return new EditorContextRegistration(context, generation);
+            try
+            {
+                _reservedContextItems.Add(context, (item, generation));
+                return new EditorContextClaimResult(
+                    EditorContextClaimStatus.Claimed,
+                    new EditorContextRegistration(context, generation, ownershipLease));
+            }
+            catch
+            {
+                if (_reservedContextItems.TryGetValue(context, out var reserved)
+                    && ReferenceEquals(reserved.Item, item)
+                    && reserved.Generation == generation)
+                {
+                    _reservedContextItems.Remove(context);
+                }
+                ownershipLease.Dispose();
+                throw;
+            }
         }
     }
 
@@ -1288,6 +1588,8 @@ public sealed class EditorService : IEditorContextCloseService
                 _reservedContextItems.Remove(registration.Context);
             }
         }
+
+        registration.OwnershipLease.Dispose();
     }
 
     internal void RequestContextShutdown(IEditorContext context)

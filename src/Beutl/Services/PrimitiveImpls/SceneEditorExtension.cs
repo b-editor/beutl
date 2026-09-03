@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
-using Beutl.Api.Services;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -124,15 +123,10 @@ public sealed class SceneEditorExtension : EditorExtension
         // fail (return false) rather than pushing nulls into EditViewModel.
         if (obj is Scene scene
             && services.TryGetService<EditorService>(out EditorService? editorService)
-            && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider)
             && services.CloseService is { HostToken: not null } closeService
             && ReferenceEquals(editorService.HostToken, closeService.HostToken))
         {
-            var editViewModel = new EditViewModel(
-                scene,
-                extensionProvider,
-                editorService,
-                closeService);
+            var editViewModel = new EditViewModel(scene, editorService);
             if (editViewModel.IsDisposeRequested)
             {
                 context = null;

@@ -39,9 +39,9 @@ public abstract class EditorExtension : ViewExtension
     /// When a ProjectItem is needed here, obtain it from the ProjectItemContainer. Returning a
     /// context without the supplied close capability violates the host ownership contract. After a
     /// successful return, the host owns disposal exactly once, including when a later attachment or
-    /// publication step fails. On failure, the extension must dispose any partially initialized
-    /// state and must not return a context. A context rejected because it is foreign or already
-    /// owned by another tab is a caller-owned value in direct replacement APIs and is not consumed.
+    /// publication step fails. The returned context must be newly created and unowned; returning a
+    /// context that is already active in a tab violates the ownership contract. On failure, the
+    /// extension must dispose any partially initialized state and must not return a context.
     /// </remarks>
     public abstract bool TryCreateContext(
         CoreObject obj,

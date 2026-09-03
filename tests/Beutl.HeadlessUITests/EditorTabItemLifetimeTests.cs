@@ -14,6 +14,47 @@ namespace Beutl.HeadlessUITests;
 public sealed class EditorTabItemLifetimeTests
 {
     [Test]
+    public async Task EditorContextOwnershipLeaseIsExclusiveAndGenerationSafe()
+    {
+        var closeService = new UnownedCloseService();
+        var context = new BlockingEditorContext(blockDispose: false, closeService: closeService);
+
+        Assert.That(
+            new EditorContextHostToken().TryAcquireContext(
+                context,
+                out EditorContextOwnershipLease? wrongHostLease),
+            Is.False);
+        Assert.That(wrongHostLease, Is.Null);
+        Assert.That(
+            closeService.HostToken.TryAcquireContext(
+                context,
+                out EditorContextOwnershipLease? first),
+            Is.True);
+        Assert.That(
+            closeService.HostToken.TryAcquireContext(
+                context,
+                out EditorContextOwnershipLease? competing),
+            Is.False);
+        Assert.That(competing, Is.Null);
+
+        first!.Dispose();
+        Assert.That(
+            closeService.HostToken.TryAcquireContext(
+                context,
+                out EditorContextOwnershipLease? successor),
+            Is.True);
+        first.Dispose();
+        Assert.That(
+            closeService.HostToken.TryAcquireContext(
+                context,
+                out competing),
+            Is.False);
+
+        successor!.Dispose();
+        await context.DisposeAsync();
+    }
+
+    [Test]
     public async Task AddAndSelectIsLinearizedWithConcurrentDispose()
     {
         var service = new EditorService(new ExtensionProvider());
@@ -330,13 +371,13 @@ public sealed class EditorTabItemLifetimeTests
         var tab = new EditorTabItem(current);
         owner.AddTabItem(tab);
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(tab.Context.Value, Is.SameAs(current));
             Assert.That(current.DisposeCount, Is.Zero);
             Assert.That(replacement.DisposeCount, Is.Zero);
@@ -411,13 +452,13 @@ public sealed class EditorTabItemLifetimeTests
         var targetTab = new EditorTabItem(currentContext);
         secondHost.AddTabItem(targetTab);
 
-        bool replaced = await targetTab.ReplaceContextAsync(foreignContext)
+        EditorContextReplacementResult replaced = await targetTab.ReplaceContextAsync(foreignContext)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(foreignTab.Context.Value, Is.SameAs(foreignContext));
             Assert.That(targetTab.Context.Value, Is.SameAs(currentContext));
             Assert.That(foreignContext.DisposeCount, Is.Zero);
@@ -429,6 +470,320 @@ public sealed class EditorTabItemLifetimeTests
         Assert.That(foreignClose.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
         await foreignClose.Completion.WaitAsync(TimeSpan.FromSeconds(5));
         await secondHost.CloseTabItem(targetTab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task UnownedTabCannotReplaceContextOwnedByAnotherHost()
+    {
+        var owner = new EditorService(new ExtensionProvider());
+        var foreign = new EditorService(new ExtensionProvider());
+        var ownerContext = new BlockingEditorContext(blockDispose: false, closeService: owner);
+        var ownerTab = new EditorTabItem(ownerContext);
+        owner.AddTabItem(ownerTab);
+
+        var unownedCurrent = new BlockingEditorContext(blockDispose: false, closeService: foreign);
+        var unownedTab = new EditorTabItem(unownedCurrent);
+
+        EditorContextReplacementResult result = await unownedTab.ReplaceContextAsync(ownerContext)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+            Assert.That(result.InputConsumed, Is.False);
+            Assert.That(ownerTab.Context.Value, Is.SameAs(ownerContext));
+            Assert.That(unownedTab.Context.Value, Is.SameAs(unownedCurrent));
+            Assert.That(ownerContext.DisposeCount, Is.Zero);
+            Assert.That(unownedCurrent.DisposeCount, Is.Zero);
+        });
+
+        await owner.CloseTabItem(ownerTab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await unownedTab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task InitialAddAndReplacementInterleavingCannotPublishUnownedReplacement()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        using var attachEntered = new ManualResetEventSlim();
+        using var releaseAttach = new ManualResetEventSlim();
+        service.BeforeInitialContextClaimPublish = () =>
+        {
+            attachEntered.Set();
+            releaseAttach.Wait(TimeSpan.FromSeconds(5));
+        };
+
+        Task<bool> add = Task.Run(() => service.TryAddTabItem(tab));
+        Assert.That(attachEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        EditorContextReplacementResult replacementResult = await tab.ReplaceContextAsync(replacement)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        releaseAttach.Set();
+
+        Assert.That(await add.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(replacementResult.Status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+            Assert.That(replacementResult.InputConsumed, Is.False);
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+            Assert.That(service.TabItems, Does.Contain(tab));
+            Assert.That(replacement.DisposeCount, Is.Zero);
+        });
+
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await replacement.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementTransfersFactoryOwnership()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new HostMediatedReplacementExtension();
+
+        EditorContextReplacementStatus status = await service.ReplaceContextAsync(tab, extension);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status, Is.EqualTo(EditorContextReplacementStatus.Succeeded));
+            Assert.That(tab.Context.Value, Is.SameAs(extension.CreatedContext));
+            Assert.That(extension.CreatedContext!.DisposeCount, Is.Zero);
+            Assert.That(service.TabItems, Does.Contain(tab));
+        });
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementRejectsForeignTabBeforeCreatingContext()
+    {
+        var owner = new EditorService(new ExtensionProvider());
+        var foreign = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: foreign);
+        var tab = new EditorTabItem(current);
+        foreign.AddTabItem(tab);
+        var extension = new HostMediatedReplacementExtension();
+
+        EditorContextReplacementStatus status = await owner.ReplaceContextAsync(tab, extension);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+            Assert.That(extension.CreationCount, Is.Zero);
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+            Assert.That(current.DisposeCount, Is.Zero);
+            Assert.That(foreign.TabItems, Does.Contain(tab));
+        });
+        await foreign.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementDoesNotDisposeExistingOwnedFactoryResult()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var foreign = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(
+            blockDispose: false,
+            closeService: new ForwardingCloseService(service));
+        var siblingContext = new BlockingEditorContext(
+            blockDispose: false,
+            closeService: new ForwardingCloseService(service));
+        var foreignContext = new BlockingEditorContext(
+            blockDispose: false,
+            closeService: new ForwardingCloseService(foreign));
+        var tab = new EditorTabItem(current);
+        var siblingTab = new EditorTabItem(siblingContext);
+        var foreignTab = new EditorTabItem(foreignContext);
+        service.AddTabItem(tab);
+        service.AddTabItem(siblingTab);
+        foreign.AddTabItem(foreignTab);
+
+        EditorContextReplacementStatus sameStatus = await service.ReplaceContextAsync(
+            tab,
+            new ExistingContextEditorExtension(current));
+        EditorContextReplacementStatus siblingStatus = await service.ReplaceContextAsync(
+            tab,
+            new ExistingContextEditorExtension(siblingContext));
+        EditorContextReplacementStatus foreignStatus = await service.ReplaceContextAsync(
+            tab,
+            new ExistingContextEditorExtension(foreignContext));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sameStatus, Is.EqualTo(EditorContextReplacementStatus.AlreadyActive));
+            Assert.That(siblingStatus, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+            Assert.That(foreignStatus, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+            Assert.That(siblingTab.Context.Value, Is.SameAs(siblingContext));
+            Assert.That(foreignTab.Context.Value, Is.SameAs(foreignContext));
+            Assert.That(current.DisposeCount, Is.Zero);
+            Assert.That(siblingContext.DisposeCount, Is.Zero);
+            Assert.That(foreignContext.DisposeCount, Is.Zero);
+        });
+
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await service.CloseTabItem(siblingTab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await foreign.CloseTabItem(foreignTab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementPreservesContextClaimedDuringFactoryCall()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new RegisteringContextEditorExtension(service);
+
+        EditorContextReplacementStatus status = await service.ReplaceContextAsync(tab, extension);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+            Assert.That(extension.CreatedTab, Is.Not.Null);
+            Assert.That(extension.CreatedContext, Is.SameAs(extension.CreatedTab!.Context.Value));
+            Assert.That(extension.CreatedContext!.DisposeCount, Is.Zero);
+            Assert.That(service.TabItems, Does.Contain(extension.CreatedTab));
+        });
+
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await service.CloseTabItem(extension.CreatedTab!).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementPreservesExternalHostOwnershipLease()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+
+        var externalCloseService = new UnownedCloseService();
+        var externalContext = new BlockingEditorContext(
+            blockDispose: false,
+            closeService: new ForwardingCloseService(externalCloseService));
+        Assert.That(
+            externalCloseService.HostToken.TryAcquireContext(
+                externalContext,
+                out EditorContextOwnershipLease? externalLease),
+            Is.True);
+
+        try
+        {
+            EditorContextReplacementStatus status = await service.ReplaceContextAsync(
+                tab,
+                new ExistingContextEditorExtension(externalContext));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+                Assert.That(tab.Context.Value, Is.SameAs(current));
+                Assert.That(externalContext.DisposeCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            externalLease!.Dispose();
+            await externalContext.DisposeAsync();
+            await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementDisposesFactoryContextWhenTokenValidationThrows()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new HostMediatedReplacementExtension(throwOnHostToken: true);
+
+        InvalidOperationException? caught = null;
+        try
+        {
+            await service.ReplaceContextAsync(tab, extension);
+        }
+        catch (InvalidOperationException ex)
+        {
+            caught = ex;
+        }
+        Assert.That(caught, Is.Not.Null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+            Assert.That(current.DisposeCount, Is.Zero);
+            Assert.That(extension.CreatedContext!.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Does.Contain(tab));
+        });
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementRejectsStaleGenerationAfterFactoryReentry()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new BlockingReplacementExtension();
+
+        Task<EditorContextReplacementStatus> pending =
+            Task.Run(() => service.ReplaceContextAsync(tab, extension).AsTask());
+        await extension.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var intervening = new BlockingEditorContext(blockDispose: false, closeService: service);
+        EditorContextReplacementResult interveningResult = await tab.ReplaceContextAsync(intervening)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(interveningResult.Succeeded, Is.True);
+        EditorContextReplacementResult restoredResult = await tab.ReplaceContextAsync(current)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(restoredResult.Succeeded, Is.True);
+
+        extension.Release.TrySetResult();
+        EditorContextReplacementStatus staleStatus = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(staleStatus, Is.EqualTo(EditorContextReplacementStatus.Busy));
+            Assert.That(extension.CreatedContext!.DisposeCount, Is.EqualTo(1));
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+        });
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task HostMediatedReplacementDisposesFactoryContextWhenCloseWinsDuringCreation()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new BlockingReplacementExtension();
+
+        Task<EditorContextReplacementStatus> pending =
+            Task.Run(() => service.ReplaceContextAsync(tab, extension).AsTask());
+        await extension.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        extension.Release.TrySetResult();
+        EditorContextReplacementStatus status = await pending.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status, Is.EqualTo(EditorContextReplacementStatus.Busy));
+            Assert.That(extension.CreatedContext!.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Does.Not.Contain(tab));
+            Assert.That(tab.Context.Value, Is.Null);
+        });
     }
 
     [Test]
@@ -447,14 +802,14 @@ public sealed class EditorTabItemLifetimeTests
                 foreignAddNotifications++;
         };
 
-        Task<bool> replacing = tab.ReplaceContextAsync(replacement).AsTask();
+        Task<EditorContextReplacementResult> replacing = tab.ReplaceContextAsync(replacement).AsTask();
         await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(tab.Context.Value, Is.Null);
 
         foreign.AddTabItem(tab);
         oldContext.ReleaseDispose();
 
-        Assert.That(await replacing.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That((await replacing!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.True);
         Assert.Multiple(() =>
         {
             Assert.That(owner.TabItems, Does.Contain(tab));
@@ -476,13 +831,13 @@ public sealed class EditorTabItemLifetimeTests
         var tab = new EditorTabItem(current);
         owner.AddTabItem(tab);
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.True);
+            Assert.That(replaced.Succeeded, Is.True);
             Assert.That(tab.Context.Value, Is.SameAs(replacement));
             Assert.That(current.DisposeCount, Is.EqualTo(1));
             Assert.That(replacement.DisposeCount, Is.Zero);
@@ -866,7 +1221,7 @@ public sealed class EditorTabItemLifetimeTests
         var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(original);
         service.AddTabItem(tab);
-        bool? replaced = null;
+        EditorContextReplacementResult? replaced = null;
         using IDisposable observer = tab.IsSelected.Subscribe(value =>
         {
             if (value)
@@ -883,7 +1238,7 @@ public sealed class EditorTabItemLifetimeTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced?.Succeeded, Is.False);
             Assert.That(tab.Context.Value, Is.SameAs(original));
             Assert.That(replacement.DisposeCount, Is.EqualTo(1));
             Assert.That(service.SelectedTabItem.Value, Is.SameAs(tab));
@@ -957,14 +1312,14 @@ public sealed class EditorTabItemLifetimeTests
             }
         };
 
-        Task<bool> replace = Task.Run(async () => await tab.ReplaceContextAsync(replacement));
+        Task<EditorContextReplacementResult> replace = Task.Run(async () => await tab.ReplaceContextAsync(replacement));
         await replacement.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(service.RequestTabRemoval(tab), Is.False);
         Assert.That(service.ContainsTabItem(tab), Is.True,
             "Physical removal waits for the admitted replacement publication to drain.");
         replacement.ReleasePublication();
 
-        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.That((await replace!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.False);
         await tab.GetRemovalCompletion().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {
@@ -1000,16 +1355,20 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ReplaceContextAsync_RejectsAndDisposesNewContextWhenCloseWins()
     {
-        var oldContext = new BlockingEditorContext();
-        var newContext = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(closeService: service);
+        var newContext = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
 
         Task close = tab.DisposeAsync().AsTask();
-        Task<bool> replacement = tab.ReplaceContextAsync(newContext).AsTask();
+        Task<EditorContextReplacementResult> replacement = tab.ReplaceContextAsync(newContext).AsTask();
 
         oldContext.ReleaseDispose();
-        Assert.That(await replacement.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
-        await newContext.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextReplacementResult replacementResult = await replacement!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replacementResult.Status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+        Assert.That(replacementResult.InputConsumed, Is.False);
+        await newContext.DisposeAsync();
 
         await close.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(newContext.DisposeCount, Is.EqualTo(1));
@@ -1023,13 +1382,13 @@ public sealed class EditorTabItemLifetimeTests
         var tab = new EditorTabItem(context);
         service.AddTabItem(tab);
 
-        bool replaced = await tab.ReplaceContextAsync(context)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(context)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(tab.Context.Value, Is.SameAs(context));
             Assert.That(context.DisposeCount, Is.Zero);
         });
@@ -1042,13 +1401,13 @@ public sealed class EditorTabItemLifetimeTests
         var context = new BlockingEditorContext(blockDispose: false);
         var tab = new EditorTabItem(context);
 
-        bool replaced = await tab.ReplaceContextAsync(context)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(context)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(tab.Context.Value, Is.SameAs(context));
             Assert.That(context.DisposeCount, Is.Zero);
         });
@@ -1067,13 +1426,13 @@ public sealed class EditorTabItemLifetimeTests
         service.AddTabItem(first);
         service.AddTabItem(second);
 
-        bool replaced = await first.ReplaceContextAsync(secondContext)
+        EditorContextReplacementResult replaced = await first.ReplaceContextAsync(secondContext)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(first.Context.Value, Is.SameAs(firstContext));
             Assert.That(second.Context.Value, Is.SameAs(secondContext));
             Assert.That(firstContext.DisposeCount, Is.Zero);
@@ -1096,11 +1455,11 @@ public sealed class EditorTabItemLifetimeTests
 
         Task close = service.CloseTabItem(closing).AsTask();
         await closingContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        bool replaced = await closing.ReplaceContextAsync(otherContext)
+        EditorContextReplacementResult replaced = await closing.ReplaceContextAsync(otherContext)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.That(replaced, Is.False);
+        Assert.That(replaced.Succeeded, Is.False);
         Assert.That(otherContext.DisposeCount, Is.Zero);
         closingContext.ReleaseDispose();
         await close.WaitAsync(TimeSpan.FromSeconds(5));
@@ -1108,7 +1467,7 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
-    public async Task RejectedReplacementReservationRemainsInvisibleUntilDisposalCompletes()
+    public async Task RejectedReplacementClaimRemainsHeldUntilDisposalCompletes()
     {
         var service = new EditorService(new ExtensionProvider());
         var closingContext = new BlockingEditorContext(closeService: service);
@@ -1116,22 +1475,25 @@ public sealed class EditorTabItemLifetimeTests
         var closing = new EditorTabItem(closingContext);
         service.AddTabItem(closing);
 
-        Task close = service.CloseTabItem(closing).AsTask();
+        Task<EditorContextReplacementResult> replace = closing.ReplaceContextAsync(rejectedContext).AsTask();
         await closingContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Task<bool> replace = closing.ReplaceContextAsync(rejectedContext).AsTask();
+        Task close = service.CloseTabItem(closing).AsTask();
+        closingContext.ReleaseDispose();
         await rejectedContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.That(
-            service.RequestClose(rejectedContext).Status,
-            Is.EqualTo(EditorContextCloseRequestStatus.NotOwned));
         var competing = new EditorTabItem(rejectedContext);
         Assert.That(service.TryAddTabItem(competing), Is.False);
 
         rejectedContext.ReleaseDispose();
-        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
-        closingContext.ReleaseDispose();
+        EditorContextReplacementResult replacementResult = await replace.WaitAsync(TimeSpan.FromSeconds(5));
         await close.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(rejectedContext.DisposeCount, Is.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(replacementResult.Status, Is.EqualTo(EditorContextReplacementStatus.Busy));
+            Assert.That(replacementResult.InputConsumed, Is.True);
+            Assert.That(rejectedContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Does.Not.Contain(competing));
+        });
     }
 
     [Test]
@@ -1146,16 +1508,16 @@ public sealed class EditorTabItemLifetimeTests
         service.AddTabItem(transitioning);
         service.AddTabItem(other);
 
-        Task<bool> firstReplacement = transitioning.ReplaceContextAsync(replacement).AsTask();
+        Task<EditorContextReplacementResult> firstReplacement = transitioning.ReplaceContextAsync(replacement).AsTask();
         await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        bool rejected = await transitioning.ReplaceContextAsync(otherContext)
+        EditorContextReplacementResult rejected = await transitioning.ReplaceContextAsync(otherContext)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.That(rejected, Is.False);
+        Assert.That(rejected.Succeeded, Is.False);
         Assert.That(otherContext.DisposeCount, Is.Zero);
         oldContext.ReleaseDispose();
-        Assert.That(await firstReplacement.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That((await firstReplacement!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.True);
         await service.CloseTabItem(transitioning).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         await service.CloseTabItem(other).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
@@ -1175,14 +1537,14 @@ public sealed class EditorTabItemLifetimeTests
                 closeRequest = service.RequestClose(replacement);
         });
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
         await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(closeRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
             Assert.That(replacement.DisposeCount, Is.EqualTo(1));
@@ -1208,7 +1570,7 @@ public sealed class EditorTabItemLifetimeTests
         Task<EditorContextCloseRequest> staleClose = Task.Run(() => service.RequestClose(oldContext));
         await lookupCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(
-            await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)),
+            (await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5))).Succeeded,
             Is.True);
         releaseAdmission.TrySetResult();
 
@@ -1244,10 +1606,10 @@ public sealed class EditorTabItemLifetimeTests
         Task<EditorContextCloseRequest> close = Task.Run(() => service.RequestClose(oldContext));
         await reservationCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(replaced, Is.False);
+        Assert.That(replaced.Succeeded, Is.False);
         Assert.That(oldContext.DisposeCount, Is.Zero);
         Assert.That(replacement.DisposeCount, Is.EqualTo(1));
 
@@ -1277,13 +1639,13 @@ public sealed class EditorTabItemLifetimeTests
             return ValueTask.CompletedTask;
         };
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.True);
+            Assert.That(replaced.Succeeded, Is.True);
             Assert.That(service.TabItems, Does.Contain(tab));
             Assert.That(tab.Context.Value, Is.SameAs(replacement));
         });
@@ -1293,15 +1655,19 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task RejectedReplacementDisposalFailureIsReportedAfterCleanup()
     {
-        var oldContext = new BlockingEditorContext();
-        var replacement = new ThrowingEditorContext();
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(closeService: service);
+        var replacement = new ThrowingEditorContext(service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
 
         Task close = tab.DisposeAsync().AsTask();
-        Task<bool> replace = tab.ReplaceContextAsync(replacement).AsTask();
+        Task<EditorContextReplacementResult> replace = tab.ReplaceContextAsync(replacement).AsTask();
 
-        Assert.CatchAsync<InvalidOperationException>(async () =>
-            await replace.WaitAsync(TimeSpan.FromSeconds(5)));
+        EditorContextReplacementResult replacementResult = await replace.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replacementResult.Status, Is.EqualTo(EditorContextReplacementStatus.NotOwned));
+        Assert.That(replacementResult.InputConsumed, Is.False);
+        Assert.CatchAsync<InvalidOperationException>(async () => await replacement.DisposeAsync());
         oldContext.ReleaseDispose();
         await close.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
@@ -1326,14 +1692,14 @@ public sealed class EditorTabItemLifetimeTests
             return ValueTask.CompletedTask;
         };
 
-        bool replaced = await tab.ReplaceContextAsync(newContext)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(newContext)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
         await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
             Assert.That(newContext.DisposeCount, Is.EqualTo(1));
         });
@@ -1342,14 +1708,16 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ContextPropertyPublishesNullOnlyAfterTerminalClose()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var newContext = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var newContext = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
         var values = new List<IEditorContext?>();
         using IDisposable subscription = tab.Context.Subscribe(values.Add);
 
-        Assert.That(await tab.ReplaceContextAsync(newContext).AsTask(), Is.True);
-        await tab.DisposeAsync();
+        Assert.That((await tab.ReplaceContextAsync(newContext).AsTask()).Succeeded, Is.True);
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.That(values, Does.Contain(null));
     }
@@ -1407,8 +1775,11 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ContextSubscriberCanReenterCloseWhenReplacementPublishesNull()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
         Task? reentrantClose = null;
         using IDisposable subscription = tab.Context.Subscribe(value =>
         {
@@ -1416,10 +1787,10 @@ public sealed class EditorTabItemLifetimeTests
                 reentrantClose = tab.DisposeAsync().AsTask();
         });
 
-        bool replaced = await tab.ReplaceContextAsync(new BlockingEditorContext(blockDispose: false))
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(replaced, Is.False);
+        Assert.That(replaced.Succeeded, Is.False);
         if (reentrantClose is not null)
             await reentrantClose.WaitAsync(TimeSpan.FromSeconds(5));
     }
@@ -1439,14 +1810,14 @@ public sealed class EditorTabItemLifetimeTests
                 closeRequest = service.RequestClose(oldContext);
         });
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
         await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(closeRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
             Assert.That(replacement.DisposeCount, Is.EqualTo(1));
@@ -1456,9 +1827,11 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task CloseStartedByReplacementPublicationWinsTheResult()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var replacement = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
         Task? close = null;
         using IDisposable subscription = tab.Context.Subscribe(value =>
         {
@@ -1466,10 +1839,10 @@ public sealed class EditorTabItemLifetimeTests
                 close = tab.DisposeAsync().AsTask();
         });
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(replaced, Is.False);
+        Assert.That(replaced.Succeeded, Is.False);
         Assert.That(close, Is.Not.Null);
         await close!.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(replacement.DisposeCount, Is.EqualTo(1));
@@ -1478,23 +1851,25 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ContextSubscriberCannotStartACompetingReplacement()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var replacement = new BlockingEditorContext(blockDispose: false);
-        var nested = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var nested = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
-        Task<bool>? nestedReplacement = null;
+        service.AddTabItem(tab);
+        Task<EditorContextReplacementResult>? nestedReplacement = null;
         using IDisposable subscription = tab.Context.Subscribe(value =>
         {
             if (value is null && nestedReplacement is null)
                 nestedReplacement = tab.ReplaceContextAsync(nested).AsTask();
         });
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(replaced, Is.True);
+        Assert.That(replaced.Succeeded, Is.True);
         Assert.That(nestedReplacement, Is.Not.Null);
-        Assert.That(await nestedReplacement!.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.That((await nestedReplacement!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.False);
         Assert.Multiple(() =>
         {
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
@@ -1507,9 +1882,11 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task DelayedOwnedDisposalChildUsesNormalDisposeSemanticsAfterScopeEnds()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var replacement = new BlockingEditorContext();
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
         var releaseChild = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? delayedClose = null;
         oldContext.OnDispose = () =>
@@ -1523,7 +1900,7 @@ public sealed class EditorTabItemLifetimeTests
         };
 
         Assert.That(
-            await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)),
+            (await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5))).Succeeded,
             Is.True);
         Assert.That(delayedClose, Is.Not.Null);
         releaseChild.TrySetResult();
@@ -1538,12 +1915,14 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ContextPublicationDoesNotRunRejectedPluginTeardownUnderTheHostGate()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var replacement = new BlockingEditorContext(blockDispose: false);
-        var nested = new BlockingEditorContext(blockDispose: false);
-        var third = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var nested = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var third = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
-        Task<bool>? nestedReplacement = null;
+        service.AddTabItem(tab);
+        Task<EditorContextReplacementResult>? nestedReplacement = null;
         nested.OnDispose = () =>
         {
             Task competing = Task.Run(() =>
@@ -1558,9 +1937,9 @@ public sealed class EditorTabItemLifetimeTests
                 nestedReplacement = tab.ReplaceContextAsync(nested).AsTask();
         });
 
-        Assert.That(await tab.ReplaceContextAsync(replacement).AsTask()
-            .WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
-        Assert.That(await nestedReplacement!.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.That((await tab.ReplaceContextAsync(replacement).AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.True);
+        Assert.That((await nestedReplacement!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.False);
         Assert.Multiple(() =>
         {
             Assert.That(nested.DisposeCount, Is.EqualTo(1));
@@ -1584,12 +1963,12 @@ public sealed class EditorTabItemLifetimeTests
             return ValueTask.CompletedTask;
         };
 
-        Task<bool> replace = tab.ReplaceContextAsync(replacement).AsTask();
+        Task<EditorContextReplacementResult> replace = tab.ReplaceContextAsync(replacement).AsTask();
         await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Task close = service.CloseTabItem(tab).AsTask();
         oldContext.ReleaseDispose();
 
-        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.That((await replace!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.False);
         await close.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(nestedClose.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
         Assert.Multiple(() =>
@@ -1608,7 +1987,7 @@ public sealed class EditorTabItemLifetimeTests
         var nested = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
         service.AddTabItem(tab);
-        Task<bool>? nestedReplacement = null;
+        Task<EditorContextReplacementResult>? nestedReplacement = null;
         EditorContextCloseRequest closeRequest = default;
         nested.OnDispose = () =>
         {
@@ -1621,16 +2000,16 @@ public sealed class EditorTabItemLifetimeTests
             await nestedReplacement;
         };
 
-        bool replaced = await tab.ReplaceContextAsync(replacement)
+        EditorContextReplacementResult replaced = await tab.ReplaceContextAsync(replacement)
             .AsTask()
             .WaitAsync(TimeSpan.FromSeconds(5));
         await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
-            Assert.That(replaced, Is.False);
+            Assert.That(replaced.Succeeded, Is.False);
             Assert.That(nestedReplacement, Is.Not.Null);
-            Assert.That(nestedReplacement!.Result, Is.False);
+            Assert.That(nestedReplacement!.Result.Succeeded, Is.False);
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
             Assert.That(replacement.DisposeCount, Is.EqualTo(1));
             Assert.That(nested.DisposeCount, Is.EqualTo(1));
@@ -1640,9 +2019,11 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ThrowingContextSubscriberCannotStrandReplacement()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var replacement = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
         using IDisposable subscription = tab.Context.Subscribe(value =>
         {
             if (value is null)
@@ -1662,9 +2043,11 @@ public sealed class EditorTabItemLifetimeTests
     [Test]
     public async Task ThrowingReplacementSubscriberDisposesPublishedReplacement()
     {
-        var oldContext = new BlockingEditorContext(blockDispose: false);
-        var replacement = new BlockingEditorContext(blockDispose: false);
+        var service = new EditorService(new ExtensionProvider());
+        var oldContext = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(oldContext);
+        service.AddTabItem(tab);
         using IDisposable subscription = tab.Context.Subscribe(value =>
         {
             if (ReferenceEquals(value, replacement))
@@ -1936,6 +2319,157 @@ public sealed class EditorTabItemLifetimeTests
         {
             context = null;
             return false;
+        }
+    }
+
+    private sealed class HostMediatedReplacementExtension(bool throwOnHostToken = false) : EditorExtension
+    {
+        public BlockingEditorContext? CreatedContext { get; private set; }
+
+        public int CreationCount { get; private set; }
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Replacement");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            CreationCount++;
+            IEditorContextCloseService closeService = throwOnHostToken
+                ? new ThrowingHostTokenCloseService()
+                : services.CloseService;
+            CreatedContext = new BlockingEditorContext(blockDispose: false, obj, closeService);
+            context = CreatedContext;
+            return true;
+        }
+    }
+
+    private sealed class ExistingContextEditorExtension(IEditorContext existingContext) : EditorExtension
+    {
+        public override FilePickerFileType GetFilePickerFileType() => new("Existing");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            context = existingContext;
+            return true;
+        }
+    }
+
+    private sealed class ForwardingCloseService(IEditorContextCloseService inner)
+        : IEditorContextCloseService
+    {
+        public EditorContextHostToken HostToken => inner.HostToken;
+
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+            => inner.RequestClose(context);
+    }
+
+    private sealed class RegisteringContextEditorExtension(EditorService service) : EditorExtension
+    {
+        public BlockingEditorContext? CreatedContext { get; private set; }
+
+        public EditorTabItem? CreatedTab { get; private set; }
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Registering");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            CreatedContext = new BlockingEditorContext(
+                blockDispose: false,
+                obj,
+                new ForwardingCloseService(service));
+            CreatedTab = new EditorTabItem(CreatedContext);
+            service.AddTabItem(CreatedTab);
+            context = CreatedContext;
+            return true;
+        }
+    }
+
+    private sealed class ThrowingHostTokenCloseService : IEditorContextCloseService
+    {
+        public EditorContextHostToken HostToken => throw new InvalidOperationException("Host token unavailable");
+
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+            => new(EditorContextCloseRequestStatus.NotOwned, Task.CompletedTask);
+    }
+
+    private sealed class BlockingReplacementExtension : EditorExtension
+    {
+        public TaskCompletionSource Entered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public BlockingEditorContext? CreatedContext { get; private set; }
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Blocking");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            Entered.TrySetResult();
+            Release.Task.GetAwaiter().GetResult();
+            CreatedContext = new BlockingEditorContext(blockDispose: false, obj, services.CloseService);
+            context = CreatedContext;
+            return true;
         }
     }
 

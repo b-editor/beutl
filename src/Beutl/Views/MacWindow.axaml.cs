@@ -210,15 +210,13 @@ public sealed partial class MacWindow : Window
                         await commands.OnSave();
                     }
 
-                    if (selectedTab.Context.Value is { } selectedContext
-                        && editorExtension.TryCreateContext(
-                            selectedContext.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
+                    if (selectedTab.Context.Value is not null)
                     {
                         try
                         {
-                            if (!await selectedTab.ReplaceContextAsync(context))
+                            EditorContextReplacementStatus replacement =
+                                await viewModel.EditorService.ReplaceContextAsync(selectedTab, editorExtension);
+                            if (replacement != EditorContextReplacementStatus.Succeeded)
                             {
                                 NotificationService.ShowInformation(
                                     title: MessageStrings.ContextNotCreated,

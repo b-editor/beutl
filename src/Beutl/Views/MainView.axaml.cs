@@ -251,15 +251,13 @@ public sealed partial class MainView : UserControl
                         await commands.OnSave();
                     }
 
-                    if (selectedTab.Context.Value is { } selectedContext
-                        && editorExtension.TryCreateContext(
-                            selectedContext.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
+                    if (selectedTab.Context.Value is not null)
                     {
                         try
                         {
-                            if (!await selectedTab.ReplaceContextAsync(context))
+                            EditorContextReplacementStatus replacement =
+                                await viewModel.EditorService.ReplaceContextAsync(selectedTab, editorExtension);
+                            if (replacement != EditorContextReplacementStatus.Succeeded)
                             {
                                 NotificationService.ShowInformation(
                                     title: MessageStrings.ContextNotCreated,
@@ -268,7 +266,7 @@ public sealed partial class MainView : UserControl
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Failed to dispose the current editor before replacing it");
+                            _logger.LogError(ex, "Failed to replace the current editor context");
                             NotificationService.ShowError(
                                 MessageStrings.ContextNotCreated,
                                 MessageStrings.OperationFailed);

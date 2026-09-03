@@ -10,7 +10,8 @@ public interface IEditorContextCloseService
     /// A context must retain the capability supplied by its creating host, including this token.
     /// Hosts compare the token by reference when attaching or replacing a context so a context
     /// cannot route close requests to a different host. Implementations must return a stable,
-    /// non-null token for the lifetime of the capability.
+    /// non-null token for the lifetime of the capability and acquire an ownership lease before
+    /// publishing each context.
     /// </remarks>
     EditorContextHostToken HostToken { get; }
 

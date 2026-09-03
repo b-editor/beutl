@@ -189,6 +189,41 @@ public class SceneEditorContextServicesTests
     }
 
     [AvaloniaTest]
+    public void EditViewModel_constructor_is_not_public()
+    {
+        Assert.That(typeof(EditViewModel).GetConstructors(), Is.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task EditViewModel_constructor_accepts_services_from_same_host()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "edit-view-model-host-match");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "edit-view-model-host-match")
+        {
+            Uri = new Uri(Path.Combine(workspace, "edit-view-model-host-match.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+
+        var viewModel = new EditViewModel(scene, editorService);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.EditorService, Is.SameAs(editorService));
+                Assert.That(viewModel.CloseService.HostToken, Is.SameAs(editorService.HostToken));
+                Assert.That(viewModel.ExtensionProvider, Is.SameAs(extensionProvider));
+            });
+        }
+        finally
+        {
+            await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Context_disposal_before_tab_publication_is_not_published()
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "publication-race");
