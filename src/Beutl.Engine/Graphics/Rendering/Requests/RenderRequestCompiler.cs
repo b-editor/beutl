@@ -302,7 +302,6 @@ internal sealed class RenderRequestCompiler
             regions,
             roots,
             materializationDemands,
-            cachePlanning.MaterializedFragments,
             previewDropEligibleMaterializations,
             targetDependencies,
             cacheResolution,

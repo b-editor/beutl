@@ -81,7 +81,6 @@ public sealed class ExecutionIslandAuthorityTests
             Assert.That(compiled.ExecutionPlan.TryGetMembership(opacity, out ExecutionIslandMembership membership),
                 Is.True);
             Assert.That(membership.Island.Kind, Is.EqualTo(ExecutionIslandKind.Compatibility));
-            Assert.That(membership.Island.PlansGpuPass, Is.True);
             Assert.That(compiled.ExecutionPlan.Boundaries,
                 Has.Some.Matches<ExecutionIslandBoundary>(static boundary =>
                     boundary.Reason == ExecutionIslandBoundaryReason.SemanticComposite));
@@ -212,13 +211,11 @@ public sealed class ExecutionIslandAuthorityTests
                 new ExecutionIsland(
                     new ExecutionIslandId(1),
                     ExecutionIslandKind.Compatibility,
-                    [fragmentId],
-                    plansGpuPass: false),
+                    [fragmentId]),
                 new ExecutionIsland(
                     new ExecutionIslandId(2),
                     ExecutionIslandKind.Compatibility,
-                    [fragmentId],
-                    plansGpuPass: false),
+                    [fragmentId]),
             ],
             []),
             Throws.ArgumentException.With.Message.Contains("more than one execution island"));
@@ -351,13 +348,11 @@ public sealed class ExecutionIslandAuthorityTests
                 new ExecutionIsland(
                     new ExecutionIslandId(1),
                     ExecutionIslandKind.Compatibility,
-                    [first.Id!.Value],
-                    plansGpuPass: true),
+                    [first.Id!.Value]),
                 new ExecutionIsland(
                     new ExecutionIslandId(2),
                     ExecutionIslandKind.Compatibility,
-                    [second.Id!.Value],
-                    plansGpuPass: true),
+                    [second.Id!.Value]),
             ],
             []);
         return (graph, roots, plan, first, second);

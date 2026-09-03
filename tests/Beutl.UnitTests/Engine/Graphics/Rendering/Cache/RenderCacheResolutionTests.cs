@@ -624,7 +624,6 @@ public sealed class RenderCacheResolutionTests
         RenderCachePlanningResult cold = ResolvePlanning(scenario, lookup);
         Assert.Multiple(() =>
         {
-            Assert.That(cold.ResolutionPasses, Is.InRange(1, 2));
             Assert.That(cold.Resolution.MissCaptures, Has.Length.EqualTo(1));
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
         });
@@ -635,7 +634,6 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(warm.ResolutionPasses, Is.InRange(1, 2));
             Assert.That(warm.Resolution.Hits, Has.Length.EqualTo(1));
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
         });
@@ -661,7 +659,6 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ResolutionPasses, Is.EqualTo(2));
             Assert.That(result.Resolution.Hits, Has.Length.EqualTo(1));
             Assert.That(result.Resolution.MissCaptures, Is.Empty);
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
@@ -722,7 +719,6 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ResolutionPasses, Is.EqualTo(4));
             Assert.That(
                 result.Resolution.Decisions,
                 Has.All.Property(nameof(RenderCacheDecision.BypassReason))
@@ -779,7 +775,6 @@ public sealed class RenderCacheResolutionTests
         {
             Assert.That(result.Resolution.Hits, Is.Empty);
             Assert.That(result.Resolution.MissCaptures, Is.Empty);
-            Assert.That(result.ResolutionPasses, Is.EqualTo(2));
             Assert.That(
                 result.Resolution.Decisions.Single().BypassReason,
                 Is.EqualTo(RenderCacheBypassReason.UnstableBoundaryPlan));

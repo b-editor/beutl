@@ -9,7 +9,6 @@ internal sealed class ExecutionIsland
         ExecutionIslandId id,
         ExecutionIslandKind kind,
         ImmutableArray<RenderFragmentId> fragments,
-        bool plansGpuPass,
         CompiledShaderRun? shaderRun = null)
     {
         if (id.Value <= 0)
@@ -24,13 +23,9 @@ internal sealed class ExecutionIsland
                 "Only Shader-run islands carry a compiled Shader run.",
                 nameof(shaderRun));
         }
-        if (kind == ExecutionIslandKind.ShaderRun && !plansGpuPass)
-            throw new ArgumentException("A Shader-run island must plan one GPU pass.", nameof(plansGpuPass));
-
         Id = id;
         Kind = kind;
         Fragments = fragments;
-        PlansGpuPass = plansGpuPass;
         ShaderRun = shaderRun;
     }
 
@@ -39,8 +34,6 @@ internal sealed class ExecutionIsland
     public ExecutionIslandKind Kind { get; }
 
     public ImmutableArray<RenderFragmentId> Fragments { get; }
-
-    public bool PlansGpuPass { get; }
 
     public CompiledShaderRun? ShaderRun { get; }
 }

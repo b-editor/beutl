@@ -10,7 +10,6 @@ internal sealed class CompiledRenderRequest : IDisposable
         RegionAnalysis regions,
         ImmutableArray<RenderFragmentReference> roots,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
-        IReadOnlySet<RenderFragmentReference> materializedFragments,
         IReadOnlySet<RenderFragmentReference> previewDropEligibleMaterializations,
         TargetDependencyPlan targetDependencies,
         RenderCacheResolution cacheResolution,
@@ -27,8 +26,6 @@ internal sealed class CompiledRenderRequest : IDisposable
         Roots = roots;
         MaterializationDemands = materializationDemands
             ?? throw new ArgumentNullException(nameof(materializationDemands));
-        MaterializedFragments = materializedFragments
-            ?? throw new ArgumentNullException(nameof(materializedFragments));
         PreviewDropEligibleMaterializations = previewDropEligibleMaterializations
             ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
         CacheResolution = cacheResolution ?? throw new ArgumentNullException(nameof(cacheResolution));
@@ -51,8 +48,6 @@ internal sealed class CompiledRenderRequest : IDisposable
     public ImmutableArray<RenderFragmentReference> Roots { get; }
 
     public IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> MaterializationDemands { get; }
-
-    public IReadOnlySet<RenderFragmentReference> MaterializedFragments { get; }
 
     public IReadOnlySet<RenderFragmentReference> PreviewDropEligibleMaterializations { get; }
 

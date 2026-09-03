@@ -41,7 +41,6 @@ public sealed class CrossNodeShaderFusionTests
             }));
             Assert.That(run.Program.StageCount, Is.EqualTo(3));
             Assert.That(run.IsFused, Is.True);
-            Assert.That(run.CoverageSource, Is.EqualTo(ShaderRunCoverageSource.MaterializedInput));
             Assert.That(run.Output.CanBeUsedAsValueInput, Is.True,
                 "The typed opacity descriptor must preserve value-input eligibility.");
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(

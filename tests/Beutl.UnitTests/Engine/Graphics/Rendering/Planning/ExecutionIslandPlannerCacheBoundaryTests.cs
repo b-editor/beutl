@@ -109,8 +109,6 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             Assert.That(plan.Islands.Single().Fragments, Is.EqualTo(new[] { fixture.Tail.Id }));
             Assert.That(plan.ShaderRuns.Single().Stages.Select(static stage => stage.FragmentId),
                 Is.EqualTo(new[] { fixture.Tail.Id }));
-            Assert.That(plan.ShaderRuns.Single().CoverageSource,
-                Is.EqualTo(ShaderRunCoverageSource.MaterializedInput));
             Assert.That(plan.Islands.SelectMany(static island => island.Fragments),
                 Has.None.EqualTo(fixture.CachedProducer.Id));
             Assert.That(plan.Islands.SelectMany(static island => island.Fragments),

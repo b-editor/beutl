@@ -63,7 +63,6 @@ public sealed class TargetScopeLoweringTests
         Assert.Multiple(() =>
         {
             Assert.That(local.ResolvedDomain, Is.EqualTo(domain));
-            Assert.That(local.IsOrderOnly, Is.False);
             Assert.That(localSteps.Select(static step => step.Kind), Is.EqualTo(new[]
             {
                 TargetDependencyKind.Composite,
@@ -444,7 +443,6 @@ public sealed class TargetScopeLoweringTests
         Assert.Multiple(() =>
         {
             Assert.That(scope.ResolvedDomain, Is.EqualTo(Rect.Empty));
-            Assert.That(scope.IsOrderOnly, Is.True);
             Assert.That(compiled.TargetDependencies.Steps.Count(step => step.ScopeId == scope.Id), Is.Zero);
             Assert.That(compiled.TargetDependencies.Steps.Length, Is.EqualTo(1));
             Assert.That(

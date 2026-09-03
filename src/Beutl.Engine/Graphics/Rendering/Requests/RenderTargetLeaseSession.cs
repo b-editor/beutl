@@ -52,8 +52,6 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             ? []
             : [.. _cleanupFailures, .. Request.CleanupFailures];
 
-    internal RenderTargetPoolStatistics PoolStatistics => _registry.Statistics;
-
     internal RenderCacheDeviceContextIdentity CacheDeviceContextIdentity
         => new(
             _registry,

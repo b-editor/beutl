@@ -112,7 +112,6 @@ public sealed class FusionBoundaryTests
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(run.CoverageSource, Is.EqualTo(ShaderRunCoverageSource.CompatibilityMaterialization));
             Assert.That(run.Stages.Single().CoverageBehavior,
                 Is.EqualTo(SkslCoverageBehavior.RequiresResolvedCoverage));
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(

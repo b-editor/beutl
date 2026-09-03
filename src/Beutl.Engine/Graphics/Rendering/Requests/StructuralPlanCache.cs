@@ -182,7 +182,6 @@ internal sealed class StructuralExecutionPlanTemplate
         int Id,
         ExecutionIslandKind Kind,
         int[] Fragments,
-        bool PlansGpuPass,
         ShaderRunTemplate? ShaderRun)
     {
         public static IslandTemplate Create(
@@ -198,7 +197,6 @@ internal sealed class StructuralExecutionPlanTemplate
                 island.Id.Value,
                 island.Kind,
                 fragments,
-                island.PlansGpuPass,
                 island.ShaderRun is { } run ? ShaderRunTemplate.Create(run, graph) : null);
         }
 
@@ -215,7 +213,6 @@ internal sealed class StructuralExecutionPlanTemplate
                 new ExecutionIslandId(Id),
                 Kind,
                 ImmutableCollectionsMarshal.AsImmutableArray(fragmentIds),
-                PlansGpuPass,
                 ShaderRun?.Bind(graph, references));
         }
     }
@@ -225,8 +222,7 @@ internal sealed class StructuralExecutionPlanTemplate
         int Input,
         int Output,
         StageTemplate[] Stages,
-        SkslMergedProgram Program,
-        ShaderRunCoverageSource CoverageSource)
+        SkslMergedProgram Program)
     {
         public static ShaderRunTemplate Create(
             CompiledShaderRun run,
@@ -242,8 +238,7 @@ internal sealed class StructuralExecutionPlanTemplate
                 GetFragmentIndex(GetId(run.Input), graph),
                 GetFragmentIndex(GetId(run.Output), graph),
                 stages,
-                run.Program,
-                run.CoverageSource);
+                run.Program);
         }
 
         public CompiledShaderRun Bind(
@@ -260,8 +255,7 @@ internal sealed class StructuralExecutionPlanTemplate
                 references[Input],
                 references[Output],
                 ImmutableCollectionsMarshal.AsImmutableArray(stages),
-                Program,
-                CoverageSource);
+                Program);
         }
     }
 

@@ -116,10 +116,7 @@ internal static class RenderMaterializationDemandResolver
         }
 
         effectClassUses.ExceptWith(otherUses);
-        return new RenderMaterializationDemandResolution(
-            result,
-            materializedUses,
-            effectClassUses);
+        return new RenderMaterializationDemandResolution(result, effectClassUses);
     }
 
     private static float ResolveDemand(

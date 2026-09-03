@@ -32,8 +32,7 @@ internal static class TargetDependencyLowerer
             TargetScopeId? parentId,
             RenderFragmentReference? owner,
             Rect? resolvedDomain,
-            bool inheritParentToken = false,
-            bool isOrderOnly = false)
+            bool inheritParentToken = false)
         {
             var scopeId = new TargetScopeId(++_nextScopeId);
             TargetTokenId token = inheritParentToken && parentId is { } parent
@@ -45,8 +44,7 @@ internal static class TargetDependencyLowerer
                 parentId,
                 owner?.Id,
                 token,
-                resolvedDomain,
-                isOrderOnly));
+                resolvedDomain));
             return scopeId;
         }
 
@@ -175,11 +173,7 @@ internal static class TargetDependencyLowerer
             TargetRegion region = ((TargetLayerScopeRenderFragmentPayload)reference.Payload!).Region;
             Rect domain = ResolveRegion(region, GetDomain(parentScope), reference);
             bool isOrderOnly = region.Kind == TargetRegionKind.Empty;
-            TargetScopeId childScope = CreateScope(
-                parentScope,
-                reference,
-                domain,
-                isOrderOnly: isOrderOnly);
+            TargetScopeId childScope = CreateScope(parentScope, reference, domain);
             if (isOrderOnly)
                 return;
 

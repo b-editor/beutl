@@ -89,7 +89,7 @@ internal sealed class RecordedRenderGraphBuilder
         }
 
         RenderFragmentId id = new(RequestId, _fragments.Count + 1L);
-        _fragments.Add(new RecordedRenderFragment(id, _fragments.Count, values, provenanceId, payload));
+        _fragments.Add(new RecordedRenderFragment(id, values, provenanceId, payload));
         return id;
     }
 

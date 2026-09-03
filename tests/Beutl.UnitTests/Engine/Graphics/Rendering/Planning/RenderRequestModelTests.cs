@@ -230,7 +230,6 @@ public sealed class RenderRequestModelTests
             Assert.That(graph.RequestId, Is.EqualTo(requestId));
             Assert.That(source, Is.Not.EqualTo(mapped));
             Assert.That(first, Is.Not.EqualTo(second));
-            Assert.That(graph.Fragments.Select(static item => item.AuthoredOrder), Is.EqualTo(new[] { 0, 1 }));
             Assert.That(graph.Fragments.Select(static item => item.Id), Is.EqualTo(new[] { first, second }));
             Assert.That(graph.Values[1].Inputs, Is.EqualTo(new[] { source }));
             Assert.That(graph.PublicationRoots, Is.EqualTo(new[] { second }));

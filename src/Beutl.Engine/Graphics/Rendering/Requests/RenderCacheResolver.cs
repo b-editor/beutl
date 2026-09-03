@@ -4,7 +4,6 @@ namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed record RenderMaterializationDemandResolution(
     IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> Demands,
-    IReadOnlySet<RenderFragmentReference> MaterializedFragments,
     IReadOnlySet<RenderFragmentReference> PreviewDropEligibleMaterializations);
 
 /// <summary>
@@ -77,26 +76,18 @@ internal sealed class RenderCacheResolver
                 return new RenderCachePlanningResult(
                     resolution,
                     demands,
-                    demandResolution.MaterializedFragments,
-                    demandResolution.PreviewDropEligibleMaterializations,
-                    pass);
+                    demandResolution.PreviewDropEligibleMaterializations);
             }
 
             if (!visitedBoundarySets.Add(nextPlanningBoundaries))
             {
-                return CreateUnstableBoundaryFallback(
-                    graph,
-                    uncachedDemandResolution!,
-                    pass);
+                return CreateUnstableBoundaryFallback(graph, uncachedDemandResolution!);
             }
 
             planningBoundaries = nextPlanningBoundaries;
         }
 
-        return CreateUnstableBoundaryFallback(
-            graph,
-            uncachedDemandResolution!,
-            MaximumResolutionPasses);
+        return CreateUnstableBoundaryFallback(graph, uncachedDemandResolution!);
     }
 
     private static HashSet<RenderFragmentReference> ResolvePlanningBoundaries(
@@ -237,8 +228,7 @@ internal sealed class RenderCacheResolver
 
     private static RenderCachePlanningResult CreateUnstableBoundaryFallback(
         RecordedRenderGraph graph,
-        RenderMaterializationDemandResolution uncachedDemandResolution,
-        int resolutionPasses)
+        RenderMaterializationDemandResolution uncachedDemandResolution)
     {
         var resolution = new RenderCacheResolution(
             [.. graph.CacheCandidates.Select(candidate =>
@@ -246,9 +236,7 @@ internal sealed class RenderCacheResolver
         return new RenderCachePlanningResult(
             resolution,
             uncachedDemandResolution.Demands,
-            uncachedDemandResolution.MaterializedFragments,
-            uncachedDemandResolution.PreviewDropEligibleMaterializations,
-            resolutionPasses);
+            uncachedDemandResolution.PreviewDropEligibleMaterializations);
     }
 
     private static RenderCacheDecision Superseded(

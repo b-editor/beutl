@@ -379,7 +379,7 @@ internal sealed class RenderTargetPool : IDisposable
             }
 
             _reuses++;
-            lease = Lease(request, reusable, wasReused: true);
+            lease = Lease(request, reusable);
             return true;
         }
 
@@ -428,7 +428,7 @@ internal sealed class RenderTargetPool : IDisposable
             _ownedBytes = nextOwnedBytes;
             _creates++;
             accepted = true;
-            lease = Lease(request, slot, wasReused: false);
+            lease = Lease(request, slot);
             return true;
         }
         catch (Exception primary)
@@ -584,8 +584,7 @@ internal sealed class RenderTargetPool : IDisposable
 
     private PooledRenderTargetLease Lease(
         RenderTargetPoolRequest request,
-        TargetSlot slot,
-        bool wasReused)
+        TargetSlot slot)
     {
         try
         {
@@ -596,7 +595,7 @@ internal sealed class RenderTargetPool : IDisposable
                 generation = 1;
             }
 
-            var lease = new PooledRenderTargetLease(this, request, slot, generation, wasReused);
+            var lease = new PooledRenderTargetLease(this, request, slot, generation);
             slot.Generation = generation;
             slot.LastAvailableLease = null;
             slot.ActiveLease = lease;

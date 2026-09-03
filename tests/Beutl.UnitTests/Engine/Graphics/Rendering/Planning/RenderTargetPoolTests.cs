@@ -39,11 +39,7 @@ public sealed class RenderTargetPoolTests
         using (RenderTargetPoolRequest request = pool.BeginRequest())
         {
             using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 3));
-            Assert.Multiple(() =>
-            {
-                Assert.That(lease.WasReused, Is.True);
-                AssertTargetIsTransparent(lease.Target);
-            });
+            AssertTargetIsTransparent(lease.Target);
         }
     }
 
@@ -116,7 +112,6 @@ public sealed class RenderTargetPoolTests
             PooledRenderTargetLease lease = request.Acquire(new PixelSize(8, 6));
             firstTarget = (TrackingRenderTarget)lease.Target;
             firstGeneration = lease.Generation;
-            Assert.That(lease.WasReused, Is.False);
             lease.Dispose();
         }
 
@@ -127,7 +122,6 @@ public sealed class RenderTargetPoolTests
             {
                 Assert.That(lease.Target, Is.SameAs(firstTarget));
                 Assert.That(lease.Generation, Is.GreaterThan(firstGeneration));
-                Assert.That(lease.WasReused, Is.True);
             });
             lease.Dispose();
         }
@@ -135,7 +129,6 @@ public sealed class RenderTargetPoolTests
         using (RenderTargetPoolRequest request = pool.BeginRequest())
         {
             PooledRenderTargetLease lease = request.Acquire(new PixelSize(9, 6));
-            Assert.That(lease.WasReused, Is.False);
             lease.Dispose();
         }
 
@@ -1023,7 +1016,6 @@ public sealed class RenderTargetPoolTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(reallocated.WasReused, Is.False);
             Assert.That(reallocated.Target, Is.Not.SameAs(retained));
             Assert.That(retained.IsDisposed, Is.True);
             Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
@@ -1049,7 +1041,6 @@ public sealed class RenderTargetPoolTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(reused.WasReused, Is.True);
             Assert.That(reused.Target, Is.SameAs(retained));
             Assert.That(pool.Statistics.Evictions, Is.Zero);
             Assert.That(pool.Statistics.Creates, Is.EqualTo(1));

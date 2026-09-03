@@ -8,14 +8,12 @@ internal sealed class PooledRenderTargetLease : IDisposable
         RenderTargetPool pool,
         RenderTargetPoolRequest request,
         RenderTargetPool.TargetSlot slot,
-        long generation,
-        bool wasReused)
+        long generation)
     {
         Pool = pool;
         Request = request;
         Slot = slot;
         Generation = generation;
-        WasReused = wasReused;
     }
 
     public RenderTarget Target
@@ -37,8 +35,6 @@ internal sealed class PooledRenderTargetLease : IDisposable
     }
 
     public long Generation { get; }
-
-    public bool WasReused { get; }
 
     public PooledRenderTargetLeaseState State { get; internal set; } = PooledRenderTargetLeaseState.Leased;
 

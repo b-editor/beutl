@@ -5,5 +5,4 @@ internal readonly record struct TargetScopePlan(
     TargetScopeId? ParentId,
     RenderFragmentId? OwnerFragmentId,
     TargetTokenId InitialToken,
-    Rect? ResolvedDomain,
-    bool IsOrderOnly);
+    Rect? ResolvedDomain);

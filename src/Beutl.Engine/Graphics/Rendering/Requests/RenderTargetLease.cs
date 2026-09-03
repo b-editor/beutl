@@ -14,8 +14,6 @@ internal sealed class RenderTargetLease : IDisposable
 
     public bool IsReleased { get; internal set; }
 
-    public bool WasReused => PooledLease.WasReused;
-
     internal RenderTargetLeaseSession Session { get; }
 
     internal PooledRenderTargetLease PooledLease { get; }

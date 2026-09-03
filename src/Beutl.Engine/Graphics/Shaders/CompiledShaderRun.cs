@@ -11,8 +11,7 @@ internal sealed class CompiledShaderRun
         RenderFragmentReference input,
         RenderFragmentReference output,
         ImmutableArray<CompiledShaderStage> stages,
-        SkslMergedProgram program,
-        ShaderRunCoverageSource coverageSource)
+        SkslMergedProgram program)
     {
         if (id.Value <= 0)
             throw new ArgumentOutOfRangeException(nameof(id));
@@ -29,8 +28,6 @@ internal sealed class CompiledShaderRun
         }
         if (program.StageCount != stages.Length)
             throw new ArgumentException("The merged program and semantic stage counts must match.", nameof(program));
-        if (!Enum.IsDefined(coverageSource))
-            throw new ArgumentOutOfRangeException(nameof(coverageSource));
 
         ShaderDescription? wholeSourceHead = stages[0].Description.Kind == ShaderDescriptionKind.WholeSource
             ? stages[0].Description
@@ -58,7 +55,6 @@ internal sealed class CompiledShaderRun
         Output = output;
         Stages = stages;
         Program = program;
-        CoverageSource = coverageSource;
         WholeSourceHead = wholeSourceHead;
     }
 
@@ -74,13 +70,6 @@ internal sealed class CompiledShaderRun
 
     /// <summary>Gets the WholeSource head whose implicit source mapping governs the run input, if present.</summary>
     public ShaderDescription? WholeSourceHead { get; }
-
-    /// <summary>
-    /// Gets the compile-time witness for the run input's coverage provenance. The executor still
-    /// consumes a materialized value for every run; this witness does not authorize bypassing that
-    /// runtime materialization.
-    /// </summary>
-    public ShaderRunCoverageSource CoverageSource { get; }
 
     public bool IsFused => Stages.Length > 1;
 }

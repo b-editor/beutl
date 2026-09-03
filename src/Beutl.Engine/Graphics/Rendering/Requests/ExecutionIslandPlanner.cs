@@ -175,21 +175,14 @@ internal sealed class ExecutionIslandPlanner
 
                 RenderFragmentReference input = group.Stages[0].Fragment.Inputs.Single();
                 RenderFragmentReference output = group.Stages[^1].Fragment;
-                ShaderRunCoverageSource coverageSource = ResolveCoverageSource(
-                    input,
-                    compiledFragments,
-                    group.Stages,
-                    cacheHitIds);
                 drafts.Add(new IslandDraft(
                     GetId(group.Stages[0].Fragment).Value,
                     ExecutionIslandKind.ShaderRun,
                     [.. group.Stages.Select(static item => GetId(item.Fragment))],
-                    PlansGpuPass: true,
                     input,
                     output,
                     CreateCompiledStages(group),
-                    group.Program,
-                    coverageSource));
+                    group.Program));
                 foreach (StageCandidate stage in group.Stages)
                     compiledFragments.Add(stage.Fragment);
                 previous = group;
@@ -219,12 +212,10 @@ internal sealed class ExecutionIslandPlanner
                 GetId(reference).Value,
                 item.Kind,
                 [GetId(reference)],
-                PlansGpuPass: PlansGpuPass(reference),
                 Input: null,
                 Output: null,
                 Stages: [],
-                Program: null,
-                ShaderRunCoverageSource.CompatibilityMaterialization));
+                Program: null));
             boundaries.Add(new ExecutionIslandBoundary(
                 reference.Inputs.IsDefaultOrEmpty ? null : GetId(reference.Inputs[0]),
                 GetId(reference),
@@ -264,15 +255,13 @@ internal sealed class ExecutionIslandPlanner
                     draft.Input!,
                     draft.Output!,
                     draft.Stages,
-                    draft.Program!,
-                    draft.CoverageSource);
+                    draft.Program!);
             }
 
             islands.Add(new ExecutionIsland(
                 new ExecutionIslandId(index + 1),
                 draft.Kind,
                 draft.Fragments,
-                draft.PlansGpuPass,
                 run));
         }
 
@@ -494,25 +483,6 @@ internal sealed class ExecutionIslandPlanner
             []));
     }
 
-    private static ShaderRunCoverageSource ResolveCoverageSource(
-        RenderFragmentReference input,
-        IReadOnlySet<RenderFragmentReference> compiledFragments,
-        IReadOnlyList<StageCandidate> stages,
-        IReadOnlySet<RenderFragmentId> cacheHitIds)
-    {
-        if (compiledFragments.Contains(input))
-            return ShaderRunCoverageSource.PriorShaderRun;
-        if (input.Kind == RenderFragmentKind.MaterializedInput
-            || cacheHitIds.Contains(GetId(input)))
-            return ShaderRunCoverageSource.MaterializedInput;
-        if (stages.All(static item =>
-                item.Snippet.CoverageBehavior == SkslCoverageBehavior.PremultipliedCoverageHomogeneous))
-        {
-            return ShaderRunCoverageSource.EngineHomogeneousProof;
-        }
-        return ShaderRunCoverageSource.CompatibilityMaterialization;
-    }
-
     private static void AddSelectedCacheBoundaries(
         IReadOnlyList<RenderFragmentReference> references,
         IReadOnlySet<RenderFragmentId> cacheHitIds,
@@ -694,32 +664,6 @@ internal sealed class ExecutionIslandPlanner
             _ => false,
         };
 
-    private static bool PlansGpuPass(RenderFragmentReference reference)
-        => reference.Kind switch
-        {
-            RenderFragmentKind.Opacity
-                or RenderFragmentKind.Blend
-                or RenderFragmentKind.OpacityMask
-                or RenderFragmentKind.Shader
-                or RenderFragmentKind.Geometry
-                or RenderFragmentKind.OpaqueSource
-                or RenderFragmentKind.OpaqueMap
-                or RenderFragmentKind.OpaqueCombine
-                or RenderFragmentKind.OpaqueExpand
-                or RenderFragmentKind.Layer
-                or RenderFragmentKind.TargetCapture
-                or RenderFragmentKind.BuiltInBackdropCapture => true,
-            RenderFragmentKind.TargetLayerScope
-                => ((TargetLayerScopeRenderFragmentPayload)reference.Payload!).Region.Kind
-                   != TargetRegionKind.Empty,
-            RenderFragmentKind.TargetCommand
-                => ((TargetCommandRenderFragmentPayload)reference.Payload!).Description.AffectedRegion.Kind
-                   != TargetRegionKind.Empty,
-            RenderFragmentKind.TargetScope
-                => ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.IsValueReplayMap,
-            _ => false,
-        };
-
     private static ImmutableArray<SkslBackendLimit> GetSplitLimits(
         IReadOnlyList<StageCandidate> previous,
         IReadOnlyList<StageCandidate> current,
@@ -784,12 +728,10 @@ internal sealed class ExecutionIslandPlanner
         long AuthoredOrder,
         ExecutionIslandKind Kind,
         ImmutableArray<RenderFragmentId> Fragments,
-        bool PlansGpuPass,
         RenderFragmentReference? Input,
         RenderFragmentReference? Output,
         ImmutableArray<CompiledShaderStage> Stages,
-        SkslMergedProgram? Program,
-        ShaderRunCoverageSource CoverageSource);
+        SkslMergedProgram? Program);
 
     private readonly record struct ExecutionIslandClassification(
         ExecutionIslandKind Kind,
