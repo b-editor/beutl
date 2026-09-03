@@ -61,11 +61,7 @@ internal sealed class ExecutionIslandPlan
         return _membershipByFragment.TryGetValue(id, out membership);
     }
 
-    public ExecutionIslandExecutionLedger CreateExecutionLedger(
-        RecordedRenderGraph graph,
-        ImmutableArray<RenderFragmentReference> roots,
-        RenderCacheResolution cacheResolution)
-        => new(this, graph, roots, cacheResolution);
+    public ExecutionIslandExecutionLedger CreateExecutionLedger() => new(this);
 
     // A cached structural plan rebinds through this constructor on every hit, so both scans stay
     // allocation-free rather than moving behind a Debug gate: a plugin-authored island is validated in the

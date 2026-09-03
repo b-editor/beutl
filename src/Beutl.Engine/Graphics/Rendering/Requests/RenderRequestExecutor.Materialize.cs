@@ -83,7 +83,7 @@ internal sealed partial class RenderRequestExecutor
         {
             if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership))
             {
-                ExecutionIsland island = _executionLedger.Begin(fragment);
+                ExecutionIsland island = _executionLedger.Begin(membership);
                 IReadOnlyList<MaterializedRenderValue> values = membership.ShaderRun is { } run
                     ? ExecuteCompiledShaderRun(run, currentTarget, requestedScale)
                     : MaterializePlannedFragment(fragment, currentTarget, requestedScale);

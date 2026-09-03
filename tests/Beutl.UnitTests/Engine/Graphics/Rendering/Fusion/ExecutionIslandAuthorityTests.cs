@@ -165,10 +165,7 @@ public sealed class ExecutionIslandAuthorityTests
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         RenderFragmentReference interior = Find(compiled.Graph, run.Stages[0].FragmentId);
-        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger(
-            compiled.Graph,
-            compiled.Roots,
-            compiled.CacheResolution);
+        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger();
 
         Assert.That(
             () => ledger.Begin(interior),
@@ -180,10 +177,7 @@ public sealed class ExecutionIslandAuthorityTests
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger(
-            compiled.Graph,
-            compiled.Roots,
-            compiled.CacheResolution);
+        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger();
 
         ExecutionIsland island = ledger.Begin(run.Output);
         ledger.Complete(island);
@@ -194,16 +188,15 @@ public sealed class ExecutionIslandAuthorityTests
     }
 
     [Test]
-    public void PlanLedger_RejectsAReachableExecutableFragmentMissingFromThePlan()
+    public void PlanLedger_RejectsAnExecutableFragmentMissingFromThePlan()
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
+        CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         var invalid = new ExecutionIslandPlan([], compiled.ExecutionPlan.Boundaries);
+        ExecutionIslandExecutionLedger ledger = invalid.CreateExecutionLedger();
 
         Assert.That(
-            () => invalid.CreateExecutionLedger(
-                compiled.Graph,
-                compiled.Roots,
-                compiled.CacheResolution),
+            () => ledger.Begin(run.Output),
             Throws.InvalidOperationException.With.Message.Contains("not assigned"));
     }
 
@@ -232,108 +225,10 @@ public sealed class ExecutionIslandAuthorityTests
     }
 
     [Test]
-    public void PlanLedger_UsesPublicationOrderInsteadOfAuthoredIslandOrder()
-    {
-        var fixture = CreateReversePublicationFixture();
-        ExecutionIslandExecutionLedger ledger = fixture.Plan.CreateExecutionLedger(
-            fixture.Graph,
-            fixture.Roots,
-            new RenderCacheResolution([]));
-
-        ExecutionIsland second = ledger.Begin(fixture.Second);
-        ledger.Complete(second);
-        ExecutionIsland first = ledger.Begin(fixture.First);
-        ledger.Complete(first);
-
-        Assert.That(() => ledger.ValidateCompleted(), Throws.Nothing);
-
-        ExecutionIslandExecutionLedger reversed = fixture.Plan.CreateExecutionLedger(
-            fixture.Graph,
-            fixture.Roots,
-            new RenderCacheResolution([]));
-        ExecutionIsland authoredFirst = reversed.Begin(fixture.First);
-        reversed.Complete(authoredFirst);
-        ExecutionIsland authoredSecond = reversed.Begin(fixture.Second);
-        Assert.That(
-            () => reversed.Complete(authoredSecond),
-            Throws.InvalidOperationException.With.Message.Contains("painter order"));
-    }
-
-    [Test]
-    public void PlanLedger_VisitsOpacityMaskDependenciesBeforePrimaryReplay()
-    {
-        var requestId = new RenderRequestId(1);
-        RenderFragmentReference primarySource = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            EffectiveScale.At(1),
-            payload: null);
-        RenderFragmentReference primary = Fragment(
-            RenderFragmentKind.Geometry,
-            EffectiveScale.At(1),
-            payload: null,
-            primarySource);
-        RenderFragmentReference maskSource = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            EffectiveScale.At(1),
-            payload: null);
-        RenderFragmentReference maskDependency = Fragment(
-            RenderFragmentKind.Geometry,
-            EffectiveScale.At(1),
-            payload: null,
-            maskSource);
-        RenderFragmentReference opacityMask = Fragment(
-            RenderFragmentKind.OpacityMask,
-            EffectiveScale.At(1),
-            payload: null,
-            primary,
-            maskDependency);
-        ImmutableArray<RenderFragmentReference> roots = [opacityMask];
-        RecordedRenderGraph graph = BuildGraph(
-            requestId,
-            [primarySource, primary, maskSource, maskDependency, opacityMask],
-            roots);
-        var plan = new ExecutionIslandPlan(
-            [
-                new ExecutionIsland(
-                    new ExecutionIslandId(1),
-                    ExecutionIslandKind.Compatibility,
-                    [primary.Id!.Value],
-                    plansGpuPass: true),
-                new ExecutionIsland(
-                    new ExecutionIslandId(2),
-                    ExecutionIslandKind.Compatibility,
-                    [maskDependency.Id!.Value],
-                    plansGpuPass: true),
-                new ExecutionIsland(
-                    new ExecutionIslandId(3),
-                    ExecutionIslandKind.Compatibility,
-                    [opacityMask.Id!.Value],
-                    plansGpuPass: true),
-            ],
-            []);
-        ExecutionIslandExecutionLedger ledger = plan.CreateExecutionLedger(
-            graph,
-            roots,
-            new RenderCacheResolution([]));
-
-        ExecutionIsland dependencyIsland = ledger.Begin(maskDependency);
-        ledger.Complete(dependencyIsland);
-        ExecutionIsland primaryIsland = ledger.Begin(primary);
-        ledger.Complete(primaryIsland);
-        ExecutionIsland maskIsland = ledger.Begin(opacityMask);
-        ledger.Complete(maskIsland);
-
-        Assert.That(() => ledger.ValidateCompleted(), Throws.Nothing);
-    }
-
-    [Test]
     public void PlanLedger_RejectsIncompleteSuccessfulExecution()
     {
         var fixture = CreateReversePublicationFixture();
-        ExecutionIslandExecutionLedger ledger = fixture.Plan.CreateExecutionLedger(
-            fixture.Graph,
-            fixture.Roots,
-            new RenderCacheResolution([]));
+        ExecutionIslandExecutionLedger ledger = fixture.Plan.CreateExecutionLedger();
 
         ExecutionIsland second = ledger.Begin(fixture.Second);
         ledger.Complete(second);

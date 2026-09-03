@@ -298,7 +298,6 @@ internal sealed partial class RenderRequestExecutor
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
-        private readonly HashSet<ExecutionIslandId>? _regionEmptyIslands;
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedParentScopeDomains = [];
         private readonly Dictionary<RenderFragmentId, Rect> _resolvedAccessDomains = [];
@@ -336,7 +335,6 @@ internal sealed partial class RenderRequestExecutor
 
         public RenderRequestExecutionState(
             RenderRequestOptions options,
-            RecordedRenderGraph graph,
             ExecutionIslandPlan executionPlan,
             TargetDependencyPlan targetDependencies,
             RegionAnalysis regions,
@@ -352,19 +350,8 @@ internal sealed partial class RenderRequestExecutor
         {
             _options = options;
             _executionPlan = executionPlan;
-            _executionLedger = executionPlan.CreateExecutionLedger(graph, roots, cacheResolution);
+            _executionLedger = executionPlan.CreateExecutionLedger();
             _regions = regions;
-            // The lambda LINQ needs would capture `regions`, so it cannot be cached, and the set is empty in
-            // every ordinary frame - this constructor runs once per family member per frame.
-            HashSet<ExecutionIslandId>? regionEmptyIslands = null;
-            for (int index = 0; index < executionPlan.Islands.Length; index++)
-            {
-                ExecutionIsland island = executionPlan.Islands[index];
-                if (IsRegionEmpty(island, regions))
-                    (regionEmptyIslands ??= []).Add(island.Id);
-            }
-
-            _regionEmptyIslands = regionEmptyIslands;
             HashSet<RenderFragmentId> cacheHitFragmentIds = cacheResolution.CollectPrunedHitProducers();
             _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
             _cacheResolution = cacheResolution;

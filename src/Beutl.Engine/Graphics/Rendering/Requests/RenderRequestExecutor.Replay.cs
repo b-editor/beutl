@@ -564,29 +564,7 @@ internal sealed partial class RenderRequestExecutor
         public void ValidateExecutionCompleted(bool allowSkippedIslands)
             => _executionLedger.ValidateCompleted(
                 allowSkippedIslands || PreviewAllocationDropObserved,
-                _regionEmptyIslands);
-
-        private static bool IsRegionEmpty(ExecutionIsland island, RegionAnalysis regions)
-        {
-            foreach (RenderFragmentId fragmentId in island.Fragments)
-            {
-                if (!regions.FragmentRequirements.TryGetValue(fragmentId, out RequiredRegion requirement)
-                    || !requirement.IsEmpty)
-                {
-                    return false;
-                }
-
-                if (regions.TargetAccessRequirements.TryGetValue(
-                        fragmentId,
-                        out RequiredRegion targetRequirement)
-                    && !targetRequirement.IsEmpty)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
+                _regions);
 
     }
 }
