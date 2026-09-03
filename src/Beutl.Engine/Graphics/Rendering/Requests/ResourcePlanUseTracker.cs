@@ -1,18 +1,14 @@
-﻿using System.Collections.Immutable;
-
-namespace Beutl.Graphics.Rendering.Requests;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class ResourcePlanUseTracker
 {
     private readonly Dictionary<RenderFragmentReference, int> _remainingUses;
 
-    internal ResourcePlanUseTracker(ImmutableArray<ResourcePlanFragmentLifetime> lifetimes)
+    internal ResourcePlanUseTracker(Dictionary<RenderFragmentReference, int> useCounts)
     {
         _remainingUses = new Dictionary<RenderFragmentReference, int>(
-            lifetimes.Length,
+            useCounts,
             ReferenceEqualityComparer.Instance);
-        foreach (ResourcePlanFragmentLifetime lifetime in lifetimes)
-            _remainingUses.Add(lifetime.Fragment, lifetime.ConsumerPositions.Length);
     }
 
     /// <summary>Completes one authored edge/root use and returns true at the producer's last use.</summary>

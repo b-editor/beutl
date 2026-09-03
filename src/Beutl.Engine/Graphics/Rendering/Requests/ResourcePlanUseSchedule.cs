@@ -1,34 +1,23 @@
-﻿using System.Collections.Immutable;
-using System.Runtime.InteropServices;
-
-namespace Beutl.Graphics.Rendering.Requests;
-
-internal readonly record struct ResourcePlanFragmentLifetime(
-    RenderFragmentReference Fragment,
-    int AcquisitionPosition,
-    ImmutableArray<int> ConsumerPositions)
-{
-    public int LastUsePosition
-        => ConsumerPositions.IsDefaultOrEmpty
-            ? AcquisitionPosition
-            : ConsumerPositions[^1];
-}
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Structural resource-use schedule for a recorded request. Runtime-discovered streams share their producer
-/// interval; their exact target sizes remain selected by the pool when the callback publishes each value.
+/// Structural resource-use schedule for a recorded request: how many times each fragment is consumed, by an
+/// execution edge or by an authored root. Runtime-discovered streams share their producer interval; their
+/// exact target sizes remain selected by the pool when the callback publishes each value.
 /// </summary>
 internal sealed class ResourcePlanUseSchedule
 {
-    private ResourcePlanUseSchedule(ImmutableArray<ResourcePlanFragmentLifetime> lifetimes)
+    private readonly Dictionary<RenderFragmentReference, int> _useCounts;
+
+    private ResourcePlanUseSchedule(Dictionary<RenderFragmentReference, int> useCounts)
     {
-        Lifetimes = lifetimes;
+        _useCounts = useCounts;
     }
 
-    public ImmutableArray<ResourcePlanFragmentLifetime> Lifetimes { get; }
+    public IReadOnlyDictionary<RenderFragmentReference, int> UseCounts => _useCounts;
 
     public ResourcePlanUseTracker BeginExecution()
-        => new(Lifetimes);
+        => new(_useCounts);
 
     internal static ResourcePlanUseSchedule Create(
         IReadOnlyList<RenderFragmentReference> roots,
@@ -45,41 +34,24 @@ internal sealed class ResourcePlanUseSchedule
             Visit(root, terminalFragmentIds, visiting, visited, ordered);
         }
 
-        var consumers = new Dictionary<RenderFragmentReference, List<int>>(ReferenceEqualityComparer.Instance);
-        for (int index = 0; index < ordered.Count; index++)
-        {
-            consumers.Add(ordered[index], []);
-        }
+        var useCounts = new Dictionary<RenderFragmentReference, int>(
+            ordered.Count,
+            ReferenceEqualityComparer.Instance);
+        foreach (RenderFragmentReference fragment in ordered)
+            useCounts.Add(fragment, 0);
 
-        for (int index = 0; index < ordered.Count; index++)
+        foreach (RenderFragmentReference fragment in ordered)
         {
-            RenderFragmentReference fragment = ordered[index];
             if (fragment.Id is { } id && terminalFragmentIds.Contains(id))
                 continue;
             foreach (RenderFragmentReference input in fragment.ExecutionInputs)
-                consumers[input].Add(index);
+                useCounts[input]++;
         }
 
         for (int index = 0; index < roots.Count; index++)
-            consumers[roots[index]].Add(checked(ordered.Count + index));
+            useCounts[roots[index]]++;
 
-        // Both arrays below are filled here and wrapped without a copy, so neither may be reachable after
-        // its wrap: AsImmutableArray hands the same storage to an ImmutableArray, and a later write through
-        // the array would change a value the immutable one already published.
-        var lifetimes = new ResourcePlanFragmentLifetime[ordered.Count];
-        for (int index = 0; index < lifetimes.Length; index++)
-        {
-            RenderFragmentReference fragment = ordered[index];
-            // LastUsePosition reads the final element, so the positions have to arrive sorted.
-            int[] consumerPositions = [.. consumers[fragment]];
-            Array.Sort(consumerPositions);
-            lifetimes[index] = new ResourcePlanFragmentLifetime(
-                fragment,
-                index,
-                ImmutableCollectionsMarshal.AsImmutableArray(consumerPositions));
-        }
-
-        return new ResourcePlanUseSchedule(ImmutableCollectionsMarshal.AsImmutableArray(lifetimes));
+        return new ResourcePlanUseSchedule(useCounts);
 
         static void Visit(
             RenderFragmentReference fragment,

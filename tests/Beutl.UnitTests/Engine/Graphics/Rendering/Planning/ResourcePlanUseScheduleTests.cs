@@ -24,14 +24,10 @@ public sealed class ResourcePlanUseScheduleTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(unpruned.UseCounts[sharedSource], Is.EqualTo(2));
             Assert.That(
-                unpruned.Lifetimes.Single(item => ReferenceEquals(item.Fragment, sharedSource))
-                    .ConsumerPositions,
-                Has.Length.EqualTo(2));
-            Assert.That(
-                pruned.Lifetimes.Single(item => ReferenceEquals(item.Fragment, sharedSource))
-                    .ConsumerPositions,
-                Has.Length.EqualTo(1),
+                pruned.UseCounts[sharedSource],
+                Is.EqualTo(1),
                 "The remaining authored root use must not be inflated by an input edge below a selected hit.");
             Assert.That(
                 pruned.BeginExecution().GetRemainingUseCount(sharedSource),
@@ -54,8 +50,7 @@ public sealed class ResourcePlanUseScheduleTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(schedule.Lifetimes.Select(static item => item.Fragment),
-                Is.EqualTo(new[] { hitProducer }));
+            Assert.That(schedule.UseCounts.Keys, Is.EquivalentTo(new[] { hitProducer }));
             Assert.That(schedule.BeginExecution().GetRemainingUseCount(hitProducer), Is.EqualTo(1));
             Assert.That(
                 () => schedule.BeginExecution().GetRemainingUseCount(source),
