@@ -7,7 +7,8 @@ namespace Beutl.Extensibility;
 /// <see cref="IEditorContext"/> can reach host capabilities. The host owns the instance and
 /// passes it in explicitly. Every successful context creation must retain
 /// <see cref="CloseService"/> and expose it, directly or through a context-specific wrapper,
-/// through <see cref="IEditorContext.CloseService"/>.
+/// through <see cref="IEditorContext.CloseService"/>. The retained capability must preserve its
+/// stable, non-null <see cref="IEditorContextCloseService.HostToken"/>.
 /// </summary>
 public interface IEditorContextServices
 {
@@ -15,6 +16,10 @@ public interface IEditorContextServices
     IExtensionProvider ExtensionProvider { get; }
 
     /// <summary>Gets the required host close capability to retain on the created context.</summary>
+    /// <remarks>
+    /// The capability's <see cref="IEditorContextCloseService.HostToken"/> identifies this host;
+    /// wrappers must forward close requests to this capability and expose the same token instance.
+    /// </remarks>
     IEditorContextCloseService CloseService { get; }
 
     /// <summary>

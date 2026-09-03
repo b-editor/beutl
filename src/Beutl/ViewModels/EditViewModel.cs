@@ -1071,6 +1071,8 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
         EditViewModel owner,
         IEditorContextCloseService closeService) : IEditorContextCloseService
     {
+        public EditorContextHostToken HostToken => closeService.HostToken;
+
         public EditorContextCloseRequest RequestClose(IEditorContext context)
         {
             if (!ReferenceEquals(context, owner))

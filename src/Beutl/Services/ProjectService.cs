@@ -22,6 +22,8 @@ public sealed class ProjectService
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
     private readonly object _projectOperationGate = new();
     private Task _projectOperationTask = Task.CompletedTask;
+    private bool _projectTransitionAdmissionClosed;
+    private TaskCompletionSource? _projectTransitionAdmission;
     private readonly object _closeGate = new();
     private Task? _activeCloseTask;
     private Task? _activeCloseOperationTail;
@@ -57,16 +59,19 @@ public sealed class ProjectService
 
     internal Action<string>? AfterCreateProjectPreparation { get; set; }
 
+    internal Func<Task>? BeforeProjectChangeHandlerInitialization { get; set; }
+
     internal ProjectChangeRegistration RegisterProjectChangeHandler(IProjectChangeHandler handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
         Task previous;
         Project? current;
+        TaskCompletionSource? admission;
         var initialization = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_projectOperationGate)
         {
-            if (!_projectOperationTask.IsCompleted)
+            if (!_projectTransitionAdmissionClosed && !_projectOperationTask.IsCompleted)
             {
                 throw new InvalidOperationException(
                     "An editor host cannot be registered during a project transition.");
@@ -80,10 +85,21 @@ public sealed class ProjectService
                         "An editor host is already registered or still completing shutdown.");
                 }
 
+                if (_projectTransitionAdmissionClosed
+                    && (_projectTransitionAdmission is null
+                        || _projectTransitionAdmission.Task.IsCompleted))
+                {
+                    _projectTransitionAdmission = new TaskCompletionSource(
+                        TaskCreationOptions.RunContinuationsAsynchronously);
+                }
+
                 _projectChangeHandler = handler;
                 current = _app.Project;
                 previous = _lastProjectChangeTask;
                 _lastProjectChangeTask = initialization.Task;
+                admission = _projectTransitionAdmissionClosed
+                    ? _projectTransitionAdmission
+                    : null;
             }
         }
 
@@ -91,7 +107,8 @@ public sealed class ProjectService
             previous,
             handler,
             current,
-            initialization);
+            initialization,
+            admission);
 
         return new ProjectChangeRegistration(this, handler);
     }
@@ -100,7 +117,8 @@ public sealed class ProjectService
         Task previous,
         IProjectChangeHandler handler,
         Project? current,
-        TaskCompletionSource completion)
+        TaskCompletionSource completion,
+        TaskCompletionSource? admission)
     {
         try
         {
@@ -113,13 +131,47 @@ public sealed class ProjectService
 
         try
         {
+            if (BeforeProjectChangeHandlerInitialization is { } beforeInitialization)
+            {
+                await beforeInitialization();
+            }
+
             await handler.ApplyProjectChangeAsync(current, null);
             await handler.WaitForPendingProjectChangesAsync();
+            OpenProjectTransitionAdmission(admission);
             completion.TrySetResult();
         }
         catch (Exception ex)
         {
+            CloseProjectTransitionAdmission(admission, ex);
             completion.TrySetException(ex);
+        }
+    }
+
+    private void OpenProjectTransitionAdmission(TaskCompletionSource? admission)
+    {
+        if (admission is null)
+            return;
+
+        lock (_projectOperationGate)
+        {
+            bool isCurrent = ReferenceEquals(_projectTransitionAdmission, admission);
+            if (isCurrent)
+                _projectTransitionAdmissionClosed = false;
+            admission.TrySetResult();
+        }
+    }
+
+    private void CloseProjectTransitionAdmission(
+        TaskCompletionSource? admission,
+        Exception exception)
+    {
+        if (admission is null)
+            return;
+
+        lock (_projectOperationGate)
+        {
+            admission.TrySetException(exception);
         }
     }
 
@@ -250,6 +302,25 @@ public sealed class ProjectService
 
     private async Task BeginUnregisterProjectChangeHandlerAsync(IProjectChangeHandler handler)
     {
+        Task operation;
+        lock (_projectOperationGate)
+        {
+            operation = _projectOperationTask;
+            lock (_projectChangeGate)
+            {
+                if (!ReferenceEquals(_projectChangeHandler, handler))
+                    return;
+            }
+
+            _projectTransitionAdmissionClosed = true;
+            _projectTransitionAdmission = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        // Keep the handler installed while already-admitted transitions drain. An operation can
+        // be queued before unregister starts but reach PublishProjectChangeAsync afterwards.
+        await operation;
+
         Task pending;
         lock (_projectChangeGate)
         {
@@ -262,7 +333,26 @@ public sealed class ProjectService
             pending = _lastProjectChangeTask;
         }
 
-        await pending;
+        try
+        {
+            await pending;
+        }
+        finally
+        {
+            FailProjectTransitionAdmission();
+        }
+    }
+
+    private void FailProjectTransitionAdmission()
+    {
+        lock (_projectOperationGate)
+        {
+            if (_projectTransitionAdmissionClosed)
+            {
+                _projectTransitionAdmission?.TrySetException(new InvalidOperationException(
+                    "The editor host was unregistered before the project transition could be applied."));
+            }
+        }
     }
 
     private void CompleteUnregisterProjectChangeHandler(IProjectChangeHandler handler)
@@ -300,12 +390,16 @@ public sealed class ProjectService
     {
         ArgumentNullException.ThrowIfNull(transition);
         Task previous;
-        var context = new ProjectTransitionContext();
+        ProjectTransitionContext context;
         var result = new TaskCompletionSource<T>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_projectOperationGate)
         {
             previous = _projectOperationTask;
+            Task admission = _projectTransitionAdmissionClosed
+                ? _projectTransitionAdmission?.Task ?? Task.CompletedTask
+                : Task.CompletedTask;
+            context = new ProjectTransitionContext(admission);
             _projectOperationTask = context.Completion;
             operationTail = context.Completion;
         }
@@ -323,6 +417,7 @@ public sealed class ProjectService
         await previous;
         try
         {
+            await context.Admission;
             T value = await transition(context);
             context.Release();
             result.TrySetResult(value);
@@ -348,6 +443,10 @@ public sealed class ProjectService
         return (NuGetVersion.Parse(appVersion), NuGetVersion.Parse(minAppVersion));
     }
 
+    /// <summary>Opens a project after its editor host has accepted the serialized transition.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// The editor host is unregistering and cannot apply the transition.
+    /// </exception>
     public Task OpenProject(string file)
         => EnqueueProjectTransitionAsync(context => CompleteOpenProjectAsync(context, file));
 
@@ -410,6 +509,9 @@ public sealed class ProjectService
     /// Repeated calls join the serialized transition. Do not synchronously block this task from a
     /// <see cref="CurrentProject"/> or <see cref="ProjectObservable"/> callback.
     /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The editor host is unregistering and cannot apply the transition.
+    /// </exception>
     public Task CloseProjectAsync()
     {
         lock (_closeGate)
@@ -448,6 +550,10 @@ public sealed class ProjectService
         }
     }
 
+    /// <summary>Creates and opens a project after its editor host accepts the transition.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// The editor host is unregistering and cannot apply the transition.
+    /// </exception>
     public Task<Project?> CreateProject(
         int width,
         int height,
@@ -656,6 +762,13 @@ public sealed class ProjectService
     {
         private readonly TaskCompletionSource _completion = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public ProjectTransitionContext(Task admission)
+        {
+            Admission = admission;
+        }
+
+        public Task Admission { get; }
 
         public Task Completion => _completion.Task;
 

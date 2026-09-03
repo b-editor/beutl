@@ -3,6 +3,17 @@
 /// <summary>Requests host-owned editor-context closure without synchronously joining teardown.</summary>
 public interface IEditorContextCloseService
 {
+    /// <summary>
+    /// Gets the opaque host identity for this close capability.
+    /// </summary>
+    /// <remarks>
+    /// A context must retain the capability supplied by its creating host, including this token.
+    /// Hosts compare the token by reference when attaching or replacing a context so a context
+    /// cannot route close requests to a different host. Implementations must return a stable,
+    /// non-null token for the lifetime of the capability.
+    /// </remarks>
+    EditorContextHostToken HostToken { get; }
+
     /// <summary>Requests closure of the tab that owns <paramref name="context"/>.</summary>
     /// <remarks>
     /// Observer and dispatcher callbacks should retain or ignore the returned completion instead of

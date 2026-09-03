@@ -345,6 +345,7 @@ public sealed class EditorHostProjectQueueTests
         var projectService = new ProjectService();
         var firstEditorService = CreateEditorService(contexts);
         var firstHost = new EditorHostViewModel(projectService, firstEditorService);
+        EditorHostViewModel? replacementHost = null;
 
         try
         {
@@ -362,7 +363,7 @@ public sealed class EditorHostProjectQueueTests
             await firstDisposal.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(firstEditorService.TabItems, Is.Empty);
 
-            await using var replacementHost = new EditorHostViewModel(
+            replacementHost = new EditorHostViewModel(
                 projectService, firstEditorService);
             await projectService.WaitForPendingProjectChangesAsync();
 
@@ -376,8 +377,236 @@ public sealed class EditorHostProjectQueueTests
         }
         finally
         {
+            if (replacementHost is not null)
+            {
+                await projectService.CloseProjectAsync();
+                await replacementHost.DisposeAsync();
+            }
+            else
+            {
+                await firstHost.DisposeAsync();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Already_admitted_transition_drains_through_old_handler_before_unregister()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+        var preparationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePreparation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        projectService.BeforeCreateProjectPreparation = async name =>
+        {
+            if (name == "queue-unregister-admitted")
+            {
+                preparationStarted.TrySetResult();
+                await releasePreparation.Task;
+            }
+        };
+
+        EditorHostViewModel? replacementHost = null;
+        try
+        {
+            _ = await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-unregister-first", NewWorkspace("unregister-first"));
+
+            Task<Project?> replacement = projectService.CreateProject(
+                640,
+                360,
+                24,
+                48000,
+                "queue-unregister-admitted",
+                NewWorkspace("unregister-admitted"));
+            await preparationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task dispose = host.DisposeAsync().AsTask();
+            Assert.That(dispose.IsCompleted, Is.False,
+                "Unregister must wait for an already-admitted transition before removing its handler.");
+
+            releasePreparation.TrySetResult();
+            Project admitted = (await replacement.WaitAsync(TimeSpan.FromSeconds(5)))!;
+            await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(contexts.Contexts.Count, Is.EqualTo(2),
+                    "The transition must still reach the old handler after unregister begins.");
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(admitted));
+            });
+
+            replacementHost = new EditorHostViewModel(projectService, editorService);
+            await projectService.WaitForPendingProjectChangesAsync();
+            Project retry = (await projectService.CreateProject(
+                1024,
+                576,
+                30,
+                44100,
+                "queue-unregister-fence-retry",
+                NewWorkspace("unregister-fence-retry")))!;
+            Assert.That(BeutlApplication.Current.Project, Is.SameAs(retry));
+        }
+        finally
+        {
+            releasePreparation.TrySetResult();
+            projectService.BeforeCreateProjectPreparation = null;
+            if (replacementHost is not null)
+            {
+                await projectService.CloseProjectAsync();
+                await replacementHost.DisposeAsync();
+            }
+            else
+            {
+                await host.DisposeAsync();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Transitions_started_during_unregister_fail_without_committing()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory { BlockNextDispose = true };
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+        EditorHostViewModel? replacementHost = null;
+
+        try
+        {
+            Project first = (await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-unregister-fence-first", NewWorkspace("unregister-fence-first")))!;
+            TestContext oldContext = contexts.Contexts.Single();
+            Task<Project?> admitted = projectService.CreateProject(
+                640,
+                360,
+                24,
+                48000,
+                "queue-unregister-fence-admitted",
+                NewWorkspace("unregister-fence-admitted"));
+            await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task dispose = host.DisposeAsync().AsTask();
+            Task<Project?> createDuringFence = projectService.CreateProject(
+                800, 450, 30, 44100, "queue-unregister-fence-create", NewWorkspace("unregister-fence-create"));
+            Task openDuringFence = projectService.OpenProject(first.Uri!.LocalPath);
+            Task closeDuringFence = projectService.CloseProjectAsync();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(createDuringFence.IsCompleted, Is.False);
+                Assert.That(openDuringFence.IsCompleted, Is.False);
+                Assert.That(closeDuringFence.IsCompleted, Is.False);
+            });
+
+            oldContext.ReleaseDispose();
+            Project admittedProject = (await admitted.WaitAsync(TimeSpan.FromSeconds(5)))!;
+            await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(admittedProject));
+            });
+            await AssertInvalidOperationAsync(createDuringFence);
+            await AssertInvalidOperationAsync(openDuringFence);
+            await AssertInvalidOperationAsync(closeDuringFence);
+
+            replacementHost = new EditorHostViewModel(projectService, editorService);
+            await projectService.WaitForPendingProjectChangesAsync();
+        }
+        finally
+        {
+            if (replacementHost is not null)
+            {
+                await projectService.CloseProjectAsync();
+                await replacementHost.DisposeAsync();
+            }
+            else
+            {
+                await host.DisposeAsync();
+            }
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Disposing_replacement_host_before_replay_keeps_new_admission_closed()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel firstHost) =
+            CreateComposition(contexts);
+        var initializationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseInitialization = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        EditorHostViewModel? secondHost = null;
+        EditorHostViewModel? finalHost = null;
+
+        try
+        {
+            Project current = (await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-replacement-dispose", NewWorkspace("replacement-dispose")))!;
             await firstHost.DisposeAsync();
-            await projectService.CloseProjectAsync();
+
+            projectService.BeforeProjectChangeHandlerInitialization = async () =>
+            {
+                initializationStarted.TrySetResult();
+                await releaseInitialization.Task;
+            };
+            secondHost = new EditorHostViewModel(projectService, editorService);
+            await initializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task secondDisposal = secondHost.DisposeAsync().AsTask();
+            Task<Project?> fenced = projectService.CreateProject(
+                640,
+                360,
+                24,
+                48000,
+                "queue-replacement-dispose-fenced",
+                NewWorkspace("replacement-dispose-fenced"));
+            Assert.That(fenced.IsCompleted, Is.False);
+
+            releaseInitialization.TrySetResult();
+            await secondDisposal.WaitAsync(TimeSpan.FromSeconds(5));
+            await AssertInvalidOperationAsync(fenced);
+            Assert.Multiple(() =>
+            {
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(current));
+                Assert.That(editorService.TabItems, Is.Empty);
+            });
+
+            projectService.BeforeProjectChangeHandlerInitialization = null;
+            finalHost = new EditorHostViewModel(projectService, editorService);
+            await projectService.WaitForPendingProjectChangesAsync();
+            Project retry = (await projectService.CreateProject(
+                800,
+                450,
+                30,
+                44100,
+                "queue-replacement-dispose-retry",
+                NewWorkspace("replacement-dispose-retry")))!;
+            Assert.That(BeutlApplication.Current.Project, Is.SameAs(retry));
+        }
+        finally
+        {
+            releaseInitialization.TrySetResult();
+            projectService.BeforeProjectChangeHandlerInitialization = null;
+            if (finalHost is not null)
+            {
+                await projectService.CloseProjectAsync();
+                await finalHost.DisposeAsync();
+            }
+            else if (secondHost is not null)
+            {
+                await secondHost.DisposeAsync();
+            }
+            else
+            {
+                await firstHost.DisposeAsync();
+            }
         }
     }
 
@@ -495,6 +724,18 @@ public sealed class EditorHostProjectQueueTests
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"project-queue-{name}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private static async Task AssertInvalidOperationAsync(Task task)
+    {
+        try
+        {
+            await task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Fail("Expected an InvalidOperationException.");
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     private static async Task WaitForPublishedProjectChangeAsync(
