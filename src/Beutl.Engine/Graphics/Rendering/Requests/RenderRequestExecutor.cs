@@ -353,7 +353,7 @@ internal sealed partial class RenderRequestExecutor
             _executionLedger = executionPlan.CreateExecutionLedger();
             _regions = regions;
             HashSet<RenderFragmentId> cacheHitFragmentIds = cacheResolution.CollectPrunedHitProducers();
-            _resourceUses = ResourcePlanUseSchedule.Create(roots, cacheHitFragmentIds).BeginExecution();
+            _resourceUses = ResourcePlanUseTracker.Create(roots, cacheHitFragmentIds);
             _cacheResolution = cacheResolution;
             _materializationDemands = materializationDemands
                 ?? throw new ArgumentNullException(nameof(materializationDemands));

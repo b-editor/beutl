@@ -109,7 +109,7 @@ Materializing values choose a concrete positive density from complete bounds, in
 
 ### Pool and liveness
 
-The resource plan computes first/last use for each materialized value and leases exact compatible targets from a renderer-owned pool. Planner-owned targets are initialized before guarded callback access. Borrowed root and presentation targets are neither pooled nor disposed by the request.
+The resource plan counts authored graph-edge and root uses for each materialized value. After the final completed use, the executor returns its exact compatible target to the renderer-owned pool. Planner-owned targets are initialized before guarded callback access. Borrowed root and presentation targets are neither pooled nor disposed by the request.
 
 ### Synchronization
 

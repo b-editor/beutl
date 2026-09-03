@@ -124,9 +124,9 @@ The planner partitions the graph at materialization, target dependencies, readba
 
 An internal plan records fixed graph topology, operation schemas, shader source/binding layout, barriers, and allocation shape. Request-time bindings contain the state each description carried, request-scoped resources, resolved bounds/regions, densities, target allocation data, and frame inputs. The engine owns this split; public authoring supplies descriptions only.
 
-### ResourcePlanUseSchedule and RenderTargetLease
+### ResourcePlanUseTracker and RenderTargetLease
 
-The resource plan calculates first/last use for materialized values and manages pooled targets. A lease has one owner at a time and is released, transferred, or disposed exactly once. Externally borrowed root/presentation targets are never pooled or disposed by the request.
+The resource tracker counts authored graph-edge and root uses and reports when a fragment's final use completes. The executor then releases or transfers its materialized values. A lease has one owner at a time and is released, transferred, or disposed exactly once. Externally borrowed root/presentation targets are never pooled or disposed by the request.
 
 ### CompiledShaderRun
 
