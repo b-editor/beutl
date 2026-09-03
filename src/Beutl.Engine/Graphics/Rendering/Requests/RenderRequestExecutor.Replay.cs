@@ -152,7 +152,6 @@ internal sealed partial class RenderRequestExecutor
                     {
                         ExecutionIsland island = _executionLedger.Begin(fragment);
                         _executionLedger.Complete(island);
-                        MarkExecutionSkipped(fragment);
                         return true;
                     }
 
@@ -300,8 +299,6 @@ internal sealed partial class RenderRequestExecutor
 
                 if (materializedInput.Count == 1)
                     DrawValues(materializedInput, destination);
-                else
-                    MarkExecutionSkipped(chain[^1].Fragment);
                 CompleteFragmentUse(input);
             }
         }

@@ -34,7 +34,6 @@ internal sealed partial class RenderRequestExecutor
                 currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? requestScale : null);
             var results = new List<MaterializedRenderValue>(inputs.Count);
-            bool executed = false;
             try
             {
                 foreach (MaterializedRenderValue input in inputs)
@@ -67,7 +66,6 @@ internal sealed partial class RenderRequestExecutor
                             output,
                             outputBounds,
                             requiredRegion);
-                        executed = true;
                         if (finalBounds is not { Width: > 0, Height: > 0 } selectedBounds)
                             continue;
 
@@ -91,8 +89,6 @@ internal sealed partial class RenderRequestExecutor
                     }
                 }
 
-                if (!executed)
-                    MarkExecutionSkipped(fragment);
                 return results;
             }
             catch
@@ -226,10 +222,8 @@ internal sealed partial class RenderRequestExecutor
             IReadOnlyList<RenderExecutionInputRange> inputRanges,
             Rect outputBounds,
             EffectiveScale declaredScale,
-            RenderValueCardinality cardinality,
-            out bool callbackInvoked)
+            RenderValueCardinality cardinality)
         {
-            callbackInvoked = false;
             Rect requiredRegion = ResolveFragmentRequirement(fragment, outputBounds);
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
                 return [];
@@ -240,7 +234,6 @@ internal sealed partial class RenderRequestExecutor
                 ReferenceEqualityComparer.Instance);
             var published = new List<MaterializedRenderValue>();
             bool succeeded = false;
-            bool callbackWasInvoked = false;
             RenderExecutionSessionToken token = CreateExecutionSessionToken();
             try
             {
@@ -387,7 +380,6 @@ internal sealed partial class RenderRequestExecutor
                                 published.Add(value);
                             });
 
-                        callbackWasInvoked = true;
                         description.Execute(session);
                         ValidateOutputCount(cardinality, published.Count);
                         if (description.BackendBoundary != RenderBackendBoundary.None && published.Count != 0)
@@ -401,7 +393,6 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                callbackInvoked = callbackWasInvoked;
                 foreach (SKImage image in inputImages)
                     image.Dispose();
 

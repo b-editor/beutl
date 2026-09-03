@@ -38,7 +38,6 @@ internal sealed partial class RenderRequestExecutor
             if (fragment.Bounds.Width == 0 || fragment.Bounds.Height == 0)
             {
                 CompleteFragmentUse(fragment.Inputs[0]);
-                MarkExecutionSkipped(fragment);
                 return [];
             }
 
@@ -88,7 +87,6 @@ internal sealed partial class RenderRequestExecutor
             if (fragment.Bounds.Width == 0 || fragment.Bounds.Height == 0)
             {
                 CompleteFragmentUse(fragment.Inputs[0]);
-                MarkExecutionSkipped(fragment);
                 return [];
             }
 
@@ -187,7 +185,6 @@ internal sealed partial class RenderRequestExecutor
                 if (payload.Topology == OpaqueRenderTopology.Map)
                 {
                     var mapped = new List<MaterializedRenderValue>();
-                    bool mapCallbackInvoked = false;
                     for (int inputIndex = 0; inputIndex < flattened.Count; inputIndex++)
                     {
                         MaterializedRenderValue input = flattened[inputIndex];
@@ -206,13 +203,9 @@ internal sealed partial class RenderRequestExecutor
                             [new RenderExecutionInputRange(0, 1)],
                             outputBounds,
                             outputScale,
-                            description.ValueCardinality,
-                            out bool currentCallbackInvoked));
-                        mapCallbackInvoked |= currentCallbackInvoked;
+                            description.ValueCardinality));
                     }
 
-                    if (!mapCallbackInvoked)
-                        MarkExecutionSkipped(fragment);
                     return mapped;
                 }
 
@@ -232,10 +225,7 @@ internal sealed partial class RenderRequestExecutor
                     inputRanges,
                     declaredBounds,
                     declaredScale,
-                    description.ValueCardinality,
-                    out bool singleCallbackInvoked);
-                if (!singleCallbackInvoked)
-                    MarkExecutionSkipped(fragment);
+                    description.ValueCardinality);
                 return result;
             }
             finally
@@ -391,7 +381,6 @@ internal sealed partial class RenderRequestExecutor
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             {
                 CompleteFragmentUse(input);
-                MarkExecutionSkipped(fragment);
                 return [];
             }
 

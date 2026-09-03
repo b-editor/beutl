@@ -40,7 +40,6 @@ internal sealed partial class RenderRequestExecutor
                 currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? inputRequestScale : null);
             var results = new List<MaterializedRenderValue>(inputs.Count);
-            bool executed = false;
             try
             {
                 foreach (MaterializedRenderValue input in inputs)
@@ -84,7 +83,6 @@ internal sealed partial class RenderRequestExecutor
                                 ReleaseUnpublished(shaderInput);
                         }
 
-                        executed = true;
                         results.Add(output);
                         succeeded = true;
                     }
@@ -95,8 +93,6 @@ internal sealed partial class RenderRequestExecutor
                     }
                 }
 
-                if (!executed)
-                    MarkExecutionSkipped(fragment);
                 return results;
             }
             catch
@@ -128,7 +124,6 @@ internal sealed partial class RenderRequestExecutor
             if (outputBounds.Width == 0 || outputBounds.Height == 0)
             {
                 CompleteFragmentUse(run.Input);
-                MarkExecutionSkipped(run.Output);
                 return [];
             }
 
@@ -139,7 +134,6 @@ internal sealed partial class RenderRequestExecutor
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             {
                 CompleteFragmentUse(run.Input);
-                MarkExecutionSkipped(run.Output);
                 return [];
             }
 
@@ -154,7 +148,6 @@ internal sealed partial class RenderRequestExecutor
             if (inputs.Count == 0)
             {
                 CompleteFragmentUse(run.Input);
-                MarkExecutionSkipped(run.Output);
                 return [];
             }
             if (inputs.Count != 1)

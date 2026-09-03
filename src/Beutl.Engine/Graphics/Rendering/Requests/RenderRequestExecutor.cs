@@ -317,7 +317,6 @@ internal sealed partial class RenderRequestExecutor
 
         private readonly Dictionary<RenderFragmentId, RenderCacheHitSubstitution> _cacheHits;
         private readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>> _cacheMisses;
-        private readonly HashSet<RenderFragmentId> _skippedExecutionSubjects = [];
         private readonly List<PendingRenderCacheCapture> _pendingCacheCaptures = [];
         private readonly HashSet<RenderCacheCandidateId> _suppressedCacheCaptures = [];
         private readonly List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)> _backdropCaptures = [];
@@ -447,7 +446,6 @@ internal sealed partial class RenderRequestExecutor
             {
                 _previewAllocationDropObserved = true;
                 _executionLedger.AbandonActive();
-                MarkExecutionSkipped(fragment);
                 CompleteFragmentUse(fragment);
             }
             catch (PreviewAllocationDropException)

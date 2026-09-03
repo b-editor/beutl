@@ -46,12 +46,6 @@ internal sealed partial class RenderRequestExecutor
                 ReleaseValueReference(value);
         }
 
-        private void MarkExecutionSkipped(RenderFragmentReference fragment)
-        {
-            if (fragment.Id is { } id)
-                _skippedExecutionSubjects.Add(id);
-        }
-
         private static void AddResolvedDomain(
             Dictionary<RenderFragmentId, Rect> domains,
             RenderFragmentId fragmentId,

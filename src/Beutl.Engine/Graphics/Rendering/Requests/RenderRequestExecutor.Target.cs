@@ -185,7 +185,6 @@ internal sealed partial class RenderRequestExecutor
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             {
                 CompleteFragmentUse(fragment.Inputs[0]);
-                MarkExecutionSkipped(fragment);
                 return [];
             }
 
@@ -507,10 +506,7 @@ internal sealed partial class RenderRequestExecutor
         {
             Rect domain = ResolveTargetLayerScopeDomain(fragment, destination);
             if (domain.Width == 0 || domain.Height == 0)
-            {
-                MarkExecutionSkipped(fragment);
                 return;
-            }
 
             EffectiveScale scale = EffectiveScale.At(destination.Density);
             Vector deviceGridOffset = RequiresLocalDestructiveDeviceGrid(fragment)
