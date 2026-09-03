@@ -295,6 +295,32 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
+    public async Task ForeignHostCannotCloseOwnerTabViaPublicOverload()
+    {
+        var owner = new EditorService(new ExtensionProvider());
+        var foreign = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false, closeService: owner);
+        var tab = new EditorTabItem(context);
+        owner.AddTabItem(tab);
+
+        await foreign.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.TabItems, Does.Contain(tab));
+            Assert.That(tab.Context.Value, Is.SameAs(context));
+            Assert.That(context.DisposeCount, Is.Zero);
+            Assert.That(foreign.RequestClose(context).Status, Is.EqualTo(EditorContextCloseRequestStatus.NotOwned));
+        });
+
+        EditorContextCloseRequest ownerClose = owner.RequestClose(context);
+        Assert.That(ownerClose.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+        await ownerClose.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+        Assert.That(owner.TabItems, Is.Empty);
+    }
+
+    [Test]
     public async Task ForeignHostContextIsRejectedByReplacementWithoutConsumption()
     {
         var owner = new EditorService(new ExtensionProvider());
@@ -317,6 +343,59 @@ public sealed class EditorTabItemLifetimeTests
         });
 
         await owner.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task ActivationDisposesContextWhenExtensionReturnsForeignHostToken()
+    {
+        var foreign = new EditorService(new ExtensionProvider());
+        var provider = new ExtensionProvider();
+        var extension = new ForeignContextEditorExtension(foreign);
+        provider.AddExtensions(1, [extension]);
+        var service = new EditorService(provider);
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-foreign-token.activation"))
+        };
+
+        service.ActivateTabItem(scene);
+
+        BlockingEditorContext context = await extension.CreatedContext.Task
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await context.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(foreign.TabItems, Is.Empty);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task ActivationDisposesTransferredContextWhenTabConstructionFails()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var extension = new TransferredContextEditorExtension(service);
+        provider.AddExtensions(2, [extension]);
+        service.BeforeActivationTabConstruction =
+            _ => throw new InvalidOperationException("Tab creation failed.");
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-throw.activation-fault"))
+        };
+
+        Assert.Throws<InvalidOperationException>(() => service.ActivateTabItem(scene));
+
+        BlockingEditorContext context = await extension.CreatedContext.Task
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await context.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+        });
     }
 
     [Test]
@@ -1857,6 +1936,68 @@ public sealed class EditorTabItemLifetimeTests
         {
             context = null;
             return false;
+        }
+    }
+
+    private sealed class ForeignContextEditorExtension(EditorService foreignHost) : EditorExtension
+    {
+        public TaskCompletionSource<BlockingEditorContext> CreatedContext { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Foreign");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => ext == ".activation";
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            var created = new BlockingEditorContext(blockDispose: false, obj, foreignHost);
+            CreatedContext.TrySetResult(created);
+            context = created;
+            return true;
+        }
+    }
+
+    private sealed class TransferredContextEditorExtension(EditorService host) : EditorExtension
+    {
+        public TaskCompletionSource<BlockingEditorContext> CreatedContext { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Throwing");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => ext == ".activation-fault";
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            var created = new BlockingEditorContext(blockDispose: false, obj, host);
+            CreatedContext.TrySetResult(created);
+            context = created;
+            return true;
         }
     }
 }

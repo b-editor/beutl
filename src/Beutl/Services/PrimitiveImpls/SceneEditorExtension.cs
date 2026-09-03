@@ -124,13 +124,15 @@ public sealed class SceneEditorExtension : EditorExtension
         // fail (return false) rather than pushing nulls into EditViewModel.
         if (obj is Scene scene
             && services.TryGetService<EditorService>(out EditorService? editorService)
-            && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider))
+            && services.TryGetService<ExtensionProvider>(out ExtensionProvider? extensionProvider)
+            && services.CloseService is { HostToken: not null } closeService
+            && ReferenceEquals(editorService.HostToken, closeService.HostToken))
         {
             var editViewModel = new EditViewModel(
                 scene,
                 extensionProvider,
                 editorService,
-                services.CloseService);
+                closeService);
             if (editViewModel.IsDisposeRequested)
             {
                 context = null;

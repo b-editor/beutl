@@ -205,17 +205,25 @@ public sealed class EditorTabItem : IAsyncDisposable
         drain?.TrySetResult();
     }
 
-    internal bool TryBeginHostClose(
+    internal EditorContextCloseRequestStatus TryBeginHostClose(
+        EditorContextHostToken expectedHostToken,
         out Task completion,
         out TaskCompletionSource<object?>? completionSource)
     {
         lock (_lifetimeGate)
         {
+            if (!ReferenceEquals(_ownerHostToken, expectedHostToken))
+            {
+                completion = Task.CompletedTask;
+                completionSource = null;
+                return EditorContextCloseRequestStatus.NotOwned;
+            }
+
             if (_hostCloseTask is not null)
             {
                 completion = _hostCloseTask;
                 completionSource = null;
-                return false;
+                return EditorContextCloseRequestStatus.AlreadyClosing;
             }
 
             completionSource = new TaskCompletionSource<object?>(
@@ -223,7 +231,7 @@ public sealed class EditorTabItem : IAsyncDisposable
             completion = completionSource.Task;
             _hostCloseTask = completion;
             _closing = true;
-            return true;
+            return EditorContextCloseRequestStatus.Accepted;
         }
     }
 
@@ -798,6 +806,8 @@ public sealed class EditorService : IEditorContextCloseService
 
     internal Action? BeforePhysicalAdd { get; set; }
 
+    internal Action<IEditorContext>? BeforeActivationTabConstruction { get; set; }
+
     public EditorService(ExtensionProvider extensionProvider)
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
@@ -1321,7 +1331,7 @@ public sealed class EditorService : IEditorContextCloseService
         IEditorContext context,
         (EditorTabItem Item, long Generation) registration)
     {
-        bool accepted;
+        EditorContextCloseRequestStatus status;
         Task completion;
         TaskCompletionSource<object?>? completionSource;
         lock (_contextRegistryGate)
@@ -1335,33 +1345,35 @@ public sealed class EditorService : IEditorContextCloseService
                     Task.CompletedTask);
             }
 
-            accepted = registration.Item.TryBeginHostClose(
+            status = registration.Item.TryBeginHostClose(
+                _hostToken,
                 out completion,
                 out completionSource);
         }
 
         return StartHostClose(
             registration.Item,
-            accepted,
+            status,
             completion,
             completionSource);
     }
 
     private EditorContextCloseRequest RequestClose(EditorTabItem item)
     {
-        bool accepted = item.TryBeginHostClose(
+        EditorContextCloseRequestStatus status = item.TryBeginHostClose(
+            _hostToken,
             out Task completion,
             out TaskCompletionSource<object?>? completionSource);
-        return StartHostClose(item, accepted, completion, completionSource);
+        return StartHostClose(item, status, completion, completionSource);
     }
 
     private EditorContextCloseRequest StartHostClose(
         EditorTabItem item,
-        bool accepted,
+        EditorContextCloseRequestStatus status,
         Task completion,
         TaskCompletionSource<object?>? completionSource)
     {
-        if (accepted)
+        if (status == EditorContextCloseRequestStatus.Accepted)
         {
             BeforeHostCloseStart?.Invoke();
             _ = CompleteHostCloseAsync(item, completionSource!);
@@ -1369,9 +1381,7 @@ public sealed class EditorService : IEditorContextCloseService
         }
 
         return new EditorContextCloseRequest(
-            accepted
-                ? EditorContextCloseRequestStatus.Accepted
-                : EditorContextCloseRequestStatus.AlreadyClosing,
+            status,
             completion);
     }
 
@@ -1435,14 +1445,29 @@ public sealed class EditorService : IEditorContextCloseService
 
             if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
             {
-                var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
-                if (!TryAddTabItemCore(
+                EditorTabItem? tabItem2 = null;
+                bool added = false;
+                try
+                {
+                    BeforeActivationTabConstruction?.Invoke(context);
+                    tabItem2 = new EditorTabItem(context);
+                    tabItem2.IsSelected.Value = true;
+                    added = TryAddTabItemCore(
                         tabItem2,
                         select: true,
                         beforeAdd: null,
-                        beforeSelection: null)
-                    && tabItem2.IsHostOwned)
-                    ObserveDeferredTabDisposal(tabItem2.DisposeAsync().AsTask());
+                        beforeSelection: null);
+                }
+                finally
+                {
+                    if (!added)
+                    {
+                        if (tabItem2 is not null)
+                            ObserveDeferredTabDisposal(tabItem2.DisposeAsync().AsTask());
+                        else
+                            ObserveDeferredContextDisposal(context);
+                    }
+                }
             }
         }
     }
@@ -1537,6 +1562,21 @@ public sealed class EditorService : IEditorContextCloseService
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
+    }
+
+    private static void ObserveDeferredContextDisposal(IEditorContext context)
+    {
+        Task disposal;
+        try
+        {
+            disposal = context.DisposeAsync().AsTask();
+        }
+        catch (Exception ex)
+        {
+            disposal = Task.FromException(ex);
+        }
+
+        ObserveDeferredTabDisposal(disposal);
     }
 
     private static void ObserveDeferredTaskFailure(Task task)

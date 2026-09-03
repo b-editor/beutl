@@ -12,8 +12,9 @@ using Beutl.ViewModels;
 namespace Beutl.HeadlessUITests;
 
 // Guards that SceneEditorExtension.TryCreateContext resolves host services by type through
-// IEditorContextServices, so any implementation (including a test fake) is accepted, not only the
-// host's concrete EditorContextServices.
+// IEditorContextServices, so matching implementations (including a test fake) are accepted, not
+// only the host's concrete EditorContextServices. Host-token mismatches are rejected before context
+// construction.
 [TestFixture]
 public class SceneEditorContextServicesTests
 {
@@ -25,6 +26,24 @@ public class SceneEditorContextServicesTests
         public IExtensionProvider ExtensionProvider => extensionProvider;
 
         public IEditorContextCloseService CloseService => editorService;
+
+        public bool TryGetService<T>([NotNullWhen(true)] out T? service)
+            where T : class
+        {
+            service = editorService as T ?? extensionProvider as T;
+            return service is not null;
+        }
+    }
+
+    private sealed class MismatchedEditorContextServices(
+        EditorService editorService,
+        ExtensionProvider extensionProvider,
+        IEditorContextCloseService closeService)
+        : IEditorContextServices
+    {
+        public IExtensionProvider ExtensionProvider => extensionProvider;
+
+        public IEditorContextCloseService CloseService => closeService;
 
         public bool TryGetService<T>([NotNullWhen(true)] out T? service)
             where T : class
@@ -142,6 +161,34 @@ public class SceneEditorContextServicesTests
     }
 
     [AvaloniaTest]
+    public void TryCreateContext_rejects_mismatched_close_service_without_creating_context()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "mismatched-close-service");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "mismatched-close-service")
+        {
+            Uri = new Uri(Path.Combine(workspace, "mismatched-close-service.scene"))
+        };
+
+        var extensionProvider = new ExtensionProvider();
+        var owner = new EditorService(extensionProvider);
+        var foreign = new EditorService(extensionProvider);
+        IEditorContextServices services = new MismatchedEditorContextServices(owner, extensionProvider, foreign);
+
+        bool created = SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(context, Is.Null);
+            Assert.That(owner.TabItems, Is.Empty);
+            Assert.That(foreign.TabItems, Is.Empty);
+        });
+
+        HeadlessTestHelpers.Settle();
+    }
+
+    [AvaloniaTest]
     public async Task Context_disposal_before_tab_publication_is_not_published()
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "publication-race");
@@ -221,9 +268,10 @@ public class SceneEditorContextServicesTests
             beforeDispose.TrySetResult();
             releaseDispose.Task.GetAwaiter().GetResult();
         };
-        var closeService = (IEditorContextCloseService)editor.GetService(
-            typeof(IEditorContextCloseService))!;
+        IEditorContextCloseService closeService = editor.CloseService;
         Assert.That(editor.GetService(typeof(EditorService)), Is.Null);
+        Assert.That(editor.GetService(typeof(IEditorContextCloseService)), Is.Null);
+        Assert.That(editor.CloseService, Is.SameAs(closeService));
 
         Task<EditorContextCloseRequest> close = Task.Run(() => closeService.RequestClose(editor));
         await beforeDispose.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -258,9 +306,6 @@ public class SceneEditorContextServicesTests
         var tab = new EditorTabItem(context!);
         editorService.AddTabItem(tab);
         var gate = (IEditorContextPublicationGate)context!;
-        Assert.That(
-            services.TryGetService<IEditorContextCloseService>(out IEditorContextCloseService? closeService),
-            Is.True);
         EditorContextCloseRequest closeRequest = default;
         bool requestReturned = false;
         bool completionWasPending = false;
@@ -271,7 +316,7 @@ public class SceneEditorContextServicesTests
             {
                 Dispatcher.UIThread.Invoke(() =>
                 {
-                    closeRequest = closeService!.RequestClose(context!);
+                    closeRequest = context!.CloseService.RequestClose(context);
                     requestReturned = true;
                     completionWasPending = !closeRequest.Completion.IsCompleted;
                 });
@@ -309,9 +354,6 @@ public class SceneEditorContextServicesTests
             Is.True);
         var tab = new EditorTabItem(context!);
         editorService.AddTabItem(tab);
-        Assert.That(
-            services.TryGetService<IEditorContextCloseService>(out IEditorContextCloseService? closeService),
-            Is.True);
         EditorContextCloseRequest closeRequest = default;
         using IDisposable observer = tab.IsSelected.Subscribe(selected =>
         {
@@ -319,7 +361,7 @@ public class SceneEditorContextServicesTests
             {
                 Dispatcher.UIThread.Invoke(() =>
                 {
-                    closeRequest = closeService!.RequestClose(context!);
+                    closeRequest = context!.CloseService.RequestClose(context);
                 });
             }
         });

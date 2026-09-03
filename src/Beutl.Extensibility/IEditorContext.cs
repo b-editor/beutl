@@ -8,8 +8,9 @@ public interface IEditorContext : IAsyncDisposable, IServiceProvider
     /// <remarks>
     /// Every context returned from <see cref="EditorExtension.TryCreateContext"/> must expose
     /// the capability supplied by <see cref="IEditorContextServices"/>, directly or through a
-    /// context-specific wrapper. Tool-tab extensions call it with this context and must not fall
-    /// back to synchronous disposal.
+    /// context-specific wrapper. This property is the canonical close-capability access path;
+    /// implementations must not duplicate it through <see cref="IServiceProvider.GetService"/>.
+    /// Tool-tab extensions call it with this context and must not fall back to synchronous disposal.
     /// </remarks>
     IEditorContextCloseService CloseService { get; }
 
