@@ -4,8 +4,8 @@ using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-// The ambient hook scopes ImmediateCanvas hands back must unwind in LIFO order, like the flush and
-// pixel-operation observer scopes in the same file. Saving and restoring a value instead lets an outer
+// The ambient hook scopes ImmediateCanvas hands back must unwind in LIFO order, like the flush observer
+// scope in the same file. Saving and restoring a value instead lets an outer
 // scope closed early re-install its own ended hook over the inner one that is still live, and the
 // ImmediateCanvas constructor seeds itself from that ambient value, so every canvas built afterwards
 // inherits the mistake.

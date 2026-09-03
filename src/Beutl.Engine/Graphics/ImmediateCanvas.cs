@@ -18,7 +18,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private const float OrthogonalBasisTolerance = 1e-5f;
 
     private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
-    private static readonly AsyncLocal<PixelOperationObserverScope?> s_pixelOperationObserver = new();
     private static readonly AsyncLocal<DrawableBrushMaterializerScope?> s_drawableBrushMaterializer = new();
     private static readonly AsyncLocal<RenderTargetLeaseSessionScope?> s_renderTargetLeaseSession = new();
     private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
@@ -324,14 +323,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         return scope;
     }
 
-    internal static IDisposable ObservePixelOperations(Action observer)
-    {
-        ArgumentNullException.ThrowIfNull(observer);
-        var scope = new PixelOperationObserverScope(s_pixelOperationObserver.Value, observer);
-        s_pixelOperationObserver.Value = scope;
-        return scope;
-    }
-
     internal RenderTarget _renderTarget
     {
         get
@@ -349,21 +340,18 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public void Clear()
     {
         VerifyPixelOperation(isClear: true);
-        RecordPixelOperation();
         Canvas.Clear();
     }
 
     public void Clear(Color color)
     {
         VerifyPixelOperation(isClear: true);
-        RecordPixelOperation();
         Canvas.Clear(color.ToSKColor());
     }
 
     internal void ReplaceAffectedRegion(Color color)
     {
         VerifyPixelOperation();
-        RecordPixelOperation();
         using var paint = new SKPaint
         {
             Color = color.ToSKColor(),
@@ -488,7 +476,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
-        RecordPixelOperation();
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
 
         if (!CanConsumeWithoutFlush(surface))
@@ -509,7 +496,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         ApplyDirectBlendMode(_sharedFillPaint);
         _sharedFillPaint.IsAntialias = true;
 
-        RecordPixelOperation();
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
 
         if (!CanConsumeWithoutFlush(renderTarget))
@@ -643,7 +629,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         var destination = SKRect.Create(x, y, image.Width, image.Height);
         using (PushDeviceSpace())
         {
-            RecordPixelOperation();
             Canvas.DrawImage(
                 image,
                 source,
@@ -723,7 +708,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _sharedFillPaint.IsAntialias = true;
 
         var src = SKRect.Create(image.Width, image.Height);
-        RecordPixelOperation();
         Canvas.DrawImage(image, src, dest.ToSKRect(), s_compositeSampling, _sharedFillPaint);
     }
 
@@ -739,7 +723,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         using SKImage image = surface.Snapshot();
         var src = SKRect.Create(image.Width, image.Height);
         var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
-        RecordPixelOperation();
         Canvas.DrawImage(image, src, dest, s_compositeSampling, _sharedFillPaint);
 
         if (!CanConsumeWithoutFlush(surface))
@@ -821,7 +804,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
 
-        RecordPixelOperation();
         SKSamplingOptions sampling = RenderScaleUtilities.IsExactIntegerReduction(SurfaceDensity)
             ? s_compositeSampling
             : s_bitmapSampling;
@@ -844,7 +826,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
         var src = SKRect.Create(bmp.Width, bmp.Height);
 
-        RecordPixelOperation();
         Canvas.DrawImage(img, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
@@ -915,7 +896,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyCallbackResource(fill, nameof(fill));
         VerifyCallbackResource(pen, nameof(pen));
         ConfigureFillPaint(rect, fill);
-        RecordPixelOperation();
         Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
@@ -934,7 +914,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyCallbackResource(fill, nameof(fill));
         VerifyCallbackResource(pen, nameof(pen));
         ConfigureFillPaint(rect, fill);
-        RecordPixelOperation();
         Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
@@ -964,7 +943,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (density == 1f)
         {
             ConfigureFillPaint(text.Bounds, fill);
-            RecordPixelOperation();
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
             if (pen != null
@@ -985,7 +963,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 // The blob is shaped at device density, so its glyphs already span Bounds * density
                 // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
                 ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
-                RecordPixelOperation();
                 Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
                 if (pen != null
@@ -1028,7 +1005,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         if (!strokeOnly)
         {
             ConfigureFillPaint(rect, fill);
-            RecordPixelOperation();
             Canvas.DrawPath(skPath, _sharedFillPaint);
         }
 
@@ -1037,7 +1013,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             ConfigureStrokePaint(rect, pen);
 
             using SKPath strokePath = PenHelper.CreateStrokePath(skPath, pen, rect);
-            RecordPixelOperation();
             Canvas.DrawPath(strokePath, _sharedStrokePaint);
         }
     }
@@ -1052,7 +1027,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         Rect rect = geometry.Bounds;
 
         ConfigureFillPaint(geometry.Bounds, fill);
-        RecordPixelOperation();
         if (!TryDrawProductCoverageRectangle(geometry, _sharedFillPaint))
             Canvas.DrawPath(skPath, _sharedFillPaint);
 
@@ -1109,14 +1083,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         int count;
         if (limit == default)
         {
-            RecordPixelOperation();
             count = Canvas.SaveLayer();
         }
         else
         {
             using (var paint = new SKPaint())
             {
-                RecordPixelOperation();
                 count = Canvas.SaveLayer(limit.ToSKRect(), paint);
             }
         }
@@ -1132,12 +1104,10 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         int count;
         if (rect.HasValue)
         {
-            RecordPixelOperation();
             count = Canvas.SaveLayer(rect.Value.ToSKRect(), paint);
         }
         else
         {
-            RecordPixelOperation();
             count = Canvas.SaveLayer(paint);
         }
 
@@ -1230,7 +1200,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         float oldOpacity = Opacity;
         Opacity *= opacity;
 
-        RecordPixelOperation();
         if (oldOpacity == 1f && opacity == 1f)
         {
             // Skia sizes an isolation layer from the active clip, and rasterizing into that smaller
@@ -1260,7 +1229,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyHiddenLayerOperation();
         var paint = new SKPaint();
 
-        RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
         new BrushConstructor(
             bounds,
@@ -1336,7 +1304,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         var paint = new SKPaint();
         paint.BlendMode = (SKBlendMode)blendMode;
 
-        RecordPixelOperation();
         int count = Canvas.SaveLayer(paint);
         _states.Push(new CanvasPushedState.BlendModePushedState(
             tmp,
@@ -1534,7 +1501,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             _sharedFillPaint.Reset();
         ApplyDirectBlendMode(effective);
         effective.IsAntialias = true;
-        RecordPixelOperation();
         Canvas.DrawImage(
             image,
             SKRect.Create(image.Width, image.Height),
@@ -1552,7 +1518,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             _sharedFillPaint.Reset();
             ApplyDirectBlendMode(_sharedFillPaint);
             _sharedFillPaint.IsAntialias = true;
-            RecordPixelOperation();
             Canvas.DrawImage(
                 image,
                 localDevicePoint.X,
@@ -1646,23 +1611,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    private static void RecordPixelOperation()
-    {
-        for (PixelOperationObserverScope? scope = s_pixelOperationObserver.Value;
-             scope is not null;
-             scope = scope.Parent)
-        {
-            try
-            {
-                scope.Observer();
-            }
-            catch
-            {
-                // Diagnostics observation must never affect rendering or cleanup.
-            }
-        }
-    }
-
     private sealed class FlushObserverScope(
         FlushObserverScope? parent,
         Action<ImmediateCanvasFlushKind> observer) : IDisposable
@@ -1681,27 +1629,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             if (!ReferenceEquals(s_flushObserver.Value, this))
                 throw new InvalidOperationException("Immediate-canvas flush observers must be closed in LIFO order.");
             s_flushObserver.Value = Parent;
-        }
-    }
-
-    private sealed class PixelOperationObserverScope(
-        PixelOperationObserverScope? parent,
-        Action observer) : IDisposable
-    {
-        private bool _disposed;
-
-        public PixelOperationObserverScope? Parent { get; } = parent;
-
-        public Action Observer { get; } = observer;
-
-        public void Dispose()
-        {
-            if (_disposed)
-                return;
-            _disposed = true;
-            if (!ReferenceEquals(s_pixelOperationObserver.Value, this))
-                throw new InvalidOperationException("Immediate-canvas pixel-operation observers must be closed in LIFO order.");
-            s_pixelOperationObserver.Value = Parent;
         }
     }
 
