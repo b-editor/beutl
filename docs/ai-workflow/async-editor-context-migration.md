@@ -64,9 +64,9 @@ but contexts must not expose a second `IEditorContextCloseService` lookup throug
 A successful `TryCreateContext` transfers a new, non-null context to the host. The
 host disposes that context exactly once even when a subsequent attachment or
 publication step fails. A failed creation returns `false` with `context == null`
-and the extension is responsible for cleaning up partial state. Direct
-replacement APIs separately reject foreign or already-owned contexts without
-consuming them; those values remain caller-owned.
+and the extension is responsible for cleaning up partial state. A successful
+factory result must be a newly created, unowned context; returning a context that
+is already active in a tab violates the ownership contract.
 
 The request distinguishes `Accepted`, `AlreadyClosing`, and `NotOwned`.
 `Completion` is the stable terminal task for physical tab removal and context
@@ -77,6 +77,16 @@ Every `IEditorContextCloseService` also exposes a required, opaque
 close capability (or a wrapper that forwards both `RequestClose` and the exact `HostToken`).
 `EditorService` rejects initial attachment and replacement when the token belongs to another host;
 do not construct a fresh token in a context wrapper.
+
+Independent editor-host implementations must call
+`EditorContextHostToken.TryAcquireContext(context, out lease)` before publishing a context and
+retain the lease until that context has been unpublished and asynchronously disposed. This atomic
+claim lets every host distinguish a new factory result from a context that is already live, even
+when the close capability is wrapped. The built-in `EditorService` manages these leases itself.
+
+The built-in `EditViewModel` is now created only by its owning `EditorService` through
+`SceneEditorExtension`. Extensions should implement `IEditorContext` and retain the supplied
+`IEditorContextServices`; they must not instantiate the built-in view model directly.
 
 ## Project shutdown
 
@@ -109,11 +119,12 @@ The host-owned editor collections are now read-only to consumers:
   replacement or terminal disposal is in progress, so callers must use a null-safe fallback.
 - `EditorService.TabItems` is `ICoreReadOnlyList<EditorTabItem>`.
 
-Use `EditorTabItem.ReplaceContextAsync` to replace a context. It serializes
-replacement with tab close, awaits the outgoing context, and consumes the new
-context if close wins. A context identity already owned by the same or another
-tab is rejected before outgoing teardown and remains caller-owned. If outgoing
-teardown fails, the tab is terminally removed and the replacement task faults
-after cleanup. Add and remove tabs through
-`EditorService`; do not cast
-the read-only collections back to their concrete mutable implementations.
+Use `EditorService.ReplaceContextAsync(tab, extension)` to replace an editor
+context. The host creates the context with its own services, validates the tab
+owner and current context, serializes replacement with tab close, and owns every
+successful factory result. The operation returns `EditorContextReplacementStatus`;
+callers never dispose a context returned by this host-mediated overload. A tab
+that is unowned, still being attached, or belongs to another host returns
+`NotOwned` without changing either tab or registry. `EditorTabItem`'s raw
+context overload is host-internal. Add and remove tabs through `EditorService`;
+do not cast the read-only collections back to their concrete mutable implementations.

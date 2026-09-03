@@ -78,23 +78,22 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     internal bool IsDisposingOrDisposed => _disposed;
 
-    public EditViewModel(
+    /// <summary>
+    /// Initializes an editor context for a host-provided scene.
+    /// </summary>
+    internal EditViewModel(
         Scene scene,
-        Beutl.Api.Services.ExtensionProvider extensionProvider,
-        EditorService editorService,
-        IEditorContextCloseService closeService)
+        EditorService editorService)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(editorService);
-        ArgumentNullException.ThrowIfNull(closeService);
 
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
 
         Scene = scene;
-        ExtensionProvider = extensionProvider;
+        ExtensionProvider = editorService.ExtensionProvider;
         EditorService = editorService;
-        _contextCloseService = new BoundContextCloseService(this, closeService);
+        _contextCloseService = new BoundContextCloseService(this, editorService);
         SceneId = scene.Id.ToString();
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
@@ -1084,9 +1083,9 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
 
     private sealed class BoundContextCloseService(
         EditViewModel owner,
-        IEditorContextCloseService closeService) : IEditorContextCloseService
+        EditorService editorService) : IEditorContextCloseService
     {
-        public EditorContextHostToken HostToken => closeService.HostToken;
+        public EditorContextHostToken HostToken => editorService.HostToken;
 
         public EditorContextCloseRequest RequestClose(IEditorContext context)
         {
@@ -1097,13 +1096,13 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                     Task.CompletedTask);
             }
 
-            EditorContextCloseRequest request = closeService.RequestClose(owner);
+            EditorContextCloseRequest request = editorService.RequestClose(owner);
             if (request.Status != EditorContextCloseRequestStatus.NotOwned)
                 return request;
 
             owner.BeforePreOwnershipCloseStart?.Invoke();
             (bool started, Task completion) = owner.GetOrStartDisposal();
-            EditorContextCloseRequest attachedRequest = closeService.RequestClose(owner);
+            EditorContextCloseRequest attachedRequest = editorService.RequestClose(owner);
             if (attachedRequest.Status != EditorContextCloseRequestStatus.NotOwned)
                 return attachedRequest;
             _ = completion.ContinueWith(

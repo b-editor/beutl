@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
-using Beutl.Api.Services;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -127,11 +126,7 @@ public sealed class SceneEditorExtension : EditorExtension
             && services.CloseService is { HostToken: not null } closeService
             && ReferenceEquals(editorService.HostToken, closeService.HostToken))
         {
-            var editViewModel = new EditViewModel(
-                scene,
-                editorService.ExtensionProvider,
-                editorService,
-                closeService);
+            var editViewModel = new EditViewModel(scene, editorService);
             if (editViewModel.IsDisposeRequested)
             {
                 context = null;

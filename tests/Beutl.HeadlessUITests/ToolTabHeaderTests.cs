@@ -897,12 +897,12 @@ public class ToolTabHeaderTests
         var oldBlocking = new BlockingEditorContext(entered, release, TestShell.Editor);
         var blockingTab = new EditorTabItem(oldBlocking);
         TestShell.Editor.AddTabItem(blockingTab);
-        Task<bool> replace = blockingTab.ReplaceContextAsync(replacement).AsTask();
+        Task<EditorContextReplacementResult> replace = blockingTab.ReplaceContextAsync(replacement).AsTask();
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         _ = replacement.DisposeAsync();
         release.TrySetResult();
 
-        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.That((await replace!.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded, Is.False);
         Assert.That(blockingTab.Context.Value, Is.Null);
         await blockingTab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         await owner.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
