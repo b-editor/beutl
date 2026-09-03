@@ -15,7 +15,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     private readonly object _gate = new();
     private readonly Func<TProgram, long> _retainedByteSize;
     private readonly long _maxRetainedBytes;
-    private readonly Dictionary<int, List<Entry>> _buckets = [];
+    private readonly Dictionary<CacheKey, Entry> _entries = [];
     private readonly Dictionary<object, object> _activeContexts = [];
     private readonly LinkedList<Entry> _lru = [];
     private long _retainedBytes;
@@ -127,18 +127,13 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                     isCacheHit: false);
             }
 
+            var key = new CacheKey(identity, context);
             var inserted = new Entry(identity, context, created, retainedBytes)
             {
                 LeaseCount = 1,
             };
             inserted.LruNode = _lru.AddFirst(inserted);
-            if (!_buckets.TryGetValue(identity.BucketHash, out List<Entry>? bucket))
-            {
-                bucket = [];
-                _buckets.Add(identity.BucketHash, bucket);
-            }
-
-            bucket.Add(inserted);
+            _entries.Add(key, inserted);
             _retainedBytes = checked(_retainedBytes + retainedBytes);
             List<TProgram>? evicted = TrimToBudget();
             RecordCleanupFailure(DisposeProgramsBestEffort(evicted));
@@ -296,20 +291,10 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         ShaderProgramIdentity identity,
         ProgramCacheContextKey context)
     {
-        if (!_buckets.TryGetValue(identity.BucketHash, out List<Entry>? bucket))
-            return null;
-
-        foreach (Entry candidate in bucket)
-        {
-            if (!candidate.IsEvicted
-                && candidate.Identity.Equals(identity)
-                && candidate.Context.Equals(context))
-            {
-                return candidate;
-            }
-        }
-
-        return null;
+        return _entries.TryGetValue(new CacheKey(identity, context), out Entry? entry)
+               && !entry.IsEvicted
+            ? entry
+            : null;
     }
 
     private void Touch(Entry entry)
@@ -375,12 +360,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             entry.LruNode = null;
         }
 
-        if (_buckets.TryGetValue(entry.Identity.BucketHash, out List<Entry>? bucket))
-        {
-            bucket.Remove(entry);
-            if (bucket.Count == 0)
-                _buckets.Remove(entry.Identity.BucketHash);
-        }
+        _entries.Remove(new CacheKey(entry.Identity, entry.Context));
 
         _retainedBytes -= entry.RetainedBytes;
         if (countEviction)
@@ -436,4 +416,8 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
         public bool IsEvicted { get; set; }
     }
+
+    private readonly record struct CacheKey(
+        ShaderProgramIdentity Identity,
+        ProgramCacheContextKey Context);
 }

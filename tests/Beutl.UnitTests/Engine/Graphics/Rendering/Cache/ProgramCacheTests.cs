@@ -139,6 +139,39 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
+    [NonParallelizable]
+    public void GetOrCreate_DistinctColdEntriesAvoidPerEntryBucketCollections()
+    {
+        const int count = 512;
+        using var cache = CreateCache(maxRetainedBytes: count);
+        ProgramCacheContextKey context = Context("device-a", "context-a");
+        ShaderProgramIdentity[] identities = Enumerable.Range(0, count)
+            .Select(index => Identity(SourceA + index))
+            .ToArray();
+        FakeProgram[] programs = Enumerable.Range(0, count)
+            .Select(index => new FakeProgram(index, 1))
+            .ToArray();
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int index = 0; index < count; index++)
+        {
+            using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
+                identities[index],
+                context,
+                programs[index],
+                static program => program);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long perEntry = allocated / count;
+        TestContext.Out.WriteLine($"distinct cold program-cache entries: {perEntry} bytes/entry");
+
+        Assert.That(
+            perEntry,
+            Is.LessThanOrEqualTo(304),
+            "the cache should rely on Dictionary collision handling instead of allocating a list per hash");
+    }
+
+    [Test]
     public void GetOrCreate_SameSourceForDifferentBackends_DoesNotCollide()
     {
         const string spirvSource =
