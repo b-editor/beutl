@@ -31,17 +31,27 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        // A symbol action sees all declarations of a partial node together.
-        context.RegisterSymbolAction(AnalyzeNamedType, SymbolKind.NamedType);
+        // RenderNode is looked up once per compilation rather than once per named type: every type
+        // declared in the compilation reaches this rule, and only the few deriving from RenderNode go any
+        // further.
+        context.RegisterCompilationStartAction(start =>
+        {
+            if (start.Compilation.GetTypeByMetadataName(RenderNodeMetadataName) is not { } renderNodeType)
+                return;
+
+            // A symbol action sees all declarations of a partial node together.
+            start.RegisterSymbolAction(
+                symbol => AnalyzeNamedType(symbol, renderNodeType),
+                SymbolKind.NamedType);
+        });
     }
 
-    private static void AnalyzeNamedType(SymbolAnalysisContext context)
+    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol renderNodeType)
     {
         if (context.Symbol is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsStatic: false } type)
             return;
 
-        INamedTypeSymbol? renderNodeType = context.Compilation.GetTypeByMetadataName(RenderNodeMetadataName);
-        if (renderNodeType is null || !InheritsFrom(type, renderNodeType))
+        if (!InheritsFrom(type, renderNodeType))
             return;
 
         IMethodSymbol? process = FindProcessMethod(type, renderNodeType);

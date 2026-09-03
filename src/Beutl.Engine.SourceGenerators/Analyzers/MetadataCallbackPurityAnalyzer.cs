@@ -18,8 +18,7 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
 {
-    private static readonly ImmutableHashSet<string> s_contractTypes = ImmutableHashSet.Create(
-        StringComparer.Ordinal,
+    private static readonly ImmutableArray<string> s_contractTypeNames = ImmutableArray.Create(
         "Beutl.Graphics.Rendering.RenderBoundsContract",
         "Beutl.Graphics.Rendering.RenderHitTestContract",
         "Beutl.Graphics.Rendering.RenderScaleContract",
@@ -30,15 +29,15 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         // ShaderBindingBuilder retains callbacks under the same identity rules as the factories below.
         "Beutl.Graphics.Shaders.ShaderBindingBuilder");
 
-    private static readonly ImmutableHashSet<string> s_contractMethods = ImmutableHashSet.Create(
-        StringComparer.Ordinal,
-        "Beutl.Graphics.Rendering.RenderNodeContext.PaintedSource",
-        "Beutl.Graphics.Rendering.OpaqueRenderDescription.Create",
-        "Beutl.Graphics.Rendering.TargetScopeDescription.Create",
-        "Beutl.Graphics.Rendering.TargetCommandDescription.Create",
-        "Beutl.Graphics.Rendering.RawTargetScopeDescription.Create",
-        "Beutl.Graphics.Rendering.RawTargetCommandDescription.Create",
-        "Beutl.Graphics.Effects.GeometryDescription.Create");
+    private static readonly ImmutableArray<(string Type, string Method)> s_contractMethodNames =
+        ImmutableArray.Create(
+            ("Beutl.Graphics.Rendering.RenderNodeContext", "PaintedSource"),
+            ("Beutl.Graphics.Rendering.OpaqueRenderDescription", "Create"),
+            ("Beutl.Graphics.Rendering.TargetScopeDescription", "Create"),
+            ("Beutl.Graphics.Rendering.TargetCommandDescription", "Create"),
+            ("Beutl.Graphics.Rendering.RawTargetScopeDescription", "Create"),
+            ("Beutl.Graphics.Rendering.RawTargetCommandDescription", "Create"),
+            ("Beutl.Graphics.Effects.GeometryDescription", "Create"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(
@@ -49,10 +48,86 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+
+        // The contracts are resolved once per compilation rather than per invocation: every invocation in
+        // the compilation reaches this rule, and only the handful naming a contract goes any further, so
+        // the filter has to cost a symbol comparison rather than a name built out of the symbol.
+        context.RegisterCompilationStartAction(start =>
+        {
+            if (Contracts.Resolve(start.Compilation) is not { } contracts)
+                return;
+
+            start.RegisterSyntaxNodeAction(
+                node => AnalyzeInvocation(node, contracts),
+                SyntaxKind.InvocationExpression);
+        });
     }
 
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <summary>The contract types and factory methods of one compilation, as symbols.</summary>
+    /// <remarks>
+    /// A contract not in the compilation is left out rather than recorded as missing, so a compilation
+    /// with none of them at all resolves to nothing and the rule registers no action.
+    /// </remarks>
+    private sealed class Contracts
+    {
+        private readonly ImmutableHashSet<INamedTypeSymbol> _types;
+        private readonly ImmutableDictionary<INamedTypeSymbol, ImmutableHashSet<string>> _methods;
+
+        private Contracts(
+            ImmutableHashSet<INamedTypeSymbol> types,
+            ImmutableDictionary<INamedTypeSymbol, ImmutableHashSet<string>> methods)
+        {
+            _types = types;
+            _methods = methods;
+        }
+
+        public static Contracts? Resolve(Compilation compilation)
+        {
+            ImmutableHashSet<INamedTypeSymbol>.Builder types =
+                ImmutableHashSet.CreateBuilder<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+            foreach (string name in s_contractTypeNames)
+            {
+                if (compilation.GetTypeByMetadataName(name) is { } type)
+                    types.Add(type);
+            }
+
+            ImmutableDictionary<INamedTypeSymbol, ImmutableHashSet<string>>.Builder methods =
+                ImmutableDictionary.CreateBuilder<INamedTypeSymbol, ImmutableHashSet<string>>(
+                    SymbolEqualityComparer.Default);
+
+            foreach ((string typeName, string methodName) in s_contractMethodNames)
+            {
+                if (compilation.GetTypeByMetadataName(typeName) is not { } type)
+                    continue;
+
+                methods[type] = methods.TryGetValue(type, out ImmutableHashSet<string>? names)
+                    ? names.Add(methodName)
+                    : ImmutableHashSet.Create(StringComparer.Ordinal, methodName);
+            }
+
+            if (types.Count == 0 && methods.Count == 0)
+                return null;
+
+            return new Contracts(types.ToImmutable(), methods.ToImmutable());
+        }
+
+        /// <summary>Whether <paramref name="method"/> is one this rule reads the callbacks of.</summary>
+        /// <remarks>
+        /// Asked of the unbound type, because type arguments do not affect whether a containing type is a
+        /// registered contract.
+        /// </remarks>
+        public bool Declares(IMethodSymbol method, INamedTypeSymbol containingType)
+        {
+            INamedTypeSymbol declaration = containingType.OriginalDefinition;
+
+            return _types.Contains(declaration)
+                   || (_methods.TryGetValue(declaration, out ImmutableHashSet<string>? names)
+                       && names.Contains(method.Name));
+        }
+    }
+
+    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, Contracts contracts)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol
@@ -61,13 +136,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Type arguments do not affect whether a containing type is a registered contract.
-        if (method.ContainingType is not { } containingType)
-            return;
-
-        string typeName = containingType.ContainingNamespace.ToDisplayString() + "." + containingType.Name;
-        if (!s_contractTypes.Contains(typeName)
-            && !s_contractMethods.Contains(typeName + "." + method.Name))
+        if (method.ContainingType is not { } containingType
+            || !contracts.Declares(method, containingType))
         {
             return;
         }
