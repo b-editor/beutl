@@ -140,7 +140,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
             bucket.Add(inserted);
             _retainedBytes = checked(_retainedBytes + retainedBytes);
-            List<TProgram> evicted = TrimToBudget();
+            List<TProgram>? evicted = TrimToBudget();
             RecordCleanupFailure(DisposeProgramsBestEffort(evicted));
             return new ProgramCacheLease<TProgram>(
                 this,
@@ -232,12 +232,12 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
     internal void Release(Entry? entry, TProgram program)
     {
-        List<TProgram> disposable = [];
+        List<TProgram>? disposable = null;
         lock (_gate)
         {
             if (entry is null)
             {
-                disposable.Add(program);
+                disposable = [program];
             }
             else
             {
@@ -252,11 +252,11 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                 {
                     if (!entry.IsEvicted)
                         RemoveEntry(entry, countEviction: true);
-                    disposable.Add(program);
+                    disposable = [program];
                 }
                 else if (!entry.IsLeased)
                 {
-                    disposable.AddRange(TrimToBudget());
+                    disposable = TrimToBudget();
                 }
             }
         }
@@ -322,9 +322,9 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         _lru.AddFirst(node);
     }
 
-    private List<TProgram> TrimToBudget()
+    private List<TProgram>? TrimToBudget()
     {
-        var disposable = new List<TProgram>();
+        List<TProgram>? disposable = null;
         while (_retainedBytes > _maxRetainedBytes)
         {
             LinkedListNode<Entry>? candidate = _lru.Last;
@@ -335,7 +335,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
             Entry entry = candidate.Value;
             RemoveEntry(entry, countEviction: true);
-            disposable.Add(entry.Program);
+            (disposable ??= []).Add(entry.Program);
         }
 
         return disposable;
@@ -393,8 +393,11 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             _deferredCleanupFailure = failure;
     }
 
-    private static ExceptionDispatchInfo? DisposeProgramsBestEffort(IEnumerable<TProgram> programs)
+    private static ExceptionDispatchInfo? DisposeProgramsBestEffort(IEnumerable<TProgram>? programs)
     {
+        if (programs is null)
+            return null;
+
         ExceptionDispatchInfo? firstFailure = null;
         foreach (TProgram program in programs)
         {

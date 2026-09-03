@@ -101,6 +101,44 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
+    [NonParallelizable]
+    public void GetOrCreate_WarmedHitAllocatesOnlyItsLease()
+    {
+        const int iterations = 1_000;
+        using var cache = CreateCache(maxRetainedBytes: 64);
+        ShaderProgramIdentity identity = Identity(SourceA);
+        ProgramCacheContextKey context = Context("device-a", "context-a");
+        using (cache.GetOrCreate(identity, context, () => new FakeProgram(1, 16)))
+        {
+        }
+
+        for (int index = 0; index < 100; index++)
+        {
+            using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
+                identity,
+                context,
+                static () => throw new AssertionException("A warmed hit must not invoke its factory."));
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int index = 0; index < iterations; index++)
+        {
+            using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
+                identity,
+                context,
+                static () => throw new AssertionException("A warmed hit must not invoke its factory."));
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long perLookup = allocated / iterations;
+        TestContext.Out.WriteLine($"warmed program-cache hit: {perLookup} bytes/lookup");
+
+        Assert.That(
+            perLookup,
+            Is.LessThanOrEqualTo(64),
+            "a warmed hit should allocate its lease, not empty cleanup collections");
+    }
+
+    [Test]
     public void GetOrCreate_SameSourceForDifferentBackends_DoesNotCollide()
     {
         const string spirvSource =
