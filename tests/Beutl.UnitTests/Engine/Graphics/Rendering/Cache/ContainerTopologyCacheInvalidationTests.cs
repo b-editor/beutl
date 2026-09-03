@@ -100,15 +100,27 @@ public class ContainerTopologyCacheInvalidationTests
     [Test]
     public void TheDependencySignatureAloneCatchesAnUnreportedChildSwap()
     {
-        using var node = new ContainerRenderNode();
-        node.AddChild(new ContainerRenderNode());
+        // Stands in for any path that restructures a container without reporting it. The swap has to go
+        // through a node that does not mark, or the mark is what invalidates the cache and the signature
+        // is never asked - which is what this test used to do, passing for a reason its name denied.
+        using var replaced = new ContainerRenderNode();
+        using var replacement = new ContainerRenderNode();
+        using var node = new SilentContainerRenderNode();
+        node.SetChildren(replaced);
         PublishAndSettle(node);
+        long stampedChangeVersion = node.ChangeVersion;
 
-        node.SetChild(0, new ContainerRenderNode());
-        // Stands in for any path that restructures the container without reporting it: both children were
-        // built this instant, so nothing but the child's own identity distinguishes the two topologies.
-        node.ClearChanges(node.ChangeVersion);
-        Assert.That(node.HasChanges, Is.False, "precondition: the swap is reported by the signature alone");
+        node.SetChildren(replacement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.Cache.IsCached, Is.True, "precondition: the cache starts warm");
+            Assert.That(node.HasChanges, Is.False, "precondition: the swap is not reported as a change");
+            Assert.That(
+                node.ChangeVersion,
+                Is.EqualTo(stampedChangeVersion),
+                "precondition: nothing but the child's own identity distinguishes the two topologies");
+        });
 
         RenderNodeCacheHelper.BeginLifecycle(node);
 
