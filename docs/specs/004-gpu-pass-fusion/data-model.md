@@ -94,11 +94,11 @@ Options carry intent, purpose, optional target domain, requested region, output 
 
 ### RecordedRenderGraph
 
-The graph preserves authored painter order and consists of ordered fragments plus embedded value edges. Nested same-target recording remains in this graph. Separate-target work records a child request before parent execution.
+The graph is one ordered semantic fragment DAG. Each fragment stores its ordered input edges and value cardinality directly, preserving authored painter order without a parallel value graph. Nested same-target recording remains in this graph. Separate-target work records a child request before parent execution.
 
-### RecordedRenderFragment and RenderFragmentReference
+### RenderFragmentReference
 
-A fragment has ordered inputs, conservative bounds/scale/cardinality metadata, contribution behavior, hit-test provenance, and an execution payload. Value fragments can be transformed or combined. Target effects remain ordinary ordered fragments even when they produce no value.
+A fragment has a canonical request-local ID, ordered semantic inputs, conservative bounds/scale/cardinality metadata, contribution behavior, hit-test provenance, and an execution payload. Value-producing fragments can be transformed or combined. Target effects remain ordinary ordered fragments even when they produce no value.
 
 ### Target scopes, commands, and captures
 

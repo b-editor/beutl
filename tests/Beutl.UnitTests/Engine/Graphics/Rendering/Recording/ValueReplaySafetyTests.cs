@@ -163,9 +163,7 @@ public sealed class ValueReplaySafetyTests
     private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
     {
         RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return (RenderFragmentReference)graph.Fragments
-            .Single(fragment => fragment.Id == rootId)
-            .Payload!;
+        return graph.GetFragment(rootId);
     }
 
     private static TargetScopeDescription CreateIdentityValueReplayDescription(string key)

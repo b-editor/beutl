@@ -77,7 +77,7 @@ internal sealed class RegionAnalyzer
         bool changed;
         do
         {
-            changed = PropagateValueRequirements(
+            changed = PropagateFragmentRequirements(
                 topologicalOrder,
                 targetDomains,
                 fragmentRequirements,
@@ -99,15 +99,12 @@ internal sealed class RegionAnalyzer
         while (changed);
 
         var fragmentRegions = ImmutableDictionary.CreateBuilder<RenderFragmentId, RequiredRegion>();
-        var valueRegions = ImmutableDictionary.CreateBuilder<RenderValueId, RequiredRegion>();
         var targetAccessRegions = ImmutableDictionary.CreateBuilder<RenderFragmentId, RequiredRegion>();
         foreach (RenderFragmentReference reference in topologicalOrder)
         {
             RenderFragmentId fragmentId = GetId(reference);
             RequiredRegion requirement = GetRequirement(fragmentRequirements, reference);
             fragmentRegions.Add(fragmentId, requirement);
-            foreach (RenderValueId valueId in reference.ValueIds)
-                valueRegions.Add(valueId, requirement);
 
             if (targetRequirements.TryGetValue(reference, out RequiredRegion targetRequirement))
                 targetAccessRegions.Add(fragmentId, targetRequirement);
@@ -120,7 +117,6 @@ internal sealed class RegionAnalyzer
             finalCommitBounds,
             finalCommitRegion,
             fragmentRegions.ToImmutable(),
-            valueRegions.ToImmutable(),
             targetAccessRegions.ToImmutable(),
             metadata,
             backingTargetBackdropCaptures);
@@ -163,7 +159,7 @@ internal sealed class RegionAnalyzer
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> Metadata,
         RenderNodeMeasurement Measurement);
 
-    private static bool PropagateValueRequirements(
+    private static bool PropagateFragmentRequirements(
         ImmutableArray<RenderFragmentReference> topologicalOrder,
         IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains,
         Dictionary<RenderFragmentReference, RequiredRegion> fragmentRequirements,

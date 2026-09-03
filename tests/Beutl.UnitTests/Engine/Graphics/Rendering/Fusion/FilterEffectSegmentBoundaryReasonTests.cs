@@ -80,7 +80,6 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
 
     private static RenderFragmentReference Segment(CompiledRenderRequest compiled)
         => compiled.Graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
             .Single(static fragment => fragment.Kind == RenderFragmentKind.FilterEffectSegment);
 
     private static IEnumerable<ExecutionIslandBoundaryReason> Reasons(CompiledRenderRequest compiled)

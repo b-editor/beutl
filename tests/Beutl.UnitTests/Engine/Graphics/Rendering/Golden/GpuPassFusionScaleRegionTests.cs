@@ -45,7 +45,6 @@ public sealed class GpuPassFusionScaleRegionTests
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
             RenderFragmentReference combined = graph.Fragments
-                .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
                 .Single(static reference => reference.Kind == RenderFragmentKind.OpaqueCombine);
 
             Assert.Multiple(() =>
@@ -559,7 +558,6 @@ public sealed class GpuPassFusionScaleRegionTests
             owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
         RenderFragmentReference reference = graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
             .Single(item => item.Kind == (builtIn
                 ? RenderFragmentKind.BuiltInBackdropCapture
                 : RenderFragmentKind.TargetCapture));

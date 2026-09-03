@@ -39,22 +39,14 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(shaderBudget);
 
-        RenderFragmentReference[] references = new RenderFragmentReference[graph.Fragments.Length];
+        ImmutableArray<RenderFragmentReference> references = graph.Fragments;
         var indexes = new Dictionary<RenderFragmentReference, int>(
-            graph.Fragments.Length,
+            references.Length,
             ReferenceEqualityComparer.Instance);
-        for (int index = 0; index < graph.Fragments.Length; index++)
+        for (int index = 0; index < references.Length; index++)
         {
-            RecordedRenderFragment recorded = graph.Fragments[index];
-            if (recorded.Id.RequestId != graph.RequestId || recorded.Id.Value != index + 1L)
-                throw new InvalidOperationException("A recorded fragment has a non-canonical graph ID.");
-            if (recorded.Payload is not RenderFragmentReference reference || reference.Id != recorded.Id)
-            {
-                throw new InvalidOperationException(
-                    "A recorded fragment is missing its canonical semantic reference.");
-            }
-
-            references[index] = reference;
+            RenderFragmentReference reference = graph.GetFragment(
+                new RenderFragmentId(graph.RequestId, index + 1L));
             indexes.Add(reference, index);
         }
 
@@ -157,8 +149,7 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
 
     private static int GetFragmentIndex(RenderFragmentId id, RecordedRenderGraph graph)
     {
-        if (id.RequestId != graph.RequestId || id.Value <= 0 || id.Value > graph.Fragments.Length)
-            throw new InvalidOperationException("A structural-plan fragment ID does not belong to its graph.");
+        graph.GetFragment(id);
         return checked((int)id.Value - 1);
     }
 }

@@ -66,14 +66,13 @@ public sealed class RenderNodeRecordingCacheTests
         {
             Assert.That(reused.ProcessCalls, Is.EqualTo(1));
             Assert.That(reusedGraph.Fragments, Has.Length.EqualTo(freshGraph.Fragments.Length));
-            Assert.That(reusedGraph.Values, Has.Length.EqualTo(freshGraph.Values.Length));
             Assert.That(reusedGraph.PublicationRoots, Has.Length.EqualTo(freshGraph.PublicationRoots.Length));
             Assert.That(
-                ((RenderFragmentReference)reusedGraph.Fragments[0].Payload!).RecordingFingerprint,
-                Is.EqualTo(((RenderFragmentReference)freshGraph.Fragments[0].Payload!).RecordingFingerprint));
+                reusedGraph.Fragments[0].RecordingFingerprint,
+                Is.EqualTo(freshGraph.Fragments[0].RecordingFingerprint));
             Assert.That(
-                ((RenderFragmentReference)reusedGraph.Fragments[0].Payload!).Id,
-                Is.EqualTo(reusedGraph.Fragments[0].Id),
+                reusedGraph.GetFragment(reusedGraph.Fragments[0].Id!.Value),
+                Is.SameAs(reusedGraph.Fragments[0]),
                 "a replayed fragment has to carry the identity of the graph it was replayed into");
         });
     }

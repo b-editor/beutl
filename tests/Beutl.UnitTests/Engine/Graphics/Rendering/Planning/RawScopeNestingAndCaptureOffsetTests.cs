@@ -56,7 +56,6 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         RenderFragmentReference scope = graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
             .Single(static reference => reference.Kind == RenderFragmentKind.RawTargetScope);
 
         Assert.That(scope.HasOpaqueExternalWork, Is.True,

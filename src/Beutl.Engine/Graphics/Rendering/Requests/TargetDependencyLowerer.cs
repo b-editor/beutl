@@ -65,7 +65,7 @@ internal static class TargetDependencyLowerer
                 case RenderFragmentKind.BuiltInBackdropCapture:
                     LowerCapture(reference, scopeId);
                     if (compositeOutput && reference.ContributesValuesToTarget)
-                        AddStep(reference, scopeId, TargetDependencyKind.Composite, FirstInputValue(reference), null);
+                        AddStep(reference, scopeId, TargetDependencyKind.Composite);
                     return;
                 case RenderFragmentKind.TargetCommand:
                 case RenderFragmentKind.RawTargetCommand:
@@ -86,9 +86,7 @@ internal static class TargetDependencyLowerer
                         AddStep(
                             reference,
                             scopeId,
-                            TargetDependencyKind.Composite,
-                            FirstInputValue(reference),
-                            null);
+                            TargetDependencyKind.Composite);
                     }
                     return;
                 case RenderFragmentKind.Blend
@@ -105,7 +103,7 @@ internal static class TargetDependencyLowerer
                 default:
                     LowerDependencies(reference, scopeId);
                     if (compositeOutput && reference.ContributesValuesToTarget)
-                        AddStep(reference, scopeId, TargetDependencyKind.Composite, FirstValue(reference), null);
+                        AddStep(reference, scopeId, TargetDependencyKind.Composite);
                     return;
             }
         }
@@ -130,9 +128,7 @@ internal static class TargetDependencyLowerer
             AddStep(
                 reference,
                 scopeId,
-                TargetDependencyKind.Command,
-                FirstInputValue(reference),
-                null);
+                TargetDependencyKind.Command);
         }
 
         private void LowerFiniteLayer(
@@ -157,9 +153,7 @@ internal static class TargetDependencyLowerer
                 AddStep(
                     reference,
                     parentScope,
-                    TargetDependencyKind.ScopeComposite,
-                    FirstValue(reference),
-                    null);
+                    TargetDependencyKind.ScopeComposite);
             }
         }
 
@@ -183,9 +177,7 @@ internal static class TargetDependencyLowerer
             AddStep(
                 reference,
                 parentScope,
-                TargetDependencyKind.ScopeComposite,
-                FirstValue(reference),
-                null);
+                TargetDependencyKind.ScopeComposite);
         }
 
         private void LowerScopeWrapper(
@@ -214,7 +206,7 @@ internal static class TargetDependencyLowerer
 
             if (compositeOutput && reference.ContributesValuesToTarget && !childHasEffects)
             {
-                AddStep(reference, authoredScope, TargetDependencyKind.Composite, FirstValue(reference), null);
+                AddStep(reference, authoredScope, TargetDependencyKind.Composite);
             }
 
             _currentTokens[scopeId] = _currentTokens[authoredScope];
@@ -254,7 +246,7 @@ internal static class TargetDependencyLowerer
 
             if (compositeOutput && reference.ContributesValuesToTarget && !childHasEffects)
             {
-                AddStep(reference, authoredScope, TargetDependencyKind.Composite, FirstValue(reference), null);
+                AddStep(reference, authoredScope, TargetDependencyKind.Composite);
             }
 
             _currentTokens[scopeId] = _currentTokens[authoredScope];
@@ -303,7 +295,7 @@ internal static class TargetDependencyLowerer
             if (!_scheduledEffects.Add(reference))
                 return;
             LowerDependencies(reference, scopeId);
-            AddStep(reference, scopeId, TargetDependencyKind.Command, FirstInputValue(reference), null);
+            AddStep(reference, scopeId, TargetDependencyKind.Command);
         }
 
         private void LowerCapture(RenderFragmentReference reference, TargetScopeId scopeId)
@@ -311,8 +303,7 @@ internal static class TargetDependencyLowerer
             if (!_scheduledEffects.Add(reference))
                 return;
             ValidateCaptureDomain(reference, scopeId);
-            RenderValueId? capturedValue = FirstValue(reference);
-            AddStep(reference, scopeId, TargetDependencyKind.Capture, capturedValue, capturedValue);
+            AddStep(reference, scopeId, TargetDependencyKind.Capture);
         }
 
         private void LowerDependencies(
@@ -331,9 +322,7 @@ internal static class TargetDependencyLowerer
         private void AddStep(
             RenderFragmentReference reference,
             TargetScopeId scopeId,
-            TargetDependencyKind kind,
-            RenderValueId? targetReadValueId,
-            RenderValueId? producedValueId)
+            TargetDependencyKind kind)
         {
             RenderFragmentId fragmentId = reference.Id
                 ?? throw new InvalidOperationException("A target dependency refers to an uncommitted fragment.");
@@ -345,23 +334,7 @@ internal static class TargetDependencyLowerer
                 scopeId,
                 input,
                 output,
-                targetReadValueId,
-                producedValueId,
                 kind));
-        }
-
-        private static RenderValueId? FirstValue(RenderFragmentReference reference)
-            => reference.ValueIds.IsDefaultOrEmpty ? null : reference.ValueIds[0];
-
-        private static RenderValueId? FirstInputValue(RenderFragmentReference reference)
-        {
-            foreach (RenderFragmentReference input in reference.Inputs)
-            {
-                if (!input.ValueIds.IsDefaultOrEmpty)
-                    return input.ValueIds[0];
-            }
-
-            return null;
         }
 
         private Rect? GetDomain(TargetScopeId scopeId)

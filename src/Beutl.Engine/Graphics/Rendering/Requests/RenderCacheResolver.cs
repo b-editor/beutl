@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Collections.Immutable;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -8,8 +9,8 @@ internal sealed record RenderMaterializationDemandResolution(
 
 /// <summary>
 /// Resolves cache candidates only after target dependencies, metadata, and required regions are known. It does
-/// not mutate the recorded graph: substitutions and capture points refer back to the original producer/value and
-/// provenance IDs, leaving every fragment input and target-token edge intact.
+/// not mutate the recorded graph: substitutions and capture points refer back to the original producer, leaving
+/// every fragment input and target-token edge intact.
 /// </summary>
 internal sealed class RenderCacheResolver
 {
@@ -106,12 +107,10 @@ internal sealed class RenderCacheResolver
                 : [];
         foreach (RenderCacheCandidate candidate in index.Graph.CacheCandidates)
         {
-            RecordedRenderFragment recorded = index.Fragments[candidate.FragmentId];
-            RenderFragmentReference reference = index.References[candidate.FragmentId];
+            RenderFragmentReference reference = index.Graph.GetFragment(candidate.FragmentId);
             CandidateEvaluation evaluation = EvaluateCandidate(
                 request,
                 reference,
-                recorded,
                 regions,
                 context,
                 materializationDemands,
@@ -191,8 +190,7 @@ internal sealed class RenderCacheResolver
             RenderCacheDecision decision = ResolveCandidate(
                 request,
                 candidate,
-                index.Fragments[candidate.FragmentId],
-                index.References[candidate.FragmentId],
+                index.Graph.GetFragment(candidate.FragmentId),
                 regions,
                 context,
                 materializationDemands,
@@ -254,7 +252,6 @@ internal sealed class RenderCacheResolver
     private static RenderCacheDecision ResolveCandidate(
         RenderRequest request,
         RenderCacheCandidate candidate,
-        RecordedRenderFragment recorded,
         RenderFragmentReference reference,
         RegionAnalysis regions,
         RenderCacheResolutionContext context,
@@ -267,7 +264,6 @@ internal sealed class RenderCacheResolver
         CandidateEvaluation evaluation = EvaluateCandidate(
             request,
             reference,
-            recorded,
             regions,
             context,
             materializationDemands,
@@ -296,9 +292,7 @@ internal sealed class RenderCacheResolver
                 identity,
                 new RenderCacheHitSubstitution(
                     candidate.Id,
-                    recorded.Id,
-                    recorded.Values,
-                    recorded.ProvenanceId,
+                    candidate.FragmentId,
                     identity,
                     entry!),
                 null,
@@ -316,9 +310,7 @@ internal sealed class RenderCacheResolver
             null,
             new RenderCacheMissCapture(
                 candidate.Id,
-                recorded.Id,
-                recorded.Values,
-                recorded.ProvenanceId,
+                candidate.FragmentId,
                 identity),
                 null);
     }
@@ -355,7 +347,6 @@ internal sealed class RenderCacheResolver
     private static CandidateEvaluation EvaluateCandidate(
         RenderRequest request,
         RenderFragmentReference reference,
-        RecordedRenderFragment recorded,
         RegionAnalysis regions,
         RenderCacheResolutionContext context,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> materializationDemands,
@@ -372,7 +363,7 @@ internal sealed class RenderCacheResolver
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.RawTargetWork);
         if (RenderFragmentTargetDependency.HasExternalTargetDependency(reference))
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.TargetTokenDependency);
-        if (!reference.CanBeUsedAsValueInput || recorded.Values.IsDefaultOrEmpty)
+        if (!reference.CanBeUsedAsValueInput || reference.ValueCardinality.Maximum == 0)
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.NotMaterializable);
         if (reference.Kind == RenderFragmentKind.MaterializedInput
             && reference.Payload is MaterializedInputRenderFragmentPayload input
@@ -383,8 +374,10 @@ internal sealed class RenderCacheResolver
                 RenderCacheBypassReason.ExternalInputExceedsBufferBudget);
         }
 
-        if (!regions.FragmentRequirements.TryGetValue(recorded.Id, out RequiredRegion requirement)
-            || !regions.Metadata.TryGetValue(recorded.Id, out ResolvedFragmentMetadata metadata))
+        RenderFragmentId fragmentId = reference.Id
+            ?? throw new InvalidOperationException("A cache candidate refers to an uncommitted fragment.");
+        if (!regions.FragmentRequirements.TryGetValue(fragmentId, out RequiredRegion requirement)
+            || !regions.Metadata.TryGetValue(fragmentId, out ResolvedFragmentMetadata metadata))
         {
             return CandidateEvaluation.Bypass(RenderCacheBypassReason.EmptyRequirement);
         }
@@ -569,51 +562,30 @@ internal sealed class RenderCacheResolver
         public ResolverIndex(RecordedRenderGraph graph)
         {
             Graph = graph;
-            Fragments = new Dictionary<RenderFragmentId, RecordedRenderFragment>(
-                graph.Fragments.Length);
-            References = new Dictionary<RenderFragmentId, RenderFragmentReference>(
-                graph.Fragments.Length);
-            foreach (RecordedRenderFragment fragment in graph.Fragments)
-            {
-                if (fragment.Payload is not RenderFragmentReference reference)
-                {
-                    throw new InvalidOperationException(
-                        "A cache-planning fragment is missing its semantic reference.");
-                }
-
-                Fragments.Add(fragment.Id, fragment);
-                References.Add(fragment.Id, reference);
-            }
-
-            var deviceGridReferences = ResolveDeviceGridReferences(References.Values);
+            var deviceGridReferences = ResolveDeviceGridReferences(graph.Fragments);
             DeviceGridAffectedReferences = deviceGridReferences.Affected;
             TransformDependentReferences = deviceGridReferences.TransformDependent;
         }
 
         public RecordedRenderGraph Graph { get; }
 
-        public Dictionary<RenderFragmentId, RecordedRenderFragment> Fragments { get; }
-
-        public Dictionary<RenderFragmentId, RenderFragmentReference> References { get; }
-
         public HashSet<RenderFragmentReference> DeviceGridAffectedReferences { get; }
 
         public HashSet<RenderFragmentReference> TransformDependentReferences { get; }
 
         public CandidateTopology GetTopology()
-            => _topology ??= BuildCandidateTopology(Graph, References);
+            => _topology ??= BuildCandidateTopology(Graph);
 
         private static (
             HashSet<RenderFragmentReference> Affected,
             HashSet<RenderFragmentReference> TransformDependent) ResolveDeviceGridReferences(
-                IEnumerable<RenderFragmentReference> references)
+                ImmutableArray<RenderFragmentReference> references)
         {
-            RenderFragmentReference[] all = references.ToArray();
             var consumers = new Dictionary<RenderFragmentReference, List<RenderFragmentReference>>(
                 ReferenceEqualityComparer.Instance);
-            foreach (RenderFragmentReference reference in all)
+            foreach (RenderFragmentReference reference in references)
                 consumers.Add(reference, []);
-            foreach (RenderFragmentReference reference in all)
+            foreach (RenderFragmentReference reference in references)
             {
                 foreach (RenderFragmentReference input in reference.Inputs)
                     consumers[input].Add(reference);
@@ -621,11 +593,11 @@ internal sealed class RenderCacheResolver
 
             RenderFragmentReference[] phaseUnsafeMaskScopes =
             [
-                .. all.Where(IsPhaseUnsafeMaskScope),
+                .. references.Where(IsPhaseUnsafeMaskScope),
             ];
             RenderFragmentReference[] sensitive =
             [
-                .. all.Where(IsDeviceGridSensitive),
+                .. references.Where(IsDeviceGridSensitive),
                 .. phaseUnsafeMaskScopes,
             ];
             HashSet<RenderFragmentReference> affected = ExpandConnectedReferences(
@@ -822,8 +794,7 @@ internal sealed class RenderCacheResolver
     }
 
     internal static CandidateTopology BuildCandidateTopology(
-        RecordedRenderGraph graph,
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references)
+        RecordedRenderGraph graph)
     {
         var result = new Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>>();
         var reachable = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
@@ -845,11 +816,11 @@ internal sealed class RenderCacheResolver
 
                 if (!reachableResolved)
                 {
-                    CollectReachableInputs(references[parent.FragmentId], reachable, pending);
+                    CollectReachableInputs(graph.GetFragment(parent.FragmentId), reachable, pending);
                     reachableResolved = true;
                 }
 
-                if (reachable.Contains(references[child.FragmentId]))
+                if (reachable.Contains(graph.GetFragment(child.FragmentId)))
                     descendants.Add(child.Id);
             }
             result.Add(parent.Id, descendants);

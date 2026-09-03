@@ -12,15 +12,15 @@ public sealed class ResourcePlanUseTrackerTests
     {
         var requestId = new RenderRequestId(1);
         RenderFragmentReference sharedSource = Fragment(RenderFragmentKind.OpaqueSource, []);
-        sharedSource.Id = new RenderFragmentId(requestId, 1);
+        sharedSource.AssignId(new RenderFragmentId(requestId, 1));
         RenderFragmentReference hitProducer = Fragment(RenderFragmentKind.Opacity, [sharedSource]);
-        hitProducer.Id = new RenderFragmentId(requestId, 2);
+        hitProducer.AssignId(new RenderFragmentId(requestId, 2));
 
         ResourcePlanUseTracker unpruned = ResourcePlanUseTracker.Create(
             [hitProducer, sharedSource]);
         ResourcePlanUseTracker pruned = ResourcePlanUseTracker.Create(
             [hitProducer, sharedSource],
-            new HashSet<RenderFragmentId> { hitProducer.Id.Value });
+            new HashSet<RenderFragmentId> { hitProducer.Id!.Value });
 
         Assert.Multiple(() =>
         {
@@ -37,13 +37,13 @@ public sealed class ResourcePlanUseTrackerTests
     {
         var requestId = new RenderRequestId(1);
         RenderFragmentReference source = Fragment(RenderFragmentKind.OpaqueSource, []);
-        source.Id = new RenderFragmentId(requestId, 1);
+        source.AssignId(new RenderFragmentId(requestId, 1));
         RenderFragmentReference hitProducer = Fragment(RenderFragmentKind.Opacity, [source]);
-        hitProducer.Id = new RenderFragmentId(requestId, 2);
+        hitProducer.AssignId(new RenderFragmentId(requestId, 2));
 
         ResourcePlanUseTracker tracker = ResourcePlanUseTracker.Create(
             [hitProducer],
-            new HashSet<RenderFragmentId> { hitProducer.Id.Value });
+            new HashSet<RenderFragmentId> { hitProducer.Id!.Value });
 
         Assert.Multiple(() =>
         {

@@ -52,10 +52,9 @@ public sealed class RenderCacheCandidateTopologyTests
         GraphCase graphCase = RenderThread.Dispatcher.Invoke(() => CreateGraph(name));
         try
         {
-            RenderCacheResolver.CandidateTopology actual = RenderCacheResolver.BuildCandidateTopology(
-                graphCase.Graph,
-                graphCase.References);
-            ReferenceTopology expected = BuildReferenceTopology(graphCase.Graph, graphCase.References);
+            RenderCacheResolver.CandidateTopology actual =
+                RenderCacheResolver.BuildCandidateTopology(graphCase.Graph);
+            ReferenceTopology expected = BuildReferenceTopology(graphCase.Graph);
 
             TestContext.Out.WriteLine(
                 $"fragments={graphCase.Graph.Fragments.Length} candidates={graphCase.Graph.CacheCandidates.Length} " +
@@ -116,13 +115,13 @@ public sealed class RenderCacheCandidateTopologyTests
     private static long MeasureTopologyBytes(GraphCase graphCase)
     {
         for (int round = 0; round < 3; round++)
-            _ = RenderCacheResolver.BuildCandidateTopology(graphCase.Graph, graphCase.References);
+            _ = RenderCacheResolver.BuildCandidateTopology(graphCase.Graph);
 
         long best = long.MaxValue;
         for (int round = 0; round < 5; round++)
         {
             long before = GC.GetAllocatedBytesForCurrentThread();
-            _ = RenderCacheResolver.BuildCandidateTopology(graphCase.Graph, graphCase.References);
+            _ = RenderCacheResolver.BuildCandidateTopology(graphCase.Graph);
             best = Math.Min(best, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
@@ -137,9 +136,7 @@ public sealed class RenderCacheCandidateTopologyTests
     /// The implementation this fixture pins, transcribed from the revision that ran one full DFS per
     /// ordered candidate pair. Kept verbatim so a divergence is attributable to the production change.
     /// </summary>
-    private static ReferenceTopology BuildReferenceTopology(
-        RecordedRenderGraph graph,
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references)
+    private static ReferenceTopology BuildReferenceTopology(RecordedRenderGraph graph)
     {
         var result = new Dictionary<RenderCacheCandidateId, HashSet<RenderCacheCandidateId>>();
         foreach (RenderCacheCandidate parent in graph.CacheCandidates)
@@ -156,7 +153,9 @@ public sealed class RenderCacheCandidateTopologyTests
                     continue;
                 }
 
-                if (DependsOn(references[parent.FragmentId], references[child.FragmentId]))
+                if (DependsOn(
+                        graph.GetFragment(parent.FragmentId),
+                        graph.GetFragment(child.FragmentId)))
                     descendants.Add(child.Id);
             }
 
@@ -190,12 +189,9 @@ public sealed class RenderCacheCandidateTopologyTests
 
     private sealed class GraphCase(
         RecordedRenderGraph graph,
-        Dictionary<RenderFragmentId, RenderFragmentReference> references,
         IDisposable[] owned) : IDisposable
     {
         public RecordedRenderGraph Graph { get; } = graph;
-
-        public Dictionary<RenderFragmentId, RenderFragmentReference> References { get; } = references;
 
         public void Dispose()
         {
@@ -228,7 +224,7 @@ public sealed class RenderCacheCandidateTopologyTests
             targetDomain: new Rect(default, s_frameSize.ToSize(1))));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
         Assert.That(graph.CacheCandidates, Is.Not.Empty, "the recorded scene must produce cache candidates");
-        return new GraphCase(graph, IndexReferences(graph), [request, root, .. resources]);
+        return new GraphCase(graph, [request, root, .. resources]);
     }
 
     private static void WarmCaches(RenderNode current, HashSet<RenderNode> seen)
@@ -242,19 +238,6 @@ public sealed class RenderCacheCandidateTopologyTests
 
         current.Cache.RecordStableRequests();
         current.ClearChanges(current.ChangeVersion);
-    }
-
-    private static Dictionary<RenderFragmentId, RenderFragmentReference> IndexReferences(
-        RecordedRenderGraph graph)
-    {
-        var references = new Dictionary<RenderFragmentId, RenderFragmentReference>(graph.Fragments.Length);
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
-        {
-            if (fragment.Payload is RenderFragmentReference reference)
-                references.Add(fragment.Id, reference);
-        }
-
-        return references;
     }
 
     private static GraphCase SharedFragmentIdCandidates()
@@ -327,10 +310,7 @@ public sealed class RenderCacheCandidateTopologyTests
         var builder = new RecordedRenderGraphBuilder(request.Id);
         foreach (RenderFragmentReference reference in references)
         {
-            RenderProvenanceId provenanceId = builder.AddProvenance(reference, "topology-test");
-            RenderValueId[] valueInputs = reference.Inputs.SelectMany(static item => item.ValueIds).ToArray();
-            reference.ValueIds = [builder.AddValue([.. valueInputs], provenanceId, reference)];
-            reference.Id = builder.AddFragment(reference.ValueIds, provenanceId, reference);
+            builder.AddFragment(reference);
         }
 
         foreach ((RenderFragmentReference reference, object key) in candidates)
@@ -339,7 +319,7 @@ public sealed class RenderCacheCandidateTopologyTests
             builder.PublishRoot(root.Id!.Value);
 
         RecordedRenderGraph graph = builder.Build();
-        return new GraphCase(graph, IndexReferences(graph), [request]);
+        return new GraphCase(graph, [request]);
     }
 
     private static RenderFragmentReference Pure(IReadOnlyList<RenderFragmentReference>? inputs = null)

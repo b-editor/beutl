@@ -70,10 +70,6 @@ internal sealed class CompiledRenderRequest : IDisposable
         if (regions.TargetAccessRequirements.Count == 0)
             return result;
 
-        var references = new Dictionary<RenderFragmentId, RenderFragmentReference>(graph.Fragments.Length);
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
-            references.Add(fragment.Id, (RenderFragmentReference)fragment.Payload!);
-
         var scopes = new Dictionary<TargetScopeId, TargetScopePlan>(targetDependencies.Scopes.Length);
         var scopesByOwner = new Dictionary<RenderFragmentId, List<TargetScopePlan>>();
         foreach (TargetScopePlan scope in targetDependencies.Scopes)
@@ -123,7 +119,7 @@ internal sealed class CompiledRenderRequest : IDisposable
                         accessScope,
                         accessBounds,
                         scopes,
-                        references,
+                        graph,
                         tokens,
                         out Rect rootBounds))
                 {
@@ -154,7 +150,7 @@ internal sealed class CompiledRenderRequest : IDisposable
         TargetScopePlan scope,
         Rect bounds,
         IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes,
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references,
+        RecordedRenderGraph graph,
         TargetTokenConnectivity tokens,
         out Rect rootBounds)
     {
@@ -167,12 +163,13 @@ internal sealed class CompiledRenderRequest : IDisposable
                 return false;
             }
 
-            if (scope.OwnerFragmentId is not { } ownerId
-                || !references.TryGetValue(ownerId, out RenderFragmentReference? owner))
+            if (scope.OwnerFragmentId is not { } ownerId)
             {
                 throw new InvalidOperationException(
                     "A non-root target scope has no recorded owner fragment.");
             }
+
+            RenderFragmentReference owner = graph.GetFragment(ownerId);
 
             bounds = owner.Payload switch
             {

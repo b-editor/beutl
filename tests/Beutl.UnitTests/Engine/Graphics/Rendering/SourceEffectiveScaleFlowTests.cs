@@ -297,8 +297,8 @@ public class SourceEffectiveScaleFlowTests
         {
             IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments
                 .ToDictionary(
-                    static fragment => fragment.Id,
-                    static fragment => (RenderFragmentReference)fragment.Payload!);
+                    static fragment => fragment.Id!.Value,
+                    static fragment => fragment);
             RenderFragmentReference root = references[graph.PublicationRoots.Single()];
             RenderFragmentReference targetLayer = root.Inputs.Single();
             TargetScopePlan transformedScope = compiled.TargetDependencies.Scopes.Single(

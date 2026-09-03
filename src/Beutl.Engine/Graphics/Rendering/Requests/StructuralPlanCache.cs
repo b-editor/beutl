@@ -155,18 +155,9 @@ internal sealed class StructuralExecutionPlanTemplate
                 "A cached structural plan cannot bind to a graph with a different fragment count.");
         }
 
-        RenderFragmentReference[] references =
-            _fragmentCount == 0 ? [] : new RenderFragmentReference[_fragmentCount];
-        for (int index = 0; index < _fragmentCount; index++)
-        {
-            references[index] = graph.Fragments[index].Payload as RenderFragmentReference
-                ?? throw new InvalidOperationException(
-                    "A cached structural plan requires executable semantic fragment references.");
-        }
-
         ExecutionIsland[] islands = _islands.Length == 0 ? [] : new ExecutionIsland[_islands.Length];
         for (int index = 0; index < _islands.Length; index++)
-            islands[index] = _islands[index].Bind(graph, references);
+            islands[index] = _islands[index].Bind(graph);
 
         ExecutionIslandBoundary[] boundaries =
             _boundaries.Length == 0 ? [] : new ExecutionIslandBoundary[_boundaries.Length];
@@ -200,20 +191,18 @@ internal sealed class StructuralExecutionPlanTemplate
                 island.ShaderRun is { } run ? ShaderRunTemplate.Create(run, graph) : null);
         }
 
-        public ExecutionIsland Bind(
-            RecordedRenderGraph graph,
-            RenderFragmentReference[] references)
+        public ExecutionIsland Bind(RecordedRenderGraph graph)
         {
             RenderFragmentId[] fragmentIds =
                 Fragments.Length == 0 ? [] : new RenderFragmentId[Fragments.Length];
             for (int index = 0; index < Fragments.Length; index++)
-                fragmentIds[index] = graph.Fragments[Fragments[index]].Id;
+                fragmentIds[index] = GetId(graph.Fragments[Fragments[index]]);
 
             return new ExecutionIsland(
                 new ExecutionIslandId(Id),
                 Kind,
                 ImmutableCollectionsMarshal.AsImmutableArray(fragmentIds),
-                ShaderRun?.Bind(graph, references));
+                ShaderRun?.Bind(graph));
         }
     }
 
@@ -241,19 +230,17 @@ internal sealed class StructuralExecutionPlanTemplate
                 run.Program);
         }
 
-        public CompiledShaderRun Bind(
-            RecordedRenderGraph graph,
-            RenderFragmentReference[] references)
+        public CompiledShaderRun Bind(RecordedRenderGraph graph)
         {
             CompiledShaderStage[] stages =
                 Stages.Length == 0 ? [] : new CompiledShaderStage[Stages.Length];
             for (int index = 0; index < Stages.Length; index++)
-                stages[index] = Stages[index].Bind(graph, references);
+                stages[index] = Stages[index].Bind(graph);
 
             return new CompiledShaderRun(
                 new CompiledShaderRunId(Id),
-                references[Input],
-                references[Output],
+                graph.Fragments[Input],
+                graph.Fragments[Output],
                 ImmutableCollectionsMarshal.AsImmutableArray(stages),
                 Program);
         }
@@ -274,11 +261,9 @@ internal sealed class StructuralExecutionPlanTemplate
                 stage.CoverageBehavior,
                 stage.ProgramStageIndex);
 
-        public CompiledShaderStage Bind(
-            RecordedRenderGraph graph,
-            RenderFragmentReference[] references)
+        public CompiledShaderStage Bind(RecordedRenderGraph graph)
         {
-            RenderFragmentReference reference = references[Fragment];
+            RenderFragmentReference reference = graph.Fragments[Fragment];
             if (reference.Kind != Kind)
                 throw new InvalidOperationException("A cached Shader stage changed semantic kind.");
             ShaderDescription description = Kind switch
@@ -290,7 +275,7 @@ internal sealed class StructuralExecutionPlanTemplate
                 _ => throw new InvalidOperationException("A cached Shader run contains a non-Shader stage."),
             };
             return new CompiledShaderStage(
-                graph.Fragments[Fragment].Id,
+                GetId(reference),
                 reference,
                 Kind,
                 description,
@@ -316,8 +301,8 @@ internal sealed class StructuralExecutionPlanTemplate
 
         public ExecutionIslandBoundary Bind(RecordedRenderGraph graph)
             => new(
-                Before is { } before ? graph.Fragments[before].Id : null,
-                After is { } after ? graph.Fragments[after].Id : null,
+                Before is { } before ? GetId(graph.Fragments[before]) : null,
+                After is { } after ? GetId(graph.Fragments[after]) : null,
                 Reason,
                 BackendLimits);
     }
@@ -328,8 +313,7 @@ internal sealed class StructuralExecutionPlanTemplate
 
     private static int GetFragmentIndex(RenderFragmentId id, RecordedRenderGraph graph)
     {
-        if (id.RequestId != graph.RequestId || id.Value <= 0 || id.Value > graph.Fragments.Length)
-            throw new InvalidOperationException("A cached plan fragment ID does not belong to its graph.");
+        graph.GetFragment(id);
         return checked((int)id.Value - 1);
     }
 }

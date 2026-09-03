@@ -5,6 +5,4 @@ internal readonly record struct TargetDependencyStep(
     TargetScopeId ScopeId,
     TargetTokenId InputToken,
     TargetTokenId OutputToken,
-    RenderValueId? TargetReadValueId,
-    RenderValueId? ProducedValueId,
     TargetDependencyKind Kind);

@@ -153,11 +153,19 @@ internal sealed class RenderFragmentReference
 
     public object? Payload { get; }
 
-    public RenderFragmentId? Id { get; set; }
-
-    public ImmutableArray<RenderValueId> ValueIds { get; set; } = [];
+    public RenderFragmentId? Id { get; private set; }
 
     public bool AllowsFanOut => CanBeUsedAsValueInput;
+
+    internal void AssignId(RenderFragmentId id)
+    {
+        if (id.RequestId.Value <= 0 || id.Value <= 0)
+            throw new ArgumentException("A fragment requires an initialized graph ID.", nameof(id));
+        if (Id is not null)
+            throw new InvalidOperationException("A recorded fragment was already committed to a graph.");
+
+        Id = id;
+    }
 
     public bool HitTest(Point point) => _hitTest.Evaluate(Bounds, Inputs, point);
 

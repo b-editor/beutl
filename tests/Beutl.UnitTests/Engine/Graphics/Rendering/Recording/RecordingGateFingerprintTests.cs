@@ -418,11 +418,10 @@ public sealed class RecordingGateFingerprintTests
         RecordedRenderGraph graph,
         RenderFragmentKind? kind = null)
     {
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
+        foreach (RenderFragmentReference fragment in graph.Fragments)
         {
-            var reference = (RenderFragmentReference)fragment.Payload!;
-            if (kind is null || reference.Kind == kind)
-                return reference;
+            if (kind is null || fragment.Kind == kind)
+                return fragment;
         }
 
         throw new InvalidOperationException($"The recorded graph has no {kind?.ToString() ?? "fragment"}.");
@@ -431,10 +430,10 @@ public sealed class RecordingGateFingerprintTests
     private static RenderFragmentKind KindOfPublishedFragment(RecordedRenderGraph graph)
     {
         RenderFragmentId root = graph.PublicationRoots.Single();
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
+        foreach (RenderFragmentReference fragment in graph.Fragments)
         {
             if (fragment.Id == root)
-                return ((RenderFragmentReference)fragment.Payload!).Kind;
+                return fragment.Kind;
         }
 
         throw new InvalidOperationException("The recorded graph has no published fragment.");

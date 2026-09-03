@@ -190,8 +190,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         RenderCacheBypassReason bypassReason = RenderCacheBypassReason.None)
     {
         RenderCacheCandidate candidate = fixture.Graph.CacheCandidates.Single();
-        RecordedRenderFragment recorded = fixture.Graph.Fragments.Single(fragment =>
-            fragment.Id == candidate.FragmentId);
+        RenderFragmentReference recorded = fixture.Graph.GetFragment(candidate.FragmentId);
         var identity = new RenderOutputCacheIdentity(
             candidate.CacheKey,
             RenderFragmentOutputIdentity.Create(fixture.CachedProducer, fixture.Graph.RequestId),
@@ -221,9 +220,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
                 identity,
                 new RenderCacheHitSubstitution(
                     candidate.Id,
-                    recorded.Id,
-                    recorded.Values,
-                    recorded.ProvenanceId,
+                    recorded.Id!.Value,
                     identity,
                     new RenderCacheEntry(identity, new object())),
                 null,
@@ -236,9 +233,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
                 null,
                 new RenderCacheMissCapture(
                     candidate.Id,
-                    recorded.Id,
-                    recorded.Values,
-                    recorded.ProvenanceId,
+                    recorded.Id!.Value,
                     identity),
                 null),
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
@@ -265,17 +260,8 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             : [source, cachedProducer, tail];
 
         var builder = new RecordedRenderGraphBuilder(requestId);
-        RenderProvenanceId provenance = builder.AddProvenance(
-            typeof(ExecutionIslandPlannerCacheBoundaryTests),
-            "planner-cache-boundary-test");
         foreach (RenderFragmentReference reference in references)
-        {
-            RenderValueId[] inputs = reference.Inputs
-                .SelectMany(static input => input.ValueIds)
-                .ToArray();
-            reference.ValueIds = [builder.AddValue([.. inputs], provenance, reference)];
-            reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
-        }
+            builder.AddFragment(reference);
 
         builder.AddCacheCandidate(cachedProducer.Id!.Value, "selected-candidate");
         builder.PublishRoot(tail.Id!.Value);

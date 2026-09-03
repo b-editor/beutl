@@ -34,8 +34,8 @@ public sealed class BackdropOrderingTests
 
         IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments
             .ToDictionary(
-                static fragment => fragment.Id,
-                static fragment => (RenderFragmentReference)fragment.Payload!);
+                static fragment => fragment.Id!.Value,
+                static fragment => fragment);
         TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
 
         RenderFragmentReference[] captures = references.Values
@@ -50,9 +50,9 @@ public sealed class BackdropOrderingTests
         TargetDependencyStep[] commandSteps = steps.Where(step =>
             references[step.FragmentId].Kind == RenderFragmentKind.TargetCommand).ToArray();
         TargetDependencyStep drawStep = commandSteps.Single(step =>
-            step.TargetReadValueId == captureStep.TargetReadValueId);
+            references[step.FragmentId].Inputs.Any(input => ReferenceEquals(input, capture)));
         TargetDependencyStep clearStep = commandSteps.Single(step =>
-            step.TargetReadValueId is null);
+            step.FragmentId != drawStep.FragmentId);
         RenderFragmentReference draw = references[drawStep.FragmentId];
 
         int captureIndex = Array.IndexOf(steps, captureStep);
@@ -65,16 +65,13 @@ public sealed class BackdropOrderingTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(captureStep.TargetReadValueId, Is.Not.Null,
-                "The capture must name the request-owned value read by DrawBackdrop.");
             Assert.That(capture.ContributesValuesToTarget, Is.False,
                 "A target capture anchors pixels but must not redraw them implicitly.");
             Assert.That(implicitContributions, Is.Zero);
             Assert.That(captureIndex, Is.LessThan(clearIndex));
             Assert.That(clearIndex, Is.LessThan(drawIndex));
             Assert.That(captureUses, Is.EqualTo(1),
-                "DrawBackdrop must consume exactly the value produced by this capture.");
-            Assert.That(drawStep.TargetReadValueId, Is.EqualTo(captureStep.TargetReadValueId));
+                "DrawBackdrop must consume exactly this capture through the semantic fragment DAG.");
             Assert.That(clearStep.ScopeId, Is.EqualTo(captureStep.ScopeId));
         });
 
@@ -168,9 +165,7 @@ public sealed class BackdropOrderingTests
             targetDomain: s_domain));
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-        RenderFragmentReference[] references = graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
-            .ToArray();
+        RenderFragmentReference[] references = graph.Fragments.ToArray();
 
         Assert.Multiple(() =>
         {

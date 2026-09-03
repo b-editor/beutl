@@ -428,17 +428,8 @@ public sealed class StructuralAndProgramCacheTests
                 OpacityRenderNode.CreateFusionDescription(0.625f)),
             RenderFragmentHitTest.Bounds);
         var builder = new RecordedRenderGraphBuilder(requestId);
-        RenderProvenanceId provenance = builder.AddProvenance(
-            typeof(StructuralAndProgramCacheTests),
-            "opacity-structural-cache-test");
         foreach (RenderFragmentReference reference in new[] { input, opacity })
-        {
-            RenderValueId[] inputs = reference.Inputs
-                .SelectMany(static item => item.ValueIds)
-                .ToArray();
-            reference.ValueIds = [builder.AddValue([.. inputs], provenance, reference)];
-            reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
-        }
+            builder.AddFragment(reference);
 
         builder.PublishRoot(opacity.Id!.Value);
         return builder.Build();

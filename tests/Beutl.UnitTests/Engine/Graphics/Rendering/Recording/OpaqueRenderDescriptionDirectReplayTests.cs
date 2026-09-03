@@ -118,9 +118,7 @@ public sealed class OpaqueRenderDescriptionDirectReplayTests
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         RenderFragmentId rootId = graph.PublicationRoots.Single();
-        RenderFragmentReference reference = graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
-            .Single(fragment => fragment.Id == rootId);
+        RenderFragmentReference reference = graph.GetFragment(rootId);
         var payload = (OpaqueRenderFragmentPayload)reference.Payload!;
 
         Assert.That(reference.Kind, Is.EqualTo(RenderFragmentKind.OpaqueSource));

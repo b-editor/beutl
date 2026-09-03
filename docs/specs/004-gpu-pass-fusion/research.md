@@ -121,7 +121,7 @@ deterministic simulation or RNG semantics.
 
 **Decision**: `Renderer` updates every participating drawable tree first, then records all top-level roots and target contributions into one `RenderRequest` before any planner-controlled 2D GPU work executes. The pipeline order is:
 
-1. record the complete ordered effectful fragment DAG and embedded value DAG without cache lookup;
+1. record the complete ordered semantic fragment DAG, including value-producing and target-effect fragments, without cache lookup;
 2. lower/discover scope-local target-token dependencies and resolve symbolic target regions against their actual external-root or offscreen scope;
 3. resolve forward metadata, including separate root output and query extents;
 4. propagate requested output regions backward;
@@ -160,7 +160,7 @@ Nested node recording maps parent inputs to fresh child-owned facade handles ove
 
 **Rationale**: Some existing nodes can publish zero, one, many, duplicated, or runtime-discovered outputs. Forcing recording to know every runtime output would require eager media/GPU execution. A stream-valued edge keeps topology inspectable without inventing individual handles prematurely.
 
-Each fragment/value record computes pure conservative aggregate metadata immediately when all required input metadata is concrete. When a fragment depends on `OwningTargetDomain`, the recorder may retain finite internal bounds/scale/hit-test hints for constructing the graph, but the fragment and every ordinary descendant remain publicly symbolic: `TryGetMetadata`, `TryHitTest`, and `RenderNodeContext.TryCalculateInputBounds` return false rather than exposing those hints. Standard and custom scale contracts consume complete resolved output bounds before their result becomes authoritative; they cannot observe the later ROI, and the 16,384-axis clamp is applied against those complete bounds. Target commands expose no value supply/cardinality. Public target capture either resolves an explicit output-derived working density or declares target-supply preservation and remains `Unbounded` until the active scope executes; both forms remain non-contributing until `ContributeValues` is recorded. Runtime shrink/discard and later ROI cropping remain within the final declaration. Graph-wide analysis resolves/finalizes symbolic metadata and performs reverse ROI without executing deferred work.
+Each fragment computes pure conservative aggregate metadata immediately when all required input metadata is concrete. When a fragment depends on `OwningTargetDomain`, the recorder may retain finite internal bounds/scale/hit-test hints for constructing the graph, but the fragment and every ordinary descendant remain publicly symbolic: `TryGetMetadata`, `TryHitTest`, and `RenderNodeContext.TryCalculateInputBounds` return false rather than exposing those hints. Standard and custom scale contracts consume complete resolved output bounds before their result becomes authoritative; they cannot observe the later ROI, and the 16,384-axis clamp is applied against those complete bounds. Target commands expose no value supply/cardinality. Public target capture either resolves an explicit output-derived working density or declares target-supply preservation and remains `Unbounded` until the active scope executes; both forms remain non-contributing until `ContributeValues` is recorded. Runtime shrink/discard and later ROI cropping remain within the final declaration. Graph-wide analysis resolves/finalizes symbolic metadata and performs reverse ROI without executing deferred work.
 
 **Alternatives rejected**:
 
@@ -182,11 +182,11 @@ Public `Layer(inputs, Rect domain)` is deliberately different: it requires a fin
 
 *Amended.* That materialization seam is public surface, not an executor-private hook. The delegate `DrawableBrushMaterializer(DrawableBrush.Resource, Rect bounds, float scale)` returns the public `MaterializedDrawableBrush(SKImage Image, Rect ContentBounds)` record, and its ownership rule is part of the contract: the caller disposes the returned image on every path, so a materializer must return a fresh or independently ref-counted image and never hand back a cached instance. A `BrushConstructor` built by `ImmediateCanvas.CreateBrushConstructor` inherits the canvas's materializer; one constructed directly has none, and a `DrawableBrush` painted without one degrades to transparent.
 
-**Rationale**: A pure value DAG does not encode painter order/current-target reads, while an early root-global command list loses child interleaving and Layer/decorator scope. Embedding both in composable fragments retains reusable value dependencies and lowers target tokens only when the correct scope is known.
+**Rationale**: A graph limited to value-producing work does not encode painter order/current-target reads, while an early root-global command list loses child interleaving and Layer/decorator scope. Keeping both value-producing work and target effects in one composable fragment DAG retains reusable input dependencies and lowers target tokens only when the correct scope is known.
 
 **Alternatives rejected**:
 
-- **Value DAG plus an independently appended global command list**: loses `[A, Clear, B]` ordering through parents and makes a child Clear affect the root instead of its Layer.
+- **Value-only DAG plus an independently appended global command list**: loses `[A, Clear, B]` ordering through parents and makes a child Clear affect the root instead of its Layer.
 - **Convert the target into an ordinary graph value after every draw**: creates artificial full-frame values/materializations and complicates external root ownership.
 - **Resolve `PushLayer(default)` before recording children**: an enclosing parent transform/clip has not yet been lowered in the bottom-up tree, so a root-sized guess can under-render and bypasses the ordinary public `Process` contract.
 - **Let public value-producing Layer accept symbolic Full**: it would have no finite conservative domain with which to reestablish concrete `TryGetMetadata`/`TryHitTest` results during recording.

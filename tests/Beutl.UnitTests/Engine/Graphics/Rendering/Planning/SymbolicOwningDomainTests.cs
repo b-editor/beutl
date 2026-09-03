@@ -554,8 +554,8 @@ public sealed class SymbolicOwningDomainTests
     private static IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> References(
         RecordedRenderGraph graph)
         => graph.Fragments.ToDictionary(
-            static fragment => fragment.Id,
-            static fragment => (RenderFragmentReference)fragment.Payload!);
+            static fragment => fragment.Id!.Value,
+            static fragment => fragment);
 
     private static float AlphaAt(Bitmap bitmap, int x, int y)
     {

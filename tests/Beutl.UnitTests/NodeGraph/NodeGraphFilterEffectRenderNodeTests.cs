@@ -1323,7 +1323,6 @@ public class NodeGraphFilterEffectRenderNodeTests
             cachePolicy: RenderCacheOptions.Disabled));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
         return graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
             .Select(static reference => reference.Payload)
             .OfType<TargetCommandRenderFragmentPayload>()
             .Select(static payload => payload.Description)

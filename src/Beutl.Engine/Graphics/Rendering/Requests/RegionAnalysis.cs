@@ -11,7 +11,6 @@ internal sealed class RegionAnalysis
         Rect finalCommitBounds,
         RequiredRegion finalCommitRegion,
         ImmutableDictionary<RenderFragmentId, RequiredRegion> fragmentRequirements,
-        ImmutableDictionary<RenderValueId, RequiredRegion> valueRequirements,
         ImmutableDictionary<RenderFragmentId, RequiredRegion> targetAccessRequirements,
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata,
         ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures)
@@ -22,7 +21,6 @@ internal sealed class RegionAnalysis
         FinalCommitBounds = finalCommitBounds;
         FinalCommitRegion = finalCommitRegion;
         FragmentRequirements = fragmentRequirements;
-        ValueRequirements = valueRequirements;
         TargetAccessRequirements = targetAccessRequirements;
         Metadata = metadata;
         BackingTargetBackdropCaptures = backingTargetBackdropCaptures;
@@ -39,8 +37,6 @@ internal sealed class RegionAnalysis
     public RequiredRegion FinalCommitRegion { get; }
 
     public ImmutableDictionary<RenderFragmentId, RequiredRegion> FragmentRequirements { get; }
-
-    public ImmutableDictionary<RenderValueId, RequiredRegion> ValueRequirements { get; }
 
     public ImmutableDictionary<RenderFragmentId, RequiredRegion> TargetAccessRequirements { get; }
 

@@ -149,7 +149,7 @@ public sealed class FusionBoundaryTests
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Output,
-                Is.SameAs(compiled.Graph.Fragments[1].Payload));
+                Is.SameAs(compiled.Graph.Fragments[1]));
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.ScopeMismatch));
         });
@@ -650,16 +650,13 @@ public sealed class FusionBoundaryTests
         IReadOnlySet<RenderFragmentReference> cache)
     {
         var builder = new RecordedRenderGraphBuilder(requestId);
-        RenderProvenanceId provenance = builder.AddProvenance(typeof(FusionBoundaryTests), "test");
         foreach (RenderFragmentReference reference in references)
         {
-            RenderValueId[] inputs = reference.Inputs.SelectMany(static input => input.ValueIds).ToArray();
-            reference.ValueIds = reference.ValueCardinality.Maximum == 0
-                ? []
-                : [builder.AddValue([.. inputs], provenance, reference)];
-            reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
+            builder.AddFragment(reference);
             if (cache.Contains(reference))
-                builder.AddCacheCandidate(reference.Id.Value, (typeof(FusionBoundaryTests), reference.Id.Value.Value));
+                builder.AddCacheCandidate(
+                    reference.Id!.Value,
+                    (typeof(FusionBoundaryTests), reference.Id!.Value.Value));
         }
         foreach (RenderFragmentReference root in roots)
             builder.PublishRoot(root.Id!.Value);

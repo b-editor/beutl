@@ -67,9 +67,7 @@ public sealed class OutputIdentityFanOutCostTests
     private static RenderFragmentReference RootOf(RecordedRenderGraph graph)
     {
         RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return (RenderFragmentReference)graph.Fragments
-            .Single(fragment => fragment.Id == rootId)
-            .Payload!;
+        return graph.GetFragment(rootId);
     }
 
     private sealed class SourceNode(Rect bounds) : RenderNode

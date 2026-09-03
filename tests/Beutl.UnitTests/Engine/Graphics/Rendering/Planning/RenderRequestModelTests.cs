@@ -211,46 +211,109 @@ public sealed class RenderRequestModelTests
     }
 
     [Test]
-    public void GraphBuilder_IssuesUniqueIdsAndPreservesAuthoredOrder()
+    public void GraphBuilder_PreservesCanonicalSemanticDagAndAuthoredMetadataOrder()
     {
         var requestId = new RenderRequestId(42);
         var builder = new RecordedRenderGraphBuilder(requestId);
-        RenderProvenanceId provenance = builder.AddProvenance("root", "renderer-entry");
-        RenderValueId source = builder.AddValue([], provenance, payload: "source");
-        RenderValueId mapped = builder.AddValue([source], provenance, payload: "map");
-        RenderFragmentId first = builder.AddFragment([source], provenance, payload: "first");
-        RenderFragmentId second = builder.AddFragment([mapped], provenance, payload: "second");
-        builder.PublishRoot(second);
-        RenderCacheCandidateId candidate = builder.AddCacheCandidate(first, "candidate-key");
+        RenderFragmentReference source = Fragment();
+        RenderFragmentReference mapped = Fragment(source);
+        builder.AddFragment(source);
+        builder.AddFragment(mapped);
+        builder.PublishRoot(mapped.Id!.Value);
+        RenderCacheCandidateId candidate = builder.AddCacheCandidate(source.Id!.Value, "candidate-key");
 
         RecordedRenderGraph graph = builder.Build();
 
         Assert.Multiple(() =>
         {
             Assert.That(graph.RequestId, Is.EqualTo(requestId));
-            Assert.That(source, Is.Not.EqualTo(mapped));
-            Assert.That(first, Is.Not.EqualTo(second));
-            Assert.That(graph.Fragments.Select(static item => item.Id), Is.EqualTo(new[] { first, second }));
-            Assert.That(graph.Values[1].Inputs, Is.EqualTo(new[] { source }));
-            Assert.That(graph.PublicationRoots, Is.EqualTo(new[] { second }));
-            Assert.That(graph.Provenance.Single().Origin, Is.EqualTo("root"));
+            Assert.That(source.Id, Is.Not.Null);
+            Assert.That(mapped.Id, Is.Not.Null.And.Not.EqualTo(source.Id));
+            Assert.That(graph.Fragments, Is.EqualTo(new[] { source, mapped }));
+            Assert.That(graph.GetFragment(source.Id!.Value), Is.SameAs(source));
+            Assert.That(mapped.Inputs, Is.EqualTo(new[] { source }));
+            Assert.That(graph.PublicationRoots, Is.EqualTo(new[] { mapped.Id!.Value }));
             Assert.That(graph.CacheCandidates.Single().Id, Is.EqualTo(candidate));
-            Assert.That(graph.CacheCandidates.Single().FragmentId, Is.EqualTo(first));
-            Assert.That(() => builder.AddFragment([], provenance), Throws.TypeOf<InvalidOperationException>());
+            Assert.That(graph.CacheCandidates.Single().FragmentId, Is.EqualTo(source.Id!.Value));
+            Assert.That(graph.CacheCandidates.Single().AuthoredOrder, Is.Zero);
+            Assert.That(() => builder.AddFragment(Fragment()), Throws.TypeOf<InvalidOperationException>());
         });
     }
 
     [Test]
-    public void GraphBuilder_RejectsIdsFromAnotherRequest()
+    public void GraphBuilder_RejectsAnInputCommittedToAnotherRequest()
     {
         var first = new RecordedRenderGraphBuilder(new RenderRequestId(1));
         var second = new RecordedRenderGraphBuilder(new RenderRequestId(2));
-        RenderProvenanceId firstProvenance = first.AddProvenance("one", "root");
-        RenderProvenanceId secondProvenance = second.AddProvenance("two", "root");
-        RenderValueId foreign = first.AddValue([], firstProvenance);
+        RenderFragmentReference foreign = Fragment();
+        RenderFragmentReference consumer = Fragment(foreign);
+        first.AddFragment(foreign);
 
         Assert.That(
-            () => second.AddValue([foreign], secondProvenance),
+            () => second.AddFragment(consumer),
             Throws.TypeOf<InvalidOperationException>());
+        Assert.That(consumer.Id, Is.Null);
     }
+
+    [Test]
+    public void GraphBuilder_RejectsSameRequestIdImpostorInput()
+    {
+        var requestId = new RenderRequestId(1);
+        var builder = new RecordedRenderGraphBuilder(requestId);
+        RenderFragmentReference canonical = Fragment();
+        builder.AddFragment(canonical);
+        RenderFragmentReference impostor = Fragment();
+        impostor.AssignId(canonical.Id!.Value);
+        RenderFragmentReference consumer = Fragment(impostor);
+
+        Assert.That(
+            () => builder.AddFragment(consumer),
+            Throws.TypeOf<InvalidOperationException>());
+        Assert.That(consumer.Id, Is.Null);
+    }
+
+    [Test]
+    public void GraphBuilder_AppendFailureDoesNotAssignAnyFragmentId()
+    {
+        var requestId = new RenderRequestId(1);
+        var builder = new RecordedRenderGraphBuilder(requestId);
+        RenderFragmentReference first = Fragment();
+        RenderFragmentReference foreign = Fragment();
+        foreign.AssignId(new RenderFragmentId(new RenderRequestId(2), 1));
+        RenderFragmentReference invalid = Fragment(foreign);
+        var commit = new NodeRecordingCommit(
+            [
+                new RecordedRenderFragmentEntry(first, "first", "test"),
+                new RecordedRenderFragmentEntry(invalid, "invalid", "test"),
+            ],
+            [],
+            [],
+            [],
+            [],
+            []);
+
+        Assert.That(
+            () => builder.Append(commit),
+            Throws.TypeOf<InvalidOperationException>());
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Id, Is.Null);
+            Assert.That(invalid.Id, Is.Null);
+            Assert.That(builder.Build().Fragments, Is.Empty);
+        });
+    }
+
+    private static RenderFragmentReference Fragment(params RenderFragmentReference[] inputs)
+        => new(
+            RenderFragmentKind.ContributeValues,
+            new Rect(0, 0, 32, 18),
+            EffectiveScale.At(1),
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [.. inputs],
+            payload: null,
+            RenderFragmentHitTest.Bounds);
 }

@@ -41,17 +41,17 @@ A description declares a heterogeneous list of `RenderResourceSlot` values and m
 
 ## Recorded IR
 
-### Ordered fragment graph and value graph
+### Ordered semantic fragment graph
 
-Every fragment preserves ordered child fragments, value inputs, target effects, scope kind, publication/provenance, value cardinality, and whether it can be consumed as a value input. Target commands and raw commands are real ordered fragments even when their value cardinality is none. Captures are target-token-to-value edges. Opacity, blend, mask, guarded scope, and raw scope wrap their child fragment without moving target effects out of painter order.
+Every fragment preserves ordered semantic inputs, target effects, scope kind, publication role, value cardinality, and whether it can be consumed as a value input. These properties live on the same canonical request-local fragment; there is no parallel value graph. Target commands and raw commands are real ordered fragments even when their value cardinality is none. Captures consume the current target token and may provide a value-producing fragment input. Opacity, blend, mask, guarded scope, and raw scope wrap their child fragment without moving target effects out of painter order.
 
 ### Scope-local target lowering
 
 Target effects are lowered as scoped target-token dependencies rather than a request-global side list. A guarded target scope has declared bounds/hit-test/scale behavior; a guarded target command has declared affected region, query bounds, access, and optional readback. Raw scope and raw command are opaque external boundaries. A raw scope must replay its input exactly once.
 
-### Provenance
+### Root publication and query semantics
 
-Root provenance retains painter order and query behavior independently of materialized value substitutions. `RootOutputExtent` covers contributing values and pixel-writing target effects; query bounds remain separate. A null requested region selects the complete output extent.
+Ordered root publications retain painter order and query behavior independently of materialized value substitutions. `RootOutputExtent` covers contributing values and pixel-writing target effects; query bounds remain separate. A null requested region selects the complete output extent.
 
 ## Metadata analysis
 

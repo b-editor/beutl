@@ -359,7 +359,7 @@ public sealed class ExecutionIslandAuthorityTests
     }
 
     private static RenderFragmentReference Find(RecordedRenderGraph graph, RenderFragmentId id)
-        => (RenderFragmentReference)graph.Fragments.Single(fragment => fragment.Id == id).Payload!;
+        => graph.GetFragment(id);
 
     private static RenderFragmentReference Fragment(
         RenderFragmentKind kind,
@@ -385,15 +385,8 @@ public sealed class ExecutionIslandAuthorityTests
         IReadOnlyList<RenderFragmentReference> roots)
     {
         var builder = new RecordedRenderGraphBuilder(requestId);
-        RenderProvenanceId provenance = builder.AddProvenance(
-            typeof(ExecutionIslandAuthorityTests),
-            "execution-island-authority-test");
         foreach (RenderFragmentReference reference in references)
-        {
-            RenderValueId[] inputs = reference.Inputs.SelectMany(static input => input.ValueIds).ToArray();
-            reference.ValueIds = [builder.AddValue([.. inputs], provenance, reference)];
-            reference.Id = builder.AddFragment(reference.ValueIds, provenance, reference);
-        }
+            builder.AddFragment(reference);
 
         foreach (RenderFragmentReference root in roots)
             builder.PublishRoot(root.Id!.Value);

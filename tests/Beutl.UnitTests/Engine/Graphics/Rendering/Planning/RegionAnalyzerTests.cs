@@ -106,7 +106,6 @@ public sealed class RegionAnalyzerTests
                 Is.EqualTo(RequiredRegion.Region(new Rect(30, 20, 10, 10))));
             Assert.That(result.GetFragmentRequirement(identity), Is.EqualTo(RequiredRegion.Full));
             Assert.That(result.GetFragmentRequirement(source), Is.EqualTo(RequiredRegion.Full));
-            Assert.That(result.ValueRequirements[source.ValueIds.Single()], Is.EqualTo(RequiredRegion.Full));
         });
     }
 
@@ -604,9 +603,7 @@ public sealed class RegionAnalyzerTests
         private RenderFragmentReference Stamp(RenderFragmentReference reference)
         {
             long id = ++_nextId;
-            reference.Id = new RenderFragmentId(_requestId, id);
-            if (reference.ValueCardinality.Maximum != 0 || reference.ValueCardinality.Minimum != 0)
-                reference.ValueIds = [new RenderValueId(_requestId, id)];
+            reference.AssignId(new RenderFragmentId(_requestId, id));
             return reference;
         }
     }

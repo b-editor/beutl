@@ -278,9 +278,8 @@ public sealed class RecordingBufferPoolingTests
     private static void AssertInputsResolveWithinTheirOwnGraph(RecordedRenderGraph graph)
     {
         var committed = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
+        foreach (RenderFragmentReference reference in graph.Fragments)
         {
-            var reference = (RenderFragmentReference)fragment.Payload!;
             foreach (RenderFragmentReference input in reference.Inputs)
             {
                 Assert.That(
@@ -296,8 +295,8 @@ public sealed class RecordingBufferPoolingTests
     private static IReadOnlyList<RenderFragmentReference> ReadFragmentInputs(RecordedRenderGraph graph)
     {
         var inputs = new List<RenderFragmentReference>();
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
-            inputs.AddRange(((RenderFragmentReference)fragment.Payload!).Inputs);
+        foreach (RenderFragmentReference fragment in graph.Fragments)
+            inputs.AddRange(fragment.Inputs);
         return inputs;
     }
 

@@ -1,6 +1,4 @@
-﻿using System.Collections.Immutable;
-
-namespace Beutl.Graphics.Rendering.Requests;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Describes a capture to insert immediately after the original producer. The executor keeps the actual payload
@@ -9,6 +7,4 @@ namespace Beutl.Graphics.Rendering.Requests;
 internal sealed record RenderCacheMissCapture(
     RenderCacheCandidateId CandidateId,
     RenderFragmentId ProducerId,
-    ImmutableArray<RenderValueId> ValueIds,
-    RenderProvenanceId ProvenanceId,
     RenderOutputCacheIdentity Identity);

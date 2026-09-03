@@ -73,9 +73,7 @@ public class TextRenderNodeTests
     private static RenderFragmentReference RootOf(RecordedRenderGraph graph)
     {
         RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return (RenderFragmentReference)graph.Fragments
-            .Single(fragment => fragment.Id == rootId)
-            .Payload!;
+        return graph.GetFragment(rootId);
     }
 
     [Test]

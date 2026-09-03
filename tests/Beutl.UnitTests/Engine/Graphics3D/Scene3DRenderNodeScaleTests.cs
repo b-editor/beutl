@@ -75,7 +75,6 @@ public class Scene3DRenderNodeScaleTests
 
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         RenderFragmentReference reference = graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
             .Single(static fragment => fragment.Kind == RenderFragmentKind.OpaqueSource);
         var payload = (OpaqueRenderFragmentPayload)reference.Payload!;
 

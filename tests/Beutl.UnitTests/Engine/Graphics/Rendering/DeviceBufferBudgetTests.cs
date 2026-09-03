@@ -852,8 +852,8 @@ public sealed class DeviceBufferBudgetTests
                 new RenderCacheDeviceContextIdentity("device", "context")));
         using CompiledRenderRequest compiled = compiler.Compile(request, graph);
         Dictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments.ToDictionary(
-            static fragment => fragment.Id,
-            static fragment => (RenderFragmentReference)fragment.Payload!);
+            static fragment => fragment.Id!.Value,
+            static fragment => fragment);
         return [.. compiled.CacheResolution.Decisions.Where(decision =>
             references.TryGetValue(decision.Candidate.FragmentId, out RenderFragmentReference? reference)
             && reference.Kind == RenderFragmentKind.FilterEffectSegment

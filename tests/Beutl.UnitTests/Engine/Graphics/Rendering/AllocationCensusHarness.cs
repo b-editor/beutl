@@ -161,8 +161,9 @@ public sealed class AllocationCensusHarness
         var recorder = new RenderRequestRecorder(request);
         RecordedRenderGraph graph = recorder.Record(root);
         fragments = graph.Fragments.Length;
-        values = graph.Values.Length;
-        resources = graph.Resources.Length;
+        values = graph.Fragments.Count(static fragment =>
+            fragment.ValueCardinality.Minimum != 0 || fragment.ValueCardinality.Maximum != 0);
+        resources = request.Options.Owner.ResourceRegistry.Slots.Count;
 
         var cacheContext = new RenderCacheResolutionContext(
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,

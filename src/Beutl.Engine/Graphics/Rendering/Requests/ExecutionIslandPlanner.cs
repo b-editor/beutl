@@ -5,7 +5,7 @@ using Beutl.Graphics.Shaders;
 namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Partitions the recorded value DAG without executing it. Shader runs are restricted to direct, at-most-one-value,
+/// Partitions the recorded fragment DAG without executing it. Shader runs are restricted to direct, at-most-one-output,
 /// target-independent chains so merging cannot change fan-out, painter order, group opacity, or target-token scope.
 /// </summary>
 internal sealed class ExecutionIslandPlanner
@@ -279,39 +279,44 @@ internal sealed class ExecutionIslandPlanner
         ImmutableArray<RenderFragmentReference> roots,
         IReadOnlySet<RenderFragmentId> cacheHitIds)
     {
-        var ordered = new RenderFragmentReference[graph.Fragments.Length];
-        var all = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        for (int index = 0; index < graph.Fragments.Length; index++)
+        foreach (RenderFragmentReference root in roots)
         {
-            RecordedRenderFragment recorded = graph.Fragments[index];
-            if (recorded.Payload is not RenderFragmentReference reference)
+            if (root.Id is not { } id
+                || id.RequestId != graph.RequestId
+                || id.Value <= 0
+                || id.Value > graph.Fragments.Length
+                || !ReferenceEquals(graph.Fragments[checked((int)id.Value - 1)], root))
             {
-                throw new InvalidOperationException(
-                    "A recorded fragment is missing its planner-visible semantic reference.");
+                throw new ArgumentException("A publication root is not part of the recorded graph.", nameof(roots));
             }
-            if (reference.Id != recorded.Id)
-                throw new InvalidOperationException("A recorded fragment reference has a mismatched request ID.");
-            ordered[index] = reference;
-            all.Add(reference);
         }
 
         var reachable = new HashSet<RenderFragmentReference>(
             roots,
             ReferenceEqualityComparer.Instance);
-        if (!reachable.IsSubsetOf(all))
-            throw new ArgumentException("A publication root is not part of the recorded graph.", nameof(roots));
-        for (int index = ordered.Length - 1; index >= 0; index--)
+        int reachableCount = 0;
+        for (int index = graph.Fragments.Length - 1; index >= 0; index--)
         {
-            RenderFragmentReference reference = ordered[index];
+            RenderFragmentReference reference = graph.GetFragment(
+                new RenderFragmentId(graph.RequestId, index + 1L));
             if (!reachable.Contains(reference))
                 continue;
+            reachableCount++;
             if (cacheHitIds.Contains(GetId(reference)))
                 continue;
             foreach (RenderFragmentReference input in reference.ExecutionInputs)
                 reachable.Add(input);
         }
 
-        return [.. ordered.Where(reachable.Contains)];
+        var ordered = new RenderFragmentReference[reachableCount];
+        int next = 0;
+        foreach (RenderFragmentReference reference in graph.Fragments)
+        {
+            if (reachable.Contains(reference))
+                ordered[next++] = reference;
+        }
+
+        return ordered;
     }
 
     private static Dictionary<RenderFragmentReference, int> CountConsumers(

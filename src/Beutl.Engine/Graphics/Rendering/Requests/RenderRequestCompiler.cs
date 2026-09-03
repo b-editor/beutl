@@ -316,25 +316,9 @@ internal sealed class RenderRequestCompiler
         if (graph.PublicationRoots.IsDefaultOrEmpty)
             return [];
 
-        var byId = new Dictionary<RenderFragmentId, RenderFragmentReference>();
-        foreach (RecordedRenderFragment fragment in graph.Fragments)
-        {
-            if (fragment.Payload is not RenderFragmentReference reference)
-            {
-                throw new InvalidOperationException(
-                    "A recorded render fragment is missing its executable semantic reference.");
-            }
-
-            byId.Add(fragment.Id, reference);
-        }
-
         var roots = ImmutableArray.CreateBuilder<RenderFragmentReference>(graph.PublicationRoots.Length);
         foreach (RenderFragmentId id in graph.PublicationRoots)
-        {
-            if (!byId.TryGetValue(id, out RenderFragmentReference? reference))
-                throw new InvalidOperationException("A publication root does not identify a recorded fragment.");
-            roots.Add(reference);
-        }
+            roots.Add(graph.GetFragment(id));
 
         return roots.MoveToImmutable();
     }

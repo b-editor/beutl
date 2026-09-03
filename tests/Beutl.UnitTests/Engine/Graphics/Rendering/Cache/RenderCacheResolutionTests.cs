@@ -1137,7 +1137,7 @@ public sealed class RenderCacheResolutionTests
     }
 
     [Test]
-    public void MissCapture_RetainsProducerValuesAndProvenanceWithoutChangingTokenTopology()
+    public void MissCapture_RetainsProducerIdentitySemanticDagAndTokenTopology()
     {
         RenderFragmentReference source = Pure();
         RenderFragmentReference command = Boundary(RenderFragmentKind.TargetCommand, source);
@@ -1149,14 +1149,13 @@ public sealed class RenderCacheResolutionTests
 
         RenderCacheResolution resolution = Resolve(scenario);
         TargetDependencyPlan after = TargetDependencyLowerer.Lower([command]);
-        RecordedRenderFragment producer = scenario.Graph.Fragments.Single(item => item.Id == source.Id);
         RenderCacheMissCapture capture = resolution.MissCaptures.Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(capture.ProducerId, Is.EqualTo(producer.Id));
-            Assert.That(capture.ValueIds, Is.EqualTo(producer.Values));
-            Assert.That(capture.ProvenanceId, Is.EqualTo(producer.ProvenanceId));
+            Assert.That(capture.ProducerId, Is.EqualTo(source.Id!.Value));
+            Assert.That(capture.Identity, Is.SameAs(resolution.Decisions.Single().Identity));
+            Assert.That(scenario.Graph.GetFragment(capture.ProducerId), Is.SameAs(source));
             Assert.That(command.Inputs.Single(), Is.SameAs(source));
             Assert.That(after.Steps, Is.EqualTo(before.Steps));
             Assert.That(after.Scopes, Is.EqualTo(before.Scopes));
@@ -1608,18 +1607,8 @@ public sealed class RenderCacheResolutionTests
             fusionMode: fusionMode);
         var request = new RenderRequest(options);
         var builder = new RecordedRenderGraphBuilder(request.Id);
-        var provenance = new Dictionary<RenderFragmentReference, RenderProvenanceId>(
-            ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference reference in references)
-        {
-            RenderProvenanceId provenanceId = builder.AddProvenance(reference, "test-node");
-            provenance.Add(reference, provenanceId);
-            RenderValueId[] inputs = reference.Inputs.SelectMany(static item => item.ValueIds).ToArray();
-            reference.ValueIds = reference.ValueCardinality.Maximum == 0
-                ? []
-                : [builder.AddValue([.. inputs], provenanceId, reference)];
-            reference.Id = builder.AddFragment(reference.ValueIds, provenanceId, reference);
-        }
+            builder.AddFragment(reference);
 
         var candidateIds = new Dictionary<RenderFragmentReference, RenderCacheCandidateId>(
             ReferenceEqualityComparer.Instance);

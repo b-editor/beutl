@@ -55,7 +55,6 @@ public sealed class NestedEffectBrushLoweringTests
 
     private static FilterEffectSegmentRenderFragmentPayload[] SegmentsOf(RecordedRenderGraph graph)
         => [.. graph.Fragments
-            .Select(static fragment => (RenderFragmentReference)fragment.Payload!)
             .Where(static reference => reference.Kind == RenderFragmentKind.FilterEffectSegment)
             .Select(static reference => (FilterEffectSegmentRenderFragmentPayload)reference.Payload!)];
 
