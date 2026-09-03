@@ -282,6 +282,33 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
+    public void NestedChildStructuralChange_ReplacesOnlyChildPlanAndReusesParentPlan()
+    {
+        using var cache = new StructuralPlanCache();
+        using var child = new ParameterShaderNode();
+        using var parent = new NestedParentNode(child);
+
+        using (Compile(cache, parent))
+        {
+        }
+
+        child.StructuralVariant = 1;
+
+        using (Compile(cache, parent))
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cache.Statistics.Compilations, Is.EqualTo(3));
+            Assert.That(cache.Statistics.Misses, Is.EqualTo(3));
+            Assert.That(cache.Statistics.Replacements, Is.EqualTo(1));
+            Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
+            Assert.That(cache.Statistics.RetainedPlans, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void TargetLayerScope_EmptyRegionClass_CompilesOneReplacement()
     {
         using var cache = new StructuralPlanCache();

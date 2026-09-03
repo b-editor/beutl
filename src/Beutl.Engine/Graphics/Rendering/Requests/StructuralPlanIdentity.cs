@@ -5,7 +5,8 @@ using Beutl.Graphics.Shaders;
 namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Complete parameter-independent identity for one recorded request graph.
+/// Complete parameter-independent identity for one recorded request graph. Nested requests use their own
+/// structural-plan cache slots and identities.
 /// </summary>
 internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity>
 {
@@ -14,22 +15,19 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
     private readonly StructuralFragmentIdentity[] _fragments;
     private readonly int[] _publicationRoots;
     private readonly StructuralCacheBoundaryIdentity[] _cacheBoundaries;
-    private readonly StructuralPlanIdentity[] _nestedRequests;
 
     private StructuralPlanIdentity(
         RenderRequestPlanIdentity request,
         SkslBackendBudget shaderBudget,
         StructuralFragmentIdentity[] fragments,
         int[] publicationRoots,
-        StructuralCacheBoundaryIdentity[] cacheBoundaries,
-        StructuralPlanIdentity[] nestedRequests)
+        StructuralCacheBoundaryIdentity[] cacheBoundaries)
     {
         _request = request;
         _shaderBudget = shaderBudget;
         _fragments = fragments;
         _publicationRoots = publicationRoots;
         _cacheBoundaries = cacheBoundaries;
-        _nestedRequests = nestedRequests;
     }
 
     public static StructuralPlanIdentity Create(
@@ -73,24 +71,12 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
             ? CreateBypassBoundaries(graph)
             : CreateResolvedBoundaries(cacheResolution, graph);
 
-        ImmutableArray<RecordedNestedRenderRequest> nested = graph.NestedRequests;
-        StructuralPlanIdentity[] nestedRequests =
-            nested.Length == 0 ? [] : new StructuralPlanIdentity[nested.Length];
-        for (int index = 0; index < nested.Length; index++)
-        {
-            nestedRequests[index] = Create(
-                nested[index].Request.Options.PlanIdentity,
-                nested[index].Graph,
-                shaderBudget);
-        }
-
         return new StructuralPlanIdentity(
             request,
             shaderBudget,
             fragments,
             publicationRoots,
-            cacheBoundaries,
-            nestedRequests);
+            cacheBoundaries);
     }
 
     public bool Equals(StructuralPlanIdentity? other)
@@ -99,8 +85,7 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
            && _shaderBudget.Equals(other._shaderBudget)
            && _fragments.AsSpan().SequenceEqual(other._fragments)
            && _publicationRoots.AsSpan().SequenceEqual(other._publicationRoots)
-           && _cacheBoundaries.AsSpan().SequenceEqual(other._cacheBoundaries)
-           && _nestedRequests.AsSpan().SequenceEqual(other._nestedRequests);
+           && _cacheBoundaries.AsSpan().SequenceEqual(other._cacheBoundaries);
 
     public override bool Equals(object? obj)
         => obj is StructuralPlanIdentity other && Equals(other);
@@ -116,8 +101,6 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
             hash.Add(root);
         foreach (StructuralCacheBoundaryIdentity boundary in _cacheBoundaries)
             hash.Add(boundary);
-        foreach (StructuralPlanIdentity nested in _nestedRequests)
-            hash.Add(nested);
         return hash.ToHashCode();
     }
 
