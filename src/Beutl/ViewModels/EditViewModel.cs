@@ -78,17 +78,25 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
     /// </summary>
     internal EditViewModel(
         Scene scene,
-        EditorService editorService)
+        EditorService editorService,
+        IEditorContextCloseService closeService)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(editorService);
+        ArgumentNullException.ThrowIfNull(closeService);
+        if (!ReferenceEquals(editorService.HostToken, closeService.HostToken))
+        {
+            throw new ArgumentException(
+                "The close service must belong to the same editor host as the editor service.",
+                nameof(closeService));
+        }
 
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
 
         Scene = scene;
         ExtensionProvider = editorService.ExtensionProvider;
         EditorService = editorService;
-        _contextCloseService = new BoundContextCloseService(this, editorService);
+        _contextCloseService = new BoundContextCloseService(this, closeService);
         SceneId = scene.Id.ToString();
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
@@ -1068,9 +1076,9 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
 
     private sealed class BoundContextCloseService(
         EditViewModel owner,
-        EditorService editorService) : IEditorContextCloseService
+        IEditorContextCloseService closeService) : IEditorContextCloseService
     {
-        public EditorContextHostToken HostToken => editorService.HostToken;
+        public EditorContextHostToken HostToken => closeService.HostToken;
 
         public EditorContextCloseRequest RequestClose(IEditorContext context)
         {
@@ -1081,13 +1089,13 @@ public sealed partial class EditViewModel : IEditorContext, IEditorContextPublic
                     Task.CompletedTask);
             }
 
-            EditorContextCloseRequest request = editorService.RequestClose(owner);
+            EditorContextCloseRequest request = closeService.RequestClose(owner);
             if (request.Status != EditorContextCloseRequestStatus.NotOwned)
                 return request;
 
             owner.BeforePreOwnershipCloseStart?.Invoke();
             (bool started, Task completion) = owner.GetOrStartDisposal();
-            EditorContextCloseRequest attachedRequest = editorService.RequestClose(owner);
+            EditorContextCloseRequest attachedRequest = closeService.RequestClose(owner);
             if (attachedRequest.Status != EditorContextCloseRequestStatus.NotOwned)
                 return attachedRequest;
             _ = completion.ContinueWith(

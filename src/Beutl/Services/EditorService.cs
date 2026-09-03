@@ -31,6 +31,17 @@ internal readonly record struct EditorContextClaimResult(
     EditorContextRegistration? Registration = null,
     EditorContextOwnershipLease? CleanupLease = null);
 
+internal enum ActivationContextOwnershipStatus
+{
+    New,
+    AlreadyOwned,
+    ForeignUnowned
+}
+
+internal readonly record struct ActivationContextOwnershipResult(
+    ActivationContextOwnershipStatus Status,
+    EditorContextOwnershipLease? Lease = null);
+
 public sealed class EditorTabItem : IAsyncDisposable
 {
     private readonly object _lifetimeGate = new();
@@ -962,6 +973,8 @@ public sealed class EditorService : IEditorContextCloseService
 
     internal Action? BeforeContextCloseAdmission { get; set; }
 
+    internal Action? AfterTabAdmissionClosed { get; set; }
+
     internal Action? BeforeHostCloseStart { get; set; }
 
     internal Action? BeforePhysicalAdd { get; set; }
@@ -990,9 +1003,9 @@ public sealed class EditorService : IEditorContextCloseService
     {
         ArgumentNullException.ThrowIfNull(items);
         await _tabReconciliationGate.WaitAsync();
-        Task admissionDrain = CloseTabAdmission();
         try
         {
+            Task admissionDrain = CloseTabAdmission();
             await admissionDrain;
             List<Exception>? failures = null;
             foreach (EditorTabItem item in _tabItems.ToArray())
@@ -1047,24 +1060,35 @@ public sealed class EditorService : IEditorContextCloseService
 
     private Task CloseTabAdmission()
     {
+        Task drain;
         lock (_tabAdmissionGate)
         {
             _tabAdmissionClosed = true;
             if (_activeTabAdmissions == 0)
-                return Task.CompletedTask;
-
-            _tabAdmissionDrain ??= new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            return _tabAdmissionDrain.Task;
+                drain = Task.CompletedTask;
+            else
+            {
+                _tabAdmissionDrain ??= new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                drain = _tabAdmissionDrain.Task;
+            }
         }
+
+        AfterTabAdmissionClosed?.Invoke();
+        return drain;
     }
 
     private void OpenTabAdmission()
     {
+        TaskCompletionSource? abandonedDrain;
         lock (_tabAdmissionGate)
         {
             _tabAdmissionClosed = false;
+            abandonedDrain = _tabAdmissionDrain;
+            _tabAdmissionDrain = null;
         }
+
+        abandonedDrain?.TrySetResult();
     }
 
     internal void AddTabItem(EditorTabItem item)
@@ -1093,72 +1117,82 @@ public sealed class EditorService : IEditorContextCloseService
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(extension);
 
-        if (!item.TryGetAttachedContext(_hostToken, out IEditorContext? current, out EditorContextRegistration registration)
-            || current is null)
-        {
-            return EditorContextReplacementStatus.NotOwned;
-        }
+        if (!TryEnterTabAdmission())
+            return EditorContextReplacementStatus.Busy;
 
-        if (!extension.TryCreateContext(
-                current.Object,
-                new EditorContextServices(this, _extensionProvider),
-                out IEditorContext? replacement)
-            || replacement is null)
-        {
-            return EditorContextReplacementStatus.CreationFailed;
-        }
-
-        EditorContextClaimResult claim;
         try
         {
-            claim = TryClaimContext(item, replacement, claimInvalidHostForCleanup: true);
-        }
-        catch (Exception claimException)
-        {
+            if (!item.TryGetAttachedContext(_hostToken, out IEditorContext? current, out EditorContextRegistration registration)
+                || current is null)
+            {
+                return EditorContextReplacementStatus.NotOwned;
+            }
+
+            if (!extension.TryCreateContext(
+                    current.Object,
+                    new EditorContextServices(this, _extensionProvider),
+                    out IEditorContext? replacement)
+                || replacement is null)
+            {
+                return EditorContextReplacementStatus.CreationFailed;
+            }
+
+            EditorContextClaimResult claim;
             try
             {
+                claim = TryClaimContext(item, replacement, claimInvalidHostForCleanup: true);
+            }
+            catch (Exception claimException)
+            {
+                try
+                {
+                    await replacement.DisposeAsync().ConfigureAwait(true);
+                }
+                catch (Exception disposalException)
+                {
+                    throw new AggregateException(claimException, disposalException);
+                }
+
+                throw;
+            }
+
+            if (claim.Status == EditorContextClaimStatus.AlreadyOwned)
+            {
+                return ReferenceEquals(replacement, current)
+                    ? EditorContextReplacementStatus.AlreadyActive
+                    : EditorContextReplacementStatus.NotOwned;
+            }
+
+            if (claim.Status == EditorContextClaimStatus.InvalidHostClaimedForCleanup)
+            {
+                try
+                {
+                    await replacement.DisposeAsync().ConfigureAwait(true);
+                }
+                finally
+                {
+                    claim.CleanupLease!.Dispose();
+                }
+
+                return EditorContextReplacementStatus.NotOwned;
+            }
+
+            if (claim.Status != EditorContextClaimStatus.Claimed)
+            {
                 await replacement.DisposeAsync().ConfigureAwait(true);
-            }
-            catch (Exception disposalException)
-            {
-                throw new AggregateException(claimException, disposalException);
+                return EditorContextReplacementStatus.NotOwned;
             }
 
-            throw;
+            EditorContextReplacementResult result = await item.ReplaceClaimedContextAsync(
+                replacement,
+                claim.Registration!.Value,
+                registration);
+            return result.Status;
         }
-
-        if (claim.Status == EditorContextClaimStatus.AlreadyOwned)
+        finally
         {
-            return ReferenceEquals(replacement, current)
-                ? EditorContextReplacementStatus.AlreadyActive
-                : EditorContextReplacementStatus.NotOwned;
+            ExitTabAdmission();
         }
-
-        if (claim.Status == EditorContextClaimStatus.InvalidHostClaimedForCleanup)
-        {
-            try
-            {
-                await replacement.DisposeAsync().ConfigureAwait(true);
-            }
-            finally
-            {
-                claim.CleanupLease!.Dispose();
-            }
-
-            return EditorContextReplacementStatus.NotOwned;
-        }
-
-        if (claim.Status != EditorContextClaimStatus.Claimed)
-        {
-            await replacement.DisposeAsync().ConfigureAwait(true);
-            return EditorContextReplacementStatus.NotOwned;
-        }
-
-        EditorContextReplacementResult result = await item.ReplaceClaimedContextAsync(
-            replacement,
-            claim.Registration!.Value,
-            registration);
-        return result.Status;
     }
 
     internal bool TryAddTabItem(EditorTabItem item)
@@ -1205,12 +1239,13 @@ public sealed class EditorService : IEditorContextCloseService
         EditorTabItem item,
         bool select,
         Action? beforeAdd,
-        Action? beforeSelection)
+        Action? beforeSelection,
+        EditorContextOwnershipLease? provisionalLease = null)
     {
         if (item.Context.Value is not { } context || !HasMatchingHostToken(context))
             return false;
 
-        if (!item.IsHostOwned && !TryAttachOwner(item))
+        if (!item.IsHostOwned && !TryAttachOwner(item, provisionalLease))
             return false;
         if (!item.TryBeginAttachment())
             return false;
@@ -1443,7 +1478,9 @@ public sealed class EditorService : IEditorContextCloseService
         ObserveDeferredTaskFailure(request.Completion);
     }
 
-    private bool TryAttachOwner(EditorTabItem item)
+    private bool TryAttachOwner(
+        EditorTabItem item,
+        EditorContextOwnershipLease? provisionalLease = null)
     {
         IEditorContext? context = item.Context.Value;
         if (context is null || !HasMatchingHostToken(context))
@@ -1453,7 +1490,10 @@ public sealed class EditorService : IEditorContextCloseService
         {
             if (_contextItems.ContainsKey(context) || _reservedContextItems.ContainsKey(context))
                 return false;
-            if (!_hostToken.TryAcquireContext(context, out EditorContextOwnershipLease? ownershipLease))
+            EditorContextOwnershipLease? ownershipLease = provisionalLease;
+            bool leaseSuppliedByCaller = ownershipLease is not null;
+            if (ownershipLease is null
+                && !_hostToken.TryAcquireContext(context, out ownershipLease))
                 return false;
 
             bool registered = false;
@@ -1482,8 +1522,10 @@ public sealed class EditorService : IEditorContextCloseService
             }
             finally
             {
-                if (!registered && (!ownerAttached || item.TryDetachOwner(registration)))
-                    ownershipLease.Dispose();
+                if (!registered
+                    && (!ownerAttached || item.TryDetachOwner(registration))
+                    && !leaseSuppliedByCaller)
+                    ownershipLease!.Dispose();
             }
         }
     }
@@ -1677,8 +1719,17 @@ public sealed class EditorService : IEditorContextCloseService
     {
         if (status == EditorContextCloseRequestStatus.Accepted)
         {
-            BeforeHostCloseStart?.Invoke();
-            _ = CompleteHostCloseAsync(item, completionSource!);
+            Exception? startupFailure = null;
+            try
+            {
+                BeforeHostCloseStart?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                startupFailure = ex;
+            }
+
+            _ = CompleteHostCloseAsync(item, completionSource!, startupFailure);
             ObserveDeferredTaskFailure(completion);
         }
 
@@ -1689,9 +1740,10 @@ public sealed class EditorService : IEditorContextCloseService
 
     private async Task CompleteHostCloseAsync(
         EditorTabItem item,
-        TaskCompletionSource<object?> completion)
+        TaskCompletionSource<object?> completion,
+        Exception? startupFailure = null)
     {
-        List<Exception>? failures = null;
+        List<Exception>? failures = startupFailure is null ? null : [startupFailure];
         try { await RemoveTabItemAsync(item).ConfigureAwait(false); }
         catch (Exception ex) { (failures ??= []).Add(ex); }
 
@@ -1745,8 +1797,31 @@ public sealed class EditorService : IEditorContextCloseService
         {
             EditorExtension? ext = _extensionProvider.MatchEditorExtension(path);
 
-            if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
+            if (ext is not null
+                && ext.TryCreateContext(
+                    obj,
+                    new EditorContextServices(this, _extensionProvider),
+                    out IEditorContext? context)
+                && context is not null)
             {
+                ActivationContextOwnershipResult ownership;
+                try
+                {
+                    ownership = AcquireActivationContextOwnership(context);
+                }
+                catch
+                {
+                    ObserveDeferredContextDisposal(context);
+                    throw;
+                }
+                if (ownership.Status == ActivationContextOwnershipStatus.AlreadyOwned)
+                    return;
+                if (ownership.Status == ActivationContextOwnershipStatus.ForeignUnowned)
+                {
+                    ObserveDeferredContextDisposal(context, ownership.Lease!);
+                    return;
+                }
+
                 EditorTabItem? tabItem2 = null;
                 bool added = false;
                 try
@@ -1758,20 +1833,42 @@ public sealed class EditorService : IEditorContextCloseService
                         tabItem2,
                         select: true,
                         beforeAdd: null,
-                        beforeSelection: null);
+                        beforeSelection: null,
+                        provisionalLease: ownership.Lease);
                 }
                 finally
                 {
                     if (!added)
                     {
                         if (tabItem2 is not null)
-                            ObserveDeferredTabDisposal(tabItem2.DisposeAsync().AsTask());
+                            ObserveDeferredTabDisposal(
+                                tabItem2,
+                                ownership.Lease!);
                         else
-                            ObserveDeferredContextDisposal(context);
+                            ObserveDeferredContextDisposal(context, ownership.Lease!);
                     }
                 }
             }
         }
+    }
+
+    private ActivationContextOwnershipResult AcquireActivationContextOwnership(IEditorContext context)
+    {
+        EditorContextHostToken contextHostToken = context.CloseService.HostToken;
+        if (ReferenceEquals(contextHostToken, _hostToken))
+        {
+            return _hostToken.TryAcquireContext(context, out EditorContextOwnershipLease? lease)
+                ? new ActivationContextOwnershipResult(
+                    ActivationContextOwnershipStatus.New,
+                    lease)
+                : new ActivationContextOwnershipResult(ActivationContextOwnershipStatus.AlreadyOwned);
+        }
+
+        return contextHostToken.TryAcquireContext(context, out EditorContextOwnershipLease? cleanupLease)
+            ? new ActivationContextOwnershipResult(
+                ActivationContextOwnershipStatus.ForeignUnowned,
+                cleanupLease)
+            : new ActivationContextOwnershipResult(ActivationContextOwnershipStatus.AlreadyOwned);
     }
 
     private bool TrySelectTabItem(EditorTabItem item)
@@ -1866,6 +1963,72 @@ public sealed class EditorService : IEditorContextCloseService
             TaskScheduler.Default);
     }
 
+    private void ObserveDeferredTabDisposal(
+        EditorTabItem item,
+        EditorContextOwnershipLease ownershipLease)
+    {
+        Task disposal;
+        try
+        {
+            disposal = item.DisposeAsync().AsTask();
+        }
+        catch (Exception ex)
+        {
+            disposal = ForceDisposeTabAfterStartFailureAsync(item, ex);
+        }
+
+        ObserveDeferredTabDisposal(ReleaseLeaseAfterAsync(disposal, ownershipLease));
+    }
+
+    private async Task ForceDisposeTabAfterStartFailureAsync(
+        EditorTabItem item,
+        Exception startupFailure)
+    {
+        List<Exception> failures = [startupFailure];
+        try
+        {
+            await RemoveTabItemAsync(item).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            await item.DisposeResourcesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        try
+        {
+            item.ReleaseContextRegistration();
+        }
+        catch (Exception ex)
+        {
+            failures.Add(ex);
+        }
+
+        throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
+    }
+
+    private static async Task ReleaseLeaseAfterAsync(
+        Task disposal,
+        EditorContextOwnershipLease ownershipLease)
+    {
+        try
+        {
+            await disposal.ConfigureAwait(false);
+        }
+        finally
+        {
+            ownershipLease.Dispose();
+        }
+    }
+
     private static void ObserveDeferredContextDisposal(IEditorContext context)
     {
         Task disposal;
@@ -1879,6 +2042,38 @@ public sealed class EditorService : IEditorContextCloseService
         }
 
         ObserveDeferredTabDisposal(disposal);
+    }
+
+    private static void ObserveDeferredContextDisposal(
+        IEditorContext context,
+        EditorContextOwnershipLease ownershipLease)
+    {
+        Task disposal;
+        try
+        {
+            disposal = DisposeContextAndReleaseLeaseAsync(context, ownershipLease);
+        }
+        catch (Exception ex)
+        {
+            ownershipLease.Dispose();
+            disposal = Task.FromException(ex);
+        }
+
+        ObserveDeferredTabDisposal(disposal);
+    }
+
+    private static async Task DisposeContextAndReleaseLeaseAsync(
+        IEditorContext context,
+        EditorContextOwnershipLease ownershipLease)
+    {
+        try
+        {
+            await context.DisposeAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            ownershipLease.Dispose();
+        }
     }
 
     private static void ObserveDeferredTaskFailure(Task task)

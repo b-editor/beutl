@@ -126,7 +126,7 @@ public sealed class SceneEditorExtension : EditorExtension
             && services.CloseService is { HostToken: not null } closeService
             && ReferenceEquals(editorService.HostToken, closeService.HostToken))
         {
-            var editViewModel = new EditViewModel(scene, editorService);
+            var editViewModel = new EditViewModel(scene, editorService, closeService);
             if (editViewModel.IsDisposeRequested)
             {
                 context = null;
