@@ -181,7 +181,7 @@ internal sealed class RenderExecutionSessionToken
 
     public void UseResource<T>(
         RenderResource<T> resource,
-        IReadOnlyList<RenderResource> declaredResources,
+        IReadOnlyList<RenderResourceBinding> declaredResources,
         Action<T> use)
         where T : class
     {
@@ -189,18 +189,16 @@ internal sealed class RenderExecutionSessionToken
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(declaredResources);
         ArgumentNullException.ThrowIfNull(use);
-        if (!declaredResources.Any(declared => ReferenceEquals(declared.SlotIdentity, resource.SlotIdentity)))
+        for (int index = 0; index < declaredResources.Count; index++)
         {
-            throw new InvalidOperationException("The render resource was not declared by this operation.");
+            if (ReferenceEquals(declaredResources[index].Resource.SlotIdentity, resource.SlotIdentity))
+            {
+                UseResourceCore(resource, use);
+                return;
+            }
         }
 
-        resource.Registry.Use(
-            resource,
-            value =>
-            {
-                AuthorizeResource(value, () => use(value));
-                return true;
-            });
+        throw new InvalidOperationException("The render resource was not declared by this operation.");
     }
 
     public void UseResources(
@@ -241,25 +239,40 @@ internal sealed class RenderExecutionSessionToken
         ArgumentNullException.ThrowIfNull(slot);
         ArgumentNullException.ThrowIfNull(declaredResources);
         ArgumentNullException.ThrowIfNull(use);
-        RenderResourceBinding? binding = declaredResources.FirstOrDefault(
-            item => ReferenceEquals(item.Slot, slot));
-        if (binding is null)
+        for (int index = 0; index < declaredResources.Count; index++)
         {
-            throw new KeyNotFoundException(
-                "No resource was bound to the requested slot for this execution callback.");
+            RenderResourceBinding binding = declaredResources[index];
+            if (!ReferenceEquals(binding.Slot, slot))
+                continue;
+
+            if (binding.Resource is not RenderResource<T> resource)
+            {
+                throw new InvalidOperationException(
+                    "The resource bound to the requested slot does not match the slot's declared type.");
+            }
+
+            UseResourceCore(resource, use);
+            return;
         }
 
-        if (binding.Resource is not RenderResource<T> resource)
-        {
-            throw new InvalidOperationException(
-                "The resource bound to the requested slot does not match the slot's declared type.");
-        }
-
-        UseResource(resource, declaredResources.SelectToArray(static item => item.Resource), use);
+        throw new KeyNotFoundException(
+            "No resource was bound to the requested slot for this execution callback.");
     }
 
     public bool IsResourceAuthorized(object resource)
         => _active && _authorizedResources.ContainsKey(resource);
+
+    private void UseResourceCore<T>(RenderResource<T> resource, Action<T> use)
+        where T : class
+    {
+        resource.Registry.Use(
+            resource,
+            value =>
+            {
+                AuthorizeResource(value, () => use(value));
+                return true;
+            });
+    }
 
     private void RestoreDrawableBrushMaterializer()
     {

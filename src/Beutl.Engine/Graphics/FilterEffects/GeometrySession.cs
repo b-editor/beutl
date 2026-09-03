@@ -7,7 +7,6 @@ public sealed class GeometrySession
 {
     private readonly RenderExecutionSessionToken _token;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
-    private readonly IReadOnlyList<RenderResource> _resources;
     private readonly Rect _allocatedOutputBounds;
     private Rect _outputBounds;
     private bool _discarded;
@@ -40,10 +39,6 @@ public sealed class GeometrySession
 
         _token = token;
         _resourceBindings = resources;
-        var resourceTokens = new RenderResource[resources.Count];
-        for (int index = 0; index < resourceTokens.Length; index++)
-            resourceTokens[index] = resources[index].Resource;
-        _resources = resourceTokens;
         _allocatedOutputBounds = outputBounds;
         _outputBounds = outputBounds;
         Input = input;

@@ -8,7 +8,6 @@ public sealed class RawTargetScopeSession
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
-    private readonly IReadOnlyList<RenderResource> _resources;
     private readonly Action<ImmediateCanvas> _replayInput;
     private bool _replayed;
 
@@ -27,7 +26,6 @@ public sealed class RawTargetScopeSession
         _intent = intent;
         _purpose = purpose;
         _resourceBindings = resources;
-        _resources = resources.SelectToArray(static binding => binding.Resource);
         _replayInput = replayInput;
     }
 
@@ -79,7 +77,7 @@ public sealed class RawTargetScopeSession
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {
-        _token.UseResource(resource, _resources, use);
+        _token.UseResource(resource, _resourceBindings, use);
     }
 
     internal void ValidateCompletion()

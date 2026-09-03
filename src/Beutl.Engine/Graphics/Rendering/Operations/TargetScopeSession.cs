@@ -9,7 +9,6 @@ public sealed class TargetScopeSession
     private readonly RenderRequestPurpose _purpose;
     private readonly RenderCallbackCanvas _canvas;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
-    private readonly IReadOnlyList<RenderResource> _resources;
     private readonly Action<ImmediateCanvas> _replayInput;
     private bool _replayed;
 
@@ -30,7 +29,6 @@ public sealed class TargetScopeSession
         _purpose = purpose;
         _canvas = canvas;
         _resourceBindings = resources;
-        _resources = resources.SelectToArray(static binding => binding.Resource);
         _replayInput = replayInput;
     }
 

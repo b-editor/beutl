@@ -7,7 +7,6 @@ public sealed class OpaqueRenderSession
 {
     private readonly RenderExecutionSessionToken _token;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
-    private readonly IReadOnlyList<RenderResource> _resources;
     private readonly Func<OpaqueRenderSession, Rect, float?, OpaqueRenderOutput> _createOutput;
     private readonly Action<OpaqueRenderOutput> _publish;
     private readonly IReadOnlyList<RenderExecutionInput> _inputs;
@@ -58,7 +57,6 @@ public sealed class OpaqueRenderSession
         _intent = intent;
         _purpose = purpose;
         _resourceBindings = resources;
-        _resources = resources.SelectToArray(static binding => binding.Resource);
         _createOutput = createOutput;
         _publish = publish;
     }
@@ -166,7 +164,7 @@ public sealed class OpaqueRenderSession
     internal void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {
-        _token.UseResource(resource, _resources, use);
+        _token.UseResource(resource, _resourceBindings, use);
     }
 
     internal void UseNestedTarget(
@@ -176,7 +174,7 @@ public sealed class OpaqueRenderSession
         ArgumentNullException.ThrowIfNull(use);
         _token.UseResource(
             resource,
-            _resources,
+            _resourceBindings,
             binding => binding.UseImage(_token, use));
     }
 }

@@ -7,7 +7,6 @@ public sealed class RawTargetCommandSession
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
-    private readonly IReadOnlyList<RenderResource> _resources;
 
     internal RawTargetCommandSession(
         RenderExecutionSessionToken token,
@@ -21,7 +20,6 @@ public sealed class RawTargetCommandSession
         _intent = intent;
         _purpose = purpose;
         _resourceBindings = resources;
-        _resources = resources.SelectToArray(static binding => binding.Resource);
     }
 
     public ImmediateCanvas Canvas
@@ -55,6 +53,6 @@ public sealed class RawTargetCommandSession
     public void UseResource<T>(RenderResource<T> resource, Action<T> use)
         where T : class
     {
-        _token.UseResource(resource, _resources, use);
+        _token.UseResource(resource, _resourceBindings, use);
     }
 }

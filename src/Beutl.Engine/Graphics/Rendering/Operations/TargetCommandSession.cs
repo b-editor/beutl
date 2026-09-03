@@ -13,7 +13,6 @@ public sealed class TargetCommandSession
     private readonly RenderRequestPurpose _purpose;
     private readonly RenderCallbackCanvas _canvas;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
-    private readonly IReadOnlyList<RenderResource> _resources;
     private readonly Func<Bitmap>? _createSnapshot;
     private readonly bool _snapshotRequired;
     private bool _snapshotUsed;
@@ -48,7 +47,6 @@ public sealed class TargetCommandSession
         _purpose = purpose;
         _canvas = canvas;
         _resourceBindings = resources;
-        _resources = resources.SelectToArray(static binding => binding.Resource);
         _snapshotRequired = snapshotRequired;
         _createSnapshot = createSnapshot;
     }
