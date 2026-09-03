@@ -216,12 +216,12 @@ public sealed class ProgramCacheTests
     public void GetOrCreate_HashBucketCollision_UsesFullSourceAndBindingSignature()
     {
         using var cache = CreateCache(maxRetainedBytes: 128);
-        const int forcedBucket = 12345;
-        ShaderProgramIdentity sourceA = Identity(SourceA, forcedBucket);
-        ShaderProgramIdentity sourceB = Identity(SourceB, forcedBucket);
+        const string collisionSourceA = SourceA + " // bHclWWfdRgO1";
+        const string collisionSourceB = SourceA + " // cQCqecdMIEfo";
+        ShaderProgramIdentity sourceA = Identity(collisionSourceA);
+        ShaderProgramIdentity sourceB = Identity(collisionSourceB);
         ShaderProgramIdentity differentSignature = Identity(
-            SourceA,
-            forcedBucket,
+            collisionSourceA,
             [new SkslMergedBindingLayout(
                 0,
                 0,
@@ -260,7 +260,7 @@ public sealed class ProgramCacheTests
         }
 
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
-                   Identity(SourceA, forcedBucket),
+                   Identity(collisionSourceA),
                    context,
                    () => new FakeProgram(++nextId, 8)))
         {
@@ -269,6 +269,8 @@ public sealed class ProgramCacheTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(sourceA.GetHashCode(), Is.EqualTo(sourceB.GetHashCode()));
+            Assert.That(sourceA, Is.Not.EqualTo(sourceB));
             Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
             Assert.That(cache.Statistics.Misses, Is.EqualTo(3));
             Assert.That(cache.Statistics.Creations, Is.EqualTo(3));
@@ -677,13 +679,11 @@ public sealed class ProgramCacheTests
 
     private static ShaderProgramIdentity Identity(
         string source,
-        int? bucketHashOverride = null,
         IReadOnlyList<SkslMergedBindingLayout>? bindings = null)
         => ShaderProgramIdentity.CreateSksl(
             source,
             bindings ?? [],
-            SkslBackendBudget.Unlimited,
-            bucketHashOverride);
+            SkslBackendBudget.Unlimited);
 
     private sealed class FakeProgram(
         int id,

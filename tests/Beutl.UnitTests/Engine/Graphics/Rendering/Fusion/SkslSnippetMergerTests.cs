@@ -417,33 +417,6 @@ public sealed class SkslSnippetMergerTests
     }
 
     [Test]
-    public void ProgramIdentity_UsesHashOnlyAsBucketAndComparesFullSourceAndLayout()
-    {
-        SkslMergedProgram first = SkslSnippetMerger.Merge(
-            [new(ShaderDescription.CurrentPixel(Identity))]);
-        SkslMergedProgram second = SkslSnippetMerger.Merge(
-            [new(ShaderDescription.CurrentPixel(
-                "half4 apply(half4 color) { return half4(color.a - color.rgb, color.a); }"))]);
-        ShaderProgramIdentity firstCollision = ShaderProgramIdentity.CreateSksl(
-            first.Source,
-            first.Bindings,
-            first.Budget,
-            bucketHashOverride: 17);
-        ShaderProgramIdentity secondCollision = ShaderProgramIdentity.CreateSksl(
-            second.Source,
-            second.Bindings,
-            second.Budget,
-            bucketHashOverride: 17);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(firstCollision.GetHashCode(), Is.EqualTo(secondCollision.GetHashCode()));
-            Assert.That(firstCollision, Is.Not.EqualTo(secondCollision));
-            Assert.That(new HashSet<ShaderProgramIdentity> { firstCollision, secondCollision }, Has.Count.EqualTo(2));
-        });
-    }
-
-    [Test]
     public void CoverageMetadata_RequiresEveryStageToHaveAnEngineProof()
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(Identity);

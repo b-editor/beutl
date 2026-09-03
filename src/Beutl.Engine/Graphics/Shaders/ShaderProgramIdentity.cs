@@ -7,13 +7,13 @@
 internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
 {
     private readonly object[] _bindings;
+    private readonly int _hashCode;
 
     private ShaderProgramIdentity(
         ShaderProgramBackend backend,
         string source,
         IEnumerable<object> bindings,
-        SkslBackendBudget budget,
-        int? bucketHashOverride = null)
+        SkslBackendBudget budget)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(bindings);
@@ -25,10 +25,8 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
         Source = source;
         _bindings = bindings.ToArray();
         Budget = budget;
-        BucketHash = bucketHashOverride ?? ComputeStableBucketHash(backend, source);
+        _hashCode = ComputeStableHashCode(backend, source);
     }
-
-    public int BucketHash { get; }
 
     private ShaderProgramBackend Backend { get; }
 
@@ -39,14 +37,12 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
     internal static ShaderProgramIdentity CreateSksl(
         string source,
         IReadOnlyList<SkslMergedBindingLayout> bindings,
-        SkslBackendBudget budget,
-        int? bucketHashOverride = null)
+        SkslBackendBudget budget)
         => new(
             ShaderProgramBackend.Sksl,
             source,
             bindings.Cast<object>(),
-            budget,
-            bucketHashOverride);
+            budget);
 
     internal static ShaderProgramIdentity CreateStandaloneSksl(
         string source,
@@ -62,7 +58,6 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
 
     public bool Equals(ShaderProgramIdentity? other)
         => other is not null
-           && BucketHash == other.BucketHash
            && Backend == other.Backend
            && Source == other.Source
            && Budget.Equals(other.Budget)
@@ -70,9 +65,9 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
 
     public override bool Equals(object? obj) => obj is ShaderProgramIdentity other && Equals(other);
 
-    public override int GetHashCode() => BucketHash;
+    public override int GetHashCode() => _hashCode;
 
-    private static int ComputeStableBucketHash(ShaderProgramBackend backend, string source)
+    private static int ComputeStableHashCode(ShaderProgramBackend backend, string source)
     {
         const uint offset = 2166136261;
         const uint prime = 16777619;
