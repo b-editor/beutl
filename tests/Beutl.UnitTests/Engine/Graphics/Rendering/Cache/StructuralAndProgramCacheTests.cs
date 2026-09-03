@@ -185,52 +185,6 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
-    public void ForcedHashCollision_UsesFullIdentityAndThenWarmsReplacement()
-    {
-        using var cache = new StructuralPlanCache();
-        using var firstNode = new ParameterShaderNode { StructuralVariant = 0 };
-        using var secondNode = new ParameterShaderNode { StructuralVariant = 1 };
-        using var equivalentNode = new ParameterShaderNode { StructuralVariant = 1, Value = 0.8f };
-        using RenderRequest firstRequest = CreateRequest(FusionMode.Enabled);
-        using RenderRequest secondRequest = CreateRequest(FusionMode.Enabled);
-        using RenderRequest equivalentRequest = CreateRequest(FusionMode.Enabled);
-        RecordedRenderGraph firstGraph = new RenderRequestRecorder(firstRequest).Record(firstNode);
-        RecordedRenderGraph secondGraph = new RenderRequestRecorder(secondRequest).Record(secondNode);
-        RecordedRenderGraph equivalentGraph = new RenderRequestRecorder(equivalentRequest).Record(equivalentNode);
-        StructuralPlanIdentity firstIdentity = StructuralPlanIdentity.Create(
-            firstRequest.Options.PlanIdentity,
-            firstGraph,
-            SkslBackendBudget.Unlimited);
-        StructuralPlanIdentity secondIdentity = StructuralPlanIdentity.Create(
-            secondRequest.Options.PlanIdentity,
-            secondGraph,
-            SkslBackendBudget.Unlimited);
-        StructuralPlanIdentity equivalentIdentity = StructuralPlanIdentity.Create(
-            equivalentRequest.Options.PlanIdentity,
-            equivalentGraph,
-            SkslBackendBudget.Unlimited);
-        const int forcedBucket = 0x1234;
-
-        _ = GetOrCompile(cache, firstIdentity, firstGraph, forcedBucket);
-        _ = GetOrCompile(cache, secondIdentity, secondGraph, forcedBucket);
-        ExecutionIslandPlan warmed = GetOrCompile(
-            cache,
-            equivalentIdentity,
-            equivalentGraph,
-            forcedBucket);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(firstIdentity, Is.Not.EqualTo(secondIdentity));
-            Assert.That(secondIdentity, Is.EqualTo(equivalentIdentity));
-            Assert.That(cache.Statistics.Compilations, Is.EqualTo(2));
-            Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
-            Assert.That(cache.Statistics.Replacements, Is.EqualTo(1));
-            Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
     public void Renderer_PersistsStructuralCacheAcrossRequests()
     {
         using var node = new EmptyNode();
@@ -357,8 +311,7 @@ public sealed class StructuralAndProgramCacheTests
     private static ExecutionIslandPlan GetOrCompile(
         StructuralPlanCache cache,
         StructuralPlanIdentity identity,
-        RecordedRenderGraph graph,
-        int forcedBucket)
+        RecordedRenderGraph graph)
     {
         var planner = new ExecutionIslandPlanner();
         return cache.GetOrCompile(
@@ -368,8 +321,7 @@ public sealed class StructuralAndProgramCacheTests
                 graph,
                 RenderRequestCompiler.ResolveRoots(graph),
                 FusionMode.Enabled,
-                SkslBackendBudget.Unlimited),
-            forcedBucket);
+                SkslBackendBudget.Unlimited));
     }
 
     private static void AssertOpacityEligibilityChangeReplacesStructuralPlan(
@@ -402,18 +354,8 @@ public sealed class StructuralAndProgramCacheTests
             changedRequest.Options.PlanIdentity,
             changedGraph,
             SkslBackendBudget.Unlimited);
-        const int forcedBucket = 0x4f50;
-
-        _ = GetOrCompile(
-            cache,
-            eligibleIdentity,
-            eligibleGraph,
-            forcedBucket);
-        _ = GetOrCompile(
-            cache,
-            changedIdentity,
-            changedGraph,
-            forcedBucket);
+        _ = GetOrCompile(cache, eligibleIdentity, eligibleGraph);
+        _ = GetOrCompile(cache, changedIdentity, changedGraph);
 
         Assert.Multiple(() =>
         {

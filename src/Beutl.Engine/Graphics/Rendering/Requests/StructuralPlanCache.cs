@@ -7,8 +7,8 @@ namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
 /// Retains the last structural request family for a renderer. Each stable depth-first family slot keeps
-/// one candidate; hashes only select that candidate and the complete structural identity must still compare
-/// equal before a plan is rebound to a new request.
+/// one candidate, and the complete structural identity must compare equal before a plan is rebound to a
+/// new request.
 /// </summary>
 internal sealed class StructuralPlanCache : IDisposable
 {
@@ -40,7 +40,6 @@ internal sealed class StructuralPlanCache : IDisposable
         StructuralPlanIdentity identity,
         RecordedRenderGraph graph,
         Func<ExecutionIslandPlan> compile,
-        int? bucketHashOverride = null,
         int familySlot = 0)
     {
         ArgumentNullException.ThrowIfNull(identity);
@@ -51,9 +50,7 @@ internal sealed class StructuralPlanCache : IDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            int bucketHash = bucketHashOverride ?? identity.GetHashCode();
             if (_entries.TryGetValue(familySlot, out Entry? entry)
-                && entry.BucketHash == bucketHash
                 && entry.Identity.Equals(identity))
             {
                 _hits++;
@@ -65,7 +62,7 @@ internal sealed class StructuralPlanCache : IDisposable
             StructuralExecutionPlanTemplate template = StructuralExecutionPlanTemplate.Create(compiled, graph);
             if (entry is not null)
                 _replacements++;
-            _entries[familySlot] = new Entry(bucketHash, identity, template);
+            _entries[familySlot] = new Entry(identity, template);
             _compilations++;
             return compiled;
         }
@@ -105,7 +102,6 @@ internal sealed class StructuralPlanCache : IDisposable
     }
 
     private sealed record Entry(
-        int BucketHash,
         StructuralPlanIdentity Identity,
         StructuralExecutionPlanTemplate Template);
 }
