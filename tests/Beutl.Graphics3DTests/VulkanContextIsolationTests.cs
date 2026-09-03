@@ -110,6 +110,7 @@ public sealed class VulkanContextIsolationTests
         {
             using IGraphicsContext foreign = GraphicsContextFactory.CreateContext();
             IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             byte[] vertex = compiler.CompileToSpirv(SampledVertexShader, ShaderStage.Vertex);
             byte[] fragment = compiler.CompileToSpirv(SampledFragmentShader, ShaderStage.Fragment);
 

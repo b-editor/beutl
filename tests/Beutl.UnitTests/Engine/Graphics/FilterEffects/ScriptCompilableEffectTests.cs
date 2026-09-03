@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
@@ -57,6 +58,35 @@ public sealed class ScriptCompilableEffectTests
         ScriptCompilationResult result = effect.ValidateScript("void main() { this does not compile }");
 
         Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Unavailable));
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void Glsl_validation_disposes_its_temporary_shader_compiler()
+    {
+        var context = new Mock<IGraphicsContext>();
+        var compiler = new Mock<IShaderCompiler>();
+        Mock<IDisposable> compilerLifetime = compiler.As<IDisposable>();
+        context.Setup(x => x.CreateShaderCompiler()).Returns(compiler.Object);
+        compiler
+            .Setup(x => x.CompileToSpirv(It.IsAny<string>(), ShaderStage.Fragment, "main"))
+            .Returns([0x03, 0x02, 0x23, 0x07]);
+        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+            new InstalledGraphics(context.Object, null, null, FailedToInitialize: false));
+        try
+        {
+            var effect = new GLSLScriptEffect();
+
+            ScriptCompilationResult result = effect.ValidateScript(
+                "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }");
+
+            Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
+            compilerLifetime.Verify(x => x.Dispose(), Times.Once);
+        }
+        finally
+        {
+            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
+        }
     }
 
     [TestCase("half4 apply(half4 color) { return color; } /* forgot to close")]

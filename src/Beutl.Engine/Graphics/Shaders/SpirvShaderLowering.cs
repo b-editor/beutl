@@ -22,8 +22,7 @@ internal sealed class SpirvShaderLowering
 
     public SpirvShaderLowering(
         string fragmentShaderSource,
-        IReadOnlyList<SpirvPushConstantBinding> pushConstants,
-        bool supportsBitExactSkiaHandoff)
+        IReadOnlyList<SpirvPushConstantBinding> pushConstants)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fragmentShaderSource);
         ArgumentNullException.ThrowIfNull(pushConstants);
@@ -47,20 +46,19 @@ internal sealed class SpirvShaderLowering
         }
 
         _pushConstants = new ReadOnlyCollection<SpirvPushConstantBinding>(copy);
-        SupportsBitExactSkiaHandoff = supportsBitExactSkiaHandoff;
         StructuralIdentity = new SpirvShaderLoweringStructuralIdentity(
             FragmentShaderSource,
-            copy,
-            SupportsBitExactSkiaHandoff);
+            copy);
+        ProgramIdentity = ShaderProgramIdentity.CreateSpirv(FragmentShaderSource);
     }
 
     public string FragmentShaderSource { get; }
 
     public IReadOnlyList<SpirvPushConstantBinding> PushConstants => _pushConstants;
 
-    public bool SupportsBitExactSkiaHandoff { get; }
-
     internal object StructuralIdentity { get; }
+
+    internal ShaderProgramIdentity ProgramIdentity { get; }
 
     internal void ValidateForDescription(
         ShaderDescriptionKind kind,
@@ -201,14 +199,12 @@ internal sealed class SpirvShaderLowering
 
 internal sealed class SpirvShaderLoweringStructuralIdentity(
     string source,
-    SpirvPushConstantBinding[] pushConstants,
-    bool supportsBitExactSkiaHandoff)
+    SpirvPushConstantBinding[] pushConstants)
     : IEquatable<SpirvShaderLoweringStructuralIdentity>
 {
     public bool Equals(SpirvShaderLoweringStructuralIdentity? other)
         => other is not null
            && source == other.Source
-           && supportsBitExactSkiaHandoff == other.SupportsBitExactSkiaHandoff
            && pushConstants.AsSpan().SequenceEqual(other.PushConstants);
 
     public override bool Equals(object? obj)
@@ -218,7 +214,6 @@ internal sealed class SpirvShaderLoweringStructuralIdentity(
     {
         var hash = new HashCode();
         hash.Add(source, StringComparer.Ordinal);
-        hash.Add(supportsBitExactSkiaHandoff);
         foreach (SpirvPushConstantBinding item in pushConstants)
             hash.Add(item);
         return hash.ToHashCode();
@@ -227,6 +222,4 @@ internal sealed class SpirvShaderLoweringStructuralIdentity(
     private string Source => source;
 
     private SpirvPushConstantBinding[] PushConstants => pushConstants;
-
-    private bool SupportsBitExactSkiaHandoff => supportsBitExactSkiaHandoff;
 }

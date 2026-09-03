@@ -97,7 +97,7 @@ After plan selection, runtime binding receives the resolved logical bounds, requ
 
 The renderer owns compiled shader reuse based on the complete merged source, layout, backend capability, color/alpha/format contract, and relevant compile options. Hashing is only a lookup optimization; full equality decides reuse. Public shader calls never provide program identity fields.
 
-A stage may additionally carry an engine-authored SPIR-V lowering. When the run is that single stage, the shared graphics context supports it, and its input and output are matching RGBA16F footprints at equal density, the renderer executes that lowering through a separate SPIR-V program cache; a native compile or resource failure falls back to the SkSL lowering, which remains the compatibility contract. Backend selection is engine-owned and never author-declared.
+A stage may additionally carry an engine-authored SPIR-V lowering. Its presence makes an otherwise eligible, already-materializing single-stage run an automatic native candidate; extensions cannot declare native eligibility or select the backend. A directly replayable shader root is not materialized merely to select SPIR-V. When the engine Vulkan recording context is active and the input and output are matching RGBA16F footprints at equal density, the renderer executes that lowering through a separate SPIR-V program cache. Unknown third-party graphics contexts and native program-creation failures fall back to the SkSL lowering, which remains the compatibility contract. The separately tracked Skia/Vulkan shared-image layout limitation is unchanged by this selection contract.
 
 ## Resource and scale plan
 

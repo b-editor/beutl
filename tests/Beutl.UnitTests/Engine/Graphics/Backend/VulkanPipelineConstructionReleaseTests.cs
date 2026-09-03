@@ -18,14 +18,10 @@ public sealed class VulkanPipelineConstructionReleaseTests
     [Test]
     public void EveryGraphicsPipelineConstructor_ReleasesWhatItCreatedWhenItThrows()
     {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Beutl.slnx")))
-            directory = directory.Parent;
-
-        Assert.That(directory, Is.Not.Null, "the repository root was not found above the test binaries");
+        DirectoryInfo directory = FindRepositoryRoot();
 
         string backend = Path.Combine(
-            directory!.FullName, "src", "Beutl.Engine", "Graphics", "Backend", "Vulkan");
+            directory.FullName, "src", "Beutl.Engine", "Graphics", "Backend", "Vulkan");
         Assert.That(Directory.Exists(backend), Is.True, $"the Vulkan backend was not found at {backend}");
 
         var inspected = new List<string>();
@@ -77,6 +73,45 @@ public sealed class VulkanPipelineConstructionReleaseTests
                 "a constructor that throws leaves no instance to dispose, so it must release the device "
                 + "objects it already created: " + string.Join("; ", offenders));
         }
+    }
+
+    [Test]
+    public void VulkanShaderCompiler_ReleasesPartialConstructionAndNativeApi()
+    {
+        DirectoryInfo directory = FindRepositoryRoot();
+        string path = Path.Combine(
+            directory.FullName,
+            "src", "Beutl.Engine", "Graphics", "Backend", "Vulkan", "VulkanShaderCompiler.cs");
+        string source = WithoutLiteralsAndComments(File.ReadAllText(path));
+
+        string constructor = ConstructorBodies(source, "VulkanShaderCompiler").Single();
+        int guardedRegion = constructor.IndexOf("try", StringComparison.Ordinal);
+        int compilerInitialization = constructor.IndexOf("CompilerInitialize", StringComparison.Ordinal);
+        int optionsInitialization = constructor.IndexOf("CompileOptionsInitialize", StringComparison.Ordinal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(guardedRegion, Is.GreaterThanOrEqualTo(0));
+            Assert.That(compilerInitialization, Is.GreaterThan(guardedRegion));
+            Assert.That(optionsInitialization, Is.GreaterThan(compilerInitialization));
+            Assert.That(
+                constructor,
+                Does.Match(@"catch\s*\{\s*Release\s*\(\s*shaderc\s*,\s*compiler\s*,\s*options\s*\)\s*;\s*throw\s*;\s*\}"));
+            Assert.That(source, Does.Contain("shaderc.CompileOptionsRelease(options)"));
+            Assert.That(source, Does.Contain("shaderc.CompilerRelease(compiler)"));
+            Assert.That(source, Does.Contain("shaderc.Dispose()"));
+            Assert.That(source, Does.Contain("Release(_shaderc, _compiler, _options)"));
+        });
+    }
+
+    private static DirectoryInfo FindRepositoryRoot()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Beutl.slnx")))
+            directory = directory.Parent;
+
+        Assert.That(directory, Is.Not.Null, "the repository root was not found above the test binaries");
+        return directory!;
     }
 
     /// <summary>Every constructor body of <paramref name="typeName"/>, brace matched.</summary>

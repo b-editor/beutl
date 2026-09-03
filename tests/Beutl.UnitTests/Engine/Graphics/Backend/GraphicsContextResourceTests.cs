@@ -201,6 +201,7 @@ public class GraphicsContextResourceTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var compiler = ctx.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             Assert.That(compiler, Is.Not.Null);
         });
     }
@@ -213,6 +214,7 @@ public class GraphicsContextResourceTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var compiler = ctx.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             const string source = """
                 #version 450
                 layout(location = 0) out vec4 outColor;
@@ -252,6 +254,7 @@ public class GraphicsContextResourceTests
                 """;
 
             IShaderCompiler compiler = ctx.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             byte[] vertexSpirv = compiler.CompileToSpirv(vertexSource, ShaderStage.Vertex);
             byte[] fragmentSpirv = compiler.CompileToSpirv(fragmentSource, ShaderStage.Fragment);
 

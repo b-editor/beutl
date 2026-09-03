@@ -55,44 +55,139 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
-    public void CurrentPixel_BackendStructuralIdentityIncludesSelectedLowering()
+    public void CurrentPixel_SpirvProgramIdentityIncludesTheNativeSource()
     {
         const string sksl = "half4 apply(half4 color) { return color; }";
         const string glsl =
             "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }";
         var firstLowering = new SpirvShaderLowering(
             glsl,
-            [],
-            supportsBitExactSkiaHandoff: false);
+            []);
         var equivalentLowering = new SpirvShaderLowering(
             glsl,
-            [],
-            supportsBitExactSkiaHandoff: false);
-        var autoEligibleLowering = new SpirvShaderLowering(
-            glsl,
-            [],
-            supportsBitExactSkiaHandoff: true);
+            []);
+        var differentLowering = new SpirvShaderLowering(
+            "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(0); }",
+            []);
         SkslSource source = new(sksl, ShaderDescriptionKind.CurrentPixel);
         ShaderDescription first = ShaderDescription.CurrentPixel(source, firstLowering, bindings: null);
         ShaderDescription equivalent = ShaderDescription.CurrentPixel(source, equivalentLowering, bindings: null);
-        ShaderDescription autoEligible = ShaderDescription.CurrentPixel(source, autoEligibleLowering, bindings: null);
+        ShaderDescription different = ShaderDescription.CurrentPixel(source, differentLowering, bindings: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.SpirvLowering!.ProgramIdentity,
+                Is.EqualTo(equivalent.SpirvLowering!.ProgramIdentity));
+            Assert.That(first.SpirvLowering.ProgramIdentity,
+                Is.Not.EqualTo(different.SpirvLowering!.ProgramIdentity));
+        });
+    }
+
+    [Test]
+    public void LumaColor_ReusesOneNativeLoweringAndProgramIdentity()
+    {
+        ShaderDescription first = BuiltInColorFilterShader.LumaColor();
+        ShaderDescription second = BuiltInColorFilterShader.LumaColor();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.SameAs(second));
+            Assert.That(first.SpirvLowering, Is.SameAs(second.SpirvLowering));
+            Assert.That(first.SpirvLowering!.ProgramIdentity,
+                Is.SameAs(second.SpirvLowering!.ProgramIdentity));
+        });
+    }
+
+    [Test]
+    public void SpirvLowering_RejectsDuplicateAndInvalidPushConstantOffsets()
+    {
+        const string glsl =
+            "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }";
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                first.GetStructuralIdentity(ShaderProgramBackend.Sksl),
-                Is.Not.EqualTo(first.GetStructuralIdentity(ShaderProgramBackend.Spirv)));
+                () => new SpirvShaderLowering(
+                    glsl,
+                    [new SpirvPushConstantBinding("value", 16), new SpirvPushConstantBinding("value", 20)]),
+                Throws.TypeOf<ArgumentException>());
             Assert.That(
-                first.GetStructuralIdentity(ShaderProgramBackend.Sksl),
-                Is.EqualTo(equivalent.GetStructuralIdentity(ShaderProgramBackend.Sksl)));
+                () => new SpirvShaderLowering(
+                    glsl,
+                    [new SpirvPushConstantBinding("value", SpirvPushConstants.UserByteOffset - 4)]),
+                Throws.TypeOf<ArgumentException>());
             Assert.That(
-                first.GetStructuralIdentity(ShaderProgramBackend.Spirv),
-                Is.EqualTo(equivalent.GetStructuralIdentity(ShaderProgramBackend.Spirv)));
-            Assert.That(
-                first.GetStructuralIdentity(ShaderProgramBackend.Spirv),
-                Is.Not.EqualTo(autoEligible.GetStructuralIdentity(ShaderProgramBackend.Spirv)));
+                () => new SpirvShaderLowering(
+                    glsl,
+                    [new SpirvPushConstantBinding("value", SpirvPushConstants.UserByteOffset + 2)]),
+                Throws.TypeOf<ArgumentException>());
         });
     }
+
+    [Test]
+    public void CurrentPixel_SpirvLoweringRequiresOneMatchingMappingPerUniform()
+    {
+        const string source =
+            "uniform float value; half4 apply(half4 color) { return color * value; }";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => CreateSpirvDescription(source, [], bindings => bindings.Uniform("value", 1f)),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => CreateSpirvDescription(
+                    source,
+                    [new SpirvPushConstantBinding("other", SpirvPushConstants.UserByteOffset)],
+                    bindings => bindings.Uniform("value", 1f)),
+                Throws.TypeOf<ArgumentException>());
+        });
+    }
+
+    [Test]
+    public void CurrentPixel_SpirvLoweringRejectsOverlappingOrInvalidLayouts()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                () => CreateSpirvDescription(
+                    "uniform float left; uniform float right; "
+                    + "half4 apply(half4 color) { return color * left * right; }",
+                    [
+                        new SpirvPushConstantBinding("left", SpirvPushConstants.UserByteOffset),
+                        new SpirvPushConstantBinding("right", SpirvPushConstants.UserByteOffset),
+                    ],
+                    bindings =>
+                    {
+                        bindings.Uniform("left", 1f);
+                        bindings.Uniform("right", 1f);
+                    }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => CreateSpirvDescription(
+                    "uniform float value; half4 apply(half4 color) { return color * value; }",
+                    [new SpirvPushConstantBinding("value", SpirvPushConstants.ByteSize)],
+                    bindings => bindings.Uniform("value", 1f)),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(
+                () => CreateSpirvDescription(
+                    "uniform float2 value; half4 apply(half4 color) { return color * value.x; }",
+                    [new SpirvPushConstantBinding("value", SpirvPushConstants.UserByteOffset + 4)],
+                    bindings => bindings.Uniform("value", Vector2.One)),
+                Throws.TypeOf<ArgumentException>());
+        });
+    }
+
+    private static ShaderDescription CreateSpirvDescription(
+        string source,
+        IReadOnlyList<SpirvPushConstantBinding> mappings,
+        Action<ShaderBindingBuilder> bindings)
+        => ShaderDescription.CurrentPixel(
+            new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
+            new SpirvShaderLowering(
+                "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }",
+                mappings),
+            bindings);
 
     [Test]
     public void CurrentPixel_AcceptsOnlyRenameSafeValueDerivedGrammar()

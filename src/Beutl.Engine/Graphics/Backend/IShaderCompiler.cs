@@ -5,6 +5,11 @@ namespace Beutl.Graphics.Backend;
 /// <summary>
 /// Interface for shader compilation.
 /// </summary>
+/// <remarks>
+/// An instance returned by <see cref="IGraphicsContext.CreateShaderCompiler"/> is caller-owned. Implementations
+/// that own native state may additionally implement <see cref="IDisposable"/> and must then be disposed by the
+/// caller.
+/// </remarks>
 public interface IShaderCompiler
 {
     /// <summary>

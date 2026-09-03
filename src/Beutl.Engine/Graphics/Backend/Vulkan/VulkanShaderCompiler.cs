@@ -17,14 +17,32 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
 
     public VulkanShaderCompiler()
     {
-        _shaderc = Shaderc.GetApi();
-        _compiler = _shaderc.CompilerInitialize();
-        _options = _shaderc.CompileOptionsInitialize();
+        Shaderc shaderc = Shaderc.GetApi();
+        Compiler* compiler = null;
+        CompileOptions* options = null;
+        try
+        {
+            compiler = shaderc.CompilerInitialize();
+            if (compiler == null)
+                throw new InvalidOperationException("Failed to initialize the shaderc compiler.");
 
-        // Set default options
-        _shaderc.CompileOptionsSetOptimizationLevel(_options, OptimizationLevel.Performance);
-        _shaderc.CompileOptionsSetTargetEnv(_options, TargetEnv.Vulkan, (uint)EnvVersion.Vulkan12);
-        _shaderc.CompileOptionsSetTargetSpirv(_options, SpirvVersion.Shaderc15);
+            options = shaderc.CompileOptionsInitialize();
+            if (options == null)
+                throw new InvalidOperationException("Failed to initialize shaderc compile options.");
+
+            shaderc.CompileOptionsSetOptimizationLevel(options, OptimizationLevel.Performance);
+            shaderc.CompileOptionsSetTargetEnv(options, TargetEnv.Vulkan, (uint)EnvVersion.Vulkan12);
+            shaderc.CompileOptionsSetTargetSpirv(options, SpirvVersion.Shaderc15);
+
+            _shaderc = shaderc;
+            _compiler = compiler;
+            _options = options;
+        }
+        catch
+        {
+            Release(shaderc, compiler, options);
+            throw;
+        }
     }
 
     public byte[] CompileToSpirv(string source, ShaderStage stage, string entryPoint = "main")
@@ -101,14 +119,31 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        if (_options != null)
-        {
-            _shaderc.CompileOptionsRelease(_options);
-        }
+        Release(_shaderc, _compiler, _options);
+    }
 
-        if (_compiler != null)
+    private static void Release(Shaderc shaderc, Compiler* compiler, CompileOptions* options)
+    {
+        try
         {
-            _shaderc.CompilerRelease(_compiler);
+            if (options != null)
+            {
+                shaderc.CompileOptionsRelease(options);
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (compiler != null)
+                {
+                    shaderc.CompilerRelease(compiler);
+                }
+            }
+            finally
+            {
+                shaderc.Dispose();
+            }
         }
     }
 }

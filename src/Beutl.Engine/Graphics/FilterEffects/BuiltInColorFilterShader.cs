@@ -19,6 +19,25 @@ internal static class BuiltInColorFilterShader
         }
         """;
 
+    private const string LumaColorSpirvSource =
+        """
+        #version 450
+
+        layout(set = 0, binding = 0) uniform sampler2D src;
+        layout(push_constant) uniform PushConstants {
+            layout(offset = 0) ivec4 sourceTexelOffset;
+        } constants;
+        layout(location = 0) out vec4 outColor;
+
+        void main()
+        {
+            ivec2 sourceCoord = ivec2(gl_FragCoord.xy) + constants.sourceTexelOffset.xy;
+            vec4 color = texelFetch(src, sourceCoord, 0);
+            float luma = clamp(dot(vec3(0.2126, 0.7152, 0.0722), color.rgb), 0.0, 1.0);
+            outColor = vec4(0.0, 0.0, 0.0, luma);
+        }
+        """;
+
     private const string HighContrastSource =
         """
         uniform half grayscale;
@@ -76,11 +95,19 @@ internal static class BuiltInColorFilterShader
     private static readonly SkslSource s_lumaColorSource =
         new(LumaColorSource, ShaderDescriptionKind.CurrentPixel);
 
+    private static readonly SpirvShaderLowering s_lumaColorSpirv =
+        new(LumaColorSpirvSource, []);
+
+    private static readonly ShaderDescription s_lumaColor = ShaderDescription.CurrentPixel(
+        s_lumaColorSource,
+        s_lumaColorSpirv,
+        bindings: null);
+
     private static readonly SkslSource s_highContrastSource =
         new(HighContrastSource, ShaderDescriptionKind.CurrentPixel);
 
     internal static ShaderDescription LumaColor()
-        => ShaderDescription.CurrentPixel(s_lumaColorSource, bindings: null);
+        => s_lumaColor;
 
     internal static ShaderDescription HighContrast(
         bool grayscale,

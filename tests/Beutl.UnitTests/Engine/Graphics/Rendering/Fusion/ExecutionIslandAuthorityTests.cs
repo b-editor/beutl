@@ -38,6 +38,7 @@ public sealed class ExecutionIslandAuthorityTests
                 Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));
                 Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(2));
                 Assert.That(renderer.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1));
+                Assert.That(renderer.LastExecutionStatistics.SpirvShaderRunExecutions, Is.Zero);
             });
         });
     }

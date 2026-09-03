@@ -1,9 +1,6 @@
-﻿using System.Buffers.Binary;
-using System.Runtime.InteropServices;
-
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -17,60 +14,103 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class ShaderDescriptionSpirvEquivalenceTests
 {
-    /// <summary>
-    /// Adjacent RgbaF16 codes. The two paths are compiled by different shader compilers, so they are
-    /// only guaranteed to agree to within their rounding: a backend whose <c>half</c> is real fp16
-    /// (Metal through MoltenVK) settles a result on either neighbouring code, while one that
-    /// evaluates <c>half</c> at float precision (SwiftShader) reproduces the bits exactly. A lowering
-    /// that dropped the premultiply, transposed a channel, or lost the uniform moves a channel by far
-    /// more than one code.
-    /// </summary>
-    private const int MaximumLoweringStorageCodeDistance = 1;
-
+    private const float MaximumLoweringError = 0.002f;
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
-    [TestCase(0f)]
-    [TestCase(0.125f)]
-    [TestCase(0.375f)]
-    [TestCase(0.73f)]
+    [TestCase(0.5f)]
     [TestCase(1f)]
+    [TestCase(2f)]
     [Category("GpuPassFusionGpu")]
-    public void OpacityDescription_NativeSpirvMatchesSkslExactly(float opacity)
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void LumaColor_AutoSpirvMatchesSksl(float outputScale)
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            (ushort[] source, RenderExecutionStatistics sourceStatistics) =
-                Render(ShaderBackendPreference.Sksl, 1);
-            (ushort[] sksl, RenderExecutionStatistics expectedStatistics) =
-                Render(ShaderBackendPreference.Sksl, opacity);
-            ushort[] spirv = RenderNativeSpirv(source, opacity);
+            (ushort[] expected, RenderExecutionStatistics expectedStatistics) =
+                Render(ShaderBackendPreference.Sksl, BuiltInColorFilterShader.LumaColor(), outputScale);
+            (ushort[] actual, RenderExecutionStatistics actualStatistics) =
+                Render(ShaderBackendPreference.Auto, BuiltInColorFilterShader.LumaColor(), outputScale);
 
             Assert.Multiple(() =>
             {
-                Assert.That(sourceStatistics.SpirvShaderRunExecutions, Is.Zero);
                 Assert.That(expectedStatistics.SpirvShaderRunExecutions, Is.Zero);
+                Assert.That(actualStatistics.SpirvShaderRunExecutions, Is.EqualTo(1));
                 Assert.That(
-                    MaximumStorageCodeDistance(spirv, sksl),
-                    Is.LessThanOrEqualTo(MaximumLoweringStorageCodeDistance),
-                    "The native SPIR-V lowering must reproduce the SkSL premultiplied-linear RGBA16F "
-                    + "result to within the rounding the two shader compilers are free to differ by.");
-                if (opacity > 0)
-                    Assert.That(sksl, Has.Some.Not.Zero, "the comparison must not be vacuous");
+                    MaximumAbsoluteDifference(actual, expected),
+                    Is.LessThanOrEqualTo(MaximumLoweringError),
+                    "The native luma lowering must preserve the SkSL premultiplied-linear result.");
+                Assert.That(expected, Has.Some.Not.Zero, "the comparison must not be vacuous");
             });
         });
     }
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void OpacityDescription_AutoUsesBitExactSkslFallback()
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void LumaColor_ExplicitSpirvUsesTheNativeProgram()
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            (ushort[] expected, _) = Render(ShaderBackendPreference.Sksl, 0.375f);
-            (ushort[] actual, RenderExecutionStatistics statistics) =
-                Render(ShaderBackendPreference.Auto, 0.375f);
+            (ushort[] expected, _) = Render(
+                ShaderBackendPreference.Sksl,
+                BuiltInColorFilterShader.LumaColor());
+            (ushort[] actual, RenderExecutionStatistics statistics) = Render(
+                ShaderBackendPreference.Spirv,
+                BuiltInColorFilterShader.LumaColor());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(statistics.SpirvShaderRunExecutions, Is.EqualTo(1));
+                Assert.That(
+                    MaximumAbsoluteDifference(actual, expected),
+                    Is.LessThanOrEqualTo(MaximumLoweringError));
+            });
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void LumaColor_SubmitsNativeCommandsBeforeExecutionReturns()
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var events = new List<VulkanCommandPoolEvent>();
+
+            (_, RenderExecutionStatistics statistics) = Render(
+                ShaderBackendPreference.Auto,
+                BuiltInColorFilterShader.LumaColor(),
+                commandEvents: events);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(statistics.SpirvShaderRunExecutions, Is.EqualTo(1));
+                Assert.That(
+                    events.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                    Is.GreaterThanOrEqualTo(1));
+            });
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void LumaColor_AutoUsesSkslForACroppedFootprint()
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var requestedRegion = new Rect(4, 3, 12, 8);
+            (ushort[] expected, _) = Render(
+                ShaderBackendPreference.Sksl,
+                BuiltInColorFilterShader.LumaColor(),
+                requestedRegion: requestedRegion);
+            (ushort[] actual, RenderExecutionStatistics statistics) = Render(
+                ShaderBackendPreference.Auto,
+                BuiltInColorFilterShader.LumaColor(),
+                requestedRegion: requestedRegion);
 
             Assert.Multiple(() =>
             {
@@ -83,77 +123,142 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
-    public void OpacityDescription_ExplicitSpirvReportsNonExactSkiaHandoff()
+    public void AutoFallsBackAndRetriesWhenNativeCompilationFails()
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            Assert.That(
-                () => Render(ShaderBackendPreference.Spirv, 0.375f),
-                Throws.TypeOf<InvalidOperationException>()
-                    .With.Message.Contains("cannot be handed to the Skia compositor bit-exactly"));
+            var description = ShaderDescription.CurrentPixel(
+                new SkslSource(
+                    "half4 apply(half4 color) { return color; }",
+                    ShaderDescriptionKind.CurrentPixel),
+                new SpirvShaderLowering("#version 450\nthis is not valid GLSL", []),
+                bindings: null);
+            (ushort[] expected, _) = Render(
+                ShaderBackendPreference.Sksl,
+                description);
+            using ProgramCache<GLSLFilterPipeline> cache = SpirvShaderProgramCache.Create();
+            (ushort[] actual, RenderExecutionStatistics statistics) = Render(
+                ShaderBackendPreference.Auto,
+                description,
+                spirvProgramCache: cache);
+            (ushort[] retried, RenderExecutionStatistics retryStatistics) = Render(
+                ShaderBackendPreference.Auto,
+                description,
+                spirvProgramCache: cache);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(statistics.SpirvShaderRunExecutions, Is.Zero);
+                Assert.That(retryStatistics.SpirvShaderRunExecutions, Is.Zero);
+                Assert.That(actual, Is.EqualTo(expected));
+                Assert.That(retried, Is.EqualTo(expected));
+                Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
+                Assert.That(cache.Statistics.Creations, Is.Zero);
+                Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
+            });
         });
     }
 
-    // Half is sign-magnitude, so its raw codes are not monotonic across zero. Mirroring the negative
-    // half restores the ordering that makes adjacent representable values exactly one apart.
-    private static int MaximumStorageCodeDistance(ushort[] left, ushort[] right)
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void ProductionRenderer_ReusesTheNativeLumaProgram()
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Brush.Resource gradient = CreateGradient();
+            using var source = new RectangleRenderNode(s_bounds, gradient, pen: null);
+            using var root = new MaterializedShaderNode(
+                source,
+                BuiltInColorFilterShader.LumaColor());
+            using var renderer = new RenderNodeRenderer(
+                root,
+                new RenderNodeRendererOptions
+                {
+                    DefaultRequest = new RenderNodeRenderRequest
+                    {
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = s_bounds,
+                        OutputScale = 1,
+                        MaxWorkingScale = 1,
+                        CacheOptions = RenderCacheOptions.Disabled,
+                    },
+                });
+
+            using RenderNodeRasterization cold = renderer.Rasterize();
+            ProgramCacheStatistics coldCache = renderer.ProgramCacheStatistics;
+            RenderTargetPoolStatistics coldTargets = renderer.TargetPoolStatistics;
+            RenderExecutionStatistics coldExecution = renderer.LastExecutionStatistics;
+            using RenderNodeRasterization warm = renderer.Rasterize();
+            ProgramCacheStatistics warmCache = renderer.ProgramCacheStatistics;
+            RenderTargetPoolStatistics warmTargets = renderer.TargetPoolStatistics;
+            RenderExecutionStatistics warmExecution = renderer.LastExecutionStatistics;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cold.Bitmap, Is.Not.Null);
+                Assert.That(cold.Bitmap!.GetPixelSpan<ushort>().ToArray(), Has.Some.Not.Zero);
+                Assert.That(coldExecution.SpirvShaderRunExecutions, Is.EqualTo(1));
+                Assert.That(warmExecution.SpirvShaderRunExecutions, Is.EqualTo(1));
+                Assert.That(coldCache.Creations, Is.EqualTo(1));
+                Assert.That(warmCache.Creations, Is.EqualTo(1));
+                Assert.That(warmCache.Hits, Is.GreaterThanOrEqualTo(1));
+                Assert.That(warmCache.RetainedPrograms, Is.EqualTo(1));
+                Assert.That(warmTargets.Creates, Is.EqualTo(coldTargets.Creates));
+            });
+        });
+    }
+
+    private static float MaximumAbsoluteDifference(ushort[] left, ushort[] right)
     {
         Assert.That(left, Has.Length.EqualTo(right.Length));
-        int maximum = 0;
-        for (int i = 0; i < left.Length; i++)
-            maximum = Math.Max(maximum, Math.Abs(OrderedHalfCode(left[i]) - OrderedHalfCode(right[i])));
+        float maximum = 0;
+        for (int index = 0; index < left.Length; index++)
+        {
+            float leftValue = (float)BitConverter.UInt16BitsToHalf(left[index]);
+            float rightValue = (float)BitConverter.UInt16BitsToHalf(right[index]);
+            maximum = Math.Max(maximum, Math.Abs(leftValue - rightValue));
+        }
         return maximum;
-    }
-
-    private static int OrderedHalfCode(ushort bits)
-    {
-        int magnitude = bits & 0x7FFF;
-        return (bits & 0x8000) != 0 ? -magnitude : magnitude;
-    }
-
-    private static ushort[] RenderNativeSpirv(ushort[] sourcePixels, float opacity)
-    {
-        IGraphicsContext context = GpuTestEnvironment.SharedContext;
-        using ITexture2D source = context.CreateTexture2D(24, 16, TextureFormat.RGBA16Float);
-        using ITexture2D destination = context.CreateTexture2D(24, 16, TextureFormat.RGBA16Float);
-        source.Upload(MemoryMarshal.AsBytes(sourcePixels.AsSpan()));
-
-        SpirvShaderLowering lowering = OpacityRenderNode.CreateFusionDescription(opacity).SpirvLowering
-            ?? throw new AssertionException("The opacity description must provide a native SPIR-V lowering.");
-        using GLSLFilterPipeline pipeline = GLSLFilterPipeline.Create(
-                context,
-                lowering.FragmentShaderSource,
-                ShaderOutputCoverage.ProvablyFull)
-            ?? throw new AssertionException("The native opacity pipeline could not be created.");
-        SpirvPushConstants pushConstants = default;
-        Span<byte> bytes = pushConstants;
-        BinaryPrimitives.WriteInt32LittleEndian(
-            bytes.Slice(SpirvPushConstants.UserByteOffset, sizeof(float)),
-            BitConverter.SingleToInt32Bits(opacity));
-
-        pipeline.Execute(source, destination, pushConstants);
-        byte[] result = destination.DownloadPixels();
-        return MemoryMarshal.Cast<byte, ushort>(result).ToArray();
     }
 
     private static (ushort[] Pixels, RenderExecutionStatistics Statistics) Render(
         ShaderBackendPreference backendPreference,
-        float opacity)
+        ShaderDescription description,
+        float outputScale = 1,
+        Rect? requestedRegion = null,
+        ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
+        ICollection<VulkanCommandPoolEvent>? commandEvents = null)
     {
         using Brush.Resource gradient = CreateGradient();
         using var source = new RectangleRenderNode(s_bounds, gradient, pen: null);
-        using var root = new OpacityShaderNode(source, opacity);
-        using CompiledRenderRequest compiled = Compile(root);
+        using var root = new MaterializedShaderNode(source, description);
+        using CompiledRenderRequest compiled = Compile(root, outputScale, requestedRegion);
         using var registry = new RenderTargetLeaseRegistry(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
-        using RenderTargetLease output = targets.Acquire(PixelRect.FromRect(s_bounds, 1).Size);
-        using var canvas = new ImmediateCanvas(output.Target, RenderIntent.Preview, 1, 1, s_bounds.Size);
+        using RenderTargetLease output = targets.Acquire(PixelRect.FromRect(s_bounds, outputScale).Size);
+        using var canvas = new ImmediateCanvas(
+            output.Target,
+            RenderIntent.Preview,
+            outputScale,
+            outputScale,
+            s_bounds.Size);
         canvas.Clear();
         var executor = new RenderRequestExecutor(
             targets,
+            spirvProgramCache: spirvProgramCache,
             shaderBackendPreference: backendPreference);
-        executor.Execute(compiled, canvas, replayBounds: s_bounds);
+        if (commandEvents is null)
+        {
+            executor.Execute(compiled, canvas, replayBounds: requestedRegion ?? s_bounds);
+        }
+        else
+        {
+            using (VulkanCommandPool.Observe(commandEvents.Add))
+                executor.Execute(compiled, canvas, replayBounds: requestedRegion ?? s_bounds);
+        }
         using Bitmap bitmap = output.Target.Snapshot();
         return (bitmap.GetPixelSpan<ushort>().ToArray(), executor.Statistics);
     }
@@ -168,14 +273,18 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
         return (Brush.Resource)gradient.ToResource(CompositionContext.Default);
     }
 
-    private static CompiledRenderRequest Compile(RenderNode root)
+    private static CompiledRenderRequest Compile(
+        RenderNode root,
+        float outputScale,
+        Rect? requestedRegion)
     {
         var request = new RenderRequest(new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
             targetDomain: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
+            requestedRegion: requestedRegion,
+            outputScale: outputScale,
+            maxWorkingScale: outputScale,
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: FusionMode.Enabled));
         try
@@ -193,15 +302,19 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
         }
     }
 
-    private sealed class OpacityShaderNode(RenderNode source, float opacity) : RenderNode
+    private sealed class MaterializedShaderNode(
+        RenderNode source,
+        ShaderDescription description) : RenderNode
     {
-        private readonly ShaderDescription _description =
-            OpacityRenderNode.CreateFusionDescription(opacity);
+        private readonly ShaderDescription _description = description;
 
         public override void Process(RenderNodeContext context)
         {
             foreach (RenderFragmentHandle input in context.RecordSubtree(source))
-                context.Publish(context.Shader(input, _description));
+            {
+                RenderFragmentHandle output = context.Shader(input, _description);
+                context.Publish(context.Blend(output, BlendMode.SrcOver));
+            }
         }
     }
 }

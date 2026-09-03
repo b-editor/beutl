@@ -67,6 +67,10 @@ public interface IGraphicsContext : IDisposable
     /// <summary>
     /// Creates a new shader compiler.
     /// </summary>
+    /// <returns>
+    /// A fresh caller-owned compiler. The caller must dispose it after use when the returned implementation also
+    /// implements <see cref="IDisposable"/>.
+    /// </returns>
     IShaderCompiler CreateShaderCompiler();
 
     /// <summary>

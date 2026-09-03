@@ -63,6 +63,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         try
         {
             IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             compiler.CompileToSpirv(script, ShaderStage.Fragment);
             return ScriptCompilationResult.Compiled;
         }

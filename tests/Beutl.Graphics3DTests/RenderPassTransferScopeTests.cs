@@ -283,6 +283,7 @@ public sealed class RenderPassTransferScopeTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             byte[] vertexSpirv = compiler.CompileToSpirv(TexturedQuadVertexShader, ShaderStage.Vertex);
             byte[] fragmentSpirv = compiler.CompileToSpirv(TintedFragmentShader, ShaderStage.Fragment);
 
@@ -486,6 +487,7 @@ public sealed class RenderPassTransferScopeTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
             byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
             byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);
@@ -560,6 +562,7 @@ public sealed class RenderPassTransferScopeTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
             byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
             byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);

@@ -12,7 +12,6 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
         ShaderProgramBackend backend,
         string source,
         IEnumerable<object> bindings,
-        object? descriptionIdentity,
         SkslBackendBudget budget,
         int? bucketHashOverride = null)
     {
@@ -25,7 +24,6 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
         Backend = backend;
         Source = source;
         _bindings = bindings.ToArray();
-        DescriptionIdentity = descriptionIdentity;
         Budget = budget;
         BucketHash = bucketHashOverride ?? ComputeStableBucketHash(backend, source);
     }
@@ -35,8 +33,6 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
     private ShaderProgramBackend Backend { get; }
 
     private string Source { get; }
-
-    private object? DescriptionIdentity { get; }
 
     private SkslBackendBudget Budget { get; }
 
@@ -49,7 +45,6 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
             ShaderProgramBackend.Sksl,
             source,
             bindings.Cast<object>(),
-            descriptionIdentity: null,
             budget,
             bucketHashOverride);
 
@@ -58,23 +53,18 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
         SkslBackendBudget budget)
         => CreateSksl(source, [], budget);
 
-    internal static ShaderProgramIdentity CreateSpirv(
-        ShaderDescription description,
-        SpirvShaderLowering lowering,
-        SkslBackendBudget budget)
+    internal static ShaderProgramIdentity CreateSpirv(string source)
         => new(
             ShaderProgramBackend.Spirv,
-            lowering.FragmentShaderSource,
-            lowering.PushConstants.Cast<object>(),
-            description.GetStructuralIdentity(ShaderProgramBackend.Spirv),
-            budget);
+            source,
+            [],
+            SkslBackendBudgetResolver.SpirvVulkan);
 
     public bool Equals(ShaderProgramIdentity? other)
         => other is not null
            && BucketHash == other.BucketHash
            && Backend == other.Backend
            && Source == other.Source
-           && Equals(DescriptionIdentity, other.DescriptionIdentity)
            && Budget.Equals(other.Budget)
            && _bindings.AsSpan().SequenceEqual(other._bindings);
 

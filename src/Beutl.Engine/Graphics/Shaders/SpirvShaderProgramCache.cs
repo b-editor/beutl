@@ -1,4 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
@@ -17,6 +19,10 @@ internal static class SpirvShaderProgramCache
             retainedByteSize: static program => program.RetainedByteSize,
             maxRetainedBytes: DefaultRetainedByteBudget,
             shareLeasedPrograms: true);
+
+    public static bool SupportsExecution(IGraphicsContext? context)
+        => context is VulkanContext { Supports3DRendering: true }
+            or CompositeContext { Supports3DRendering: true };
 
     public static ProgramCacheContextKey CreateContextKey(RenderCacheDeviceContextIdentity context)
     {
@@ -39,14 +45,16 @@ internal static class SpirvShaderProgramCache
         ArgumentNullException.ThrowIfNull(description);
         ArgumentNullException.ThrowIfNull(graphicsContext);
         ArgumentNullException.ThrowIfNull(context);
+        if (!SupportsExecution(graphicsContext))
+        {
+            throw new ArgumentException(
+                "SPIR-V shader execution requires the engine Vulkan recording context.",
+                nameof(graphicsContext));
+        }
         SpirvShaderLowering lowering = description.SpirvLowering
             ?? throw new ArgumentException("The shader description has no SPIR-V lowering.", nameof(description));
-        ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSpirv(
-            description,
-            lowering,
-            SkslBackendBudgetResolver.SpirvVulkan);
         return cache.GetOrCreate(
-            identity,
+            lowering.ProgramIdentity,
             context,
             new SpirvProgramCreationState(graphicsContext, lowering),
             static state => GLSLFilterPipeline.Create(

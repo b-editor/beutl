@@ -1,6 +1,8 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
@@ -9,6 +11,15 @@ public sealed class ProgramCacheTests
 {
     private const string SourceA = "half4 main(float2 p) { return half4(1); }";
     private const string SourceB = "half4 main(float2 p) { return half4(0); }";
+
+    [Test]
+    public void SpirvExecution_RejectsAnUnknownThreeDimensionalContext()
+    {
+        var context = new Mock<IGraphicsContext>();
+        context.SetupGet(x => x.Supports3DRendering).Returns(true);
+
+        Assert.That(SpirvShaderProgramCache.SupportsExecution(context.Object), Is.False);
+    }
 
     [Test]
     public void GetOrCreate_MergedProgramFactory_ReceivesColdProgramOnly()
@@ -101,28 +112,18 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void GetOrCreate_SameDescriptionLoweredForDifferentBackends_DoesNotCollide()
+    public void GetOrCreate_SameSourceForDifferentBackends_DoesNotCollide()
     {
         const string spirvSource =
             "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }";
         var lowering = new SpirvShaderLowering(
             spirvSource,
-            [],
-            supportsBitExactSkiaHandoff: false);
-        ShaderDescription description = ShaderDescription.CurrentPixel(
-            new SkslSource(
-                "half4 apply(half4 color) { return color; }",
-                ShaderDescriptionKind.CurrentPixel),
-            lowering,
-            bindings: null);
+            []);
         ShaderProgramIdentity skslIdentity = ShaderProgramIdentity.CreateSksl(
             spirvSource,
             [],
             SkslBackendBudgetResolver.SpirvVulkan);
-        ShaderProgramIdentity spirvIdentity = ShaderProgramIdentity.CreateSpirv(
-            description,
-            lowering,
-            SkslBackendBudgetResolver.SpirvVulkan);
+        ShaderProgramIdentity spirvIdentity = lowering.ProgramIdentity;
         using var cache = CreateCache(maxRetainedBytes: 64);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int nextId = 0;

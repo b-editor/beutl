@@ -343,26 +343,12 @@ internal sealed partial class RenderRequestExecutor
                 }
                 return false;
             }
-            if (!lowering.SupportsBitExactSkiaHandoff)
-            {
-                if (_shaderBackendPreference == ShaderBackendPreference.Spirv)
-                {
-                    throw new InvalidOperationException(
-                        "The requested SPIR-V lowering is bit-exact in its native RGBA16F target, but its output "
-                        + "cannot be handed to the Skia compositor bit-exactly without a fence wait. "
-                        + "Auto uses the SkSL lowering for this description.");
-                }
-                return false;
-            }
-
             IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
             ITexture2D? sourceTexture = input.Target.Texture;
             ITexture2D? destinationTexture = output.Target.Texture;
-            bool compatible = graphicsContext is { Supports3DRendering: true }
+            bool compatible = SpirvShaderProgramCache.SupportsExecution(graphicsContext)
                               && sourceTexture is not null
                               && destinationTexture is not null
-                              && (_shaderBackendPreference == ShaderBackendPreference.Spirv
-                                  || !sourceTexture.RequiresSkiaFlushForBackendInterop)
                               && sourceTexture.Format == TextureFormat.RGBA16Float
                               && destinationTexture.Format == TextureFormat.RGBA16Float
                               && input.EffectiveScale == output.EffectiveScale
@@ -374,7 +360,8 @@ internal sealed partial class RenderRequestExecutor
                 if (_shaderBackendPreference == ShaderBackendPreference.Spirv)
                 {
                     throw new InvalidOperationException(
-                        "The requested SPIR-V backend requires matching RGBA16F input and output footprints. "
+                        "The requested SPIR-V backend requires the engine Vulkan recording context and matching "
+                        + "RGBA16F input and output footprints. "
                         + $"Source format/footprint: {sourceTexture?.Format} {input.DeviceBounds} {input.RasterBounds} {input.Bounds}; "
                         + $"destination format/footprint: {destinationTexture?.Format} {output.DeviceBounds} {output.RasterBounds} {output.Bounds}; "
                         + $"complete output/requirement: {outputBounds} {requiredRegion}.");
@@ -426,6 +413,7 @@ internal sealed partial class RenderRequestExecutor
 
                 input.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                 lease.Program.Execute(sourceTexture!, destinationTexture!, pushConstants);
+                lease.Program.SubmitPendingCommands();
 
                 _shaderRunExecutions++;
                 _shaderStageExecutions++;
@@ -440,14 +428,13 @@ internal sealed partial class RenderRequestExecutor
         {
             if (_shaderBackendPreference == ShaderBackendPreference.Sksl
                 || run.Stages.Length != 1
-                || run.Stages[0].Description.SpirvLowering is not { } lowering)
+                || run.Stages[0].Description.SpirvLowering is null)
             {
                 return false;
             }
 
             return _shaderBackendPreference == ShaderBackendPreference.Spirv
-                   || (lowering.SupportsBitExactSkiaHandoff
-                       && GraphicsContextFactory.SharedContext is { Supports3DRendering: true });
+                   || SpirvShaderProgramCache.SupportsExecution(GraphicsContextFactory.SharedContext);
         }
 
         private bool ShouldDeferDirectReplayToSpirv(CompiledShaderRun run)

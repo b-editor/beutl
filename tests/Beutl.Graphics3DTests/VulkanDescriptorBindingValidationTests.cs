@@ -105,6 +105,7 @@ public sealed class VulkanDescriptorBindingValidationTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
             byte[] vertex = compiler.CompileToSpirv(VertexShader, ShaderStage.Vertex);
             byte[] fragment = compiler.CompileToSpirv(FragmentShader, ShaderStage.Fragment);
 

@@ -149,15 +149,6 @@ public sealed class ShaderDescription
 
     internal object StructuralIdentity { get; }
 
-    internal object GetStructuralIdentity(ShaderProgramBackend backend)
-    {
-        if (!Enum.IsDefined(backend))
-            throw new ArgumentOutOfRangeException(nameof(backend));
-        if (backend == ShaderProgramBackend.Spirv && SpirvLowering is null)
-            throw new InvalidOperationException("The shader description has no SPIR-V lowering.");
-        return new ShaderDescriptionBackendStructuralIdentity(backend, StructuralIdentity);
-    }
-
     /// <summary>Creates a coordinate-independent shader stage that transforms one resolved pixel value.</summary>
     /// <param name="source">
     /// SkSL with one <c>half4 apply(half4 color)</c> over premultiplied linear-light RGBA16F.
@@ -476,7 +467,3 @@ internal sealed record ShaderResourceStructuralIdentity(
     string Name,
     ShaderResourceCoordinateSpace CoordinateSpace,
     object DefinitionFingerprint);
-
-internal sealed record ShaderDescriptionBackendStructuralIdentity(
-    ShaderProgramBackend Backend,
-    object DescriptionIdentity);

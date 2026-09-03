@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Composite;
@@ -42,8 +43,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
     private readonly IRenderPass3D _renderPass;
     private readonly IPipeline3D _pipeline;
     private readonly ISampler _sampler;
-    private readonly byte[] _vertexShaderSpirv;
-    private readonly byte[] _fragmentShaderSpirv;
+    private readonly long _retainedByteSize;
     private readonly ShaderOutputCoverage _outputCoverage;
     private bool _disposed;
 
@@ -51,7 +51,10 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
     internal bool HasMaskTexture => _hasMaskTexture;
 
-    internal long RetainedByteSize => Math.Max(1, _vertexShaderSpirv.Length + _fragmentShaderSpirv.Length);
+    /// <summary>
+    /// Gets the compiled-bytecode weight used to bound the cache. Driver-owned pipeline memory is not observable.
+    /// </summary>
+    internal long RetainedByteSize => _retainedByteSize;
 
     private GLSLFilterPipeline(
         IGraphicsContext context,
@@ -67,8 +70,9 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _renderPass = renderPass;
         _pipeline = pipeline;
         _sampler = sampler;
-        _vertexShaderSpirv = vertexShaderSpirv;
-        _fragmentShaderSpirv = fragmentShaderSpirv;
+        _retainedByteSize = Math.Max(
+            1,
+            checked((long)vertexShaderSpirv.Length + fragmentShaderSpirv.Length));
         _outputCoverage = outputCoverage;
         _hasMaskTexture = hasMaskTexture;
     }
@@ -100,17 +104,23 @@ internal sealed class GLSLFilterPipeline : IDisposable
             return null;
         }
 
+        IRenderPass3D? renderPass = null;
+        IPipeline3D? pipeline = null;
+        ISampler? sampler = null;
+        GLSLFilterPipeline? result = null;
+        Exception? creationFailure = null;
         try
         {
-            IShaderCompiler compiler = context.CreateShaderCompiler();
+            byte[] vertexShaderSpirv;
+            byte[] fragmentShaderSpirv;
+            {
+                IShaderCompiler compiler = context.CreateShaderCompiler();
+                using IDisposable? compilerLifetime = compiler as IDisposable;
+                vertexShaderSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
+                fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
+            }
 
-            // Compile vertex shader
-            byte[] vertexShaderSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
-
-            // Compile fragment shader
-            byte[] fragmentShaderSpirv = compiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
-
-            IRenderPass3D renderPass = context.CreateRenderPass3D(
+            renderPass = context.CreateRenderPass3D(
                 [TextureFormat.RGBA16Float],
                 depthFormat: null,
                 colorLoadOp: outputCoverage == ShaderOutputCoverage.ProvablyFull
@@ -118,7 +128,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
                     : AttachmentLoadOp.Clear);
 
             // Create sampler
-            ISampler sampler = context.CreateSampler(
+            sampler = context.CreateSampler(
                 SamplerFilter.Linear,
                 SamplerFilter.Linear,
                 SamplerAddressMode.ClampToEdge,
@@ -135,7 +145,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
             // Create pipeline with fullscreen options
             PipelineOptions pipelineOptions = PipelineOptions.Fullscreen;
             pipelineOptions.SpecializationConstants = specializationConstants;
-            IPipeline3D pipeline = context.CreatePipeline3D(
+            pipeline = context.CreatePipeline3D(
                 renderPass,
                 vertexShaderSpirv,
                 fragmentShaderSpirv,
@@ -143,7 +153,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 VertexInputDescription.Empty,
                 pipelineOptions);
 
-            return new GLSLFilterPipeline(
+            result = new GLSLFilterPipeline(
                 context,
                 renderPass,
                 pipeline,
@@ -152,11 +162,49 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 fragmentShaderSpirv,
                 outputCoverage,
                 hasMaskTexture);
+            renderPass = null;
+            pipeline = null;
+            sampler = null;
         }
         catch (Exception ex)
         {
-            s_logger.LogError(ex, "Failed to create GLSL filter pipeline.");
-            return null;
+            creationFailure = ex;
+        }
+
+        List<Exception>? cleanupFailures = null;
+        DisposeBestEffort(pipeline, ref cleanupFailures);
+        DisposeBestEffort(renderPass, ref cleanupFailures);
+        DisposeBestEffort(sampler, ref cleanupFailures);
+        if (creationFailure is null && cleanupFailures is null)
+            return result;
+
+        Exception failure = cleanupFailures is null
+            ? creationFailure!
+            : creationFailure is null && cleanupFailures.Count == 1
+                ? cleanupFailures[0]
+                : new AggregateException(
+                    "GLSL filter pipeline creation and cleanup failed.",
+                    creationFailure is null
+                        ? cleanupFailures
+                        : [creationFailure, .. cleanupFailures]);
+        s_logger.LogError(failure, "Failed to create GLSL filter pipeline.");
+        return null;
+    }
+
+    private static void DisposeBestEffort(
+        IDisposable? resource,
+        ref List<Exception>? failures)
+    {
+        if (resource is null)
+            return;
+
+        try
+        {
+            resource.Dispose();
+        }
+        catch (Exception ex)
+        {
+            (failures ??= []).Add(ex);
         }
     }
 
@@ -286,10 +334,16 @@ internal sealed class GLSLFilterPipeline : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-
-        _pipeline.Dispose();
-        _renderPass.Dispose();
-        _sampler.Dispose();
         _disposed = true;
+
+        List<Exception>? failures = null;
+        DisposeBestEffort(_pipeline, ref failures);
+        DisposeBestEffort(_renderPass, ref failures);
+        DisposeBestEffort(_sampler, ref failures);
+        if (failures is null)
+            return;
+        if (failures.Count == 1)
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        throw new AggregateException("GLSL filter pipeline cleanup failed.", failures);
     }
 }
