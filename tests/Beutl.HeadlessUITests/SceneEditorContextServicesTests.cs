@@ -20,18 +20,34 @@ public class SceneEditorContextServicesTests
 {
     // An IEditorContextServices that is deliberately NOT the host's concrete EditorContextServices,
     // so the test exercises the by-type TryGetService path instead of a concrete downcast.
-    private sealed class FakeEditorContextServices(EditorService editorService, ExtensionProvider extensionProvider)
+    private sealed class FakeEditorContextServices(
+        EditorService editorService,
+        ExtensionProvider extensionProvider,
+        IEditorContextCloseService? closeService = null)
         : IEditorContextServices
     {
         public IExtensionProvider ExtensionProvider => extensionProvider;
 
-        public IEditorContextCloseService CloseService => editorService;
+        public IEditorContextCloseService CloseService => closeService ?? editorService;
 
         public bool TryGetService<T>([NotNullWhen(true)] out T? service)
             where T : class
         {
             service = editorService as T ?? extensionProvider as T;
             return service is not null;
+        }
+    }
+
+    private sealed class CountingCloseService(IEditorContextCloseService inner) : IEditorContextCloseService
+    {
+        public EditorContextHostToken HostToken => inner.HostToken;
+
+        public int RequestCount { get; private set; }
+
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+        {
+            RequestCount++;
+            return inner.RequestClose(context);
         }
     }
 
@@ -206,7 +222,7 @@ public class SceneEditorContextServicesTests
         var extensionProvider = new ExtensionProvider();
         var editorService = new EditorService(extensionProvider);
 
-        var viewModel = new EditViewModel(scene, editorService);
+        var viewModel = new EditViewModel(scene, editorService, editorService);
         try
         {
             Assert.Multiple(() =>
@@ -219,6 +235,48 @@ public class SceneEditorContextServicesTests
         finally
         {
             await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TryCreateContext_forwards_close_requests_to_supplied_close_service()
+    {
+        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "supplied-close-service");
+        Directory.CreateDirectory(workspace);
+        var scene = new Scene(640, 480, "supplied-close-service")
+        {
+            Uri = new Uri(Path.Combine(workspace, "supplied-close-service.scene"))
+        };
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        var suppliedCloseService = new CountingCloseService(editorService);
+        IEditorContextServices services = new FakeEditorContextServices(
+            editorService,
+            extensionProvider,
+            suppliedCloseService);
+
+        Assert.That(
+            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
+            Is.True);
+        var tab = new EditorTabItem(context!);
+        editorService.AddTabItem(tab);
+
+        try
+        {
+            Assert.That(context!.CloseService.HostToken, Is.SameAs(suppliedCloseService.HostToken));
+
+            EditorContextCloseRequest request = context.CloseService.RequestClose(context);
+
+            Assert.That(suppliedCloseService.RequestCount, Is.EqualTo(1));
+            Assert.That(request.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            await request.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(editorService.TabItems, Is.Empty);
+        }
+        finally
+        {
+            await context!.DisposeAsync();
+            await tab.DisposeAsync();
             HeadlessTestHelpers.Settle();
         }
     }
