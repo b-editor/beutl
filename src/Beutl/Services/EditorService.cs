@@ -972,7 +972,10 @@ public sealed class EditorService : IEditorContextCloseService
     private long _contextRegistrationGeneration;
     private readonly object _lifecycleTeardownGate = new();
     private readonly HashSet<DeferredLifecycleTeardown> _activeLifecycleTeardowns = [];
-    private readonly Queue<Exception> _deferredLifecycleFailures = new();
+    private readonly Dictionary<Task, DeferredLifecycleTeardown> _lifecycleTeardownsByTask = [];
+    private readonly Dictionary<TabAdmissionOperation, DeferredLifecycleTeardown> _lifecycleTeardownsByOperation = [];
+    private readonly HashSet<DeferredLifecycleTeardown> _deferredLifecycleFailures = [];
+    private LifecycleTeardownDrain? _lifecycleTeardownDrain;
 
     internal Action? BeforeInitialOwnerAttach { get; set; }
 
@@ -1253,23 +1256,52 @@ public sealed class EditorService : IEditorContextCloseService
 
     private sealed class DeferredLifecycleTeardown
     {
-        public DeferredLifecycleTeardown(Task task)
+        public DeferredLifecycleTeardown(Task task, TabAdmissionOperation operation)
         {
             Task = task;
+            Operation = operation;
         }
 
-        public DeferredLifecycleTeardown()
+        public DeferredLifecycleTeardown(TabAdmissionOperation operation)
         {
             Completion = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             Task = Completion.Task;
+            Operation = operation;
         }
 
         public Task Task { get; }
 
         public TaskCompletionSource? Completion { get; }
 
+        public TabAdmissionOperation Operation { get; }
+
+        public HashSet<DeferredLifecycleTeardown> Dependencies { get; } = [];
+
         public bool Taken { get; set; }
+    }
+
+    private sealed class LifecycleTeardownDrain
+    {
+        public HashSet<DeferredLifecycleTeardown> Pending { get; } = [];
+
+        public HashSet<TabAdmissionOperation> Roots { get; } = [];
+
+        public bool Closed { get; set; }
+
+        public bool Includes(DeferredLifecycleTeardown teardown)
+            => IncludesOperation(teardown.Operation);
+
+        public bool IncludesOperation(TabAdmissionOperation? operation)
+        {
+            for (; operation is not null; operation = operation.Parent)
+            {
+                if (Roots.Contains(operation))
+                    return true;
+            }
+
+            return false;
+        }
     }
 
     internal static bool IsTabLifecycleOperationActive
@@ -1807,6 +1839,8 @@ public sealed class EditorService : IEditorContextCloseService
                 TrackHostClose,
                 out completion,
                 out completionSource);
+            if (status == EditorContextCloseRequestStatus.AlreadyClosing)
+                AdoptLifecycleTeardown(completion);
         }
 
         return StartHostClose(
@@ -1818,11 +1852,20 @@ public sealed class EditorService : IEditorContextCloseService
 
     private EditorContextCloseRequest RequestClose(EditorTabItem item)
     {
-        EditorContextCloseRequestStatus status = item.TryBeginHostClose(
-            _hostToken,
-            TrackHostClose,
-            out Task completion,
-            out TaskCompletionSource<object?>? completionSource);
+        EditorContextCloseRequestStatus status;
+        Task completion;
+        TaskCompletionSource<object?>? completionSource;
+        lock (_contextRegistryGate)
+        {
+            status = item.TryBeginHostClose(
+                _hostToken,
+                TrackHostClose,
+                out completion,
+                out completionSource);
+            if (status == EditorContextCloseRequestStatus.AlreadyClosing)
+                AdoptLifecycleTeardown(completion);
+        }
+
         return StartHostClose(item, status, completion, completionSource);
     }
 
@@ -1851,7 +1894,6 @@ public sealed class EditorService : IEditorContextCloseService
                 startupFailure);
             ObserveDeferredTaskFailure(completion);
         }
-
         return new EditorContextCloseRequest(
             status,
             completion);
@@ -1869,7 +1911,8 @@ public sealed class EditorService : IEditorContextCloseService
         try
         {
             previousOperation = s_tabAdmissionOperation.Value;
-            operation = BeginTabAdmissionOperation();
+            operation = GetLifecycleTeardownOperation(hostCloseTask)
+                ?? BeginTabAdmissionOperation();
             s_tabAdmissionOperation.Value = operation;
 
             try { await RemoveTabItemAsync(item).ConfigureAwait(false); }
@@ -1893,10 +1936,35 @@ public sealed class EditorService : IEditorContextCloseService
         CompleteTrackedHostClose(completion, hostCloseTask, failures);
     }
 
-    private void TrackHostClose(Task completion)
+    private TabAdmissionOperation? GetLifecycleTeardownOperation(Task teardownTask)
     {
         lock (_lifecycleTeardownGate)
-            _activeLifecycleTeardowns.Add(new DeferredLifecycleTeardown(completion));
+        {
+            return _lifecycleTeardownsByTask.TryGetValue(teardownTask, out DeferredLifecycleTeardown? teardown)
+                ? teardown.Operation
+                : null;
+        }
+    }
+
+    private void TrackHostClose(Task completion)
+    {
+        var teardown = new DeferredLifecycleTeardown(
+            completion,
+            new TabAdmissionOperation(this, s_tabAdmissionOperation.Value));
+        lock (_lifecycleTeardownGate)
+        {
+            _lifecycleTeardownsByTask[completion] = teardown;
+            _lifecycleTeardownsByOperation[teardown.Operation] = teardown;
+            if (_lifecycleTeardownDrain is { Closed: false } drain && drain.Includes(teardown))
+            {
+                teardown.Taken = true;
+                drain.Pending.Add(teardown);
+            }
+            else
+            {
+                _activeLifecycleTeardowns.Add(teardown);
+            }
+        }
     }
 
     private void CompleteTrackedHostClose(
@@ -1917,52 +1985,158 @@ public sealed class EditorService : IEditorContextCloseService
             else
                 completion.TrySetException(terminalFailure);
 
-            DeferredLifecycleTeardown? entry = null;
-            foreach (DeferredLifecycleTeardown candidate in _activeLifecycleTeardowns)
-            {
-                if (ReferenceEquals(candidate.Task, hostCloseTask))
-                {
-                    entry = candidate;
-                    break;
-                }
-            }
-            if (entry is not null && !entry.Taken)
+            if (_lifecycleTeardownsByTask.TryGetValue(hostCloseTask, out DeferredLifecycleTeardown? entry)
+                && !entry.Taken)
             {
                 _activeLifecycleTeardowns.Remove(entry);
                 if (terminalFailure is not null)
-                    _deferredLifecycleFailures.Enqueue(terminalFailure);
+                    _deferredLifecycleFailures.Add(entry);
+                else
+                    _lifecycleTeardownsByTask.Remove(hostCloseTask);
             }
+
+            if (entry?.Taken == true)
+                _lifecycleTeardownsByTask.Remove(hostCloseTask);
+            if (entry is not null)
+                _lifecycleTeardownsByOperation.Remove(entry.Operation);
         }
     }
 
     private async Task<List<Exception>> DrainActiveLifecycleTeardownsAsync()
     {
         List<Exception>? failures = null;
-        DeferredLifecycleTeardown[] active;
+        var drain = new LifecycleTeardownDrain();
         lock (_lifecycleTeardownGate)
         {
-            while (_deferredLifecycleFailures.TryDequeue(out Exception? failure))
-                (failures ??= []).Add(failure);
-
-            active = _activeLifecycleTeardowns.ToArray();
-            _activeLifecycleTeardowns.Clear();
-            foreach (DeferredLifecycleTeardown teardown in active)
-                teardown.Taken = true;
+            _lifecycleTeardownDrain = drain;
+            ClaimLifecycleTeardowns(drain);
         }
 
-        foreach (DeferredLifecycleTeardown teardown in active)
+        try
         {
-            try
+            while (true)
             {
-                await teardown.Task.ConfigureAwait(false);
+                DeferredLifecycleTeardown[] batch;
+                lock (_lifecycleTeardownGate)
+                {
+                    batch = drain.Pending.ToArray();
+                    drain.Pending.Clear();
+                    foreach (DeferredLifecycleTeardown teardown in batch)
+                    {
+                        if (teardown.Task.IsCompleted)
+                            _lifecycleTeardownsByTask.Remove(teardown.Task);
+                    }
+                    if (batch.Length == 0)
+                    {
+                        drain.Closed = true;
+                        if (ReferenceEquals(_lifecycleTeardownDrain, drain))
+                            _lifecycleTeardownDrain = null;
+                        return failures ?? [];
+                    }
+                }
+
+                foreach (DeferredLifecycleTeardown teardown in batch)
+                {
+                    try
+                    {
+                        await teardown.Task.ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        (failures ??= []).Add(ex);
+                    }
+                }
             }
-            catch (Exception ex)
+        }
+        finally
+        {
+            lock (_lifecycleTeardownGate)
             {
-                (failures ??= []).Add(ex);
+                drain.Closed = true;
+                if (ReferenceEquals(_lifecycleTeardownDrain, drain))
+                    _lifecycleTeardownDrain = null;
+            }
+        }
+    }
+
+    private void ClaimLifecycleTeardowns(LifecycleTeardownDrain drain)
+    {
+        foreach (DeferredLifecycleTeardown teardown in _activeLifecycleTeardowns.ToArray())
+            ClaimLifecycleTeardown(drain, teardown);
+        foreach (DeferredLifecycleTeardown teardown in _deferredLifecycleFailures.ToArray())
+            ClaimLifecycleTeardown(drain, teardown);
+    }
+
+    private void ClaimMatchingLifecycleTeardowns(LifecycleTeardownDrain drain)
+    {
+        foreach (DeferredLifecycleTeardown teardown in _activeLifecycleTeardowns
+            .Where(drain.Includes)
+            .ToArray())
+        {
+            ClaimLifecycleTeardown(drain, teardown);
+        }
+        foreach (DeferredLifecycleTeardown teardown in _deferredLifecycleFailures
+            .Where(drain.Includes)
+            .ToArray())
+        {
+            ClaimLifecycleTeardown(drain, teardown);
+        }
+    }
+
+    private void ClaimLifecycleTeardown(
+        LifecycleTeardownDrain drain,
+        DeferredLifecycleTeardown teardown)
+    {
+        if (teardown.Taken)
+            return;
+
+        _activeLifecycleTeardowns.Remove(teardown);
+        _deferredLifecycleFailures.Remove(teardown);
+        teardown.Taken = true;
+        drain.Pending.Add(teardown);
+        drain.Roots.Add(teardown.Operation);
+        foreach (DeferredLifecycleTeardown dependency in teardown.Dependencies)
+            ClaimLifecycleTeardown(drain, dependency);
+    }
+
+    private void AdoptLifecycleTeardown(Task completion)
+    {
+        lock (_lifecycleTeardownGate)
+        {
+            TabAdmissionOperation? operation = s_tabAdmissionOperation.Value;
+            DeferredLifecycleTeardown? caller = GetCurrentLifecycleTeardown();
+            if (!_lifecycleTeardownsByTask.TryGetValue(
+                    completion,
+                    out DeferredLifecycleTeardown? teardown))
+            {
+                return;
+            }
+
+            caller?.Dependencies.Add(teardown);
+            if (_lifecycleTeardownDrain is not { Closed: false } drain
+                || !drain.IncludesOperation(operation))
+                return;
+
+            ClaimLifecycleTeardown(drain, teardown);
+            ClaimMatchingLifecycleTeardowns(drain);
+        }
+    }
+
+    private DeferredLifecycleTeardown? GetCurrentLifecycleTeardown()
+    {
+        for (TabAdmissionOperation? operation = s_tabAdmissionOperation.Value;
+             operation is not null;
+             operation = operation.Parent)
+        {
+            if (_lifecycleTeardownsByOperation.TryGetValue(
+                    operation,
+                    out DeferredLifecycleTeardown? teardown))
+            {
+                return teardown;
             }
         }
 
-        return failures ?? [];
+        return null;
     }
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
@@ -2180,9 +2354,21 @@ public sealed class EditorService : IEditorContextCloseService
         ArgumentNullException.ThrowIfNull(teardownFactory);
         TabAdmissionOperation? parent = s_tabAdmissionOperation.Value;
         TabAdmissionOperation child = new(this, parent);
-        var entry = new DeferredLifecycleTeardown();
+        var entry = new DeferredLifecycleTeardown(child);
         lock (_lifecycleTeardownGate)
-            _activeLifecycleTeardowns.Add(entry);
+        {
+            _lifecycleTeardownsByTask[entry.Task] = entry;
+            _lifecycleTeardownsByOperation[entry.Operation] = entry;
+            if (_lifecycleTeardownDrain is { Closed: false } drain && drain.Includes(entry))
+            {
+                entry.Taken = true;
+                drain.Pending.Add(entry);
+            }
+            else
+            {
+                _activeLifecycleTeardowns.Add(entry);
+            }
+        }
         _ = CompleteDeferredLifecycleTeardownAsync(entry, teardownFactory, child);
         ObserveDeferredTabDisposal(entry.Task);
     }
@@ -2230,8 +2416,14 @@ public sealed class EditorService : IEditorContextCloseService
             {
                 _activeLifecycleTeardowns.Remove(entry);
                 if (failure is not null)
-                    _deferredLifecycleFailures.Enqueue(failure);
+                    _deferredLifecycleFailures.Add(entry);
+                else
+                    _lifecycleTeardownsByTask.Remove(entry.Task);
             }
+
+            if (entry.Taken)
+                _lifecycleTeardownsByTask.Remove(entry.Task);
+            _lifecycleTeardownsByOperation.Remove(entry.Operation);
 
             if (cancellation is not null)
                 entry.Completion!.TrySetCanceled(cancellation.CancellationToken);
