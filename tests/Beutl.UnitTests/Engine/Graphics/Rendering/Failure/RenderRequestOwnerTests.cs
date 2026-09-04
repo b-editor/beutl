@@ -13,7 +13,9 @@ public sealed class RenderRequestOwnerTests
         var later = new InvalidOperationException("render-secondary");
         var cleanup = new IOException("cleanup-secondary");
         using var owner = new RenderRequestOwner();
-        owner.Register(() => throw cleanup);
+        var cleanupResource = new TrackedDisposable(cleanup);
+        RenderResource<TrackedDisposable> cleanupToken = owner.ResourceRegistry.RegisterOwned(cleanupResource);
+        owner.ResourceRegistry.Commit(cleanupToken);
 
         owner.RecordPrimaryFailure(primary);
         owner.RecordPrimaryFailure(primary);
@@ -21,96 +23,26 @@ public sealed class RenderRequestOwnerTests
         owner.Cleanup();
 
         Exception thrown = Assert.Throws<ApplicationException>(() => owner.ThrowIfFailed())!;
+        AggregateException cleanupAggregate = (AggregateException)owner.CleanupFailures.Single();
         Assert.Multiple(() =>
         {
             Assert.That(thrown, Is.SameAs(primary));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primary));
-            Assert.That(owner.SecondaryFailures, Is.EqualTo(new Exception[] { later, cleanup }));
-            Assert.That(owner.CleanupFailures, Is.EqualTo(new Exception[] { cleanup }));
+            Assert.That(owner.SecondaryFailures, Is.EqualTo(new Exception[] { later, cleanupAggregate }));
+            Assert.That(cleanupAggregate.InnerExceptions, Is.EqualTo(new[] { cleanup }));
+            Assert.That(cleanupResource.DisposeCount, Is.EqualTo(1));
         });
     }
 
-    [Test]
-    public void DischargeAndAcceptedCacheTransfer_PreventCleanupExactlyOnce()
-    {
-        int cleanupCount = 0;
-        using var owner = new RenderRequestOwner();
-        RenderOwnershipToken discharged = owner.Register(() => cleanupCount++);
-        RenderOwnershipToken transferred = owner.Register(() => cleanupCount++);
-        RenderOwnershipToken pending = owner.Register(() => cleanupCount++);
-
-        owner.Discharge(discharged);
-        owner.DischargeAfterAcceptedCacheTransfer(transferred);
-        owner.Cleanup();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cleanupCount, Is.EqualTo(1));
-            Assert.That(discharged.State, Is.EqualTo(RenderOwnershipState.Discharged));
-            Assert.That(transferred.State, Is.EqualTo(RenderOwnershipState.CacheTransferred));
-            Assert.That(pending.State, Is.EqualTo(RenderOwnershipState.Discharged));
-            Assert.That(() => owner.Discharge(discharged), Throws.TypeOf<InvalidOperationException>());
-            Assert.That(
-                () => owner.DischargeAfterAcceptedCacheTransfer(transferred),
-                Throws.TypeOf<InvalidOperationException>());
-        });
-    }
-
-    [Test]
-    public void ResourceCleanupAndCacheTransfer_HaveDistinctOwnershipOutcomes()
-    {
-        var releasedValue = new TrackedDisposable();
-        var transferredValue = new TrackedDisposable();
-        using var registry = new RenderRequestResourceRegistry();
-        using var owner = new RenderRequestOwner();
-        RenderResource<TrackedDisposable> released = registry.RegisterOwned(releasedValue);
-        RenderResource<TrackedDisposable> transferred = registry.RegisterOwned(transferredValue);
-        registry.Commit(released);
-        registry.Commit(transferred);
-        owner.Register(() => registry.Release(released));
-        RenderOwnershipToken transferToken = owner.Register(() => registry.Release(transferred));
-
-        TrackedDisposable cachePayload = registry.TransferOwned(transferred);
-        owner.DischargeAfterAcceptedCacheTransfer(transferToken);
-        owner.Cleanup();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(releasedValue.DisposeCount, Is.EqualTo(1));
-            Assert.That(transferredValue.DisposeCount, Is.Zero);
-            Assert.That(cachePayload, Is.SameAs(transferredValue));
-        });
-
-        cachePayload.Dispose();
-        Assert.That(transferredValue.DisposeCount, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void TokenFromAnotherOwner_IsRejected()
-    {
-        using var first = new RenderRequestOwner();
-        using var second = new RenderRequestOwner();
-        RenderOwnershipToken token = first.Register(static () => { });
-
-        Assert.That(() => second.Discharge(token), Throws.TypeOf<InvalidOperationException>());
-    }
-
-    [Test]
-    public void RegisterAfterCleanup_IsRejected()
-    {
-        using var owner = new RenderRequestOwner();
-        owner.Cleanup();
-
-        Assert.That(() => owner.Register(static () => { }), Throws.TypeOf<InvalidOperationException>());
-    }
-
-    private sealed class TrackedDisposable : IDisposable
+    private sealed class TrackedDisposable(Exception? failure = null) : IDisposable
     {
         public int DisposeCount { get; private set; }
 
         public void Dispose()
         {
             DisposeCount++;
+            if (failure is not null)
+                throw failure;
         }
     }
 }

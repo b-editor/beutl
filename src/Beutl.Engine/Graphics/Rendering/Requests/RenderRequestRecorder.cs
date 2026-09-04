@@ -116,7 +116,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         RenderNode node,
         NodeRecordingTransaction? parent)
     {
-        using ActiveNodeScope scope = EnterNode(node);
+        using RenderRecordingFamily.Scope scope = EnterNode(node);
         PrepareForRequest(node);
         var inputs = new List<RenderFragmentReference>();
         if (node is ContainerRenderNode container)
@@ -134,19 +134,19 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         NodeRecordingTransaction? parent,
         bool guardAlreadyHeld)
     {
-        ActiveNodeScope scope = default;
-        if (!guardAlreadyHeld)
-        {
-            scope = EnterNode(node);
-
-            // The subtree walk prepares a node on its way down. A node reached with explicit inputs is not
-            // walked, so this is where it is prepared instead - the contract is that PrepareForRequest runs
-            // before Process, on every request, however the node is reached.
-            PrepareForRequest(node);
-        }
-
+        RenderRecordingFamily.Scope scope = default;
         try
         {
+            if (!guardAlreadyHeld)
+            {
+                scope = EnterNode(node);
+
+                // The subtree walk prepares a node on its way down. A node reached with explicit inputs is not
+                // walked, so this is where it is prepared instead - the contract is that PrepareForRequest runs
+                // before Process, on every request, however the node is reached.
+                PrepareForRequest(node);
+            }
+
             var transaction = new NodeRecordingTransaction(this, node, inputs, parent);
             try
             {
@@ -236,14 +236,22 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     /// </remarks>
     private void PrepareForRequest(RenderNode node)
     {
-        if (_preparedNodes.Add(node))
+        if (!_preparedNodes.Add(node))
+            return;
+
+        try
+        {
             node.PrepareForRequest(new RenderNodePreparation(Request.Options));
+        }
+        catch
+        {
+            _preparedNodes.Remove(node);
+            throw;
+        }
     }
 
-    private ActiveNodeScope EnterNode(RenderNode node)
-    {
-        return new ActiveNodeScope(Request.Options.Owner.RecordingFamily.Enter(node));
-    }
+    private RenderRecordingFamily.Scope EnterNode(RenderNode node)
+        => Request.Options.Owner.RecordingFamily.Enter(node);
 
     /// <summary>Whether this recorder is inside a cross-check probe recording.</summary>
     internal bool IsCapturingCrossCheckBaseline => _crossCheckProbeDepth > 0;
@@ -323,18 +331,6 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
             _builder.AddCacheCandidate(fragmentId, candidate.Identity, candidate.Cache);
         }
         _pendingCacheCandidates.Clear();
-    }
-
-    private readonly struct ActiveNodeScope : IDisposable
-    {
-        private readonly IDisposable? _scope;
-
-        public ActiveNodeScope(IDisposable scope)
-        {
-            _scope = scope;
-        }
-
-        public void Dispose() => _scope?.Dispose();
     }
 
     private sealed class RenderNodeCacheIdentity

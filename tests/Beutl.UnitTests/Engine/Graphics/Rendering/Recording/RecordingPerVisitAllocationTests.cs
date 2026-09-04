@@ -12,12 +12,10 @@ public sealed class RecordingPerVisitAllocationTests
     private const int Frames = 200;
     private static readonly Rect s_bounds = new(0, 0, 100, 100);
 
-    // Measured at 8,424 bytes for a three-node subtree of four fragments, against 9,120 before the per-visit
-    // buffers were right-sized and the replay scratch pooled, and 8,496 before a node's commit became a value
-    // and its fragments stopped building a hit-test delegate per recording. The figure is deterministic on
-    // one machine, so the margin covers a platform that sizes its collections differently rather than
-    // measurement noise.
-    private const long ReplayedSubtreeBytesPerRecordCeiling = 8_700;
+    // Measured at 5,192 bytes for a three-node subtree of four fragments, against 5,632 before request-owner
+    // rare state and the recording-family scope stopped allocating on every visit. The figure is deterministic
+    // on one machine, so the margin covers a platform that sizes its collections differently rather than noise.
+    private const long ReplayedSubtreeBytesPerRecordCeiling = 5_700;
 
     [Test]
     public void ARepeatedlyReplayedSubtree_StaysWithinItsPerVisitBudget()
@@ -43,6 +41,34 @@ public sealed class RecordingPerVisitAllocationTests
             perRecord,
             Is.LessThan(ReplayedSubtreeBytesPerRecordCeiling),
             "the per-visit recording machinery must not grow back");
+    }
+
+    [Test]
+    public void RecordingFamilyScope_ReleasesOnceWithoutAllocating()
+    {
+        var family = new RenderRecordingFamily();
+        using var node = new MemoryNode<int>(0);
+        for (int index = 0; index < 200; index++)
+        {
+            using RenderRecordingFamily.Scope scope = family.Enter(node);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int index = 0; index < 20_000; index++)
+        {
+            using RenderRecordingFamily.Scope scope = family.Enter(node);
+        }
+        long bytesPerScope = (GC.GetAllocatedBytesForCurrentThread() - before) / 20_000;
+
+        RenderRecordingFamily.Scope reusable = family.Enter(node);
+        reusable.Dispose();
+        reusable.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(bytesPerScope, Is.Zero);
+            Assert.That(() => family.Enter(node).Dispose(), Throws.Nothing);
+        });
     }
 
     private static RecordedRenderGraph Record(RenderNode node)

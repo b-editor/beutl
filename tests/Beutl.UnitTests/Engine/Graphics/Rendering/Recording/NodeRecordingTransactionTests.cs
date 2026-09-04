@@ -514,6 +514,26 @@ public sealed class NodeRecordingTransactionTests
     }
 
     [Test]
+    public void ExplicitNodePrepareFailure_CanBeCaughtAndRetried()
+    {
+        using var child = new FailFirstPrepareNode();
+        using var parent = new RetryPreparedNode(child);
+        using var owner = new RenderRequestOwner();
+        using var request = CreateRequest(owner);
+
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(parent.CaughtFailures, Is.EqualTo(1));
+            Assert.That(child.PrepareCalls, Is.EqualTo(2));
+            Assert.That(child.ProcessCalls, Is.EqualTo(1));
+            Assert.That(graph.Fragments, Has.Length.EqualTo(1));
+            Assert.That(graph.PublicationRoots, Has.Length.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void Recorder_AllowsSequentialReuseAfterTheActiveScopeEnds()
     {
         var root = new ContainerRenderNode();
@@ -751,6 +771,47 @@ public sealed class NodeRecordingTransactionTests
                 Request.Options.Owner.ResourceRegistry.Commit(resource);
             }
 
+        }
+    }
+
+    private sealed class FailFirstPrepareNode : RenderNode
+    {
+        public int PrepareCalls { get; private set; }
+
+        public int ProcessCalls { get; private set; }
+
+        public override void PrepareForRequest(RenderNodePreparation preparation)
+        {
+            PrepareCalls++;
+            if (PrepareCalls == 1)
+                throw new InvalidOperationException("prepare failed");
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            ProcessCalls++;
+            context.Publish(context.OpaqueSource(
+                RenderNodeRecordingCacheTests.CreateSource(new Rect(0, 0, 10, 10))));
+        }
+    }
+
+    private sealed class RetryPreparedNode(RenderNode child) : RenderNode
+    {
+        public int CaughtFailures { get; private set; }
+
+        public override void Process(RenderNodeContext context)
+        {
+            context.DisableRenderCache();
+            try
+            {
+                _ = context.RecordNode(child, []);
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "prepare failed")
+            {
+                CaughtFailures++;
+            }
+
+            context.PublishRange(context.RecordNode(child, []));
         }
     }
 

@@ -4,7 +4,7 @@ internal sealed class RenderRecordingFamily
 {
     private readonly List<RenderNode> _activeNodes = [];
 
-    public IDisposable Enter(RenderNode node)
+    public Scope Enter(RenderNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
         // The stack never holds a node twice - this method is what keeps it so - hence the scan may run
@@ -42,14 +42,24 @@ internal sealed class RenderRecordingFamily
         _activeNodes.RemoveAt(index);
     }
 
-    private sealed class Scope(RenderRecordingFamily owner, RenderNode node) : IDisposable
+    /// <remarks>Mutable for idempotent disposal; callers must keep the value in one local rather than copy it.</remarks>
+    public struct Scope : IDisposable
     {
-        private RenderRecordingFamily? _owner = owner;
+        private RenderRecordingFamily? _owner;
+        private readonly RenderNode? _node;
+
+        internal Scope(RenderRecordingFamily owner, RenderNode node)
+        {
+            _owner = owner;
+            _node = node;
+        }
 
         public void Dispose()
         {
-            RenderRecordingFamily? current = Interlocked.Exchange(ref _owner, null);
-            current?.Exit(node);
+            RenderRecordingFamily? owner = _owner;
+            _owner = null;
+            if (owner is not null)
+                owner.Exit(_node!);
         }
     }
 }

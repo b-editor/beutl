@@ -30,6 +30,37 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         _components = components;
     }
 
+    public static StructuralFragmentIdentity Create(RecordedRenderGraph graph, int fragmentIndex)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentOutOfRangeException.ThrowIfNegative(fragmentIndex);
+        RenderFragmentReference reference = graph.GetFragment(
+            new RenderFragmentId(graph.RequestId, fragmentIndex + 1L));
+        int[] inputs = reference.Inputs.Length == 0 ? [] : new int[reference.Inputs.Length];
+        for (int index = 0; index < reference.Inputs.Length; index++)
+        {
+            RenderFragmentReference input = reference.Inputs[index];
+            if (input.Id is not { } id
+                || id.RequestId != graph.RequestId
+                || id.Value <= 0
+                || id.Value > fragmentIndex)
+            {
+                throw new InvalidOperationException(
+                    "A structural-plan input is not an earlier fragment in the recorded graph.");
+            }
+
+            int inputIndex = checked((int)id.Value - 1);
+            if (!ReferenceEquals(graph.Fragments[inputIndex], input))
+            {
+                throw new InvalidOperationException(
+                    "A structural-plan input is not part of the recorded graph.");
+            }
+            inputs[index] = inputIndex;
+        }
+
+        return CreateCore(reference, inputs);
+    }
+
     public static StructuralFragmentIdentity Create(
         RenderFragmentReference reference,
         IReadOnlyDictionary<RenderFragmentReference, int> indexes)
@@ -46,6 +77,13 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             }
         }
 
+        return CreateCore(reference, inputs);
+    }
+
+    private static StructuralFragmentIdentity CreateCore(
+        RenderFragmentReference reference,
+        int[] inputs)
+    {
         ComponentBuilder components = ComponentBuilder.Rent();
         if (reference.Kind is RenderFragmentKind.Shader or RenderFragmentKind.Opacity
             && reference.Inputs.Length == 1)

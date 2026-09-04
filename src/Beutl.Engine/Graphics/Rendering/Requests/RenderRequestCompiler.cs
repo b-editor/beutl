@@ -269,6 +269,12 @@ internal sealed class RenderRequestCompiler
         ExecutionIslandPlan executionPlan;
         if (_structuralPlanCache is not null)
         {
+            var planning = (
+                Graph: graph,
+                Roots: roots,
+                CacheResolution: cacheResolution,
+                FusionMode: request.Options.FusionMode,
+                ShaderBudget: shaderBudget);
             StructuralPlanIdentity structuralIdentity = StructuralPlanIdentity.Create(
                 request.Options.PlanIdentity,
                 graph,
@@ -276,12 +282,13 @@ internal sealed class RenderRequestCompiler
                 cacheResolution);
             executionPlan = _structuralPlanCache.GetOrCompile(
                 structuralIdentity,
-                () => new ExecutionIslandPlanner().Plan(
-                    graph,
-                    roots,
-                    cacheResolution,
-                    request.Options.FusionMode,
-                    shaderBudget),
+                planning,
+                static state => new ExecutionIslandPlanner().Plan(
+                    state.Graph,
+                    state.Roots,
+                    state.CacheResolution,
+                    state.FusionMode,
+                    state.ShaderBudget),
                 familySlot: structuralPlanSlot);
         }
         else

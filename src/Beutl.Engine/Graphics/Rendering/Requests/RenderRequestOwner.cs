@@ -5,33 +5,24 @@ namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed class RenderRequestOwner : IDisposable
 {
-    private readonly List<RenderOwnershipToken> _ownership = [];
-    private readonly List<Exception> _secondaryFailures = [];
-    private readonly List<Exception> _cleanupFailures = [];
-    private readonly Dictionary<object, RenderFragmentReference> _builtInBackdropBindings =
-        new(ReferenceEqualityComparer.Instance);
+    private List<Exception>? _secondaryFailures;
+    private List<Exception>? _cleanupFailures;
+    private Dictionary<object, RenderFragmentReference>? _builtInBackdropBindings;
     private ExceptionDispatchInfo? _primaryFailure;
-
-    public RenderRequestOwner()
-    {
-        ResourceRegistry = new RenderRequestResourceRegistry();
-        RecordingFamily = new RenderRecordingFamily();
-        _ownership.Add(new RenderOwnershipToken(this, ResourceRegistry.Dispose));
-    }
 
     public ExceptionDispatchInfo? PrimaryFailure => _primaryFailure;
 
     public ImmutableArray<Exception> SecondaryFailures
-        => _secondaryFailures.Count == 0 ? [] : [.. _secondaryFailures];
+        => _secondaryFailures is null ? [] : [.. _secondaryFailures];
 
     public ImmutableArray<Exception> CleanupFailures
-        => _cleanupFailures.Count == 0 ? [] : [.. _cleanupFailures];
+        => _cleanupFailures is null ? [] : [.. _cleanupFailures];
 
     public bool IsCleanedUp { get; private set; }
 
-    public RenderRequestResourceRegistry ResourceRegistry { get; }
+    public RenderRequestResourceRegistry ResourceRegistry { get; } = new();
 
-    public RenderRecordingFamily RecordingFamily { get; }
+    public RenderRecordingFamily RecordingFamily { get; } = new();
 
     public void CommitBuiltInBackdropBindings(
         IEnumerable<BuiltInBackdropBinding> bindings)
@@ -41,7 +32,10 @@ internal sealed class RenderRequestOwner : IDisposable
             throw new InvalidOperationException("The render request owner has already begun cleanup.");
 
         foreach (BuiltInBackdropBinding binding in bindings)
-            _builtInBackdropBindings[binding.Identity] = binding.Reference;
+        {
+            (_builtInBackdropBindings ??= new(ReferenceEqualityComparer.Instance))[binding.Identity] =
+                binding.Reference;
+        }
     }
 
     public bool TryGetBuiltInBackdrop(
@@ -49,32 +43,13 @@ internal sealed class RenderRequestOwner : IDisposable
         out RenderFragmentReference? reference)
     {
         ArgumentNullException.ThrowIfNull(identity);
-        return _builtInBackdropBindings.TryGetValue(identity, out reference);
-    }
-
-    public RenderOwnershipToken Register(Action cleanup)
-    {
-        ArgumentNullException.ThrowIfNull(cleanup);
-        if (IsCleanedUp)
+        if (_builtInBackdropBindings is null)
         {
-            throw new InvalidOperationException("The render request owner has already begun cleanup.");
+            reference = null;
+            return false;
         }
 
-        var token = new RenderOwnershipToken(this, cleanup);
-        _ownership.Add(token);
-        return token;
-    }
-
-    public void Discharge(RenderOwnershipToken token)
-    {
-        EnsurePendingToken(token);
-        token.State = RenderOwnershipState.Discharged;
-    }
-
-    public void DischargeAfterAcceptedCacheTransfer(RenderOwnershipToken token)
-    {
-        EnsurePendingToken(token);
-        token.State = RenderOwnershipState.CacheTransferred;
+        return _builtInBackdropBindings.TryGetValue(identity, out reference);
     }
 
     public void RecordPrimaryFailure(Exception exception)
@@ -92,7 +67,7 @@ internal sealed class RenderRequestOwner : IDisposable
         }
         else
         {
-            _secondaryFailures.Add(exception);
+            (_secondaryFailures ??= []).Add(exception);
         }
     }
 
@@ -104,24 +79,14 @@ internal sealed class RenderRequestOwner : IDisposable
         }
 
         IsCleanedUp = true;
-        _builtInBackdropBindings.Clear();
-        for (int index = _ownership.Count - 1; index >= 0; index--)
+        _builtInBackdropBindings = null;
+        try
         {
-            RenderOwnershipToken token = _ownership[index];
-            if (token.State != RenderOwnershipState.Pending)
-            {
-                continue;
-            }
-
-            token.State = RenderOwnershipState.Discharged;
-            try
-            {
-                token.Cleanup();
-            }
-            catch (Exception ex)
-            {
-                RecordCleanupFailure(ex);
-            }
+            ResourceRegistry.Dispose();
+        }
+        catch (Exception ex)
+        {
+            RecordCleanupFailure(ex);
         }
     }
 
@@ -137,33 +102,14 @@ internal sealed class RenderRequestOwner : IDisposable
 
     internal void RecordCleanupFailure(Exception exception)
     {
-        _cleanupFailures.Add(exception);
+        (_cleanupFailures ??= []).Add(exception);
         if (_primaryFailure is null)
         {
             _primaryFailure = ExceptionDispatchInfo.Capture(exception);
         }
         else
         {
-            _secondaryFailures.Add(exception);
-        }
-    }
-
-    private void EnsurePendingToken(RenderOwnershipToken token)
-    {
-        ArgumentNullException.ThrowIfNull(token);
-        if (!ReferenceEquals(token.Owner, this))
-        {
-            throw new InvalidOperationException("The ownership token belongs to a different render request owner.");
-        }
-
-        if (token.State != RenderOwnershipState.Pending)
-        {
-            throw new InvalidOperationException("The ownership token has already been discharged or transferred.");
-        }
-
-        if (IsCleanedUp)
-        {
-            throw new InvalidOperationException("The render request owner has already begun cleanup.");
+            (_secondaryFailures ??= []).Add(exception);
         }
     }
 }

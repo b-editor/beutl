@@ -40,19 +40,9 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         ArgumentNullException.ThrowIfNull(shaderBudget);
 
         ImmutableArray<RenderFragmentReference> references = graph.Fragments;
-        var indexes = new Dictionary<RenderFragmentReference, int>(
-            references.Length,
-            ReferenceEqualityComparer.Instance);
-        for (int index = 0; index < references.Length; index++)
-        {
-            RenderFragmentReference reference = graph.GetFragment(
-                new RenderFragmentId(graph.RequestId, index + 1L));
-            indexes.Add(reference, index);
-        }
-
         var fragments = new StructuralFragmentIdentity[references.Length];
         for (int index = 0; index < references.Length; index++)
-            fragments[index] = StructuralFragmentIdentity.Create(references[index], indexes);
+            fragments[index] = StructuralFragmentIdentity.Create(graph, index);
 
         ImmutableArray<RenderFragmentId> roots = graph.PublicationRoots;
         int[] publicationRoots = roots.Length == 0 ? [] : new int[roots.Length];

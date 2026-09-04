@@ -344,10 +344,10 @@ public sealed class StructuralAndProgramCacheTests
         StructuralPlanIdentity identity,
         RecordedRenderGraph graph)
     {
-        var planner = new ExecutionIslandPlanner();
         return cache.GetOrCompile(
             identity,
-            () => planner.Plan(
+            graph,
+            static graph => new ExecutionIslandPlanner().Plan(
                 graph,
                 RenderRequestCompiler.ResolveRoots(graph),
                 FusionMode.Enabled,

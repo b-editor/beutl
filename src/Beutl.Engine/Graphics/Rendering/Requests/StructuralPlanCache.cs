@@ -30,9 +30,10 @@ internal sealed class StructuralPlanCache : IDisposable
         }
     }
 
-    public ExecutionIslandPlan GetOrCompile(
+    public ExecutionIslandPlan GetOrCompile<TState>(
         StructuralPlanIdentity identity,
-        Func<ExecutionIslandPlan> compile,
+        TState state,
+        Func<TState, ExecutionIslandPlan> compile,
         int familySlot = 0)
     {
         ArgumentNullException.ThrowIfNull(identity);
@@ -48,16 +49,16 @@ internal sealed class StructuralPlanCache : IDisposable
                     "Structural-plan family slots must be requested in depth-first order.");
             }
 
-            Entry? entry = familySlot < _entries.Count ? _entries[familySlot] : null;
-            if (entry is not null && entry.Identity.Equals(identity))
+            bool replacing = familySlot < _entries.Count;
+            if (replacing && _entries[familySlot].Identity.Equals(identity))
             {
                 _hits++;
-                return entry.Plan;
+                return _entries[familySlot].Plan;
             }
 
             _misses++;
-            ExecutionIslandPlan compiled = compile();
-            if (entry is not null)
+            ExecutionIslandPlan compiled = compile(state);
+            if (replacing)
             {
                 _replacements++;
                 _entries[familySlot] = new Entry(identity, compiled);
@@ -95,7 +96,7 @@ internal sealed class StructuralPlanCache : IDisposable
         }
     }
 
-    private sealed record Entry(
+    private readonly record struct Entry(
         StructuralPlanIdentity Identity,
         ExecutionIslandPlan Plan);
 }
