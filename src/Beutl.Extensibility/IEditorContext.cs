@@ -18,7 +18,9 @@ public interface IEditorContext : IAsyncDisposable, IServiceProvider
     /// <remarks>
     /// Do not synchronously wait for disposal from a host publication or dispatcher callback. Call
     /// <see cref="CloseService"/>.<see cref="IEditorContextCloseService.RequestClose"/> instead; its
-    /// completion can be observed after the callback returns.
+    /// completion can be observed after the callback returns. Disposal callbacks must not
+    /// synchronously start and wait for another project or editor lifecycle operation on any thread;
+    /// enqueue that work to begin after the callback returns.
     /// </remarks>
     new ValueTask DisposeAsync();
 

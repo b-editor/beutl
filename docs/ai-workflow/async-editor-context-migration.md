@@ -49,6 +49,13 @@ EditorContextCloseRequest request = CloseService.RequestClose(this);
 // Return from the callback. Observe request.Completion afterward if needed.
 ```
 
+`TryCreateContext`, publication observers, and disposal callbacks must not synchronously start and
+wait for a project or editor lifecycle operation on the same or another thread. Queue the operation
+so it begins only after the callback returns. The host rejects detected causal reentry, but this is
+diagnostic protection rather than the contract: manually suppressing execution context or blocking
+through a dispatcher can hide causality and must not be used to bypass the rule. Independent
+shutdown and reconciliation remain valid and drain in-flight admitted work.
+
 `ToolTabExtension` callbacks receive only `IEditorContext`; use its required
 retained close capability:
 

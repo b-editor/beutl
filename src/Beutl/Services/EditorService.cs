@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Avalonia.Threading;
+using System.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -282,6 +283,7 @@ public sealed class EditorTabItem : IAsyncDisposable
 
     internal EditorContextCloseRequestStatus TryBeginHostClose(
         EditorContextHostToken expectedHostToken,
+        Action<Task> trackClose,
         out Task completion,
         out TaskCompletionSource<object?>? completionSource)
     {
@@ -306,6 +308,7 @@ public sealed class EditorTabItem : IAsyncDisposable
             completion = completionSource.Task;
             _hostCloseTask = completion;
             _closing = true;
+            trackClose(completion);
             return EditorContextCloseRequestStatus.Accepted;
         }
     }
@@ -974,6 +977,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     private bool _worktreeMutationActive;
     private readonly object _tabAdmissionGate = new();
     private readonly SemaphoreSlim _tabReconciliationGate = new(1, 1);
+    private static readonly AsyncLocal<TabAdmissionOperation?> s_tabAdmissionOperation = new();
     private TaskCompletionSource? _tabAdmissionDrain;
     private int _activeTabAdmissions;
     private bool _tabAdmissionClosed;
@@ -983,6 +987,8 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     private readonly Dictionary<IEditorContext, (EditorTabItem Item, long Generation)> _reservedContextItems =
         new(ReferenceEqualityComparer.Instance);
     private long _contextRegistrationGeneration;
+    private readonly object _lifecycleTeardownGate = new();
+    private readonly HashSet<Task> _activeLifecycleTeardowns = [];
 
     internal Action? BeforeInitialOwnerAttach { get; set; }
 
@@ -1032,9 +1038,25 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     internal async ValueTask ReconcileTabItemsAsync(IReadOnlyList<CoreObject> items)
     {
         ArgumentNullException.ThrowIfNull(items);
+        for (TabAdmissionOperation? operation = s_tabAdmissionOperation.Value;
+             operation is not null;
+             operation = operation.Parent)
+        {
+            if (ReferenceEquals(operation.ActiveOwner, this))
+            {
+                throw new InvalidOperationException(
+                    "Tab reconciliation cannot be entered from an active editor tab operation.");
+            }
+        }
+
         await _tabReconciliationGate.WaitAsync();
+        TabAdmissionOperation? reconciliationOperation = null;
+        TabAdmissionOperation? previousOperation = null;
         try
         {
+            previousOperation = s_tabAdmissionOperation.Value;
+            reconciliationOperation = BeginTabAdmissionOperation();
+            s_tabAdmissionOperation.Value = reconciliationOperation;
             Task admissionDrain = CloseTabAdmission();
             await admissionDrain;
             List<Exception>? failures = null;
@@ -1043,18 +1065,23 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                 try { await CloseTabItem(item); }
                 catch (Exception ex) { (failures ??= []).Add(ex); }
             }
+            foreach (Exception ex in await DrainActiveLifecycleTeardownsAsync())
+                (failures ??= []).Add(ex);
 
             foreach (CoreObject item in items)
             {
                 try { ActivateTabItemCore(item); }
                 catch (Exception ex) { (failures ??= []).Add(ex); }
             }
+            foreach (Exception ex in await DrainActiveLifecycleTeardownsAsync())
+                (failures ??= []).Add(ex);
 
             if (failures is not null)
                 throw failures.Count == 1 ? failures[0] : new AggregateException(failures);
         }
         finally
         {
+            CompleteTabAdmissionOperation(reconciliationOperation, previousOperation);
             OpenTabAdmission();
             _tabReconciliationGate.Release();
         }
@@ -1150,8 +1177,13 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         if (!TryEnterTabAdmission())
             return EditorContextReplacementStatus.Busy;
 
+        TabAdmissionOperation? operation = null;
+        TabAdmissionOperation? previousOperation = null;
         try
         {
+            previousOperation = s_tabAdmissionOperation.Value;
+            operation = BeginTabAdmissionOperation();
+            s_tabAdmissionOperation.Value = operation;
             if (!item.TryGetAttachedContext(_hostToken, out IEditorContext? current, out EditorContextRegistration registration)
                 || current is null)
             {
@@ -1221,7 +1253,57 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         }
         finally
         {
+            CompleteTabAdmissionOperation(operation, previousOperation);
             ExitTabAdmission();
+        }
+    }
+
+    private sealed class TabAdmissionOperation
+    {
+        public TabAdmissionOperation(
+            EditorService owner,
+            TabAdmissionOperation? parent)
+        {
+            _activeOwner = owner;
+            Parent = parent;
+        }
+
+        private EditorService? _activeOwner;
+
+        public TabAdmissionOperation? Parent { get; }
+
+        public EditorService? ActiveOwner => Volatile.Read(ref _activeOwner);
+
+        public void Complete() => Interlocked.Exchange(ref _activeOwner, null);
+    }
+
+    internal static bool IsTabLifecycleOperationActive
+    {
+        get
+        {
+            for (TabAdmissionOperation? operation = s_tabAdmissionOperation.Value;
+                 operation is not null;
+                 operation = operation.Parent)
+            {
+                if (operation.ActiveOwner is not null)
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    private TabAdmissionOperation BeginTabAdmissionOperation()
+        => new(this, s_tabAdmissionOperation.Value);
+
+    private static void CompleteTabAdmissionOperation(
+        TabAdmissionOperation? operation,
+        TabAdmissionOperation? previousOperation)
+    {
+        if (operation is not null)
+        {
+            operation.Complete();
+            s_tabAdmissionOperation.Value = previousOperation;
         }
     }
 
@@ -1255,12 +1337,18 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         if (!TryEnterTabAdmission())
             return false;
 
+        TabAdmissionOperation? operation = null;
+        TabAdmissionOperation? previousOperation = null;
         try
         {
+            previousOperation = s_tabAdmissionOperation.Value;
+            operation = BeginTabAdmissionOperation();
+            s_tabAdmissionOperation.Value = operation;
             return TryAddTabItemCore(item, select, beforeAdd, beforeSelection);
         }
         finally
         {
+            CompleteTabAdmissionOperation(operation, previousOperation);
             ExitTabAdmission();
         }
     }
@@ -1723,6 +1811,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
 
             status = registration.Item.TryBeginHostClose(
                 _hostToken,
+                TrackHostClose,
                 out completion,
                 out completionSource);
         }
@@ -1738,6 +1827,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     {
         EditorContextCloseRequestStatus status = item.TryBeginHostClose(
             _hostToken,
+            TrackHostClose,
             out Task completion,
             out TaskCompletionSource<object?>? completionSource);
         return StartHostClose(item, status, completion, completionSource);
@@ -1761,7 +1851,11 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                 startupFailure = ex;
             }
 
-            _ = CompleteHostCloseAsync(item, completionSource!, startupFailure);
+            _ = CompleteHostCloseAsync(
+                item,
+                completionSource!,
+                completion,
+                startupFailure);
             ObserveDeferredTaskFailure(completion);
         }
 
@@ -1773,22 +1867,85 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     private async Task CompleteHostCloseAsync(
         EditorTabItem item,
         TaskCompletionSource<object?> completion,
+        Task hostCloseTask,
         Exception? startupFailure = null)
     {
         List<Exception>? failures = startupFailure is null ? null : [startupFailure];
-        try { await RemoveTabItemAsync(item).ConfigureAwait(false); }
-        catch (Exception ex) { (failures ??= []).Add(ex); }
+        TabAdmissionOperation? operation = null;
+        TabAdmissionOperation? previousOperation = null;
+        try
+        {
+            previousOperation = s_tabAdmissionOperation.Value;
+            operation = BeginTabAdmissionOperation();
+            s_tabAdmissionOperation.Value = operation;
 
-        try { await item.DisposeResourcesAsync().ConfigureAwait(false); }
-        catch (Exception ex) { (failures ??= []).Add(ex); }
+            try { await RemoveTabItemAsync(item).ConfigureAwait(false); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
 
-        try { item.ReleaseContextRegistration(); }
-        catch (Exception ex) { (failures ??= []).Add(ex); }
+            try { await item.DisposeResourcesAsync().ConfigureAwait(false); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
 
-        if (failures is null)
-            completion.TrySetResult(null);
-        else
-            completion.TrySetException(failures.Count == 1 ? failures[0] : new AggregateException(failures));
+            try { item.ReleaseContextRegistration(); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
+        }
+        catch (Exception ex)
+        {
+            (failures ??= []).Add(ex);
+        }
+        finally
+        {
+            CompleteTabAdmissionOperation(operation, previousOperation);
+        }
+
+        CompleteTrackedHostClose(completion, hostCloseTask, failures);
+    }
+
+    private void TrackHostClose(Task completion)
+    {
+        lock (_lifecycleTeardownGate)
+            _activeLifecycleTeardowns.Add(completion);
+    }
+
+    private void CompleteTrackedHostClose(
+        TaskCompletionSource<object?> completion,
+        Task hostCloseTask,
+        List<Exception>? failures)
+    {
+        lock (_lifecycleTeardownGate)
+        {
+            if (failures is null)
+                completion.TrySetResult(null);
+            else
+                completion.TrySetException(failures.Count == 1 ? failures[0] : new AggregateException(failures));
+            _activeLifecycleTeardowns.Remove(hostCloseTask);
+        }
+    }
+
+    private async Task<List<Exception>> DrainActiveLifecycleTeardownsAsync()
+    {
+        List<Exception>? failures = null;
+        while (true)
+        {
+            Task[] active;
+            lock (_lifecycleTeardownGate)
+            {
+                if (_activeLifecycleTeardowns.Count == 0)
+                    return failures ?? [];
+                active = _activeLifecycleTeardowns.ToArray();
+            }
+
+            foreach (Task close in active)
+            {
+                try
+                {
+                    await close.ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    (failures ??= []).Add(ex);
+                }
+            }
+        }
     }
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
@@ -2168,12 +2325,18 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         if (!TryEnterTabAdmission())
             return;
 
+        TabAdmissionOperation? operation = null;
+        TabAdmissionOperation? previousOperation = null;
         try
         {
+            previousOperation = s_tabAdmissionOperation.Value;
+            operation = BeginTabAdmissionOperation();
+            s_tabAdmissionOperation.Value = operation;
             ActivateTabItemCore(obj);
         }
         finally
         {
+            CompleteTabAdmissionOperation(operation, previousOperation);
             ExitTabAdmission();
         }
     }
@@ -2358,6 +2521,31 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             TaskScheduler.Default);
     }
 
+    private void TrackAndObserveLifecycleTeardown(Task teardown)
+    {
+        TrackDeferredLifecycleTeardown(teardown);
+        ObserveDeferredTabDisposal(teardown);
+    }
+
+    private void TrackDeferredLifecycleTeardown(Task teardown)
+    {
+        lock (_lifecycleTeardownGate)
+            _activeLifecycleTeardowns.Add(teardown);
+        _ = teardown.ContinueWith(
+            static (completed, state) =>
+                ((EditorService)state!).UntrackDeferredLifecycleTeardown(completed),
+            this,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private void UntrackDeferredLifecycleTeardown(Task teardown)
+    {
+        lock (_lifecycleTeardownGate)
+            _activeLifecycleTeardowns.Remove(teardown);
+    }
+
     private void ObserveDeferredTabDisposal(
         EditorTabItem item,
         EditorContextOwnershipLease ownershipLease)
@@ -2372,7 +2560,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             disposal = ForceDisposeTabAfterStartFailureAsync(item, ex);
         }
 
-        ObserveDeferredTabDisposal(ReleaseLeaseAfterAsync(disposal, ownershipLease));
+        TrackAndObserveLifecycleTeardown(ReleaseLeaseAfterAsync(disposal, ownershipLease));
     }
 
     private async Task ForceDisposeTabAfterStartFailureAsync(
@@ -2424,7 +2612,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         }
     }
 
-    private static void ObserveDeferredContextDisposal(IEditorContext context)
+    private void ObserveDeferredContextDisposal(IEditorContext context)
     {
         Task disposal;
         try
@@ -2436,10 +2624,10 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             disposal = Task.FromException(ex);
         }
 
-        ObserveDeferredTabDisposal(disposal);
+        TrackAndObserveLifecycleTeardown(disposal);
     }
 
-    private static void ObserveDeferredContextDisposal(
+    private void ObserveDeferredContextDisposal(
         IEditorContext context,
         EditorContextOwnershipLease ownershipLease)
     {
@@ -2454,7 +2642,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             disposal = Task.FromException(ex);
         }
 
-        ObserveDeferredTabDisposal(disposal);
+        TrackAndObserveLifecycleTeardown(disposal);
     }
 
     private static async Task DisposeContextAndReleaseLeaseAsync(
