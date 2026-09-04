@@ -44,12 +44,7 @@ internal sealed class ExecutionIslandPlanner
             throw new ArgumentOutOfRangeException(nameof(fusionMode));
         ArgumentNullException.ThrowIfNull(budget);
 
-        HashSet<RenderFragmentId> cacheHitIds = cacheResolution.CollectPrunedHitProducers();
-        HashSet<RenderFragmentId> cacheCaptureIds =
-        [
-            .. cacheResolution.MissCaptures.Select(static capture => capture.ProducerId),
-        ];
-        RenderFragmentReference[] references = GetOrderedReferences(graph, roots, cacheHitIds);
+        RenderFragmentReference[] references = GetOrderedReferences(graph, roots, cacheResolution);
         var referenceSet = new HashSet<RenderFragmentReference>(
             references,
             ReferenceEqualityComparer.Instance);
@@ -62,14 +57,14 @@ internal sealed class ExecutionIslandPlanner
         Dictionary<RenderFragmentReference, int> consumerCounts = CountConsumers(
             references,
             roots,
-            cacheHitIds);
+            cacheResolution);
         var stageCandidates = new Dictionary<RenderFragmentReference, StageCandidate>(
             ReferenceEqualityComparer.Instance);
         var rejectedStageClassifications = new Dictionary<RenderFragmentReference, ExecutionIslandClassification>(
             ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference reference in references)
         {
-            if (cacheHitIds.Contains(GetId(reference)))
+            if (cacheResolution.HasHitProducer(GetId(reference)))
                 continue;
 
             if (TryCreateStage(reference, out StageCandidate? stage, out ExecutionIslandBoundaryReason reason))
@@ -100,7 +95,7 @@ internal sealed class ExecutionIslandPlanner
             references,
             stageCandidates,
             consumerCounts,
-            cacheCaptureIds);
+            cacheResolution);
         var predecessors = new Dictionary<RenderFragmentReference, RenderFragmentReference>(
             ReferenceEqualityComparer.Instance);
         foreach ((RenderFragmentReference predecessor, RenderFragmentReference successor) in successors)
@@ -110,8 +105,7 @@ internal sealed class ExecutionIslandPlanner
         var boundaries = new List<ExecutionIslandBoundary>();
         AddSelectedCacheBoundaries(
             references,
-            cacheHitIds,
-            cacheCaptureIds,
+            cacheResolution,
             boundaries);
         var compiledFragments = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
         var visitedStages = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
@@ -156,8 +150,7 @@ internal sealed class ExecutionIslandPlanner
                         chain[0],
                         stageCandidates,
                         consumerCounts,
-                        cacheHitIds,
-                        cacheCaptureIds,
+                        cacheResolution,
                         boundaries);
                 }
 
@@ -196,7 +189,7 @@ internal sealed class ExecutionIslandPlanner
         foreach (RenderFragmentReference reference in references)
         {
             if (compiledFragments.Contains(reference)
-                || cacheHitIds.Contains(GetId(reference))
+                || cacheResolution.HasHitProducer(GetId(reference))
                 || reference.Kind is RenderFragmentKind.ContributeValues or RenderFragmentKind.MaterializedInput)
             {
                 continue;
@@ -263,7 +256,7 @@ internal sealed class ExecutionIslandPlanner
     private static RenderFragmentReference[] GetOrderedReferences(
         RecordedRenderGraph graph,
         ImmutableArray<RenderFragmentReference> roots,
-        IReadOnlySet<RenderFragmentId> cacheHitIds)
+        RenderCacheResolution cacheResolution)
     {
         foreach (RenderFragmentReference root in roots)
         {
@@ -288,7 +281,7 @@ internal sealed class ExecutionIslandPlanner
             if (!reachable.Contains(reference))
                 continue;
             reachableCount++;
-            if (cacheHitIds.Contains(GetId(reference)))
+            if (cacheResolution.HasHitProducer(GetId(reference)))
                 continue;
             foreach (RenderFragmentReference input in reference.ExecutionInputs)
                 reachable.Add(input);
@@ -308,7 +301,7 @@ internal sealed class ExecutionIslandPlanner
     private static Dictionary<RenderFragmentReference, int> CountConsumers(
         IReadOnlyList<RenderFragmentReference> references,
         ImmutableArray<RenderFragmentReference> roots,
-        IReadOnlySet<RenderFragmentId> cacheHitIds)
+        RenderCacheResolution cacheResolution)
     {
         var result = new Dictionary<RenderFragmentReference, int>(ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference reference in references)
@@ -316,7 +309,7 @@ internal sealed class ExecutionIslandPlanner
 
         foreach (RenderFragmentReference reference in references)
         {
-            if (cacheHitIds.Contains(GetId(reference)))
+            if (cacheResolution.HasHitProducer(GetId(reference)))
                 continue;
             foreach (RenderFragmentReference input in reference.ExecutionInputs)
             {
@@ -338,7 +331,7 @@ internal sealed class ExecutionIslandPlanner
         IReadOnlyList<RenderFragmentReference> references,
         IReadOnlyDictionary<RenderFragmentReference, StageCandidate> stages,
         IReadOnlyDictionary<RenderFragmentReference, int> consumerCounts,
-        IReadOnlySet<RenderFragmentId> cacheCaptureIds)
+        RenderCacheResolution cacheResolution)
     {
         var candidates = new Dictionary<RenderFragmentReference, List<RenderFragmentReference>>(
             ReferenceEqualityComparer.Instance);
@@ -367,7 +360,7 @@ internal sealed class ExecutionIslandPlanner
         {
             if (values.Count != 1
                 || consumerCounts[predecessor] != 1
-                || cacheCaptureIds.Contains(GetId(predecessor))
+                || cacheResolution.HasMissCaptureProducer(GetId(predecessor))
                 || !HasCompatibleMergeScale(predecessor, values[0]))
             {
                 continue;
@@ -430,13 +423,13 @@ internal sealed class ExecutionIslandPlanner
         StageCandidate first,
         IReadOnlyDictionary<RenderFragmentReference, StageCandidate> stages,
         IReadOnlyDictionary<RenderFragmentReference, int> consumerCounts,
-        IReadOnlySet<RenderFragmentId> cacheHitIds,
-        IReadOnlySet<RenderFragmentId> cacheCaptureIds,
+        RenderCacheResolution cacheResolution,
         ICollection<ExecutionIslandBoundary> boundaries)
     {
         RenderFragmentReference input = first.Fragment.Inputs.Single();
         RenderFragmentId inputId = GetId(input);
-        if (cacheHitIds.Contains(inputId) || cacheCaptureIds.Contains(inputId))
+        if (cacheResolution.HasHitProducer(inputId)
+            || cacheResolution.HasMissCaptureProducer(inputId))
             return;
 
         ExecutionIslandBoundaryReason reason;
@@ -476,32 +469,24 @@ internal sealed class ExecutionIslandPlanner
 
     private static void AddSelectedCacheBoundaries(
         IReadOnlyList<RenderFragmentReference> references,
-        IReadOnlySet<RenderFragmentId> cacheHitIds,
-        IReadOnlySet<RenderFragmentId> cacheCaptureIds,
+        RenderCacheResolution cacheResolution,
         ICollection<ExecutionIslandBoundary> boundaries)
     {
-        HashSet<RenderFragmentId> reachableIds =
-        [
-            .. references.Select(GetId),
-        ];
-        foreach (RenderFragmentId hitId in cacheHitIds)
+        foreach (RenderFragmentReference reference in references)
         {
-            if (reachableIds.Contains(hitId))
+            RenderFragmentId producerId = GetId(reference);
+            if (cacheResolution.HasHitProducer(producerId))
             {
                 boundaries.Add(new ExecutionIslandBoundary(
                     BeforeFragmentIndex: null,
-                    AfterFragmentIndex: GetFragmentIndex(hitId),
+                    AfterFragmentIndex: GetFragmentIndex(producerId),
                     ExecutionIslandBoundaryReason.CacheInput,
                     []));
             }
-        }
-
-        foreach (RenderFragmentId captureId in cacheCaptureIds)
-        {
-            if (reachableIds.Contains(captureId))
+            if (cacheResolution.HasMissCaptureProducer(producerId))
             {
                 boundaries.Add(new ExecutionIslandBoundary(
-                    BeforeFragmentIndex: GetFragmentIndex(captureId),
+                    BeforeFragmentIndex: GetFragmentIndex(producerId),
                     AfterFragmentIndex: null,
                     ExecutionIslandBoundaryReason.CacheCapture,
                     []));

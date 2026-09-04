@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering.Requests;
@@ -162,7 +163,7 @@ internal sealed class RenderCacheResolver
             ? index.Graph.CacheCandidates
             : topology.ParentFirst;
         var identityMemo = new Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>();
-        var decisions = new Dictionary<RenderCacheCandidateId, RenderCacheDecision>();
+        var decisions = new RenderCacheDecision[index.Graph.CacheCandidates.Length];
         var selectedHits = new List<RenderCacheCandidateId>();
         foreach (RenderCacheCandidate candidate in candidates)
         {
@@ -180,9 +181,7 @@ internal sealed class RenderCacheResolver
 
                 if (superseding.Value > 0)
                 {
-                    decisions.Add(
-                        candidate.Id,
-                        Superseded(candidate, superseding));
+                    decisions[GetCandidateIndex(candidate.Id)] = Superseded(candidate, superseding);
                     continue;
                 }
             }
@@ -198,13 +197,12 @@ internal sealed class RenderCacheResolver
                 identityMemo,
                 index.DeviceGridAffectedReferences,
                 index.TransformDependentReferences);
-            decisions.Add(candidate.Id, decision);
+            decisions[GetCandidateIndex(candidate.Id)] = decision;
             if (decision.Kind == RenderCacheResolutionKind.Hit)
                 selectedHits.Add(candidate.Id);
         }
 
-        return new RenderCacheResolution(
-            [.. index.Graph.CacheCandidates.Select(candidate => decisions[candidate.Id])]);
+        return new RenderCacheResolution(ImmutableCollectionsMarshal.AsImmutableArray(decisions));
     }
 
     private static void ValidateRequest(
@@ -246,8 +244,10 @@ internal sealed class RenderCacheResolver
             RenderCacheBypassReason.None,
             null,
             null,
-            null,
             superseding);
+
+    private static int GetCandidateIndex(RenderCacheCandidateId id)
+        => checked((int)id.Value - 1);
 
     private static RenderCacheDecision ResolveCandidate(
         RenderRequest request,
@@ -289,30 +289,19 @@ internal sealed class RenderCacheResolver
                 candidate,
                 RenderCacheResolutionKind.Hit,
                 RenderCacheBypassReason.None,
-                identity,
-                new RenderCacheHitSubstitution(
-                    candidate.Id,
-                    candidate.FragmentId,
-                    identity,
-                    entry!),
                 null,
-                null);
+                entry);
         }
 
         if (!context.AllowCapturePublication)
-            return Bypass(candidate, RenderCacheBypassReason.CapturePublicationDisabled, identity);
+            return Bypass(candidate, RenderCacheBypassReason.CapturePublicationDisabled);
 
         return new RenderCacheDecision(
             candidate,
             RenderCacheResolutionKind.MissCapture,
             RenderCacheBypassReason.None,
             identity,
-            null,
-            new RenderCacheMissCapture(
-                candidate.Id,
-                candidate.FragmentId,
-                identity),
-                null);
+            null);
     }
 
     private static RenderOutputCacheIdentity CreateIdentity(
@@ -526,14 +515,11 @@ internal sealed class RenderCacheResolver
 
     private static RenderCacheDecision Bypass(
         RenderCacheCandidate candidate,
-        RenderCacheBypassReason reason,
-        RenderOutputCacheIdentity? identity = null)
+        RenderCacheBypassReason reason)
         => new(
             candidate,
             RenderCacheResolutionKind.Bypass,
             reason,
-            identity,
-            null,
             null,
             null);
 

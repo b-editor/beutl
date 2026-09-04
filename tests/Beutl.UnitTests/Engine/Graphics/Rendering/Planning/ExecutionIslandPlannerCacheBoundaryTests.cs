@@ -157,6 +157,40 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     }
 
     [Test]
+    public void SameProducerHitAndMultipleMisses_EmitOneBoundaryPerKind()
+    {
+        GraphFixture fixture = CreateShaderGraph(
+            includeGeometryPrefix: false,
+            cacheCandidateCount: 3);
+        RenderCacheResolution resolution = CreateResolution(
+            fixture,
+            [
+                RenderCacheResolutionKind.Hit,
+                RenderCacheResolutionKind.MissCapture,
+                RenderCacheResolutionKind.MissCapture,
+            ]);
+
+        ExecutionIslandPlan plan = Plan(fixture, resolution, FusionMode.Enabled);
+        int producerIndex = GetFragmentIndex(fixture.Graph, fixture.CachedProducer);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.Boundaries.Count(static boundary =>
+                boundary.Reason == ExecutionIslandBoundaryReason.CacheInput), Is.EqualTo(1));
+            Assert.That(plan.Boundaries.Count(static boundary =>
+                boundary.Reason == ExecutionIslandBoundaryReason.CacheCapture), Is.EqualTo(1));
+            Assert.That(plan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(boundary =>
+                boundary.BeforeFragmentIndex is null
+                && boundary.AfterFragmentIndex == producerIndex
+                && boundary.Reason == ExecutionIslandBoundaryReason.CacheInput));
+            Assert.That(plan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(boundary =>
+                boundary.BeforeFragmentIndex == producerIndex
+                && boundary.AfterFragmentIndex is null
+                && boundary.Reason == ExecutionIslandBoundaryReason.CacheCapture));
+        });
+    }
+
+    [Test]
     public void StructuralIdentity_DistinguishesHitFromMissCaptureAtSameCandidate()
     {
         GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
@@ -223,7 +257,35 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         RenderCacheBypassReason bypassReason = RenderCacheBypassReason.None)
     {
         RenderCacheCandidate candidate = fixture.Graph.CacheCandidates.Single();
-        RenderFragmentReference recorded = fixture.Graph.GetFragment(candidate.FragmentId);
+        return new RenderCacheResolution(
+            [CreateDecision(fixture, candidate, kind, bypassReason)]);
+    }
+
+    private static RenderCacheResolution CreateResolution(
+        GraphFixture fixture,
+        IReadOnlyList<RenderCacheResolutionKind> kinds)
+    {
+        if (fixture.Graph.CacheCandidates.Length != kinds.Count)
+            throw new ArgumentException("Every cache candidate requires one decision.", nameof(kinds));
+
+        var decisions = ImmutableArray.CreateBuilder<RenderCacheDecision>(kinds.Count);
+        for (int index = 0; index < kinds.Count; index++)
+        {
+            decisions.Add(CreateDecision(
+                fixture,
+                fixture.Graph.CacheCandidates[index],
+                kinds[index],
+                RenderCacheBypassReason.None));
+        }
+        return new RenderCacheResolution(decisions.MoveToImmutable());
+    }
+
+    private static RenderCacheDecision CreateDecision(
+        GraphFixture fixture,
+        RenderCacheCandidate candidate,
+        RenderCacheResolutionKind kind,
+        RenderCacheBypassReason bypassReason)
+    {
         var identity = new RenderOutputCacheIdentity(
             candidate.CacheKey,
             RenderFragmentOutputIdentity.Create(fixture.CachedProducer, fixture.Graph.RequestId),
@@ -236,47 +298,34 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             FusionMode.Enabled,
             new RenderCacheDeviceContextIdentity("planner-test-device", "planner-test-context"));
 
-        RenderCacheDecision decision = kind switch
+        return kind switch
         {
             RenderCacheResolutionKind.Bypass => new RenderCacheDecision(
                 candidate,
                 kind,
                 bypassReason,
-                identity,
-                null,
                 null,
                 null),
             RenderCacheResolutionKind.Hit => new RenderCacheDecision(
                 candidate,
                 kind,
                 RenderCacheBypassReason.None,
-                identity,
-                new RenderCacheHitSubstitution(
-                    candidate.Id,
-                    recorded.Id!.Value,
-                    identity,
-                    new RenderCacheEntry(identity, new object())),
                 null,
-                null),
+                new RenderCacheEntry(identity, new object())),
             RenderCacheResolutionKind.MissCapture => new RenderCacheDecision(
                 candidate,
                 kind,
                 RenderCacheBypassReason.None,
                 identity,
-                null,
-                new RenderCacheMissCapture(
-                    candidate.Id,
-                    recorded.Id!.Value,
-                    identity),
                 null),
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
-        return new RenderCacheResolution([decision]);
     }
 
     private static GraphFixture CreateShaderGraph(
         bool includeGeometryPrefix,
-        bool publishPrefix = false)
+        bool publishPrefix = false,
+        int cacheCandidateCount = 1)
     {
         var requestId = new RenderRequestId(1);
         RenderFragmentReference source = Fragment(
@@ -296,7 +345,12 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         foreach (RenderFragmentReference reference in references)
             builder.AddFragment(reference);
 
-        builder.AddCacheCandidate(cachedProducer.Id!.Value, "selected-candidate");
+        for (int index = 0; index < cacheCandidateCount; index++)
+        {
+            builder.AddCacheCandidate(
+                cachedProducer.Id!.Value,
+                index == 0 ? "selected-candidate" : $"selected-candidate-{index}");
+        }
         builder.PublishRoot(tail.Id!.Value);
         if (publishPrefix)
             builder.PublishRoot(prefix.Id!.Value);

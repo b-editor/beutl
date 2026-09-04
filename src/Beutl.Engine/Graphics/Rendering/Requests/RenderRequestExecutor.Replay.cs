@@ -27,7 +27,7 @@ internal sealed partial class RenderRequestExecutor
                 || !fragment.ContributesValuesToTarget
                 || _values.ContainsKey(fragment)
                 || fragment.Id is { } id
-                    && (_cacheHits.ContainsKey(id) || _cacheMisses.ContainsKey(id))
+                    && _cacheResolution.HasSelectedProducer(id)
                 || _resourceUses.GetRemainingUseCount(fragment) != 1)
             {
                 return false;
@@ -123,7 +123,7 @@ internal sealed partial class RenderRequestExecutor
                 || !fragment.ContributesValuesToTarget
                 || _values.ContainsKey(fragment)
                 || fragment.Id is { } id
-                    && (_cacheHits.ContainsKey(id) || _cacheMisses.ContainsKey(id))
+                    && _cacheResolution.HasSelectedProducer(id)
                 || _resourceUses.GetRemainingUseCount(fragment) != 1)
             {
                 return false;
@@ -316,7 +316,7 @@ internal sealed partial class RenderRequestExecutor
                 || fragment.Inputs.Length != 1
                 || _values.ContainsKey(fragment)
                 || fragment.Id is { } id
-                    && (_cacheHits.ContainsKey(id) || _cacheMisses.ContainsKey(id))
+                    && _cacheResolution.HasSelectedProducer(id)
                 || _resourceUses.GetRemainingUseCount(fragment) != 1
                 || !fragment.EffectiveScale.IsUnbounded
                     && fragment.EffectiveScale.Value != destination.Density
@@ -383,8 +383,7 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                _pendingCacheCaptures.Clear();
-                _suppressedCacheCaptures.Clear();
+                Array.Clear(_cacheCaptures);
                 _cacheCaptureValues.Clear();
             }
         }
@@ -394,26 +393,19 @@ internal sealed partial class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(seenCaches);
             if (PreviewAllocationDropObserved)
                 return;
-            if (_pendingCacheCaptures.Count + _suppressedCacheCaptures.Count
-                != _cacheResolution.MissCaptures.Length)
-            {
-                throw new InvalidOperationException(
-                    "Every selected render-cache miss must materialize exactly one staged capture.");
-            }
-
-            // Nothing to index when nothing was selected for capture, which is every frame the resolver
-            // took no cache decision - and this runs on every published frame.
-            if (_cacheResolution.MissCaptures.IsEmpty)
+            if (_cacheResolution.MissCaptureCount == 0)
                 return;
 
-            var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
-            foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
+            for (int decisionIndex = 0; decisionIndex < _cacheResolution.Decisions.Length; decisionIndex++)
             {
-                if (_suppressedCacheCaptures.Contains(descriptor.CandidateId))
+                RenderCacheDecision decision = _cacheResolution.Decisions[decisionIndex];
+                if (decision.Kind != RenderCacheResolutionKind.MissCapture)
                     continue;
-                if (!byCandidate.ContainsKey(descriptor.CandidateId))
-                    throw new InvalidOperationException("A selected render-cache miss was not staged.");
-                RenderNodeCache cache = _cacheResolution.GetDecision(descriptor.CandidateId).Candidate.Cache
+                IReadOnlyList<MaterializedRenderValue> capture = _cacheCaptures[decisionIndex]
+                    ?? throw new InvalidOperationException("A selected render-cache miss was not staged.");
+                if (ReferenceEquals(capture, s_suppressedCacheCapture))
+                    continue;
+                RenderNodeCache cache = decision.Candidate.Cache
                     ?? throw new InvalidOperationException("A production cache capture has no node-cache owner.");
                 ObjectDisposedException.ThrowIf(cache.IsDisposed, cache);
                 if (!seenCaches.Add(cache))
@@ -432,20 +424,21 @@ internal sealed partial class RenderRequestExecutor
             ArgumentNullException.ThrowIfNull(transferredTargets);
             if (PreviewAllocationDropObserved)
                 return;
-            // Nothing to index when nothing was selected for capture, which is every frame the resolver
-            // took no cache decision - and this runs on every published frame.
-            if (_cacheResolution.MissCaptures.IsEmpty)
+            if (_cacheResolution.MissCaptureCount == 0)
                 return;
 
-            var byCandidate = _pendingCacheCaptures.ToDictionary(static item => item.Descriptor.CandidateId);
-            foreach (RenderCacheMissCapture descriptor in _cacheResolution.MissCaptures)
+            for (int decisionIndex = 0; decisionIndex < _cacheResolution.Decisions.Length; decisionIndex++)
             {
-                if (_suppressedCacheCaptures.Contains(descriptor.CandidateId))
+                RenderCacheDecision decision = _cacheResolution.Decisions[decisionIndex];
+                if (decision.Kind != RenderCacheResolutionKind.MissCapture)
                     continue;
-                PendingRenderCacheCapture pending = byCandidate[descriptor.CandidateId];
-                RenderNodeCache cache = _cacheResolution.GetDecision(descriptor.CandidateId).Candidate.Cache!;
-                var cachedValues = new List<RenderNodeCachedValue>(pending.Values.Count);
-                foreach (MaterializedRenderValue value in pending.Values)
+                IReadOnlyList<MaterializedRenderValue> values = _cacheCaptures[decisionIndex]
+                    ?? throw new InvalidOperationException("A selected render-cache miss was not staged.");
+                if (ReferenceEquals(values, s_suppressedCacheCapture))
+                    continue;
+                RenderNodeCache cache = decision.Candidate.Cache!;
+                var cachedValues = new List<RenderNodeCachedValue>(values.Count);
+                foreach (MaterializedRenderValue value in values)
                 {
                     RenderTarget target = value.TransferToAcceptedCache();
                     transferredTargets.Add(target);
@@ -464,7 +457,7 @@ internal sealed partial class RenderRequestExecutor
 
                 publications.Add(new RenderNodeCachePublication(
                     cache,
-                    descriptor.Identity,
+                    decision.Identity!,
                     cachedValues));
             }
         }
@@ -477,8 +470,7 @@ internal sealed partial class RenderRequestExecutor
                 return;
             }
 
-            _pendingCacheCaptures.Clear();
-            _suppressedCacheCaptures.Clear();
+            Array.Clear(_cacheCaptures);
         }
 
         public void Dispose()
@@ -498,8 +490,7 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                _pendingCacheCaptures.Clear();
-                _suppressedCacheCaptures.Clear();
+                Array.Clear(_cacheCaptures);
                 _cacheCaptureValues.Clear();
             }
 

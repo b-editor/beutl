@@ -15,7 +15,7 @@ internal sealed class ResourcePlanUseTracker
 
     internal static ResourcePlanUseTracker Create(
         IReadOnlyList<RenderFragmentReference> roots,
-        IReadOnlySet<RenderFragmentId>? terminalFragmentIds = null)
+        RenderCacheResolution? cacheResolution = null)
     {
         ArgumentNullException.ThrowIfNull(roots);
         var remainingUses = new Dictionary<RenderFragmentReference, int>(
@@ -25,7 +25,7 @@ internal sealed class ResourcePlanUseTracker
         foreach (RenderFragmentReference root in roots)
         {
             ArgumentNullException.ThrowIfNull(root);
-            Visit(root, terminalFragmentIds, visiting, remainingUses);
+            Visit(root, cacheResolution, visiting, remainingUses);
             remainingUses[root]++;
         }
 
@@ -33,7 +33,7 @@ internal sealed class ResourcePlanUseTracker
 
         static void Visit(
             RenderFragmentReference fragment,
-            IReadOnlySet<RenderFragmentId>? terminalFragmentIds,
+            RenderCacheResolution? cacheResolution,
             HashSet<RenderFragmentReference> visiting,
             Dictionary<RenderFragmentReference, int> remainingUses)
         {
@@ -42,11 +42,11 @@ internal sealed class ResourcePlanUseTracker
             if (!visiting.Add(fragment))
                 throw new InvalidOperationException("The resource-use graph contains a fragment cycle.");
 
-            if (fragment.Id is not { } id || terminalFragmentIds?.Contains(id) != true)
+            if (fragment.Id is not { } id || cacheResolution?.HasHitProducer(id) != true)
             {
                 foreach (RenderFragmentReference input in fragment.ExecutionInputs)
                 {
-                    Visit(input, terminalFragmentIds, visiting, remainingUses);
+                    Visit(input, cacheResolution, visiting, remainingUses);
                     remainingUses[input]++;
                 }
             }

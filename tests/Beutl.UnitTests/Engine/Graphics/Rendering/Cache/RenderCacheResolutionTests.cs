@@ -267,11 +267,11 @@ public sealed class RenderCacheResolutionTests
             [(child, "child"), (parent, "parent")]);
         RenderCacheResolution cold = Resolve(scenario);
         var lookup = new RecordingLookup();
-        lookup.AddRange(cold.MissCaptures);
+        lookup.AddRange(GetMissCaptures(cold));
 
         RenderCacheResolution warmed = Resolve(scenario, lookup);
-        RenderCacheDecision childDecision = warmed.GetDecision(scenario.Candidate(child));
-        RenderCacheDecision parentDecision = warmed.GetDecision(scenario.Candidate(parent));
+        RenderCacheDecision childDecision = GetDecision(warmed, scenario.Candidate(child));
+        RenderCacheDecision parentDecision = GetDecision(warmed, scenario.Candidate(parent));
 
         Assert.Multiple(() =>
         {
@@ -295,21 +295,74 @@ public sealed class RenderCacheResolutionTests
             [(child, "child"), (parent, "parent")]);
         RenderCacheResolution cold = Resolve(scenario);
         var lookup = new RecordingLookup();
-        lookup.Add(cold.GetDecision(scenario.Candidate(child)).MissCapture!);
+        lookup.Add(GetDecision(cold, scenario.Candidate(child)));
 
         RenderCacheResolution warmed = Resolve(scenario, lookup);
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                warmed.GetDecision(scenario.Candidate(parent)).Kind,
+                GetDecision(warmed, scenario.Candidate(parent)).Kind,
                 Is.EqualTo(RenderCacheResolutionKind.MissCapture));
             Assert.That(
-                warmed.GetDecision(scenario.Candidate(child)).Kind,
+                GetDecision(warmed, scenario.Candidate(child)).Kind,
                 Is.EqualTo(RenderCacheResolutionKind.Hit));
-            Assert.That(warmed.Hits.Single().OriginalProducerId, Is.EqualTo(child.Id));
-            Assert.That(warmed.MissCaptures.Single().ProducerId, Is.EqualTo(parent.Id));
+            Assert.That(GetHits(warmed).Single().Candidate.FragmentId, Is.EqualTo(child.Id));
+            Assert.That(GetMissCaptures(warmed).Single().Candidate.FragmentId, Is.EqualTo(parent.Id));
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "parent", "child" }));
+        });
+    }
+
+    [Test]
+    public void SelectedIndex_PreservesHitAndEveryMissForTheSameProducer()
+    {
+        RenderFragmentReference first = Pure();
+        RenderFragmentReference second = Pure();
+        RenderFragmentReference third = Pure();
+        using Scenario scenario = Build(
+            [first, second, third],
+            [first, second, third],
+            [(first, "first"), (second, "second"), (third, "third")]);
+        RenderCacheResolution cold = Resolve(scenario);
+        RenderCacheCandidate producer = cold.Decisions[0].Candidate;
+        RenderCacheCandidate secondCandidate = cold.Decisions[1].Candidate with
+        {
+            FragmentId = producer.FragmentId,
+        };
+        RenderCacheCandidate thirdCandidate = cold.Decisions[2].Candidate with
+        {
+            FragmentId = producer.FragmentId,
+        };
+        RenderOutputCacheIdentity hitIdentity = cold.Decisions[0].Identity!;
+        var hitEntry = new RenderCacheEntry(hitIdentity, new object());
+        var resolution = new RenderCacheResolution(
+        [
+            new RenderCacheDecision(
+                producer,
+                RenderCacheResolutionKind.Hit,
+                RenderCacheBypassReason.None,
+                null,
+                hitEntry),
+            cold.Decisions[1] with { Candidate = secondCandidate },
+            cold.Decisions[2] with { Candidate = thirdCandidate },
+        ]);
+
+        int[] missDecisionIndices = resolution
+            .GetMissCaptureDecisionIndices(producer.FragmentId)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resolution.Decisions.Select(static decision => decision.Candidate.Id.Value),
+                Is.EqualTo(new long[] { 1, 2, 3 }));
+            Assert.That(GetHits(resolution), Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptureCount, Is.EqualTo(2));
+            Assert.That(resolution.TryGetHit(producer.FragmentId, out RenderCacheDecision hit), Is.True);
+            Assert.That(hit.HitEntry, Is.SameAs(hitEntry));
+            Assert.That(missDecisionIndices, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(
+                GetDecision(resolution, thirdCandidate.Id).Candidate,
+                Is.SameAs(thirdCandidate));
         });
     }
 
@@ -333,21 +386,19 @@ public sealed class RenderCacheResolutionTests
             [(child, "child"), (boundary, "boundary")]);
         RenderCacheResolution cold = Resolve(scenario);
         var lookup = new RecordingLookup();
-        RenderCacheMissCapture? childCapture = cold
-            .GetDecision(scenario.Candidate(child))
-            .MissCapture;
-        if (childCapture is not null)
-            lookup.Add(childCapture);
+        RenderCacheDecision coldChildDecision = GetDecision(cold, scenario.Candidate(child));
+        if (coldChildDecision.Kind == RenderCacheResolutionKind.MissCapture)
+            lookup.Add(coldChildDecision);
 
         RenderCacheResolution warmed = Resolve(scenario, lookup);
-        RenderCacheDecision boundaryDecision = warmed.GetDecision(scenario.Candidate(boundary));
-        RenderCacheDecision childDecision = warmed.GetDecision(scenario.Candidate(child));
+        RenderCacheDecision boundaryDecision = GetDecision(warmed, scenario.Candidate(boundary));
+        RenderCacheDecision childDecision = GetDecision(warmed, scenario.Candidate(child));
 
         Assert.Multiple(() =>
         {
             Assert.That(boundaryDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Bypass));
             Assert.That(boundaryDecision.BypassReason, Is.EqualTo(expectedReason));
-            if (childCapture is not null)
+            if (coldChildDecision.Kind == RenderCacheResolutionKind.MissCapture)
                 Assert.That(childDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
         });
     }
@@ -358,7 +409,7 @@ public sealed class RenderCacheResolutionTests
         using Scenario baseline = SingleCandidate();
         RenderCacheResolution cold = Resolve(baseline);
         var lookup = new RecordingLookup();
-        lookup.Add(cold.MissCaptures.Single());
+        lookup.Add(GetMissCaptures(cold).Single());
 
         AssertMiss(SingleCandidate(requestedRegion: new Rect(0, 0, 32, 64)), s_context, lookup);
         AssertMiss(SingleCandidate(outputScale: 2), s_context, lookup);
@@ -392,7 +443,7 @@ public sealed class RenderCacheResolutionTests
         using Scenario baseline = ShaderFanOut(description, widenSiblingRequirement: false);
         RenderCacheResolution cold = Resolve(baseline);
         var lookup = new RecordingLookup();
-        lookup.Add(cold.MissCaptures.Single());
+        lookup.Add(GetMissCaptures(cold).Single());
 
         using Scenario expanded = ShaderFanOut(description, widenSiblingRequirement: true);
         RenderCacheResolution resolution = Resolve(expanded, lookup);
@@ -402,8 +453,8 @@ public sealed class RenderCacheResolutionTests
             Assert.That(
                 expanded.Regions.GetFragmentRequirement(expanded.Named("shared")),
                 Is.Not.EqualTo(baseline.Regions.GetFragmentRequirement(baseline.Named("shared"))));
-            Assert.That(resolution.Hits, Has.Length.EqualTo(1));
-            Assert.That(resolution.MissCaptures, Is.Empty);
+            Assert.That(GetHits(resolution), Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptureCount, Is.Zero);
         });
     }
 
@@ -413,7 +464,7 @@ public sealed class RenderCacheResolutionTests
         using Scenario baseline = ExternalReusableShaderFanOut(widenSiblingRequirement: false);
         RenderCacheResolution cold = Resolve(baseline);
         var lookup = new RecordingLookup();
-        lookup.Add(cold.MissCaptures.Single());
+        lookup.Add(GetMissCaptures(cold).Single());
 
         using Scenario expanded = ExternalReusableShaderFanOut(widenSiblingRequirement: true);
         RenderCacheResolution resolution = Resolve(expanded, lookup);
@@ -429,8 +480,8 @@ public sealed class RenderCacheResolutionTests
             Assert.That(
                 expanded.Regions.GetFragmentRequirement(expanded.Named("producer")),
                 Is.EqualTo(RequiredRegion.Region(new Rect(8, 8, 32, 32))));
-            Assert.That(resolution.Hits, Has.Length.EqualTo(1));
-            Assert.That(resolution.MissCaptures, Is.Empty);
+            Assert.That(GetHits(resolution), Has.Length.EqualTo(1));
+            Assert.That(resolution.MissCaptureCount, Is.Zero);
         });
     }
 
@@ -451,9 +502,9 @@ public sealed class RenderCacheResolutionTests
         using (Scenario first = ShaderCandidate(description))
         {
             RenderCacheResolution cold = Resolve(first, context: firstContext);
-            lookup.AddRange(cold.MissCaptures);
+            lookup.AddRange(GetMissCaptures(cold));
             Assert.That(
-                cold.MissCaptures.Single().Identity.DeviceGridOffset,
+                GetMissCaptures(cold).Single().Identity!.DeviceGridOffset,
                 Is.EqualTo(new Vector(1, 1)));
         }
 
@@ -462,10 +513,10 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(moved.Hits, Is.Empty);
-            Assert.That(moved.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(GetHits(moved), Is.Empty);
+            Assert.That(moved.MissCaptureCount, Is.EqualTo(1));
             Assert.That(
-                moved.MissCaptures.Single().Identity.DeviceGridOffset,
+                GetMissCaptures(moved).Single().Identity!.DeviceGridOffset,
                 Is.EqualTo(new Vector(2, 2)));
         });
     }
@@ -486,18 +537,18 @@ public sealed class RenderCacheResolutionTests
             maxWorkingScale: maxWorkingScale);
 
         RenderCacheResolution cold = Resolve(scenario);
-        RenderCacheMissCapture capture = cold.MissCaptures.Single();
+        RenderCacheDecision capture = GetMissCaptures(cold).Single();
         var lookup = new RecordingLookup();
         lookup.Add(capture);
 
         RenderCacheResolution warm = Resolve(scenario, lookup);
-        RenderCacheDecision decision = warm.GetDecision(scenario.Candidate(source));
+        RenderCacheDecision decision = GetDecision(warm, scenario.Candidate(source));
 
         Assert.Multiple(() =>
         {
-            Assert.That(capture.Identity.Density, Is.EqualTo(expectedDensity));
+            Assert.That(capture.Identity!.Density, Is.EqualTo(expectedDensity));
             Assert.That(decision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
-            Assert.That(decision.Hit!.Entry.Identity.Density, Is.EqualTo(expectedDensity));
+            Assert.That(decision.HitEntry!.Identity.Density, Is.EqualTo(expectedDensity));
         });
     }
 
@@ -624,17 +675,17 @@ public sealed class RenderCacheResolutionTests
         RenderCachePlanningResult cold = ResolvePlanning(scenario, lookup);
         Assert.Multiple(() =>
         {
-            Assert.That(cold.Resolution.MissCaptures, Has.Length.EqualTo(1));
+            Assert.That(cold.Resolution.MissCaptureCount, Is.EqualTo(1));
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
         });
 
-        lookup.Add(cold.Resolution.MissCaptures.Single());
+        lookup.Add(GetMissCaptures(cold.Resolution).Single());
         lookup.RequestedKeys.Clear();
         RenderCachePlanningResult warm = ResolvePlanning(scenario, lookup);
 
         Assert.Multiple(() =>
         {
-            Assert.That(warm.Resolution.Hits, Has.Length.EqualTo(1));
+            Assert.That(GetHits(warm.Resolution), Has.Length.EqualTo(1));
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
         });
     }
@@ -645,7 +696,7 @@ public sealed class RenderCacheResolutionTests
         using Scenario scenario = SingleCandidate();
         RenderCachePlanningResult cold = ResolvePlanning(scenario);
         var lookup = new RecordingLookup();
-        lookup.Add(cold.Resolution.MissCaptures.Single());
+        lookup.Add(GetMissCaptures(cold.Resolution).Single());
         var lookupOnlyContext = new RenderCacheResolutionContext(
             s_context.Format,
             s_context.DeviceContext,
@@ -659,8 +710,8 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.Resolution.Hits, Has.Length.EqualTo(1));
-            Assert.That(result.Resolution.MissCaptures, Is.Empty);
+            Assert.That(GetHits(result.Resolution), Has.Length.EqualTo(1));
+            Assert.That(result.Resolution.MissCaptureCount, Is.Zero);
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "source" }));
         });
     }
@@ -735,7 +786,7 @@ public sealed class RenderCacheResolutionTests
         using Scenario coldScenario = OpacityMaskCandidate(outputScale: 1);
         RenderCachePlanningResult cold = ResolvePlanning(coldScenario);
         var lookup = new RecordingLookup();
-        lookup.Add(cold.Resolution.MissCaptures.Single());
+        lookup.Add(GetMissCaptures(cold.Resolution).Single());
 
         using Scenario warmScenario = OpacityMaskCandidate(outputScale: 2);
         RenderCachePlanningResult warm = ResolvePlanning(warmScenario, lookup);
@@ -748,10 +799,10 @@ public sealed class RenderCacheResolutionTests
             Assert.That(
                 warm.MaterializationDemands[warmScenario.Named("dependency")],
                 Is.EqualTo(EffectiveScale.At(0.5f)));
-            Assert.That(warm.Resolution.Hits.Length, Is.EqualTo(1));
+            Assert.That(GetHits(warm.Resolution), Has.Length.EqualTo(1));
             Assert.That(
-                warm.Resolution.Hits.Single().Identity,
-                Is.EqualTo(cold.Resolution.MissCaptures.Single().Identity));
+                GetHits(warm.Resolution).Single().Identity,
+                Is.EqualTo(GetMissCaptures(cold.Resolution).Single().Identity));
         });
     }
 
@@ -773,8 +824,8 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.Resolution.Hits, Is.Empty);
-            Assert.That(result.Resolution.MissCaptures, Is.Empty);
+            Assert.That(GetHits(result.Resolution), Is.Empty);
+            Assert.That(result.Resolution.MissCaptureCount, Is.Zero);
             Assert.That(
                 result.Resolution.Decisions.Single().BypassReason,
                 Is.EqualTo(RenderCacheBypassReason.UnstableBoundaryPlan));
@@ -802,17 +853,17 @@ public sealed class RenderCacheResolutionTests
             });
         RenderCachePlanningResult cold = ResolvePlanning(scenario);
         var lookup = new RecordingLookup();
-        lookup.AddRange(cold.Resolution.MissCaptures);
+        lookup.AddRange(GetMissCaptures(cold.Resolution));
 
         RenderCachePlanningResult warm = ResolvePlanning(scenario, lookup);
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                warm.Resolution.GetDecision(scenario.Candidate("parent")).Kind,
+                GetDecision(warm.Resolution, scenario.Candidate("parent")).Kind,
                 Is.EqualTo(RenderCacheResolutionKind.Hit));
             Assert.That(
-                warm.Resolution.GetDecision(scenario.Candidate("child")).Kind,
+                GetDecision(warm.Resolution, scenario.Candidate("child")).Kind,
                 Is.EqualTo(RenderCacheResolutionKind.Superseded));
             Assert.That(
                 warm.MaterializationDemands[scenario.Named("dependency")],
@@ -860,10 +911,10 @@ public sealed class RenderCacheResolutionTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                result.Resolution.GetDecision(scenario.Candidate("parent")).Kind,
+                GetDecision(result.Resolution, scenario.Candidate("parent")).Kind,
                 Is.EqualTo(RenderCacheResolutionKind.MissCapture));
             Assert.That(
-                result.Resolution.GetDecision(scenario.Candidate("child")).BypassReason,
+                GetDecision(result.Resolution, scenario.Candidate("child")).BypassReason,
                 Is.EqualTo(RenderCacheBypassReason.OutsideCacheRules));
             Assert.That(
                 result.MaterializationDemands[scenario.Named("dependency")],
@@ -1075,8 +1126,9 @@ public sealed class RenderCacheResolutionTests
         RenderCachePlanningResult planning = ResolvePlanning(scenario);
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
             planning.MaterializationDemands;
-        RenderCacheDecision decision = planning.Resolution
-            .GetDecision(scenario.Candidate(contributing));
+        RenderCacheDecision decision = GetDecision(
+            planning.Resolution,
+            scenario.Candidate(contributing));
 
         Assert.Multiple(() =>
         {
@@ -1095,7 +1147,7 @@ public sealed class RenderCacheResolutionTests
     {
         using Scenario first = SingleCandidate(candidateKey: new CollidingKey("first"));
         RenderCacheResolution cold = Resolve(first);
-        RenderCacheEntry wrong = new(cold.MissCaptures.Single().Identity, new object());
+        RenderCacheEntry wrong = new(GetMissCaptures(cold).Single().Identity!, new object());
         using Scenario second = SingleCandidate(candidateKey: new CollidingKey("second"));
 
         RenderCacheResolution resolution = Resolve(second, new CollisionLookup(wrong));
@@ -1103,10 +1155,10 @@ public sealed class RenderCacheResolutionTests
         Assert.Multiple(() =>
         {
             Assert.That(wrong.Identity.GetHashCode(),
-                Is.EqualTo(resolution.MissCaptures.Single().Identity.GetHashCode()));
-            Assert.That(resolution.Hits, Is.Empty);
-            Assert.That(resolution.MissCaptures.Length, Is.EqualTo(1));
-            Assert.That(resolution.MissCaptures.Single().Identity, Is.Not.EqualTo(wrong.Identity));
+                Is.EqualTo(GetMissCaptures(resolution).Single().Identity!.GetHashCode()));
+            Assert.That(GetHits(resolution), Is.Empty);
+            Assert.That(resolution.MissCaptureCount, Is.EqualTo(1));
+            Assert.That(GetMissCaptures(resolution).Single().Identity, Is.Not.EqualTo(wrong.Identity));
         });
     }
 
@@ -1118,8 +1170,8 @@ public sealed class RenderCacheResolutionTests
         using (Scenario enabled = SingleCandidate(fusionMode: FusionMode.Enabled))
         {
             RenderCacheResolution cold = Resolve(enabled, lookup);
-            RenderCacheMissCapture capture = cold.MissCaptures.Single();
-            enabledIdentity = capture.Identity;
+            RenderCacheDecision capture = GetMissCaptures(cold).Single();
+            enabledIdentity = capture.Identity!;
             lookup.Add(capture);
         }
 
@@ -1128,11 +1180,13 @@ public sealed class RenderCacheResolutionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(resolution.Hits, Is.Empty);
-            Assert.That(resolution.MissCaptures, Has.Length.EqualTo(1));
-            Assert.That(resolution.MissCaptures.Single().Identity, Is.Not.EqualTo(enabledIdentity));
+            Assert.That(GetHits(resolution), Is.Empty);
+            Assert.That(resolution.MissCaptureCount, Is.EqualTo(1));
+            Assert.That(GetMissCaptures(resolution).Single().Identity, Is.Not.EqualTo(enabledIdentity));
             Assert.That(enabledIdentity.FusionMode, Is.EqualTo(FusionMode.Enabled));
-            Assert.That(resolution.MissCaptures.Single().Identity.FusionMode, Is.EqualTo(FusionMode.Disabled));
+            Assert.That(
+                GetMissCaptures(resolution).Single().Identity!.FusionMode,
+                Is.EqualTo(FusionMode.Disabled));
         });
     }
 
@@ -1149,13 +1203,13 @@ public sealed class RenderCacheResolutionTests
 
         RenderCacheResolution resolution = Resolve(scenario);
         TargetDependencyPlan after = TargetDependencyLowerer.Lower([command]);
-        RenderCacheMissCapture capture = resolution.MissCaptures.Single();
+        RenderCacheDecision capture = GetMissCaptures(resolution).Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(capture.ProducerId, Is.EqualTo(source.Id!.Value));
+            Assert.That(capture.Candidate.FragmentId, Is.EqualTo(source.Id!.Value));
             Assert.That(capture.Identity, Is.SameAs(resolution.Decisions.Single().Identity));
-            Assert.That(scenario.Graph.GetFragment(capture.ProducerId), Is.SameAs(source));
+            Assert.That(scenario.Graph.GetFragment(capture.Candidate.FragmentId), Is.SameAs(source));
             Assert.That(command.Inputs.Single(), Is.SameAs(source));
             Assert.That(after.Steps, Is.EqualTo(before.Steps));
             Assert.That(after.Scopes, Is.EqualTo(before.Scopes));
@@ -1558,10 +1612,22 @@ public sealed class RenderCacheResolutionTests
         using (scenario)
         {
             RenderCacheResolution resolution = Resolve(scenario, lookup, context);
-            Assert.That(resolution.Hits, Is.Empty);
-            Assert.That(resolution.MissCaptures.Length, Is.EqualTo(1));
+            Assert.That(GetHits(resolution), Is.Empty);
+            Assert.That(resolution.MissCaptureCount, Is.EqualTo(1));
         }
     }
+
+    private static RenderCacheDecision[] GetHits(RenderCacheResolution resolution)
+        => [.. resolution.Decisions.Where(static decision => decision.Kind == RenderCacheResolutionKind.Hit)];
+
+    private static RenderCacheDecision GetDecision(
+        RenderCacheResolution resolution,
+        RenderCacheCandidateId candidateId)
+        => resolution.Decisions[checked((int)candidateId.Value - 1)];
+
+    private static RenderCacheDecision[] GetMissCaptures(RenderCacheResolution resolution)
+        => [.. resolution.Decisions.Where(
+            static decision => decision.Kind == RenderCacheResolutionKind.MissCapture)];
 
     private static RenderCacheResolution Resolve(
         Scenario scenario,
@@ -1812,12 +1878,15 @@ public sealed class RenderCacheResolutionTests
 
         public List<object> RequestedKeys { get; } = [];
 
-        public void Add(RenderCacheMissCapture capture)
-            => _entries.Add(new RenderCacheEntry(capture.Identity, new object()));
-
-        public void AddRange(IEnumerable<RenderCacheMissCapture> captures)
+        public void Add(RenderCacheDecision capture)
         {
-            foreach (RenderCacheMissCapture capture in captures)
+            Assert.That(capture.Kind, Is.EqualTo(RenderCacheResolutionKind.MissCapture));
+            _entries.Add(new RenderCacheEntry(capture.Identity!, new object()));
+        }
+
+        public void AddRange(IEnumerable<RenderCacheDecision> captures)
+        {
+            foreach (RenderCacheDecision capture in captures)
                 Add(capture);
         }
 

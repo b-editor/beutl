@@ -310,15 +310,8 @@ internal sealed partial class RenderRequestExecutor
             new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<MaterializedRenderValue, int> _valueReferences =
             new(ReferenceEqualityComparer.Instance);
-        private static readonly Dictionary<RenderFragmentId, RenderCacheHitSubstitution> s_noCacheHits = [];
-
-        private static readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>>
-            s_noCacheMisses = [];
-
-        private readonly Dictionary<RenderFragmentId, RenderCacheHitSubstitution> _cacheHits;
-        private readonly Dictionary<RenderFragmentId, ImmutableArray<RenderCacheMissCapture>> _cacheMisses;
-        private readonly List<PendingRenderCacheCapture> _pendingCacheCaptures = [];
-        private readonly HashSet<RenderCacheCandidateId> _suppressedCacheCaptures = [];
+        private static readonly IReadOnlyList<MaterializedRenderValue> s_suppressedCacheCapture = [];
+        private readonly IReadOnlyList<MaterializedRenderValue>?[] _cacheCaptures;
         private readonly List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)> _backdropCaptures = [];
         private readonly List<PendingBackdropPublication> _pendingBackdropPublications = [];
         private readonly List<ImmediateCanvas> _backdropSources = [];
@@ -355,8 +348,7 @@ internal sealed partial class RenderRequestExecutor
             _executionPlan = executionPlan;
             _executionLedger = executionPlan.CreateExecutionLedger(graph);
             _regions = regions;
-            HashSet<RenderFragmentId> cacheHitFragmentIds = cacheResolution.CollectPrunedHitProducers();
-            _resourceUses = ResourcePlanUseTracker.Create(roots, cacheHitFragmentIds);
+            _resourceUses = ResourcePlanUseTracker.Create(roots, cacheResolution);
             _cacheResolution = cacheResolution;
             _materializationDemands = materializationDemands
                 ?? throw new ArgumentNullException(nameof(materializationDemands));
@@ -372,18 +364,9 @@ internal sealed partial class RenderRequestExecutor
             _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
             _afterCaptureAllocation = afterCaptureAllocation;
-            // Both are empty whenever the request resolved no cache decision, which is the ordinary frame;
-            // GroupBy alone costs a lookup with its buckets before it can report that nothing was grouped.
-            _cacheHits = cacheResolution.Hits.IsEmpty
-                ? s_noCacheHits
-                : cacheResolution.Hits.ToDictionary(static item => item.OriginalProducerId);
-            _cacheMisses = cacheResolution.MissCaptures.IsEmpty
-                ? s_noCacheMisses
-                : cacheResolution.MissCaptures
-                    .GroupBy(static item => item.ProducerId)
-                    .ToDictionary(
-                        static group => group.Key,
-                        static group => group.ToImmutableArray());
+            _cacheCaptures = cacheResolution.MissCaptureCount == 0
+                ? []
+                : new IReadOnlyList<MaterializedRenderValue>?[cacheResolution.Decisions.Length];
 
             var scopes = targetDependencies.Scopes.ToDictionary(static scope => scope.Id);
             foreach (TargetScopePlan scope in targetDependencies.Scopes)
@@ -451,7 +434,7 @@ internal sealed partial class RenderRequestExecutor
         private void ReplayCore(RenderFragmentReference fragment, ImmediateCanvas destination)
         {
             if (fragment.Id is { } boundaryId
-                && (_cacheHits.ContainsKey(boundaryId) || _cacheMisses.ContainsKey(boundaryId)))
+                && _cacheResolution.HasSelectedProducer(boundaryId))
             {
                 IReadOnlyList<MaterializedRenderValue> boundaryValues = Materialize(
                     fragment,
@@ -627,10 +610,6 @@ internal sealed partial class RenderRequestExecutor
                 value.RasterBounds.Size,
                 _options.Intent,
                 value.DeviceBounds.Position);
-
-        private sealed record PendingRenderCacheCapture(
-            RenderCacheMissCapture Descriptor,
-            IReadOnlyList<MaterializedRenderValue> Values);
 
         private sealed class PendingBackdropPublication(
             IBuiltInBackdropCaptureSink sink,

@@ -1,10 +1,12 @@
 ﻿namespace Beutl.Graphics.Rendering.Requests;
 
-internal sealed record RenderCacheDecision(
+internal readonly record struct RenderCacheDecision(
     RenderCacheCandidate Candidate,
     RenderCacheResolutionKind Kind,
     RenderCacheBypassReason BypassReason,
-    RenderOutputCacheIdentity? Identity,
-    RenderCacheHitSubstitution? Hit,
-    RenderCacheMissCapture? MissCapture,
-    RenderCacheCandidateId? SupersededBy);
+    RenderOutputCacheIdentity? MissIdentity,
+    RenderCacheEntry? HitEntry,
+    RenderCacheCandidateId SupersededBy = default)
+{
+    public RenderOutputCacheIdentity? Identity => HitEntry?.Identity ?? MissIdentity;
+}

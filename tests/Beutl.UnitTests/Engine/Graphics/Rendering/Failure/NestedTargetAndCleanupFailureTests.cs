@@ -644,6 +644,106 @@ public sealed class NestedTargetAndCleanupFailureTests
     }
 
     [Test]
+    public void SameProducerHitAndMultipleMisses_PublishEveryCapture()
+    {
+        using var producer = new CacheableChildNode(throwOnExecute: false);
+        using var firstCaptureOwner = new ReferencesChildRenderNode(producer);
+        using var secondCaptureOwner = new ReferencesChildRenderNode(firstCaptureOwner);
+        producer.Cache.RecordStableRequests();
+        firstCaptureOwner.Cache.RecordStableRequests();
+        secondCaptureOwner.Cache.RecordStableRequests();
+        secondCaptureOwner.SettleConstruction();
+        using RenderTarget cachedTarget = FailureTestSupport.CreateCpuTarget();
+        using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: true);
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(secondCaptureOwner);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler(
+            renderCacheContext: FailureTestSupport.CacheResolutionContext,
+            renderCacheLookup: new FirstCandidateHitLookup(cachedTarget)).Compile(request, graph);
+        var decisions = compiled.CacheResolution.Decisions;
+        RenderNodeCache firstMissCache = decisions[1].Candidate.Cache!;
+        RenderNodeCache secondMissCache = decisions[2].Candidate.Cache!;
+        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
+        using var registry = new RenderTargetPool(factory: null);
+        using RenderTargetLeaseSession targets = registry.BeginSession(
+            RenderIntent.Preview,
+            destination);
+
+        new RenderRequestExecutor(targets).Execute(compiled, canvas);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                decisions.Select(static decision => decision.Kind),
+                Is.EqualTo(new[]
+                {
+                    RenderCacheResolutionKind.Hit,
+                    RenderCacheResolutionKind.MissCapture,
+                    RenderCacheResolutionKind.MissCapture,
+                }));
+            Assert.That(decisions.Select(static decision => decision.Candidate.FragmentId), Is.All.EqualTo(
+                decisions[0].Candidate.FragmentId));
+            Assert.That(firstMissCache, Is.Not.SameAs(secondMissCache));
+            Assert.That(producer.ExecuteCalls, Is.Zero);
+            Assert.That(producer.Cache.IsCached, Is.False);
+            Assert.That(firstMissCache.CacheCount, Is.EqualTo(1));
+            Assert.That(secondMissCache.CacheCount, Is.EqualTo(1));
+            Assert.That(firstMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.True);
+            Assert.That(firstMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.False);
+            Assert.That(secondMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.True);
+            Assert.That(secondMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.False);
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void SameProducerHitAndMultipleMisses_RollBackWhenOneCacheIsDisposed()
+    {
+        using var producer = new CacheableChildNode(throwOnExecute: false);
+        using var firstCaptureOwner = new ReferencesChildRenderNode(producer);
+        using var secondCaptureOwner = new ReferencesChildRenderNode(firstCaptureOwner);
+        producer.Cache.RecordStableRequests();
+        firstCaptureOwner.Cache.RecordStableRequests();
+        secondCaptureOwner.Cache.RecordStableRequests();
+        secondCaptureOwner.SettleConstruction();
+        using RenderTarget cachedTarget = FailureTestSupport.CreateCpuTarget();
+        using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: true);
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(secondCaptureOwner);
+        using CompiledRenderRequest compiled = new RenderRequestCompiler(
+            renderCacheContext: FailureTestSupport.CacheResolutionContext,
+            renderCacheLookup: new FirstCandidateHitLookup(cachedTarget)).Compile(request, graph);
+        var decisions = compiled.CacheResolution.Decisions;
+        RenderNodeCache firstMissCache = decisions[1].Candidate.Cache!;
+        RenderNodeCache secondMissCache = decisions[2].Candidate.Cache!;
+        secondMissCache.Dispose();
+        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
+        using var registry = new RenderTargetPool(factory: null);
+        using RenderTargetLeaseSession targets = registry.BeginSession(
+            RenderIntent.Preview,
+            destination);
+
+        Assert.Throws<ObjectDisposedException>(
+            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                decisions.Select(static decision => decision.Kind),
+                Is.EqualTo(new[]
+                {
+                    RenderCacheResolutionKind.Hit,
+                    RenderCacheResolutionKind.MissCapture,
+                    RenderCacheResolutionKind.MissCapture,
+                }));
+            Assert.That(producer.ExecuteCalls, Is.Zero);
+            Assert.That(firstMissCache.IsCached, Is.False);
+            Assert.That(secondMissCache.IsCached, Is.False);
+            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+        });
+    }
+
+    [Test]
     public void LaterExecutionFailure_RejectsAnEarlierStagedCacheCaptureWithoutPartialPublication()
     {
         using var successful = new CacheableChildNode(throwOnExecute: false);
@@ -820,6 +920,32 @@ public sealed class NestedTargetAndCleanupFailureTests
                     s_bounds,
                     EffectiveScale.At(1))]),
         ]);
+    }
+
+    private sealed class FirstCandidateHitLookup(RenderTarget target) : IRenderCacheLookup
+    {
+        public bool TryGet(
+            RenderCacheCandidate candidate,
+            RenderOutputCacheIdentity identity,
+            out RenderCacheEntry? entry)
+        {
+            if (candidate.Id.Value != 1)
+            {
+                entry = null;
+                return false;
+            }
+
+            entry = new RenderCacheEntry(
+                identity,
+                new RenderNodeCachedOutput(
+                [
+                    new RenderNodeCachedValue(
+                        target,
+                        identity.Bounds,
+                        EffectiveScale.At(identity.Density)),
+                ]));
+            return true;
+        }
     }
 
     public enum TargetCallbackFailure

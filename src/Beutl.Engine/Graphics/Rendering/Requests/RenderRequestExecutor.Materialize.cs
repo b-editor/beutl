@@ -140,13 +140,13 @@ internal sealed partial class RenderRequestExecutor
             out IReadOnlyList<MaterializedRenderValue>? values)
         {
             if (fragment.Id is not { } id
-                || !_cacheHits.TryGetValue(id, out RenderCacheHitSubstitution? hit))
+                || !_cacheResolution.TryGetHit(id, out RenderCacheDecision hit))
             {
                 values = null;
                 return false;
             }
 
-            if (hit.Entry.Payload is not RenderNodeCachedOutput cachedOutput)
+            if (hit.HitEntry!.Payload is not RenderNodeCachedOutput cachedOutput)
             {
                 throw new InvalidOperationException(
                     "A selected render-cache hit does not contain a node-cache output payload.");
@@ -161,7 +161,7 @@ internal sealed partial class RenderRequestExecutor
                     if (cached.EffectiveScale.IsUnbounded
                         || (!supportsIndependentOutputDensities
                             && BitConverter.SingleToInt32Bits(cached.EffectiveScale.Value)
-                            != BitConverter.SingleToInt32Bits(hit.Identity.Density)))
+                            != BitConverter.SingleToInt32Bits(hit.Identity!.Density)))
                     {
                         throw new InvalidOperationException(
                             "A render-cache hit payload does not match its planned materialization density.");
@@ -195,7 +195,10 @@ internal sealed partial class RenderRequestExecutor
         {
             if (PreviewAllocationDropObserved)
                 return;
-            if (fragment.Id is not { } id || !_cacheMisses.TryGetValue(id, out var misses))
+            if (fragment.Id is not { } id)
+                return;
+            ReadOnlySpan<int> missDecisionIndices = _cacheResolution.GetMissCaptureDecisionIndices(id);
+            if (missDecisionIndices.IsEmpty)
                 return;
 
             bool supportsIndependentOutputDensities = fragment.SupportsIndependentOutputDensities;
@@ -208,11 +211,12 @@ internal sealed partial class RenderRequestExecutor
                     : actualPixels + valuePixels;
             }
 
-            foreach (RenderCacheMissCapture miss in misses)
+            foreach (int decisionIndex in missDecisionIndices)
             {
+                RenderCacheDecision miss = _cacheResolution.Decisions[decisionIndex];
                 if (!_options.CachePolicy.Rules.Match(actualPixels))
                 {
-                    _suppressedCacheCaptures.Add(miss.CandidateId);
+                    _cacheCaptures[decisionIndex] = s_suppressedCacheCapture;
                     continue;
                 }
 
@@ -224,7 +228,7 @@ internal sealed partial class RenderRequestExecutor
                     {
                         if (!supportsIndependentOutputDensities
                             && BitConverter.SingleToInt32Bits(value.EffectiveScale.Value)
-                            != BitConverter.SingleToInt32Bits(miss.Identity.Density))
+                            != BitConverter.SingleToInt32Bits(miss.Identity!.Density))
                         {
                             throw new InvalidOperationException(
                                 "A render-cache capture does not match its planned materialization density.");
@@ -250,11 +254,11 @@ internal sealed partial class RenderRequestExecutor
                             ReleaseUnpublished(partial);
                         }
 
-                        _suppressedCacheCaptures.Add(miss.CandidateId);
+                        _cacheCaptures[decisionIndex] = s_suppressedCacheCapture;
                         continue;
                     }
 
-                    _pendingCacheCaptures.Add(new PendingRenderCacheCapture(miss, captures));
+                    _cacheCaptures[decisionIndex] = captures;
                 }
                 catch
                 {

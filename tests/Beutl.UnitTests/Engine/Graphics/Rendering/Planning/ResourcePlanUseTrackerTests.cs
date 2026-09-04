@@ -20,7 +20,7 @@ public sealed class ResourcePlanUseTrackerTests
             [hitProducer, sharedSource]);
         ResourcePlanUseTracker pruned = ResourcePlanUseTracker.Create(
             [hitProducer, sharedSource],
-            new HashSet<RenderFragmentId> { hitProducer.Id!.Value });
+            CreateHitResolution(requestId, hitProducer));
 
         Assert.Multiple(() =>
         {
@@ -43,7 +43,7 @@ public sealed class ResourcePlanUseTrackerTests
 
         ResourcePlanUseTracker tracker = ResourcePlanUseTracker.Create(
             [hitProducer],
-            new HashSet<RenderFragmentId> { hitProducer.Id!.Value });
+            CreateHitResolution(requestId, hitProducer));
 
         Assert.Multiple(() =>
         {
@@ -87,6 +87,41 @@ public sealed class ResourcePlanUseTrackerTests
             Assert.That(tracker.CompleteUse(root), Is.False);
             Assert.That(tracker.CompleteUse(root), Is.True);
         });
+    }
+
+    private static RenderCacheResolution CreateHitResolution(
+        RenderRequestId requestId,
+        RenderFragmentReference producer)
+    {
+        RenderFragmentId fragmentId = producer.Id
+            ?? throw new InvalidOperationException("A cache-hit producer must be committed.");
+        var cacheKey = new object();
+        var candidate = new RenderCacheCandidate(
+            new RenderCacheCandidateId(requestId, 1),
+            fragmentId,
+            cacheKey,
+            Cache: null,
+            AuthoredOrder: 0);
+        var identity = new RenderOutputCacheIdentity(
+            cacheKey,
+            RenderFragmentOutputIdentity.Create(producer, requestId),
+            producer.Bounds,
+            RequiredRegion.Full,
+            density: 1,
+            RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Frame,
+            FusionMode.Enabled,
+            new RenderCacheDeviceContextIdentity(new object(), new object()));
+        return new RenderCacheResolution(
+        [
+            new RenderCacheDecision(
+                candidate,
+                RenderCacheResolutionKind.Hit,
+                RenderCacheBypassReason.None,
+                null,
+                new RenderCacheEntry(identity, new object())),
+        ]);
     }
 
     private static RenderFragmentReference Fragment(
