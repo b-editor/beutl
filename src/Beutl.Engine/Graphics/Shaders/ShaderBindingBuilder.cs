@@ -1,5 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using SkiaSharp;
@@ -42,13 +41,11 @@ public sealed class ShaderBindingBuilder
         where T : unmanaged
     {
         BeginBinding(name);
-        ShaderCanonicalValue canonical = ShaderCanonicalValue.Create(value);
+        ShaderUniformValue canonical = ShaderUniformValue.Create(value);
         CompleteBinding(new ShaderUniformBinding(
             name,
-            new DirectUniformStructuralKey(typeof(T)),
-            readsExecutionContext: false,
-            (writer, _) => writer.Set(value),
-            canonical.ThrowIfIncompatible));
+            typeof(T),
+            canonical));
     }
 
     /// <summary>Declares a direct floating-point uniform from a sequence copied during description creation.</summary>
@@ -64,15 +61,13 @@ public sealed class ShaderBindingBuilder
     public void Uniform(string name, ReadOnlySpan<float> values)
     {
         BeginBinding(name);
-        float[] copy = values.ToArray();
-        if (copy.Length == 0)
+        if (values.IsEmpty)
             throw new ArgumentException("A direct uniform span cannot be empty.", nameof(values));
+        float[] copy = values.ToArray();
         CompleteBinding(new ShaderUniformBinding(
             name,
             typeof(float[]),
-            readsExecutionContext: false,
-            (writer, _) => writer.Set(copy),
-            declaration => ShaderCanonicalValue.ThrowIfFloatSequenceIncompatible(copy, declaration)));
+            new ShaderUniformValue(copy, null, false)));
     }
 
     /// <summary>Declares a uniform whose value is produced by an execution-time binder.</summary>
@@ -110,9 +105,7 @@ public sealed class ShaderBindingBuilder
             new CustomUniformStructuralKey(
                 typeof(T),
                 RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
-            readsExecutionContext: true,
-            (writer, context) => bind(writer, value, context),
-            static _ => { }));
+            (writer, context) => bind(writer, value, context)));
     }
 
     /// <summary>Declares a child-shader resource produced by an execution-time binder.</summary>
@@ -289,8 +282,6 @@ public sealed class ShaderBindingBuilder
     }
 
 }
-
-internal sealed record DirectUniformStructuralKey(Type Type);
 
 internal sealed record CustomUniformStructuralKey(Type Type, object Binder);
 

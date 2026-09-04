@@ -1,4 +1,5 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Text;
 
 namespace Beutl.Graphics.Shaders;
@@ -130,9 +131,6 @@ internal static class SkslSnippetMerger
         RenameResult renamed = Rename(stage.Description.Source, prefix, renamedNames);
         bool appendNewline = renamed.Source.Length == 0 || renamed.Source[^1] != '\n';
         string invocation = isWholeSourceHead ? string.Empty : CreateInvocation(prefix);
-        var bindings = new List<SkslMergedBindingLayout>(
-            stage.Description.Uniforms.Count + stage.Description.Resources.Count);
-        AddBindings(index, stage, isWholeSourceHead ? string.Empty : prefix, bindings);
         int sourceBytes = Encoding.UTF8.GetByteCount(renamed.Source);
         if (appendNewline)
             sourceBytes = SaturatingAdd(sourceBytes, 1);
@@ -152,7 +150,6 @@ internal static class SkslSnippetMerger
             renamed.Source,
             appendNewline,
             invocation,
-            bindings.ToArray(),
             GetUniformVectorCount(stage.Description.Source),
             stage.Description.Resources.Count,
             sourceBytes,
@@ -168,8 +165,14 @@ internal static class SkslSnippetMerger
         bool hasWholeSourceHead = stages[0].IsWholeSourceHead;
         if (!hasWholeSourceHead)
             source.Append(SourceHeader);
-        var stageLayouts = new List<SkslMergedStageLayout>(stages.Count);
-        var bindingLayouts = new List<SkslMergedBindingLayout>();
+        int bindingCount = 0;
+        for (int index = 0; index < stages.Count; index++)
+        {
+            ShaderDescription description = stages[index].Stage.Description;
+            bindingCount = checked(bindingCount + description.Uniforms.Count + description.Resources.Count);
+        }
+        var stageLayouts = ImmutableArray.CreateBuilder<SkslMergedStageLayout>(stages.Count);
+        var bindingLayouts = ImmutableArray.CreateBuilder<SkslMergedBindingLayout>(bindingCount);
 
         foreach (PreparedStage prepared in stages)
         {
@@ -181,7 +184,11 @@ internal static class SkslSnippetMerger
                 prepared.Index,
                 prepared.Prefix,
                 prepared.Stage.CoverageBehavior));
-            bindingLayouts.AddRange(prepared.Bindings);
+            AddBindings(
+                prepared.Index,
+                prepared.Stage,
+                prepared.IsWholeSourceHead ? string.Empty : prepared.Prefix,
+                bindingLayouts);
         }
 
         source.Append(hasWholeSourceHead ? HeadMainHeader : MainHeader);
@@ -190,7 +197,7 @@ internal static class SkslSnippetMerger
         source.Append(MainFooter);
 
         string mergedSource = source.ToString();
-        IReadOnlyList<SkslBackendLimit> overflow = GetOverflowReasons(
+        ImmutableArray<SkslBackendLimit> overflow = GetOverflowReasons(
             metrics.StageCount,
             metrics.UniformVectorCount,
             metrics.SamplerCount,
@@ -201,8 +208,8 @@ internal static class SkslSnippetMerger
 
         return new SkslMergedProgram(
             mergedSource,
-            stageLayouts,
-            bindingLayouts,
+            stageLayouts.MoveToImmutable(),
+            bindingLayouts.MoveToImmutable(),
             budget,
             metrics.UniformVectorCount,
             metrics.SamplerCount,
@@ -272,7 +279,7 @@ internal static class SkslSnippetMerger
         int stageIndex,
         SkslSnippetStage stage,
         string prefix,
-        List<SkslMergedBindingLayout> result)
+        ImmutableArray<SkslMergedBindingLayout>.Builder result)
     {
         ShaderDescription description = stage.Description;
         for (int bindingIndex = 0; bindingIndex < description.Uniforms.Count; bindingIndex++)
@@ -339,7 +346,7 @@ internal static class SkslSnippetMerger
         return 1;
     }
 
-    private static IReadOnlyList<SkslBackendLimit> GetOverflowReasons(
+    private static ImmutableArray<SkslBackendLimit> GetOverflowReasons(
         int stages,
         int uniforms,
         int samplers,
@@ -348,20 +355,21 @@ internal static class SkslSnippetMerger
         int programTokens,
         SkslBackendBudget budget)
     {
-        var result = new List<SkslBackendLimit>(6);
+        Span<SkslBackendLimit> result = stackalloc SkslBackendLimit[6];
+        int count = 0;
         if (stages > budget.MaxStages)
-            result.Add(SkslBackendLimit.StageCount);
+            result[count++] = SkslBackendLimit.StageCount;
         if (uniforms > budget.MaxUniformVectors)
-            result.Add(SkslBackendLimit.UniformVectors);
+            result[count++] = SkslBackendLimit.UniformVectors;
         if (samplers > budget.MaxSamplers)
-            result.Add(SkslBackendLimit.Samplers);
+            result[count++] = SkslBackendLimit.Samplers;
         if (children > budget.MaxChildren)
-            result.Add(SkslBackendLimit.Children);
+            result[count++] = SkslBackendLimit.Children;
         if (sourceBytes > budget.MaxSourceBytes)
-            result.Add(SkslBackendLimit.SourceBytes);
+            result[count++] = SkslBackendLimit.SourceBytes;
         if (programTokens > budget.MaxProgramTokens)
-            result.Add(SkslBackendLimit.ProgramTokens);
-        return result;
+            result[count++] = SkslBackendLimit.ProgramTokens;
+        return ImmutableArray.Create(result[..count]);
     }
 
     private static bool FitsBudget(ProgramMetrics metrics, SkslBackendBudget budget)
@@ -392,7 +400,6 @@ internal static class SkslSnippetMerger
         string Source,
         bool AppendNewline,
         string Invocation,
-        SkslMergedBindingLayout[] Bindings,
         int UniformVectorCount,
         int ResourceCount,
         int SourceByteCount,

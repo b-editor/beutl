@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Graphics.Shaders;
 
-internal sealed record SkslMergedStageLayout(
+internal readonly record struct SkslMergedStageLayout(
     int StageIndex,
     string Prefix,
     SkslCoverageBehavior CoverageBehavior);

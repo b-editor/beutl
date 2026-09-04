@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Shaders;
+﻿using System.Collections.Immutable;
+
+namespace Beutl.Graphics.Shaders;
 
 /// <summary>
 /// A program-cache bucket identity. The stable hash is only the bucket selector; equality compares the complete
@@ -6,24 +8,25 @@
 /// </summary>
 internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
 {
-    private readonly object[] _bindings;
+    private readonly ImmutableArray<SkslMergedBindingLayout> _bindings;
     private readonly int _hashCode;
 
     private ShaderProgramIdentity(
         ShaderProgramBackend backend,
         string source,
-        IEnumerable<object> bindings,
+        ImmutableArray<SkslMergedBindingLayout> bindings,
         SkslBackendBudget budget)
     {
         ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(bindings);
         ArgumentNullException.ThrowIfNull(budget);
+        if (bindings.IsDefault)
+            throw new ArgumentException("The binding identity array must be initialized.", nameof(bindings));
         if (!Enum.IsDefined(backend))
             throw new ArgumentOutOfRangeException(nameof(backend));
 
         Backend = backend;
         Source = source;
-        _bindings = bindings.ToArray();
+        _bindings = bindings;
         Budget = budget;
         _hashCode = ComputeStableHashCode(backend, source);
     }
@@ -36,12 +39,12 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
 
     internal static ShaderProgramIdentity CreateSksl(
         string source,
-        IReadOnlyList<SkslMergedBindingLayout> bindings,
+        ImmutableArray<SkslMergedBindingLayout> bindings,
         SkslBackendBudget budget)
         => new(
             ShaderProgramBackend.Sksl,
             source,
-            bindings.Cast<object>(),
+            bindings,
             budget);
 
     internal static ShaderProgramIdentity CreateStandaloneSksl(
@@ -61,7 +64,7 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
            && Backend == other.Backend
            && Source == other.Source
            && Budget.Equals(other.Budget)
-           && _bindings.AsSpan().SequenceEqual(other._bindings);
+           && _bindings.AsSpan().SequenceEqual(other._bindings.AsSpan());
 
     public override bool Equals(object? obj) => obj is ShaderProgramIdentity other && Equals(other);
 

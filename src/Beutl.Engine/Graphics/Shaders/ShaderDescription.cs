@@ -461,9 +461,9 @@ internal sealed class ShaderDescriptionStructuralIdentity(
     private ShaderResourceStructuralIdentity[] Resources => resources;
 }
 
-internal sealed record ShaderBindingStructuralIdentity(string Name, object DefinitionFingerprint);
+internal readonly record struct ShaderBindingStructuralIdentity(string Name, object DefinitionFingerprint);
 
-internal sealed record ShaderResourceStructuralIdentity(
+internal readonly record struct ShaderResourceStructuralIdentity(
     string Name,
     ShaderResourceCoordinateSpace CoordinateSpace,
     object DefinitionFingerprint);

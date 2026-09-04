@@ -518,7 +518,7 @@ internal sealed partial class RenderRequestExecutor
 
                         var descriptionsByMergedIndex = new Dictionary<int, ShaderDescription>();
                         var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
-                        for (int index = 0; index < run.Program.Stages.Count; index++)
+                        for (int index = 0; index < run.Program.Stages.Length; index++)
                         {
                             int mergedIndex = run.Program.Stages[index].StageIndex;
                             descriptionsByMergedIndex.Add(
@@ -538,7 +538,7 @@ internal sealed partial class RenderRequestExecutor
                                     outputScale));
                         }
 
-                        foreach (SkslMergedBindingLayout layout in run.Program.Bindings)
+                        foreach (ref readonly SkslMergedBindingLayout layout in run.Program.Bindings.AsSpan())
                         {
                             ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
                             ShaderDescription description = descriptionsByMergedIndex[layout.StageIndex];

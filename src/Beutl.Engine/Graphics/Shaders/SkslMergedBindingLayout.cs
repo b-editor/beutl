@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Graphics.Shaders;
 
-internal sealed record SkslMergedBindingLayout(
+internal readonly record struct SkslMergedBindingLayout(
     int StageIndex,
     int BindingIndex,
     SkslBindingKind Kind,

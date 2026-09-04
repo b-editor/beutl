@@ -30,9 +30,9 @@ public sealed class ShaderUniformWriter
         ThrowIfInactive();
         if (_value is not null)
             throw new InvalidOperationException("A shader uniform binder must set its writer exactly once.");
-        ShaderCanonicalValue canonical = ShaderCanonicalValue.Create(value);
+        ShaderUniformValue canonical = ShaderUniformValue.Create(value);
         canonical.ThrowIfIncompatible(_declaration);
-        _value = new ShaderUniformValue(canonical.Values, canonical.Integers, canonical.IsInteger);
+        _value = canonical;
     }
 
     /// <summary>Sets the binder result from a floating-point sequence copied during the call.</summary>
@@ -46,8 +46,9 @@ public sealed class ShaderUniformWriter
         if (_value is not null)
             throw new InvalidOperationException("A shader uniform binder must set its writer exactly once.");
         float[] copy = values.ToArray();
-        ShaderCanonicalValue.ThrowIfFloatSequenceIncompatible(copy, _declaration);
-        _value = new ShaderUniformValue(copy, null, false);
+        var value = new ShaderUniformValue(copy, null, false);
+        value.ThrowIfIncompatible(_declaration);
+        _value = value;
     }
 
     internal ShaderUniformValue Complete()

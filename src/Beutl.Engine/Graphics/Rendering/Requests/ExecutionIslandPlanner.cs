@@ -159,7 +159,7 @@ internal sealed class ExecutionIslandPlanner
                     StageCandidate standalone = group.Stages.Single();
                     rejectedStageClassifications[standalone.Fragment] = new ExecutionIslandClassification(
                         ExecutionIslandBoundaryReason.BackendLimit,
-                        [.. group.Program.OverflowReasons]);
+                        group.Program.OverflowReasons);
                     previous = group;
                     continue;
                 }
@@ -411,9 +411,9 @@ internal sealed class ExecutionIslandPlanner
         var result = new List<ProgramGroup>(programs.Count);
         foreach (SkslMergedProgram program in programs)
         {
-            StageCandidate[] stages = program.Stages
-                .Select(layout => chain[layout.StageIndex])
-                .ToArray();
+            var stages = new StageCandidate[program.Stages.Length];
+            for (int index = 0; index < stages.Length; index++)
+                stages[index] = chain[program.Stages[index].StageIndex];
             result.Add(new ProgramGroup(stages, program));
         }
         return result;

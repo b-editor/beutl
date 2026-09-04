@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Buffers.Binary;
+using System.Numerics;
 using System.Reflection;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -177,6 +178,60 @@ public sealed class ShaderDescriptionTests
                 Throws.TypeOf<ArgumentException>());
         });
     }
+
+    [Test]
+    public void SpirvLowering_BindsDirectUniformCanonicalValues()
+    {
+        ShaderDescription description = CreateSpirvDescription(
+            "uniform float gain; uniform float2 offset; "
+            + "half4 apply(half4 color) { return color * gain + half4(offset, 0, 0); }",
+            [
+                new SpirvPushConstantBinding("gain", SpirvPushConstants.UserByteOffset),
+                new SpirvPushConstantBinding("offset", SpirvPushConstants.UserByteOffset + 8),
+            ],
+            bindings =>
+            {
+                bindings.Uniform("gain", 0.5f);
+                bindings.Uniform("offset", new Vector2(1.25f, -2.5f));
+            });
+        var token = new RenderExecutionSessionToken();
+        var context = new ShaderExecutionContext(
+            token,
+            new Rect(0, 0, 10, 10),
+            new Rect(0, 0, 10, 10),
+            new Rect(0, 0, 10, 10),
+            new PixelRect(0, 0, 10, 10),
+            EffectiveScale.At(1),
+            outputScale: 1,
+            workingScale: 1,
+            maxWorkingScale: 2,
+            intent: RenderIntent.Preview,
+            purpose: RenderRequestPurpose.Frame);
+
+        SpirvPushConstants constants = description.SpirvLowering!.Bind(
+            description,
+            context,
+            new PixelPoint(7, -3));
+        ReadOnlySpan<byte> bytes = constants;
+        int sourceX = BinaryPrimitives.ReadInt32LittleEndian(bytes);
+        int sourceY = BinaryPrimitives.ReadInt32LittleEndian(bytes[sizeof(int)..]);
+        float gain = ReadSingle(bytes, SpirvPushConstants.UserByteOffset);
+        float offsetX = ReadSingle(bytes, SpirvPushConstants.UserByteOffset + 8);
+        float offsetY = ReadSingle(bytes, SpirvPushConstants.UserByteOffset + 12);
+        token.Complete();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sourceX, Is.EqualTo(7));
+            Assert.That(sourceY, Is.EqualTo(-3));
+            Assert.That(gain, Is.EqualTo(0.5f));
+            Assert.That(offsetX, Is.EqualTo(1.25f));
+            Assert.That(offsetY, Is.EqualTo(-2.5f));
+        });
+    }
+
+    private static float ReadSingle(ReadOnlySpan<byte> bytes, int offset)
+        => BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(bytes[offset..]));
 
     private static ShaderDescription CreateSpirvDescription(
         string source,
@@ -422,6 +477,53 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
+    public void DirectUniforms_AreCopiedOnceAndReusedWithoutExecutionAllocations()
+    {
+        float[] supplied = [1, 2, 3, 4];
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float gain; uniform float4 tint; half4 apply(half4 color) { return color * gain * tint; }",
+            bindings =>
+            {
+                bindings.Uniform("gain", 0.5f);
+                bindings.Uniform("tint", supplied);
+            });
+        ShaderUniformBinding scalarBinding = description.Uniforms.Single(binding => binding.Name == "gain");
+        ShaderUniformBinding spanBinding = description.Uniforms.Single(binding => binding.Name == "tint");
+        SkslUniformDeclaration scalarDeclaration = description.Source.Uniforms[scalarBinding.Name];
+        SkslUniformDeclaration spanDeclaration = description.Source.Uniforms[spanBinding.Name];
+        supplied[0] = 99;
+
+        ShaderUniformValue firstScalar = scalarBinding.Bind(scalarDeclaration, context: null);
+        ShaderUniformValue firstSpan = spanBinding.Bind(spanDeclaration, context: null);
+        for (int index = 0; index < 100; index++)
+        {
+            _ = scalarBinding.Bind(scalarDeclaration, context: null);
+            _ = spanBinding.Bind(spanDeclaration, context: null);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        float sum = 0;
+        ShaderUniformValue currentScalar = default;
+        ShaderUniformValue currentSpan = default;
+        for (int index = 0; index < 20_000; index++)
+        {
+            currentScalar = scalarBinding.Bind(scalarDeclaration, context: null);
+            currentSpan = spanBinding.Bind(spanDeclaration, context: null);
+            sum += currentScalar.Floats![0] + currentSpan.Floats![0];
+        }
+        long bytesPerExecution = (GC.GetAllocatedBytesForCurrentThread() - before) / 20_000;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstSpan.Floats, Is.EqualTo(new[] { 1f, 2f, 3f, 4f }));
+            Assert.That(currentScalar.Floats, Is.SameAs(firstScalar.Floats));
+            Assert.That(currentSpan.Floats, Is.SameAs(firstSpan.Floats));
+            Assert.That(sum, Is.EqualTo(30_000));
+            Assert.That(bytesPerExecution, Is.Zero);
+        });
+    }
+
+    [Test]
     public void DirectUniform_UInt32AboveInt32MaxValueReportsRangeError()
     {
         ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(
@@ -521,16 +623,16 @@ public sealed class ShaderDescriptionTests
         // SKMatrix transforms column vectors (p' = M * p) and stores its rows contiguously, so the canonical
         // value is its storage order transposed. A translation must therefore land in the last column.
         var skMatrix = SKMatrix.CreateTranslation(50, 70);
-        float[] skValues = ShaderCanonicalValue.Create(skMatrix).Values!;
+        float[] skValues = ShaderUniformValue.Create(skMatrix).Floats!;
 
         // Matrix4x4 transforms row vectors (p' = p * M) and stores its rows contiguously. The equivalent
         // column-vector matrix is its transpose, whose column-major encoding is that same storage order.
         Matrix4x4 numericsMatrix = Matrix4x4.CreateTranslation(50, 70, 90);
-        float[] numericsValues = ShaderCanonicalValue.Create(numericsMatrix).Values!;
+        float[] numericsValues = ShaderUniformValue.Create(numericsMatrix).Floats!;
 
         // Matrix3x2 has no SkSL matrix type. Its six floats bind to float2[3]: x basis, y basis, translation.
         var affine = Matrix3x2.CreateScale(2, 3) * Matrix3x2.CreateTranslation(50, 70);
-        float[] affineValues = ShaderCanonicalValue.Create(affine).Values!;
+        float[] affineValues = ShaderUniformValue.Create(affine).Floats!;
 
         Assert.Multiple(() =>
         {
@@ -564,8 +666,8 @@ public sealed class ShaderDescriptionTests
         var skMatrix = SKMatrix.CreateScaleTranslation(2, 3, 50, 70);
         Matrix4x4 numericsMatrix = Matrix4x4.CreateScale(2, 3, 1) * Matrix4x4.CreateTranslation(50, 70, 0);
 
-        float[] skValues = ShaderCanonicalValue.Create(skMatrix).Values!;
-        float[] numericsValues = ShaderCanonicalValue.Create(numericsMatrix).Values!;
+        float[] skValues = ShaderUniformValue.Create(skMatrix).Floats!;
+        float[] numericsValues = ShaderUniformValue.Create(numericsMatrix).Floats!;
 
         // The 3x3 columns are the 4x4 columns with the z row and column dropped.
         float[] projected =

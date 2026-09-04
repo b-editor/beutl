@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Collections.Immutable;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
@@ -210,6 +211,28 @@ public sealed class ProgramCacheTests
             Assert.That(cache.Statistics.Misses, Is.EqualTo(2));
             Assert.That(cache.Statistics.RetainedPrograms, Is.EqualTo(2));
         });
+    }
+
+    [Test]
+    public void ShaderIdentity_DifferentBackendBudgetsAreNotEqual()
+    {
+        ShaderProgramIdentity unlimited = ShaderProgramIdentity.CreateSksl(
+            SourceA,
+            [],
+            SkslBackendBudget.Unlimited);
+        ShaderProgramIdentity limited = ShaderProgramIdentity.CreateSksl(
+            SourceA,
+            [],
+            new SkslBackendBudget(
+                "limited",
+                maxStages: 1,
+                maxUniformVectors: 1,
+                maxSamplers: 1,
+                maxChildren: 1,
+                maxSourceBytes: 1,
+                maxProgramTokens: 1));
+
+        Assert.That(limited, Is.Not.EqualTo(unlimited));
     }
 
     [Test]
@@ -679,10 +702,10 @@ public sealed class ProgramCacheTests
 
     private static ShaderProgramIdentity Identity(
         string source,
-        IReadOnlyList<SkslMergedBindingLayout>? bindings = null)
+        ImmutableArray<SkslMergedBindingLayout> bindings = default)
         => ShaderProgramIdentity.CreateSksl(
             source,
-            bindings ?? [],
+            bindings.IsDefault ? [] : bindings,
             SkslBackendBudget.Unlimited);
 
     private sealed class FakeProgram(

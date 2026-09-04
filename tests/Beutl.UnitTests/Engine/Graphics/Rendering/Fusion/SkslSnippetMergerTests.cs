@@ -278,7 +278,7 @@ public sealed class SkslSnippetMergerTests
             Assert.That(program.OverflowReasons, Does.Contain(SkslBackendLimit.Samplers));
             Assert.That(program.OverflowReasons.Contains(SkslBackendLimit.Children),
                 Is.EqualTo(program.ChildCount > budget.MaxChildren));
-            Assert.That(program.Stages, Has.Count.EqualTo(1),
+            Assert.That(program.Stages.Length, Is.EqualTo(1),
                 "an individually unsupported stage remains visible to the ordinary unfused fallback");
         });
     }
@@ -411,7 +411,7 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(program.RequiresStandaloneExecution, Is.True);
             Assert.That(program.OverflowReasons, Does.Contain(SkslBackendLimit.UniformVectors));
-            Assert.That(program.Stages, Has.Count.EqualTo(1),
+            Assert.That(program.Stages.Length, Is.EqualTo(1),
                 "an individually unsupported stage remains visible to the ordinary unfused fallback");
         });
     }

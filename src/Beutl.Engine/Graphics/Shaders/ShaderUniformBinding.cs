@@ -4,20 +4,27 @@
 /// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>
 internal sealed class ShaderUniformBinding
 {
-    private readonly Action<ShaderUniformWriter, ShaderExecutionContext> _bind;
-    private readonly Action<SkslUniformDeclaration> _validate;
+    private readonly ShaderUniformValue _directValue;
+    private readonly Action<ShaderUniformWriter, ShaderExecutionContext>? _bind;
+
     internal ShaderUniformBinding(
         string name,
         object definitionFingerprint,
-        bool readsExecutionContext,
-        Action<ShaderUniformWriter, ShaderExecutionContext> bind,
-        Action<SkslUniformDeclaration> validate)
+        ShaderUniformValue directValue)
     {
         Name = name;
         DefinitionFingerprint = definitionFingerprint;
-        ReadsExecutionContext = readsExecutionContext;
+        _directValue = directValue;
+    }
+
+    internal ShaderUniformBinding(
+        string name,
+        object definitionFingerprint,
+        Action<ShaderUniformWriter, ShaderExecutionContext> bind)
+    {
+        Name = name;
+        DefinitionFingerprint = definitionFingerprint;
         _bind = bind;
-        _validate = validate;
     }
 
     /// <summary>Gets the non-null SkSL uniform declaration name.</summary>
@@ -31,14 +38,22 @@ internal sealed class ShaderUniformBinding
     /// request state the recorded graph does not otherwise carry, so a cache identity covering this stage has
     /// to account for that state. A uniform whose value is fixed while recording reads nothing.
     /// </remarks>
-    internal bool ReadsExecutionContext { get; }
+    internal bool ReadsExecutionContext => _bind is not null;
 
     internal object DefinitionFingerprint { get; }
 
-    internal void ValidateDeclaration(SkslUniformDeclaration declaration) => _validate(declaration);
-
-    internal ShaderUniformValue Bind(SkslUniformDeclaration declaration, ShaderExecutionContext context)
+    internal void ValidateDeclaration(SkslUniformDeclaration declaration)
     {
+        if (_bind is null)
+            _directValue.ThrowIfIncompatible(declaration);
+    }
+
+    internal ShaderUniformValue Bind(SkslUniformDeclaration declaration, ShaderExecutionContext? context)
+    {
+        if (_bind is null)
+            return _directValue;
+
+        ArgumentNullException.ThrowIfNull(context);
         var writer = new ShaderUniformWriter(declaration);
         try
         {
