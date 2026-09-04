@@ -105,6 +105,262 @@ public sealed class EditorHostProjectQueueTests
     }
 
     [AvaloniaTest]
+    public async Task CloseProject_waits_for_already_removed_tab_teardown()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory { BlockNextDispose = true };
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+
+        try
+        {
+            Project project = (await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-removed-close", NewWorkspace("removed-close")))!;
+            TestContext context = contexts.Contexts.Single();
+            EditorTabItem tab = editorService.TabItems.Single();
+
+            Task tabClose = editorService.CloseTabItem(tab).AsTask();
+            await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(editorService.TabItems, Is.Empty);
+
+            var admissionClosed = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            editorService.AfterTabAdmissionClosed = () => admissionClosed.TrySetResult();
+            Task projectClose = projectService.CloseProjectAsync();
+            try
+            {
+                await admissionClosed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Multiple(() =>
+                {
+                    Assert.That(projectClose.IsCompleted, Is.False);
+                    Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                });
+            }
+            finally
+            {
+                context.ReleaseDispose();
+            }
+
+            await Task.WhenAll(tabClose, projectClose).WaitAsync(TimeSpan.FromSeconds(5));
+            editorService.AfterTabAdmissionClosed = null;
+            Assert.Multiple(() =>
+            {
+                Assert.That(BeutlApplication.Current.Project, Is.Null);
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            await DisposeCompositionAsync(projectService, editorService, host);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Project_transition_waits_for_failed_activation_cleanup()
+    {
+        await TestReset.ResetShellAsync();
+        var extensionProvider = new ExtensionProvider();
+        var editorService = new EditorService(extensionProvider);
+        var extension = new BlockingFailedActivationExtension();
+        extensionProvider.AddExtensions(ExtensionPackageId, [extension]);
+        editorService.BeforeActivationTabConstruction =
+            _ => throw new InvalidOperationException("activation construction failed");
+        var projectService = new ProjectService();
+        var host = new EditorHostViewModel(projectService, editorService);
+        TestContext? createdContext = null;
+
+        try
+        {
+            Task<Project?> creation = projectService.CreateProject(
+                320, 180, 30, 44100, "queue-activation-cleanup", NewWorkspace("activation-cleanup"));
+            TestContext context = await extension.CreatedContext.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            createdContext = context;
+            await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(creation.IsCompleted, Is.False);
+                Assert.That(BeutlApplication.Current.Project, Is.Null);
+                Assert.That(editorService.TabItems, Is.Empty);
+            });
+
+            context.ReleaseDispose();
+            Project project = (await creation.WaitAsync(TimeSpan.FromSeconds(5)))!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            editorService.BeforeActivationTabConstruction = null;
+            createdContext?.ReleaseDispose();
+            await DisposeCompositionAsync(projectService, editorService, host);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Replacement_factory_cannot_synchronously_enqueue_close_project()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+
+        try
+        {
+            Project project = (await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-reentrant-close", NewWorkspace("reentrant-close")))!;
+            EditorTabItem tab = editorService.TabItems.Single();
+            var extension = new ReentrantProjectOperationExtension(
+                projectService.CloseProjectAsync);
+
+            Task<EditorContextReplacementStatus> replacement = Task.Run(
+                () => editorService.ReplaceContextAsync(tab, extension).AsTask());
+            InvalidOperationException failure = await CaptureInvalidOperationAsync(replacement);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure.Message, Does.Contain("project transition"));
+                Assert.That(extension.CreationCount, Is.EqualTo(1));
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                Assert.That(editorService.TabItems, Does.Contain(tab));
+                Assert.That(tab.Context.Value, Is.SameAs(contexts.Contexts.Single()));
+            });
+        }
+        finally
+        {
+            await DisposeCompositionAsync(projectService, editorService, host);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Replacement_factory_cannot_synchronously_wait_for_project_changes()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+
+        try
+        {
+            Project project = (await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-reentrant-wait", NewWorkspace("reentrant-wait")))!;
+            EditorTabItem tab = editorService.TabItems.Single();
+            var extension = new ReentrantProjectOperationExtension(
+                projectService.WaitForPendingProjectChangesAsync);
+
+            InvalidOperationException failure = await CaptureInvalidOperationAsync(
+                editorService.ReplaceContextAsync(tab, extension).AsTask());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure.Message, Does.Contain("Project changes"));
+                Assert.That(extension.CreationCount, Is.EqualTo(1));
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                Assert.That(editorService.TabItems, Does.Contain(tab));
+                Assert.That(tab.Context.Value, Is.SameAs(contexts.Contexts.Single()));
+            });
+        }
+        finally
+        {
+            await DisposeCompositionAsync(projectService, editorService, host);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Replacement_factory_cannot_join_external_close_waiting_for_its_admission()
+    {
+        await TestReset.ResetShellAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+
+        try
+        {
+            await projectService.CreateProject(
+                    320, 180, 30, 44100, "queue-reentrant-dedup", NewWorkspace("reentrant-dedup"))
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            EditorTabItem tab = editorService.TabItems.Single();
+            var extension = new CoordinatedCloseProjectExtension(projectService);
+            var admissionClosed = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            editorService.AfterTabAdmissionClosed = () => admissionClosed.TrySetResult();
+
+            Task<EditorContextReplacementStatus> replacement = Task.Run(
+                () => editorService.ReplaceContextAsync(tab, extension).AsTask());
+            await extension.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task externalClose = projectService.CloseProjectAsync();
+            try
+            {
+                await admissionClosed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                extension.Release.TrySetResult();
+            }
+            InvalidOperationException? failure = null;
+            try
+            {
+                await replacement.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Fail("Expected the reentrant close to be rejected.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                failure = ex;
+            }
+            await externalClose.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure!.Message, Does.Contain("project transition"));
+                Assert.That(BeutlApplication.Current.Project, Is.Null);
+                Assert.That(editorService.TabItems, Is.Empty);
+            });
+            editorService.AfterTabAdmissionClosed = null;
+        }
+        finally
+        {
+            await DisposeCompositionAsync(projectService, editorService, host)
+                .WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Context_disposal_cannot_synchronously_close_its_project()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+
+        try
+        {
+            Project project = (await projectService.CreateProject(
+                320, 180, 30, 44100, "queue-dispose-close", NewWorkspace("dispose-close")))!;
+            EditorTabItem tab = editorService.TabItems.Single();
+            TestContext context = contexts.Contexts.Single();
+            context.OnDispose = () => projectService.CloseProjectAsync().GetAwaiter().GetResult();
+
+            InvalidOperationException failure = await CaptureInvalidOperationAsync(
+                editorService.CloseTabItem(tab).AsTask());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure.Message, Does.Contain("project transition"));
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+                Assert.That(editorService.TabItems, Is.Empty);
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            await DisposeCompositionAsync(projectService, editorService, host);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Close_after_queued_replacement_is_not_deduplicated_with_earlier_close()
     {
         await TestReset.ResetShellAsync();
@@ -738,6 +994,21 @@ public sealed class EditorHostProjectQueueTests
         }
     }
 
+    private static async Task<InvalidOperationException> CaptureInvalidOperationAsync(Task task)
+    {
+        try
+        {
+            await task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ex;
+        }
+
+        Assert.Fail("Expected an InvalidOperationException.");
+        return null!;
+    }
+
     private static async Task WaitForPublishedProjectChangeAsync(
         ProjectService projectService,
         Task<Project?> operation)
@@ -780,6 +1051,109 @@ public sealed class EditorHostProjectQueueTests
 
         public override bool MatchFileExtension(string ext)
             => ext.Equals(".scene", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class ReentrantProjectOperationExtension(Func<Task> operation)
+        : EditorExtension
+    {
+        public int CreationCount { get; private set; }
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Reentrant close");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [NotNullWhen(true)] out IEditorContext? context)
+        {
+            CreationCount++;
+            operation().GetAwaiter().GetResult();
+            context = null;
+            return false;
+        }
+    }
+
+    private sealed class BlockingFailedActivationExtension : EditorExtension
+    {
+        public TaskCompletionSource<TestContext> CreatedContext { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Blocking activation");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext)
+            => ext.Equals(".scene", StringComparison.OrdinalIgnoreCase);
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [NotNullWhen(true)] out IEditorContext? context)
+        {
+            var created = new TestContext(
+                obj,
+                this,
+                services.CloseService,
+                blockDispose: true);
+            CreatedContext.TrySetResult(created);
+            context = created;
+            return true;
+        }
+    }
+
+    private sealed class CoordinatedCloseProjectExtension(ProjectService projectService)
+        : EditorExtension
+    {
+        public TaskCompletionSource Entered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Coordinated close");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [NotNullWhen(true)] out IEditorContext? context)
+        {
+            Entered.TrySetResult();
+            Release.Task.GetAwaiter().GetResult();
+            projectService.CloseProjectAsync().GetAwaiter().GetResult();
+            context = null;
+            return false;
+        }
     }
 
     private sealed class TestContextFactory

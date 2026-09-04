@@ -42,6 +42,8 @@ public abstract class EditorExtension : ViewExtension
     /// publication step fails. The returned context must be newly created and unowned; returning a
     /// context that is already active in a tab violates the ownership contract. On failure, the
     /// extension must dispose any partially initialized state and must not return a context.
+    /// Implementations must not synchronously start and wait for a project or editor lifecycle
+    /// operation, on this thread or another; enqueue that work to begin after this callback returns.
     /// </remarks>
     public abstract bool TryCreateContext(
         CoreObject obj,

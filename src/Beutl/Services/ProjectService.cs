@@ -179,8 +179,18 @@ public sealed class ProjectService
     /// Waits until every project transition accepted before this call, together with causally
     /// queued project-item changes, has reached a stable editor state.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// A reentrant wait from an editor tab operation that project reconciliation would otherwise
+    /// have to drain was detected while causal execution context remained available.
+    /// </exception>
     public async Task WaitForPendingProjectChangesAsync()
     {
+        if (EditorService.IsTabLifecycleOperationActive)
+        {
+            throw new InvalidOperationException(
+                "Project changes cannot be awaited from an active editor tab operation.");
+        }
+
         Task transition;
         IProjectChangeHandler? handler;
         Task lastPublished;
@@ -389,6 +399,13 @@ public sealed class ProjectService
         out Task operationTail)
     {
         ArgumentNullException.ThrowIfNull(transition);
+        if (EditorService.IsTabLifecycleOperationActive)
+        {
+            operationTail = Task.CompletedTask;
+            return Task.FromException<T>(new InvalidOperationException(
+                "A project transition cannot be started from an active editor tab operation."));
+        }
+
         Task previous;
         ProjectTransitionContext context;
         var result = new TaskCompletionSource<T>(
@@ -445,7 +462,8 @@ public sealed class ProjectService
 
     /// <summary>Opens a project after its editor host has accepted the serialized transition.</summary>
     /// <exception cref="InvalidOperationException">
-    /// The editor host is unregistering and cannot apply the transition.
+    /// The editor host is unregistering, or a reentrant transition from an active editor tab
+    /// operation was detected while causal execution context remained available.
     /// </exception>
     public Task OpenProject(string file)
         => EnqueueProjectTransitionAsync(context => CompleteOpenProjectAsync(context, file));
@@ -510,10 +528,17 @@ public sealed class ProjectService
     /// <see cref="CurrentProject"/> or <see cref="ProjectObservable"/> callback.
     /// </remarks>
     /// <exception cref="InvalidOperationException">
-    /// The editor host is unregistering and cannot apply the transition.
+    /// The editor host is unregistering, or a reentrant transition from an active editor tab
+    /// operation was detected while causal execution context remained available.
     /// </exception>
     public Task CloseProjectAsync()
     {
+        if (EditorService.IsTabLifecycleOperationActive)
+        {
+            return Task.FromException(new InvalidOperationException(
+                "A project transition cannot be started from an active editor tab operation."));
+        }
+
         lock (_closeGate)
         {
             Task currentOperation;
@@ -552,7 +577,8 @@ public sealed class ProjectService
 
     /// <summary>Creates and opens a project after its editor host accepts the transition.</summary>
     /// <exception cref="InvalidOperationException">
-    /// The editor host is unregistering and cannot apply the transition.
+    /// The editor host is unregistering, or a reentrant transition from an active editor tab
+    /// operation was detected while causal execution context remained available.
     /// </exception>
     public Task<Project?> CreateProject(
         int width,

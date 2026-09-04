@@ -492,6 +492,34 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
+    public async Task ActivationFactoryCannotSynchronouslyReconcileItsOwnAdmission()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var extension = new ReentrantReconcileReplacementExtension(
+            service,
+            useWorker: false,
+            matchFileExtension: true);
+        provider.AddExtensions(4, [extension]);
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-reentrant.operation"))
+        };
+
+        Task activation = Task.Run(() => service.ActivateTabItem(scene));
+        InvalidOperationException? failure = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await activation.WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.Message, Does.Contain("reconciliation"));
+            Assert.That(extension.CreationCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Is.Empty);
+        });
+        await service.ClearTabItemsAsync();
+    }
+
+    [Test]
     public async Task ActivationDoesNotDisposeAlreadyOwnedSameHostContext()
     {
         var provider = new ExtensionProvider();
@@ -676,6 +704,126 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(service.TabItems, Does.Contain(tab));
         });
         await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ReplacementFactoryCannotSynchronouslyReconcileItsOwnAdmission(bool useWorker)
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new ReentrantReconcileReplacementExtension(service, useWorker);
+
+        InvalidOperationException? failure = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await service.ReplaceContextAsync(tab, extension).AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure!.Message, Does.Contain("reconciliation"));
+            Assert.That(extension.CreationCount, Is.EqualTo(1));
+            Assert.That(tab.Context.Value, Is.SameAs(current));
+            Assert.That(current.DisposeCount, Is.Zero);
+        });
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task ReplacementFactoryChildCanReconcileAfterAdmissionCompletes()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var current = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(current);
+        service.AddTabItem(tab);
+        var extension = new DeferredReconcileReplacementExtension(service);
+
+        EditorContextReplacementStatus status = await service.ReplaceContextAsync(tab, extension);
+        Assert.That(status, Is.EqualTo(EditorContextReplacementStatus.CreationFailed));
+
+        extension.Release.TrySetResult();
+        await extension.Reconciliation.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(current.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task CompletedAdmissionOperationDoesNotRetainEditorServiceInDelayedChild()
+    {
+        (WeakReference service, Task child, TaskCompletionSource release) =
+            await CreateDelayedAdmissionChildAsync();
+
+        for (int i = 0; service.IsAlive && i < 10; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+
+        Assert.That(service.IsAlive, Is.False);
+        release.TrySetResult();
+        await child.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(
+        System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static async Task<(WeakReference Service, Task Child, TaskCompletionSource Release)>
+        CreateDelayedAdmissionChildAsync()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new BlockingEditorContext(blockDispose: false, closeService: service);
+        var tab = new EditorTabItem(context);
+        service.AddTabItem(tab);
+        var extension = new CapturingAdmissionChildExtension();
+
+        Assert.That(
+            await service.ReplaceContextAsync(tab, extension),
+            Is.EqualTo(EditorContextReplacementStatus.CreationFailed));
+        await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        var serviceReference = new WeakReference(service);
+        Task child = extension.Child;
+        TaskCompletionSource release = extension.Release;
+        service = null!;
+        context = null!;
+        tab = null!;
+        extension = null!;
+        return (serviceReference, child, release);
+    }
+
+    [Test]
+    public async Task NestedHostReplacementCannotHideOuterAdmissionFromReconciliation()
+    {
+        var outerService = new EditorService(new ExtensionProvider());
+        var innerService = new EditorService(new ExtensionProvider());
+        var outerContext = new BlockingEditorContext(blockDispose: false, closeService: outerService);
+        var innerContext = new BlockingEditorContext(blockDispose: false, closeService: innerService);
+        var outerTab = new EditorTabItem(outerContext);
+        var innerTab = new EditorTabItem(innerContext);
+        outerService.AddTabItem(outerTab);
+        innerService.AddTabItem(innerTab);
+        var reconcileOuter = new ReentrantReconcileReplacementExtension(
+            outerService,
+            useWorker: false);
+        var nested = new NestedReplacementExtension(innerService, innerTab, reconcileOuter);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await outerService.ReplaceContextAsync(outerTab, nested).AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outerTab.Context.Value, Is.SameAs(outerContext));
+            Assert.That(innerTab.Context.Value, Is.SameAs(innerContext));
+            Assert.That(outerContext.DisposeCount, Is.Zero);
+            Assert.That(innerContext.DisposeCount, Is.Zero);
+        });
+        await outerService.CloseTabItem(outerTab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await innerService.CloseTabItem(innerTab).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
@@ -2769,6 +2917,149 @@ public sealed class EditorTabItemLifetimeTests
             CreatedContext = new BlockingEditorContext(blockDispose: false, obj, services.CloseService);
             context = CreatedContext;
             return true;
+        }
+    }
+
+    private sealed class ReentrantReconcileReplacementExtension(
+        EditorService service,
+        bool useWorker,
+        bool matchFileExtension = false)
+        : EditorExtension
+    {
+        public int CreationCount { get; private set; }
+
+        public override FilePickerFileType GetFilePickerFileType() => new("ReentrantReconcile");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => matchFileExtension;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            CreationCount++;
+            if (useWorker)
+            {
+                Task.Run(() => service.ClearTabItemsAsync().AsTask())
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            else
+            {
+                service.ClearTabItemsAsync().AsTask().GetAwaiter().GetResult();
+            }
+            context = null;
+            return false;
+        }
+    }
+
+    private sealed class DeferredReconcileReplacementExtension(EditorService service)
+        : EditorExtension
+    {
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Reconciliation { get; private set; } = Task.CompletedTask;
+
+        public override FilePickerFileType GetFilePickerFileType() => new("DeferredReconcile");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            Reconciliation = Task.Run(async () =>
+            {
+                await Release.Task;
+                await service.ClearTabItemsAsync();
+            });
+            context = null;
+            return false;
+        }
+    }
+
+    private sealed class CapturingAdmissionChildExtension : EditorExtension
+    {
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Child { get; private set; } = Task.CompletedTask;
+
+        public override FilePickerFileType GetFilePickerFileType() => new("CapturingChild");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            TaskCompletionSource release = Release;
+            Child = Task.Run(async () => await release.Task);
+            context = null;
+            return false;
+        }
+    }
+
+    private sealed class NestedReplacementExtension(
+        EditorService service,
+        EditorTabItem tab,
+        EditorExtension nestedExtension) : EditorExtension
+    {
+        public override FilePickerFileType GetFilePickerFileType() => new("NestedReplacement");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => false;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            service.ReplaceContextAsync(tab, nestedExtension).AsTask().GetAwaiter().GetResult();
+            context = null;
+            return false;
         }
     }
 
