@@ -52,7 +52,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                         item.Reason == ExecutionIslandBoundaryReason.BackendTransition), Is.EqualTo(1));
                     Assert.That(shaderRuns, Has.Length.EqualTo(1));
                 });
-                Assert.That(shaderRuns.Single().Stages, Has.Length.EqualTo(1));
+                Assert.That(shaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
             }
 
             using var renderer = new RenderNodeRenderer(

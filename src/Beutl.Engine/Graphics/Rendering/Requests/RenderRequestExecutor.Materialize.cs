@@ -81,10 +81,10 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
-            if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership))
+            if (_executionPlan.TryGetMembership(_graph, fragment, out ExecutionIslandMembership membership))
             {
                 ExecutionIsland island = _executionLedger.Begin(membership);
-                IReadOnlyList<MaterializedRenderValue> values = membership.ShaderRun is { } run
+                IReadOnlyList<MaterializedRenderValue> values = membership.Island.ShaderRun is { } run
                     ? ExecuteCompiledShaderRun(run, currentTarget, requestedScale)
                     : MaterializePlannedFragment(fragment, currentTarget, requestedScale);
                 _executionLedger.Complete(island);

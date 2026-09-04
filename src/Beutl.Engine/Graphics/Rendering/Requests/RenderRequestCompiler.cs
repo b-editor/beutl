@@ -276,7 +276,6 @@ internal sealed class RenderRequestCompiler
                 cacheResolution);
             executionPlan = _structuralPlanCache.GetOrCompile(
                 structuralIdentity,
-                graph,
                 () => new ExecutionIslandPlanner().Plan(
                     graph,
                     roots,

@@ -28,20 +28,15 @@ public sealed class ColorFilterIslandSplitTests
         {
             Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(3));
             Assert.That(
-                compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[]
-                {
-                    ExecutionIslandKind.Compatibility,
-                    ExecutionIslandKind.Compatibility,
-                    ExecutionIslandKind.ShaderRun,
-                }));
+                compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, false, true }));
             Assert.That(Reasons(compiled), Is.EqualTo(new[]
             {
                 ExecutionIslandBoundaryReason.Opaque,
                 ExecutionIslandBoundaryReason.FilterEffectSegment,
                 ExecutionIslandBoundaryReason.CoverageResolution,
             }));
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(1));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
         }
     }
 
@@ -58,13 +53,8 @@ public sealed class ColorFilterIslandSplitTests
         {
             Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(3));
             Assert.That(
-                compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[]
-                {
-                    ExecutionIslandKind.Compatibility,
-                    ExecutionIslandKind.Compatibility,
-                    ExecutionIslandKind.ShaderRun,
-                }));
+                compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, false, true }));
             Assert.That(Reasons(compiled), Is.EqualTo(new[]
             {
                 ExecutionIslandBoundaryReason.Opaque,
@@ -75,7 +65,7 @@ public sealed class ColorFilterIslandSplitTests
             // The blur segment is what forces the split, so no custom effect is blamed for it.
             Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
 
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(1));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
         }
     }
 
@@ -109,8 +99,8 @@ public sealed class ColorFilterIslandSplitTests
         {
             Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(2));
             Assert.That(
-                compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[] { ExecutionIslandKind.Compatibility, ExecutionIslandKind.ShaderRun }));
+                compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, true }));
 
             // Only the source-materialization boundaries; nothing separates the two color stages.
             Assert.That(Reasons(compiled), Is.EqualTo(new[]
@@ -118,7 +108,7 @@ public sealed class ColorFilterIslandSplitTests
                 ExecutionIslandBoundaryReason.Opaque,
                 ExecutionIslandBoundaryReason.CoverageResolution,
             }));
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(2));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(2));
         }
     }
 
@@ -137,8 +127,8 @@ public sealed class ColorFilterIslandSplitTests
         {
             Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(2));
             Assert.That(
-                compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[] { ExecutionIslandKind.Compatibility, ExecutionIslandKind.ShaderRun }));
+                compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, true }));
 
             // Only source materialization remains; no backend limit separates the three shader stages.
             Assert.That(Reasons(compiled), Is.EqualTo(new[]
@@ -150,7 +140,7 @@ public sealed class ColorFilterIslandSplitTests
             Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.BackendLimit));
 
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(3));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(3));
         }
     }
 
@@ -164,15 +154,15 @@ public sealed class ColorFilterIslandSplitTests
         TestContext.WriteLine("Generated SkSL:\n" + run.Program.Source);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[] { ExecutionIslandKind.Compatibility, ExecutionIslandKind.ShaderRun }));
+            Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, true }));
             Assert.That(Reasons(compiled), Is.EqualTo(new[]
             {
                 ExecutionIslandBoundaryReason.Opaque,
                 ExecutionIslandBoundaryReason.CoverageResolution,
             }));
             Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.WholeSourceShader));
-            Assert.That(run.Stages.Select(static stage => stage.Kind),
+            Assert.That(run.StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind),
                 Is.EqualTo(new[]
                 {
                     RenderFragmentKind.Shader,
@@ -180,7 +170,8 @@ public sealed class ColorFilterIslandSplitTests
                     RenderFragmentKind.Opacity,
                     RenderFragmentKind.Shader,
                 }));
-            Assert.That(run.Stages.Select(static stage => stage.Description.Kind),
+            Assert.That(Enumerable.Range(0, run.StageFragmentIndices.Length)
+                    .Select(index => run.GetDescription(compiled.Graph, index).Kind),
                 Is.EqualTo(new[]
                 {
                     ShaderDescriptionKind.WholeSource,
@@ -188,9 +179,10 @@ public sealed class ColorFilterIslandSplitTests
                     ShaderDescriptionKind.CurrentPixel,
                     ShaderDescriptionKind.CurrentPixel,
                 }));
-            Assert.That(run.WholeSourceHead, Is.SameAs(run.Stages[0].Description));
-            Assert.That(run.Output.Bounds, Is.EqualTo(run.Stages[0].Fragment.Bounds));
-            Assert.That(run.Output.EffectiveScale, Is.EqualTo(run.Stages[0].Fragment.EffectiveScale));
+            Assert.That(run.GetWholeSourceHead(compiled.Graph), Is.SameAs(run.GetDescription(compiled.Graph, 0)));
+            Assert.That(run.GetOutput(compiled.Graph).Bounds, Is.EqualTo(run.GetStage(compiled.Graph, 0).Bounds));
+            Assert.That(run.GetOutput(compiled.Graph).EffectiveScale,
+                Is.EqualTo(run.GetStage(compiled.Graph, 0).EffectiveScale));
         }
     }
 
@@ -211,18 +203,20 @@ public sealed class ColorFilterIslandSplitTests
             new Gamma { Amount = { CurrentValue = 180f } });
 
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        CompiledShaderStage head = run.Stages[0];
-        Rect headRequirement = compiled.Regions.GetFragmentRequirement(head.Fragment).Resolve(head.Fragment.Bounds);
-        Rect expectedInput = head.Description.Bounds
+        RenderFragmentReference head = run.GetStage(compiled.Graph, 0);
+        ShaderDescription headDescription = run.GetDescription(compiled.Graph, 0);
+        RenderFragmentReference input = run.GetInput(compiled.Graph);
+        Rect headRequirement = compiled.Regions.GetFragmentRequirement(head).Resolve(head.Bounds);
+        Rect expectedInput = headDescription.Bounds
             .GetRequiredInputBounds(headRequirement)
-            .Intersect(run.Input.Bounds);
+            .Intersect(input.Bounds);
 
         Assert.Multiple(() =>
         {
-            Assert.That(run.WholeSourceHead, Is.SameAs(head.Description));
+            Assert.That(run.GetWholeSourceHead(compiled.Graph), Is.SameAs(headDescription));
             Assert.That(headRequirement, Is.EqualTo(requestedRegion));
             Assert.That(expectedInput, Is.EqualTo(new Rect(5, 3, 11, 7)));
-            Assert.That(compiled.Regions.GetFragmentRequirement(run.Input),
+            Assert.That(compiled.Regions.GetFragmentRequirement(input),
                 Is.EqualTo(RequiredRegion.Region(expectedInput)));
         });
     }
@@ -231,10 +225,10 @@ public sealed class ColorFilterIslandSplitTests
     {
         TestContext.WriteLine(
             $"{label}: {compiled.ExecutionPlan.Islands.Length} islands "
-            + $"[{string.Join(", ", compiled.ExecutionPlan.Islands.Select(static island => island.Kind))}], "
+            + $"[{string.Join(", ", compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is null ? "semantic" : "shader"))}], "
             + $"boundary reasons [{string.Join(", ", Reasons(compiled))}], "
             + $"shader runs {compiled.ExecutionPlan.ShaderRuns.Count()} "
-            + $"[{string.Join(", ", compiled.ExecutionPlan.ShaderRuns.Select(static run => run.Stages.Length))}]");
+            + $"[{string.Join(", ", compiled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length))}]");
     }
 
     private static ExecutionIslandBoundaryReason[] Reasons(CompiledRenderRequest compiled)

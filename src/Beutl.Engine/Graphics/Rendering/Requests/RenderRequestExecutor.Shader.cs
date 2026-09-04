@@ -120,34 +120,37 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
-            Rect outputBounds = run.Output.Bounds;
+            RenderFragmentReference inputFragment = run.GetInput(_graph);
+            RenderFragmentReference outputFragment = run.GetOutput(_graph);
+            ShaderDescription? wholeSourceHead = run.GetWholeSourceHead(_graph);
+            Rect outputBounds = outputFragment.Bounds;
             if (outputBounds.Width == 0 || outputBounds.Height == 0)
             {
-                CompleteFragmentUse(run.Input);
+                CompleteFragmentUse(inputFragment);
                 return [];
             }
 
-            RenderFragmentReference requirementFragment = run.WholeSourceHead is null
-                ? run.Output
-                : run.Stages[0].Fragment;
+            RenderFragmentReference requirementFragment = wholeSourceHead is null
+                ? outputFragment
+                : run.GetStage(_graph, 0);
             Rect requiredRegion = ResolveFragmentRequirement(requirementFragment, outputBounds);
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             {
-                CompleteFragmentUse(run.Input);
+                CompleteFragmentUse(inputFragment);
                 return [];
             }
 
-            EffectiveScale outputRequestScale = !run.Output.EffectiveScale.IsUnbounded
-                ? run.Output.EffectiveScale
+            EffectiveScale outputRequestScale = !outputFragment.EffectiveScale.IsUnbounded
+                ? outputFragment.EffectiveScale
                 : requestedScale ?? EffectiveScale.At(currentTarget.Density);
             EffectiveScale inputRequestScale = requestedScale ?? outputRequestScale;
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
-                run.Input,
+                inputFragment,
                 currentTarget,
-                run.Input.EffectiveScale.IsUnbounded ? inputRequestScale : null);
+                inputFragment.EffectiveScale.IsUnbounded ? inputRequestScale : null);
             if (inputs.Count == 0)
             {
-                CompleteFragmentUse(run.Input);
+                CompleteFragmentUse(inputFragment);
                 return [];
             }
             if (inputs.Count != 1)
@@ -169,7 +172,7 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                MaterializedRenderValue shaderInput = run.WholeSourceHead is null
+                MaterializedRenderValue shaderInput = wholeSourceHead is null
                     ? input
                     : NormalizeSemanticShaderInput(input);
                 try
@@ -194,7 +197,7 @@ internal sealed partial class RenderRequestExecutor
             {
                 if (!succeeded)
                     ReleaseUnpublished(output);
-                CompleteFragmentUse(run.Input);
+                CompleteFragmentUse(inputFragment);
             }
         }
 
@@ -331,9 +334,10 @@ internal sealed partial class RenderRequestExecutor
             if (_shaderBackendPreference == ShaderBackendPreference.Sksl)
                 return false;
 
-            SpirvShaderLowering? lowering = run.Stages.Length == 1
-                ? run.Stages[0].Description.SpirvLowering
+            ShaderDescription? stageDescription = run.StageFragmentIndices.Length == 1
+                ? run.GetDescription(_graph, 0)
                 : null;
+            SpirvShaderLowering? lowering = stageDescription?.SpirvLowering;
             if (lowering is null)
             {
                 if (_shaderBackendPreference == ShaderBackendPreference.Spirv)
@@ -376,7 +380,7 @@ internal sealed partial class RenderRequestExecutor
             {
                 lease = SpirvShaderProgramCache.Acquire(
                     _spirvProgramCache,
-                    run.Stages[0].Description,
+                    stageDescription!,
                     graphicsContext!,
                     contextKey);
             }
@@ -396,7 +400,6 @@ internal sealed partial class RenderRequestExecutor
                     {
                         ShaderExecutionContext context = CreateCompiledShaderStageContext(
                             run,
-                            run.Stages[0],
                             stageIndex: 0,
                             bindingToken,
                             input,
@@ -406,7 +409,7 @@ internal sealed partial class RenderRequestExecutor
                             output.RasterBounds,
                             output.EffectiveScale.Value);
                         pushConstants = lowering.Bind(
-                            run.Stages[0].Description,
+                            stageDescription!,
                             context,
                             sourceTexelOffset);
                     });
@@ -427,8 +430,8 @@ internal sealed partial class RenderRequestExecutor
         private bool ShouldMaterializeForSpirv(CompiledShaderRun run)
         {
             if (_shaderBackendPreference == ShaderBackendPreference.Sksl
-                || run.Stages.Length != 1
-                || run.Stages[0].Description.SpirvLowering is null)
+                || run.StageFragmentIndices.Length != 1
+                || run.GetDescription(_graph, 0).SpirvLowering is null)
             {
                 return false;
             }
@@ -440,7 +443,7 @@ internal sealed partial class RenderRequestExecutor
         private bool ShouldDeferDirectReplayToSpirv(CompiledShaderRun run)
             => ShouldMaterializeForSpirv(run)
                && (_shaderBackendPreference == ShaderBackendPreference.Spirv
-                   || run.Input.HasOpaqueExternalWork);
+                   || run.GetInput(_graph).HasOpaqueExternalWork);
 
         private void ExecuteCompiledShaderRunProgram(
             CompiledShaderRun run,
@@ -452,7 +455,9 @@ internal sealed partial class RenderRequestExecutor
             float outputScale,
             Action<SKShader> draw)
         {
-            ShaderEvaluationFrame frame = run.WholeSourceHead is null
+            ShaderDescription? wholeSourceHead = run.GetWholeSourceHead(_graph);
+            RenderFragmentReference inputFragment = run.GetInput(_graph);
+            ShaderEvaluationFrame frame = wholeSourceHead is null
                 ? ShaderEvaluationFrame.Destination(outputDeviceBounds, outputRasterBounds)
                 : RasterShaderMapping.CreateWholeSourceFrame(
                     outputBounds,
@@ -472,7 +477,7 @@ internal sealed partial class RenderRequestExecutor
                     () =>
                     {
                         SKShader inputShader;
-                        if (run.WholeSourceHead is { } head)
+                        if (wholeSourceHead is { } head)
                         {
                             inputShader = RasterShaderMapping.CreateSemanticImageShader(
                                 inputImage,
@@ -487,8 +492,8 @@ internal sealed partial class RenderRequestExecutor
                         }
                         else
                         {
-                            bool interpolatedBitmap = run.Input.Kind == RenderFragmentKind.OpaqueSource
-                                && ((OpaqueRenderFragmentPayload)run.Input.Payload!).Description
+                            bool interpolatedBitmap = inputFragment.Kind == RenderFragmentKind.OpaqueSource
+                                && ((OpaqueRenderFragmentPayload)inputFragment.Payload!).Description
                                     .DirectReplayAtExactIntegerReduction;
                             SKSamplingOptions sampling = interpolatedBitmap
                                 ? RasterShaderMapping.SamplingFor(
@@ -511,18 +516,18 @@ internal sealed partial class RenderRequestExecutor
                         children.Add(inputShader);
                         runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
 
-                        var stagesByMergedIndex = new Dictionary<int, CompiledShaderStage>();
+                        var descriptionsByMergedIndex = new Dictionary<int, ShaderDescription>();
                         var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
                         for (int index = 0; index < run.Program.Stages.Count; index++)
                         {
                             int mergedIndex = run.Program.Stages[index].StageIndex;
-                            CompiledShaderStage stage = run.Stages[index];
-                            stagesByMergedIndex.Add(mergedIndex, stage);
+                            descriptionsByMergedIndex.Add(
+                                mergedIndex,
+                                run.GetDescription(_graph, index));
                             contextsByMergedIndex.Add(
                                 mergedIndex,
                                 CreateCompiledShaderStageContext(
                                     run,
-                                    stage,
                                     index,
                                     bindingToken,
                                     input,
@@ -535,9 +540,8 @@ internal sealed partial class RenderRequestExecutor
 
                         foreach (SkslMergedBindingLayout layout in run.Program.Bindings)
                         {
-                            CompiledShaderStage stage = stagesByMergedIndex[layout.StageIndex];
                             ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
-                            ShaderDescription description = stage.Description;
+                            ShaderDescription description = descriptionsByMergedIndex[layout.StageIndex];
                             if (layout.Kind == SkslBindingKind.Uniform)
                             {
                                 ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
@@ -563,7 +567,7 @@ internal sealed partial class RenderRequestExecutor
                 DrawInEvaluationFrame(shader, frame, draw);
 
                 _shaderRunExecutions++;
-                _shaderStageExecutions = checked(_shaderStageExecutions + run.Stages.Length);
+                _shaderStageExecutions = checked(_shaderStageExecutions + run.StageFragmentIndices.Length);
                 if (run.IsFused)
                     _fusedShaderRunExecutions++;
                 if (lease.IsCacheHit)
@@ -598,7 +602,6 @@ internal sealed partial class RenderRequestExecutor
 
         private ShaderExecutionContext CreateCompiledShaderStageContext(
             CompiledShaderRun run,
-            CompiledShaderStage stage,
             int stageIndex,
             RenderExecutionSessionToken bindingToken,
             MaterializedRenderValue runInput,
@@ -609,8 +612,9 @@ internal sealed partial class RenderRequestExecutor
             float runWorkingScale)
         {
             bool isFirst = stageIndex == 0;
-            bool isLast = stageIndex == run.Stages.Length - 1;
-            RenderFragmentReference fragment = stage.Fragment;
+            bool isLast = stageIndex == run.StageFragmentIndices.Length - 1;
+            RenderFragmentReference fragment = run.GetStage(_graph, stageIndex);
+            ShaderDescription description = run.GetDescription(_graph, stageIndex);
             RenderFragmentReference fragmentInput = fragment.Inputs.Single();
             Rect inputBounds = isFirst
                 ? runInput.Bounds
@@ -627,7 +631,7 @@ internal sealed partial class RenderRequestExecutor
                 (runOutputDeviceBounds.X / workingScale) - runOutputRasterBounds.X,
                 (runOutputDeviceBounds.Y / workingScale) - runOutputRasterBounds.Y);
             PixelRect deviceBounds;
-            if (stage.Description.Kind == ShaderDescriptionKind.WholeSource)
+            if (description.Kind == ShaderDescriptionKind.WholeSource)
             {
                 deviceBounds = RasterShaderMapping.CreateWholeSourceFrame(
                         outputBounds,

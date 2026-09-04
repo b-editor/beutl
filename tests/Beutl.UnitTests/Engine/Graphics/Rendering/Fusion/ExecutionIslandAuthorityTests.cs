@@ -79,9 +79,12 @@ public sealed class ExecutionIslandAuthorityTests
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Is.Empty);
             Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(1).Items);
-            Assert.That(compiled.ExecutionPlan.TryGetMembership(opacity, out ExecutionIslandMembership membership),
+            Assert.That(compiled.ExecutionPlan.TryGetMembership(
+                    compiled.Graph,
+                    opacity,
+                    out ExecutionIslandMembership membership),
                 Is.True);
-            Assert.That(membership.Island.Kind, Is.EqualTo(ExecutionIslandKind.Compatibility));
+            Assert.That(membership.Island.ShaderRun, Is.Null);
             Assert.That(compiled.ExecutionPlan.Boundaries,
                 Has.Some.Matches<ExecutionIslandBoundary>(static boundary =>
                     boundary.Reason == ExecutionIslandBoundaryReason.SemanticComposite));
@@ -164,8 +167,8 @@ public sealed class ExecutionIslandAuthorityTests
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        RenderFragmentReference interior = Find(compiled.Graph, run.Stages[0].FragmentId);
-        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger();
+        RenderFragmentReference interior = run.GetStage(compiled.Graph, 0);
+        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger(compiled.Graph);
 
         Assert.That(
             () => ledger.Begin(interior),
@@ -177,13 +180,14 @@ public sealed class ExecutionIslandAuthorityTests
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger();
+        ExecutionIslandExecutionLedger ledger = compiled.ExecutionPlan.CreateExecutionLedger(compiled.Graph);
+        RenderFragmentReference output = run.GetOutput(compiled.Graph);
 
-        ExecutionIsland island = ledger.Begin(run.Output);
+        ExecutionIsland island = ledger.Begin(output);
         ledger.Complete(island);
 
         Assert.That(
-            () => ledger.Begin(run.Output),
+            () => ledger.Begin(output),
             Throws.InvalidOperationException.With.Message.Contains("more than once"));
     }
 
@@ -192,31 +196,30 @@ public sealed class ExecutionIslandAuthorityTests
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        var invalid = new ExecutionIslandPlan([], compiled.ExecutionPlan.Boundaries);
-        ExecutionIslandExecutionLedger ledger = invalid.CreateExecutionLedger();
+        var invalid = new ExecutionIslandPlan(
+            compiled.Graph.Fragments.Length,
+            [],
+            compiled.ExecutionPlan.Boundaries);
+        ExecutionIslandExecutionLedger ledger = invalid.CreateExecutionLedger(compiled.Graph);
 
         Assert.That(
-            () => ledger.Begin(run.Output),
+            () => ledger.Begin(run.GetOutput(compiled.Graph)),
             Throws.InvalidOperationException.With.Message.Contains("not assigned"));
     }
 
     [Test]
     public void Plan_RejectsOneFragmentAssignedToMultipleIslands()
     {
-        var requestId = new RenderRequestId(1);
-        var fragmentId = new RenderFragmentId(requestId, 1);
-
         Assert.That(
             () => new ExecutionIslandPlan(
+            1,
             [
                 new ExecutionIsland(
-                    new ExecutionIslandId(1),
-                    ExecutionIslandKind.Compatibility,
-                    [fragmentId]),
+                    0,
+                    [0]),
                 new ExecutionIsland(
-                    new ExecutionIslandId(2),
-                    ExecutionIslandKind.Compatibility,
-                    [fragmentId]),
+                    1,
+                    [0]),
             ],
             []),
             Throws.ArgumentException.With.Message.Contains("more than one execution island"));
@@ -226,7 +229,7 @@ public sealed class ExecutionIslandAuthorityTests
     public void PlanLedger_RejectsIncompleteSuccessfulExecution()
     {
         var fixture = CreateReversePublicationFixture();
-        ExecutionIslandExecutionLedger ledger = fixture.Plan.CreateExecutionLedger();
+        ExecutionIslandExecutionLedger ledger = fixture.Plan.CreateExecutionLedger(fixture.Graph);
 
         ExecutionIsland second = ledger.Begin(fixture.Second);
         ledger.Complete(second);
@@ -234,6 +237,44 @@ public sealed class ExecutionIslandAuthorityTests
         Assert.That(
             () => ledger.ValidateCompleted(),
             Throws.InvalidOperationException.With.Message.Contains("must complete"));
+    }
+
+    [Test]
+    public void Plan_RejectsSameOrdinalFragmentFromAnotherGraph()
+    {
+        var fixture = CreateReversePublicationFixture();
+        RecordedRenderGraph otherGraph = BuildGraph(
+            fixture.Graph.RequestId,
+            [
+                Fragment(RenderFragmentKind.MaterializedInput, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.Geometry, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.MaterializedInput, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.Geometry, EffectiveScale.At(1), payload: null),
+            ],
+            []);
+
+        Assert.That(
+            fixture.Plan.TryGetMembership(fixture.Graph, otherGraph.Fragments[3], out _),
+            Is.False);
+    }
+
+    [Test]
+    public void Plan_CreatesIndependentExecutionLedgers()
+    {
+        var fixture = CreateReversePublicationFixture();
+        ExecutionIslandExecutionLedger firstLedger = fixture.Plan.CreateExecutionLedger(fixture.Graph);
+        ExecutionIslandExecutionLedger secondLedger = fixture.Plan.CreateExecutionLedger(fixture.Graph);
+
+        ExecutionIsland firstIsland = firstLedger.Begin(fixture.First);
+        ExecutionIsland secondIsland = secondLedger.Begin(fixture.First);
+        firstLedger.Complete(firstIsland);
+        secondLedger.Complete(secondIsland);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => firstLedger.ValidateCompleted(allowSkippedIslands: true), Throws.Nothing);
+            Assert.That(() => secondLedger.ValidateCompleted(allowSkippedIslands: true), Throws.Nothing);
+        });
     }
 
     private static RenderNodeRenderer CreateRenderer(
@@ -345,22 +386,18 @@ public sealed class ExecutionIslandAuthorityTests
             [firstSource, first, secondSource, second],
             roots);
         var plan = new ExecutionIslandPlan(
+            graph.Fragments.Length,
             [
                 new ExecutionIsland(
-                    new ExecutionIslandId(1),
-                    ExecutionIslandKind.Compatibility,
-                    [first.Id!.Value]),
+                    0,
+                    [1]),
                 new ExecutionIsland(
-                    new ExecutionIslandId(2),
-                    ExecutionIslandKind.Compatibility,
-                    [second.Id!.Value]),
+                    1,
+                    [3]),
             ],
             []);
         return (graph, roots, plan, first, second);
     }
-
-    private static RenderFragmentReference Find(RecordedRenderGraph graph, RenderFragmentId id)
-        => graph.GetFragment(id);
 
     private static RenderFragmentReference Fragment(
         RenderFragmentKind kind,

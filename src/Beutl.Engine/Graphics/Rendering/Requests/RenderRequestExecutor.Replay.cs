@@ -116,7 +116,9 @@ internal sealed partial class RenderRequestExecutor
             if (ShouldDeferDirectReplayToSpirv(run))
                 return false;
 
-            if (!ReferenceEquals(run.Output, fragment)
+            RenderFragmentReference output = run.GetOutput(_graph);
+            RenderFragmentReference inputFragment = run.GetInput(_graph);
+            if (!ReferenceEquals(output, fragment)
                 || !_roots.Contains(fragment)
                 || !fragment.ContributesValuesToTarget
                 || _values.ContainsKey(fragment)
@@ -130,6 +132,7 @@ internal sealed partial class RenderRequestExecutor
             if (!DirectShaderRunPlanner.TryResolve(
                     fragment,
                     run,
+                    _graph,
                     _regions,
                     DirectRenderTargetGeometry.FromCanvas(destination),
                     out DirectShaderRunPlan directPlan))
@@ -137,13 +140,13 @@ internal sealed partial class RenderRequestExecutor
                 return false;
             }
 
-            EffectiveScale inputRequestScale = !run.Output.EffectiveScale.IsUnbounded
-                ? run.Output.EffectiveScale
+            EffectiveScale inputRequestScale = !output.EffectiveScale.IsUnbounded
+                ? output.EffectiveScale
                 : EffectiveScale.At(destination.Density);
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(
-                run.Input,
+                inputFragment,
                 destination,
-                run.Input.EffectiveScale.IsUnbounded ? inputRequestScale : null);
+                inputFragment.EffectiveScale.IsUnbounded ? inputRequestScale : null);
             try
             {
                 if (inputs.Count != 1)
@@ -190,7 +193,7 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                CompleteFragmentUse(run.Input);
+                CompleteFragmentUse(inputFragment);
             }
         }
 
@@ -598,18 +601,20 @@ internal static class DirectShaderRunPlanner
     public static bool TryResolve(
         RenderFragmentReference fragment,
         CompiledShaderRun run,
+        RecordedRenderGraph graph,
         RegionAnalysis regions,
         DirectRenderTargetGeometry destination,
         out DirectShaderRunPlan plan)
     {
         plan = default;
-        if (!ReferenceEquals(run.Output, fragment))
+        RenderFragmentReference output = run.GetOutput(graph);
+        if (!ReferenceEquals(output, fragment))
             return false;
 
-        Rect outputBounds = run.Output.Bounds;
-        RenderFragmentReference requirementFragment = run.WholeSourceHead is null
-            ? run.Output
-            : run.Stages[0].Fragment;
+        Rect outputBounds = output.Bounds;
+        RenderFragmentReference requirementFragment = run.GetWholeSourceHead(graph) is null
+            ? output
+            : run.GetStage(graph, 0);
         Rect requiredRegion = regions.GetFragmentRequirement(requirementFragment).Resolve(outputBounds);
         if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
             return false;

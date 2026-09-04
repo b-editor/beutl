@@ -85,22 +85,23 @@ public sealed class SKSLScriptEffectShaderTests
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         TestContext.WriteLine(
             $"SKSL apply -> Invert: {compiled.ExecutionPlan.Islands.Length} islands, "
-            + $"{compiled.ExecutionPlan.ShaderRuns.Count()} shader run, {run.Stages.Length} stages");
+            + $"{compiled.ExecutionPlan.ShaderRuns.Count()} shader run, {run.StageFragmentIndices.Length} stages");
         Assert.Multiple(() =>
         {
             Assert.That(
-                compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[] { ExecutionIslandKind.Compatibility, ExecutionIslandKind.ShaderRun }));
+                compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, true }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
-            Assert.That(run.Stages, Has.Length.EqualTo(2));
+            Assert.That(run.StageFragmentIndices, Has.Length.EqualTo(2));
             Assert.That(
-                run.Stages.Select(static stage => stage.Description.Kind),
+                Enumerable.Range(0, run.StageFragmentIndices.Length)
+                    .Select(index => run.GetDescription(compiled.Graph, index).Kind),
                 Is.EqualTo(new[]
                 {
                     ShaderDescriptionKind.CurrentPixel,
                     ShaderDescriptionKind.CurrentPixel,
                 }));
-            Assert.That(run.WholeSourceHead, Is.Null);
+            Assert.That(run.GetWholeSourceHead(compiled.Graph), Is.Null);
         });
     }
 

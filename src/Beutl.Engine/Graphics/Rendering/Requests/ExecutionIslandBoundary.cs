@@ -5,7 +5,7 @@ using Beutl.Graphics.Shaders;
 namespace Beutl.Graphics.Rendering.Requests;
 
 internal readonly record struct ExecutionIslandBoundary(
-    RenderFragmentId? BeforeFragmentId,
-    RenderFragmentId? AfterFragmentId,
+    int? BeforeFragmentIndex,
+    int? AfterFragmentIndex,
     ExecutionIslandBoundaryReason Reason,
     ImmutableArray<SkslBackendLimit> BackendLimits);

@@ -283,6 +283,7 @@ internal sealed partial class RenderRequestExecutor
     private sealed partial class RenderRequestExecutionState : IDisposable
     {
         private readonly RenderRequestOptions _options;
+        private readonly RecordedRenderGraph _graph;
         private readonly ExecutionIslandPlan _executionPlan;
         private readonly ExecutionIslandExecutionLedger _executionLedger;
         private readonly RegionAnalysis _regions;
@@ -335,6 +336,7 @@ internal sealed partial class RenderRequestExecutor
 
         public RenderRequestExecutionState(
             RenderRequestOptions options,
+            RecordedRenderGraph graph,
             ExecutionIslandPlan executionPlan,
             TargetDependencyPlan targetDependencies,
             RegionAnalysis regions,
@@ -349,8 +351,9 @@ internal sealed partial class RenderRequestExecutor
             Action<RenderFragmentKind>? afterCaptureAllocation)
         {
             _options = options;
+            _graph = graph ?? throw new ArgumentNullException(nameof(graph));
             _executionPlan = executionPlan;
-            _executionLedger = executionPlan.CreateExecutionLedger();
+            _executionLedger = executionPlan.CreateExecutionLedger(graph);
             _regions = regions;
             HashSet<RenderFragmentId> cacheHitFragmentIds = cacheResolution.CollectPrunedHitProducers();
             _resourceUses = ResourcePlanUseTracker.Create(roots, cacheHitFragmentIds);
@@ -478,12 +481,12 @@ internal sealed partial class RenderRequestExecutor
                 return;
             }
 
-            if (_executionPlan.TryGetMembership(fragment, out ExecutionIslandMembership membership)
-                && membership.ShaderRun is not null)
+            if (_executionPlan.TryGetMembership(_graph, fragment, out ExecutionIslandMembership membership)
+                && membership.Island.ShaderRun is not null)
             {
                 if (TryExecuteCompiledShaderRunDirect(
                         fragment,
-                        membership.ShaderRun,
+                        membership.Island.ShaderRun,
                         destination))
                 {
                     return;

@@ -3,37 +3,43 @@ using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
-internal sealed class ExecutionIsland
+internal readonly struct ExecutionIsland
 {
     public ExecutionIsland(
-        ExecutionIslandId id,
-        ExecutionIslandKind kind,
-        ImmutableArray<RenderFragmentId> fragments,
+        int index,
+        ImmutableArray<int> fragmentIndices,
         CompiledShaderRun? shaderRun = null)
     {
-        if (id.Value <= 0)
-            throw new ArgumentOutOfRangeException(nameof(id));
-        if (!Enum.IsDefined(kind))
-            throw new ArgumentOutOfRangeException(nameof(kind));
-        if (fragments.IsDefaultOrEmpty)
-            throw new ArgumentException("An execution island must contain at least one fragment.", nameof(fragments));
-        if ((kind == ExecutionIslandKind.ShaderRun) != (shaderRun is not null))
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        if (fragmentIndices.IsDefaultOrEmpty)
         {
             throw new ArgumentException(
-                "Only Shader-run islands carry a compiled Shader run.",
-                nameof(shaderRun));
+                "An execution island must contain at least one fragment.",
+                nameof(fragmentIndices));
         }
-        Id = id;
-        Kind = kind;
-        Fragments = fragments;
+        foreach (int fragmentIndex in fragmentIndices)
+            ArgumentOutOfRangeException.ThrowIfNegative(fragmentIndex, nameof(fragmentIndices));
+        if (shaderRun is null && fragmentIndices.Length != 1)
+        {
+            throw new ArgumentException(
+                "A non-Shader execution island must identify exactly one semantic fragment.",
+                nameof(fragmentIndices));
+        }
+        if (shaderRun is not null
+            && !fragmentIndices.AsSpan().SequenceEqual(shaderRun.StageFragmentIndices.AsSpan()))
+        {
+            throw new ArgumentException(
+                "A Shader-run island must contain exactly its compiled stages in execution order.",
+                nameof(fragmentIndices));
+        }
+        Index = index;
+        FragmentIndices = fragmentIndices;
         ShaderRun = shaderRun;
     }
 
-    public ExecutionIslandId Id { get; }
+    public int Index { get; }
 
-    public ExecutionIslandKind Kind { get; }
-
-    public ImmutableArray<RenderFragmentId> Fragments { get; }
+    public ImmutableArray<int> FragmentIndices { get; }
 
     public CompiledShaderRun? ShaderRun { get; }
 }

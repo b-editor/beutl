@@ -1,24 +1,29 @@
 ﻿using System.Collections.Immutable;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.Graphics.Shaders;
 
+/// <summary>An immutable Shader-run topology retained by the structural plan cache.</summary>
+/// <remarks>
+/// Fragment indices and the merged program are structural. The current graph supplies descriptions and
+/// binding callbacks so a cached run does not retain request-scoped fragments or resources.
+/// </remarks>
 internal sealed class CompiledShaderRun
 {
     public CompiledShaderRun(
-        CompiledShaderRunId id,
-        RenderFragmentReference input,
-        RenderFragmentReference output,
-        ImmutableArray<CompiledShaderStage> stages,
+        ImmutableArray<int> stageFragmentIndices,
         SkslMergedProgram program)
     {
-        if (id.Value <= 0)
-            throw new ArgumentOutOfRangeException(nameof(id));
-        ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(output);
-        if (stages.IsDefaultOrEmpty)
-            throw new ArgumentException("A compiled Shader run must contain at least one stage.", nameof(stages));
+        if (stageFragmentIndices.IsDefaultOrEmpty)
+        {
+            throw new ArgumentException(
+                "A compiled Shader run must contain at least one stage.",
+                nameof(stageFragmentIndices));
+        }
+        foreach (int fragmentIndex in stageFragmentIndices)
+            ArgumentOutOfRangeException.ThrowIfNegative(fragmentIndex, nameof(stageFragmentIndices));
+
         ArgumentNullException.ThrowIfNull(program);
         if (program.RequiresStandaloneExecution)
         {
@@ -26,50 +31,50 @@ internal sealed class CompiledShaderRun
                 "A backend-overflowing program must remain a compatibility boundary.",
                 nameof(program));
         }
-        if (program.StageCount != stages.Length)
+        if (program.StageCount != stageFragmentIndices.Length)
             throw new ArgumentException("The merged program and semantic stage counts must match.", nameof(program));
 
-        ShaderDescription? wholeSourceHead = stages[0].Description.Kind == ShaderDescriptionKind.WholeSource
-            ? stages[0].Description
-            : null;
-        for (int index = wholeSourceHead is null ? 0 : 1; index < stages.Length; index++)
-        {
-            if (stages[index].Description.Kind != ShaderDescriptionKind.WholeSource)
-                continue;
-
-            throw new ArgumentException(
-                "A WholeSource shader can appear only at the head of a compiled Shader run.",
-                nameof(stages));
-        }
-        if (wholeSourceHead is not null
-            && (!output.Bounds.Equals(stages[0].Fragment.Bounds)
-                || !output.EffectiveScale.Equals(stages[0].Fragment.EffectiveScale)))
-        {
-            throw new ArgumentException(
-                "A WholeSource-headed run must preserve the head stage's output bounds and effective scale.",
-                nameof(output));
-        }
-
-        Id = id;
-        Input = input;
-        Output = output;
-        Stages = stages;
+        StageFragmentIndices = stageFragmentIndices;
         Program = program;
-        WholeSourceHead = wholeSourceHead;
     }
 
-    public CompiledShaderRunId Id { get; }
-
-    public RenderFragmentReference Input { get; }
-
-    public RenderFragmentReference Output { get; }
-
-    public ImmutableArray<CompiledShaderStage> Stages { get; }
+    public ImmutableArray<int> StageFragmentIndices { get; }
 
     public SkslMergedProgram Program { get; }
 
-    /// <summary>Gets the WholeSource head whose implicit source mapping governs the run input, if present.</summary>
-    public ShaderDescription? WholeSourceHead { get; }
+    public bool IsFused => StageFragmentIndices.Length > 1;
 
-    public bool IsFused => Stages.Length > 1;
+    public RenderFragmentReference GetInput(RecordedRenderGraph graph)
+    {
+        ImmutableArray<RenderFragmentReference> inputs = GetStage(graph, 0).Inputs;
+        if (inputs.Length != 1)
+            throw new InvalidOperationException("A compiled Shader run requires one direct input.");
+        return inputs[0];
+    }
+
+    public RenderFragmentReference GetOutput(RecordedRenderGraph graph)
+        => GetStage(graph, StageFragmentIndices.Length - 1);
+
+    public RenderFragmentReference GetStage(RecordedRenderGraph graph, int stageIndex)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        return graph.Fragments[StageFragmentIndices[stageIndex]];
+    }
+
+    public ShaderDescription GetDescription(RecordedRenderGraph graph, int stageIndex)
+    {
+        RenderFragmentReference stage = GetStage(graph, stageIndex);
+        return stage.Payload switch
+        {
+            ShaderRenderFragmentPayload shader => shader.Description,
+            OpacityRenderFragmentPayload opacity => opacity.FusionDescription,
+            _ => throw new InvalidOperationException("A compiled Shader run contains a non-Shader stage."),
+        };
+    }
+
+    public ShaderDescription? GetWholeSourceHead(RecordedRenderGraph graph)
+    {
+        ShaderDescription head = GetDescription(graph, 0);
+        return head.Kind == ShaderDescriptionKind.WholeSource ? head : null;
+    }
 }

@@ -27,13 +27,13 @@ public sealed class CrossNodeShaderFusionTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(1));
-            Assert.That(run.Stages.Select(static stage => stage.Kind), Is.EqualTo(new[]
+            Assert.That(run.StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind), Is.EqualTo(new[]
             {
                 RenderFragmentKind.Shader,
                 RenderFragmentKind.Opacity,
                 RenderFragmentKind.Shader,
             }));
-            Assert.That(run.Stages.Select(static stage => stage.CoverageBehavior), Is.EqualTo(new[]
+            Assert.That(run.Program.Stages.Select(static stage => stage.CoverageBehavior), Is.EqualTo(new[]
             {
                 SkslCoverageBehavior.RequiresResolvedCoverage,
                 SkslCoverageBehavior.PremultipliedCoverageHomogeneous,
@@ -41,7 +41,7 @@ public sealed class CrossNodeShaderFusionTests
             }));
             Assert.That(run.Program.StageCount, Is.EqualTo(3));
             Assert.That(run.IsFused, Is.True);
-            Assert.That(run.Output.CanBeUsedAsValueInput, Is.True,
+            Assert.That(run.GetOutput(compiled.Graph).CanBeUsedAsValueInput, Is.True,
                 "The typed opacity descriptor must preserve value-input eligibility.");
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.MaterializedInput));
@@ -62,11 +62,19 @@ public sealed class CrossNodeShaderFusionTests
         using CompiledRenderRequest enabled = CompilePrimaryChain(FusionMode.Enabled);
         using CompiledRenderRequest disabled = CompilePrimaryChain(FusionMode.Disabled);
 
-        CompiledShaderStage[] enabledStages = enabled.ExecutionPlan.ShaderRuns
-            .SelectMany(static run => run.Stages)
+        RenderFragmentReference[] enabledStages = enabled.ExecutionPlan.ShaderRuns
+            .SelectMany(run => run.StageFragmentIndices.Select(index => enabled.Graph.Fragments[index]))
             .ToArray();
-        CompiledShaderStage[] disabledStages = disabled.ExecutionPlan.ShaderRuns
-            .SelectMany(static run => run.Stages)
+        RenderFragmentReference[] disabledStages = disabled.ExecutionPlan.ShaderRuns
+            .SelectMany(run => run.StageFragmentIndices.Select(index => disabled.Graph.Fragments[index]))
+            .ToArray();
+        ShaderDescription[] enabledDescriptions = enabled.ExecutionPlan.ShaderRuns
+            .SelectMany(run => Enumerable.Range(0, run.StageFragmentIndices.Length)
+                .Select(index => run.GetDescription(enabled.Graph, index)))
+            .ToArray();
+        ShaderDescription[] disabledDescriptions = disabled.ExecutionPlan.ShaderRuns
+            .SelectMany(run => Enumerable.Range(0, run.StageFragmentIndices.Length)
+                .Select(index => run.GetDescription(disabled.Graph, index)))
             .ToArray();
 
         Assert.Multiple(() =>
@@ -75,12 +83,12 @@ public sealed class CrossNodeShaderFusionTests
                 Is.Not.EqualTo(disabled.Request.Options.PlanIdentity));
             Assert.That(enabled.ExecutionPlan.ShaderRuns.Count(), Is.EqualTo(1));
             Assert.That(disabled.ExecutionPlan.ShaderRuns.Count(), Is.EqualTo(3));
-            Assert.That(disabled.ExecutionPlan.ShaderRuns.Select(static run => run.Stages.Length),
+            Assert.That(disabled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { 1, 1, 1 }));
             Assert.That(disabledStages.Select(static stage => stage.Kind),
                 Is.EqualTo(enabledStages.Select(static stage => stage.Kind)));
-            Assert.That(disabledStages.Select(static stage => stage.Description.Source.Text),
-                Is.EqualTo(enabledStages.Select(static stage => stage.Description.Source.Text)));
+            Assert.That(disabledDescriptions.Select(static stage => stage.Source.Text),
+                Is.EqualTo(enabledDescriptions.Select(static stage => stage.Source.Text)));
             Assert.That(disabled.ExecutionPlan.Boundaries.Count(static boundary =>
                     boundary.Reason == ExecutionIslandBoundaryReason.FusionDisabled),
                 Is.EqualTo(2));
@@ -291,9 +299,9 @@ public sealed class CrossNodeShaderFusionTests
         Assert.Multiple(() =>
         {
             Assert.That(runs, Has.Length.EqualTo(2));
-            Assert.That(runs[0].Stages.Select(static stage => stage.Kind),
+            Assert.That(runs[0].StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind),
                 Is.EqualTo(new[] { RenderFragmentKind.Shader }));
-            Assert.That(runs[1].Stages.Select(static stage => stage.Kind),
+            Assert.That(runs[1].StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind),
                 Is.EqualTo(new[] { RenderFragmentKind.Opacity, RenderFragmentKind.Shader }));
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.Branching));

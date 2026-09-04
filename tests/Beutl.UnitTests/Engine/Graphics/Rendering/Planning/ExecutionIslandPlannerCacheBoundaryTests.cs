@@ -32,7 +32,8 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(plan.ShaderRuns, Has.Exactly(1).Items);
-            Assert.That(plan.ShaderRuns.Single().Stages.Select(static stage => stage.FragmentId),
+            Assert.That(ResolveFragments(fixture.Graph, plan.ShaderRuns.Single().StageFragmentIndices)
+                    .Select(static fragment => fragment.Id),
                 Is.EqualTo(new[] { fixture.CachedProducer.Id, fixture.Tail.Id }));
             Assert.That(plan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(static boundary =>
                 boundary.Reason is ExecutionIslandBoundaryReason.CacheInput
@@ -53,7 +54,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(plan.ShaderRuns.Select(static run => run.Stages.Length),
+            Assert.That(plan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { 1, 1 }));
             Assert.That(plan.Boundaries.Count(static boundary =>
                 boundary.Reason == ExecutionIslandBoundaryReason.FusionDisabled), Is.EqualTo(1));
@@ -79,11 +80,13 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(plan.ShaderRuns.Select(static run => run.Stages.Length),
+            Assert.That(plan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { 1, 1 }));
             Assert.That(cacheBoundaries, Has.Exactly(1).Items);
-            Assert.That(cacheBoundaries[0].BeforeFragmentId, Is.EqualTo(fixture.CachedProducer.Id));
-            Assert.That(cacheBoundaries[0].AfterFragmentId, Is.Null);
+            Assert.That(
+                cacheBoundaries[0].BeforeFragmentIndex,
+                Is.EqualTo(GetFragmentIndex(fixture.Graph, fixture.CachedProducer)));
+            Assert.That(cacheBoundaries[0].AfterFragmentIndex, Is.Null);
             Assert.That(cacheBoundaries[0].Reason,
                 Is.EqualTo(ExecutionIslandBoundaryReason.CacheCapture));
         });
@@ -106,18 +109,23 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(plan.Islands, Has.Exactly(1).Items);
-            Assert.That(plan.Islands.Single().Fragments, Is.EqualTo(new[] { fixture.Tail.Id }));
-            Assert.That(plan.ShaderRuns.Single().Stages.Select(static stage => stage.FragmentId),
+            Assert.That(
+                ResolveFragments(fixture.Graph, plan.Islands.Single()),
+                Is.EqualTo(new[] { fixture.Tail }));
+            Assert.That(ResolveFragments(fixture.Graph, plan.ShaderRuns.Single().StageFragmentIndices)
+                    .Select(static fragment => fragment.Id),
                 Is.EqualTo(new[] { fixture.Tail.Id }));
-            Assert.That(plan.Islands.SelectMany(static island => island.Fragments),
-                Has.None.EqualTo(fixture.CachedProducer.Id));
-            Assert.That(plan.Islands.SelectMany(static island => island.Fragments),
-                Has.None.EqualTo(fixture.Prefix.Id));
+            Assert.That(ResolveFragments(fixture.Graph, plan.Islands),
+                Has.None.SameAs(fixture.CachedProducer));
+            Assert.That(ResolveFragments(fixture.Graph, plan.Islands),
+                Has.None.SameAs(fixture.Prefix));
             Assert.That(plan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(static boundary =>
                 boundary.Reason == ExecutionIslandBoundaryReason.Geometry));
             Assert.That(cacheBoundaries, Has.Exactly(1).Items);
-            Assert.That(cacheBoundaries[0].BeforeFragmentId, Is.Null);
-            Assert.That(cacheBoundaries[0].AfterFragmentId, Is.EqualTo(fixture.CachedProducer.Id));
+            Assert.That(cacheBoundaries[0].BeforeFragmentIndex, Is.Null);
+            Assert.That(
+                cacheBoundaries[0].AfterFragmentIndex,
+                Is.EqualTo(GetFragmentIndex(fixture.Graph, fixture.CachedProducer)));
             Assert.That(cacheBoundaries[0].Reason,
                 Is.EqualTo(ExecutionIslandBoundaryReason.CacheInput));
         });
@@ -137,10 +145,10 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(plan.Islands.SelectMany(static island => island.Fragments),
-                Has.Some.EqualTo(fixture.Prefix.Id));
-            Assert.That(plan.Islands.SelectMany(static island => island.Fragments),
-                Has.None.EqualTo(fixture.CachedProducer.Id));
+            Assert.That(ResolveFragments(fixture.Graph, plan.Islands),
+                Has.Some.SameAs(fixture.Prefix));
+            Assert.That(ResolveFragments(fixture.Graph, plan.Islands),
+                Has.None.SameAs(fixture.CachedProducer));
             Assert.That(plan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(static boundary =>
                 boundary.Reason == ExecutionIslandBoundaryReason.Geometry));
             Assert.That(plan.Boundaries.Count(static boundary =>
@@ -183,6 +191,31 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             resolution,
             fusionMode,
             SkslBackendBudget.Unlimited);
+
+    private static int GetFragmentIndex(
+        RecordedRenderGraph graph,
+        RenderFragmentReference fragment)
+    {
+        int index = graph.Fragments.IndexOf(fragment);
+        return index >= 0
+            ? index
+            : throw new InvalidOperationException("The fixture fragment is not part of the recorded graph.");
+    }
+
+    private static IEnumerable<RenderFragmentReference> ResolveFragments(
+        RecordedRenderGraph graph,
+        ExecutionIsland island)
+        => island.FragmentIndices.Select(index => graph.Fragments[index]);
+
+    private static IEnumerable<RenderFragmentReference> ResolveFragments(
+        RecordedRenderGraph graph,
+        IEnumerable<int> fragmentIndices)
+        => fragmentIndices.Select(index => graph.Fragments[index]);
+
+    private static IEnumerable<RenderFragmentReference> ResolveFragments(
+        RecordedRenderGraph graph,
+        IEnumerable<ExecutionIsland> islands)
+        => islands.SelectMany(island => ResolveFragments(graph, island));
 
     private static RenderCacheResolution CreateResolution(
         GraphFixture fixture,

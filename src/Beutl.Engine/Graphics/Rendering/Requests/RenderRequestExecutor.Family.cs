@@ -195,6 +195,7 @@ internal sealed partial class RenderRequestExecutor
         request.Request.TransitionTo(RenderRequestState.Executing);
         var state = new RenderRequestExecutionState(
             request.Request.Options,
+            request.Graph,
             request.ExecutionPlan,
             request.TargetDependencies,
             request.Regions,

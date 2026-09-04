@@ -89,7 +89,7 @@ public sealed class StructuralAndProgramCacheTests
     }
 
     [Test]
-    public void BoundsOnlyRuntimeChange_RebindsCurrentBoundsWithoutRecompiling()
+    public void BoundsOnlyRuntimeChange_ReusesPlanAndResolvesCurrentBounds()
     {
         using var cache = new StructuralPlanCache();
         using var node = new ParameterShaderNode
@@ -97,17 +97,21 @@ public sealed class StructuralAndProgramCacheTests
             Bounds = new Rect(1, 2, 8, 6),
         };
 
-        using (CompiledRenderRequest first = Compile(cache, node))
-        {
-            Assert.That(first.ExecutionPlan.ShaderRuns.Single().Output.Bounds, Is.EqualTo(node.Bounds));
-        }
+        using CompiledRenderRequest first = Compile(cache, node);
+        ExecutionIslandPlan firstPlan = first.ExecutionPlan;
+        CompiledShaderRun run = firstPlan.ShaderRuns.Single();
+        RenderFragmentReference firstOutput = run.GetOutput(first.Graph);
+        Assert.That(firstOutput.Bounds, Is.EqualTo(node.Bounds));
 
         node.Bounds = new Rect(4, 3, 17, 11);
         using CompiledRenderRequest second = Compile(cache, node);
+        RenderFragmentReference secondOutput = run.GetOutput(second.Graph);
 
         Assert.Multiple(() =>
         {
-            Assert.That(second.ExecutionPlan.ShaderRuns.Single().Output.Bounds, Is.EqualTo(node.Bounds));
+            Assert.That(second.ExecutionPlan, Is.SameAs(firstPlan));
+            Assert.That(secondOutput, Is.Not.SameAs(firstOutput));
+            Assert.That(secondOutput.Bounds, Is.EqualTo(node.Bounds));
             Assert.That(second.SelectedOutputBounds, Is.EqualTo(node.Bounds));
             Assert.That(cache.Statistics.Compilations, Is.EqualTo(1));
             Assert.That(cache.Statistics.Hits, Is.EqualTo(1));
@@ -343,7 +347,6 @@ public sealed class StructuralAndProgramCacheTests
         var planner = new ExecutionIslandPlanner();
         return cache.GetOrCompile(
             identity,
-            graph,
             () => planner.Plan(
                 graph,
                 RenderRequestCompiler.ResolveRoots(graph),

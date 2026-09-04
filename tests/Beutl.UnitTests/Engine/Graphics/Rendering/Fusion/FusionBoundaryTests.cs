@@ -112,7 +112,7 @@ public sealed class FusionBoundaryTests
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(run.Stages.Single().CoverageBehavior,
+            Assert.That(run.Program.Stages.Single().CoverageBehavior,
                 Is.EqualTo(SkslCoverageBehavior.RequiresResolvedCoverage));
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.Opaque));
@@ -148,7 +148,7 @@ public sealed class FusionBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Output,
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().GetOutput(compiled.Graph),
                 Is.SameAs(compiled.Graph.Fragments[1]));
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.ScopeMismatch));
@@ -183,11 +183,13 @@ public sealed class FusionBoundaryTests
         CompiledShaderRun[] runs = compiled.ExecutionPlan.ShaderRuns.ToArray();
         Assert.Multiple(() =>
         {
-            Assert.That(runs.Select(static run => run.Stages.Length), Is.EqualTo(new[] { 1, 2 }));
-            Assert.That(runs, Has.All.Matches<CompiledShaderRun>(static run => run.WholeSourceHead is not null));
-            Assert.That(runs, Has.All.Matches<CompiledShaderRun>(static run =>
-                run.Stages[0].Description.Kind == ShaderDescriptionKind.WholeSource
-                && run.Stages.Skip(1).All(stage => stage.Description.Kind == ShaderDescriptionKind.CurrentPixel)));
+            Assert.That(runs.Select(static run => run.StageFragmentIndices.Length), Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(runs.All(run => run.GetWholeSourceHead(compiled.Graph) is not null), Is.True);
+            Assert.That(runs.All(run =>
+                run.GetDescription(compiled.Graph, 0).Kind == ShaderDescriptionKind.WholeSource
+                && Enumerable.Range(1, run.StageFragmentIndices.Length - 1)
+                    .All(index => run.GetDescription(compiled.Graph, index).Kind
+                        == ShaderDescriptionKind.CurrentPixel)), Is.True);
             Assert.That(compiled.ExecutionPlan.Boundaries.Count(static boundary =>
                     boundary.Reason == ExecutionIslandBoundaryReason.WholeSourceShader),
                 Is.EqualTo(1));
@@ -210,10 +212,10 @@ public sealed class FusionBoundaryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.Kind),
-                Is.EqualTo(new[] { ExecutionIslandKind.Compatibility, ExecutionIslandKind.ShaderRun }));
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().Stages, Has.Length.EqualTo(1));
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().WholeSourceHead, Is.Null);
+            Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
+                Is.EqualTo(new[] { false, true }));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().GetWholeSourceHead(compiled.Graph), Is.Null);
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason == ExecutionIslandBoundaryReason.WholeSourceShader));
         });
@@ -234,7 +236,7 @@ public sealed class FusionBoundaryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Select(static run => run.Stages.Length),
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { 2 }));
             Assert.That(compiled.ExecutionPlan.Boundaries, Has.None.Matches<ExecutionIslandBoundary>(
                 static boundary => boundary.Reason is ExecutionIslandBoundaryReason.CacheInput
@@ -253,11 +255,12 @@ public sealed class FusionBoundaryTests
         CompiledShaderRun[] secondRuns = second.ExecutionPlan.ShaderRuns.ToArray();
         Assert.Multiple(() =>
         {
-            Assert.That(firstRuns.Select(static run => run.Stages.Length), Is.EqualTo(new[] { 2, 2, 1 }));
-            Assert.That(firstRuns.SelectMany(static run => run.Stages)
-                .Select(static stage => stage.Description.Source.Text),
-                Is.EqualTo(secondRuns.SelectMany(static run => run.Stages)
-                    .Select(static stage => stage.Description.Source.Text)));
+            Assert.That(firstRuns.Select(static run => run.StageFragmentIndices.Length),
+                Is.EqualTo(new[] { 2, 2, 1 }));
+            Assert.That(firstRuns.SelectMany(run => Enumerable.Range(0, run.StageFragmentIndices.Length)
+                    .Select(index => run.GetDescription(first.Graph, index).Source.Text)),
+                Is.EqualTo(secondRuns.SelectMany(run => Enumerable.Range(0, run.StageFragmentIndices.Length)
+                    .Select(index => run.GetDescription(second.Graph, index).Source.Text))));
             Assert.That(first.ExecutionPlan.Boundaries.Count(static boundary =>
                     boundary.Reason == ExecutionIslandBoundaryReason.BackendLimit),
                 Is.EqualTo(2));
@@ -281,7 +284,7 @@ public sealed class FusionBoundaryTests
             .ToArray();
         Assert.Multiple(() =>
         {
-            Assert.That(runs.Select(static run => run.Stages.Length),
+            Assert.That(runs.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { budget.MaxStages, 1 }));
             Assert.That(runs, Has.All.Matches<CompiledShaderRun>(
                 run => run.Program.Budget.Equals(budget)));
@@ -315,7 +318,7 @@ public sealed class FusionBoundaryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(compiled.ExecutionPlan.ShaderRuns.Select(static run => run.Stages.Length),
+            Assert.That(compiled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length),
                 Is.EqualTo(new[] { budget.MaxStages, 1 }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
                 run => run.Program.Budget.Equals(budget)));
@@ -384,7 +387,7 @@ public sealed class FusionBoundaryTests
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Is.Empty);
             Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(1).Items);
-            Assert.That(compiled.ExecutionPlan.Islands[0].Kind, Is.EqualTo(ExecutionIslandKind.Compatibility));
+            Assert.That(compiled.ExecutionPlan.Islands[0].ShaderRun, Is.Null);
             Assert.That(backendBoundaries, Has.Exactly(1).Items);
             Assert.That(
                 backendBoundaries[0].BackendLimits,
