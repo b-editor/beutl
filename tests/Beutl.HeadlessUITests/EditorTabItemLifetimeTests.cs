@@ -428,6 +428,171 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
+    public async Task DeferredActivationCleanupPreservesImmediateFailureForReconciliation()
+    {
+        var foreign = new EditorService(new ExtensionProvider());
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var context = new ImmediateFaultEditorContext(
+            new Scene(16, 16, string.Empty),
+            foreign);
+        provider.AddExtensions(1, [new SuppliedContextEditorExtension(context)]);
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-immediate-fault.activation"))
+        };
+
+        service.ActivateTabItem(scene);
+        Assert.That(context.DisposeStarted.Task.IsCompleted, Is.True);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task DeferredActivationCleanupDrainsDelayedFailureOnce()
+    {
+        var foreign = new EditorService(new ExtensionProvider());
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var context = new DelayedFaultEditorContext(
+            new Scene(16, 16, string.Empty),
+            foreign);
+        provider.AddExtensions(1, [new SuppliedContextEditorExtension(context)]);
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-delayed-fault.activation"))
+        };
+
+        service.ActivateTabItem(scene);
+        await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task drain = service.ClearTabItemsAsync().AsTask();
+        Assert.That(drain.IsCompleted, Is.False);
+
+        context.Release.TrySetResult();
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await drain.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+        await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task DeferredActivationCleanupSuccessIsConsumedByReconciliation()
+    {
+        var foreign = new EditorService(new ExtensionProvider());
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var context = new BlockingEditorContext(
+            blockDispose: false,
+            new Scene(16, 16, string.Empty),
+            foreign);
+        provider.AddExtensions(1, [new SuppliedContextEditorExtension(context)]);
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-success.activation"))
+        };
+
+        service.ActivateTabItem(scene);
+        await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task DeferredActivationCleanupPostAwaitCallbackRejectsReconciliation()
+    {
+        var foreign = new EditorService(new ExtensionProvider());
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var context = new ReentrantDisposeEditorContext(
+            new Scene(16, 16, string.Empty),
+            foreign);
+        context.AfterAwait = () =>
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                service.ClearTabItemsAsync().AsTask().GetAwaiter().GetResult());
+            return ValueTask.CompletedTask;
+        };
+        provider.AddExtensions(1, [new SuppliedContextEditorExtension(context)]);
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-post-await.activation"))
+        };
+
+        service.ActivateTabItem(scene);
+        await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task ReconciliationReportsHostCloseFailureOnce()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var context = new ThrowingEditorContext(service);
+        var tab = new EditorTabItem(context);
+        service.AddTabItem(tab);
+
+        Exception? failure = null;
+        try
+        {
+            await service.ClearTabItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(failure!.Message, Is.EqualTo("dispose failed"));
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Is.Empty);
+        });
+        await service.ClearTabItemsAsync();
+    }
+
+    [Test]
+    public async Task FailedActivationDoesNotDuplicateHostOwnedTeardownFailure()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var context = new ThrowingEditorContext(service);
+        provider.AddExtensions(1, [new SuppliedContextEditorExtension(context)]);
+        service.BeforePhysicalAdd = () => throw new InvalidOperationException("publication failed");
+        var scene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-host-fault.activation"))
+        };
+
+        Assert.Throws<InvalidOperationException>(() => service.ActivateTabItem(scene));
+        await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Exception? failure = null;
+        try
+        {
+            await service.ClearTabItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(failure!.Message, Is.EqualTo("dispose failed"));
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Is.Empty);
+        });
+        service.BeforePhysicalAdd = null;
+        await service.ClearTabItemsAsync();
+    }
+
+    [Test]
     public async Task ActivationDisposesTransferredContextWhenTabConstructionFails()
     {
         var provider = new ExtensionProvider();
@@ -2793,6 +2958,80 @@ public sealed class EditorTabItemLifetimeTests
             CreationCount++;
             context = existingContext;
             return true;
+        }
+    }
+
+    private sealed class SuppliedContextEditorExtension(IEditorContext suppliedContext)
+        : EditorExtension
+    {
+        public override FilePickerFileType GetFilePickerFileType() => new("Supplied");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => true;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+        {
+            context = suppliedContext;
+            return true;
+        }
+    }
+
+    private sealed class ImmediateFaultEditorContext(
+        CoreObject obj,
+        IEditorContextCloseService closeService)
+        : BlockingEditorContext(blockDispose: false, obj, closeService)
+    {
+        public override ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            DisposeStarted.TrySetResult();
+            return ValueTask.FromException(new InvalidOperationException("immediate teardown failure"));
+        }
+    }
+
+    private sealed class DelayedFaultEditorContext(
+        CoreObject obj,
+        IEditorContextCloseService closeService)
+        : BlockingEditorContext(blockDispose: false, obj, closeService)
+    {
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            DisposeStarted.TrySetResult();
+            await Release.Task.ConfigureAwait(false);
+            throw new InvalidOperationException("delayed teardown failure");
+        }
+    }
+
+    private sealed class ReentrantDisposeEditorContext(
+        CoreObject obj,
+        IEditorContextCloseService closeService)
+        : BlockingEditorContext(blockDispose: false, obj, closeService)
+    {
+        public Func<ValueTask>? AfterAwait { get; set; }
+
+        public override async ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            DisposeStarted.TrySetResult();
+            await Task.Yield();
+            if (AfterAwait is { } callback)
+                await callback();
         }
     }
 

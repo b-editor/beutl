@@ -971,7 +971,8 @@ public sealed class EditorService : IEditorContextCloseService
         new(ReferenceEqualityComparer.Instance);
     private long _contextRegistrationGeneration;
     private readonly object _lifecycleTeardownGate = new();
-    private readonly HashSet<Task> _activeLifecycleTeardowns = [];
+    private readonly HashSet<DeferredLifecycleTeardown> _activeLifecycleTeardowns = [];
+    private readonly Queue<Exception> _deferredLifecycleFailures = new();
 
     internal Action? BeforeInitialOwnerAttach { get; set; }
 
@@ -1033,7 +1034,10 @@ public sealed class EditorService : IEditorContextCloseService
             foreach (EditorTabItem item in _tabItems.ToArray())
             {
                 try { await CloseTabItem(item); }
-                catch (Exception ex) { (failures ??= []).Add(ex); }
+                catch
+                {
+                    // The lifecycle tracker persists this failure until the drain below consumes it.
+                }
             }
             foreach (Exception ex in await DrainActiveLifecycleTeardownsAsync())
                 (failures ??= []).Add(ex);
@@ -1245,6 +1249,27 @@ public sealed class EditorService : IEditorContextCloseService
         public EditorService? ActiveOwner => Volatile.Read(ref _activeOwner);
 
         public void Complete() => Interlocked.Exchange(ref _activeOwner, null);
+    }
+
+    private sealed class DeferredLifecycleTeardown
+    {
+        public DeferredLifecycleTeardown(Task task)
+        {
+            Task = task;
+        }
+
+        public DeferredLifecycleTeardown()
+        {
+            Completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            Task = Completion.Task;
+        }
+
+        public Task Task { get; }
+
+        public TaskCompletionSource? Completion { get; }
+
+        public bool Taken { get; set; }
     }
 
     internal static bool IsTabLifecycleOperationActive
@@ -1871,7 +1896,7 @@ public sealed class EditorService : IEditorContextCloseService
     private void TrackHostClose(Task completion)
     {
         lock (_lifecycleTeardownGate)
-            _activeLifecycleTeardowns.Add(completion);
+            _activeLifecycleTeardowns.Add(new DeferredLifecycleTeardown(completion));
     }
 
     private void CompleteTrackedHostClose(
@@ -1881,39 +1906,63 @@ public sealed class EditorService : IEditorContextCloseService
     {
         lock (_lifecycleTeardownGate)
         {
-            if (failures is null)
+            Exception? terminalFailure = failures switch
+            {
+                null => null,
+                [Exception failure] => failure,
+                _ => new AggregateException(failures)
+            };
+            if (terminalFailure is null)
                 completion.TrySetResult(null);
             else
-                completion.TrySetException(failures.Count == 1 ? failures[0] : new AggregateException(failures));
-            _activeLifecycleTeardowns.Remove(hostCloseTask);
+                completion.TrySetException(terminalFailure);
+
+            DeferredLifecycleTeardown? entry = null;
+            foreach (DeferredLifecycleTeardown candidate in _activeLifecycleTeardowns)
+            {
+                if (ReferenceEquals(candidate.Task, hostCloseTask))
+                {
+                    entry = candidate;
+                    break;
+                }
+            }
+            if (entry is not null && !entry.Taken)
+            {
+                _activeLifecycleTeardowns.Remove(entry);
+                if (terminalFailure is not null)
+                    _deferredLifecycleFailures.Enqueue(terminalFailure);
+            }
         }
     }
 
     private async Task<List<Exception>> DrainActiveLifecycleTeardownsAsync()
     {
         List<Exception>? failures = null;
-        while (true)
+        DeferredLifecycleTeardown[] active;
+        lock (_lifecycleTeardownGate)
         {
-            Task[] active;
-            lock (_lifecycleTeardownGate)
-            {
-                if (_activeLifecycleTeardowns.Count == 0)
-                    return failures ?? [];
-                active = _activeLifecycleTeardowns.ToArray();
-            }
+            while (_deferredLifecycleFailures.TryDequeue(out Exception? failure))
+                (failures ??= []).Add(failure);
 
-            foreach (Task close in active)
+            active = _activeLifecycleTeardowns.ToArray();
+            _activeLifecycleTeardowns.Clear();
+            foreach (DeferredLifecycleTeardown teardown in active)
+                teardown.Taken = true;
+        }
+
+        foreach (DeferredLifecycleTeardown teardown in active)
+        {
+            try
             {
-                try
-                {
-                    await close.ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    (failures ??= []).Add(ex);
-                }
+                await teardown.Task.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                (failures ??= []).Add(ex);
             }
         }
+
+        return failures ?? [];
     }
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
@@ -2126,46 +2175,105 @@ public sealed class EditorService : IEditorContextCloseService
             TaskScheduler.Default);
     }
 
-    private void TrackAndObserveLifecycleTeardown(Task teardown)
+    private void TrackAndObserveLifecycleTeardown(Func<Task> teardownFactory)
     {
-        TrackDeferredLifecycleTeardown(teardown);
-        ObserveDeferredTabDisposal(teardown);
+        ArgumentNullException.ThrowIfNull(teardownFactory);
+        TabAdmissionOperation? parent = s_tabAdmissionOperation.Value;
+        TabAdmissionOperation child = new(this, parent);
+        var entry = new DeferredLifecycleTeardown();
+        lock (_lifecycleTeardownGate)
+            _activeLifecycleTeardowns.Add(entry);
+        _ = CompleteDeferredLifecycleTeardownAsync(entry, teardownFactory, child);
+        ObserveDeferredTabDisposal(entry.Task);
     }
 
-    private void TrackDeferredLifecycleTeardown(Task teardown)
+    private async Task RunLifecycleTeardownAsync(
+        Func<Task> teardownFactory,
+        TabAdmissionOperation operation)
     {
-        lock (_lifecycleTeardownGate)
-            _activeLifecycleTeardowns.Add(teardown);
-        _ = teardown.ContinueWith(
-            static (completed, state) =>
-                ((EditorService)state!).UntrackDeferredLifecycleTeardown(completed),
-            this,
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+        TabAdmissionOperation? previous = s_tabAdmissionOperation.Value;
+        s_tabAdmissionOperation.Value = operation;
+        try
+        {
+            await teardownFactory().ConfigureAwait(false);
+        }
+        finally
+        {
+            CompleteTabAdmissionOperation(operation, previous);
+        }
     }
 
-    private void UntrackDeferredLifecycleTeardown(Task teardown)
+    private async Task CompleteDeferredLifecycleTeardownAsync(
+        DeferredLifecycleTeardown entry,
+        Func<Task> teardownFactory,
+        TabAdmissionOperation operation)
     {
+        Exception? failure = null;
+        OperationCanceledException? cancellation = null;
+        try
+        {
+            await RunLifecycleTeardownAsync(teardownFactory, operation).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex)
+        {
+            cancellation = ex;
+            failure = ex;
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+
         lock (_lifecycleTeardownGate)
-            _activeLifecycleTeardowns.Remove(teardown);
+        {
+            if (!entry.Taken)
+            {
+                _activeLifecycleTeardowns.Remove(entry);
+                if (failure is not null)
+                    _deferredLifecycleFailures.Enqueue(failure);
+            }
+
+            if (cancellation is not null)
+                entry.Completion!.TrySetCanceled(cancellation.CancellationToken);
+            else if (failure is not null)
+                entry.Completion!.TrySetException(failure);
+            else
+                entry.Completion!.TrySetResult();
+        }
     }
 
     private void ObserveDeferredTabDisposal(
         EditorTabItem item,
         EditorContextOwnershipLease ownershipLease)
     {
-        Task disposal;
-        try
+        if (item.IsHostOwned)
         {
-            disposal = item.DisposeAsync().AsTask();
-        }
-        catch (Exception ex)
-        {
-            disposal = ForceDisposeTabAfterStartFailureAsync(item, ex);
+            try
+            {
+                ObserveDeferredTabDisposal(item.DisposeAsync().AsTask());
+            }
+            catch (Exception ex)
+            {
+                TrackAndObserveLifecycleTeardown(
+                    () => ForceDisposeTabAfterStartFailureAsync(item, ex));
+            }
+            return;
         }
 
-        TrackAndObserveLifecycleTeardown(ReleaseLeaseAfterAsync(disposal, ownershipLease));
+        TrackAndObserveLifecycleTeardown(async () =>
+        {
+            Task disposal;
+            try
+            {
+                disposal = item.DisposeAsync().AsTask();
+            }
+            catch (Exception ex)
+            {
+                disposal = ForceDisposeTabAfterStartFailureAsync(item, ex);
+            }
+
+            await ReleaseLeaseAfterAsync(disposal, ownershipLease).ConfigureAwait(false);
+        });
     }
 
     private async Task ForceDisposeTabAfterStartFailureAsync(
@@ -2219,35 +2327,18 @@ public sealed class EditorService : IEditorContextCloseService
 
     private void ObserveDeferredContextDisposal(IEditorContext context)
     {
-        Task disposal;
-        try
+        TrackAndObserveLifecycleTeardown(async () =>
         {
-            disposal = context.DisposeAsync().AsTask();
-        }
-        catch (Exception ex)
-        {
-            disposal = Task.FromException(ex);
-        }
-
-        TrackAndObserveLifecycleTeardown(disposal);
+            await context.DisposeAsync().ConfigureAwait(false);
+        });
     }
 
     private void ObserveDeferredContextDisposal(
         IEditorContext context,
         EditorContextOwnershipLease ownershipLease)
     {
-        Task disposal;
-        try
-        {
-            disposal = DisposeContextAndReleaseLeaseAsync(context, ownershipLease);
-        }
-        catch (Exception ex)
-        {
-            ownershipLease.Dispose();
-            disposal = Task.FromException(ex);
-        }
-
-        TrackAndObserveLifecycleTeardown(disposal);
+        TrackAndObserveLifecycleTeardown(
+            () => DisposeContextAndReleaseLeaseAsync(context, ownershipLease));
     }
 
     private static async Task DisposeContextAndReleaseLeaseAsync(
