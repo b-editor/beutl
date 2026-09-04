@@ -528,6 +528,547 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
+    public async Task FinalReconciliationDrainJoinsSiblingAddedAfterInitialClaim()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene siblingScene) = CreateSiblingDrainScenes("joined");
+        var sibling = new BlockingEditorContext(obj: siblingScene, closeService: service);
+        var siblingRequested = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = () =>
+            {
+                siblingRequested.TrySetResult(service.RequestClose(sibling));
+                return ValueTask.CompletedTask;
+            }
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", sibling)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync([parentScene, siblingScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest request = await siblingRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        bool siblingWasClaimed = false;
+        bool completedWhileSiblingBlocked = false;
+        Exception? reconciliationFailure;
+        try
+        {
+            await sibling.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            siblingWasClaimed = IsLifecycleTeardownTaken(service, request.Completion);
+            completedWhileSiblingBlocked = reconciliation.IsCompleted;
+        }
+        finally
+        {
+            sibling.ReleaseDispose();
+            reconciliationFailure = await CaptureFailureAsync(reconciliation);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(siblingWasClaimed, Is.True);
+            Assert.That(completedWhileSiblingBlocked, Is.False);
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.That(sibling.DisposeCount, Is.EqualTo(1));
+            Assert.That(service.TabItems, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainReportsLateSiblingFailureOnce()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene siblingScene) = CreateSiblingDrainScenes("failure");
+        var sibling = new ThrowingEditorContext(service, siblingScene);
+        var siblingRequested = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = () =>
+            {
+                siblingRequested.TrySetResult(service.RequestClose(sibling));
+                return ValueTask.CompletedTask;
+            }
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", sibling)
+            ]);
+
+        Exception? firstFailure = await CaptureFailureAsync(
+            service.ReconcileTabItemsAsync([parentScene, siblingScene]).AsTask());
+        EditorContextCloseRequest request = await siblingRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Exception? secondFailure = await CaptureFailureAsync(service.ClearTabItemsAsync().AsTask());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(firstFailure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(firstFailure?.Message, Is.EqualTo("dispose failed"));
+            Assert.That(secondFailure, Is.Null);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.That(sibling.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainAdoptsAlreadyClosingSibling()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene siblingScene) = CreateSiblingDrainScenes("already-closing");
+        var sibling = new BlockingEditorContext(obj: siblingScene, closeService: service);
+        var allowCausalRequest = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var causalRequestCreated = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = async () =>
+            {
+                await allowCausalRequest.Task.ConfigureAwait(false);
+                causalRequestCreated.TrySetResult(service.RequestClose(sibling));
+            }
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", sibling)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync([parentScene, siblingScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest firstRequest = service.RequestClose(sibling);
+        EditorContextCloseRequest causalRequest = default;
+        bool takenBeforeAdoption = false;
+        bool takenAfterAdoption = false;
+        bool completedWhileSiblingBlocked = false;
+        Exception? reconciliationFailure;
+        try
+        {
+            await sibling.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            takenBeforeAdoption = IsLifecycleTeardownTaken(service, firstRequest.Completion);
+
+            allowCausalRequest.TrySetResult();
+            causalRequest = await causalRequestCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            takenAfterAdoption = IsLifecycleTeardownTaken(service, firstRequest.Completion);
+            completedWhileSiblingBlocked = reconciliation.IsCompleted;
+        }
+        finally
+        {
+            allowCausalRequest.TrySetResult();
+            sibling.ReleaseDispose();
+            reconciliationFailure = await CaptureFailureAsync(reconciliation);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(causalRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
+            Assert.That(causalRequest.Completion, Is.SameAs(firstRequest.Completion));
+            Assert.That(takenBeforeAdoption, Is.False);
+            Assert.That(takenAfterAdoption, Is.True);
+            Assert.That(completedWhileSiblingBlocked, Is.False);
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(sibling.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainDoesNotJoinUnrelatedLateClose()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene siblingScene) = CreateSiblingDrainScenes("unrelated");
+        var unrelated = new BlockingEditorContext(obj: siblingScene, closeService: service);
+        var allowParentCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = async () => await allowParentCompletion.Task.ConfigureAwait(false)
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", unrelated)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync([parentScene, siblingScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest unrelatedRequest = service.RequestClose(unrelated);
+        bool unrelatedWasClaimed = false;
+        Exception? reconciliationFailure = null;
+        try
+        {
+            await unrelated.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            unrelatedWasClaimed = IsLifecycleTeardownTaken(service, unrelatedRequest.Completion);
+            allowParentCompletion.TrySetResult();
+            await reconciliation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            reconciliationFailure = ex;
+        }
+        finally
+        {
+            allowParentCompletion.TrySetResult();
+            unrelated.ReleaseDispose();
+            await unrelatedRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            if (!reconciliation.IsCompleted)
+            {
+                try
+                {
+                    await reconciliation.WaitAsync(TimeSpan.FromSeconds(5));
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unrelatedRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(unrelatedWasClaimed, Is.False);
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.That(unrelated.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainDefersUnrelatedLateFailure()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene siblingScene) = CreateSiblingDrainScenes("unrelated-failure");
+        var unrelated = new ThrowingEditorContext(service, siblingScene);
+        var allowParentCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = async () => await allowParentCompletion.Task.ConfigureAwait(false)
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", unrelated)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync([parentScene, siblingScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest unrelatedRequest = service.RequestClose(unrelated);
+        Exception? directFailure = await CaptureFailureAsync(unrelatedRequest.Completion);
+
+        allowParentCompletion.TrySetResult();
+        Exception? reconciliationFailure = await CaptureFailureAsync(reconciliation);
+        Exception? nextDrainFailure = await CaptureFailureAsync(service.ClearTabItemsAsync().AsTask());
+        Exception? finalDrainFailure = await CaptureFailureAsync(service.ClearTabItemsAsync().AsTask());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unrelatedRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(directFailure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(nextDrainFailure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(nextDrainFailure?.Message, Is.EqualTo("dispose failed"));
+            Assert.That(finalDrainFailure, Is.Null);
+            Assert.That(unrelated.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainAdoptsPreexistingSiblingDescendants()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene firstScene) = CreateSiblingDrainScenes("transitive");
+        var secondScene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "final-drain-transitive.descendant-drain"))
+        };
+        var second = new BlockingEditorContext(obj: secondScene, closeService: service);
+        var secondRequestCreated = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = new BlockingEditorContext(obj: firstScene, closeService: service)
+        {
+            OnDispose = () =>
+            {
+                secondRequestCreated.TrySetResult(service.RequestClose(second));
+                return ValueTask.CompletedTask;
+            }
+        };
+        var allowCausalRequest = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var causalRequestCreated = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = async () =>
+            {
+                await allowCausalRequest.Task.ConfigureAwait(false);
+                causalRequestCreated.TrySetResult(service.RequestClose(first));
+            }
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", first),
+                new MatchedContextEditorExtension(".descendant-drain", second)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync(
+            [parentScene, firstScene, secondScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest firstRequest = service.RequestClose(first);
+        EditorContextCloseRequest secondRequest = default;
+        EditorContextCloseRequest causalRequest = default;
+        bool firstTakenBeforeAdoption = false;
+        bool secondTakenBeforeAdoption = false;
+        bool firstTakenAfterAdoption = false;
+        bool secondTakenAfterAdoption = false;
+        bool completedWhileDescendantsBlocked = false;
+        Exception? reconciliationFailure;
+        try
+        {
+            secondRequest = await secondRequestCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await second.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            firstTakenBeforeAdoption = IsLifecycleTeardownTaken(service, firstRequest.Completion);
+            secondTakenBeforeAdoption = IsLifecycleTeardownTaken(service, secondRequest.Completion);
+
+            allowCausalRequest.TrySetResult();
+            causalRequest = await causalRequestCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            firstTakenAfterAdoption = IsLifecycleTeardownTaken(service, firstRequest.Completion);
+            secondTakenAfterAdoption = IsLifecycleTeardownTaken(service, secondRequest.Completion);
+            completedWhileDescendantsBlocked = reconciliation.IsCompleted;
+        }
+        finally
+        {
+            allowCausalRequest.TrySetResult();
+            first.ReleaseDispose();
+            second.ReleaseDispose();
+            reconciliationFailure = await CaptureFailureAsync(reconciliation);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(secondRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(causalRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
+            Assert.That(firstTakenBeforeAdoption, Is.False);
+            Assert.That(secondTakenBeforeAdoption, Is.False);
+            Assert.That(firstTakenAfterAdoption, Is.True);
+            Assert.That(secondTakenAfterAdoption, Is.True);
+            Assert.That(completedWhileDescendantsBlocked, Is.False);
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(first.DisposeCount, Is.EqualTo(1));
+            Assert.That(second.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainAdoptsPreexistingAlreadyClosingDependency()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene firstScene) = CreateSiblingDrainScenes("dependency");
+        var secondScene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "final-drain-dependency.descendant-drain"))
+        };
+        var second = new BlockingEditorContext(obj: secondScene, closeService: service);
+        var dependencyRequestCreated = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = new BlockingEditorContext(obj: firstScene, closeService: service)
+        {
+            OnDispose = () =>
+            {
+                dependencyRequestCreated.TrySetResult(service.RequestClose(second));
+                return ValueTask.CompletedTask;
+            }
+        };
+        var allowCausalRequest = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var causalRequestCreated = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = async () =>
+            {
+                await allowCausalRequest.Task.ConfigureAwait(false);
+                causalRequestCreated.TrySetResult(service.RequestClose(first));
+            }
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", first),
+                new MatchedContextEditorExtension(".descendant-drain", second)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync(
+            [parentScene, firstScene, secondScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest secondRequest = service.RequestClose(second);
+        EditorContextCloseRequest firstRequest = default;
+        EditorContextCloseRequest dependencyRequest = default;
+        EditorContextCloseRequest causalRequest = default;
+        bool firstTakenBeforeAdoption = false;
+        bool secondTakenBeforeAdoption = false;
+        bool firstTakenAfterAdoption = false;
+        bool secondTakenAfterAdoption = false;
+        bool completedWhileDependenciesBlocked = false;
+        Exception? reconciliationFailure;
+        try
+        {
+            await second.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            firstRequest = service.RequestClose(first);
+            dependencyRequest = await dependencyRequestCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            firstTakenBeforeAdoption = IsLifecycleTeardownTaken(service, firstRequest.Completion);
+            secondTakenBeforeAdoption = IsLifecycleTeardownTaken(service, secondRequest.Completion);
+
+            allowCausalRequest.TrySetResult();
+            causalRequest = await causalRequestCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            firstTakenAfterAdoption = IsLifecycleTeardownTaken(service, firstRequest.Completion);
+            secondTakenAfterAdoption = IsLifecycleTeardownTaken(service, secondRequest.Completion);
+            completedWhileDependenciesBlocked = reconciliation.IsCompleted;
+        }
+        finally
+        {
+            allowCausalRequest.TrySetResult();
+            first.ReleaseDispose();
+            second.ReleaseDispose();
+            reconciliationFailure = await CaptureFailureAsync(reconciliation);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(secondRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(firstRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(dependencyRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
+            Assert.That(causalRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
+            Assert.That(firstTakenBeforeAdoption, Is.False);
+            Assert.That(secondTakenBeforeAdoption, Is.False);
+            Assert.That(firstTakenAfterAdoption, Is.True);
+            Assert.That(secondTakenAfterAdoption, Is.True);
+            Assert.That(completedWhileDependenciesBlocked, Is.False);
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(first.DisposeCount, Is.EqualTo(1));
+            Assert.That(second.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task FinalReconciliationDrainAdoptsLateRequestFromCompletedRootOperation()
+    {
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var foreign = new EditorService(new ExtensionProvider());
+        (Scene parentScene, Scene targetScene) = CreateSiblingDrainScenes("completed-root");
+        var keeperScene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "final-drain-completed-root.keeper-drain"))
+        };
+        var target = new BlockingEditorContext(obj: targetScene, closeService: service);
+        var keeper = new BlockingEditorContext(obj: keeperScene, closeService: service);
+        var allowParentCompletion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var keeperRequestCreated = new TaskCompletionSource<EditorContextCloseRequest>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var lateRequestCreated = new TaskCompletionSource<Task<EditorContextCloseRequest>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        ClaimAwareEditorContext? context = null;
+        context = new ClaimAwareEditorContext(service, parentScene, foreign)
+        {
+            AfterClaim = async () =>
+            {
+                await allowParentCompletion.Task.ConfigureAwait(false);
+                keeperRequestCreated.TrySetResult(service.RequestClose(keeper));
+                object entry = context!.Entry!;
+                lateRequestCreated.TrySetResult(Task.Run(() =>
+                {
+                    bool unmapped = SpinWait.SpinUntil(
+                        () => !IsLifecycleTeardownOperationMapped(service, entry),
+                        TimeSpan.FromSeconds(5));
+                    if (!unmapped)
+                        throw new TimeoutException("The completed root operation remained mapped.");
+                    return service.RequestClose(target);
+                }));
+            }
+        };
+        provider.AddExtensions(
+            1,
+            [
+                new MatchedContextEditorExtension(".parent-drain", context),
+                new MatchedContextEditorExtension(".sibling-drain", target),
+                new MatchedContextEditorExtension(".keeper-drain", keeper)
+            ]);
+
+        Task reconciliation = service.ReconcileTabItemsAsync(
+            [parentScene, targetScene, keeperScene]).AsTask();
+        await context.Claimed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        EditorContextCloseRequest targetRequest = service.RequestClose(target);
+        EditorContextCloseRequest keeperRequest = default;
+        EditorContextCloseRequest lateRequest = default;
+        bool targetTakenAfterLateRequest = false;
+        bool completedWhileTargetBlocked = false;
+        Exception? reconciliationFailure;
+        try
+        {
+            await target.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            allowParentCompletion.TrySetResult();
+            keeperRequest = await keeperRequestCreated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await keeper.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Task<EditorContextCloseRequest> lateRequestTask = await lateRequestCreated.Task
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            lateRequest = await lateRequestTask.WaitAsync(TimeSpan.FromSeconds(5));
+            targetTakenAfterLateRequest = IsLifecycleTeardownTaken(service, targetRequest.Completion);
+            completedWhileTargetBlocked = reconciliation.IsCompleted;
+        }
+        finally
+        {
+            allowParentCompletion.TrySetResult();
+            target.ReleaseDispose();
+            keeper.ReleaseDispose();
+            reconciliationFailure = await CaptureFailureAsync(reconciliation);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(targetRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(keeperRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
+            Assert.That(lateRequest.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
+            Assert.That(targetTakenAfterLateRequest, Is.True);
+            Assert.That(completedWhileTargetBlocked, Is.False);
+            Assert.That(reconciliationFailure, Is.Null);
+            Assert.That(target.DisposeCount, Is.EqualTo(1));
+            Assert.That(keeper.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task ReconciliationReportsHostCloseFailureOnce()
     {
         var service = new EditorService(new ExtensionProvider());
@@ -2824,8 +3365,10 @@ public sealed class EditorTabItemLifetimeTests
         public void ExitGate() => Monitor.Exit(_gate);
     }
 
-    private sealed class ThrowingEditorContext(IEditorContextCloseService? closeService = null)
-        : BlockingEditorContext(closeService: closeService)
+    private sealed class ThrowingEditorContext(
+        IEditorContextCloseService? closeService = null,
+        CoreObject? obj = null)
+        : BlockingEditorContext(obj: obj, closeService: closeService)
     {
         private bool _throw = true;
 
@@ -3032,6 +3575,189 @@ public sealed class EditorTabItemLifetimeTests
             await Task.Yield();
             if (AfterAwait is { } callback)
                 await callback();
+        }
+    }
+
+    private sealed class ClaimAwareEditorContext(
+        EditorService tracker,
+        CoreObject obj,
+        IEditorContextCloseService closeService)
+        : BlockingEditorContext(blockDispose: false, obj, closeService)
+    {
+        public TaskCompletionSource Claimed { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public object? Entry { get; private set; }
+
+        public Func<ValueTask>? AfterClaim { get; set; }
+
+        public override async ValueTask DisposeAsync()
+        {
+            object entry = Entry = CaptureOnlyActiveLifecycleTeardown(tracker);
+            DisposeCount++;
+            DisposeStarted.TrySetResult();
+            bool taken = await Task.Run(() => SpinWait.SpinUntil(
+                () => IsLifecycleTeardownTaken(tracker, entry),
+                TimeSpan.FromSeconds(5)));
+            if (!taken)
+                throw new TimeoutException("The lifecycle teardown was not claimed.");
+
+            Claimed.TrySetResult();
+            if (AfterClaim is { } callback)
+                await callback();
+            Disposed.TrySetResult();
+        }
+    }
+
+    private sealed class MatchedContextEditorExtension(
+        string fileExtension,
+        IEditorContext context) : EditorExtension
+    {
+        public override FilePickerFileType GetFilePickerFileType() => new("Sibling");
+
+        public override IconSource? GetIcon() => null;
+
+        public override bool TryCreateEditor(
+            CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+
+        public override bool MatchFileExtension(string ext) => ext == fileExtension;
+
+        public override bool TryCreateContext(
+            CoreObject obj,
+            IEditorContextServices services,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? result)
+        {
+            result = context;
+            return true;
+        }
+    }
+
+    private static (Scene Parent, Scene Sibling) CreateSiblingDrainScenes(string suffix)
+    {
+        var parent = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(
+                Path.GetTempPath(),
+                $"final-drain-{suffix}.parent-drain"))
+        };
+        var sibling = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(
+                Path.GetTempPath(),
+                $"final-drain-{suffix}.sibling-drain"))
+        };
+        return (parent, sibling);
+    }
+
+    private static object CaptureOnlyActiveLifecycleTeardown(EditorService service)
+    {
+        var gateField = typeof(EditorService).GetField(
+            "_lifecycleTeardownGate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var activeField = typeof(EditorService).GetField(
+            "_activeLifecycleTeardowns",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        object gate = gateField.GetValue(service)!;
+        lock (gate)
+        {
+            var active = (System.Collections.IEnumerable)activeField.GetValue(service)!;
+            return active.Cast<object>().Single();
+        }
+    }
+
+    private static bool IsLifecycleTeardownTaken(EditorService service, Task completion)
+    {
+        var gateField = typeof(EditorService).GetField(
+            "_lifecycleTeardownGate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var mapField = typeof(EditorService).GetField(
+            "_lifecycleTeardownsByTask",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        object gate = gateField.GetValue(service)!;
+        lock (gate)
+        {
+            object? entry = null;
+            if (mapField?.GetValue(service) is System.Collections.IDictionary map)
+                entry = map[completion];
+
+            if (entry is null)
+            {
+                var activeField = typeof(EditorService).GetField(
+                    "_activeLifecycleTeardowns",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+                var active = (System.Collections.IEnumerable)activeField.GetValue(service)!;
+                entry = active.Cast<object>().FirstOrDefault(candidate =>
+                    ReferenceEquals(GetLifecycleTeardownTask(candidate), completion));
+            }
+
+            return entry is not null && ReadLifecycleTeardownTaken(entry);
+        }
+    }
+
+    private static bool IsLifecycleTeardownTaken(EditorService service, object entry)
+    {
+        var gateField = typeof(EditorService).GetField(
+            "_lifecycleTeardownGate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        object gate = gateField.GetValue(service)!;
+        lock (gate)
+        {
+            return ReadLifecycleTeardownTaken(entry);
+        }
+    }
+
+    private static bool ReadLifecycleTeardownTaken(object entry)
+        => (bool)entry.GetType().GetProperty(nameof(DeferredLifecycleTeardownView.Taken))!
+            .GetValue(entry)!;
+
+    private static bool IsLifecycleTeardownOperationMapped(EditorService service, object entry)
+    {
+        var gateField = typeof(EditorService).GetField(
+            "_lifecycleTeardownGate",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var mapField = typeof(EditorService).GetField(
+            "_lifecycleTeardownsByOperation",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        if (mapField is null)
+            return false;
+        object operation = entry.GetType().GetProperty(nameof(DeferredLifecycleTeardownView.Operation))!
+            .GetValue(entry)!;
+        object gate = gateField.GetValue(service)!;
+        lock (gate)
+        {
+            var map = (System.Collections.IDictionary)mapField.GetValue(service)!;
+            return map.Contains(operation);
+        }
+    }
+
+    private static Task GetLifecycleTeardownTask(object entry)
+        => (Task)entry.GetType().GetProperty(nameof(DeferredLifecycleTeardownView.Task))!
+            .GetValue(entry)!;
+
+    private sealed class DeferredLifecycleTeardownView
+    {
+        public Task Task { get; } = Task.CompletedTask;
+
+        public object Operation { get; } = new();
+
+        public bool Taken { get; }
+    }
+
+    private static async Task<Exception?> CaptureFailureAsync(Task task)
+    {
+        try
+        {
+            await task.WaitAsync(TimeSpan.FromSeconds(5));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex;
         }
     }
 
