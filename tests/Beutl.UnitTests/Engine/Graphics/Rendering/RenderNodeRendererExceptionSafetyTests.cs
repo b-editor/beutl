@@ -463,7 +463,7 @@ public class RenderNodeRendererExceptionSafetyTests
         RenderRequestOwner owner = request.Options.Owner;
         CompiledRenderRequest? compiled = null;
         Exception? executionFailure = null;
-        using var targetRegistry = new RenderTargetLeaseRegistry(factory: null);
+        using var targetRegistry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = targetRegistry.BeginSession(
             RenderIntent.Preview,
             destination._renderTarget);

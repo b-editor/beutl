@@ -88,7 +88,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         TransientMaterializationKind kind)
     {
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using var node = new TransientMaterializationFailureNode(
             kind,
             () => registry.Statistics.LeasedTargets);
@@ -119,7 +119,7 @@ public sealed class NestedTargetAndCleanupFailureTests
     {
         var primary = new InvalidOperationException("target-capture-post-allocation");
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using var node = new TargetCapturePostAllocationFailureNode(
             primary,
             () => registry.Statistics.LeasedTargets);
@@ -198,7 +198,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         var factory = new FailureTestTargetFactory();
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -249,7 +249,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -373,7 +373,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -433,7 +433,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory(failAt: 0);
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -483,7 +483,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory(failAt: 0);
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Delivery,
             destination);
@@ -529,7 +529,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -596,7 +596,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -779,7 +779,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);

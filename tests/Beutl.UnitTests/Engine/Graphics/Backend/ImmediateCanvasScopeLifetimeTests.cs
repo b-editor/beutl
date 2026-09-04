@@ -110,8 +110,8 @@ public class ImmediateCanvasScopeLifetimeTests
         {
             using var target = RenderTarget.Create(64, 48)!;
             using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
-            using var outerRegistry = new RenderTargetLeaseRegistry(factory: null);
-            using var innerRegistry = new RenderTargetLeaseRegistry(factory: null);
+            using var outerRegistry = new RenderTargetPool(factory: null);
+            using var innerRegistry = new RenderTargetPool(factory: null);
             using RenderTargetLeaseSession outerSession = outerRegistry.BeginSession(RenderIntent.Preview);
             using RenderTargetLeaseSession innerSession = innerRegistry.BeginSession(RenderIntent.Preview);
 
@@ -134,8 +134,8 @@ public class ImmediateCanvasScopeLifetimeTests
         {
             using var target = RenderTarget.Create(64, 48)!;
             using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
-            using var outerRegistry = new RenderTargetLeaseRegistry(factory: null);
-            using var innerRegistry = new RenderTargetLeaseRegistry(factory: null);
+            using var outerRegistry = new RenderTargetPool(factory: null);
+            using var innerRegistry = new RenderTargetPool(factory: null);
             using RenderTargetLeaseSession outerSession = outerRegistry.BeginSession(RenderIntent.Preview);
             using RenderTargetLeaseSession innerSession = innerRegistry.BeginSession(RenderIntent.Preview);
 

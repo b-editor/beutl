@@ -14,7 +14,7 @@ public sealed class RenderTargetPoolRejectionTests
     public void ATargetSharingAnOwnedSurface_IsRefusedWithoutDestroyingIt()
     {
         var factory = new SurfaceSharingFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
         RenderTargetLease first = session.Acquire(new PixelSize(8, 8));
@@ -43,7 +43,7 @@ public sealed class RenderTargetPoolRejectionTests
     public void ARefusedTargetSharingAnOwnedSurface_IsNotLeftFinalizable()
     {
         var factory = new SurfaceSharingFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
         RenderTargetLease first = session.Acquire(new PixelSize(8, 8));
@@ -69,7 +69,7 @@ public sealed class RenderTargetPoolRejectionTests
     public void ARefusedCopyOfAnOwnedTarget_DropsItsSurfaceReference()
     {
         var factory = new SurfaceCopyingFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
         RenderTargetLease first = session.Acquire(new PixelSize(8, 8));

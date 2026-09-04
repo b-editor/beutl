@@ -1,10 +1,11 @@
 ﻿namespace Beutl.Graphics.Rendering.Requests;
 
-internal enum PooledRenderTargetLeaseState : byte
+internal enum RenderTargetLeaseState : byte
 {
     Leased,
+    ReleaseFailed,
     Deferred,
-    Available,
+    Released,
     Evicted,
     CacheTransferred,
 }

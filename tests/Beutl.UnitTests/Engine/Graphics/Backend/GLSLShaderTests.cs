@@ -255,7 +255,7 @@ public class GLSLShaderTests
         {
             GpuResourceReclaimQueue.FlushAndDrain();
             using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
-            using var registry = new RenderTargetLeaseRegistry(factory: null);
+            using var registry = new RenderTargetPool(factory: null);
             using var shader = GLSLShader.Create(ConstantBlueFragment);
 
             graphicsContext.WaitIdle();
@@ -291,7 +291,7 @@ public class GLSLShaderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
-            using var registry = new RenderTargetLeaseRegistry(factory: null);
+            using var registry = new RenderTargetPool(factory: null);
             using var warmupShader = GLSLShader.Create(ConstantBlueFragment);
             using var discardingShader = GLSLShader.Create(DiscardLeftHalfFragment);
 
@@ -347,7 +347,7 @@ public class GLSLShaderTests
 
     private static List<TextureFormat> RunPooledEffectChain(
         RenderTarget source,
-        RenderTargetLeaseRegistry registry,
+        RenderTargetPool registry,
         GLSLShader shader)
     {
         using RenderTargetLeaseSession session = registry.BeginSession(

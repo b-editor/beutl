@@ -236,7 +236,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
         using var source = new RectangleRenderNode(s_bounds, gradient, pen: null);
         using var root = new MaterializedShaderNode(source, description);
         using CompiledRenderRequest compiled = Compile(root, outputScale, requestedRegion);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
         using RenderTargetLease output = targets.Acquire(PixelRect.FromRect(s_bounds, outputScale).Size);
         using var canvas = new ImmediateCanvas(

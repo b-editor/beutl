@@ -322,7 +322,7 @@ internal static class FusionBoundaryExecutionTestSupport
         var request = new RenderRequest(options);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph, budget);
-        using var targetRegistry = new RenderTargetLeaseRegistry(factory: null);
+        using var targetRegistry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = targetRegistry.BeginSession(
             RenderIntent.Preview);
         PixelRect deviceBounds = PixelRect.FromRect(compiled.ExecutionTargetBounds, 1);

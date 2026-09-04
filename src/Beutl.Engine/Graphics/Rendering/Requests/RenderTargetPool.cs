@@ -31,7 +31,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// The two live in one object so a request can never take an identity minted for one context while another
     /// is live. <see cref="GraphicsContextFactory.Shutdown"/> is public, so the shared context is replaceable
     /// while the pool still holds the previous one's surfaces; minting a new identity for the new context is
-    /// what makes <see cref="BeginRequestCore"/> evict them, rather than validating them against the handle the
+    /// what makes <see cref="BeginSessionCore"/> evict them, rather than validating them against the handle the
     /// replaced context reported and then clearing and drawing through a device that is gone.
     /// </remarks>
     private sealed class ImplicitContextBinding(IGraphicsContext? context)
@@ -46,14 +46,13 @@ internal sealed class RenderTargetPool : IDisposable
     private readonly HashSet<TargetSlot> _ownedSlots = [];
     private readonly HashSet<RenderTarget> _knownTargets = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<SKSurface> _knownSurfaces = new(ReferenceEqualityComparer.Instance);
-    private RenderTargetPoolRequest? _activeRequest;
+    private RenderTargetLeaseSession? _activeSession;
     private ImplicitContextBinding _implicitBinding = new(null);
     private object? _contextIdentity;
     private GRRecordingContext? _graphicsContext;
     private nint _contextHandle;
     private bool _hasContext;
     private long _requestEpoch;
-    private long _nextLeaseGeneration;
     private long _contextGeneration;
     private long _ownedBytes;
     private long _retainedBytes;
@@ -102,8 +101,14 @@ internal sealed class RenderTargetPool : IDisposable
         _retainedBytes,
         _peakLiveTargets);
 
-    public RenderTargetPoolRequest BeginRequest(RenderTarget? externalTarget = null)
+    public bool HasTargetFactory => _factory is not null;
+
+    public RenderTargetLeaseSession BeginSession(
+        RenderIntent intent,
+        RenderTarget? externalTarget = null)
     {
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent));
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (externalTarget is not null)
@@ -111,22 +116,28 @@ internal sealed class RenderTargetPool : IDisposable
             externalTarget.VerifyAccess();
             SKSurface surface = externalTarget.RawValue;
             GRRecordingContext? context = surface.Context;
-            return BeginRequestCore(
+            return BeginSessionCore(
+                intent,
                 context ?? s_cpuContextIdentity,
                 context?.Handle ?? 0,
                 externalTarget);
         }
 
-        return BeginImplicitRequest(GraphicsContextFactory.SharedContext);
+        return BeginImplicitSession(intent, GraphicsContextFactory.SharedContext);
     }
 
     /// <summary>
-    /// <see cref="BeginRequest"/> without a destination, against a named shared context rather than the live one.
+    /// <see cref="BeginSession"/> without a destination, against a named shared context rather than the live one.
     /// </summary>
-    internal RenderTargetPoolRequest BeginImplicitRequest(IGraphicsContext? sharedContext)
+    internal RenderTargetLeaseSession BeginImplicitSession(
+        RenderIntent intent,
+        IGraphicsContext? sharedContext)
     {
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent));
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return BeginRequestCore(
+        return BeginSessionCore(
+            intent,
             ResolveImplicitContextIdentity(sharedContext),
             expectedContextHandle: null,
             externalTarget: null);
@@ -147,15 +158,18 @@ internal sealed class RenderTargetPool : IDisposable
         return _implicitBinding;
     }
 
-    public RenderTargetPoolRequest BeginRequestForContext(
+    public RenderTargetLeaseSession BeginSessionForContext(
+        RenderIntent intent,
         object contextIdentity,
         nint expectedContextHandle,
         RenderTarget? externalTarget = null)
     {
+        if (!Enum.IsDefined(intent))
+            throw new ArgumentOutOfRangeException(nameof(intent));
         ArgumentNullException.ThrowIfNull(contextIdentity);
         ObjectDisposedException.ThrowIf(_disposed, this);
         externalTarget?.VerifyAccess();
-        return BeginRequestCore(contextIdentity, expectedContextHandle, externalTarget);
+        return BeginSessionCore(intent, contextIdentity, expectedContextHandle, externalTarget);
     }
 
     public void Dispose()
@@ -168,18 +182,22 @@ internal sealed class RenderTargetPool : IDisposable
             s_livePools.Remove(this);
 
         List<Exception> failures = [];
-        RenderTargetPoolRequest? activeRequest = _activeRequest;
+        RenderTargetLeaseSession? activeSession = _activeSession;
         try
         {
-            activeRequest?.Dispose();
+            activeSession?.Dispose();
         }
         catch (Exception ex)
         {
             AppendFailure(failures, ex);
         }
 
-        failures.AddRange(activeRequest?.CleanupFailures ?? []);
-        _activeRequest = null;
+        if (activeSession is not null)
+        {
+            foreach (Exception failure in activeSession.CleanupFailures)
+                AppendFailure(failures, failure);
+        }
+        _activeSession = null;
 
         foreach (TargetSlot slot in _ownedSlots.ToArray())
             Evict(slot, request: null, failures);
@@ -212,7 +230,7 @@ internal sealed class RenderTargetPool : IDisposable
         {
             try
             {
-                pool.ReleaseRetainedTargets();
+                pool.RetireCurrentContext();
             }
             catch (ObjectDisposedException)
             {
@@ -234,16 +252,31 @@ internal sealed class RenderTargetPool : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         long released = _retainedBytes;
         List<Exception> failures = [];
-        EvictAllAvailable(_activeRequest, failures);
+        EvictAllAvailable(_activeSession, failures);
         ThrowCleanupFailures(failures);
         return released;
     }
 
-    internal PooledRenderTargetLease Acquire(
-        RenderTargetPoolRequest request,
+    /// <summary>Invalidates the current context before its queued deferred leases are reclaimed.</summary>
+    internal void RetireCurrentContext()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _contextGeneration = NextGeneration(_contextGeneration);
+        _contextIdentity = null;
+        _graphicsContext = null;
+        _contextHandle = 0;
+        _hasContext = false;
+
+        List<Exception> failures = [];
+        EvictAllAvailable(_activeSession, failures);
+        ThrowCleanupFailures(failures);
+    }
+
+    internal RenderTargetLease Acquire(
+        RenderTargetLeaseSession request,
         PixelSize deviceSize)
     {
-        if (TryAcquire(request, deviceSize, out PooledRenderTargetLease? lease))
+        if (TryAcquire(request, deviceSize, out RenderTargetLease? lease))
             return lease;
         throw ExceedsBufferBudget(request, deviceSize, out int maxDimension)
             ? CreateAllocationFailure(deviceSize, maxDimension)
@@ -267,7 +300,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// declined this time; <see cref="TryAcquire"/> applies it itself.
     /// </remarks>
     internal bool ExceedsBufferBudget(
-        RenderTargetPoolRequest request,
+        RenderTargetLeaseSession request,
         PixelSize deviceSize,
         out int maxDimension)
     {
@@ -284,7 +317,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// that as the same decline. A named <see cref="RenderTargetPoolOptions.MaxBufferDimension"/> overrides
     /// both, because it states what this pool may attach whoever allocates it.
     /// </remarks>
-    private int ResolveBufferBudget(RenderTargetPoolRequest request)
+    private int ResolveBufferBudget(RenderTargetLeaseSession request)
         => _options.MaxBufferDimension
            ?? (ResolveAttachmentContext(request) is { } context
                ? RenderScaleUtilities.ResolveMaxBufferDimension(context)
@@ -294,7 +327,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// The shared context this pool's own allocator attaches <paramref name="request"/>'s targets to, or
     /// <see langword="null"/> when nothing it allocates for that request reaches one.
     /// </summary>
-    private IGraphicsContext? ResolveAttachmentContext(RenderTargetPoolRequest request)
+    private IGraphicsContext? ResolveAttachmentContext(RenderTargetLeaseSession request)
     {
         // A caller-supplied factory allocates on whatever context it chose - a CPU allocator on none at all -
         // and a CPU-bound request takes this pool's own raster path. Neither attaches through the shared
@@ -305,7 +338,7 @@ internal sealed class RenderTargetPool : IDisposable
         // Everything else lands in RenderTarget.Create, so it attaches wherever that would - and off the
         // render thread that is nowhere, because Create rasters there whatever context this request names.
         // Asking Create itself is what keeps the budget and the allocation from answering differently.
-        // BeginImplicitRequest names a context in place of the live one, and a request bound to it has to be
+        // BeginImplicitSession names a context in place of the live one, and a request bound to it has to be
         // measured against the device it named rather than against whichever context is live now.
         IGraphicsContext? named = request.ContextIdentity is ImplicitContextBinding binding
             ? binding.Context
@@ -324,7 +357,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// Read from what the request was opened with rather than from the handle <see cref="ValidateContext"/>
     /// adopts afterwards, so every buffer of one request is measured the same way.
     /// </remarks>
-    private static bool IsCpuBound(RenderTargetPoolRequest request)
+    private static bool IsCpuBound(RenderTargetLeaseSession request)
         => request.ExpectedContextHandle == 0
            || ReferenceEquals(request.ContextIdentity, s_cpuContextIdentity);
 
@@ -338,9 +371,9 @@ internal sealed class RenderTargetPool : IDisposable
     /// blank target still gets one.
     /// </param>
     internal bool TryAcquire(
-        RenderTargetPoolRequest request,
+        RenderTargetLeaseSession request,
         PixelSize deviceSize,
-        [NotNullWhen(true)] out PooledRenderTargetLease? lease,
+        [NotNullWhen(true)] out RenderTargetLease? lease,
         bool clearContents = true)
     {
         VerifyActive(request);
@@ -446,99 +479,98 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
-    internal void Release(PooledRenderTargetLease lease)
+    internal void Release(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        VerifyLease(lease);
+        VerifyReleasableLease(lease);
         ReleaseCore(lease);
     }
 
-    internal void DeferRelease(PooledRenderTargetLease lease)
+    internal void DeferRelease(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
         VerifyLease(lease);
-        lease.State = PooledRenderTargetLeaseState.Deferred;
+        lease.State = RenderTargetLeaseState.Deferred;
     }
 
-    internal void CompleteDeferredRelease(PooledRenderTargetLease lease)
+    internal void CompleteDeferredRelease(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        if (!ReferenceEquals(lease.Pool, this))
+        if (!ReferenceEquals(lease.Session.Pool, this))
             throw new InvalidOperationException("The render-target lease belongs to a different pool.");
-        if (lease.State == PooledRenderTargetLeaseState.Evicted)
+        if (lease.State == RenderTargetLeaseState.Evicted)
             return;
-        if (lease.State != PooledRenderTargetLeaseState.Deferred)
+        if (lease.State != RenderTargetLeaseState.Deferred)
         {
             throw new InvalidOperationException(
                 $"The render-target lease cannot complete a deferred release from {lease.State}.");
         }
 
         TargetSlot slot = lease.Slot;
-        if (!ReferenceEquals(slot.ActiveLease, lease) || slot.Generation != lease.Generation)
-            throw new InvalidOperationException("The render-target lease generation is stale.");
+        if (!ReferenceEquals(slot.ActiveLease, lease))
+            throw new InvalidOperationException("The render-target lease is stale.");
         ReleaseCore(lease);
     }
 
-    private void ReleaseCore(PooledRenderTargetLease lease)
+    private void ReleaseCore(RenderTargetLease lease)
     {
         TargetSlot slot = lease.Slot;
-        lease.State = PooledRenderTargetLeaseState.Available;
+        lease.State = RenderTargetLeaseState.Released;
         slot.ActiveLease = null;
-        slot.LastAvailableLease = lease;
         slot.LastUsedEpoch = _requestEpoch;
         _leasedTargets--;
 
-        if (_disposed || !IsCurrentContext(lease.Request) || slot.Target.IsDisposed)
+        if (_disposed || !IsCurrentContext(lease.Session) || slot.Target.IsDisposed)
         {
-            lease.State = PooledRenderTargetLeaseState.Evicted;
-            Evict(slot, lease.Request, failures: null);
+            lease.State = RenderTargetLeaseState.Evicted;
+            Evict(slot, lease.Session, failures: null);
             return;
         }
 
         AddAvailable(slot);
-        TrimToByteBudget(lease.Request);
+        TrimToByteBudget(lease.Session);
         if (!_ownedSlots.Contains(slot))
-            lease.State = PooledRenderTargetLeaseState.Evicted;
+            lease.State = RenderTargetLeaseState.Evicted;
     }
 
-    internal RenderTarget TransferToAcceptedCache(PooledRenderTargetLease lease)
+    internal RenderTarget TransferToAcceptedCache(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
         VerifyLease(lease);
 
         TargetSlot slot = lease.Slot;
         slot.ActiveLease = null;
-        slot.LastAvailableLease = null;
-        lease.State = PooledRenderTargetLeaseState.CacheTransferred;
+        lease.State = RenderTargetLeaseState.CacheTransferred;
         _leasedTargets--;
         RemoveOwnedSlot(slot);
         return slot.Target;
     }
 
-    internal void EndRequest(RenderTargetPoolRequest request)
+    internal void EndSession(RenderTargetLeaseSession request)
     {
-        if (ReferenceEquals(_activeRequest, request))
-            _activeRequest = null;
+        if (ReferenceEquals(_activeSession, request))
+            _activeSession = null;
     }
 
-    internal void EvictAfterReleaseFailure(PooledRenderTargetLease lease)
+    internal void EvictAfterReleaseFailure(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        if (!ReferenceEquals(lease.Pool, this))
+        if (!ReferenceEquals(lease.Session.Pool, this))
             throw new InvalidOperationException("The render-target lease belongs to a different pool.");
 
-        Evict(lease.Slot, lease.Request, failures: null);
+        Evict(lease.Slot, lease.Session, failures: null, failedLease: lease);
     }
 
-    private RenderTargetPoolRequest BeginRequestCore(
+    private RenderTargetLeaseSession BeginSessionCore(
+        RenderIntent intent,
         object contextIdentity,
         nint? expectedContextHandle,
         RenderTarget? externalTarget)
     {
-        if (_activeRequest is not null)
+        if (_activeSession is not null)
         {
             throw new InvalidOperationException(
-                "Concurrent render-target pool requests on one renderer are unsupported.");
+                "Concurrent render-target allocation sessions on one renderer are unsupported.");
         }
 
         List<Exception> failures = [];
@@ -568,36 +600,28 @@ internal sealed class RenderTargetPool : IDisposable
 
         ThrowCleanupFailures(failures);
         _requestEpoch++;
-        var request = new RenderTargetPoolRequest(
+        var session = new RenderTargetLeaseSession(
             this,
+            intent,
             contextIdentity,
             _contextGeneration,
             expectedContextHandle,
             externalTarget);
-        _activeRequest = request;
-        TrimIdle(request);
-        return request;
+        _activeSession = session;
+        TrimIdle(session);
+        return session;
     }
 
     private static long NextGeneration(long current)
         => current == long.MaxValue ? 1 : current + 1;
 
-    private PooledRenderTargetLease Lease(
-        RenderTargetPoolRequest request,
+    private RenderTargetLease Lease(
+        RenderTargetLeaseSession request,
         TargetSlot slot)
     {
         try
         {
-            long generation = ++_nextLeaseGeneration;
-            if (generation <= 0)
-            {
-                _nextLeaseGeneration = 1;
-                generation = 1;
-            }
-
-            var lease = new PooledRenderTargetLease(this, request, slot, generation);
-            slot.Generation = generation;
-            slot.LastAvailableLease = null;
+            var lease = new RenderTargetLease(request, slot);
             slot.ActiveLease = lease;
             _leasedTargets++;
             _peakLiveTargets = Math.Max(_peakLiveTargets, _leasedTargets);
@@ -658,7 +682,7 @@ internal sealed class RenderTargetPool : IDisposable
         slot.LruNode = null;
     }
 
-    private void TrimIdle(RenderTargetPoolRequest request)
+    private void TrimIdle(RenderTargetLeaseSession request)
     {
         while (_availableLru.First is { } node
                && _requestEpoch - node.Value.LastUsedEpoch > _options.MaximumIdleRequests)
@@ -667,7 +691,7 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
-    private void TrimToByteBudget(RenderTargetPoolRequest request)
+    private void TrimToByteBudget(RenderTargetLeaseSession request)
     {
         while (_retainedBytes > _options.MaximumRetainedBytes
                && _availableLru.First is { } node)
@@ -676,7 +700,7 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
-    private void EvictAllAvailable(RenderTargetPoolRequest? request, List<Exception>? failures)
+    private void EvictAllAvailable(RenderTargetLeaseSession? request, List<Exception>? failures)
     {
         while (_availableLru.First is { } node)
             Evict(node.Value, request, failures);
@@ -684,25 +708,32 @@ internal sealed class RenderTargetPool : IDisposable
 
     private void Evict(
         TargetSlot slot,
-        RenderTargetPoolRequest? request,
-        List<Exception>? failures)
+        RenderTargetLeaseSession? request,
+        List<Exception>? failures,
+        RenderTargetLease? failedLease = null)
     {
         if (!_ownedSlots.Contains(slot))
             return;
 
-        PooledRenderTargetLease? liveLease = slot.ActiveLease;
+        RenderTargetLease? liveLease = slot.ActiveLease;
         if (liveLease is not null)
         {
-            liveLease.State = PooledRenderTargetLeaseState.Evicted;
+            if (failedLease is not null && !ReferenceEquals(liveLease, failedLease))
+                throw new InvalidOperationException("A stale lease cannot evict another active lease.");
+            liveLease.State = RenderTargetLeaseState.Evicted;
             slot.ActiveLease = null;
             _leasedTargets--;
         }
-        else if (slot.LastAvailableLease is { State: PooledRenderTargetLeaseState.Available } availableLease)
+        else if (failedLease is
+                 {
+                     State: RenderTargetLeaseState.Leased
+                         or RenderTargetLeaseState.ReleaseFailed
+                         or RenderTargetLeaseState.Deferred,
+                 })
         {
-            availableLease.State = PooledRenderTargetLeaseState.Evicted;
+            failedLease.State = RenderTargetLeaseState.Evicted;
+            _leasedTargets--;
         }
-        slot.LastAvailableLease = null;
-
         RemoveAvailable(slot);
         RemoveOwnedSlot(slot);
         _evictions++;
@@ -743,7 +774,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// cannot hide a leak of resources the wrapper does own: the surface belongs to the live holder, and a
     /// target reaching this branch shares that holder's surface rather than a texture it allocated itself.
     /// </remarks>
-    private static void ReleaseRejectedWrapper(RenderTarget target, RenderTargetPoolRequest request)
+    private static void ReleaseRejectedWrapper(RenderTarget target, RenderTargetLeaseSession request)
     {
         if (target.SharesSurfaceOwnership)
         {
@@ -754,7 +785,7 @@ internal sealed class RenderTargetPool : IDisposable
         GC.SuppressFinalize(target);
     }
 
-    private static void DisposeRejectedTarget(RenderTarget target, RenderTargetPoolRequest request)
+    private static void DisposeRejectedTarget(RenderTarget target, RenderTargetLeaseSession request)
     {
         try
         {
@@ -775,7 +806,7 @@ internal sealed class RenderTargetPool : IDisposable
     /// or the caller's destination pointing at freed memory, so <see cref="ReleaseRejectedWrapper"/> settles
     /// the rejection instead.
     /// </remarks>
-    private bool SharesLiveSurface(RenderTarget target, RenderTargetPoolRequest request)
+    private bool SharesLiveSurface(RenderTarget target, RenderTargetLeaseSession request)
     {
         try
         {
@@ -792,7 +823,7 @@ internal sealed class RenderTargetPool : IDisposable
     private SKSurface ValidateFactoryTarget(
         RenderTarget target,
         PixelSize size,
-        RenderTargetPoolRequest request)
+        RenderTargetLeaseSession request)
     {
         if (ReferenceEquals(target, request.ExternalTarget))
         {
@@ -816,7 +847,7 @@ internal sealed class RenderTargetPool : IDisposable
         return surface;
     }
 
-    private void ValidateReusableSlot(TargetSlot slot, RenderTargetPoolRequest request)
+    private void ValidateReusableSlot(TargetSlot slot, RenderTargetLeaseSession request)
     {
         if (!_ownedSlots.Contains(slot)
             || slot.ActiveLease is not null
@@ -875,7 +906,7 @@ internal sealed class RenderTargetPool : IDisposable
         return surface;
     }
 
-    private void ValidateContext(SKSurface surface, RenderTargetPoolRequest request)
+    private void ValidateContext(SKSurface surface, RenderTargetLeaseSession request)
     {
         GRRecordingContext? actualContext = surface.Context;
         nint actual = actualContext?.Handle ?? 0;
@@ -901,30 +932,45 @@ internal sealed class RenderTargetPool : IDisposable
         _graphicsContext = actualContext;
     }
 
-    private void VerifyActive(RenderTargetPoolRequest request)
+    private void VerifyActive(RenderTargetLeaseSession request)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(request);
-        if (!ReferenceEquals(_activeRequest, request) || request.IsDisposed)
-            throw new InvalidOperationException("The render-target pool request is no longer active.");
+        if (!ReferenceEquals(_activeSession, request) || request.IsDisposed)
+            throw new InvalidOperationException("The render-target allocation session is no longer active.");
     }
 
-    internal void VerifyLease(PooledRenderTargetLease lease)
+    internal void VerifyLease(RenderTargetLease lease)
     {
-        if (!ReferenceEquals(lease.Pool, this))
+        if (!ReferenceEquals(lease.Session.Pool, this))
             throw new InvalidOperationException("The render-target lease belongs to a different pool.");
-        if (lease.State != PooledRenderTargetLeaseState.Leased)
+        if (lease.State != RenderTargetLeaseState.Leased)
         {
             throw new InvalidOperationException(
                 $"The render-target lease has already been discharged as {lease.State}.");
         }
 
         TargetSlot slot = lease.Slot;
-        if (!ReferenceEquals(slot.ActiveLease, lease) || slot.Generation != lease.Generation)
-            throw new InvalidOperationException("The render-target lease generation is stale.");
+        if (!ReferenceEquals(slot.ActiveLease, lease))
+            throw new InvalidOperationException("The render-target lease is stale.");
     }
 
-    private bool IsCurrentContext(RenderTargetPoolRequest request)
+    private void VerifyReleasableLease(RenderTargetLease lease)
+    {
+        if (!ReferenceEquals(lease.Session.Pool, this))
+            throw new InvalidOperationException("The render-target lease belongs to a different pool.");
+        if (lease.State is not (RenderTargetLeaseState.Leased or RenderTargetLeaseState.ReleaseFailed))
+        {
+            throw new InvalidOperationException(
+                $"The render-target lease has already been discharged as {lease.State}.");
+        }
+
+        TargetSlot slot = lease.Slot;
+        if (!ReferenceEquals(slot.ActiveLease, lease))
+            throw new InvalidOperationException("The render-target lease is stale.");
+    }
+
+    private bool IsCurrentContext(RenderTargetLeaseSession request)
         => _hasContext
            && ReferenceEquals(_contextIdentity, request.ContextIdentity)
            && _contextGeneration == request.ContextGeneration;
@@ -944,14 +990,14 @@ internal sealed class RenderTargetPool : IDisposable
         }
     }
 
-    private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetPoolRequest request)
+    private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetLeaseSession request)
         => _factory is null
             ? CreateDefaultTarget(deviceSize, ResolveAllocationContextHandle(request))
             : _factory.Create(GetAllocationDescriptor(deviceSize, request));
 
     internal RenderTargetAllocationDescriptor GetAllocationDescriptor(
         PixelSize deviceSize,
-        RenderTargetPoolRequest request)
+        RenderTargetLeaseSession request)
     {
         VerifyActive(request);
         return new RenderTargetAllocationDescriptor(
@@ -963,7 +1009,7 @@ internal sealed class RenderTargetPool : IDisposable
     // Only a request rendering into a caller-owned destination carries a handle of its own. A
     // target-less request on a pool that already bound a context still has to allocate on that
     // context, because every surface the pool hands out is checked against it.
-    private nint? ResolveAllocationContextHandle(RenderTargetPoolRequest request)
+    private nint? ResolveAllocationContextHandle(RenderTargetLeaseSession request)
         => request.ExpectedContextHandle ?? (_hasContext ? _contextHandle : null);
 
     private static RenderTarget? CreateDefaultTarget(
@@ -998,9 +1044,14 @@ internal sealed class RenderTargetPool : IDisposable
     private static void AppendFailure(List<Exception> failures, Exception failure)
     {
         if (failure is AggregateException aggregate)
-            failures.AddRange(aggregate.Flatten().InnerExceptions);
-        else
+        {
+            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
+                AppendFailure(failures, inner);
+        }
+        else if (!failures.Contains(failure))
+        {
             failures.Add(failure);
+        }
     }
 
     internal sealed class TargetSlot(
@@ -1017,13 +1068,9 @@ internal sealed class RenderTargetPool : IDisposable
 
         public long ByteSize { get; } = byteSize;
 
-        public long Generation { get; set; }
-
         public long LastUsedEpoch { get; set; }
 
-        public PooledRenderTargetLease? ActiveLease { get; set; }
-
-        public PooledRenderTargetLease? LastAvailableLease { get; set; }
+        public RenderTargetLease? ActiveLease { get; set; }
 
         public LinkedListNode<TargetSlot>? BucketNode { get; set; }
 

@@ -19,7 +19,7 @@ namespace Beutl.Graphics.Rendering;
 /// </remarks>
 public sealed class RenderNodeRenderer : IDisposable
 {
-    private readonly RenderTargetLeaseRegistry _targetRegistry;
+    private readonly RenderTargetPool _targetPool;
     private readonly StructuralPlanCache _structuralPlanCache;
     private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
     private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
@@ -51,7 +51,7 @@ public sealed class RenderNodeRenderer : IDisposable
             DefaultRequest = CopyAndSanitizeRequest(options.DefaultRequest),
             TargetFactory = options.TargetFactory,
         };
-        _targetRegistry = new RenderTargetLeaseRegistry(Options.TargetFactory);
+        _targetPool = new RenderTargetPool(Options.TargetFactory);
         _structuralPlanCache = new StructuralPlanCache();
         _programCache = SkRuntimeEffectProgramCache.Create();
         _spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -74,12 +74,12 @@ public sealed class RenderNodeRenderer : IDisposable
     internal ProgramCacheStatistics ProgramCacheStatistics
         => CombineProgramCacheStatistics(_programCache.Statistics, _spirvProgramCache.Statistics);
 
-    internal RenderTargetPoolStatistics TargetPoolStatistics => _targetRegistry.Statistics;
+    internal RenderTargetPoolStatistics TargetPoolStatistics => _targetPool.Statistics;
 
     internal long ReleaseRetainedTargets()
     {
         ThrowIfDisposed();
-        return _targetRegistry.ReleaseRetainedTargets();
+        return _targetPool.ReleaseRetainedTargets();
     }
 
     /// <summary>Synchronously renders the selected root stream into a borrowed destination.</summary>
@@ -129,7 +129,7 @@ public sealed class RenderNodeRenderer : IDisposable
         float maxWorkingScale = MathF.Min(effectiveRequest.MaxWorkingScale, destination.MaxWorkingScale);
         bool hasInvertibleDestination = TryResolveDestinationTargetDomain(destination, out Rect resolvedTargetDomain);
         Rect? targetDomain = hasInvertibleDestination ? resolvedTargetDomain : null;
-        RenderTargetLeaseSession targets = _targetRegistry.BeginSession(
+        RenderTargetLeaseSession targets = _targetPool.BeginSession(
             effectiveRequest.Intent,
             destination._renderTarget);
         CompiledRenderRequest? request = null;
@@ -349,7 +349,7 @@ public sealed class RenderNodeRenderer : IDisposable
         ExceptionDispatchInfo? primary = null;
         try
         {
-            targets = _targetRegistry.BeginSession(effectiveRequest.Intent);
+            targets = _targetPool.BeginSession(effectiveRequest.Intent);
             cacheLifecycle = RenderNodeCacheHelper.BeginLifecycle(Root);
             request = RecordAndCompile(
                 effectiveRequest.Purpose,
@@ -622,7 +622,7 @@ public sealed class RenderNodeRenderer : IDisposable
         Exception? primary = null;
         try
         {
-            _targetRegistry.Dispose();
+            _targetPool.Dispose();
         }
         catch (Exception ex)
         {

@@ -280,7 +280,7 @@ public sealed class SKSLScriptEffectShaderTests
                 new CompositionContext(TimeSpan.FromSeconds(6)),
                 ref updateOnly);
 
-            using var targetRegistry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            using var targetRegistry = new RenderTargetPool(new CpuTargetFactory());
             using RenderTargetLeaseSession targets = targetRegistry.BeginSession(RenderIntent.Preview);
             PixelRect deviceBounds = PixelRect.FromRect(compiled.ExecutionTargetBounds, 1);
             using RenderTargetLease output = targets.Acquire(deviceBounds.Size);

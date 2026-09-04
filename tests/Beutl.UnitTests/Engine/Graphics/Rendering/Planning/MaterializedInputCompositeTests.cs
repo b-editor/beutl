@@ -169,7 +169,7 @@ public sealed class MaterializedInputCompositeTests
             destinationDensity,
             destinationSize.ToSize(destinationDensity));
         canvas.Clear();
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets =
             registry.BeginSession(
                 RenderIntent.Preview,

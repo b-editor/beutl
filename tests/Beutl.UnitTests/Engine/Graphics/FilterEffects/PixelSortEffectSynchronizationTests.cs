@@ -106,7 +106,7 @@ public sealed class PixelSortEffectSynchronizationTests
             using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height)
                 ?? throw new InvalidOperationException("Could not create the GPU pixel-sort source.");
             DrawUnsortedBars(source);
-            using var registry = new RenderTargetLeaseRegistry(factory: null);
+            using var registry = new RenderTargetPool(factory: null);
 
             List<TextureFormat> firstAllocations = ApplyPooledPixelSort(source, registry);
             Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0));
@@ -185,7 +185,7 @@ public sealed class PixelSortEffectSynchronizationTests
 
     private static List<TextureFormat> ApplyPooledPixelSort(
         RenderTarget source,
-        RenderTargetLeaseRegistry registry)
+        RenderTargetPool registry)
     {
         var effect = new PixelSortEffect();
         effect.Direction.CurrentValue = PixelSortDirection.Horizontal;

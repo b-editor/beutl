@@ -24,17 +24,17 @@ public sealed class RenderTargetPoolRetainedContextTests
             using var pool = new RenderTargetPool(factory: null);
             using RenderTarget destination = CreateCpuTarget(new PixelSize(8, 8));
 
-            using (RenderTargetPoolRequest request = pool.BeginRequest(destination))
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery, destination))
             {
-                using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
+                using RenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
                 Assert.That(lease.Target.Value.Context, Is.Null, "the destination is a CPU surface");
             }
 
-            using (RenderTargetPoolRequest request = pool.BeginRequest())
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery))
             {
                 Assert.That(request.ExpectedContextHandle, Is.Null, "a target-less request names no context");
 
-                PooledRenderTargetLease? lease = null;
+                RenderTargetLease? lease = null;
                 Assert.That(
                     () => lease = request.Acquire(new PixelSize(6, 6)),
                     Throws.Nothing,
@@ -62,15 +62,15 @@ public sealed class RenderTargetPoolRetainedContextTests
             Assert.That(destination, Is.Not.Null);
             nint? destinationContext = destination!.Value.Context?.Handle;
 
-            using (RenderTargetPoolRequest request = pool.BeginRequest(destination))
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery, destination))
             {
-                using PooledRenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
+                using RenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
                 Assert.That(lease.Target.Value.Context?.Handle, Is.EqualTo(destinationContext));
             }
 
-            using (RenderTargetPoolRequest request = pool.BeginRequest())
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery))
             {
-                using PooledRenderTargetLease lease = request.Acquire(new PixelSize(6, 6));
+                using RenderTargetLease lease = request.Acquire(new PixelSize(6, 6));
                 Assert.That(lease.Target.Value.Context?.Handle, Is.EqualTo(destinationContext));
             }
         });

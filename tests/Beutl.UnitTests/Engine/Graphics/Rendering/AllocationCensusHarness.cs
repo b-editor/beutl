@@ -96,7 +96,7 @@ public sealed class AllocationCensusHarness
             using var root = new DrawableRenderNode(resources[0]);
             RecordScene(root, resources);
 
-            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            var registry = new RenderTargetPool(new CpuTargetFactory());
             using var structuralPlanCache = new StructuralPlanCache();
             using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
             using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -139,7 +139,7 @@ public sealed class AllocationCensusHarness
 
     private static void CountGraph(
         RenderNode root,
-        RenderTargetLeaseRegistry registry,
+        RenderTargetPool registry,
         StructuralPlanCache structuralPlanCache,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
@@ -227,7 +227,7 @@ public sealed class AllocationCensusHarness
             {
                 using var root = new DrawableRenderNode(resources[0]);
                 RecordScene(root, resources);
-                var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+                var registry = new RenderTargetPool(new CpuTargetFactory());
                 using var structuralPlanCache = new StructuralPlanCache();
                 using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
                 using ProgramCache<GLSLFilterPipeline> spirv = SpirvShaderProgramCache.Create();
@@ -310,7 +310,7 @@ public sealed class AllocationCensusHarness
             using var root = new DrawableRenderNode(resources[0]);
             RecordScene(root, resources);
 
-            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            var registry = new RenderTargetPool(new CpuTargetFactory());
             using var structuralPlanCache = new StructuralPlanCache();
             using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
             using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -365,7 +365,7 @@ public sealed class AllocationCensusHarness
 
     private static void RunOneFrame(
         RenderNode root,
-        RenderTargetLeaseRegistry registry,
+        RenderTargetPool registry,
         StructuralPlanCache structuralPlanCache,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
@@ -566,7 +566,7 @@ public sealed class AllocationCensusHarness
             using var root = new DrawableRenderNode(resources[0]);
             RecordScene(root, resources);
 
-            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            var registry = new RenderTargetPool(new CpuTargetFactory());
             using var structuralPlanCache = new StructuralPlanCache();
             using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
             using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -838,7 +838,7 @@ public sealed class AllocationCensusHarness
                 top = wrapper;
             }
 
-            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            var registry = new RenderTargetPool(new CpuTargetFactory());
             using var structuralPlanCache = new StructuralPlanCache();
             using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
             using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -900,7 +900,7 @@ public sealed class AllocationCensusHarness
             using var root = new DrawableRenderNode(resources[0]);
             RecordScene(root, resources);
 
-            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            var registry = new RenderTargetPool(new CpuTargetFactory());
             using var structuralPlanCache = new StructuralPlanCache();
             using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
             using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -1030,7 +1030,7 @@ public sealed class AllocationCensusHarness
                     context.DrawDrawable(resource);
             }
 
-            var registry = new RenderTargetLeaseRegistry(new CpuTargetFactory());
+            var registry = new RenderTargetPool(new CpuTargetFactory());
             using var structuralPlanCache = new StructuralPlanCache();
             using ProgramCache<CachedSkRuntimeEffect> programCache = SkRuntimeEffectProgramCache.Create();
             using ProgramCache<GLSLFilterPipeline> spirvProgramCache = SpirvShaderProgramCache.Create();

@@ -293,7 +293,7 @@ public sealed class GraphicsContextShutdownTests
             using var pool = new RenderTargetPool(factory);
 
             // Acquire and release, so the pool retains the target for reuse rather than freeing it.
-            using (RenderTargetPoolRequest request = pool.BeginRequest())
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Preview))
             {
                 request.Acquire(new PixelSize(4, 4)).Dispose();
             }
@@ -354,7 +354,7 @@ public sealed class GraphicsContextShutdownTests
             GpuResourceReclaimQueue.FlushAndDrain();
             var factory = new RetirementObservingTargetFactory(() => throw retirementFailure);
             using var pool = new RenderTargetPool(factory);
-            using (RenderTargetPoolRequest request = pool.BeginRequest())
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Preview))
             {
                 request.Acquire(new PixelSize(4, 4)).Dispose();
             }
@@ -416,7 +416,7 @@ public sealed class GraphicsContextShutdownTests
                 () => vulkan.DeferRelease(() => releaseRanWhenTheTargetWasRetired = true));
 
             using var pool = new RenderTargetPool(factory);
-            using (RenderTargetPoolRequest request = pool.BeginRequest())
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Preview))
             {
                 request.Acquire(new PixelSize(4, 4)).Dispose();
             }

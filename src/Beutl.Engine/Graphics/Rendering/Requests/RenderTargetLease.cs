@@ -1,22 +1,45 @@
-﻿namespace Beutl.Graphics.Rendering.Requests;
+﻿using Beutl.Media;
 
+namespace Beutl.Graphics.Rendering.Requests;
+
+/// <summary>One exclusive hold on a target owned by a renderer's pool.</summary>
 internal sealed class RenderTargetLease : IDisposable
 {
     internal RenderTargetLease(
         RenderTargetLeaseSession session,
-        PooledRenderTargetLease pooledLease)
+        RenderTargetPool.TargetSlot slot)
     {
         Session = session;
-        PooledLease = pooledLease;
+        Slot = slot;
     }
 
-    public RenderTarget Target => PooledLease.Target;
+    public RenderTarget Target
+    {
+        get
+        {
+            Session.Pool.VerifyLease(this);
+            return Slot.Target;
+        }
+    }
 
-    public bool IsReleased { get; internal set; }
+    public PixelSize DeviceSize
+    {
+        get
+        {
+            Session.Pool.VerifyLease(this);
+            return Slot.Size;
+        }
+    }
+
+    public RenderTargetLeaseState State { get; internal set; } = RenderTargetLeaseState.Leased;
+
+    public bool IsReleased => State != RenderTargetLeaseState.Leased;
 
     internal RenderTargetLeaseSession Session { get; }
 
-    internal PooledRenderTargetLease PooledLease { get; }
+    internal RenderTargetPool.TargetSlot Slot { get; }
+
+    internal Exception? ReleaseFailure { get; set; }
 
     public void Dispose()
     {

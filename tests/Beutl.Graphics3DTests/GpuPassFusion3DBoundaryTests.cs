@@ -201,7 +201,7 @@ public sealed class GpuPassFusion3DBoundaryTests
 
             ushort[] renderedPixels;
             RenderExecutionStatistics statistics;
-            using var registry = new RenderTargetLeaseRegistry(factory: null);
+            using var registry = new RenderTargetPool(factory: null);
             using (RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview))
             using (RenderTargetLease root = targets.Acquire(
                        PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size))
@@ -275,7 +275,7 @@ public sealed class GpuPassFusion3DBoundaryTests
             targetDomain,
             outputScale: 1.75f,
             maxWorkingScale: 0.75f);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
         using RenderTargetLease root = targets.Acquire(
             PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size);

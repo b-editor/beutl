@@ -1,109 +1,122 @@
 ﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
+/// <summary>One render request's allocation policy, context binding, leases, and cleanup record.</summary>
 internal sealed class RenderTargetLeaseSession : IDisposable
 {
-    private readonly RenderTargetLeaseRegistry _registry;
-    private readonly List<RenderTargetLease> _leases = [];
-    private readonly List<Exception> _cleanupFailures = [];
+    private static readonly ILogger s_logger = Log.CreateLogger<RenderTargetLeaseSession>();
+
+    private readonly RenderTargetPool _pool;
+    private readonly RenderCacheDeviceContextIdentity _cacheDeviceContextIdentity;
+    private List<RenderTargetLease>? _leases;
+    private List<Exception>? _cleanupFailures;
 
     internal RenderTargetLeaseSession(
-        RenderTargetLeaseRegistry registry,
-        RenderTargetPoolRequest request,
+        RenderTargetPool pool,
         RenderIntent intent,
+        object contextIdentity,
+        long contextGeneration,
+        nint? expectedContextHandle,
         RenderTarget? externalTarget)
     {
-        _registry = registry;
-        Request = request;
+        _pool = pool;
         Intent = intent;
+        ContextIdentity = contextIdentity;
+        ContextGeneration = contextGeneration;
+        ExpectedContextHandle = expectedContextHandle;
         ExternalTarget = externalTarget;
+        ExternalSurface = externalTarget?.RawValue;
+        _cacheDeviceContextIdentity = new RenderCacheDeviceContextIdentity(
+            pool,
+            new RenderTargetCacheContextIdentity(contextIdentity, contextGeneration));
     }
 
     public RenderIntent Intent { get; }
 
-    /// <inheritdoc cref="RenderTargetLeaseRegistry.HasTargetFactory"/>
-    public bool HasTargetFactory => _registry.HasTargetFactory;
+    /// <summary>Whether allocation routes must use the caller-supplied target factory.</summary>
+    public bool HasTargetFactory => _pool.HasTargetFactory;
 
-    /// <summary>
-    /// Whether a path that allocates its own surfaces dropped content it was asked to draw rather than
-    /// failing the render.
-    /// </summary>
-    /// <remarks>
-    /// Tile-brush intermediates, custom-effect targets, and effect flush buffers degrade to transparent
-    /// under <see cref="RenderIntent.Preview"/> instead of throwing, and the executor's own drop
-    /// observation cannot see them: they never take a lease. Folding this in keeps a frame that is missing
-    /// pixels out of anything that outlives it — a render cache or a captured backdrop.
-    /// </remarks>
+    /// <summary>Whether Preview dropped requested content outside the executor's own lease path.</summary>
+    /// <remarks>A degraded frame cannot publish retained output or backdrop captures.</remarks>
     internal bool ContentDropObserved { get; private set; }
-
-    /// <summary>Records that content this session backs was dropped for want of a target.</summary>
-    internal void MarkContentDropped() => ContentDropObserved = true;
 
     public bool IsDisposed { get; private set; }
 
-    internal RenderTargetPoolRequest Request { get; }
+    public IReadOnlyList<Exception> CleanupFailures => _cleanupFailures ?? [];
 
-    internal RenderTarget? ExternalTarget { get; }
+    internal object ContextIdentity { get; }
 
-    internal IReadOnlyList<Exception> CleanupFailures
-        => _cleanupFailures.Count == 0 && Request.CleanupFailures.Count == 0
-            ? []
-            : [.. _cleanupFailures, .. Request.CleanupFailures];
+    internal long ContextGeneration { get; }
 
-    internal RenderCacheDeviceContextIdentity CacheDeviceContextIdentity
-        => new(
-            _registry,
-            new RenderTargetCacheContextIdentity(
-                Request.ContextIdentity,
-                Request.ContextGeneration));
+    internal nint? ExpectedContextHandle { get; }
+
+    internal RenderTarget? ExternalTarget { get; private set; }
+
+    internal SKSurface? ExternalSurface { get; private set; }
+
+    internal RenderCacheDeviceContextIdentity CacheDeviceContextIdentity => _cacheDeviceContextIdentity;
+
+    internal void MarkContentDropped() => ContentDropObserved = true;
 
     internal RenderTargetCleanupFailureCheckpoint CaptureCleanupFailureCheckpoint()
-        => new(this, _cleanupFailures.Count, Request.CleanupFailures.Count);
+        => new(this, _cleanupFailures?.Count ?? 0);
 
     internal IReadOnlyList<Exception> GetCleanupFailuresSince(
         RenderTargetCleanupFailureCheckpoint checkpoint)
     {
+        int failureCount = _cleanupFailures?.Count ?? 0;
         if (!ReferenceEquals(checkpoint.Session, this)
-            || checkpoint.SessionFailureCount < 0
-            || checkpoint.SessionFailureCount > _cleanupFailures.Count
-            || checkpoint.RequestFailureCount < 0
-            || checkpoint.RequestFailureCount > Request.CleanupFailures.Count)
+            || checkpoint.FailureCount < 0
+            || checkpoint.FailureCount > failureCount)
         {
             throw new ArgumentException(
                 "The cleanup-failure checkpoint does not belong to this session.",
                 nameof(checkpoint));
         }
 
-        return
-        [
-            .. _cleanupFailures.Skip(checkpoint.SessionFailureCount),
-            .. Request.CleanupFailures.Skip(checkpoint.RequestFailureCount),
-        ];
+        int count = failureCount - checkpoint.FailureCount;
+        return count == 0 ? [] : _cleanupFailures!.GetRange(checkpoint.FailureCount, count);
     }
 
     public RenderTargetLease Acquire(PixelSize deviceSize)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _registry.Acquire(this, deviceSize);
+        return _pool.Acquire(this, deviceSize);
     }
 
+    /// <summary>
+    /// Leases an intermediate target, returning <see langword="null"/> when Preview may drop the caller's
+    /// contribution. Delivery never degrades.
+    /// </summary>
     /// <param name="clearContents">
-    /// Whether the lease must arrive transparent. Pass <see langword="false"/> only when every pixel is
+    /// Whether the target must arrive transparent. Pass <see langword="false"/> only when every pixel is
     /// defined before any is read.
     /// </param>
     public RenderTargetLease? TryAcquire(PixelSize deviceSize, bool clearContents = true)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _registry.TryAcquire(this, deviceSize, clearContents);
+        if (_pool.TryAcquire(this, deviceSize, out RenderTargetLease? lease, clearContents))
+            return lease;
+
+        s_logger.LogWarning(
+            "Intermediate render-target allocation failed ({Width}x{Height} px); preview drops this target, delivery render fails fast.",
+            deviceSize.Width,
+            deviceSize.Height);
+        if (Intent == RenderIntent.Delivery)
+            throw CreateAllocationFailure(deviceSize);
+        return null;
     }
 
-    /// <inheritdoc cref="RenderTargetLeaseRegistry.ExceedsBufferBudget"/>
     public bool ExceedsBufferBudget(PixelSize deviceSize)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        return _registry.ExceedsBufferBudget(this, deviceSize);
+        return _pool.ExceedsBufferBudget(this, deviceSize, out _);
     }
 
     public void Dispose()
@@ -112,22 +125,60 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             return;
 
         IsDisposed = true;
+        List<Exception>? releaseFailures = null;
         try
         {
-            for (int index = _leases.Count - 1; index >= 0; index--)
-                _registry.Release(_leases[index]);
-            Request.Dispose();
+            for (int index = (_leases?.Count ?? 0) - 1; index >= 0; index--)
+            {
+                RenderTargetLease lease = _leases![index];
+                if (lease.State is not (RenderTargetLeaseState.Leased or RenderTargetLeaseState.ReleaseFailed))
+                    continue;
+
+                try
+                {
+                    _pool.Release(lease);
+                }
+                catch (Exception ex)
+                {
+                    Exception releaseFailure = lease.ReleaseFailure ?? ex;
+                    if (lease.ReleaseFailure is null)
+                    {
+                        lease.ReleaseFailure = releaseFailure;
+                        RecordCleanupFailure(releaseFailure);
+                    }
+                    AppendFailure(ref releaseFailures, releaseFailure);
+                    try
+                    {
+                        _pool.EvictAfterReleaseFailure(lease);
+                    }
+                    catch (Exception cleanup)
+                    {
+                        AppendFailure(ref releaseFailures, cleanup);
+                    }
+                }
+            }
         }
         finally
         {
-            _registry.EndSession(this);
+            _leases = null;
+            ExternalTarget = null;
+            ExternalSurface = null;
+            _pool.EndSession(this);
+        }
+
+        if (releaseFailures is { Count: 1 })
+            ExceptionDispatchInfo.Capture(releaseFailures[0]).Throw();
+        if (releaseFailures is { Count: > 1 })
+        {
+            throw new AggregateException(
+                "One or more render-target leases failed to discharge.",
+                releaseFailures);
         }
     }
 
     public void ThrowIfCleanupFailed()
     {
-        IReadOnlyList<Exception> failures = CleanupFailures;
-        if (failures.Count == 0)
+        if (_cleanupFailures is not { Count: > 0 } failures)
             return;
         if (failures.Count == 1)
             ExceptionDispatchInfo.Capture(failures[0]).Throw();
@@ -139,40 +190,121 @@ internal sealed class RenderTargetLeaseSession : IDisposable
 
     internal void Register(RenderTargetLease lease)
     {
-        _leases.Add(lease);
+        (_leases ??= []).Add(lease);
     }
 
     internal void RecordCleanupFailure(Exception exception)
     {
-        _cleanupFailures.Add(exception);
+        (_cleanupFailures ??= []).Add(exception);
     }
 
     internal void Release(RenderTargetLease lease)
     {
-        ArgumentNullException.ThrowIfNull(lease);
-        if (!ReferenceEquals(lease.Session, this))
-            throw new InvalidOperationException("The render-target lease belongs to a different allocation session.");
-        _registry.Release(lease);
+        VerifyLeaseOwner(lease);
+        if (lease.State != RenderTargetLeaseState.Leased)
+            return;
+
+        try
+        {
+            _pool.Release(lease);
+        }
+        catch (Exception ex)
+        {
+            lease.State = RenderTargetLeaseState.ReleaseFailed;
+            lease.ReleaseFailure = ex;
+            RecordCleanupFailure(ex);
+        }
     }
 
     internal void ReleaseForBackendReuse(RenderTargetLease lease)
     {
-        ArgumentNullException.ThrowIfNull(lease);
-        if (!ReferenceEquals(lease.Session, this))
-            throw new InvalidOperationException("The render-target lease belongs to a different allocation session.");
-        _registry.ReleaseForBackendReuse(lease);
+        VerifyLeaseOwner(lease);
+        if (lease.IsReleased)
+            return;
+
+        ITexture2D? texture = lease.Target.Texture;
+        if (texture is not { RequiresSkiaFlushForBackendInterop: true })
+        {
+            Release(lease);
+            return;
+        }
+
+        long approximateBytes = checked((long)lease.Target.Width * lease.Target.Height * 8);
+        _pool.DeferRelease(lease);
+        var deferredRelease = new DeferredRenderTargetLeaseRelease(lease);
+        if (!GpuResourceReclaimQueue.TryDefer(deferredRelease, approximateBytes))
+            deferredRelease.Dispose();
     }
 
     internal RenderTarget TransferToAcceptedCache(RenderTargetLease lease)
     {
+        VerifyLeaseOwner(lease);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (lease.IsReleased)
+            throw new InvalidOperationException("The render-target lease has already been discharged.");
+
+        RenderTarget target = _pool.TransferToAcceptedCache(lease);
+        return target;
+    }
+
+    private InvalidOperationException CreateAllocationFailure(PixelSize deviceSize)
+        => _pool.ExceedsBufferBudget(this, deviceSize, out int maxDimension)
+            ? RenderTargetPool.CreateAllocationFailure(deviceSize, maxDimension)
+            : RenderTargetPool.CreateAllocationFailure(deviceSize);
+
+    private void VerifyLeaseOwner(RenderTargetLease lease)
+    {
         ArgumentNullException.ThrowIfNull(lease);
         if (!ReferenceEquals(lease.Session, this))
             throw new InvalidOperationException("The render-target lease belongs to a different allocation session.");
-        return _registry.TransferToAcceptedCache(lease);
     }
+
+    private static void AppendFailure(ref List<Exception>? failures, Exception failure)
+    {
+        failures ??= [];
+        if (failure is AggregateException aggregate)
+        {
+            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
+            {
+                if (!failures.Contains(inner))
+                    failures.Add(inner);
+            }
+        }
+        else if (!failures.Contains(failure))
+        {
+            failures.Add(failure);
+        }
+    }
+
+    private sealed class DeferredRenderTargetLeaseRelease(RenderTargetLease lease) : IDisposable
+    {
+        private RenderTargetLease? _lease = lease;
+
+        public void Dispose()
+        {
+            RenderTargetLease? current = _lease;
+            if (current is null)
+                return;
+
+            _lease = null;
+            try
+            {
+                current.Session.Pool.CompleteDeferredRelease(current);
+            }
+            catch (Exception ex)
+            {
+                current.Session.RecordCleanupFailure(ex);
+            }
+        }
+    }
+
+    internal RenderTargetPool Pool => _pool;
 }
 
 internal readonly record struct RenderTargetCleanupFailureCheckpoint(
     RenderTargetLeaseSession Session,
-    int SessionFailureCount,
-    int RequestFailureCount);
+    int FailureCount);
+
+internal readonly record struct RenderTargetCacheContextIdentity(
+    object BackendContextIdentity,
+    long Generation);

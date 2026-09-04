@@ -25,7 +25,7 @@ public sealed class RenderTargetFactoryReachTests
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
         var factory = new CountingTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
         FilterEffectStageFallbackExecutor.ApplyShader(
@@ -51,7 +51,7 @@ public sealed class RenderTargetFactoryReachTests
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         var factory = new CountingTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
 
         FilterEffectStageFallbackExecutor.ApplyGeometry(
@@ -76,7 +76,7 @@ public sealed class RenderTargetFactoryReachTests
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         var factory = new CountingTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var context = new CustomFilterEffectContext(
             targets,
@@ -105,7 +105,7 @@ public sealed class RenderTargetFactoryReachTests
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         var factory = new DecliningTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var context = new CustomFilterEffectContext(
             targets,
@@ -134,7 +134,7 @@ public sealed class RenderTargetFactoryReachTests
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         var factory = new DecliningTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Delivery);
         var context = new CustomFilterEffectContext(
             targets,
@@ -162,7 +162,7 @@ public sealed class RenderTargetFactoryReachTests
     public void TileBrushIntermediate_AllocatesThroughTheFactory()
     {
         var factory = new CountingTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
         var content = new RectShape();
         content.Width.CurrentValue = 4;

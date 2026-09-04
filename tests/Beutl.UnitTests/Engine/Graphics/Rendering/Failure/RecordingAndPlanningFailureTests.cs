@@ -270,7 +270,7 @@ public sealed class RecordingAndPlanningFailureTests
         using CompiledRenderRequest compiled = compiler.Compile(request, graph);
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget(8, 8);
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);
@@ -301,7 +301,7 @@ public sealed class RecordingAndPlanningFailureTests
         node.Cache.Dispose();
         using RenderTarget destination = FailureTestSupport.CreateCpuTarget(8, 8);
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory: null);
+        using var registry = new RenderTargetPool(factory: null);
         using RenderTargetLeaseSession targets = registry.BeginSession(
             RenderIntent.Preview,
             destination);

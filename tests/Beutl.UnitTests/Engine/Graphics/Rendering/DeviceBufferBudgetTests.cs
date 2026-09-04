@@ -147,7 +147,7 @@ public sealed class DeviceBufferBudgetTests
     public void CreateTarget_AllocatesWithinTheBudget_AndReportsTheDensityItAllocated()
     {
         var factory = new RecordingCpuTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Delivery);
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
@@ -253,7 +253,9 @@ public sealed class DeviceBufferBudgetTests
     public void AnOverBudgetLease_IsDeclinedBeforeItReachesTheAllocator()
     {
         var factory = new RecordingCpuTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using var registry = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
         using RenderTargetLeaseSession preview = registry.BeginSession(RenderIntent.Preview);
 
         var overBudget = new PixelSize(DeviceBudget + 1, 1);
@@ -279,7 +281,9 @@ public sealed class DeviceBufferBudgetTests
     public void AnOverBudgetLease_FailsADeliveryRenderNamingTheLimit()
     {
         var factory = new RecordingCpuTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using var registry = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
         using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
 
         Assert.Multiple(() =>
@@ -302,7 +306,9 @@ public sealed class DeviceBufferBudgetTests
         using CompiledRenderRequest compiled = CompileOverBudgetRequest(request, node);
         using RenderTarget destination = new CpuRenderTarget(new PixelSize(8, 8));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using var registry = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview, destination);
 
         Assert.DoesNotThrow(
@@ -332,7 +338,9 @@ public sealed class DeviceBufferBudgetTests
         using CompiledRenderRequest compiled = CompileOverBudgetRequest(request, node);
         using RenderTarget destination = new CpuRenderTarget(new PixelSize(8, 8));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Delivery);
-        using var registry = new RenderTargetLeaseRegistry(factory, maxBufferDimension: DeviceBudget);
+        using var registry = new RenderTargetPool(
+            factory,
+            new RenderTargetPoolOptions { MaxBufferDimension = DeviceBudget });
         using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Delivery, destination);
 
         InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
@@ -361,9 +369,9 @@ public sealed class DeviceBufferBudgetTests
         var atTheEngineCeiling = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 2);
         var factory = new RecordingCpuTargetFactory();
         using var callerAllocated = new RenderTargetPool(factory);
-        using RenderTargetPoolRequest callerRequest = callerAllocated.BeginImplicitRequest(device);
+        using RenderTargetLeaseSession callerRequest = callerAllocated.BeginImplicitSession(RenderIntent.Preview, device);
         using var poolAllocated = new RenderTargetPool(factory: null);
-        using RenderTargetPoolRequest poolRequest = poolAllocated.BeginImplicitRequest(device);
+        using RenderTargetLeaseSession poolRequest = poolAllocated.BeginImplicitSession(RenderIntent.Preview, device);
 
         (bool callerRefuses, int callerBudget, bool poolRefuses, int poolBudget) =
             RenderThread.Dispatcher.Invoke(() =>
@@ -379,7 +387,7 @@ public sealed class DeviceBufferBudgetTests
                 return (callerRefused, callerMax, poolRefused, poolMax);
             });
 
-        using PooledRenderTargetLease lease = callerRequest.Acquire(atTheEngineCeiling);
+        using RenderTargetLease lease = callerRequest.Acquire(atTheEngineCeiling);
 
         Assert.Multiple(() =>
         {
@@ -403,17 +411,19 @@ public sealed class DeviceBufferBudgetTests
     {
         var pastTheDevice = new PixelSize(DeviceBudget + 1, 1);
         using var pool = new RenderTargetPool(factory: null);
-        using RenderTargetPoolRequest request = pool.BeginImplicitRequest(ContextAttaching(DeviceBudget));
+        using RenderTargetLeaseSession request = pool.BeginImplicitSession(
+            RenderIntent.Preview,
+            ContextAttaching(DeviceBudget));
 
         // On the render dispatcher the pool's own allocator does attach through a shared context, so the
         // named device's limit is the one that binds - and it has to bind before the allocator is reached,
         // because an attachment the device cannot make is undefined behaviour rather than a failed
         // allocation. Nothing here allocates, so no real context is ever created to observe that.
-        (int budget, bool refuses, bool acquired, PooledRenderTargetLease? declined, Exception? refusal) =
+        (int budget, bool refuses, bool acquired, RenderTargetLease? declined, Exception? refusal) =
             RenderThread.Dispatcher.Invoke(() =>
             {
                 bool refused = pool.ExceedsBufferBudget(request, pastTheDevice, out int resolved);
-                bool got = pool.TryAcquire(request, pastTheDevice, out PooledRenderTargetLease? lease);
+                bool got = pool.TryAcquire(request, pastTheDevice, out RenderTargetLease? lease);
                 Exception? thrown = null;
                 try
                 {
@@ -487,10 +497,12 @@ public sealed class DeviceBufferBudgetTests
             "the case only arises off the render thread");
         var pastTheDevice = new PixelSize(DeviceBudget + 1, 1);
         using var pool = new RenderTargetPool(factory: null);
-        using RenderTargetPoolRequest request = pool.BeginImplicitRequest(ContextAttaching(DeviceBudget));
+        using RenderTargetLeaseSession request = pool.BeginImplicitSession(
+            RenderIntent.Preview,
+            ContextAttaching(DeviceBudget));
 
         bool refuses = pool.ExceedsBufferBudget(request, pastTheDevice, out int budget);
-        bool acquired = pool.TryAcquire(request, pastTheDevice, out PooledRenderTargetLease? lease);
+        bool acquired = pool.TryAcquire(request, pastTheDevice, out RenderTargetLease? lease);
 
         using (lease)
         {
@@ -514,7 +526,7 @@ public sealed class DeviceBufferBudgetTests
         // refusal is the only one left to report.
         var declined = new PixelSize(RenderScaleUtilities.MaxBufferDimension, 1);
         var factory = new DecliningTargetFactory();
-        using var registry = new RenderTargetLeaseRegistry(factory);
+        using var registry = new RenderTargetPool(factory);
         using RenderTargetLeaseSession delivery = registry.BeginSession(RenderIntent.Delivery);
 
         InvalidOperationException? refusal = Assert.Throws<InvalidOperationException>(
@@ -548,7 +560,7 @@ public sealed class DeviceBufferBudgetTests
                 try
                 {
                     using var pool = new RenderTargetPool(factory: null);
-                    using RenderTargetPoolRequest request = pool.BeginRequest();
+                    using RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Preview);
                     bool absent = GraphicsContextFactory.SharedContext is null;
                     bool refused = pool.ExceedsBufferBudget(request, pastTheDevice, out int resolved);
                     return (absent, refused, resolved);
