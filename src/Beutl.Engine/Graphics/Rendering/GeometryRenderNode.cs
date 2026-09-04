@@ -7,14 +7,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
     : BrushRenderNode(fill, pen)
 {
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
-    private static readonly RenderResourceSlot<GeometryHitTestState> s_hitTestSlot = new();
-
-    // Inlining these into Process would rebuild them once per recording; only the state below varies.
-    private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
-        s_hitTestSlot,
-        static (state, point) => state.HitTest(point));
-
-    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot, s_hitTestSlot];
+    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot];
 
     public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
 
@@ -53,8 +46,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             return;
 
         RenderResource<Geometry.Resource> geometryResource = context.Borrow(geometry);
-        var hitTestState = new GeometryHitTestState(geometry, fill, pen);
-        RenderResource<GeometryHitTestState> hitTestResource = context.Borrow(hitTestState);
+        var hitTestState = new GeometryHitTestState(fill is not null, pen);
 
         context.Publish(context.PaintedSource(
             geometry,
@@ -62,13 +54,12 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
             fill,
             pen,
             bounds,
-            s_hitTest,
+            RenderHitTestContract.FromResource(
+                geometryResource,
+                hitTestState,
+                static (value, state, _, point) => state.HitTest(value, point)),
             RenderScaleContract.Vector,
-            bindings:
-            [
-                s_geometrySlot.Bind(geometryResource),
-                s_hitTestSlot.Bind(hitTestResource),
-            ],
+            bindings: [s_geometrySlot.Bind(geometryResource)],
             slots: s_slots));
     }
 
@@ -78,16 +69,12 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         Geometry = null!;
     }
 
-    private sealed class GeometryHitTestState(
-        Geometry.Resource geometry,
-        Brush.Resource? fill,
-        Pen.Resource? pen)
+    private readonly record struct GeometryHitTestState(bool HasFill, Pen.Resource? Pen)
     {
-        public bool HitTest(Point point)
+        public bool HitTest(Geometry.Resource geometry, Point point)
         {
-            return (fill is not null && geometry.FillContains(point))
-                   || (pen is not null && geometry.StrokeContains(pen, point));
+            return (HasFill && geometry.FillContains(point))
+                   || (Pen is not null && geometry.StrokeContains(Pen, point));
         }
     }
-
 }

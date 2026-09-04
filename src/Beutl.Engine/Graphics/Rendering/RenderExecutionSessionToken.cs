@@ -191,7 +191,7 @@ internal sealed class RenderExecutionSessionToken
         ArgumentNullException.ThrowIfNull(use);
         for (int index = 0; index < declaredResources.Count; index++)
         {
-            if (ReferenceEquals(declaredResources[index].Resource.SlotIdentity, resource.SlotIdentity))
+            if (ReferenceEquals(declaredResources[index].Resource, resource))
             {
                 UseResourceCore(resource, use);
                 return;

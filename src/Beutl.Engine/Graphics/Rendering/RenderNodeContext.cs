@@ -775,7 +775,7 @@ public sealed class RenderNodeContext
             bool seen = false;
             for (int other = 0; other < count; other++)
             {
-                if (ReferenceEquals(distinct[other].SlotIdentity, resource.SlotIdentity))
+                if (ReferenceEquals(distinct[other], resource))
                 {
                     seen = true;
                     break;

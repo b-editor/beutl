@@ -83,4 +83,46 @@ public sealed class GeometryClipRenderNodeTests
             Assert.That(renderer.HitTest(new Point(50, 20)), Is.False);
         });
     }
+
+    [Test]
+    public void HitTest_UsesTheUpdatedOperationWithoutRecompilingThePlan()
+    {
+        Geometry.Resource resource = CreateClip(30, 40);
+        using var node = new GeometryClipRenderNode(resource, ClipOperation.Intersect);
+        node.AddChild(new RectangleRenderNode(
+            new Rect(0, 0, 100, 100),
+            Brushes.Resource.White,
+            null));
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = RenderCacheOptions.Disabled,
+                },
+            });
+
+        renderer.Rasterize().Dispose();
+        long compilations = renderer.StructuralPlanCacheStatistics.Compilations;
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.HitTest(new Point(20, 20)), Is.True);
+            Assert.That(renderer.HitTest(new Point(50, 20)), Is.False);
+        });
+
+        Geometry.Resource updatedResource = CreateClip(60, 40);
+        Assert.That(node.Update(updatedResource, ClipOperation.Difference), Is.True);
+        renderer.Rasterize().Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.HitTest(new Point(20, 20)), Is.False);
+            Assert.That(renderer.HitTest(new Point(50, 20)), Is.False);
+            Assert.That(renderer.HitTest(new Point(80, 20)), Is.True);
+            Assert.That(compilations, Is.GreaterThan(0));
+            Assert.That(renderer.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(compilations));
+        });
+    }
 }

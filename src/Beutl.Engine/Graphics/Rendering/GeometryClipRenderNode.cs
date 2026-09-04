@@ -6,8 +6,7 @@ namespace Beutl.Graphics.Rendering;
 public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation operation) : ContainerRenderNode
 {
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
-    private static readonly RenderResourceSlot<GeometryClipHitTestState> s_hitTestSlot = new();
-    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot, s_hitTestSlot];
+    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot];
 
     public (Geometry.Resource Resource, int Version)? Clip { get; private set; } = clip.Capture();
 
@@ -49,8 +48,6 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
         ClipOperation operation = Operation;
         var boundsMetadata = new GeometryClipBoundsMetadata(clip.Resource.Bounds, operation);
         RenderResource<Geometry.Resource> resource = context.Borrow(clip.Resource);
-        var hitTestState = new GeometryClipHitTestState(clip.Resource, operation);
-        RenderResource<GeometryClipHitTestState> hitTestResource = context.Borrow(hitTestState);
         context.PublishMappedInputs(
             TargetScopeDescription.Create(
                 operation,
@@ -67,12 +64,19 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
                     static (state, value) => state.TransformBounds(value),
                     static (state, value) => state.GetRequiredInputBounds(value)),
                 RenderHitTestContract.FromResource(
-                    hitTestResource,
-                    static (state, hitTest, point) => state.HitTest(hitTest, point)),
+                    resource,
+                    operation,
+                    static (geometry, state, hitTest, point) =>
+                    {
+                        bool insideClip = geometry.FillContains(point);
+                        bool clipAcceptsPoint = state == ClipOperation.Intersect ? insideClip : !insideClip;
+                        return clipAcceptsPoint
+                               && RenderHitTestContract.AnyInputAccepts(hitTest.Inputs, point);
+                    }),
                 RenderScaleContract.PreserveInputSupply,
                 deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
                 deviceGridMapping: RenderDeviceGridMapping.Preserved,
-                resources: [s_geometrySlot.Bind(resource), s_hitTestSlot.Bind(hitTestResource)],
+                resources: [s_geometrySlot.Bind(resource)],
                 slots: s_slots),
             static (context, input, value) => context.TargetScope(input, value));
     }
@@ -90,17 +94,5 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
 
         public Rect GetRequiredInputBounds(Rect value)
             => Operation == ClipOperation.Intersect ? value.Intersect(Bounds) : value;
-    }
-
-    private sealed class GeometryClipHitTestState(
-        Geometry.Resource geometry,
-        ClipOperation operation)
-    {
-        public bool HitTest(RenderHitTestContext context, Point point)
-        {
-            bool insideClip = geometry.FillContains(point);
-            bool clipAcceptsPoint = operation == ClipOperation.Intersect ? insideClip : !insideClip;
-            return clipAcceptsPoint && RenderHitTestContract.AnyInputAccepts(context.Inputs, point);
-        }
     }
 }

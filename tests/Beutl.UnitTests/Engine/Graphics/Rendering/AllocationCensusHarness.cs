@@ -163,7 +163,7 @@ public sealed class AllocationCensusHarness
         fragments = graph.Fragments.Length;
         values = graph.Fragments.Count(static fragment =>
             fragment.ValueCardinality.Minimum != 0 || fragment.ValueCardinality.Maximum != 0);
-        resources = request.Options.Owner.ResourceRegistry.Slots.Count;
+        resources = request.Options.Owner.ResourceRegistry.ActiveResourceCount;
 
         var cacheContext = new RenderCacheResolutionContext(
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,

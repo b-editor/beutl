@@ -921,7 +921,7 @@ internal sealed class FilterEffectResourceState
     {
         for (int index = 0; index < _resources.Count; index++)
         {
-            if (ReferenceEquals(_resources[index].SlotIdentity, resource.SlotIdentity))
+            if (ReferenceEquals(_resources[index], resource))
                 return true;
         }
 

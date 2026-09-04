@@ -123,7 +123,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         yield return Uninitialized<RecordedRenderGraph>();
         yield return Uninitialized<RecordedRenderGraphBuilder>();
         yield return Uninitialized<RenderResourceSlot<object>>();
-        yield return Uninitialized<RenderResourceRegistration>();
         yield return Uninitialized<RenderFragmentHandle>();
         yield return Uninitialized<RenderExecutionInput>();
         yield return Uninitialized<RenderCallbackCanvas>();

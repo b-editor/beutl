@@ -202,6 +202,34 @@ public class GeometryRenderNodeTest
         Assert.That(renderer.HitTest(point), Is.True);
     }
 
+    [Test]
+    public void HitTest_UsesTheUpdatedPenWithoutRecompilingThePlan()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush.Resource fill = Brushes.Resource.White;
+        var thinPen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        var thickPen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 30 } };
+        Geometry.Resource geometryResource = geometry.ToResource(CompositionContext.Default);
+        Pen.Resource thinPenResource = thinPen.ToResource(CompositionContext.Default);
+        Pen.Resource thickPenResource = thickPen.ToResource(CompositionContext.Default);
+        using var node = new GeometryRenderNode(geometryResource, fill, thinPenResource);
+        using var renderer = CreateRenderer(node);
+        var point = new Point(-10, 50);
+
+        renderer.Rasterize().Dispose();
+        long compilations = renderer.StructuralPlanCacheStatistics.Compilations;
+        Assert.That(renderer.HitTest(point), Is.False);
+        Assert.That(node.Update(geometryResource, fill, thickPenResource), Is.True);
+        renderer.Rasterize().Dispose();
+        Assert.That(renderer.HitTest(point), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(compilations, Is.GreaterThan(0));
+            Assert.That(renderer.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(compilations));
+        });
+    }
+
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(node, new RenderNodeRendererOptions
         {

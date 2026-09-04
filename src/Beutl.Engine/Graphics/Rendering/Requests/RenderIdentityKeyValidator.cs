@@ -44,7 +44,6 @@ internal static class RenderIdentityKeyValidator
             or RecordedRenderGraph
             or RecordedRenderGraphBuilder
             or RenderResourceSlot
-            or RenderResourceRegistration
             or RenderFragmentHandle
             or RenderExecutionInput
             or RenderCallbackCanvas

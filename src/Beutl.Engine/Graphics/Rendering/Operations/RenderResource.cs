@@ -5,24 +5,32 @@
 /// </summary>
 public abstract class RenderResource
 {
-    private RenderResourceRegistration? _slot;
-    private RenderResourceOwnershipState _terminalState;
+    private object? _rawValue;
 
-    internal RenderResource(RenderRequestResourceRegistry registry, RenderResourceRegistration slot)
+    internal RenderResource(
+        RenderRequestResourceRegistry registry,
+        object rawValue,
+        RenderResourceOwnershipMode mode)
     {
-        Registry = registry;
-        _slot = slot;
+        Registry = registry ?? throw new ArgumentNullException(nameof(registry));
+        _rawValue = rawValue ?? throw new ArgumentNullException(nameof(rawValue));
+        Mode = mode;
+        OwnershipState = mode == RenderResourceOwnershipMode.Owned
+            ? RenderResourceOwnershipState.Pending
+            : RenderResourceOwnershipState.BorrowedPending;
     }
 
     internal RenderRequestResourceRegistry Registry { get; }
 
     internal abstract Type ValueType { get; }
 
-    internal RenderResourceRegistration Slot => GetActiveSlot();
+    internal object RawValue
+        => _rawValue ?? throw new InvalidOperationException(
+            "The render resource no longer retains its raw value.");
 
-    internal object SlotIdentity => GetActiveSlot();
+    internal RenderResourceOwnershipMode Mode { get; }
 
-    internal RenderResourceOwnershipState OwnershipState => _slot?.State ?? _terminalState;
+    internal RenderResourceOwnershipState OwnershipState { get; set; }
 
     internal RenderResourceRegistrationState RegistrationState { get; set; }
 
@@ -34,15 +42,15 @@ public abstract class RenderResource
     /// </remarks>
     internal IRenderResourceRecordingScope? RecordingScope { get; set; }
 
-    internal void Detach(RenderResourceOwnershipState terminalState)
+    internal object Detach(RenderResourceOwnershipState terminalState)
     {
-        _terminalState = terminalState;
-        _slot = null;
+        object value = RawValue;
+        _rawValue = null;
+        OwnershipState = terminalState;
+        RegistrationState = RenderResourceRegistrationState.Released;
+        RecordingScope = null;
+        return value;
     }
-
-    private RenderResourceRegistration GetActiveSlot()
-        => _slot ?? throw new InvalidOperationException(
-            "A released render resource no longer retains its request-scoped slot.");
 }
 
 /// <summary>
@@ -52,8 +60,11 @@ public abstract class RenderResource
 public sealed class RenderResource<T> : RenderResource
     where T : class
 {
-    internal RenderResource(RenderRequestResourceRegistry registry, RenderResourceRegistration slot)
-        : base(registry, slot)
+    internal RenderResource(
+        RenderRequestResourceRegistry registry,
+        T rawValue,
+        RenderResourceOwnershipMode mode)
+        : base(registry, rawValue, mode)
     {
     }
 
@@ -64,22 +75,4 @@ internal enum RenderResourceOwnershipMode : byte
 {
     Owned,
     Borrowed,
-}
-
-internal sealed class OwnedResourceTombstone
-{
-    public static OwnedResourceTombstone Instance { get; } = new();
-
-    private OwnedResourceTombstone()
-    {
-    }
-}
-
-internal sealed class BorrowedResourceTombstone
-{
-    public static BorrowedResourceTombstone Instance { get; } = new();
-
-    private BorrowedResourceTombstone()
-    {
-    }
 }

@@ -91,7 +91,7 @@ public sealed class RenderResourceOwnershipTests
         {
             Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Committed));
             Assert.That(resource.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.RequestOwned));
-            Assert.That(registry.Slots, Has.Count.EqualTo(1));
+            Assert.That(registry.ActiveResourceCount, Is.EqualTo(1));
             Assert.That(value.DisposeCount, Is.Zero);
         });
 
@@ -116,8 +116,11 @@ public sealed class RenderResourceOwnershipTests
         {
             Assert.That(transferred, Is.SameAs(value));
             Assert.That(value.DisposeCount, Is.Zero);
+            Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
             Assert.That(resource.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.Discharged));
-            Assert.That(() => _ = resource.SlotIdentity, Throws.TypeOf<InvalidOperationException>());
+            Assert.That(
+                () => registry.Use(resource, static _ => true),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"));
             Assert.That(() => registry.TransferOwned(resource), Throws.TypeOf<InvalidOperationException>());
         });
 
@@ -229,6 +232,56 @@ public sealed class RenderResourceOwnershipTests
         {
             Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
             Assert.That(value.DisposeCount, Is.Zero, "a borrowed resource is never disposed by the request");
+        });
+    }
+
+    [Test]
+    public void MultipleBorrowsOfTheSameRawValue_HaveIndependentLifecycles()
+    {
+        var value = new TrackedDisposable();
+        using var registry = new RenderRequestResourceRegistry();
+        RenderResource<TrackedDisposable> first = registry.RegisterBorrowed(value);
+        RenderResource<TrackedDisposable> second = registry.RegisterBorrowed(value);
+
+        Assert.That(first, Is.Not.SameAs(second));
+        registry.Commit(first);
+        registry.Commit(second);
+
+        bool releasedSecond = registry.Use(first, current =>
+        {
+            Assert.That(current, Is.SameAs(value));
+            Assert.That(first.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.LeasedToCallback));
+            registry.Release(second);
+            return true;
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(releasedSecond, Is.True);
+            Assert.That(first.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.RequestBorrowed));
+            Assert.That(second.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
+            Assert.That(
+                () => registry.Use(second, static _ => true),
+                Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"));
+            Assert.That(registry.Use(first, current => ReferenceEquals(current, value)), Is.True);
+            Assert.That(registry.ActiveResourceCount, Is.EqualTo(1));
+        });
+
+        registry.Release(first);
+        RenderResource<TrackedDisposable> third = registry.RegisterBorrowed(value);
+        registry.Commit(third);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => registry.RegisterOwned(value), Throws.TypeOf<InvalidOperationException>());
+            Assert.That(registry.Use(third, current => ReferenceEquals(current, value)), Is.True);
+        });
+
+        registry.Release(third);
+        Assert.Multiple(() =>
+        {
+            Assert.That(registry.ActiveResourceCount, Is.Zero);
+            Assert.That(value.DisposeCount, Is.Zero);
         });
     }
 

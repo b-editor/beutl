@@ -114,36 +114,10 @@ public readonly struct RenderHitTestContract
             RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
-    internal static RenderHitTestContract FromResource<T>(
-        RenderResource<T> resource,
-        Func<T, Point, bool> hitTest)
-        where T : class
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        ArgumentNullException.ThrowIfNull(hitTest);
-        return new RenderHitTestContract(
-            (_, point) => resource.Registry.Use(resource, value => hitTest(value, point)),
-            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
-    }
-
-    internal static RenderHitTestContract FromResource<T>(
-        RenderResource<T> resource,
-        Func<T, RenderHitTestContext, Point, bool> hitTest)
-        where T : class
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        ArgumentNullException.ThrowIfNull(hitTest);
-        return new RenderHitTestContract(
-            (context, point) => resource.Registry.Use(
-                resource,
-                value => hitTest(value, context, point)),
-            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
-    }
-
     internal static RenderHitTestContract FromResource<T, TState>(
         RenderResource<T> resource,
         TState state,
-        Func<T, TState, Point, bool> hitTest)
+        Func<T, TState, RenderHitTestContext, Point, bool> hitTest)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(resource);
@@ -167,11 +141,11 @@ public readonly struct RenderHitTestContract
     private sealed class ResourceHitTestBinding<T, TState>(
         RenderResource<T> resource,
         TState state,
-        Func<T, TState, Point, bool> hitTest)
+        Func<T, TState, RenderHitTestContext, Point, bool> hitTest)
         where T : class
     {
         public bool HitTest(RenderHitTestContext context, Point point)
-            => resource.Registry.Use(resource, value => hitTest(value, state, point));
+            => resource.Registry.Use(resource, value => hitTest(value, state, context, point));
     }
 
     internal RenderHitTestContractKind Kind => _kind;

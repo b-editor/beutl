@@ -68,7 +68,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             hitTest: RenderHitTestContract.FromResource(
                 textResource,
                 hasFill,
-                static (text, hasFill, point) => HitTest(text, hasFill, point)),
+                static (text, hasFill, _, point) => HitTest(text, hasFill, point)),
             scale: RenderScaleContract.Vector,
             directReplayAtExactIntegerReduction: false,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
