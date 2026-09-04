@@ -62,7 +62,7 @@ internal sealed partial class RenderRequestExecutor
             : null;
         ProgramCache<GLSLFilterPipeline> familySpirvProgramCache =
             _spirvProgramCache ?? localSpirvProgramCache!;
-        var frames = new List<FamilyExecutionFrame>();
+        var frames = new List<RenderRequestExecutionState>();
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;
         int nestedRootAcquisitions = 0;
@@ -182,8 +182,8 @@ internal sealed partial class RenderRequestExecutor
             {
                 try
                 {
-                    foreach (FamilyExecutionFrame frame in frames)
-                        frame.State.PublishBuiltInBackdropCaptures();
+                    foreach (RenderRequestExecutionState state in frames)
+                        state.PublishBuiltInBackdropCaptures();
                 }
                 catch (Exception ex)
                 {
@@ -218,12 +218,12 @@ internal sealed partial class RenderRequestExecutor
                 }
             }
 
-            foreach (FamilyExecutionFrame frame in frames)
+            foreach (RenderRequestExecutionState state in frames)
             {
                 try
                 {
-                    frame.State.RejectCacheCaptures();
-                    frame.State.RejectBuiltInBackdropCaptures();
+                    state.RejectCacheCaptures();
+                    state.RejectBuiltInBackdropCaptures();
                 }
                 catch (Exception ex)
                 {
@@ -237,11 +237,11 @@ internal sealed partial class RenderRequestExecutor
         {
             // Every state is explicitly drained above. This fallback only protects
             // future edits that introduce an unexpected coordinator exception.
-            foreach (FamilyExecutionFrame frame in frames)
+            foreach (RenderRequestExecutionState state in frames)
             {
                 try
                 {
-                    frame.State.Dispose();
+                    state.Dispose();
                 }
                 catch (Exception ex)
                 {
@@ -291,7 +291,6 @@ internal sealed partial class RenderRequestExecutor
         private readonly RenderCacheResolution _cacheResolution;
         private readonly IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> _materializationDemands;
         private readonly IReadOnlySet<RenderFragmentReference> _previewDropEligibleMaterializations;
-        private readonly HashSet<RenderFragmentReference> _roots;
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
@@ -299,22 +298,19 @@ internal sealed partial class RenderRequestExecutor
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
-        private readonly Dictionary<RenderFragmentId, Rect> _resolvedScopeDomains = [];
-        private readonly Dictionary<RenderFragmentId, Rect> _resolvedParentScopeDomains = [];
-        private readonly Dictionary<RenderFragmentId, Rect> _resolvedAccessDomains = [];
+        private Dictionary<RenderFragmentId, Rect>? _resolvedExecutionDomains;
         private readonly Dictionary<RenderFragmentReference, IReadOnlyList<MaterializedRenderValue>> _values =
             new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<MaterializedRenderValue> _ownedValues =
             new(ReferenceEqualityComparer.Instance);
-        private readonly HashSet<MaterializedRenderValue> _cacheCaptureValues =
-            new(ReferenceEqualityComparer.Instance);
+        private HashSet<MaterializedRenderValue>? _cacheCaptureValues;
         private readonly Dictionary<MaterializedRenderValue, int> _valueReferences =
             new(ReferenceEqualityComparer.Instance);
         private static readonly IReadOnlyList<MaterializedRenderValue> s_suppressedCacheCapture = [];
         private readonly IReadOnlyList<MaterializedRenderValue>?[] _cacheCaptures;
-        private readonly List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)> _backdropCaptures = [];
-        private readonly List<PendingBackdropPublication> _pendingBackdropPublications = [];
-        private readonly List<ImmediateCanvas> _backdropSources = [];
+        private List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)>? _backdropCaptures;
+        private List<PendingBackdropPublication>? _pendingBackdropPublications;
+        private List<ImmediateCanvas>? _backdropSources;
         private int _shaderRunExecutions;
         private int _shaderStageExecutions;
         private int _fusedShaderRunExecutions;
@@ -354,9 +350,6 @@ internal sealed partial class RenderRequestExecutor
                 ?? throw new ArgumentNullException(nameof(materializationDemands));
             _previewDropEligibleMaterializations = previewDropEligibleMaterializations
                 ?? throw new ArgumentNullException(nameof(previewDropEligibleMaterializations));
-            _roots = new HashSet<RenderFragmentReference>(
-                roots,
-                ReferenceEqualityComparer.Instance);
             _targets = targets;
             _programCacheContext = targets.CacheDeviceContextIdentity;
             _programCache = programCache;
@@ -368,23 +361,46 @@ internal sealed partial class RenderRequestExecutor
                 ? []
                 : new IReadOnlyList<MaterializedRenderValue>?[cacheResolution.Decisions.Length];
 
-            var scopes = targetDependencies.Scopes.ToDictionary(static scope => scope.Id);
-            foreach (TargetScopePlan scope in targetDependencies.Scopes)
+            ImmutableArray<TargetScopePlan> scopes = targetDependencies.Scopes;
+            for (int index = 0; index < scopes.Length; index++)
             {
-                if (scope.OwnerFragmentId is { } owner && scope.ResolvedDomain is { } domain)
-                    AddResolvedDomain(_resolvedScopeDomains, owner, domain);
-                if (scope.OwnerFragmentId is { } parentOwner
-                    && scope.ParentId is { } parentId
-                    && scopes[parentId].ResolvedDomain is { } parentDomain)
+                TargetScopePlan scope = scopes[index];
+                if (scope.Id.Value != index + 1)
                 {
-                    AddResolvedDomain(_resolvedParentScopeDomains, parentOwner, parentDomain);
+                    throw new InvalidOperationException(
+                        "Target-scope IDs must be dense and match their plan order.");
+                }
+                if (scope.OwnerFragmentId is not { } owner)
+                    continue;
+
+                RenderFragmentReference fragment = graph.GetFragment(owner);
+                if (scope.ResolvedDomain is { } domain
+                    && fragment.Payload is TargetLayerScopeRenderFragmentPayload
+                    {
+                        Region.Kind: TargetRegionKind.Full,
+                    })
+                {
+                    AddResolvedDomain(ref _resolvedExecutionDomains, owner, domain);
+                }
+                if (fragment.Kind == RenderFragmentKind.TargetScope
+                    && scope.ParentId is { } parentId
+                    && GetScope(scopes, parentId).ResolvedDomain is { } parentDomain)
+                {
+                    AddResolvedDomain(ref _resolvedExecutionDomains, owner, parentDomain);
                 }
             }
 
             foreach (TargetDependencyStep step in targetDependencies.Steps)
             {
-                if (scopes[step.ScopeId].ResolvedDomain is { } domain)
-                    AddResolvedDomain(_resolvedAccessDomains, step.FragmentId, domain);
+                RenderFragmentReference fragment = graph.GetFragment(step.FragmentId);
+                if (fragment.Payload is TargetCommandRenderFragmentPayload
+                    {
+                        Description.AffectedRegion.Kind: TargetRegionKind.Full,
+                    }
+                    && GetScope(scopes, step.ScopeId).ResolvedDomain is { } domain)
+                {
+                    AddResolvedDomain(ref _resolvedExecutionDomains, step.FragmentId, domain);
+                }
             }
         }
 
@@ -581,7 +597,7 @@ internal sealed partial class RenderRequestExecutor
                         }
 
                         AddValueReferences(values);
-                        _backdropCaptures.Add((sink, values[0]));
+                        (_backdropCaptures ??= []).Add((sink, values[0]));
                         return;
                     }
                 case RenderFragmentKind.TargetCommand:

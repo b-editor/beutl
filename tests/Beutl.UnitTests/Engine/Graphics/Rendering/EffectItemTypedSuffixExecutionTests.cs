@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
@@ -15,6 +16,11 @@ public sealed class EffectItemTypedSuffixExecutionTests
 {
     private const string BlueShader =
         "half4 apply(half4 color) { return half4(0.0, 0.0, color.a, color.a); }";
+
+    private static readonly ShaderDescription s_directBlueShader = ShaderDescription.CurrentPixel(
+        "uniform float marker; "
+        + "half4 apply(half4 color) { return half4(0.0, 0.0, color.a * marker, color.a); }",
+        static bindings => bindings.Uniform("marker", 1f));
 
     [Test]
     public void ShaderAfterUnknownCustomEffect_ExecutesAgainstMaterializedTarget()
@@ -75,7 +81,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         var effect = new EffectItemSuffixCallbackFilterEffect(static (context, _) =>
         {
             context.CustomEffect(0, static (_, _) => { });
-            context.Shader(ShaderDescription.CurrentPixel(BlueShader));
+            context.Shader(s_directBlueShader);
         });
         Rect bounds = new(0, 0, 8, 6);
         using var root = new FilterEffectRenderNode(
@@ -208,7 +214,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
 
         FilterEffectStageFallbackExecutor.ApplyShader(
             targets,
-            ShaderDescription.CurrentPixel(BlueShader),
+            s_directBlueShader,
             outputScale: 1,
             workingScale: 1,
             maxWorkingScale: 1,
@@ -230,6 +236,64 @@ public sealed class EffectItemTypedSuffixExecutionTests
             Assert.That(observedTarget, Is.Not.SameAs(input));
             Assert.That(observedTarget!.RenderTarget, Is.Not.Null);
             Assert.That(input.IsEmpty, Is.True);
+        });
+    }
+
+    [Test]
+    public void CompatibilityShader_CustomUniformFailurePreservesInputAndReleasesOutput()
+    {
+        Rect bounds = new(0, 0, 8, 6);
+        using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
+        EffectTarget input = targets[0];
+        RenderTarget inputTarget = input.RenderTarget!;
+        var primary = new InvalidOperationException("fallback-uniform-primary");
+        ShaderUniformWriter? retainedWriter = null;
+        ShaderExecutionContext? retainedContext = null;
+        ShaderDescription description = ShaderDescription.CurrentPixel(
+            "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+            bindings => bindings.Uniform(
+                "gain",
+                1f,
+                (writer, value, execution) =>
+                {
+                    retainedWriter = writer;
+                    retainedContext = execution;
+                    writer.Set(value);
+                    throw primary;
+                }));
+        using ProgramCache<CachedSkRuntimeEffect> cache = SkRuntimeEffectProgramCache.Create();
+        using var pool = new RenderTargetPool(new CpuTargetFactory());
+        using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview);
+
+        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() =>
+            FilterEffectStageFallbackExecutor.ApplyShader(
+                targets,
+                description,
+                outputScale: 1,
+                workingScale: 1,
+                maxWorkingScale: 1,
+                RenderIntent.Preview,
+                RenderRequestPurpose.Auxiliary,
+                (target, source) => SkRuntimeEffectProgramCache.AcquireForDestination(
+                    cache,
+                    target.RenderTarget!,
+                    source),
+                session));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(thrown, Is.SameAs(primary));
+            Assert.That(targets, Has.Count.EqualTo(1));
+            Assert.That(targets[0], Is.SameAs(input));
+            Assert.That(targets[0].RenderTarget, Is.SameAs(inputTarget));
+            Assert.That(input.IsEmpty, Is.False);
+            Assert.That(pool.Statistics.Creates, Is.EqualTo(1));
+            Assert.That(pool.Statistics.AvailableTargets, Is.EqualTo(1));
+            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(retainedWriter, Is.Not.Null);
+            Assert.That(retainedContext, Is.Not.Null);
+            Assert.That(() => retainedWriter!.Set(1f), Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => _ = retainedContext!.OutputBounds, Throws.TypeOf<InvalidOperationException>());
         });
     }
 

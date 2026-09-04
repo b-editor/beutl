@@ -31,7 +31,7 @@ internal sealed partial class RenderRequestExecutor
             }
 
             _valueReferences.Remove(value);
-            if (!_cacheCaptureValues.Contains(value))
+            if (!IsCacheCaptureValue(value))
                 ReleaseUnpublished(value);
         }
 
@@ -47,10 +47,11 @@ internal sealed partial class RenderRequestExecutor
         }
 
         private static void AddResolvedDomain(
-            Dictionary<RenderFragmentId, Rect> domains,
+            ref Dictionary<RenderFragmentId, Rect>? domains,
             RenderFragmentId fragmentId,
             Rect domain)
         {
+            domains ??= [];
             if (domains.TryGetValue(fragmentId, out Rect existing) && existing != domain)
             {
                 throw new InvalidOperationException(
@@ -59,6 +60,28 @@ internal sealed partial class RenderRequestExecutor
 
             domains[fragmentId] = domain;
         }
+
+        private static TargetScopePlan GetScope(
+            ImmutableArray<TargetScopePlan> scopes,
+            TargetScopeId id)
+        {
+            int index = id.Value - 1;
+            if ((uint)index >= (uint)scopes.Length || scopes[index].Id != id)
+                throw new InvalidOperationException("A target dependency references a non-canonical scope ID.");
+            return scopes[index];
+        }
+
+        private bool IsCacheCaptureValue(MaterializedRenderValue value)
+            => _cacheCaptureValues?.Contains(value) == true;
+
+        private void AddCacheCaptureValue(MaterializedRenderValue value)
+            => (_cacheCaptureValues ??= new(ReferenceEqualityComparer.Instance)).Add(value);
+
+        private void RemoveCacheCaptureValue(MaterializedRenderValue value)
+            => _cacheCaptureValues?.Remove(value);
+
+        private void ClearCacheCaptureValues()
+            => _cacheCaptureValues = null;
 
         private T ExecuteOnDeviceGrid<T>(
             ImmediateCanvas currentTarget,

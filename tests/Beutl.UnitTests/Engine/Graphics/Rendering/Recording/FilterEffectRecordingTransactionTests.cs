@@ -14,6 +14,76 @@ public sealed class FilterEffectRecordingTransactionTests
     private const string IdentityShader = "half4 apply(half4 color) { return color; }";
 
     [Test]
+    public void DeferredWorkingScaleResolver_IsSharedAcrossClones()
+    {
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            owner: owner));
+        var recorder = new RenderRequestRecorder(request);
+        var transaction = new NodeRecordingTransaction(recorder, new object(), []);
+        var renderContext = new RenderNodeContext(transaction);
+        int resolverCalls = 0;
+        try
+        {
+            using var original = new FilterEffectContext(
+                new Rect(0, 0, 10, 10),
+                outputScale: 1,
+                resolveWorkingScale: () =>
+                {
+                    resolverCalls++;
+                    return 1.5f;
+                },
+                renderContext: renderContext);
+            using FilterEffectContext clone = original.Clone();
+
+            float originalScale = original.WorkingScale;
+            float cloneScale = clone.WorkingScale;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(originalScale, Is.EqualTo(1.5f));
+                Assert.That(cloneScale, Is.EqualTo(originalScale));
+                Assert.That(resolverCalls, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            transaction.Abandon();
+        }
+    }
+
+    [Test]
+    public void StandaloneClone_ReleasesOwnedResourcesOnlyAfterLastReference()
+    {
+        var owned = new TrackingDisposable();
+        var borrowed = new TrackingDisposable();
+        using var original = new FilterEffectContext(new Rect(0, 0, 10, 10));
+        _ = original.Own(owned);
+        _ = original.Borrow(borrowed);
+        using FilterEffectContext clone = original.Clone();
+
+        original.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owned.DisposeCount, Is.Zero);
+            Assert.That(borrowed.DisposeCount, Is.Zero);
+        });
+
+        clone.Dispose();
+        clone.Dispose();
+        original.Dispose();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owned.DisposeCount, Is.EqualTo(1));
+            Assert.That(borrowed.DisposeCount, Is.Zero);
+        });
+    }
+
+    [Test]
     public void ShaderAndGeometry_UpdateBoundsSynchronouslyInAuthoredOrder()
     {
         using var context = new FilterEffectContext(new Rect(10, 20, 30, 40));

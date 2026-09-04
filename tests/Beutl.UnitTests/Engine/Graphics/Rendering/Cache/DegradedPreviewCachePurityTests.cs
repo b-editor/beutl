@@ -149,6 +149,28 @@ public sealed class DegradedPreviewCachePurityTests
         });
     }
 
+    [Test]
+    public void BackdropPublicationFailure_DisposesTheCaptureAndReleasesEveryTarget()
+    {
+        var primary = new InvalidOperationException("backdrop-publication-primary");
+        using var root = new ContainerRenderNode();
+        root.AddChild(new IntermediateNode(s_bounds));
+        var probe = new ThrowingBackdropSinkProbeNode(primary);
+        root.AddChild(probe);
+        var factory = new BudgetedTargetFactory(budget: 16);
+        using RenderNodeRenderer renderer = CreateRenderer(root, factory, RenderIntent.Preview);
+
+        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.SameAs(primary));
+            Assert.That(probe.ReceivedBitmap, Is.Not.Null);
+            Assert.That(probe.ReceivedBitmap!.IsDisposed, Is.True);
+            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
+        });
+    }
+
     private static BackdropSinkProbeNode RenderTileBrushFrame(IRenderTargetFactory factory)
     {
         var shape = new RectShape();
@@ -204,6 +226,21 @@ public sealed class DegradedPreviewCachePurityTests
             Commits++;
             bitmap.Dispose();
         }
+    }
+
+    private sealed class ThrowingBackdropSinkProbeNode(InvalidOperationException primaryFailure)
+        : SnapshotBackdropRenderNode, IBuiltInBackdropCaptureSink
+    {
+        public Bitmap? ReceivedBitmap { get; private set; }
+
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
+        {
+            ReceivedBitmap = bitmap;
+            throw primaryFailure;
+        }
+
+        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+            => throw new AssertionException("The renderer must use the non-throwing publication contract.");
     }
 
     [Test]

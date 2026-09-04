@@ -174,6 +174,38 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
+    public void CpuDestination_SplitLongShaderChainMapsFinalCallbackStage()
+    {
+        int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
+        var targetFactory = new CpuTargetFactory();
+        using var node = new LongShaderChainNode(stageCount, bindLastStage: true);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRendererOptions
+            {
+                DefaultRequest = new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                    FusionMode = FusionMode.Enabled,
+                    Purpose = RenderRequestPurpose.Frame,
+                },
+                TargetFactory = targetFactory,
+            });
+        using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
+        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: new Size(24, 16));
+
+        renderer.Render(canvas);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(node.BindingCalls, Is.EqualTo(1));
+            Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(2));
+            Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(stageCount));
+        });
+    }
+
+    [Test]
     [Category("GpuPassFusionGpu")]
     public void ChangingFromCpuToGpuDestination_SelectsTheActualSurfaceCapabilityClass()
     {
@@ -738,7 +770,8 @@ public sealed class CrossNodeShaderFusionTests
     private sealed class LongShaderChainNode : RenderNode
     {
         private static readonly ShaderDescription s_shader = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return color; }");
+            "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+            static bindings => bindings.Uniform("gain", 1f));
 
         private readonly RectangleRenderNode _source = new(
             new Rect(3, 5, 12, 8),
@@ -746,12 +779,29 @@ public sealed class CrossNodeShaderFusionTests
             pen: null);
         private readonly ShaderStageNode[] _stages;
 
-        public LongShaderChainNode(int stageCount)
+        public LongShaderChainNode(int stageCount, bool bindLastStage = false)
         {
             _stages = Enumerable.Range(0, stageCount)
-                .Select(static _ => new ShaderStageNode(s_shader))
+                .Select(index => new ShaderStageNode(
+                    bindLastStage && index == stageCount - 1
+                        ? CreateCallbackShader()
+                        : s_shader))
                 .ToArray();
         }
+
+        public int BindingCalls { get; private set; }
+
+        private ShaderDescription CreateCallbackShader()
+            => ShaderDescription.CurrentPixel(
+                "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+                bindings => bindings.Uniform(
+                    "gain",
+                    1f,
+                    (writer, value, _) =>
+                    {
+                        BindingCalls++;
+                        writer.Set(value);
+                    }));
 
         public override void Process(RenderNodeContext context)
         {

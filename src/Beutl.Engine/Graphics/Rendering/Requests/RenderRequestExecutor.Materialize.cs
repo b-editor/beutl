@@ -241,7 +241,7 @@ internal sealed partial class RenderRequestExecutor
                             break;
                         }
 
-                        _cacheCaptureValues.Add(capture);
+                        AddCacheCaptureValue(capture);
                         captures.Add(capture);
                     }
 
@@ -250,7 +250,7 @@ internal sealed partial class RenderRequestExecutor
                         // The frame keeps its pixels; only this candidate goes uncached.
                         foreach (MaterializedRenderValue partial in captures)
                         {
-                            _cacheCaptureValues.Remove(partial);
+                            RemoveCacheCaptureValue(partial);
                             ReleaseUnpublished(partial);
                         }
 
@@ -264,7 +264,7 @@ internal sealed partial class RenderRequestExecutor
                 {
                     foreach (MaterializedRenderValue capture in captures)
                     {
-                        _cacheCaptureValues.Remove(capture);
+                        RemoveCacheCaptureValue(capture);
                         ReleaseUnpublished(capture);
                     }
                     throw;

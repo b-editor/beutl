@@ -3,7 +3,7 @@
 internal sealed class RenderRequest : IDisposable
 {
     private static long s_nextRequestId;
-    private readonly List<RenderRequest> _children = [];
+    private List<RenderRequest>? _children;
 
     public RenderRequest(RenderRequestOptions options, RenderRequest? parent = null)
     {
@@ -126,8 +126,12 @@ internal sealed class RenderRequest : IDisposable
             return;
         }
 
-        for (int index = _children.Count - 1; index >= 0; index--)
-            _children[index].Dispose();
+        if (_children is not null)
+        {
+            for (int index = _children.Count - 1; index >= 0; index--)
+                _children[index].Dispose();
+            _children = null;
+        }
 
         if (Options.OwnsOwner)
         {
@@ -145,7 +149,7 @@ internal sealed class RenderRequest : IDisposable
                 $"Request state '{State}' cannot accept another nested request.");
         }
 
-        _children.Add(child);
+        (_children ??= []).Add(child);
     }
 
     private static bool HasInheritedRequestPolicy(

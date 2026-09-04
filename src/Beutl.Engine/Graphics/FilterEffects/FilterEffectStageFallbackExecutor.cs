@@ -238,11 +238,60 @@ internal static class FilterEffectStageFallbackExecutor
     }
 
     /// <summary>Runs the description's binders and hands their results to the runtime effect.</summary>
+    private static void BindShaderStage(
+        ShaderDescription description,
+        ShaderProgram program,
+        EffectTarget input,
+        SKImage inputImage,
+        RenderTarget inputTarget,
+        EffectTarget output,
+        Rect outputBounds,
+        float outputScale,
+        float maxWorkingScale,
+        RenderIntent intent,
+        RenderRequestPurpose purpose,
+        SKRuntimeEffectUniforms uniforms,
+        SKRuntimeEffectChildren runtimeChildren,
+        List<SKShader> children)
+    {
+        if (!description.HasExecutionContextBinder)
+        {
+            BindShaderStageCore(
+                description,
+                program,
+                input,
+                inputImage,
+                inputTarget,
+                output,
+                uniforms,
+                runtimeChildren,
+                children,
+                context: null);
+            return;
+        }
+
+        BindShaderStageWithCallbacks(
+            description,
+            program,
+            input,
+            inputImage,
+            inputTarget,
+            output,
+            outputBounds,
+            outputScale,
+            maxWorkingScale,
+            intent,
+            purpose,
+            uniforms,
+            runtimeChildren,
+            children);
+    }
+
     /// <remarks>
     /// One execution session covers the whole phase: every binder is handed the same context, and the token
     /// is completed once so none of them can retain what it was given past the phase.
     /// </remarks>
-    private static void BindShaderStage(
+    private static void BindShaderStageWithCallbacks(
         ShaderDescription description,
         ShaderProgram program,
         EffectTarget input,
@@ -275,43 +324,73 @@ internal static class FilterEffectStageFallbackExecutor
                     maxWorkingScale,
                     intent,
                     purpose);
-                foreach (ShaderUniformBinding binding in description.Uniforms)
-                {
-                    if (!description.Source.Uniforms.TryGetValue(
-                            binding.Name,
-                            out SkslUniformDeclaration declaration))
-                    {
-                        throw new InvalidOperationException(
-                            $"Shader uniform '{binding.Name}' was not declared.");
-                    }
-
-                    SkslUniformAssignment.SetUniform(
-                        uniforms,
-                        binding.Name,
-                        declaration,
-                        binding.Bind(declaration, context));
-                }
-
-                SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                BindShaderStageCore(
+                    description,
+                    program,
+                    input,
                     inputImage,
-                    inputTarget.RawValue.Context,
-                    input.Bounds,
-                    input.Scale.Value,
-                    input.DeviceBounds,
-                    input.RasterBounds,
-                    output.Scale.Value,
-                    output.RasterBounds,
-                    program.TileMode);
-                children.Add(inputShader);
-                runtimeChildren[program.ChildName] = inputShader;
-
-                foreach (ShaderResourceBinding binding in description.Resources)
-                {
-                    SKShader child = binding.Bind(context);
-                    children.Add(child);
-                    runtimeChildren[binding.Name] = child;
-                }
+                    inputTarget,
+                    output,
+                    uniforms,
+                    runtimeChildren,
+                    children,
+                    context);
             });
+    }
+
+    private static void BindShaderStageCore(
+        ShaderDescription description,
+        ShaderProgram program,
+        EffectTarget input,
+        SKImage inputImage,
+        RenderTarget inputTarget,
+        EffectTarget output,
+        SKRuntimeEffectUniforms uniforms,
+        SKRuntimeEffectChildren runtimeChildren,
+        List<SKShader> children,
+        ShaderExecutionContext? context)
+    {
+        foreach (ShaderUniformBinding binding in description.Uniforms)
+        {
+            if (!description.Source.Uniforms.TryGetValue(
+                    binding.Name,
+                    out SkslUniformDeclaration declaration))
+            {
+                throw new InvalidOperationException(
+                    $"Shader uniform '{binding.Name}' was not declared.");
+            }
+
+            SkslUniformAssignment.SetUniform(
+                uniforms,
+                binding.Name,
+                declaration,
+                binding.Bind(declaration, context));
+        }
+
+        SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+            inputImage,
+            inputTarget.RawValue.Context,
+            input.Bounds,
+            input.Scale.Value,
+            input.DeviceBounds,
+            input.RasterBounds,
+            output.Scale.Value,
+            output.RasterBounds,
+            program.TileMode);
+        children.Add(inputShader);
+        runtimeChildren[program.ChildName] = inputShader;
+
+        if (description.Resources.Count == 0)
+            return;
+
+        ShaderExecutionContext resourceContext = context
+            ?? throw new InvalidOperationException("A shader resource binding requires an execution context.");
+        foreach (ShaderResourceBinding binding in description.Resources)
+        {
+            SKShader child = binding.Bind(resourceContext);
+            children.Add(child);
+            runtimeChildren[binding.Name] = child;
+        }
     }
 
     /// <summary>Fills the output buffer with the bound program.</summary>

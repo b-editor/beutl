@@ -17,7 +17,7 @@ internal sealed partial class RenderRequestExecutor
         Action? finalizeOutput,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ICollection<FamilyExecutionFrame> frames,
+        ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
         ref bool nestedPreviewDropObserved)
@@ -52,7 +52,7 @@ internal sealed partial class RenderRequestExecutor
         ImmediateCanvas fallbackDestination,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ICollection<FamilyExecutionFrame> frames,
+        ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
         ref bool nestedPreviewDropObserved)
@@ -188,7 +188,7 @@ internal sealed partial class RenderRequestExecutor
         Action? finalizeOutput,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ICollection<FamilyExecutionFrame> frames,
+        ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref bool nestedPreviewDropObserved)
     {
@@ -211,8 +211,7 @@ internal sealed partial class RenderRequestExecutor
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();
 
-        var frame = new FamilyExecutionFrame(request, state);
-        frames.Add(frame);
+        frames.Add(state);
         using IDisposable materializerScope = destination.PushDrawableBrushMaterializer(
             state.DrawableBrushMaterializer);
         // Brush-owned intermediates allocate themselves, so they need the pass's session to reach the
@@ -331,10 +330,6 @@ internal sealed partial class RenderRequestExecutor
         if (failure is not null && owner.PrimaryFailure is null)
             owner.RecordPrimaryFailure(failure);
     }
-
-    private sealed record FamilyExecutionFrame(
-        CompiledRenderRequest Request,
-        RenderRequestExecutionState State);
 
     private sealed class FamilyExecutionException(
         ExceptionDispatchInfo failure) : Exception

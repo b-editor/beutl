@@ -316,12 +316,9 @@ internal sealed partial class RenderRequestExecutor
             ExecuteCompiledShaderRunProgram(
                 run,
                 input,
+                ShaderRunDestination.ForMaterialized(output),
                 outputBounds,
-                requiredRegion,
-                output.DeviceBounds,
-                output.RasterBounds,
-                output.EffectiveScale.Value,
-                shader => PaintOverValue(output, shader));
+                requiredRegion);
         }
 
         private bool TryExecuteSpirvShaderRun(
@@ -392,27 +389,18 @@ internal sealed partial class RenderRequestExecutor
             }
             using (lease)
             {
-                RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
-                SpirvPushConstants pushConstants = default;
                 PixelPoint sourceTexelOffset = output.DeviceBounds.Position - input.DeviceBounds.Position;
-                bindingToken.RunAndComplete(
-                    () =>
-                    {
-                        ShaderExecutionContext context = CreateCompiledShaderStageContext(
-                            run,
-                            stageIndex: 0,
-                            bindingToken,
-                            input,
-                            outputBounds,
-                            requiredRegion,
-                            output.DeviceBounds,
-                            output.RasterBounds,
-                            output.EffectiveScale.Value);
-                        pushConstants = lowering.Bind(
-                            stageDescription!,
-                            context,
-                            sourceTexelOffset);
-                    });
+                SpirvPushConstants pushConstants = stageDescription!.HasExecutionContextBinder
+                    ? BindSpirvPushConstantsWithCallbacks(
+                        run,
+                        input,
+                        output,
+                        outputBounds,
+                        requiredRegion,
+                        lowering,
+                        stageDescription,
+                        sourceTexelOffset)
+                    : lowering.Bind(stageDescription, context: null, sourceTexelOffset);
 
                 input.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                 lease.Program.Execute(sourceTexture!, destinationTexture!, pushConstants);
@@ -425,6 +413,34 @@ internal sealed partial class RenderRequestExecutor
                     _programCacheHits++;
             }
             return true;
+        }
+
+        private SpirvPushConstants BindSpirvPushConstantsWithCallbacks(
+            CompiledShaderRun run,
+            MaterializedRenderValue input,
+            MaterializedRenderValue output,
+            Rect outputBounds,
+            Rect requiredRegion,
+            SpirvShaderLowering lowering,
+            ShaderDescription description,
+            PixelPoint sourceTexelOffset)
+        {
+            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
+            return bindingToken.RunAndComplete(
+                () =>
+                {
+                    ShaderExecutionContext context = CreateCompiledShaderStageContext(
+                        run,
+                        stageIndex: 0,
+                        bindingToken,
+                        input,
+                        outputBounds,
+                        requiredRegion,
+                        output.DeviceBounds,
+                        output.RasterBounds,
+                        output.EffectiveScale.Value);
+                    return lowering.Bind(description, context, sourceTexelOffset);
+                });
         }
 
         private bool ShouldMaterializeForSpirv(CompiledShaderRun run)
@@ -448,15 +464,15 @@ internal sealed partial class RenderRequestExecutor
         private void ExecuteCompiledShaderRunProgram(
             CompiledShaderRun run,
             MaterializedRenderValue input,
+            ShaderRunDestination destination,
             Rect outputBounds,
-            Rect requiredRegion,
-            PixelRect outputDeviceBounds,
-            Rect outputRasterBounds,
-            float outputScale,
-            Action<SKShader> draw)
+            Rect requiredRegion)
         {
             ShaderDescription? wholeSourceHead = run.GetWholeSourceHead(_graph);
             RenderFragmentReference inputFragment = run.GetInput(_graph);
+            PixelRect outputDeviceBounds = destination.DeviceBounds;
+            Rect outputRasterBounds = destination.RasterBounds;
+            float outputScale = destination.Scale;
             ShaderEvaluationFrame frame = wholeSourceHead is null
                 ? ShaderEvaluationFrame.Destination(outputDeviceBounds, outputRasterBounds)
                 : RasterShaderMapping.CreateWholeSourceFrame(
@@ -470,101 +486,72 @@ internal sealed partial class RenderRequestExecutor
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
-            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
             try
             {
-                bindingToken.RunAndComplete(
-                    () =>
-                    {
-                        SKShader inputShader;
-                        if (wholeSourceHead is { } head)
-                        {
-                            inputShader = RasterShaderMapping.CreateSemanticImageShader(
-                                inputImage,
-                                input.Target.RawValue.Context,
-                                input.Bounds,
-                                input.EffectiveScale.Value,
-                                input.DeviceBounds,
-                                input.RasterBounds,
-                                outputScale,
-                                frame.RasterBounds,
-                                head.SourceTileMode);
-                        }
-                        else
-                        {
-                            bool interpolatedBitmap = inputFragment.Kind == RenderFragmentKind.OpaqueSource
-                                && ((OpaqueRenderFragmentPayload)inputFragment.Payload!).Description
-                                    .DirectReplayAtExactIntegerReduction;
-                            SKSamplingOptions sampling = interpolatedBitmap
-                                ? RasterShaderMapping.SamplingFor(
-                                        input.EffectiveScale.Value,
-                                        outputScale)
-                                : SKSamplingOptions.Default;
-                            SKShaderTileMode tileMode = interpolatedBitmap
-                                ? SKShaderTileMode.Clamp
-                                : SKShaderTileMode.Decal;
-                            inputShader = inputImage.ToShader(
-                                tileMode,
-                                tileMode,
-                                sampling,
-                                RasterShaderMapping.CreateLocalMatrix(
-                                    outputScale,
-                                    input.EffectiveScale.Value,
-                                    outputRasterBounds,
-                                    input.RasterBounds));
-                        }
-                        children.Add(inputShader);
-                        runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
+                SKShader inputShader;
+                if (wholeSourceHead is { } head)
+                {
+                    inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                        inputImage,
+                        input.Target.RawValue.Context,
+                        input.Bounds,
+                        input.EffectiveScale.Value,
+                        input.DeviceBounds,
+                        input.RasterBounds,
+                        outputScale,
+                        frame.RasterBounds,
+                        head.SourceTileMode);
+                }
+                else
+                {
+                    bool interpolatedBitmap = inputFragment.Kind == RenderFragmentKind.OpaqueSource
+                        && ((OpaqueRenderFragmentPayload)inputFragment.Payload!).Description
+                            .DirectReplayAtExactIntegerReduction;
+                    SKSamplingOptions sampling = interpolatedBitmap
+                        ? RasterShaderMapping.SamplingFor(input.EffectiveScale.Value, outputScale)
+                        : SKSamplingOptions.Default;
+                    SKShaderTileMode tileMode = interpolatedBitmap
+                        ? SKShaderTileMode.Clamp
+                        : SKShaderTileMode.Decal;
+                    inputShader = inputImage.ToShader(
+                        tileMode,
+                        tileMode,
+                        sampling,
+                        RasterShaderMapping.CreateLocalMatrix(
+                            outputScale,
+                            input.EffectiveScale.Value,
+                            outputRasterBounds,
+                            input.RasterBounds));
+                }
+                children.Add(inputShader);
+                runtimeChildren[SkslSnippetMerger.SourceChildName] = inputShader;
 
-                        var descriptionsByMergedIndex = new Dictionary<int, ShaderDescription>();
-                        var contextsByMergedIndex = new Dictionary<int, ShaderExecutionContext>();
-                        for (int index = 0; index < run.Program.Stages.Length; index++)
-                        {
-                            int mergedIndex = run.Program.Stages[index].StageIndex;
-                            descriptionsByMergedIndex.Add(
-                                mergedIndex,
-                                run.GetDescription(_graph, index));
-                            contextsByMergedIndex.Add(
-                                mergedIndex,
-                                CreateCompiledShaderStageContext(
-                                    run,
-                                    index,
-                                    bindingToken,
-                                    input,
-                                    outputBounds,
-                                    requiredRegion,
-                                    outputDeviceBounds,
-                                    outputRasterBounds,
-                                    outputScale));
-                        }
-
-                        foreach (ref readonly SkslMergedBindingLayout layout in run.Program.Bindings.AsSpan())
-                        {
-                            ShaderExecutionContext context = contextsByMergedIndex[layout.StageIndex];
-                            ShaderDescription description = descriptionsByMergedIndex[layout.StageIndex];
-                            if (layout.Kind == SkslBindingKind.Uniform)
-                            {
-                                ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
-                                SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
-                                ShaderUniformValue value = binding.Bind(declaration, context);
-                                SkslUniformAssignment.SetUniform(
-                                    uniforms,
-                                    layout.MergedName,
-                                    declaration,
-                                    value);
-                            }
-                            else
-                            {
-                                ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
-                                SKShader child = binding.Bind(context);
-                                children.Add(child);
-                                runtimeChildren[layout.MergedName] = child;
-                            }
-                        }
-                    });
+                if (HasExecutionContextBinders(run))
+                {
+                    BindCompiledShaderBindingsWithCallbacks(
+                        run,
+                        input,
+                        outputBounds,
+                        requiredRegion,
+                        outputDeviceBounds,
+                        outputRasterBounds,
+                        outputScale,
+                        uniforms,
+                        runtimeChildren,
+                        children);
+                }
+                else
+                {
+                    BindCompiledShaderBindingsCore(
+                        run,
+                        contexts: null,
+                        uniforms,
+                        runtimeChildren,
+                        children);
+                }
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
-                DrawInEvaluationFrame(shader, frame, draw);
+                PaintInEvaluationFrame(destination, shader, frame);
 
                 _shaderRunExecutions++;
                 _shaderStageExecutions = checked(_shaderStageExecutions + run.StageFragmentIndices.Length);
@@ -582,22 +569,188 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
+        private bool HasExecutionContextBinders(CompiledShaderRun run)
+        {
+            for (int index = 0; index < run.Program.Stages.Length; index++)
+            {
+                if (run.GetDescription(_graph, index).HasExecutionContextBinder)
+                    return true;
+            }
+            return false;
+        }
+
+        private void BindCompiledShaderBindingsWithCallbacks(
+            CompiledShaderRun run,
+            MaterializedRenderValue input,
+            Rect outputBounds,
+            Rect requiredRegion,
+            PixelRect outputDeviceBounds,
+            Rect outputRasterBounds,
+            float outputScale,
+            SKRuntimeEffectUniforms uniforms,
+            SKRuntimeEffectChildren runtimeChildren,
+            List<SKShader> children)
+        {
+            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
+            bindingToken.RunAndComplete(
+                () =>
+                {
+                    var contexts = new ShaderExecutionContext?[run.Program.Stages.Length];
+                    for (int index = 0; index < contexts.Length; index++)
+                    {
+                        if (!run.GetDescription(_graph, index).HasExecutionContextBinder)
+                            continue;
+                        contexts[index] = CreateCompiledShaderStageContext(
+                            run,
+                            index,
+                            bindingToken,
+                            input,
+                            outputBounds,
+                            requiredRegion,
+                            outputDeviceBounds,
+                            outputRasterBounds,
+                            outputScale);
+                    }
+
+                    BindCompiledShaderBindingsCore(
+                        run,
+                        contexts,
+                        uniforms,
+                        runtimeChildren,
+                        children);
+                });
+        }
+
+        private void BindCompiledShaderBindingsCore(
+            CompiledShaderRun run,
+            ShaderExecutionContext?[]? contexts,
+            SKRuntimeEffectUniforms uniforms,
+            SKRuntimeEffectChildren runtimeChildren,
+            List<SKShader> children)
+        {
+            int firstStageIndex = run.Program.Stages[0].StageIndex;
+            foreach (ref readonly SkslMergedBindingLayout layout in run.Program.Bindings.AsSpan())
+            {
+                int localIndex = layout.StageIndex - firstStageIndex;
+                if ((uint)localIndex >= (uint)run.Program.Stages.Length
+                    || run.Program.Stages[localIndex].StageIndex != layout.StageIndex)
+                {
+                    throw new InvalidOperationException(
+                        "A merged shader binding references a non-canonical stage index.");
+                }
+
+                ShaderDescription description = run.GetDescription(_graph, localIndex);
+                ShaderExecutionContext? context = contexts?[localIndex];
+                if (layout.Kind == SkslBindingKind.Uniform)
+                {
+                    ShaderUniformBinding binding = description.Uniforms[layout.BindingIndex];
+                    SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
+                    ShaderUniformValue value = binding.Bind(declaration, context);
+                    SkslUniformAssignment.SetUniform(
+                        uniforms,
+                        layout.MergedName,
+                        declaration,
+                        value);
+                }
+                else
+                {
+                    ShaderResourceBinding binding = description.Resources[layout.BindingIndex];
+                    SKShader child = binding.Bind(context
+                        ?? throw new InvalidOperationException(
+                            "A shader resource binding requires an execution context."));
+                    children.Add(child);
+                    runtimeChildren[layout.MergedName] = child;
+                }
+            }
+        }
+
         // Only valid while the run's source child is mapped against the same frame's raster bounds; the two
         // shifts cancel, so the program keeps sampling the texel the destination pixel already resolved to.
-        private static void DrawInEvaluationFrame(
+        private void PaintInEvaluationFrame(
+            ShaderRunDestination destination,
             SKShader shader,
-            ShaderEvaluationFrame frame,
-            Action<SKShader> draw)
+            ShaderEvaluationFrame frame)
         {
             if (frame.FragmentOrigin == default)
             {
-                draw(shader);
+                PaintInEvaluationFrameCore(destination, shader);
                 return;
             }
 
             using SKShader rebased = shader.WithLocalMatrix(
                 SKMatrix.CreateTranslation(-frame.FragmentOrigin.X, -frame.FragmentOrigin.Y));
-            draw(rebased);
+            PaintInEvaluationFrameCore(destination, rebased);
+        }
+
+        private void PaintInEvaluationFrameCore(ShaderRunDestination destination, SKShader shader)
+        {
+            if (destination.MaterializedOutput is { } output)
+            {
+                PaintOverValue(output, shader);
+                return;
+            }
+
+            DirectShaderRunPlan directPlan = destination.DirectPlan;
+            using SKShader mapped = shader.WithLocalMatrix(
+                SKMatrix.CreateScaleTranslation(
+                    1f / directPlan.Density,
+                    1f / directPlan.Density,
+                    directPlan.OutputDeviceBounds.X / directPlan.Density,
+                    directPlan.OutputDeviceBounds.Y / directPlan.Density));
+            using var paint = new SKPaint
+            {
+                Shader = mapped,
+                IsAntialias = false,
+            };
+            ImmediateCanvas canvas = destination.DirectCanvas
+                ?? throw new InvalidOperationException("A direct shader destination requires a canvas.");
+            canvas.VerifyAccess();
+            canvas.Canvas.DrawRect(directPlan.RasterBounds.ToSKRect(), paint);
+        }
+
+        private void PaintInEvaluationFrame(
+            MaterializedRenderValue output,
+            SKShader shader,
+            ShaderEvaluationFrame frame)
+            => PaintInEvaluationFrame(ShaderRunDestination.ForMaterialized(output), shader, frame);
+
+        private readonly struct ShaderRunDestination
+        {
+            private ShaderRunDestination(
+                MaterializedRenderValue? materializedOutput,
+                ImmediateCanvas? directCanvas,
+                DirectShaderRunPlan directPlan)
+            {
+                MaterializedOutput = materializedOutput;
+                DirectCanvas = directCanvas;
+                DirectPlan = directPlan;
+            }
+
+            public MaterializedRenderValue? MaterializedOutput { get; }
+
+            public ImmediateCanvas? DirectCanvas { get; }
+
+            public DirectShaderRunPlan DirectPlan { get; }
+
+            public PixelRect DeviceBounds => MaterializedOutput?.DeviceBounds ?? DirectPlan.OutputDeviceBounds;
+
+            public Rect RasterBounds => MaterializedOutput?.RasterBounds ?? DirectPlan.RasterBounds;
+
+            public float Scale => MaterializedOutput?.EffectiveScale.Value ?? DirectPlan.Density;
+
+            public static ShaderRunDestination ForMaterialized(MaterializedRenderValue output)
+            {
+                ArgumentNullException.ThrowIfNull(output);
+                return new ShaderRunDestination(output, null, default);
+            }
+
+            public static ShaderRunDestination ForDirect(
+                ImmediateCanvas canvas,
+                DirectShaderRunPlan directPlan)
+            {
+                ArgumentNullException.ThrowIfNull(canvas);
+                return new ShaderRunDestination(null, canvas, directPlan);
+            }
         }
 
         private ShaderExecutionContext CreateCompiledShaderStageContext(
@@ -756,69 +909,42 @@ internal sealed partial class RenderRequestExecutor
             using var uniforms = new SKRuntimeEffectUniforms(lease.Program.Effect);
             using var runtimeChildren = new SKRuntimeEffectChildren(lease.Program.Effect);
             var children = new List<SKShader>();
-            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
             try
             {
-                bindingToken.RunAndComplete(
-                    () =>
-                    {
-                        var context = new ShaderExecutionContext(
-                            bindingToken,
-                            input.Bounds,
-                            outputBounds,
-                            requiredRegion,
-                            frame.DeviceBounds,
-                            frame.RasterBounds,
-                            input.EffectiveScale,
-                            _options.OutputScale,
-                            output.EffectiveScale.Value,
-                            _options.MaxWorkingScale,
-                            _options.Intent,
-                            _options.Purpose);
-                        foreach (ShaderUniformBinding binding in description.Uniforms)
-                        {
-                            if (!description.Source.Uniforms.TryGetValue(
-                                    binding.Name,
-                                    out SkslUniformDeclaration declaration))
-                            {
-                                throw new InvalidOperationException(
-                                    $"Shader uniform '{binding.Name}' was not declared.");
-                            }
-
-                            ShaderUniformValue value = binding.Bind(declaration, context);
-                            SkslUniformAssignment.SetUniform(
-                                uniforms,
-                                binding.Name,
-                                declaration,
-                                value);
-                        }
-
-                        SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
-                            inputImage,
-                            input.Target.RawValue.Context,
-                            input.Bounds,
-                            input.EffectiveScale.Value,
-                            input.DeviceBounds,
-                            input.RasterBounds,
-                            output.EffectiveScale.Value,
-                            frame.RasterBounds,
-                            tileMode);
-                        children.Add(inputShader);
-                        runtimeChildren[childName] = inputShader;
-
-                        foreach (ShaderResourceBinding binding in description.Resources)
-                        {
-                            SKShader child = binding.Bind(context);
-                            children.Add(child);
-                            runtimeChildren[binding.Name] = child;
-                        }
-                    });
+                if (description.HasExecutionContextBinder)
+                {
+                    BindStandaloneShaderWithCallbacks(
+                        description,
+                        input,
+                        output,
+                        outputBounds,
+                        requiredRegion,
+                        inputImage,
+                        frame,
+                        childName,
+                        tileMode,
+                        uniforms,
+                        runtimeChildren,
+                        children);
+                }
+                else
+                {
+                    BindStandaloneShaderCore(
+                        description,
+                        context: null,
+                        input,
+                        output,
+                        inputImage,
+                        frame,
+                        childName,
+                        tileMode,
+                        uniforms,
+                        runtimeChildren,
+                        children);
+                }
 
                 using SKShader shader = lease.Program.Effect.ToShader(uniforms, runtimeChildren);
-                DrawInEvaluationFrame(
-                    shader,
-                    frame,
-                    rebased => PaintOverValue(output, rebased));
+                PaintInEvaluationFrame(output, shader, frame);
             }
             finally
             {
@@ -826,6 +952,106 @@ internal sealed partial class RenderRequestExecutor
                 // in a per-frame teardown path.
                 for (int index = children.Count - 1; index >= 0; index--)
                     children[index].Dispose();
+            }
+        }
+
+        private void BindStandaloneShaderWithCallbacks(
+            ShaderDescription description,
+            MaterializedRenderValue input,
+            MaterializedRenderValue output,
+            Rect outputBounds,
+            Rect requiredRegion,
+            SKImage inputImage,
+            ShaderEvaluationFrame frame,
+            string childName,
+            SKShaderTileMode tileMode,
+            SKRuntimeEffectUniforms uniforms,
+            SKRuntimeEffectChildren runtimeChildren,
+            List<SKShader> children)
+        {
+            RenderExecutionSessionToken bindingToken = CreateExecutionSessionToken();
+            bindingToken.RunAndComplete(
+                () =>
+                {
+                    var context = new ShaderExecutionContext(
+                        bindingToken,
+                        input.Bounds,
+                        outputBounds,
+                        requiredRegion,
+                        frame.DeviceBounds,
+                        frame.RasterBounds,
+                        input.EffectiveScale,
+                        _options.OutputScale,
+                        output.EffectiveScale.Value,
+                        _options.MaxWorkingScale,
+                        _options.Intent,
+                        _options.Purpose);
+                    BindStandaloneShaderCore(
+                        description,
+                        context,
+                        input,
+                        output,
+                        inputImage,
+                        frame,
+                        childName,
+                        tileMode,
+                        uniforms,
+                        runtimeChildren,
+                        children);
+                });
+        }
+
+        private static void BindStandaloneShaderCore(
+            ShaderDescription description,
+            ShaderExecutionContext? context,
+            MaterializedRenderValue input,
+            MaterializedRenderValue output,
+            SKImage inputImage,
+            ShaderEvaluationFrame frame,
+            string childName,
+            SKShaderTileMode tileMode,
+            SKRuntimeEffectUniforms uniforms,
+            SKRuntimeEffectChildren runtimeChildren,
+            List<SKShader> children)
+        {
+            foreach (ShaderUniformBinding binding in description.Uniforms)
+            {
+                if (!description.Source.Uniforms.TryGetValue(
+                        binding.Name,
+                        out SkslUniformDeclaration declaration))
+                {
+                    throw new InvalidOperationException(
+                        $"Shader uniform '{binding.Name}' was not declared.");
+                }
+
+                ShaderUniformValue value = binding.Bind(declaration, context);
+                SkslUniformAssignment.SetUniform(
+                    uniforms,
+                    binding.Name,
+                    declaration,
+                    value);
+            }
+
+            SKShader inputShader = RasterShaderMapping.CreateSemanticImageShader(
+                inputImage,
+                input.Target.RawValue.Context,
+                input.Bounds,
+                input.EffectiveScale.Value,
+                input.DeviceBounds,
+                input.RasterBounds,
+                output.EffectiveScale.Value,
+                frame.RasterBounds,
+                tileMode);
+            children.Add(inputShader);
+            runtimeChildren[childName] = inputShader;
+
+            foreach (ShaderResourceBinding binding in description.Resources)
+            {
+                SKShader child = binding.Bind(context
+                    ?? throw new InvalidOperationException(
+                        "A shader resource binding requires an execution context."));
+                children.Add(child);
+                runtimeChildren[binding.Name] = child;
             }
         }
 

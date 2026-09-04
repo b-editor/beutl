@@ -67,19 +67,27 @@ internal sealed partial class RenderRequestExecutor
     }
 
     private static IReadOnlyList<Exception> PublishCacheCapturesAtomically(
-        IReadOnlyList<FamilyExecutionFrame> frames)
+        IReadOnlyList<RenderRequestExecutionState> frames)
     {
-        var seenCaches = new HashSet<RenderNodeCache>(ReferenceEqualityComparer.Instance);
-        foreach (FamilyExecutionFrame frame in frames)
-            frame.State.ValidateCacheCaptures(seenCaches);
+        HashSet<RenderNodeCache>? seenCaches = null;
+        bool hasPublications = false;
+        foreach (RenderRequestExecutionState state in frames)
+            hasPublications |= state.ValidateCacheCaptures(ref seenCaches);
+
+        if (!hasPublications)
+        {
+            foreach (RenderRequestExecutionState state in frames)
+                state.AcceptCacheCaptures();
+            return [];
+        }
 
         var transferredTargets = new List<RenderTarget>();
         var publications = new List<RenderNodeCachePublication>();
         IReadOnlyList<Exception> replacedStorageCleanupFailures;
         try
         {
-            foreach (FamilyExecutionFrame frame in frames)
-                frame.State.AppendCachePublications(publications, transferredTargets);
+            foreach (RenderRequestExecutionState state in frames)
+                state.AppendCachePublications(publications, transferredTargets);
             // Transfer only detaches targets from the renderer pool. No cache is observable until this
             // batch reaches PublishAtomically's validated reference-assignment commit point. If preparation
             // fails, the catch below disposes every detached target and leaves every node cache unchanged.
@@ -104,13 +112,13 @@ internal sealed partial class RenderRequestExecutor
         }
 
         transferredTargets.Clear();
-        foreach (FamilyExecutionFrame frame in frames)
-            frame.State.AcceptCacheCaptures();
+        foreach (RenderRequestExecutionState state in frames)
+            state.AcceptCacheCaptures();
         return replacedStorageCleanupFailures;
     }
 
     private static RenderExecutionStatistics AggregateStatistics(
-        IEnumerable<FamilyExecutionFrame> frames,
+        IEnumerable<RenderRequestExecutionState> frames,
         int nestedRootAcquisitions)
     {
         int shaderRuns = 0;
@@ -120,9 +128,9 @@ internal sealed partial class RenderRequestExecutor
         int intermediateTargets = nestedRootAcquisitions;
         int programCacheHits = 0;
         int synchronizations = 0;
-        foreach (FamilyExecutionFrame frame in frames)
+        foreach (RenderRequestExecutionState state in frames)
         {
-            RenderExecutionStatistics statistics = frame.State.CreateStatistics();
+            RenderExecutionStatistics statistics = state.CreateStatistics();
             shaderRuns += statistics.ShaderRunExecutions;
             shaderStages += statistics.ShaderStageExecutions;
             fusedRuns += statistics.FusedShaderRunExecutions;

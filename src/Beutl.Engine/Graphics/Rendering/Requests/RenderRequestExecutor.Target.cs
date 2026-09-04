@@ -144,7 +144,7 @@ internal sealed partial class RenderRequestExecutor
                 () =>
                 {
                     Rect? parentDomain = fragment.Id is { } id
-                        && _resolvedParentScopeDomains.TryGetValue(id, out Rect resolvedParent)
+                        && _resolvedExecutionDomains?.TryGetValue(id, out Rect resolvedParent) == true
                             ? resolvedParent
                             : _options.TargetDomain;
                     Rect callbackBounds = TargetWriteMetadataResolver.Resolve(fragment, parentDomain)
@@ -352,7 +352,7 @@ internal sealed partial class RenderRequestExecutor
                 TargetRegionKind.Region => region.Value,
                 TargetRegionKind.Full
                     when fragment.Id is { } id
-                         && _resolvedAccessDomains.TryGetValue(id, out Rect domain) => domain,
+                         && _resolvedExecutionDomains?.TryGetValue(id, out Rect domain) == true => domain,
                 TargetRegionKind.Full when _options.TargetDomain is { } domain => domain,
                 TargetRegionKind.Full => new Rect(default, destination.LogicalSize),
                 _ => throw new InvalidOperationException("The target region is uninitialized."),
@@ -425,9 +425,9 @@ internal sealed partial class RenderRequestExecutor
                     }
                     else
                     {
-                        int backdropSourceCount = _backdropSources.Count;
+                        int backdropSourceCount = _backdropSources?.Count ?? 0;
                         if (backdropSourceCount != 0)
-                            _backdropSources.Add(currentTarget);
+                            _backdropSources!.Add(currentTarget);
                         try
                         {
                             foreach (RenderFragmentReference input in fragment.Inputs)
@@ -483,8 +483,11 @@ internal sealed partial class RenderRequestExecutor
                         && _regions.BackingTargetBackdropCaptures.Contains(fragmentId);
                     if (fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture)
                     {
-                        foreach (ImmediateCanvas backdropSource in _backdropSources)
-                            DrawTargetIntoCapture(backdropSource, canvas, capturesBackingTarget);
+                        if (_backdropSources is not null)
+                        {
+                            foreach (ImmediateCanvas backdropSource in _backdropSources)
+                                DrawTargetIntoCapture(backdropSource, canvas, capturesBackingTarget);
+                        }
                     }
 
                     DrawTargetIntoCapture(currentTarget, canvas, capturesBackingTarget);
@@ -522,8 +525,8 @@ internal sealed partial class RenderRequestExecutor
                 using (var canvas = CreateValueCanvas(value))
                 using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
-                    int backdropSourceCount = _backdropSources.Count;
-                    _backdropSources.Add(destination);
+                    int backdropSourceCount = _backdropSources?.Count ?? 0;
+                    (_backdropSources ??= []).Add(destination);
                     try
                     {
                         foreach (RenderFragmentReference input in fragment.Inputs)
@@ -554,7 +557,7 @@ internal sealed partial class RenderRequestExecutor
                 TargetRegionKind.Region => region.Value,
                 TargetRegionKind.Full
                     when fragment.Id is { } id
-                         && _resolvedScopeDomains.TryGetValue(id, out Rect resolved) => resolved,
+                         && _resolvedExecutionDomains?.TryGetValue(id, out Rect resolved) == true => resolved,
                 TargetRegionKind.Full when _options.TargetDomain is { } targetDomain => targetDomain,
                 TargetRegionKind.Full => new Rect(default, destination.LogicalSize),
                 _ => throw new InvalidOperationException("The target-layer region is uninitialized."),
@@ -577,8 +580,8 @@ internal sealed partial class RenderRequestExecutor
                 scope,
                 () =>
                 {
-                    int backdropSourceCount = _backdropSources.Count;
-                    _backdropSources.Add(backdropSource);
+                    int backdropSourceCount = _backdropSources?.Count ?? 0;
+                    (_backdropSources ??= []).Add(backdropSource);
                     try
                     {
                         foreach (RenderFragmentReference input in scope.Inputs)
@@ -625,8 +628,12 @@ internal sealed partial class RenderRequestExecutor
 
         private void RemoveBackdropSources(int count)
         {
-            if (_backdropSources.Count > count)
-                _backdropSources.RemoveRange(count, _backdropSources.Count - count);
+            if (_backdropSources is null || _backdropSources.Count <= count)
+                return;
+
+            _backdropSources.RemoveRange(count, _backdropSources.Count - count);
+            if (_backdropSources.Count == 0)
+                _backdropSources = null;
         }
 
         private static bool RequiresLocalDestructiveDeviceGrid(RenderFragmentReference fragment)

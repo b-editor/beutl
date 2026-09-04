@@ -30,7 +30,8 @@ public sealed class FilterEffectContext : IDisposable
     internal readonly PooledList<IFEItem> _items;
     internal readonly PooledList<IFEItem> _renderTimeItems;
     private readonly FilterEffectResourceState _resourceState;
-    private readonly Lazy<float> _workingScale;
+    private readonly float _resolvedWorkingScale;
+    private readonly Lazy<float>? _workingScaleResolver;
     private readonly bool _hasResolvedWorkingScale;
     private bool _disposed;
 
@@ -45,7 +46,8 @@ public sealed class FilterEffectContext : IDisposable
         : this(
             bounds,
             outputScale,
-            CreateResolvedWorkingScale(workingScale),
+            workingScale,
+            workingScaleResolver: null,
             hasResolvedWorkingScale: true,
             new FilterEffectResourceState(renderContext: null))
     {
@@ -60,7 +62,8 @@ public sealed class FilterEffectContext : IDisposable
         : this(
             bounds,
             outputScale,
-            CreateResolvedWorkingScale(workingScale),
+            workingScale,
+            workingScaleResolver: null,
             hasResolvedWorkingScale,
             new FilterEffectResourceState(renderContext))
     {
@@ -70,13 +73,14 @@ public sealed class FilterEffectContext : IDisposable
         Rect bounds,
         float outputScale,
         Func<float> resolveWorkingScale,
-        RenderNodeContext renderContext,
-        bool hasResolvedWorkingScale = true)
+        RenderNodeContext renderContext)
         : this(
             bounds,
             outputScale,
-            new Lazy<float>(resolveWorkingScale ?? throw new ArgumentNullException(nameof(resolveWorkingScale))),
-            hasResolvedWorkingScale,
+            resolvedWorkingScale: default,
+            workingScaleResolver: new Lazy<float>(
+                resolveWorkingScale ?? throw new ArgumentNullException(nameof(resolveWorkingScale))),
+            hasResolvedWorkingScale: true,
             new FilterEffectResourceState(renderContext))
     {
     }
@@ -84,13 +88,15 @@ public sealed class FilterEffectContext : IDisposable
     private FilterEffectContext(
         Rect bounds,
         float outputScale,
-        Lazy<float> workingScale,
+        float resolvedWorkingScale,
+        Lazy<float>? workingScaleResolver,
         bool hasResolvedWorkingScale,
         FilterEffectResourceState resourceState)
     {
         _bounds = OriginalBounds = bounds;
         OutputScale = outputScale;
-        _workingScale = workingScale;
+        _resolvedWorkingScale = resolvedWorkingScale;
+        _workingScaleResolver = workingScaleResolver;
         _hasResolvedWorkingScale = hasResolvedWorkingScale;
         _resourceState = resourceState;
         _renderTimeItems = [];
@@ -102,7 +108,8 @@ public sealed class FilterEffectContext : IDisposable
         OriginalBounds = obj.OriginalBounds;
         _bounds = obj._bounds;
         OutputScale = obj.OutputScale;
-        _workingScale = obj._workingScale;
+        _resolvedWorkingScale = obj._resolvedWorkingScale;
+        _workingScaleResolver = obj._workingScaleResolver;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
         _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
@@ -115,7 +122,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         OriginalBounds = _bounds = bounds;
         OutputScale = obj.OutputScale;
-        _workingScale = obj._workingScale;
+        _resolvedWorkingScale = obj._resolvedWorkingScale;
+        _workingScaleResolver = obj._workingScaleResolver;
         _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
         _resourceState = obj._resourceState.AddReference();
         _renderTimeItems = [];
@@ -170,14 +178,11 @@ public sealed class FilterEffectContext : IDisposable
     /// </remarks>
     public bool TryGetWorkingScale(out float workingScale)
     {
-        workingScale = _hasResolvedWorkingScale ? _workingScale.Value : default;
+        workingScale = _hasResolvedWorkingScale
+            ? _workingScaleResolver?.Value ?? _resolvedWorkingScale
+            : default;
         return _hasResolvedWorkingScale;
     }
-
-    // The value-taking constructor: the scale is already resolved, so wrapping it costs one object rather
-    // than the closure and Func a factory overload would also allocate on every recorded effect.
-    private static Lazy<float> CreateResolvedWorkingScale(float workingScale)
-        => new(workingScale);
 
     public FilterEffectContext Clone()
     {
@@ -849,19 +854,17 @@ public sealed class FilterEffectContext : IDisposable
 internal sealed class FilterEffectResourceState
 {
     private readonly RenderNodeContext? _renderContext;
-    private readonly RenderRequestResourceRegistry? _standaloneRegistry;
-    private readonly List<RenderResource> _resources = [];
+    private RenderRequestResourceRegistry? _standaloneRegistry;
+    private List<RenderResource>? _resources;
     private int _references = 1;
     private bool _transferred;
 
     public FilterEffectResourceState(RenderNodeContext? renderContext)
     {
         _renderContext = renderContext;
-        if (renderContext is null)
-            _standaloneRegistry = new RenderRequestResourceRegistry();
     }
 
-    public int Count => _resources.Count;
+    public int Count => _resources?.Count ?? 0;
 
     public FilterEffectResourceState AddReference()
     {
@@ -877,8 +880,8 @@ internal sealed class FilterEffectResourceState
         ThrowIfTransferred();
         RenderResource<T> token = _renderContext is not null
             ? _renderContext.Own(resource)
-            : _standaloneRegistry!.RegisterOwned(resource);
-        _resources.Add(token);
+            : (_standaloneRegistry ??= new RenderRequestResourceRegistry()).RegisterOwned(resource);
+        (_resources ??= []).Add(token);
         return token;
     }
 
@@ -888,8 +891,8 @@ internal sealed class FilterEffectResourceState
         ThrowIfTransferred();
         RenderResource<T> token = _renderContext is not null
             ? _renderContext.Borrow(resource)
-            : _standaloneRegistry!.RegisterBorrowed(resource);
-        _resources.Add(token);
+            : (_standaloneRegistry ??= new RenderRequestResourceRegistry()).RegisterBorrowed(resource);
+        (_resources ??= []).Add(token);
         return token;
     }
 
@@ -919,6 +922,8 @@ internal sealed class FilterEffectResourceState
 
     private bool IsRegistered(RenderResource resource)
     {
+        if (_resources is null)
+            return false;
         for (int index = 0; index < _resources.Count; index++)
         {
             if (ReferenceEquals(_resources[index], resource))
@@ -930,13 +935,15 @@ internal sealed class FilterEffectResourceState
 
     public void RollbackTo(int count, Exception? primaryFailure = null)
     {
-        if (count < 0 || count > _resources.Count)
+        int resourceCount = Count;
+        if (count < 0 || count > resourceCount)
             throw new ArgumentOutOfRangeException(nameof(count));
-        if (count == _resources.Count)
+        if (count == resourceCount)
             return;
 
-        RenderResource[] removed = _resources.Skip(count).ToArray();
-        _resources.RemoveRange(count, _resources.Count - count);
+        List<RenderResource> resources = _resources!;
+        RenderResource[] removed = resources.Skip(count).ToArray();
+        resources.RemoveRange(count, resourceCount - count);
         Rollback(removed, primaryFailure);
     }
 
@@ -982,7 +989,7 @@ internal sealed class FilterEffectResourceState
 
     public void CommitStandaloneResources()
     {
-        if (_standaloneRegistry is null)
+        if (_standaloneRegistry is null || _resources is null)
             return;
 
         foreach (RenderResource resource in _resources)

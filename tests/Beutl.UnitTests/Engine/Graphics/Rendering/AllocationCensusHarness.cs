@@ -53,6 +53,25 @@ public sealed class AllocationCensusHarness
 
     [Test]
     [NonParallelizable]
+    public void FilterEffectContextConstruction()
+    {
+        var bounds = new Rect(0, 0, 100, 100);
+        for (int index = 0; index < 200; index++)
+        {
+            using var context = new FilterEffectContext(bounds);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int index = 0; index < 20_000; index++)
+        {
+            using var context = new FilterEffectContext(bounds);
+        }
+        long bytesPerContext = (GC.GetAllocatedBytesForCurrentThread() - before) / 20_000;
+        TestContext.Out.WriteLine($"resolved resource-free FilterEffectContext: {bytesPerContext} bytes/context");
+    }
+
+    [Test]
+    [NonParallelizable]
     public void NodeScaling()
     {
         string report = RenderThread.Dispatcher.Invoke(static () =>

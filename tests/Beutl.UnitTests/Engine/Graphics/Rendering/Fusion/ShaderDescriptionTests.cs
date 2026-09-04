@@ -194,6 +194,46 @@ public sealed class ShaderDescriptionTests
                 bindings.Uniform("gain", 0.5f);
                 bindings.Uniform("offset", new Vector2(1.25f, -2.5f));
             });
+
+        SpirvPushConstants constants = description.SpirvLowering!.Bind(
+            description,
+            context: null,
+            new PixelPoint(7, -3));
+        ReadOnlySpan<byte> bytes = constants;
+        int sourceX = BinaryPrimitives.ReadInt32LittleEndian(bytes);
+        int sourceY = BinaryPrimitives.ReadInt32LittleEndian(bytes[sizeof(int)..]);
+        float gain = ReadSingle(bytes, SpirvPushConstants.UserByteOffset);
+        float offsetX = ReadSingle(bytes, SpirvPushConstants.UserByteOffset + 8);
+        float offsetY = ReadSingle(bytes, SpirvPushConstants.UserByteOffset + 12);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(description.HasExecutionContextBinder, Is.False);
+            Assert.That(sourceX, Is.EqualTo(7));
+            Assert.That(sourceY, Is.EqualTo(-3));
+            Assert.That(gain, Is.EqualTo(0.5f));
+            Assert.That(offsetX, Is.EqualTo(1.25f));
+            Assert.That(offsetY, Is.EqualTo(-2.5f));
+        });
+    }
+
+    [Test]
+    public void SpirvLowering_CustomUniformBinderUsesAndInvalidatesExecutionContext()
+    {
+        ShaderUniformWriter? retainedWriter = null;
+        ShaderExecutionContext? retainedContext = null;
+        ShaderDescription description = CreateSpirvDescription(
+            "uniform float gain; half4 apply(half4 color) { return color * gain; }",
+            [new SpirvPushConstantBinding("gain", SpirvPushConstants.UserByteOffset)],
+            bindings => bindings.Uniform(
+                "gain",
+                0.5f,
+                (writer, value, execution) =>
+                {
+                    retainedWriter = writer;
+                    retainedContext = execution;
+                    writer.Set(value * execution.OutputScale);
+                }));
         var token = new RenderExecutionSessionToken();
         var context = new ShaderExecutionContext(
             token,
@@ -202,31 +242,28 @@ public sealed class ShaderDescriptionTests
             new Rect(0, 0, 10, 10),
             new PixelRect(0, 0, 10, 10),
             EffectiveScale.At(1),
-            outputScale: 1,
+            outputScale: 3,
             workingScale: 1,
-            maxWorkingScale: 2,
+            maxWorkingScale: 3,
             intent: RenderIntent.Preview,
             purpose: RenderRequestPurpose.Frame);
 
-        SpirvPushConstants constants = description.SpirvLowering!.Bind(
-            description,
-            context,
-            new PixelPoint(7, -3));
+        SpirvPushConstants constants = token.RunAndComplete(
+            () => description.SpirvLowering!.Bind(
+                description,
+                context,
+                new PixelPoint(2, 4)));
         ReadOnlySpan<byte> bytes = constants;
-        int sourceX = BinaryPrimitives.ReadInt32LittleEndian(bytes);
-        int sourceY = BinaryPrimitives.ReadInt32LittleEndian(bytes[sizeof(int)..]);
         float gain = ReadSingle(bytes, SpirvPushConstants.UserByteOffset);
-        float offsetX = ReadSingle(bytes, SpirvPushConstants.UserByteOffset + 8);
-        float offsetY = ReadSingle(bytes, SpirvPushConstants.UserByteOffset + 12);
-        token.Complete();
 
         Assert.Multiple(() =>
         {
-            Assert.That(sourceX, Is.EqualTo(7));
-            Assert.That(sourceY, Is.EqualTo(-3));
-            Assert.That(gain, Is.EqualTo(0.5f));
-            Assert.That(offsetX, Is.EqualTo(1.25f));
-            Assert.That(offsetY, Is.EqualTo(-2.5f));
+            Assert.That(description.HasExecutionContextBinder, Is.True);
+            Assert.That(gain, Is.EqualTo(1.5f));
+            Assert.That(retainedWriter, Is.Not.Null);
+            Assert.That(retainedContext, Is.SameAs(context));
+            Assert.That(() => retainedWriter!.Set(1f), Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => _ = retainedContext!.OutputBounds, Throws.TypeOf<InvalidOperationException>());
         });
     }
 

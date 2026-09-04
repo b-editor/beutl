@@ -119,7 +119,7 @@ internal sealed partial class RenderRequestExecutor
             RenderFragmentReference output = run.GetOutput(_graph);
             RenderFragmentReference inputFragment = run.GetInput(_graph);
             if (!ReferenceEquals(output, fragment)
-                || !_roots.Contains(fragment)
+                || _replayDepth != 1
                 || !fragment.ContributesValuesToTarget
                 || _values.ContainsKey(fragment)
                 || fragment.Id is { } id
@@ -168,27 +168,9 @@ internal sealed partial class RenderRequestExecutor
                     () => ExecuteCompiledShaderRunProgram(
                         run,
                         input,
+                        ShaderRunDestination.ForDirect(destination, directPlan),
                         directPlan.OutputBounds,
-                        directPlan.RequiredRegion,
-                        directPlan.OutputDeviceBounds,
-                        directPlan.RasterBounds,
-                        directPlan.Density,
-                        shader =>
-                        {
-                            using SKShader mapped = shader.WithLocalMatrix(
-                                SKMatrix.CreateScaleTranslation(
-                                    1f / directPlan.Density,
-                                    1f / directPlan.Density,
-                                    directPlan.OutputDeviceBounds.X / directPlan.Density,
-                                    directPlan.OutputDeviceBounds.Y / directPlan.Density));
-                            using var paint = new SKPaint
-                            {
-                                Shader = mapped,
-                                IsAntialias = false,
-                            };
-                            destination.VerifyAccess();
-                            destination.Canvas.DrawRect(directPlan.RasterBounds.ToSKRect(), paint);
-                        }));
+                        directPlan.RequiredRegion));
                 return true;
             }
             finally
@@ -371,7 +353,7 @@ internal sealed partial class RenderRequestExecutor
             {
                 _values.Clear();
                 _valueReferences.Clear();
-                _backdropCaptures.Clear();
+                _backdropCaptures = null;
             }
         }
 
@@ -384,18 +366,18 @@ internal sealed partial class RenderRequestExecutor
             finally
             {
                 Array.Clear(_cacheCaptures);
-                _cacheCaptureValues.Clear();
+                ClearCacheCaptureValues();
             }
         }
 
-        public void ValidateCacheCaptures(ISet<RenderNodeCache> seenCaches)
+        public bool ValidateCacheCaptures(ref HashSet<RenderNodeCache>? seenCaches)
         {
-            ArgumentNullException.ThrowIfNull(seenCaches);
             if (PreviewAllocationDropObserved)
-                return;
+                return false;
             if (_cacheResolution.MissCaptureCount == 0)
-                return;
+                return false;
 
+            bool found = false;
             for (int decisionIndex = 0; decisionIndex < _cacheResolution.Decisions.Length; decisionIndex++)
             {
                 RenderCacheDecision decision = _cacheResolution.Decisions[decisionIndex];
@@ -408,12 +390,14 @@ internal sealed partial class RenderRequestExecutor
                 RenderNodeCache cache = decision.Candidate.Cache
                     ?? throw new InvalidOperationException("A production cache capture has no node-cache owner.");
                 ObjectDisposedException.ThrowIf(cache.IsDisposed, cache);
-                if (!seenCaches.Add(cache))
+                if (!(seenCaches ??= new(ReferenceEqualityComparer.Instance)).Add(cache))
                 {
                     throw new InvalidOperationException(
                         "One request family cannot atomically publish two independent outputs to the same node cache.");
                 }
+                found = true;
             }
+            return found;
         }
 
         public void AppendCachePublications(
@@ -452,7 +436,7 @@ internal sealed partial class RenderRequestExecutor
                         CompleteBounds = value.CompleteBounds,
                     });
                     _ownedValues.Remove(value);
-                    _cacheCaptureValues.Remove(value);
+                    RemoveCacheCaptureValue(value);
                 }
 
                 publications.Add(new RenderNodeCachePublication(
@@ -475,23 +459,23 @@ internal sealed partial class RenderRequestExecutor
 
         public void Dispose()
         {
-            var failures = new List<Exception>();
+            List<Exception>? failures = null;
             try
             {
                 DisposeValues(static (_, _) => true);
             }
             catch (AggregateException aggregate)
             {
-                failures.AddRange(aggregate.Flatten().InnerExceptions);
+                (failures ??= []).AddRange(aggregate.Flatten().InnerExceptions);
             }
             catch (Exception ex)
             {
-                failures.Add(ex);
+                (failures ??= []).Add(ex);
             }
             finally
             {
                 Array.Clear(_cacheCaptures);
-                _cacheCaptureValues.Clear();
+                ClearCacheCaptureValues();
             }
 
             try
@@ -500,13 +484,15 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (AggregateException aggregate)
             {
-                failures.AddRange(aggregate.Flatten().InnerExceptions);
+                (failures ??= []).AddRange(aggregate.Flatten().InnerExceptions);
             }
             catch (Exception ex)
             {
-                failures.Add(ex);
+                (failures ??= []).Add(ex);
             }
 
+            if (failures is null)
+                return;
             if (failures.Count == 1)
                 ExceptionDispatchInfo.Capture(failures[0]).Throw();
             if (failures.Count > 1)
@@ -522,12 +508,12 @@ internal sealed partial class RenderRequestExecutor
             _ownedValues.CopyTo(snapshot);
             foreach (MaterializedRenderValue value in snapshot)
             {
-                bool isCapture = _cacheCaptureValues.Contains(value);
+                bool isCapture = IsCacheCaptureValue(value);
                 if (!predicate(value, isCapture))
                     continue;
 
                 _ownedValues.Remove(value);
-                _cacheCaptureValues.Remove(value);
+                RemoveCacheCaptureValue(value);
                 try
                 {
                     DisposeOwnedValue(value);

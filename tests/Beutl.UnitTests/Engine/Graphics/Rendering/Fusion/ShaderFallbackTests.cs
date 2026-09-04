@@ -127,8 +127,10 @@ public sealed class ShaderFallbackTests
         {
             string currentPixelSource =
                 $"/*{new string('界', 22_000)}*/\n"
-                + "half4 apply(half4 color) { return color.bgra; }";
-            description = ShaderDescription.CurrentPixel(currentPixelSource);
+                + "uniform float gain; half4 apply(half4 color) { return color.bgra * gain; }";
+            description = ShaderDescription.CurrentPixel(
+                currentPixelSource,
+                static bindings => bindings.Uniform("gain", 1f));
             SkslMergedProgram fallback = SkslSnippetMerger.MergeAndSplit(
                 [new SkslSnippetStage(description)],
                 SkslBackendBudgetResolver.Portable)[0];

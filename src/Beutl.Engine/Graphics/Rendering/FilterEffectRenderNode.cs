@@ -173,17 +173,30 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             => workingScalePolicy ??= new FilterEffectWorkingScalePolicy(
                 GetWorkingScaleContract() ?? RenderScaleContract.MaterializeAtWorkingScale);
 
-        FilterEffectContext recordingContext = new(
-            hasConcreteInputMetadata ? inputBounds : Rect.Invalid,
-            context.OutputScale,
-            () => ResolveWorkingScale(
-                authorInputMetadata,
-                authorInputMetadata.SelectToArray(static item => item.Bounds),
-                outputScale,
-                maxWorkingScale,
-                GetOrCreateWorkingScalePolicy()),
-            context,
-            hasResolvedWorkingScale: hasConcreteInputMetadata && authorInputMetadata.Length == 1);
+        bool hasResolvedWorkingScale = hasConcreteInputMetadata && authorInputMetadata.Length == 1;
+        FilterEffectContext recordingContext;
+        if (hasResolvedWorkingScale)
+        {
+            recordingContext = new FilterEffectContext(
+                inputBounds,
+                context.OutputScale,
+                () => ResolveWorkingScale(
+                    authorInputMetadata,
+                    authorInputMetadata.SelectToArray(static item => item.Bounds),
+                    outputScale,
+                    maxWorkingScale,
+                    GetOrCreateWorkingScalePolicy()),
+                context);
+        }
+        else
+        {
+            recordingContext = new FilterEffectContext(
+                hasConcreteInputMetadata ? inputBounds : Rect.Invalid,
+                context.OutputScale,
+                workingScale: default,
+                renderContext: context,
+                hasResolvedWorkingScale: false);
+        }
         try
         {
             FilterEffect.Resource effectResource = effectSnapshot.Resource;

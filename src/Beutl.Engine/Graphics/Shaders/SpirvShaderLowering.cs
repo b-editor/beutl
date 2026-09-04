@@ -121,7 +121,7 @@ internal sealed class SpirvShaderLowering
 
     internal SpirvPushConstants Bind(
         ShaderDescription description,
-        ShaderExecutionContext context,
+        ShaderExecutionContext? context,
         PixelPoint sourceTexelOffset)
     {
         var result = new SpirvPushConstants();

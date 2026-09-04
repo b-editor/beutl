@@ -13,35 +13,51 @@ internal sealed partial class RenderRequestExecutor
     {
         public void PrepareBuiltInBackdropCaptures()
         {
-            var prepared = new List<PendingBackdropPublication>(_backdropCaptures.Count);
+            if (_backdropCaptures is not { Count: > 0 } captures)
+                return;
+
+            int publicationStart = _pendingBackdropPublications?.Count ?? 0;
             try
             {
-                foreach ((IBuiltInBackdropCaptureSink sink, MaterializedRenderValue value) in _backdropCaptures)
+                foreach ((IBuiltInBackdropCaptureSink sink, MaterializedRenderValue value) in captures)
                 {
                     Bitmap bitmap = value.Target.Snapshot();
                     var publication = new PendingBackdropPublication(
                         sink,
                         bitmap,
                         value.EffectiveScale.Value);
-                    prepared.Add(publication);
-                    _pendingBackdropPublications.Add(publication);
+                    try
+                    {
+                        (_pendingBackdropPublications ??= []).Add(publication);
+                    }
+                    catch
+                    {
+                        publication.Bitmap = null;
+                        bitmap.Dispose();
+                        throw;
+                    }
                 }
             }
             catch
             {
-                foreach (PendingBackdropPublication publication in prepared)
+                if (_pendingBackdropPublications is { } publications)
                 {
-                    publication.Bitmap?.Dispose();
-                    publication.Bitmap = null;
-                    _pendingBackdropPublications.Remove(publication);
+                    for (int index = publicationStart; index < publications.Count; index++)
+                    {
+                        publications[index].Bitmap?.Dispose();
+                        publications[index].Bitmap = null;
+                    }
+                    publications.RemoveRange(publicationStart, publications.Count - publicationStart);
+                    if (publications.Count == 0)
+                        _pendingBackdropPublications = null;
                 }
                 throw;
             }
             finally
             {
-                foreach ((_, MaterializedRenderValue value) in _backdropCaptures)
+                foreach ((_, MaterializedRenderValue value) in captures)
                     ReleaseValueReference(value);
-                _backdropCaptures.Clear();
+                _backdropCaptures = null;
             }
         }
 
@@ -54,7 +70,10 @@ internal sealed partial class RenderRequestExecutor
                 return;
             }
 
-            foreach (PendingBackdropPublication publication in _pendingBackdropPublications)
+            if (_pendingBackdropPublications is not { } publications)
+                return;
+
+            foreach (PendingBackdropPublication publication in publications)
             {
                 Bitmap bitmap = publication.Bitmap
                     ?? throw new InvalidOperationException("A backdrop capture was already discharged.");
@@ -78,13 +97,17 @@ internal sealed partial class RenderRequestExecutor
                 }
             }
 
-            _pendingBackdropPublications.Clear();
+            _pendingBackdropPublications = null;
         }
 
         public void RejectBuiltInBackdropCaptures()
         {
+            if (_pendingBackdropPublications is not { } publications)
+                return;
+
+            _pendingBackdropPublications = null;
             List<Exception>? failures = null;
-            foreach (PendingBackdropPublication publication in _pendingBackdropPublications)
+            foreach (PendingBackdropPublication publication in publications)
             {
                 Bitmap? bitmap = publication.Bitmap;
                 publication.Bitmap = null;
@@ -99,8 +122,6 @@ internal sealed partial class RenderRequestExecutor
                     (failures ??= []).Add(ex);
                 }
             }
-            _pendingBackdropPublications.Clear();
-
             if (failures is null)
                 return;
             if (failures.Count == 1)
