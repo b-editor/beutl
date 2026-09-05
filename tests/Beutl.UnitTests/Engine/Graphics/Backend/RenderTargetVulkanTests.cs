@@ -6,6 +6,22 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 public class RenderTargetVulkanTests
 {
     [Test]
+    public void ClearToTransparent_LeavesTheTargetReportingTransparentContents()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget? target = RenderTarget.Create(16, 16);
+            Assert.That(target, Is.Not.Null);
+
+            target!.ClearToTransparent();
+
+            Assert.That(target.HasTransparentContents, Is.True);
+        });
+    }
+
+    [Test]
     public void Create_OnRenderThread_UsesGraphicsContext()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -22,6 +38,7 @@ public class RenderTargetVulkanTests
     }
 
     [Test]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void Create_Snapshot_ProducesSizedBitmap()
     {
         VulkanTestEnvironment.EnsureAvailable();

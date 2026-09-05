@@ -268,6 +268,10 @@
     <value>Minimum pixels</value>
     <comment/>
   </data>
+  <data name="NodeCacheWarning" xml:space="preserve">
+    <value>Enabling the node cache can change what the preview renders, and it rarely helps while content is animating — it may slow rendering instead. Export always renders without it, so the preview may not match the exported result.</value>
+    <comment/>
+  </data>
   <data name="SwapTimelineScrollDirection" xml:space="preserve">
     <value>Swap the scroll direction of the timeline</value>
     <comment/>

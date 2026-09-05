@@ -56,22 +56,16 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .DisposeWith(_disposables);
 
         var drawableResource = Drawable
-            .Select(d =>
-                d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(t => ((Drawable.Resource, int)?)t) ??
-                Observable.ReturnThenNever<(Drawable.Resource, int)?>(null))
-            .Switch()
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
             .Publish(null).RefCount();
 
         GeometryResource = drawableResource
-            .Select(t =>
-                t is { Item1: GeometryShape.Resource { Data: PathGeometry.Resource pathGeometry } }
-                    ? (pathGeometry, pathGeometry.Version)
-                    : ((PathGeometry.Resource, int)?)null)
+            .Select(h => h?.Project(r => (r as GeometryShape.Resource)?.Data as PathGeometry.Resource))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Matrix = drawableResource.Select(r => r != null ? CalculateMatrix(r.Value.Item1) : Graphics.Matrix.Identity)
+        Matrix = drawableResource
+            .Select(h => h?.Read(CalculateMatrix, Graphics.Matrix.Identity) ?? Graphics.Matrix.Identity)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
         AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
@@ -120,7 +114,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
 
-            Matrix mat = drawable.GetOriginal().GetTransformMatrix(frameSize, size, drawable);
+            Matrix mat = drawable.GetOriginal()!.GetTransformMatrix(frameSize, size, drawable);
             matrix *= mat;
         }
 
@@ -144,7 +138,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
 
-    public ReadOnlyReactivePropertySlim<(PathGeometry.Resource Resource, int Version)?> GeometryResource { get; }
+    public ReadOnlyReactivePropertySlim<EngineResourceHandle<PathGeometry.Resource>?> GeometryResource { get; }
 
     public ReadOnlyReactiveProperty<Matrix> Matrix { get; }
 
@@ -172,15 +166,15 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
-            && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource
-            && context.Value.Value is PathGeometry geometry)
+            && shapeResource is GeometryShape.Resource { Data: PathGeometry.Resource pathData } geometryShapeResource
+            && context.Value.Value is PathGeometry)
         {
             point = inverted.Transform(point);
-            PathFigure.Resource? figure = geometry.HitTestFigure(
-                point.ToBtlPoint(), geometryShapeResource.Pen, geometryShapeResource.Data);
+            PathFigure.Resource? figure = pathData.HitTestFigure(
+                point.ToBtlPoint(), geometryShapeResource.Pen);
             if (figure != null)
             {
-                var figContext = context.FindPathFigureContext(figure.GetOriginal());
+                var figContext = context.FindPathFigureContext(figure.GetOriginal()!);
                 if (figContext != null)
                 {
                     StartEdit(figContext);

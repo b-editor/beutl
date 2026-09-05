@@ -62,7 +62,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
             SoundSamplingHelper.DownsampleMinMax(CachedSampleSpan, minBuf, maxBuf);
 
             float gain = Math.Max(0f, Gain);
-            shape.Render(canvas, bounds, minBuf, maxBuf, gain, Fill);
+            shape.Render(new WaveformRenderContext(canvas, bounds, minBuf, maxBuf, gain, Fill));
         }
     }
 }

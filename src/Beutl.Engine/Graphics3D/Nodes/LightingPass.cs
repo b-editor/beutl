@@ -246,16 +246,13 @@ public sealed class LightingPass : GraphicsNode3D
 
         // Begin lighting pass
         Span<Color> clearColors = [backgroundColor];
-        BeginPass(clearColors, 1.0f);
+        using (UsePass(clearColors, 1.0f))
+        {
+            RenderPass.BindPipeline(_pipeline);
+            RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
 
-        // Bind lighting pipeline and descriptor set
-        RenderPass.BindPipeline(_pipeline);
-        RenderPass.BindDescriptorSet(_pipeline, _descriptorSet);
-
-        // Draw fullscreen triangle
-        RenderPass.Draw(3);
-
-        EndPass();
+            RenderPass.Draw(3);
+        }
     }
 
     protected override void OnDispose()

@@ -8,16 +8,6 @@ using Beutl.Media;
 namespace Beutl.Graphics3D.Nodes;
 
 /// <summary>
-/// Entry for a transparent object to be rendered.
-/// </summary>
-public struct TransparentObjectEntry
-{
-    public Object3D.Resource Object;
-    public Matrix4x4 WorldMatrix;
-    public float DistanceToCamera;
-}
-
-/// <summary>
 /// Forward rendering pass for transparent objects.
 /// Draws transparent objects over the lit scene from LightingPass with alpha blending.
 /// Uses the depth buffer from GeometryPass for depth testing (without writing).
@@ -128,100 +118,14 @@ public sealed class TransparentPass : GraphicsNode3D
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];
-        BeginPass(clearColors);
-
-        // Render transparent objects (already sorted far to near)
-        foreach (var entry in transparentObjects)
+        using (UsePass(clearColors))
         {
-            RenderTransparentObject(context3D, entry.Object, entry.WorldMatrix);
+            // Already sorted far to near.
+            foreach (var entry in transparentObjects)
+            {
+                MeshDrawHelper.DrawWithMaterial(context3D, entry.Object, entry.WorldMatrix, null);
+            }
         }
-
-        EndPass();
-    }
-
-    private void RenderTransparentObject(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
-    {
-        // Get mesh resource from object
-        var meshResource = obj.GetMesh();
-        if (meshResource == null)
-            return;
-
-        // Ensure GPU buffers are created/updated
-        EnsureMeshBuffers(meshResource);
-
-        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
-            return;
-
-        // Get the transparent material
-        var materialResource = obj.Material;
-        if (materialResource == null)
-            return;
-
-        // Ensure material pipeline is created
-        materialResource.EnsurePipeline(context);
-
-        // Bind material (pipeline, uniforms, descriptor sets) with combined matrix
-        materialResource.Bind(context, obj, worldMatrix);
-
-        // Bind vertex and index buffers
-        RenderPass!.BindVertexBuffer(meshResource.VertexBuffer);
-        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-        // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
-    }
-
-    private void EnsureMeshBuffers(Mesh.Resource meshResource)
-    {
-        if (!meshResource.BuffersDirty)
-            return;
-
-        var vertices = meshResource.GetVertices();
-        var indices = meshResource.GetIndices();
-
-        if (vertices.Length == 0 || indices.Length == 0)
-            return;
-
-        ulong vertexSize = (ulong)(vertices.Length * System.Runtime.InteropServices.Marshal.SizeOf<Vertex3D>());
-        ulong indexSize = (ulong)(indices.Length * sizeof(uint));
-
-        // Dispose old buffers if they exist
-        meshResource.VertexBuffer?.Dispose();
-        meshResource.IndexBuffer?.Dispose();
-
-        // Create new device-local buffers
-        var vertexBuffer = Context.CreateBuffer(
-            vertexSize,
-            BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
-
-        var indexBuffer = Context.CreateBuffer(
-            indexSize,
-            BufferUsage.IndexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
-
-        // Create staging buffers and upload
-        using var vertexStaging = Context.CreateBuffer(
-            vertexSize,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        using var indexStaging = Context.CreateBuffer(
-            indexSize,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        vertexStaging.Upload(vertices);
-        indexStaging.Upload(indices);
-
-        // Copy from staging to device local
-        Context.CopyBuffer(vertexStaging, vertexBuffer, vertexSize);
-        Context.CopyBuffer(indexStaging, indexBuffer, indexSize);
-
-        // Store in mesh resource
-        meshResource.VertexBuffer = vertexBuffer;
-        meshResource.IndexBuffer = indexBuffer;
-        meshResource.BuffersDirty = false;
     }
 
     protected override void OnDispose()

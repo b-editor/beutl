@@ -64,7 +64,13 @@ public sealed partial class BasicMaterial : Material3D
         // Default texture (1x1 pixel)
         private ITexture2D? _defaultWhiteTexture;
 
-        internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            if (DiffuseMap is not null)
+                yield return DiffuseMap;
+        }
 
         public override void EnsurePipeline(RenderContext3D context)
         {
@@ -74,22 +80,9 @@ public sealed partial class BasicMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
             var shaderCompiler = context.ShaderCompiler;
 
-            // Create uniform buffer
-            _uniformBuffer = graphicsContext.CreateBuffer(
-                (ulong)Marshal.SizeOf<BasicMaterialUBO>(),
-                BufferUsage.UniformBuffer,
-                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-            // Create sampler for texture
-            _sampler = graphicsContext.CreateSampler(
-                SamplerFilter.Linear,
-                SamplerFilter.Linear,
-                SamplerAddressMode.Repeat,
-                SamplerAddressMode.Repeat);
-
-            // Create default white texture
-            _defaultWhiteTexture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
-            _defaultWhiteTexture.Upload([255, 255, 255, 255]);
+            _uniformBuffer = MaterialGpuResources.CreateUniformBuffer<BasicMaterialUBO>(graphicsContext);
+            _sampler = MaterialGpuResources.CreateLinearRepeatSampler(graphicsContext);
+            _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
 
             // Compile shaders for G-Buffer output
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
@@ -193,17 +186,9 @@ public sealed partial class BasicMaterial : Material3D
             private Vector2 _pad;
         }
 
-        /// <summary>
-        /// Vertex shader for G-Buffer geometry pass.
-        /// </summary>
-        private static string VertexShaderSource => """
-            #version 450
-
-            layout(location = 0) in vec3 inPosition;
-            layout(location = 1) in vec3 inNormal;
-            layout(location = 2) in vec2 inTexCoord;
-            layout(location = 3) in vec4 inTangent;
-
+        // Both stages bind this block at descriptor binding 0, so they must declare the same fields in
+        // the same order as BasicMaterialUBO.
+        private const string MaterialUboSource = """
             layout(binding = 0) uniform MaterialUBO {
                 mat4 model;
                 mat4 view;
@@ -213,6 +198,20 @@ public sealed partial class BasicMaterial : Material3D
                 int hasTexture;
                 vec2 _pad;
             } material;
+            """;
+
+        /// <summary>
+        /// Vertex shader for G-Buffer geometry pass.
+        /// </summary>
+        private static string VertexShaderSource => $$"""
+            #version 450
+
+            layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec3 inNormal;
+            layout(location = 2) in vec2 inTexCoord;
+            layout(location = 3) in vec4 inTangent;
+
+            {{MaterialUboSource}}
 
             layout(location = 0) out vec3 fragWorldPos;
             layout(location = 1) out vec3 fragNormal;
@@ -232,22 +231,14 @@ public sealed partial class BasicMaterial : Material3D
         /// Fragment shader for G-Buffer output.
         /// BasicMaterial is treated as non-metallic with full AO and no emission.
         /// </summary>
-        private static string FragmentShaderSource => """
+        private static string FragmentShaderSource => $$"""
             #version 450
 
             layout(location = 0) in vec3 fragWorldPos;
             layout(location = 1) in vec3 fragNormal;
             layout(location = 2) in vec2 fragTexCoord;
 
-            layout(binding = 0) uniform MaterialUBO {
-                mat4 model;
-                mat4 view;
-                mat4 projection;
-                vec4 albedo;
-                float roughness;
-                int hasTexture;
-                vec2 _pad;
-            } material;
+            {{MaterialUboSource}}
 
             layout(binding = 1) uniform sampler2D diffuseMap;
 

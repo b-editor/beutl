@@ -1,5 +1,7 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Threading;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
@@ -48,5 +50,136 @@ public class SourceVideoThumbnailTests
     {
         // duration.TotalSeconds / count when count == 0 yields +Infinity.
         Assert.Throws<OverflowException>(() => TimeSpan.FromSeconds(double.PositiveInfinity * 0.5));
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task ThumbnailRenderResources_AreDisposedOnRenderThread()
+    {
+        var resources = new[]
+        {
+            new DisposalThreadProbe(),
+            new DisposalThreadProbe(),
+            new DisposalThreadProbe(),
+        };
+
+        Assert.That(RenderThread.Dispatcher.CheckAccess(), Is.False,
+            "the fixture must begin on the thumbnail consumer's non-render thread");
+        await SourceVideo.DisposeThumbnailRenderResourcesAsync(resources);
+
+        Assert.That(resources, Has.All.Matches<DisposalThreadProbe>(static item =>
+            item.DisposeCount == 1 && item.DisposedOnRenderThread));
+    }
+
+    [Test]
+    public async Task ThumbnailRenderResources_StopWaitingWhenDispatcherShutsDownBeforeQueuedCleanupRuns()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        using var blockerEntered = new ManualResetEventSlim();
+        using var releaseBlocker = new ManualResetEventSlim();
+        var resource = new DisposalThreadProbe();
+        try
+        {
+            await dispatcher.InvokeAsync(static () => { });
+            dispatcher.Dispatch(() =>
+            {
+                blockerEntered.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
+            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "The dispatcher fixture did not enter its blocking operation.");
+
+            Task cleanup = SourceVideo.DisposeThumbnailRenderResourcesAsync(dispatcher, resource);
+            dispatcher.Shutdown();
+
+            await cleanup.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.That(resource.DisposeCount, Is.Zero,
+                "Thread-affine resources must not be disposed from the thumbnail consumer after shutdown.");
+        }
+        finally
+        {
+            releaseBlocker.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True,
+                "The local dispatcher did not finish after its blocker was released.");
+        }
+    }
+
+    [Test]
+    public async Task ThumbnailRenderResources_CopiedShutdownHandlerIsSafeAfterCleanupUnsubscribes()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        using var cleanupEntered = new ManualResetEventSlim();
+        using var releaseCleanup = new ManualResetEventSlim();
+        using var shutdownHandlerEntered = new ManualResetEventSlim();
+        using var releaseShutdownHandler = new ManualResetEventSlim();
+        var resource = new BlockingDisposalProbe(cleanupEntered, releaseCleanup);
+        EventHandler blockingShutdownHandler = (_, _) =>
+        {
+            shutdownHandlerEntered.Set();
+            releaseShutdownHandler.Wait();
+        };
+        dispatcher.ShutdownStarted += blockingShutdownHandler;
+        Task? shutdown = null;
+        try
+        {
+            await dispatcher.InvokeAsync(static () => { });
+            Task cleanup = SourceVideo.DisposeThumbnailRenderResourcesAsync(dispatcher, resource);
+            Assert.That(cleanupEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "The cleanup fixture did not enter resource disposal.");
+
+            shutdown = Task.Run(dispatcher.Shutdown);
+            Assert.That(shutdownHandlerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                "Shutdown did not snapshot and enter the blocking handler.");
+
+            releaseCleanup.Set();
+            await cleanup.WaitAsync(TimeSpan.FromSeconds(5));
+            releaseShutdownHandler.Set();
+            await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(resource.DisposeCount, Is.EqualTo(1));
+        }
+        finally
+        {
+            releaseCleanup.Set();
+            releaseShutdownHandler.Set();
+            dispatcher.ShutdownStarted -= blockingShutdownHandler;
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            if (shutdown is not null)
+                await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True,
+                "The local dispatcher did not finish after the shutdown race fixture was released.");
+        }
+    }
+
+    private sealed class DisposalThreadProbe : IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public bool DisposedOnRenderThread { get; private set; }
+
+        public void Dispose()
+        {
+            DisposeCount++;
+            DisposedOnRenderThread = RenderThread.Dispatcher.CheckAccess();
+        }
+    }
+
+    private sealed class BlockingDisposalProbe(
+        ManualResetEventSlim entered,
+        ManualResetEventSlim release) : IDisposable
+    {
+        private int _disposeCount;
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public void Dispose()
+        {
+            Interlocked.Increment(ref _disposeCount);
+            entered.Set();
+            release.Wait();
+        }
     }
 }

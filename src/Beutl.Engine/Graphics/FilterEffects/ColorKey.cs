@@ -1,57 +1,50 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.ColorKey), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorKey : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform float3 keyColor;
+        uniform float range;
+        uniform float boundary;
 
-    static ColorKey()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float4 color;
-            uniform float range;
-            uniform float boundary;
+        // A solid fill reaches this shader quantized onto an 8-bit colour grid, so a pixel that was
+        // authored as the key colour arrives up to one 8-bit step away from the uniform. Matching on
+        // exact equality would make the mask depend on that, and it also leaves the smoothstep edges
+        // equal, which the shading languages do not define.
+        const half kMatchTolerance = 1.0 / 255.0;
 
-            // Rec.709 での輝度変換（リニアsRGB用）
-            half calcLuma(half3 c) {
-                return dot(c, half3(0.2126, 0.7152, 0.0722));
-            }
-
-            half4 main(float2 fragCoord) {
-                half4 c = src.eval(fragCoord);
-
-                // プリマルチプライドアルファを解除
-                half alpha = c.a;
-                if (alpha <= 0.0001) return half4(0.0);
-                half3 rgb = c.rgb / alpha;
-
-                // リニア空間でRec.709係数を使って輝度を計算
-                half luma = calcLuma(rgb);
-                half keyLuma = calcLuma(color.rgb);
-
-                half diff = abs(luma - keyLuma);
-                half mask = smoothstep(range, range + boundary, diff);
-
-                // 元のプリマルチプライド値にマスクを乗算して透過させる
-                return c * mask;
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        half calcLuma(half3 value) {
+            return dot(value, half3(0.2126, 0.7152, 0.0722));
         }
-    }
+
+        half4 apply(half4 color) {
+            half alpha = color.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            half3 rgb = color.rgb / alpha;
+
+            half luma = calcLuma(rgb);
+            half keyLuma = calcLuma(keyColor);
+
+            half diff = abs(luma - keyLuma);
+            half edge0 = range + kMatchTolerance;
+            half edge1 = edge0 + max(boundary, kMatchTolerance);
+            half mask = smoothstep(edge0, edge1, diff);
+
+            return color * mask;
+        }
+        """;
+
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.CurrentPixel);
 
     public ColorKey()
     {
@@ -70,32 +63,13 @@ public partial class ColorKey : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r.Color, r.Range, r.Boundary),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
-    private static void OnApplyTo((Color color, float range, float boundary) data, CustomFilterEffectContext c)
-    {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using EffectTarget effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["color"] = data.color.ToLinear().ToSKColorF();
-            builder.Uniforms["range"] = data.range / 100f;
-            builder.Uniforms["boundary"] = data.boundary / 100f;
-
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
+        context.Shader(ShaderDescription.CurrentPixel(
+            s_shaderSource,
+            bindings =>
+            {
+                bindings.Uniform("keyColor", r.Color.ToLinear().AsVector3());
+                bindings.Uniform("range", r.Range / 100f);
+                bindings.Uniform("boundary", r.Boundary / 100f);
+            }));
     }
 }

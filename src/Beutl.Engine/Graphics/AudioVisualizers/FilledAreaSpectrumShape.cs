@@ -20,17 +20,17 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
 
     public new partial class Resource
     {
+        private readonly CornerPathEffectCache _cornerEffect = new();
         private SKPath? _path;
         private SKPaint? _paint;
-        private float _lastCornerRadius = -1f;
-        private SKPathEffect? _cornerEffect;
 
-        internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+        protected internal override void Render(in SpectrumRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> normalizedBars = context.NormalizedBars;
+            Brush.Resource fill = context.Fill;
+
             int barCount = normalizedBars.Length;
             if (barCount < 2) return;
 
@@ -41,15 +41,8 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
-            _paint.Style = SKPaintStyle.Fill;
-            if (_lastCornerRadius != cornerRadius)
-            {
-                _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
-                _lastCornerRadius = cornerRadius;
-            }
-            _paint.PathEffect = _cornerEffect;
+            VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
+            _paint.PathEffect = _cornerEffect.GetOrCreate(cornerRadius);
 
             _path ??= new SKPath();
             _path.Reset();
@@ -78,11 +71,10 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             {
                 _path?.Dispose();
                 _paint?.Dispose();
-                _cornerEffect?.Dispose();
+                _cornerEffect.Dispose();
             }
             _path = null;
             _paint = null;
-            _cornerEffect = null;
         }
     }
 }

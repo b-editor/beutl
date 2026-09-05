@@ -64,7 +64,13 @@ public sealed partial class TransparentMaterial : Material3D
         private ISampler? _sampler;
         private ITexture2D? _defaultWhiteTexture;
 
-        internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            if (ColorMap is not null)
+                yield return ColorMap;
+        }
 
         /// <summary>
         /// Gets whether this material is transparent and requires forward rendering.
@@ -79,22 +85,9 @@ public sealed partial class TransparentMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
             var shaderCompiler = context.ShaderCompiler;
 
-            // Create uniform buffer
-            _uniformBuffer = graphicsContext.CreateBuffer(
-                (ulong)Marshal.SizeOf<TransparentMaterialUBO>(),
-                BufferUsage.UniformBuffer,
-                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-            // Create sampler for texture
-            _sampler = graphicsContext.CreateSampler(
-                SamplerFilter.Linear,
-                SamplerFilter.Linear,
-                SamplerAddressMode.Repeat,
-                SamplerAddressMode.Repeat);
-
-            // Create default white texture
-            _defaultWhiteTexture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
-            _defaultWhiteTexture.Upload([255, 255, 255, 255]);
+            _uniformBuffer = MaterialGpuResources.CreateUniformBuffer<TransparentMaterialUBO>(graphicsContext);
+            _sampler = MaterialGpuResources.CreateLinearRepeatSampler(graphicsContext);
+            _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
 
             // Compile shaders for forward rendering
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
@@ -209,17 +202,9 @@ public sealed partial class TransparentMaterial : Material3D
             public int HasTexture;           // 4 bytes
         }
 
-        /// <summary>
-        /// Vertex shader for transparent forward rendering.
-        /// </summary>
-        private static string VertexShaderSource => """
-            #version 450
-
-            layout(location = 0) in vec3 inPosition;
-            layout(location = 1) in vec3 inNormal;
-            layout(location = 2) in vec2 inTexCoord;
-            layout(location = 3) in vec4 inTangent;
-
+        // Both stages bind this block at descriptor binding 0, so they must declare the same fields in
+        // the same order as TransparentMaterialUBO.
+        private const string MaterialUboSource = """
             layout(binding = 0) uniform MaterialUBO {
                 mat4 model;
                 mat4 view;
@@ -234,6 +219,20 @@ public sealed partial class TransparentMaterial : Material3D
                 float roughness;
                 int hasTexture;
             } material;
+            """;
+
+        /// <summary>
+        /// Vertex shader for transparent forward rendering.
+        /// </summary>
+        private static string VertexShaderSource => $$"""
+            #version 450
+
+            layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec3 inNormal;
+            layout(location = 2) in vec2 inTexCoord;
+            layout(location = 3) in vec4 inTangent;
+
+            {{MaterialUboSource}}
 
             layout(location = 0) out vec3 fragWorldPos;
             layout(location = 1) out vec3 fragNormal;
@@ -254,7 +253,7 @@ public sealed partial class TransparentMaterial : Material3D
         /// <summary>
         /// Fragment shader for transparent forward rendering with fresnel effect.
         /// </summary>
-        private static string FragmentShaderSource => """
+        private static string FragmentShaderSource => $$"""
             #version 450
 
             layout(location = 0) in vec3 fragWorldPos;
@@ -262,20 +261,7 @@ public sealed partial class TransparentMaterial : Material3D
             layout(location = 2) in vec2 fragTexCoord;
             layout(location = 3) in vec3 fragViewDir;
 
-            layout(binding = 0) uniform MaterialUBO {
-                mat4 model;
-                mat4 view;
-                mat4 projection;
-                vec4 cameraPosition;
-                vec4 baseColor;
-                vec4 lightDirection;
-                vec4 lightColor;
-                vec4 ambientColor;
-                float opacity;
-                float ior;
-                float roughness;
-                int hasTexture;
-            } material;
+            {{MaterialUboSource}}
 
             layout(binding = 1) uniform sampler2D colorMap;
 

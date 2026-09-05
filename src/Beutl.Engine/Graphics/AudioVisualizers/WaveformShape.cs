@@ -1,5 +1,4 @@
 ﻿using Beutl.Engine;
-using Beutl.Media;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
@@ -13,15 +12,13 @@ public abstract partial class WaveformShape : EngineObject
     public abstract partial class Resource
     {
         /// <summary>
-        /// 波形を描画する。mins / maxs は各スロットの最小値・最大値（-1..1、gain 未適用）。
-        /// Shape 実装側で gain の適用と -1..1 へのクランプを行う。
+        /// Paints one frame of the waveform.
         /// </summary>
-        internal abstract void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill);
+        /// <param name="context">
+        /// The canvas, bounds, per-slot minimum and maximum samples, gain and fill brush for this frame.
+        /// The samples arrive unscaled, so the implementation applies the gain and clamps back into -1..1.
+        /// Its spans are valid only until this call returns.
+        /// </param>
+        protected internal abstract void Render(in WaveformRenderContext context);
     }
 }

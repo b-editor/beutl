@@ -27,12 +27,13 @@ public sealed partial class BarSpectrumShape : SpectrumShape
         private SKPaint? _paint;
         private SKPath? _path;
 
-        internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+        protected internal override void Render(in SpectrumRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> normalizedBars = context.NormalizedBars;
+            Brush.Resource fill = context.Fill;
+
             int barCount = normalizedBars.Length;
             if (barCount == 0) return;
 
@@ -58,8 +59,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             }
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
-            _paint.Style = SKPaintStyle.Fill;
+            VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
 
             _path ??= new SKPath();
             _path.Reset();
@@ -70,24 +70,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
                 float barHeight = MathF.Max(1f, magnitude * height);
                 float x = (float)bounds.X + i * slotWidth + offsetX;
                 float y = (float)bounds.Y + height - barHeight;
-
-                float maxRadius = MathF.Min(barWidth, barHeight) * 0.5f;
-                float tl = MathF.Min(cr.TopLeft, maxRadius);
-                float tr = MathF.Min(cr.TopRight, maxRadius);
-                float br = MathF.Min(cr.BottomRight, maxRadius);
-                float bl = MathF.Min(cr.BottomLeft, maxRadius);
-
-                var rect = new SKRect(x, y, x + barWidth, y + barHeight);
-                var radii = new SKPoint[4]
-                {
-                    new SKPoint(tl, tl),
-                    new SKPoint(tr, tr),
-                    new SKPoint(br, br),
-                    new SKPoint(bl, bl),
-                };
-                using var roundRect = new SKRoundRect();
-                roundRect.SetRectRadii(rect, radii);
-                _path.AddRoundRect(roundRect);
+                BarGeometry.AddRoundedBar(_path, x, y, barWidth, barHeight, cr);
             }
 
             canvas.Canvas.DrawPath(_path, _paint);

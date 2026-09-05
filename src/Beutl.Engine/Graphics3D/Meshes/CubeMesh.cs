@@ -37,11 +37,13 @@ public sealed partial class CubeMesh : Mesh
     [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
 
-    /// <inheritdoc />
-    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
+    public partial class Resource
     {
-        var r = (Resource)resource;
-        GenerateCube(r.Width, r.Height, r.Depth, out vertices, out indices);
+        /// <inheritdoc />
+        public override void ApplyTo(out Vertex3D[] vertices, out uint[] indices)
+        {
+            GenerateCube(Width, Height, Depth, out vertices, out indices);
+        }
     }
 
     /// <summary>

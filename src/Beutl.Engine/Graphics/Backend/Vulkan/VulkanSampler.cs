@@ -6,11 +6,13 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="ISampler"/>.
 /// </summary>
-internal sealed unsafe class VulkanSampler : ISampler
+internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
 {
     private readonly VulkanContext _context;
     private readonly Sampler _sampler;
     private bool _disposed;
+
+    public VulkanContext OwnerContext => _context;
 
     public VulkanSampler(
         VulkanContext context,
@@ -88,6 +90,7 @@ internal sealed unsafe class VulkanSampler : ISampler
         if (_disposed) return;
         _disposed = true;
 
-        _context.Vk.DestroySampler(_context.Device, _sampler, null);
+        Silk.NET.Vulkan.Sampler sampler = _sampler;
+        _context.DeferRelease(() => _context.Vk.DestroySampler(_context.Device, sampler, null));
     }
 }

@@ -177,7 +177,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 normalized[i] = Math.Clamp(n, 0f, 1f);
             }
 
-            shapeResource.Render(canvas, bounds, normalized, Fill);
+            shapeResource.Render(new SpectrumRenderContext(canvas, bounds, normalized, Fill));
         }
     }
 }

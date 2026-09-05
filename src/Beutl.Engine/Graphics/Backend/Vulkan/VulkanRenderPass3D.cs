@@ -8,28 +8,42 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="IRenderPass3D"/> with MRT support.
 /// </summary>
-internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
+internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextResource, IVulkanRenderPassSuspension
 {
     private readonly VulkanContext _context;
     private readonly RenderPass _renderPass;
+    private readonly Format[] _colorFormats;
+    private readonly Format? _depthFormat;
     private readonly int _colorAttachmentCount;
+    private readonly byte[] _pushConstantData = new byte[VulkanPipeline3D.MaxPushConstantsSize];
     private CommandBuffer _currentCommandBuffer;
     private VulkanPipeline3D? _currentPipeline;
+    private VulkanFramebuffer3D? _currentFramebuffer;
+    private RenderPass _resumeRenderPass;
+    private Silk.NET.Vulkan.Buffer _boundVertexBuffer;
+    private Silk.NET.Vulkan.Buffer _boundIndexBuffer;
+    private DescriptorSet _boundDescriptorSet;
+    private PipelineLayout _boundDescriptorSetPipelineLayout;
+    private PipelineLayout _pushConstantLayout;
+    private uint _pushConstantSize;
     private bool _inRenderPass;
+    private bool _suspended;
     private bool _disposed;
 
+    public VulkanContext OwnerContext => _context;
+
     /// <summary>
-    /// Creates a render pass with the specified color and depth formats.
+    /// Creates a render pass with the specified color formats and optional depth format.
     /// </summary>
     /// <param name="context">The Vulkan context.</param>
     /// <param name="colorFormats">Formats for each color attachment.</param>
-    /// <param name="depthFormat">Format for the depth attachment.</param>
+    /// <param name="depthFormat">Format for the depth attachment, or null for a color-only pass.</param>
     /// <param name="colorLoadOp">The load operation for color attachments.</param>
     /// <param name="depthLoadOp">The load operation for the depth attachment.</param>
     public VulkanRenderPass3D(
         VulkanContext context,
         IReadOnlyList<Format> colorFormats,
-        Format depthFormat = Format.D32Sfloat,
+        Format? depthFormat,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
@@ -39,19 +53,52 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context = context;
+        _colorFormats = [.. colorFormats];
+        _depthFormat = depthFormat;
         _colorAttachmentCount = colorFormats.Count;
 
+        _renderPass = CreateRenderPass(
+            context,
+            _colorFormats,
+            depthFormat,
+            ToVulkanLoadOp(colorLoadOp),
+            ToVulkanLoadOp(depthLoadOp));
+    }
+
+    /// <summary>
+    /// The pass instance this one resumes as after being suspended: the same attachments, loading what the
+    /// suspended half stored instead of clearing over it.
+    /// </summary>
+    /// <remarks>
+    /// Render pass compatibility ignores load and store ops, so a pipeline built for this pass stays valid
+    /// across the split and nothing has to be rebuilt to cross it.
+    /// </remarks>
+    private RenderPass GetOrCreateResumeRenderPass()
+    {
+        if (_resumeRenderPass.Handle != 0)
+            return _resumeRenderPass;
+
+        _resumeRenderPass = CreateRenderPass(
+            _context,
+            _colorFormats,
+            _depthFormat,
+            Silk.NET.Vulkan.AttachmentLoadOp.Load,
+            Silk.NET.Vulkan.AttachmentLoadOp.Load);
+        return _resumeRenderPass;
+    }
+
+    private static RenderPass CreateRenderPass(
+        VulkanContext context,
+        IReadOnlyList<Format> colorFormats,
+        Format? depthFormat,
+        Silk.NET.Vulkan.AttachmentLoadOp colorLoadOp,
+        Silk.NET.Vulkan.AttachmentLoadOp depthLoadOp)
+    {
         var vk = context.Vk;
         var device = context.Device;
-
-        int totalAttachments = colorFormats.Count + 1; // colors + depth
-
-        // Create attachment descriptions
+        int totalAttachments = colorFormats.Count + (depthFormat.HasValue ? 1 : 0);
         var attachments = stackalloc AttachmentDescription[totalAttachments];
         var colorAttachmentRefs = stackalloc AttachmentReference[colorFormats.Count];
-
-        var vulkanColorLoadOp = ToVulkanLoadOp(colorLoadOp);
-        var vulkanDepthLoadOp = ToVulkanLoadOp(depthLoadOp);
 
         for (int i = 0; i < colorFormats.Count; i++)
         {
@@ -59,7 +106,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             {
                 Format = colorFormats[i],
                 Samples = SampleCountFlags.Count1Bit,
-                LoadOp = vulkanColorLoadOp,
+                LoadOp = colorLoadOp,
                 StoreOp = AttachmentStoreOp.Store,
                 StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
                 StencilStoreOp = AttachmentStoreOp.DontCare,
@@ -74,41 +121,52 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             };
         }
 
-        // Depth attachment (last)
-        attachments[colorFormats.Count] = new AttachmentDescription
+        var depthAttachmentRef = default(AttachmentReference);
+        if (depthFormat is Format actualDepthFormat)
         {
-            Format = depthFormat,
-            Samples = SampleCountFlags.Count1Bit,
-            LoadOp = vulkanDepthLoadOp,
-            StoreOp = AttachmentStoreOp.Store, // Store depth for shadow mapping
-            StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
-            StencilStoreOp = AttachmentStoreOp.DontCare,
-            InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
-            FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
-        };
+            attachments[colorFormats.Count] = new AttachmentDescription
+            {
+                Format = actualDepthFormat,
+                Samples = SampleCountFlags.Count1Bit,
+                LoadOp = depthLoadOp,
+                StoreOp = AttachmentStoreOp.Store,
+                StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
+                StencilStoreOp = AttachmentStoreOp.DontCare,
+                InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
+                FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
+            };
 
-        var depthAttachmentRef = new AttachmentReference
-        {
-            Attachment = (uint)colorFormats.Count,
-            Layout = ImageLayout.DepthStencilAttachmentOptimal
-        };
+            depthAttachmentRef = new AttachmentReference
+            {
+                Attachment = (uint)colorFormats.Count,
+                Layout = ImageLayout.DepthStencilAttachmentOptimal
+            };
+        }
 
         var subpass = new SubpassDescription
         {
             PipelineBindPoint = PipelineBindPoint.Graphics,
             ColorAttachmentCount = (uint)colorFormats.Count,
             PColorAttachments = colorAttachmentRefs,
-            PDepthStencilAttachment = &depthAttachmentRef
+            PDepthStencilAttachment = depthFormat.HasValue ? &depthAttachmentRef : null
         };
+
+        PipelineStageFlags attachmentStages = PipelineStageFlags.ColorAttachmentOutputBit;
+        AccessFlags attachmentWrites = AccessFlags.ColorAttachmentWriteBit;
+        if (depthFormat.HasValue)
+        {
+            attachmentStages |= PipelineStageFlags.EarlyFragmentTestsBit;
+            attachmentWrites |= AccessFlags.DepthStencilAttachmentWriteBit;
+        }
 
         var dependency = new SubpassDependency
         {
             SrcSubpass = Vk.SubpassExternal,
             DstSubpass = 0,
-            SrcStageMask = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
+            SrcStageMask = attachmentStages,
             SrcAccessMask = 0,
-            DstStageMask = PipelineStageFlags.ColorAttachmentOutputBit | PipelineStageFlags.EarlyFragmentTestsBit,
-            DstAccessMask = AccessFlags.ColorAttachmentWriteBit | AccessFlags.DepthStencilAttachmentWriteBit
+            DstStageMask = attachmentStages,
+            DstAccessMask = attachmentWrites
         };
 
         var renderPassInfo = new RenderPassCreateInfo
@@ -122,18 +180,25 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             PDependencies = &dependency
         };
 
-        RenderPass renderPass;
-        var result = vk.CreateRenderPass(device, &renderPassInfo, null, &renderPass);
+        RenderPass created;
+        Result result = vk.CreateRenderPass(device, &renderPassInfo, null, &created);
         if (result != Result.Success)
         {
             throw new InvalidOperationException($"Failed to create render pass: {result}");
         }
-        _renderPass = renderPass;
+
+        return created;
     }
 
     public RenderPass Handle => _renderPass;
 
     public int ColorAttachmentCount => _colorAttachmentCount;
+
+    public IReadOnlyList<Format> ColorFormats => _colorFormats;
+
+    public Format? DepthFormat => _depthFormat;
+
+    public bool HasDepthAttachment => _depthFormat.HasValue;
 
     public void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f)
     {
@@ -144,24 +209,26 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass already begun");
         }
 
-        var vulkanFramebuffer = (VulkanFramebuffer3D)framebuffer;
-
-        // Allocate command buffer
-        _currentCommandBuffer = _context.AllocateCommandBuffer();
-
-        var beginInfo = new CommandBufferBeginInfo
+        var vulkanFramebuffer = _context.RequireOwned<VulkanFramebuffer3D>(framebuffer, nameof(framebuffer));
+        if (!vulkanFramebuffer.IsCompatibleWith(this))
         {
-            SType = StructureType.CommandBufferBeginInfo,
-            Flags = CommandBufferUsageFlags.OneTimeSubmitBit
-        };
+            throw new ArgumentException("The framebuffer was created for a different render pass.", nameof(framebuffer));
+        }
 
-        _context.Vk.BeginCommandBuffer(_currentCommandBuffer, &beginInfo);
+        // Rejected before the first barrier, but the batch is not claimed until the command that opens the
+        // pass: a claimed scope sends every barrier through the suspend path, and the preparation below
+        // runs before there is an instance to suspend.
+        _context.ThrowIfRenderPassActive();
 
         // Prepare textures for rendering
         vulkanFramebuffer.PrepareForRendering();
 
+        // Barriers, copies, and consecutive render passes share one command buffer until an
+        // external consumer requires submission.
+        _currentCommandBuffer = _context.GetRecordingCommandBuffer();
+
         // Create clear values for all attachments
-        int totalClearValues = _colorAttachmentCount + 1;
+        int totalClearValues = _colorAttachmentCount + (HasDepthAttachment ? 1 : 0);
         var clearValues = stackalloc ClearValue[totalClearValues];
 
         for (int i = 0; i < _colorAttachmentCount; i++)
@@ -176,7 +243,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
                 clearValues[i].Color = new ClearColorValue(0, 0, 0, 0);
             }
         }
-        clearValues[_colorAttachmentCount].DepthStencil = new ClearDepthStencilValue(clearDepth, 0);
+        if (HasDepthAttachment)
+        {
+            clearValues[_colorAttachmentCount].DepthStencil = new ClearDepthStencilValue(clearDepth, 0);
+        }
 
         var renderPassBeginInfo = new RenderPassBeginInfo
         {
@@ -186,15 +256,23 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             RenderArea = new Rect2D
             {
                 Offset = new Offset2D(0, 0),
-                Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
+                Extent = new Extent2D((uint)vulkanFramebuffer.Width, (uint)vulkanFramebuffer.Height)
             },
             ClearValueCount = (uint)totalClearValues,
             PClearValues = clearValues
         };
 
+        ForgetRecordedState();
+        _context.BeginRenderPassScope(this);
         _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
+        SetFullFramebufferViewport(vulkanFramebuffer);
 
-        // Set viewport and scissor
+        _currentFramebuffer = vulkanFramebuffer;
+        _inRenderPass = true;
+    }
+
+    private void SetFullFramebufferViewport(VulkanFramebuffer3D framebuffer)
+    {
         var viewport = new Viewport
         {
             X = 0,
@@ -212,8 +290,131 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
         };
         _context.Vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
+    }
 
-        _inRenderPass = true;
+    /// <remarks>
+    /// Vulkan forbids a transfer or a barrier inside a render pass instance, and appending one to the batch
+    /// the pass is still recording is not an option either. Ending the instance, recording the work, and
+    /// beginning it again keeps everything on one command buffer in the order it was recorded, which is what
+    /// a draw already recorded in this pass needs: it must not end up running after work requested later.
+    /// </remarks>
+    bool IVulkanRenderPassSuspension.TrySuspend()
+    {
+        // Dispose already gives up the scope, so a disposed pass should never be reached as its owner. The
+        // check stays because the cost of being wrong is recording an end and a begin against render pass
+        // handles that have been destroyed, which no layer below this one can diagnose.
+        if (_disposed || !_inRenderPass || _suspended || _currentFramebuffer is null)
+            return false;
+
+        _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
+        _suspended = true;
+        return true;
+    }
+
+    void IVulkanRenderPassSuspension.Resume()
+    {
+        VulkanFramebuffer3D framebuffer = _currentFramebuffer
+            ?? throw new InvalidOperationException("A suspended render pass lost the framebuffer it was recording into.");
+
+        // The batch this pass was recording into may have been submitted while it was suspended - that is
+        // what a synchronous flush does - so the instance resumes on whatever batch is recording now.
+        _currentCommandBuffer = _context.GetRecordingCommandBuffer();
+
+        var renderPassBeginInfo = new RenderPassBeginInfo
+        {
+            SType = StructureType.RenderPassBeginInfo,
+            RenderPass = GetOrCreateResumeRenderPass(),
+            Framebuffer = framebuffer.Handle,
+            RenderArea = new Rect2D
+            {
+                Offset = new Offset2D(0, 0),
+                Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
+            },
+            ClearValueCount = 0,
+            PClearValues = null
+        };
+
+        _context.Vk.CmdBeginRenderPass(_currentCommandBuffer, &renderPassBeginInfo, SubpassContents.Inline);
+        SetFullFramebufferViewport(framebuffer);
+        _suspended = false;
+        RebindRecordedState();
+    }
+
+    /// <summary>
+    /// Puts back everything a draw reads that lives on the command buffer rather than in an object.
+    /// </summary>
+    /// <remarks>
+    /// A synchronous flush during a suspension submits the batch, so the instance resumes on a freshly
+    /// allocated command buffer that holds none of the bindings the caller made before the split: the
+    /// pipeline, the vertex and index buffers, the descriptor set, and the push constants are all command
+    /// buffer state and would otherwise be absent from the next <c>Draw</c>. Every one of them is recorded
+    /// as the caller makes it and replayed here; the viewport and scissor, the only other state this pass
+    /// records, are re-issued by the caller of this method.
+    ///
+    /// The order is what the spec requires, not a preference: binding a pipeline can disturb descriptor
+    /// bindings made under an incompatible layout, and binding a descriptor set can leave push constant
+    /// values undefined, so the pipeline goes first and the push constants last.
+    /// </remarks>
+    private void RebindRecordedState()
+    {
+        Vk vk = _context.Vk;
+
+        if (_currentPipeline is { } pipeline)
+        {
+            vk.CmdBindPipeline(_currentCommandBuffer, PipelineBindPoint.Graphics, pipeline.Handle);
+        }
+
+        if (_boundDescriptorSet.Handle != 0)
+        {
+            DescriptorSet set = _boundDescriptorSet;
+            vk.CmdBindDescriptorSets(
+                _currentCommandBuffer,
+                PipelineBindPoint.Graphics,
+                _boundDescriptorSetPipelineLayout,
+                0,
+                1,
+                &set,
+                0,
+                null);
+        }
+
+        if (_boundVertexBuffer.Handle != 0)
+        {
+            Silk.NET.Vulkan.Buffer vertexBuffer = _boundVertexBuffer;
+            ulong offset = 0;
+            vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &vertexBuffer, &offset);
+        }
+
+        if (_boundIndexBuffer.Handle != 0)
+        {
+            vk.CmdBindIndexBuffer(_currentCommandBuffer, _boundIndexBuffer, 0, IndexType.Uint32);
+        }
+
+        if (_pushConstantSize != 0)
+        {
+            fixed (byte* data = _pushConstantData)
+            {
+                vk.CmdPushConstants(
+                    _currentCommandBuffer,
+                    _pushConstantLayout,
+                    VulkanPipeline3D.PushConstantStages,
+                    0,
+                    _pushConstantSize,
+                    data);
+            }
+        }
+    }
+
+    /// <summary>Drops the bindings recorded for an instance that is no longer recording.</summary>
+    private void ForgetRecordedState()
+    {
+        _currentPipeline = null;
+        _boundVertexBuffer = default;
+        _boundIndexBuffer = default;
+        _boundDescriptorSet = default;
+        _boundDescriptorSetPipelineLayout = default;
+        _pushConstantLayout = default;
+        _pushConstantSize = 0;
     }
 
     public void End()
@@ -226,13 +427,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
-        _context.Vk.EndCommandBuffer(_currentCommandBuffer);
-
-        // Submit command buffer
-        _context.SubmitCommandBuffer(_currentCommandBuffer);
+        _context.EndRenderPassScope(this);
 
         _inRenderPass = false;
-        _currentPipeline = null;
+        _suspended = false;
+        _currentFramebuffer = null;
+        ForgetRecordedState();
     }
 
     public CommandBuffer GetCurrentCommandBuffer()
@@ -251,7 +451,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
+        if (!vulkanPipeline.IsCompatibleWith(this))
+        {
+            throw new ArgumentException("The pipeline was created for a different render pass.", nameof(pipeline));
+        }
+
         _currentPipeline = vulkanPipeline;
         _context.Vk.CmdBindPipeline(_currentCommandBuffer, PipelineBindPoint.Graphics, vulkanPipeline.Handle);
     }
@@ -263,9 +468,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         var bufferHandle = vulkanBuffer.Handle;
         ulong offset = 0;
+        _boundVertexBuffer = bufferHandle;
         _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &bufferHandle, &offset);
     }
 
@@ -276,10 +482,26 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanBuffer = (VulkanBuffer)buffer;
+        var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
+        _boundIndexBuffer = vulkanBuffer.Handle;
         _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
     }
 
+    /// <remarks>
+    /// <c>vkCmdBindDescriptorSets</c> takes the set and the pipeline layout as unrelated handles, and neither
+    /// carries the declarations it was built from, so a set allocated from a layout the pipeline does not
+    /// declare is undefined behaviour the driver need not diagnose - on MoltenVK it takes the process down.
+    /// This rejects it on layout handle identity, which is stricter than Vulkan's own rule that two
+    /// identically defined layouts are interchangeable: a set is allocated from exactly one pipeline's
+    /// layout here, and admitting a cross-pipeline bind would mean comparing declarations the managed layer
+    /// does not fully hold - <see cref="VulkanDescriptorBindingTable"/> keeps the binding numbers, types, and
+    /// counts a write has to be checked against, but not the stage flags that also decide whether two
+    /// layouts are identically defined. Being over-strict costs a legal bind an argument error the caller
+    /// can act on; being under-strict costs the process.
+    /// </remarks>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="descriptorSet"/> was allocated from a different pipeline's descriptor set layout.
+    /// </exception>
     public void BindDescriptorSet(IPipeline3D pipeline, IDescriptorSet descriptorSet)
     {
         if (!_inRenderPass)
@@ -287,9 +509,20 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
-        var vulkanPipeline = (VulkanPipeline3D)pipeline;
-        var vulkanDescriptorSet = (VulkanDescriptorSet)descriptorSet;
+        var vulkanPipeline = _context.RequireOwned<VulkanPipeline3D>(pipeline, nameof(pipeline));
+        var vulkanDescriptorSet = _context.RequireOwned<VulkanDescriptorSet>(descriptorSet, nameof(descriptorSet));
+        if (vulkanDescriptorSet.Layout.Handle != vulkanPipeline.DescriptorSetLayoutHandle.Handle)
+        {
+            throw new ArgumentException(
+                "The descriptor set was allocated from a different pipeline's descriptor set layout, so the "
+                + "pipeline layout it would be bound against does not describe it. Allocate the set from the "
+                + "pipeline it is bound with.",
+                nameof(descriptorSet));
+        }
+
         var set = vulkanDescriptorSet.Handle;
+        _boundDescriptorSet = set;
+        _boundDescriptorSetPipelineLayout = vulkanPipeline.PipelineLayoutHandle;
         _context.Vk.CmdBindDescriptorSets(
             _currentCommandBuffer,
             PipelineBindPoint.Graphics,
@@ -301,12 +534,46 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             null);
     }
 
+    /// <remarks>
+    /// A draw reads a descriptor set through the layout of the pipeline it uses, but the binding was
+    /// programmed against whatever layout reached <c>vkCmdBindDescriptorSets</c>, and neither handle carries
+    /// the declarations it was built from. Drawing with a pipeline whose layout is not compatible for that
+    /// set violates <c>VUID-vkCmdDraw-None-08600</c>: the shader reads through declarations the binding was
+    /// never programmed against, which is undefined behaviour the driver need not diagnose - on MoltenVK it
+    /// takes the process down. Only this layer knows which pipeline programmed the binding, so only it can
+    /// reject the pair.
+    ///
+    /// The pair is checked here rather than in <see cref="BindDescriptorSet"/> because a bind is not what
+    /// makes it wrong: the spec lets a set be bound without having bound a particular pipeline first, or
+    /// with a different one bound, so the mismatch only exists once a draw makes some pipeline the one that
+    /// reads the set. A set that was never bound is left alone - a pipeline that declares no descriptor
+    /// bindings draws correctly without one.
+    /// </remarks>
+    private void ValidateDrawState()
+    {
+        if (_currentPipeline is not { } pipeline)
+        {
+            throw new InvalidOperationException("No pipeline bound");
+        }
+
+        if (_boundDescriptorSet.Handle != 0
+            && _boundDescriptorSetPipelineLayout.Handle != pipeline.PipelineLayoutHandle.Handle)
+        {
+            throw new InvalidOperationException(
+                "The bound descriptor set was programmed against a different pipeline's layout than the one "
+                + "this draw reads it through, so the shader would resolve it against declarations it was "
+                + "never written for. Bind the descriptor set with the pipeline that draws with it.");
+        }
+    }
+
     public void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
     {
         if (!_inRenderPass)
         {
             throw new InvalidOperationException("Render pass not begun");
         }
+
+        ValidateDrawState();
 
         _context.Vk.CmdDrawIndexed(_currentCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
@@ -318,10 +585,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             throw new InvalidOperationException("Render pass not begun");
         }
 
+        ValidateDrawState();
+
         _context.Vk.CmdDraw(_currentCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
     }
 
-    public void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged
+    public void SetPushConstants<T>(T data) where T : unmanaged
     {
         if (!_inRenderPass)
         {
@@ -334,21 +603,22 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         var size = (uint)sizeof(T);
-        if (size > 128)
+        if (size > VulkanPipeline3D.MaxPushConstantsSize)
         {
-            throw new ArgumentException($"Push constants size {size} exceeds maximum of 128 bytes");
+            throw new ArgumentException(
+                $"Push constants size {size} exceeds maximum of {VulkanPipeline3D.MaxPushConstantsSize} bytes");
         }
 
-        ShaderStageFlags vulkanStageFlags = 0;
-        if ((stageFlags & ShaderStage.Vertex) != 0)
-            vulkanStageFlags |= ShaderStageFlags.VertexBit;
-        if ((stageFlags & ShaderStage.Fragment) != 0)
-            vulkanStageFlags |= ShaderStageFlags.FragmentBit;
+        new ReadOnlySpan<byte>(&data, (int)size).CopyTo(_pushConstantData);
+        _pushConstantLayout = _currentPipeline.PipelineLayoutHandle;
+        _pushConstantSize = size;
 
+        // The bound layout's range is what decides these, not the caller: an update has to name every stage
+        // of every range it overlaps, so naming fewer is undefined behaviour the driver need not report.
         _context.Vk.CmdPushConstants(
             _currentCommandBuffer,
             _currentPipeline.PipelineLayoutHandle,
-            vulkanStageFlags,
+            VulkanPipeline3D.PushConstantStages,
             0,
             size,
             &data);
@@ -359,7 +629,31 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         if (_disposed) return;
         _disposed = true;
 
-        _context.Vk.DestroyRenderPass(_context.Device, _renderPass, null);
+        // A caller can own its pass - IRenderPass3D is IDisposable and the context hands one out - so dispose
+        // is reachable from a path that never ran End: an early return or a throw under a `using`. The scope
+        // Begin claimed belongs to the context rather than to this object, so a disposed pass that keeps it
+        // rejects every later Begin on that context and sends every later transfer through a suspend on this
+        // object, whose render pass handles are being destroyed just below.
+        if (_inRenderPass)
+        {
+            if (!_suspended)
+                _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
+
+            _context.EndRenderPassScope(this);
+            _inRenderPass = false;
+            _suspended = false;
+            _currentFramebuffer = null;
+            ForgetRecordedState();
+        }
+
+        RenderPass renderPass = _renderPass;
+        RenderPass resumeRenderPass = _resumeRenderPass;
+        _context.DeferRelease(() =>
+        {
+            _context.Vk.DestroyRenderPass(_context.Device, renderPass, null);
+            if (resumeRenderPass.Handle != 0)
+                _context.Vk.DestroyRenderPass(_context.Device, resumeRenderPass, null);
+        });
     }
 
     private static Silk.NET.Vulkan.AttachmentLoadOp ToVulkanLoadOp(AttachmentLoadOp loadOp)

@@ -1,5 +1,4 @@
 ﻿using Beutl.Engine;
-using Beutl.Media;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
@@ -13,12 +12,12 @@ public abstract partial class SpectrumShape : EngineObject
     public abstract partial class Resource
     {
         /// <summary>
-        /// 形状を描画する。normalizedBars は 0..1 に正規化済みのバーごとの強度。
+        /// Paints one frame of the spectrum.
         /// </summary>
-        internal abstract void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill);
+        /// <param name="context">
+        /// The canvas, bounds, per-bar intensities and fill brush for this frame. Its spans are valid only
+        /// until this call returns.
+        /// </param>
+        protected internal abstract void Render(in SpectrumRenderContext context);
     }
 }

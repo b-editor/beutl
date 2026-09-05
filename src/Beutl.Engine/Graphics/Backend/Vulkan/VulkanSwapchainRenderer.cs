@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -11,19 +10,6 @@ using VkSemaphore = Silk.NET.Vulkan.Semaphore;
 namespace Beutl.Graphics.Backend.Vulkan;
 
 using Image = Silk.NET.Vulkan.Image;
-
-/// <summary>
-/// Parameters for bitmap rendering.
-/// </summary>
-internal readonly record struct RenderParams(
-    float SourceWidth,
-    float SourceHeight,
-    float DestWidth,
-    float DestHeight,
-    Stretch Stretch,
-    UIToneMappingOperator ToneMapping,
-    float Exposure,
-    bool IsSourceLinear);
 
 /// <summary>
 /// Orchestrates Vulkan swapchain rendering with a dedicated presentation thread and device.
@@ -55,6 +41,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
     private int _sourceWidth;
     private int _sourceHeight;
     private Format _sourceFormat;
+    private ImageLayout _sourceImageLayout = ImageLayout.Undefined;
 
     // Staging buffer
     private Silk.NET.Vulkan.Buffer _stagingBuffer;
@@ -214,12 +201,14 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         if (bitmap.IsDisposed)
             return;
 
-        // Upload bitmap to GPU
-        UploadBitmap(bitmap);
-
-        // Acquire next swapchain image
+        // The previous frame fence covers its upload and present draw because both use this queue.
+        // Wait before rewriting the persistent staging buffer or replacing the source image.
         var fence = _inFlightFence;
         _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
+
+        // The following render submission is ordered after this upload on the same queue, so it
+        // needs no per-operation CPU fence wait.
+        UploadBitmap(bitmap);
 
         var acquireResult = _swapchain.AcquireNextImage(_imageAvailableSemaphore, out uint imageIndex);
         if (acquireResult == Result.ErrorOutOfDateKhr)
@@ -274,7 +263,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         BeginCommandBuffer(cmdBuf);
 
         // Transition to transfer dst
-        TransitionImageLayout(cmdBuf, _sourceImage, ImageLayout.Undefined, ImageLayout.TransferDstOptimal);
+        TransitionImageLayout(cmdBuf, _sourceImage, _sourceImageLayout, ImageLayout.TransferDstOptimal);
+        _sourceImageLayout = ImageLayout.TransferDstOptimal;
 
         var region = new BufferImageCopy
         {
@@ -296,8 +286,9 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
         // Transition to shader read
         TransitionImageLayout(cmdBuf, _sourceImage, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
+        _sourceImageLayout = ImageLayout.ShaderReadOnlyOptimal;
 
-        EndAndSubmitCommandBuffer(cmdBuf);
+        EndAndSubmitUploadCommands(cmdBuf);
 
         // Update descriptor set
         _pipeline!.UpdateDescriptorSet(_descriptorSet, _sourceImageView);
@@ -630,6 +621,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         ImageView view;
         _vk.CreateImageView(_device, &viewInfo, null, &view);
         _sourceImageView = view;
+        _sourceImageLayout = ImageLayout.Undefined;
 
         // Allocate descriptor set
         _descriptorSet = _pipeline!.AllocateDescriptorSet();
@@ -663,6 +655,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
         _sourceWidth = 0;
         _sourceHeight = 0;
+        _sourceImageLayout = ImageLayout.Undefined;
     }
 
     private void EnsureStagingBuffer(ulong requiredSize)
@@ -763,7 +756,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         _vk.BeginCommandBuffer(cmdBuf, &beginInfo);
     }
 
-    private void EndAndSubmitCommandBuffer(CommandBuffer cmdBuf)
+    private void EndAndSubmitUploadCommands(CommandBuffer cmdBuf)
     {
         _vk.EndCommandBuffer(cmdBuf);
 
@@ -774,11 +767,11 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
             PCommandBuffers = &cmdBuf
         };
 
-        var fence = _inFlightFence;
-        _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
-        _vk.ResetFences(_device, 1, &fence);
-        _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence);
-        _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
+        Result result = _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, default);
+        if (result != Result.Success)
+        {
+            throw new InvalidOperationException($"Failed to submit HDR source upload: {result}");
+        }
     }
 
     private void TransitionImageLayout(CommandBuffer cmdBuf, Image image, ImageLayout oldLayout, ImageLayout newLayout)
@@ -799,6 +792,13 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
             dstStage = PipelineStageFlags.FragmentShaderBit;
             srcAccess = AccessFlags.TransferWriteBit;
             dstAccess = AccessFlags.ShaderReadBit;
+        }
+        else if (oldLayout == ImageLayout.ShaderReadOnlyOptimal && newLayout == ImageLayout.TransferDstOptimal)
+        {
+            srcStage = PipelineStageFlags.FragmentShaderBit;
+            dstStage = PipelineStageFlags.TransferBit;
+            srcAccess = AccessFlags.ShaderReadBit;
+            dstAccess = AccessFlags.TransferWriteBit;
         }
         else
         {

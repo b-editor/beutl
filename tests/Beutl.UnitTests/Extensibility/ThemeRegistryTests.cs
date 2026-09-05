@@ -144,7 +144,7 @@ public class ThemeRegistryTests
     [TestCase("  system  ")]
     [TestCase("2")]
     [TestCase("0")]
-    public void Register_RejectsExtensionUsingALegacyAliasOfABuiltinId(string id)
+    public void Register_RejectsExtensionUsingAEffectItemAliasOfABuiltinId(string id)
     {
         var ext = new TestThemeExtension(id, "Alias");
 

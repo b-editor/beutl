@@ -1,0 +1,69 @@
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
+
+namespace Beutl.PublicApiContractTests;
+
+[TestFixture]
+public sealed class CapturedResourceBorrowContractTests
+{
+    private static readonly Rect s_bounds = new(0, 0, 4, 3);
+    private static readonly RenderResourceSlot<BorrowedPayload> s_payloadSlot = new();
+
+    // Read once here rather than inside the callback: Colors.White is a get-only property whose getter
+    // this compilation cannot see, so a callback naming it is not shown to answer the same way twice.
+    private static readonly Color s_fill = Colors.White;
+
+    private static OpaqueRenderDescription PayloadSource(RenderResourceBinding payload)
+        => OpaqueRenderDescription.Create(
+            (byte)0,
+            static (session, _) => session.UseResource(s_payloadSlot, bound =>
+            {
+                bound.Uses++;
+                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                output.Canvas.Use(static canvas => canvas.Clear(s_fill));
+                session.Publish(output);
+            }),
+            OpaqueRenderBoundsContract.Source(s_bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.MaterializeAtWorkingScale,
+            resources: [payload]);
+
+    [Test]
+    public void BorrowedResource_IsBoundByItsTypedSlotWithoutAnAuthorIdentity()
+    {
+        var payload = new BorrowedPayload();
+        using var node = new DelegateSourceNode(context =>
+        {
+            RenderResource<BorrowedPayload> token = context.Borrow(payload);
+            context.Publish(context.OpaqueSource(PayloadSource(s_payloadSlot.Bind(token))));
+        });
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_bounds,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
+
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rasterization.IsEmpty, Is.False);
+            Assert.That(payload.Uses, Is.EqualTo(1));
+        });
+    }
+
+    private sealed class DelegateSourceNode(Action<RenderNodeContext> process) : RenderNode
+    {
+        public override void Process(RenderNodeContext context) => process(context);
+    }
+
+    private sealed class BorrowedPayload
+    {
+        public int Uses { get; set; }
+    }
+}

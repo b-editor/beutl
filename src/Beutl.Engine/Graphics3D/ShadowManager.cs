@@ -309,10 +309,10 @@ internal sealed class ShadowManager : IDisposable
             _shadowPasses2D[i].PrepareForSampling();
         }
 
-        // Note: CopyTextureToArrayLayer and CopyTextureToCubeArrayFace already transition
-        // each layer/face to ShaderReadOnlyOptimal, so we don't need to call
-        // TransitionAllToSampled here. Doing so would actually be harmful because it would
-        // transition from Undefined (stale internal state) and potentially discard the data.
+        // CopyTextureToArrayLayer and CopyTextureToCubeArrayFace already leave each slot they wrote in
+        // ShaderReadOnlyOptimal, and a slot no light filled starts there, so nothing here has to sweep the
+        // whole array. Sweeping would be harmless - each transition reads the slot's tracked layout and
+        // skips a slot already in the target - but it would also be pointless work every frame.
 
         // Transition the cube array to sampled state
         if (_activeShadowCountCube > 0)

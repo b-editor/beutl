@@ -11,14 +11,21 @@ public sealed class ClearRenderNode(Color color) : RenderNode
         if (Color != color)
         {
             Color = color;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return [RenderNodeOperation.CreateLambda(Rect.Empty, canvas => canvas.Clear(Color))];
+        context.Publish(context.TargetCommand(
+            [],
+            TargetCommandDescription.Create(
+                Color,
+                static (session, state) => session.Canvas.Use(canvas => canvas.Clear(state)),
+                TargetRegion.Full,
+                Rect.Empty,
+                RenderHitTestContract.None)));
     }
 }

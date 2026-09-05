@@ -264,29 +264,37 @@ get_feature_paths() {
 
     # Resolve feature directory.  Priority:
     #   1. SPECIFY_FEATURE_DIRECTORY env var (explicit override)
-    #   2. .specify/feature.json "feature_directory" key (persisted by /speckit.specify)
-    #   3. Branch-name-based prefix lookup (legacy fallback)
-    local feature_dir
+    #   2. Existing feature directory matching the branch prefix
+    #   3. Shared .specify/feature.json fallback
+    #
+    # A matching branch outranks the shared pin; the pin handles branches with no feature prefix.
+    local feature_dir=''
     if [[ -n "${SPECIFY_FEATURE_DIRECTORY:-}" ]]; then
         feature_dir="$SPECIFY_FEATURE_DIRECTORY"
         # Normalize relative paths to absolute under repo root
         [[ "$feature_dir" != /* ]] && feature_dir="$repo_root/$feature_dir"
-    elif [[ -f "$repo_root/.specify/feature.json" ]]; then
-        # Shared, set -e-safe parser: jq -> python3 -> grep/sed. Returns empty on
-        # missing/unparseable/unset so we fall through to the branch-prefix lookup.
-        local _fd
-        _fd=$(read_feature_json_feature_directory "$repo_root")
-        if [[ -n "$_fd" ]]; then
-            feature_dir="$_fd"
-            # Normalize relative paths to absolute under repo root
-            [[ "$feature_dir" != /* ]] && feature_dir="$repo_root/$feature_dir"
-        elif ! feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch"); then
-            echo "ERROR: Failed to resolve feature directory" >&2
+    else
+        local _branch_dir=''
+        if ! _branch_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch"); then
             return 1
         fi
-    elif ! feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch"); then
-        echo "ERROR: Failed to resolve feature directory" >&2
-        return 1
+
+        if [[ -d "$_branch_dir" ]]; then
+            feature_dir="$_branch_dir"
+        else
+            # Parse with jq, python3, then grep/sed; failure falls back to the branch result.
+            local _fd
+            _fd=$(read_feature_json_feature_directory "$repo_root")
+            if [[ -n "$_fd" ]]; then
+                feature_dir="$_fd"
+                [[ "$feature_dir" != /* ]] && feature_dir="$repo_root/$feature_dir"
+            elif [[ -n "$_branch_dir" ]]; then
+                feature_dir="$_branch_dir"
+            else
+                echo "ERROR: Failed to resolve feature directory" >&2
+                return 1
+            fi
+        fi
     fi
 
     # Use printf '%q' to safely quote values, preventing shell injection

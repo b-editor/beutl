@@ -111,7 +111,21 @@ public sealed partial class PBRMaterial : Material3D
         private ITexture2D? _defaultNormalTexture;
         private ITexture2D? _defaultBlackTexture;
 
-        internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipeline;
+
+        protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
+        {
+            if (AlbedoMap is not null)
+                yield return AlbedoMap;
+            if (NormalMap is not null)
+                yield return NormalMap;
+            if (MetallicRoughnessMap is not null)
+                yield return MetallicRoughnessMap;
+            if (EmissiveMap is not null)
+                yield return EmissiveMap;
+            if (AOMap is not null)
+                yield return AOMap;
+        }
 
         public override void EnsurePipeline(RenderContext3D context)
         {
@@ -121,20 +135,8 @@ public sealed partial class PBRMaterial : Material3D
             var graphicsContext = context.GraphicsContext;
             var shaderCompiler = context.ShaderCompiler;
 
-            // Create uniform buffer for material properties
-            _uniformBuffer = graphicsContext.CreateBuffer(
-                (ulong)Marshal.SizeOf<PBRMaterialUBO>(),
-                BufferUsage.UniformBuffer,
-                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-            // Create sampler for textures
-            _sampler = graphicsContext.CreateSampler(
-                SamplerFilter.Linear,
-                SamplerFilter.Linear,
-                SamplerAddressMode.Repeat,
-                SamplerAddressMode.Repeat);
-
-            // Create default textures
+            _uniformBuffer = MaterialGpuResources.CreateUniformBuffer<PBRMaterialUBO>(graphicsContext);
+            _sampler = MaterialGpuResources.CreateLinearRepeatSampler(graphicsContext);
             CreateDefaultTextures(graphicsContext);
 
             // Compile shaders for G-Buffer output
@@ -182,17 +184,12 @@ public sealed partial class PBRMaterial : Material3D
 
         private void CreateDefaultTextures(IGraphicsContext graphicsContext)
         {
-            // White texture (1x1, RGBA = 255,255,255,255)
-            _defaultWhiteTexture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
-            _defaultWhiteTexture.Upload([255, 255, 255, 255]);
+            _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
 
-            // Normal map default (1x1, RGB = 128,128,255 = flat normal pointing up in tangent space)
-            _defaultNormalTexture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
-            _defaultNormalTexture.Upload([255, 128, 128, 255]); // BGRA: B=255, G=128, R=128
+            // BGRA (255,128,128) is RGB (128,128,255): the flat tangent-space normal pointing up.
+            _defaultNormalTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 128, 128, 255]);
 
-            // Black texture (1x1, RGBA = 0,0,0,255)
-            _defaultBlackTexture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
-            _defaultBlackTexture.Upload([0, 0, 0, 255]);
+            _defaultBlackTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [0, 0, 0, 255]);
         }
 
         public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
@@ -284,17 +281,9 @@ public sealed partial class PBRMaterial : Material3D
             public int TextureFlags; // bit flags: 1=albedo, 2=normal, 4=metallicRoughness, 8=emissive, 16=ao
         }
 
-        /// <summary>
-        /// Vertex shader for G-Buffer geometry pass with tangent support.
-        /// </summary>
-        private static string VertexShaderSource => """
-            #version 450
-
-            layout(location = 0) in vec3 inPosition;
-            layout(location = 1) in vec3 inNormal;
-            layout(location = 2) in vec2 inTexCoord;
-            layout(location = 3) in vec4 inTangent;
-
+        // Both stages bind this block at descriptor binding 0, so they must declare the same fields in
+        // the same order as PBRMaterialUBO.
+        private const string MaterialUboSource = """
             layout(binding = 0) uniform MaterialUBO {
                 mat4 model;
                 mat4 view;
@@ -307,6 +296,20 @@ public sealed partial class PBRMaterial : Material3D
                 float normalMapStrength;
                 int textureFlags;
             } material;
+            """;
+
+        /// <summary>
+        /// Vertex shader for G-Buffer geometry pass with tangent support.
+        /// </summary>
+        private static string VertexShaderSource => $$"""
+            #version 450
+
+            layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec3 inNormal;
+            layout(location = 2) in vec2 inTexCoord;
+            layout(location = 3) in vec4 inTangent;
+
+            {{MaterialUboSource}}
 
             layout(location = 0) out vec3 fragWorldPos;
             layout(location = 1) out vec3 fragNormal;
@@ -336,7 +339,7 @@ public sealed partial class PBRMaterial : Material3D
         /// Fragment shader for G-Buffer output with texture support.
         /// Outputs: Position, Normal+Metallic, Albedo+Roughness, Emission+AO
         /// </summary>
-        private static string FragmentShaderSource => """
+        private static string FragmentShaderSource => $$"""
             #version 450
 
             layout(location = 0) in vec3 fragWorldPos;
@@ -344,18 +347,7 @@ public sealed partial class PBRMaterial : Material3D
             layout(location = 2) in vec2 fragTexCoord;
             layout(location = 3) in mat3 fragTBN;
 
-            layout(binding = 0) uniform MaterialUBO {
-                mat4 model;
-                mat4 view;
-                mat4 projection;
-                vec4 albedo;
-                vec3 emissive;
-                float metallic;
-                float roughness;
-                float ambientOcclusion;
-                float normalMapStrength;
-                int textureFlags;
-            } material;
+            {{MaterialUboSource}}
 
             layout(binding = 1) uniform sampler2D albedoMap;
             layout(binding = 2) uniform sampler2D normalMap;

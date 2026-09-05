@@ -5,87 +5,105 @@ using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph;
 
+// Snapshot output nodes are disposed by the next build, so ChildNodes must not retain them.
+// Revalidation and caching stop here; Resource.Update keeps this node uncached by bumping Version each build.
 internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
 {
+    private static readonly IEqualityComparer<RenderNode> s_renderNodeReferenceComparer =
+        ReferenceEqualityComparer.Instance;
     private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
 
     private NodeGraphFilterEffect.Resource? GraphResource => FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        var model = GraphResource?.Model;
-        var lastTime = GraphResource?.LastTime;
-        if (GraphResource == null || model == null || lastTime == null)
-            return context.Input;
-
-        // 1. FilterEffectInputNode の OperationWrapperRenderNode を見つける（Build 時に作成済み）
-        OperationWrapperRenderNode? inputWrapper = FindInputWrapper(model);
-        if (inputWrapper == null)
-            return context.Input;
-
-        // 2. 入力 operations を OperationWrapperRenderNode に設定（Evaluate の前に行う）
-        inputWrapper.SetOperations(context.Input);
-
-        // 3. グラフのノードを評価
-        _compositionContext.Time = lastTime.Value;
-        _compositionContext.PreferProxy = GraphResource.PreferProxy;
-        _compositionContext.PreferredProxyPreset = GraphResource.PreferredProxyPreset;
-        _compositionContext.DisableResourceShare = GraphResource.DisableResourceShare;
-        GraphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
-
-        // 4. OutputNode から出力 RenderNode を収集
-        var outputRenderNodes = PullOutputValue(model);
-        if (outputRenderNodes.Count == 0)
-            return context.Input;
-
-        // 5. RenderNodeProcessor でグラフ出力ツリーを処理
-        var allResults = new List<RenderNodeOperation>();
-        foreach (RenderNode outputNode in outputRenderNodes)
+        NodeGraphFilterEffect.Resource? graphResource = GraphResource;
+        var model = graphResource?.Model;
+        var lastTime = graphResource?.LastTime;
+        if (graphResource == null || !graphResource.IsEnabled || model == null || lastTime == null)
         {
-            // Forward the working-scale ceiling into the output subtree.
-            var processor = new RenderNodeProcessor(
-                outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
-            allResults.AddRange(processor.PullToRoot());
+            context.PassThrough();
+            return;
         }
 
-        inputWrapper.SetOperations([]);
-        return allResults.ToArray();
+        FilterEffectInputRenderNode? inputFacade = FindInputFacade(model, graphResource);
+        if (inputFacade == null)
+        {
+            context.PassThrough();
+            return;
+        }
+
+        using (FilterEffectInputBinding binding = inputFacade.Bind(context))
+        {
+            _compositionContext.Time = lastTime.Value;
+            _compositionContext.PreferProxy = graphResource.PreferProxy;
+            _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;
+            _compositionContext.DisableResourceShare = graphResource.DisableResourceShare;
+            _compositionContext.TargetDomain = context.TargetDomain;
+            graphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
+
+            var outputRenderNodes = PullOutputValue(model, graphResource);
+            if (outputRenderNodes.Count == 0)
+            {
+                context.PassThrough();
+            }
+            else
+            {
+                foreach (IGrouping<RenderNode, RenderNode> repeated in outputRenderNodes
+                             .GroupBy(static node => node, s_renderNodeReferenceComparer)
+                             .Where(static group => group.Skip(1).Any()))
+                {
+                    binding.EnsureFanOutSafe(repeated.Key);
+                }
+
+                foreach (RenderNode outputNode in outputRenderNodes)
+                {
+                    context.PublishRange(binding.RecordSubtreeForPublication(outputNode));
+                }
+            }
+
+            binding.PublishDeferredPreviews();
+        }
     }
 
-    private OperationWrapperRenderNode? FindInputWrapper(GraphModel model)
+    private static FilterEffectInputRenderNode? FindInputFacade(
+        GraphModel model,
+        NodeGraphFilterEffect.Resource graphResource)
     {
         foreach (var node in model.Nodes)
         {
             if (node is FilterEffectInputNode)
             {
-                int slotIndex = GraphResource!.Snapshot.FindSlotIndex(node);
+                int slotIndex = graphResource.Snapshot.FindSlotIndex(node);
                 if (slotIndex < 0) continue;
-                var resource = GraphResource!.Snapshot.GetResource(slotIndex);
+                var resource = graphResource.Snapshot.GetResource(slotIndex);
                 if (resource is FilterEffectInputNode.Resource inputResource)
-                    return inputResource.Wrapper;
+                    return inputResource.InputFacade;
             }
         }
 
         return null;
     }
 
-    private List<RenderNode> PullOutputValue(GraphModel model)
+    private static List<RenderNode> PullOutputValue(
+        GraphModel model,
+        NodeGraphFilterEffect.Resource graphResource)
     {
         var result = new List<RenderNode>();
         foreach (var node in model.Nodes)
         {
             if (node is OutputNode outputNode)
             {
-                int slotIndex = GraphResource!.Snapshot.FindSlotIndex(outputNode);
+                int slotIndex = graphResource.Snapshot.FindSlotIndex(outputNode);
                 if (slotIndex < 0) continue;
 
-                var resource = GraphResource!.Snapshot.GetResource(slotIndex);
+                var resource = graphResource.Snapshot.GetResource(slotIndex);
                 if (resource == null) continue;
 
                 if (!resource.ItemIndexMap.TryGetValue(outputNode.InputPort, out int itemIndex))
                     continue;
 
-                IItemValue? itemValue = GraphResource!.Snapshot.GetItemValue(slotIndex, itemIndex);
+                IItemValue? itemValue = graphResource.Snapshot.GetItemValue(slotIndex, itemIndex);
                 if (itemValue?.GetBoxed() is RenderNode renderNode)
                 {
                     result.Add(renderNode);

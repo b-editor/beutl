@@ -8,7 +8,6 @@ using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -89,12 +88,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         SupersampleWarning = SupersampleFactor
             .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
             {
-                if (ExportSupersampling.FitsBufferLimit(frameSize, factor)) return null;
+                int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+                if (ExportSupersampling.FitsBufferLimit(frameSize, factor, maxDimension)) return null;
 
                 (long width, long height) = ExportSupersampling.GetRenderSize(frameSize, factor);
                 return string.Format(
                     MessageStrings.SupersamplingExceedsMaxRenderSize,
-                    Math.Max(1, factor), width, height, RenderNodeContext.MaxBufferDimension);
+                    Math.Max(1, factor), width, height, maxDimension);
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
@@ -319,14 +319,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ClearEditViewModelCaches();
 
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
-                float maxWorkingScale = WorkingScaleCeiling.Export();
-                using var renderer = new SceneRenderer(
-                    Model,
-                    renderScale,
-                    disableResourceShare: true,
-                    maxWorkingScale,
-                    forceOriginalSource: true);
-                renderer.CacheOptions = RenderCacheOptions.Disabled;
+                using var renderer = ExportRendererFactory.Create(Model, renderScale);
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
                 using var composer = new SceneComposer(Model, disableResourceShare: true, forceOriginalSource: true)

@@ -5,6 +5,8 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation operation) : ContainerRenderNode
 {
+    private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
+
     public (Geometry.Resource Resource, int Version)? Clip { get; private set; } = clip.Capture();
 
     public ClipOperation Operation { get; private set; } = operation;
@@ -24,32 +26,71 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
             changed = true;
         }
 
-        HasChanges = true;
+        if (changed)
+        {
+            MarkChanged();
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        if (Clip == null)
+        if (Clip is not { } clip)
         {
-            return context.Input;
+            context.PassThrough();
+            return;
         }
+        if (context.Inputs.Count == 0)
+            return;
 
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                using (canvas.PushClip(Clip.Value.Resource, Operation))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+        ClipOperation operation = Operation;
+        var boundsMetadata = new GeometryClipBoundsMetadata(clip.Resource.Bounds, operation);
+        RenderResource<Geometry.Resource> resource = context.Borrow(clip.Resource);
+        context.PublishMappedInputs(
+            TargetScopeDescription.Create(
+                operation,
+                static (session, state) => session.UseResource(s_geometrySlot, geometry =>
+                    session.Canvas.Use(canvas =>
+                    {
+                        using (canvas.PushClip(geometry, state))
+                        {
+                            session.ReplayInput();
+                        }
+                    })),
+                RenderBoundsContract.Create(
+                    boundsMetadata,
+                    static (state, value) => state.TransformBounds(value),
+                    static (state, value) => state.GetRequiredInputBounds(value)),
+                RenderHitTestContract.FromResource(
+                    resource,
+                    operation,
+                    static (geometry, state, hitTest, point) =>
+                    {
+                        bool insideClip = geometry.FillContains(point);
+                        bool clipAcceptsPoint = state == ClipOperation.Intersect ? insideClip : !insideClip;
+                        return clipAcceptsPoint
+                               && RenderHitTestContract.AnyInputAccepts(hitTest.Inputs, point);
+                    }),
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved,
+                resources: [s_geometrySlot.Bind(resource)]),
+            static (context, input, value) => context.TargetScope(input, value));
     }
 
     protected override void OnDispose(bool disposing)
     {
         base.OnDispose(disposing);
         Clip = null!;
+    }
+
+    private readonly record struct GeometryClipBoundsMetadata(Rect Bounds, ClipOperation Operation)
+    {
+        public Rect TransformBounds(Rect value)
+            => Operation == ClipOperation.Intersect ? value.Intersect(Bounds) : value;
+
+        public Rect GetRequiredInputBounds(Rect value)
+            => Operation == ClipOperation.Intersect ? value.Intersect(Bounds) : value;
     }
 }

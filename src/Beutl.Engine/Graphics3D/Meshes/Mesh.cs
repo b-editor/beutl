@@ -10,14 +10,6 @@ namespace Beutl.Graphics3D.Meshes;
 /// </summary>
 public abstract partial class Mesh : EngineObject
 {
-    /// <summary>
-    /// Applies the mesh geometry to the resource.
-    /// </summary>
-    /// <param name="resource">The resource to apply to.</param>
-    /// <param name="vertices">Output array of vertices.</param>
-    /// <param name="indices">Output array of indices.</param>
-    public abstract void ApplyTo(Resource resource, out Vertex3D[] vertices, out uint[] indices);
-
     public partial class Resource
     {
         private int? _capturedVersion;
@@ -38,6 +30,27 @@ public abstract partial class Mesh : EngineObject
         /// Gets or sets whether the GPU buffers need to be recreated.
         /// </summary>
         internal bool BuffersDirty { get; set; } = true;
+
+        /// <summary>
+        /// The index count the buffers currently on the device were built from.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="IndexCount"/> answers for the mesh as it is now, which is not what the device holds
+        /// until an upload has run for it. Drawing the live count against last upload's buffers reads past
+        /// their end whenever the topology grew.
+        /// </remarks>
+        internal int UploadedIndexCount { get; set; }
+
+        /// <summary>
+        /// Generates this mesh's geometry.
+        /// </summary>
+        /// <param name="vertices">Output array of vertices.</param>
+        /// <param name="indices">Output array of indices.</param>
+        /// <remarks>
+        /// An override reads every parameter it needs from this resource, so it must not reach for
+        /// <see cref="EngineObject.Resource.GetOriginal"/>.
+        /// </remarks>
+        public abstract void ApplyTo(out Vertex3D[] vertices, out uint[] indices);
 
         /// <summary>
         /// Gets the cached vertices, regenerating if needed.
@@ -107,11 +120,14 @@ public abstract partial class Mesh : EngineObject
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-            if (_capturedVersion != Version || _cachedVertices == null)
+            int version = Version;
+            if (_capturedVersion != version || _cachedVertices == null)
             {
-                _capturedVersion = Version;
+                ApplyTo(out Vertex3D[] vertices, out uint[] indices);
+                _cachedVertices = vertices;
+                _cachedIndices = indices;
+                _capturedVersion = version;
                 BuffersDirty = true;
-                GetOriginal().ApplyTo(this, out _cachedVertices!, out _cachedIndices!);
             }
         }
 
@@ -121,26 +137,9 @@ public abstract partial class Mesh : EngineObject
             VertexBuffer = null;
             IndexBuffer?.Dispose();
             IndexBuffer = null;
+            UploadedIndexCount = 0;
             _cachedVertices = null;
             _cachedIndices = null;
         }
     }
-}
-
-/// <summary>
-/// Represents an axis-aligned bounding box.
-/// </summary>
-public readonly struct BoundingBox
-{
-    public BoundingBox(Vector3 min, Vector3 max)
-    {
-        Min = min;
-        Max = max;
-    }
-
-    public Vector3 Min { get; }
-    public Vector3 Max { get; }
-
-    public Vector3 Center => (Min + Max) * 0.5f;
-    public Vector3 Size => Max - Min;
 }

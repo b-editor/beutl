@@ -9,25 +9,34 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
         if (BlendMode != blendMode)
         {
             BlendMode = blendMode;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        context.IsRenderCacheEnabled = BlendMode == BlendMode.SrcOver;
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                using (canvas.PushBlendMode(BlendMode))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+        BlendMode blendMode = BlendMode;
+        if (blendMode != BlendMode.SrcOver)
+            context.DisableRenderCache();
+
+        context.PublishMappedInputs(
+            blendMode,
+            static (context, input, value) => value == BlendMode.SrcOver
+                ? input
+                : context.Blend(input, value));
+    }
+
+    internal static bool RequiresFullTargetRegion(BlendMode blendMode)
+    {
+        return blendMode is BlendMode.Clear
+            or BlendMode.Src
+            or BlendMode.SrcIn
+            or BlendMode.DstIn
+            or BlendMode.SrcOut
+            or BlendMode.DstATop
+            or BlendMode.Modulate;
     }
 }

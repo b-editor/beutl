@@ -22,91 +22,10 @@ namespace Beutl.AgentToolkit.Tools;
 
 public sealed record ReadDocumentResponse(JsonObject Document, string SchemaVersion);
 
-public sealed record GetExamplesResponse(
-    string SchemaVersion,
-    IReadOnlyList<DeclarativeExample> Examples,
-    string SelectionHint);
-
-public sealed record ListExamplesResponse(
-    string SchemaVersion,
-    IReadOnlyList<DeclarativeExampleSummary> Examples,
-    string SelectionHint);
-
-public sealed record ListCompositionsResponse(
-    string SchemaVersion,
-    string Seed,
-    IReadOnlyList<CompositionTemplateSummary> Compositions,
-    IReadOnlyList<string> RecentlyUsedCompositions,
-    IReadOnlyList<string> PreAttachPreviewedCompositions,
-    bool PreviewOnly,
-    string SelectionHint);
-
-public sealed record ListEffectsResponse(
-    string SchemaVersion,
-    IReadOnlyList<EffectSummary> Effects,
-    string SelectionHint);
-
-public sealed record ListEffectRecipesResponse(
-    string SchemaVersion,
-    IReadOnlyList<EffectRecipeSummary> Recipes,
-    string SelectionHint);
-
-public sealed record GetEffectRecipeResponse(
-    string SchemaVersion,
-    EffectRecipe Recipe,
-    string UsageHint);
-
-public sealed record OriginalScaffoldResponse(
-    string SchemaVersion,
-    OriginalScaffold Scaffold,
-    string UsageHint);
-
-public sealed record ValidateShaderResponse(
-    string SchemaVersion,
-    string EffectType,
-    string Status,
-    string? Error,
-    string Hint);
-
-public sealed record GetCompositionResponse(
-    string SchemaVersion,
-    CompositionTemplateDetail Composition);
-
-public sealed record RenderCompositionPatchResponse(
-    string SchemaVersion,
-    CompositionRender Composition,
-    string UsageHint);
-
 public sealed record RecommendedSkill(
     string Name,
     string WhenToUse,
     string HowToLoad);
-
-public sealed record GettingStartedResponse(
-    string SchemaVersion,
-    IReadOnlyList<string> RecommendedCalls,
-    IReadOnlyList<RecommendedSkill> RecommendedSkills,
-    IReadOnlyDictionary<string, string> CategoryAliases,
-    string RawHttpNote,
-    IReadOnlyList<VideoTypeSummary>? VideoTypes = null,
-    VideoTypeSummary? SelectedVideoType = null);
-
-public sealed record CreativeDirectionResponse(
-    string SchemaVersion,
-    IReadOnlyList<string> DirectionAxes,
-    IReadOnlyList<CreativeInspirationSeed> InspirationSeeds,
-    IReadOnlyList<string> CombinationRules,
-    IReadOnlyList<string> OriginalityConstraints,
-    IReadOnlyList<string> VariationPrompts,
-    IReadOnlyList<string> OverusedMotifs,
-    IReadOnlyList<string> WorkflowHints,
-    IReadOnlyList<string> StyleGuardrails,
-    IReadOnlyList<string> PaletteGuidelines,
-    IReadOnlyList<string> TypographyGuidelines,
-    IReadOnlyList<string> MotionGuidelines,
-    IReadOnlyList<CreativeDirectionFingerprint> RecentToAvoid,
-    string SelectionHint,
-    CreativeDirectionSelectionTrace? SelectionTrace = null);
 
 public sealed record CreativeDirectionSelectionTrace(
     int RequestIndex,
@@ -126,75 +45,6 @@ public sealed record CreativeInspirationSeed(
 public sealed record RecordCreativeDirectionResponse(
     bool Recorded,
     IReadOnlyList<CreativeDirectionFingerprint> RecentToAvoid);
-
-public sealed record DocumentSummaryResponse(
-    string Session,
-    string Source,
-    string RootId,
-    string Name,
-    int Width,
-    int Height,
-    string Duration,
-    int ElementCount,
-    IReadOnlyList<ElementSummary> Elements);
-
-public sealed record ObjectBoundsMeasurementResponse(
-    string SchemaVersion,
-    string Session,
-    string Source,
-    string SceneId,
-    int FrameWidth,
-    int FrameHeight,
-    ObjectBoundsPoint FrameCenter,
-    string Time,
-    bool TimeFiltered,
-    string CoordinateSpace,
-    string MeasurementNote,
-    IReadOnlyList<ObjectBoundsMeasurement> Objects);
-
-public sealed record ElementSummary(
-    string Id,
-    string Name,
-    string Start,
-    string Length,
-    int ZIndex,
-    IReadOnlyList<ObjectSummary> Objects);
-
-public sealed record ObjectSummary(
-    string Id,
-    string Name,
-    string Type,
-    string Discriminator,
-    IReadOnlyList<string> AnimatedProperties,
-    IReadOnlyList<string> ExpressionProperties,
-    IReadOnlyList<string> BrushProperties,
-    IReadOnlyList<string> EffectProperties,
-    IReadOnlyList<string> NestedAnimatedProperties,
-    bool IsFallback = false,
-    string? FallbackReason = null,
-    string? FallbackTypeName = null,
-    string? FallbackMessage = null);
-
-public sealed record ObjectBoundsMeasurement(
-    string ElementId,
-    string ElementName,
-    string ElementStart,
-    string ElementLength,
-    int ElementZIndex,
-    string ObjectId,
-    string ObjectName,
-    string Type,
-    bool IsEnabled,
-    string AlignmentX,
-    string AlignmentY,
-    string MeasurementKind,
-    ObjectBoundsRect LocalBounds,
-    ObjectBoundsRect TransformedBounds,
-    ObjectBoundsPoint Center,
-    ObjectBoundsPoint? UserTranslate,
-    ObjectTransformMatrix UserTransformMatrix,
-    string? Note = null,
-    ObjectBoundsPoint? GeometryBoundsOrigin = null);
 
 public sealed record ObjectBoundsRect(
     double Left,
@@ -933,7 +783,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "measure_object_bounds")]
-    [Description("Measures RenderNode operation bounds for Drawable objects in the current scene. Use before positioning text, backing plates, or centered objects; default Drawable TranslateTransform values are offsets from the alignment-resolved position, not top-left coordinates.")]
+    [Description("Measures contributing RenderNode query bounds for Drawable objects in the current scene. Use before positioning text, backing plates, or centered objects; default Drawable TranslateTransform values are offsets from the alignment-resolved position, not top-left coordinates.")]
     public ToolResult<ObjectBoundsMeasurementResponse> MeasureObjectBounds(
         string? objectId = null,
         string? elementId = null,
@@ -1005,7 +855,10 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
         // timeSeconds is scene-relative like every other tool, but Element.Range and the engine's
         // composition clock live on the absolute timeline axis (renderers evaluate time + scene.Start).
         TimeSpan absoluteTime = time + scene.Start;
-        var context = new CompositionContext(absoluteTime);
+        // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, before any
+        // render request exists, and a bounds-unknown effect leaves them nothing finite to resolve against.
+        // The frame is the domain the measurement itself composes into, so seed it the way SceneCompositor does.
+        var context = new CompositionContext(absoluteTime) { TargetDomain = new Rect(default, canvasSize) };
         var measurements = new List<ObjectBoundsMeasurement>();
         foreach (Element element in scene.Children)
         {
@@ -1073,8 +926,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
             time.ToString("c"),
             timeFiltered,
-            "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space bounds measured from RenderNodeOperation.Bounds. LocalBounds are normalized from the render-node extents for size only and are not Drawable.MeasureCore results.",
-            "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeProcessor rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
+            "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space RenderNodeMeasurement.QueryBounds from contributing query fragments. LocalBounds are normalized from the query extents for size only and are not Drawable.MeasureCore results.",
+            "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
             measurements);
     }
 
@@ -1441,8 +1294,8 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             ? new ObjectBoundsPoint(translate.X, translate.Y)
             : null;
         string? note = renderNodeBounds.Note is null
-            ? "Measured through DrawableRenderNode and RenderNodeProcessor.PullToRoot(). LocalBounds is normalized from render-node extents for size only."
-            : $"{renderNodeBounds.Note} LocalBounds is normalized from render-node extents for size only.";
+            ? "Measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds from contributing query fragments. LocalBounds is normalized from query extents for size only."
+            : $"{renderNodeBounds.Note} LocalBounds is normalized from query extents for size only.";
 
         ObjectBoundsPoint? geometryBoundsOrigin = null;
         if (drawable is Shape shapeDrawable)
@@ -1471,7 +1324,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             drawable.IsEnabled,
             alignmentX.ToString(),
             alignmentY.ToString(),
-            "render-node-operation-bounds",
+            "render-node-query-bounds",
             ToBoundsRect(localBounds),
             ToBoundsRect(transformedBounds),
             ToBoundsPoint(transformedBounds.Center),
@@ -1493,42 +1346,23 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
             drawable.Render(graphicsContext, resource);
         }
 
-        var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: 1f, maxWorkingScale: 1f);
-        RenderNodeOperation[] operations = processor.PullToRoot();
-        Rect bounds = Rect.Empty;
-        bool hasBounds = false;
-        try
-        {
-            foreach (RenderNodeOperation operation in operations)
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRenderRequest
             {
-                Rect operationBounds = operation.Bounds;
-                bounds = hasBounds ? bounds.Union(operationBounds) : operationBounds;
-                hasBounds = true;
-            }
-        }
-        finally
-        {
-            DisposeRenderNodeOperations(operations);
-        }
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(default, canvasSize),
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
+        RenderNodeMeasurement measurement = renderer.Measure();
 
-        return hasBounds
-            ? new RenderNodeBounds(bounds, null)
-            : new RenderNodeBounds(Rect.Empty, "The drawable produced no RenderNode operations at the requested time.");
-    }
-
-    private static void DisposeRenderNodeOperations(RenderNodeOperation[] operations)
-    {
-        foreach (RenderNodeOperation operation in operations)
-        {
-            try
-            {
-                operation.Dispose();
-            }
-            catch
-            {
-                // Match renderer cleanup behavior: disposal faults must not hide measurement results.
-            }
-        }
+        return measurement.HasFragments
+            ? new RenderNodeBounds(measurement.QueryBounds, null)
+            : new RenderNodeBounds(
+                Rect.Empty,
+                "The drawable produced no contributing RenderNode query fragments at the requested time.");
     }
 
     private static Rect NormalizeBoundsSize(Rect bounds)
@@ -1673,3 +1507,109 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                && property.CurrentValue is not null;
     }
 }
+
+public sealed record CreativeDirectionResponse(
+    string SchemaVersion,
+    IReadOnlyList<string> DirectionAxes,
+    IReadOnlyList<CreativeInspirationSeed> InspirationSeeds,
+    IReadOnlyList<string> CombinationRules,
+    IReadOnlyList<string> OriginalityConstraints,
+    IReadOnlyList<string> VariationPrompts,
+    IReadOnlyList<string> OverusedMotifs,
+    IReadOnlyList<string> WorkflowHints,
+    IReadOnlyList<string> StyleGuardrails,
+    IReadOnlyList<string> PaletteGuidelines,
+    IReadOnlyList<string> TypographyGuidelines,
+    IReadOnlyList<string> MotionGuidelines,
+    IReadOnlyList<CreativeDirectionFingerprint> RecentToAvoid,
+    string SelectionHint,
+    CreativeDirectionSelectionTrace? SelectionTrace = null);
+
+public sealed record DocumentSummaryResponse(
+    string Session,
+    string Source,
+    string RootId,
+    string Name,
+    int Width,
+    int Height,
+    string Duration,
+    int ElementCount,
+    IReadOnlyList<ElementSummary> Elements);
+
+public sealed record GetCompositionResponse(
+    string SchemaVersion,
+    CompositionTemplateDetail Composition);
+
+public sealed record GetEffectRecipeResponse(
+    string SchemaVersion,
+    EffectRecipe Recipe,
+    string UsageHint);
+
+public sealed record GetExamplesResponse(
+    string SchemaVersion,
+    IReadOnlyList<DeclarativeExample> Examples,
+    string SelectionHint);
+
+public sealed record GettingStartedResponse(
+    string SchemaVersion,
+    IReadOnlyList<string> RecommendedCalls,
+    IReadOnlyList<RecommendedSkill> RecommendedSkills,
+    IReadOnlyDictionary<string, string> CategoryAliases,
+    string RawHttpNote,
+    IReadOnlyList<VideoTypeSummary>? VideoTypes = null,
+    VideoTypeSummary? SelectedVideoType = null);
+
+public sealed record ListCompositionsResponse(
+    string SchemaVersion,
+    string Seed,
+    IReadOnlyList<CompositionTemplateSummary> Compositions,
+    IReadOnlyList<string> RecentlyUsedCompositions,
+    IReadOnlyList<string> PreAttachPreviewedCompositions,
+    bool PreviewOnly,
+    string SelectionHint);
+
+public sealed record ListEffectRecipesResponse(
+    string SchemaVersion,
+    IReadOnlyList<EffectRecipeSummary> Recipes,
+    string SelectionHint);
+
+public sealed record ListEffectsResponse(
+    string SchemaVersion,
+    IReadOnlyList<EffectSummary> Effects,
+    string SelectionHint);
+
+public sealed record ListExamplesResponse(
+    string SchemaVersion,
+    IReadOnlyList<DeclarativeExampleSummary> Examples,
+    string SelectionHint);
+
+public sealed record ObjectBoundsMeasurementResponse(
+    string SchemaVersion,
+    string Session,
+    string Source,
+    string SceneId,
+    int FrameWidth,
+    int FrameHeight,
+    ObjectBoundsPoint FrameCenter,
+    string Time,
+    bool TimeFiltered,
+    string CoordinateSpace,
+    string MeasurementNote,
+    IReadOnlyList<ObjectBoundsMeasurement> Objects);
+
+public sealed record OriginalScaffoldResponse(
+    string SchemaVersion,
+    OriginalScaffold Scaffold,
+    string UsageHint);
+
+public sealed record RenderCompositionPatchResponse(
+    string SchemaVersion,
+    CompositionRender Composition,
+    string UsageHint);
+
+public sealed record ValidateShaderResponse(
+    string SchemaVersion,
+    string EffectType,
+    string Status,
+    string? Error,
+    string Hint);

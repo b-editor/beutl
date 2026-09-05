@@ -20,14 +20,26 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Channel<(long Frame, Bitmap Bitmap)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
+    private readonly RetainedRenderTargetCheckpoint _retentionCheckpoint;
     private bool _disposed;
 
     public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
+        : this(scene, rate, renderer, progress, RetainedRenderTargetCheckpoint.DefaultReleaseInterval)
+    {
+    }
+
+    internal FrameProviderImpl(
+        Scene scene,
+        Rational rate,
+        SceneRenderer renderer,
+        Subject<TimeSpan> progress,
+        int retainedRenderTargetReleaseInterval)
     {
         _scene = scene;
         _rate = rate;
         _renderer = renderer;
         _progress = progress;
+        _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
 
         int bufferSize = Preferences.Default.Get("Output.FrameBufferSize", 100);
         _channel = Channel.CreateBounded<(long Frame, Bitmap Bitmap)>(
@@ -66,6 +78,19 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             throw new InvalidOperationException(
                 $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize}; " +
                 "SupersampleDownscaler failed to normalize the supersampled render to the output resolution.");
+        }
+
+        if (_retentionCheckpoint.Advance())
+        {
+            try
+            {
+                _renderer.ReleaseRetainedRenderTargets();
+            }
+            catch
+            {
+                normalized.Dispose();
+                throw;
+            }
         }
 
         return normalized;

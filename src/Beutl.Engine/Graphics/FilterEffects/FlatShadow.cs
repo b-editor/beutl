@@ -81,7 +81,7 @@ public partial class FlatShadow : FilterEffect
         for (int ii = 0; ii < context.Targets.Count; ii++)
         {
             var target = context.Targets[ii];
-            using var srcBitmap = target.RenderTarget!.Snapshot();
+            using Bitmap srcBitmap = target.RenderTarget!.SnapshotAlpha();
 
             float x1 = MathF.Cos(radian);
             float y1 = MathF.Sin(radian);
@@ -97,6 +97,12 @@ public partial class FlatShadow : FilterEffect
                     target.Bounds.Y - (y2Abs - y2) / 2,
                     (size.Width + x2Abs),
                     (size.Height + y2Abs)));
+            if (newTarget.IsEmpty)
+            {
+                newTarget.Dispose();
+                continue;
+            }
+
             using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
             using (var brushPaint = new SKPaint())
             using (SKPath path = CreatePath(srcBitmap))
@@ -122,9 +128,11 @@ public partial class FlatShadow : FilterEffect
                 }
 
                 // SrcIn brush at the buffer's real density (wOut).
-                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
-                    context.MaxWorkingScale);
-                c.ConfigurePaint(brushPaint);
+                context.CreateBrushConstructor(
+                    new Rect(newTarget.Bounds.Size),
+                    brush,
+                    BlendMode.SrcIn,
+                    wOut).ConfigurePaint(brushPaint);
                 newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
 
                 if (!data.ShadowOnly)

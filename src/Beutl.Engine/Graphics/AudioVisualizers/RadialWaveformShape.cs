@@ -26,14 +26,15 @@ public sealed partial class RadialWaveformShape : WaveformShape
 
     public new partial class Resource
     {
-        internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill)
+        protected internal override void Render(in WaveformRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> mins = context.Mins;
+            ReadOnlySpan<float> maxs = context.Maxs;
+            float gain = context.Gain;
+            Brush.Resource fill = context.Fill;
+
             int barCount = mins.Length;
             if (barCount == 0) return;
 
@@ -42,8 +43,7 @@ public sealed partial class RadialWaveformShape : WaveformShape
             float cx = (float)bounds.X + width * 0.5f;
             float cy = (float)bounds.Y + height * 0.5f;
             float outerRadius = MathF.Min(width, height) * 0.5f;
-            float innerRadius = MathF.Min(InnerRadius, outerRadius - 1f);
-            if (innerRadius < 0f) innerRadius = 0f;
+            float innerRadius = BarGeometry.ResolveInnerRadius(InnerRadius, outerRadius);
             float maxOut = outerRadius - innerRadius;
             float maxIn = innerRadius;
             if (maxOut <= 0f && maxIn <= 0f) return;
@@ -63,10 +63,8 @@ public sealed partial class RadialWaveformShape : WaveformShape
 
                 float angleDeg = startAngleDeg + angleStep * i;
                 float angleRad = angleDeg * MathF.PI / 180f;
-                float translateX = cx + innerRadius * MathF.Cos(angleRad);
-                float translateY = cy + innerRadius * MathF.Sin(angleRad);
 
-                Matrix transform = Matrix.CreateRotation(angleRad) * Matrix.CreateTranslation(translateX, translateY);
+                Matrix transform = BarGeometry.RadialBarTransform(cx, cy, innerRadius, angleRad);
                 using (canvas.PushTransform(transform))
                 {
                     if (outLen > 0.5f)

@@ -215,11 +215,11 @@ public class JsonSerializationTest
     // 1.xで作成されたファイルではScene/Elementに$typeが付かないため、
     // RestoreFromUriで補完されることを確認する。
     [Test]
-    public void RestoreFromUri_FillsMissingDiscriminatorForLegacyFiles()
+    public void RestoreFromUri_FillsMissingDiscriminatorForEffectItemFiles()
     {
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
-        var scenePath = Path.Combine(basePath, "legacy.scene");
-        var layerPath = Path.Combine(basePath, "legacy.belm");
+        var scenePath = Path.Combine(basePath, "effectItem.scene");
+        var layerPath = Path.Combine(basePath, "effectItem.belm");
         if (File.Exists(scenePath)) File.Delete(scenePath);
         if (File.Exists(layerPath)) File.Delete(layerPath);
 

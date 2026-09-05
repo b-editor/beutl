@@ -73,16 +73,40 @@ public static class UnhandledExceptionHandler
 
     private static void PrivateExit()
     {
-        if (!s_exited)
+        if (s_exited)
+            return;
+
+        // This runs on the crash path, so each step has to stand alone: a graphics teardown that throws
+        // must not take the render-thread shutdown with it - that one is what lets the process end - nor
+        // the log flush that records why we are here. Setting the flag first also stops a throw from
+        // leaving the sequence looking un-run, which would have Exit() attempt all of it a second time.
+        s_exited = true;
+        RunOrLog(
+            static () => GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath),
+            "save the configuration");
+        RunOrLog(GraphicsContextFactory.Shutdown, "shut the graphics context down");
+        RunOrLog(RenderThread.Dispatcher.Shutdown, "shut the render dispatcher down");
+        RunOrLog(BeutlApplication.Current.LoggerFactory.Dispose, "dispose the logger factory");
+    }
+
+    private static void RunOrLog(Action step, string description)
+    {
+        try
         {
-            GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath);
-
-            GraphicsContextFactory.Shutdown();
-            RenderThread.Dispatcher.Shutdown();
-
-            BeutlApplication.Current.LoggerFactory.Dispose();
-
-            s_exited = true;
+            step();
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                s_logger?.LogError(ex, "Failed to {Step} while exiting.", description);
+            }
+            catch
+            {
+                // The logger factory is one of the things torn down here, so by the time a later step
+                // fails there may be nothing left to report to. Losing the report is better than
+                // throwing out of the handler that exists to stop exceptions escaping.
+            }
         }
     }
 

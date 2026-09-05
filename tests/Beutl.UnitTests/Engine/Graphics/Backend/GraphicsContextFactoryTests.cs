@@ -5,6 +5,41 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [NonParallelizable]
 public class GraphicsContextFactoryTests
 {
+    [TestCase("1", true)]
+    [TestCase("true", true)]
+    [TestCase("YES", true)]
+    [TestCase("on", true)]
+    [TestCase("0", false)]
+    [TestCase("false", false)]
+    [TestCase("", false)]
+    [TestCase(null, false)]
+    public void IsVulkanValidationEnabled_ParsesEnvironmentSetting(string? value, bool expected)
+    {
+        bool hadPreviousSwitch = AppContext.TryGetSwitch(
+            GraphicsContextFactory.VulkanValidationAppContextSwitch,
+            out bool previousSwitch);
+        string? previous = Environment.GetEnvironmentVariable(
+            GraphicsContextFactory.VulkanValidationEnvironmentVariable);
+        try
+        {
+            AppContext.SetSwitch(GraphicsContextFactory.VulkanValidationAppContextSwitch, false);
+            Environment.SetEnvironmentVariable(
+                GraphicsContextFactory.VulkanValidationEnvironmentVariable,
+                value);
+
+            Assert.That(GraphicsContextFactory.IsVulkanValidationEnabled(), Is.EqualTo(expected));
+        }
+        finally
+        {
+            AppContext.SetSwitch(
+                GraphicsContextFactory.VulkanValidationAppContextSwitch,
+                hadPreviousSwitch && previousSwitch);
+            Environment.SetEnvironmentVariable(
+                GraphicsContextFactory.VulkanValidationEnvironmentVariable,
+                previous);
+        }
+    }
+
     [Test]
     public void GetAvailableDevices_ReturnsAtLeastOne()
     {

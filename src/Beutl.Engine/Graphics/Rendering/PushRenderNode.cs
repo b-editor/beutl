@@ -2,16 +2,25 @@
 
 public sealed class PushRenderNode : ContainerRenderNode
 {
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-            RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                using (canvas.Push())
+        context.PublishMappedInputs(
+            TargetScopeDescription.Create(
+                default(PushState),
+                static (session, _) => session.Canvas.Use(canvas =>
                 {
-                    r.Render(canvas);
-                }
-            }))
-            .ToArray();
+                    using (canvas.Push())
+                    {
+                        session.ReplayInput();
+                    }
+                }),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved),
+            static (context, input, value) => context.TargetScope(input, value));
     }
+
+    private readonly record struct PushState;
 }

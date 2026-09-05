@@ -3,8 +3,11 @@ using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
@@ -26,12 +29,11 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(location = 0) out vec4 outColor;
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
+        layout(constant_id = 0) const int sortKeyType = 0;
 
         layout(push_constant) uniform PushConstants {
             float thresholdMin;
             float thresholdMax;
-            int   sortKeyType;
-            int   sortDir;
             float width;
             float height;
         } pc;
@@ -55,11 +57,11 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
 
         float computeKey(vec4 c) {
-            if      (pc.sortKeyType == 1) return hue(c);
-            else if (pc.sortKeyType == 2) return saturation(c);
-            else if (pc.sortKeyType == 3) return c.r;
-            else if (pc.sortKeyType == 4) return c.g;
-            else if (pc.sortKeyType == 5) return c.b;
+            if      (sortKeyType == 1) return hue(c);
+            else if (sortKeyType == 2) return saturation(c);
+            else if (sortKeyType == 3) return c.r;
+            else if (sortKeyType == 4) return c.g;
+            else if (sortKeyType == 5) return c.b;
             return dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
         }
 
@@ -80,18 +82,18 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(location = 0) out vec4 outColor;
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
+        layout(constant_id = 0) const int sortDir = 0;
 
         layout(push_constant) uniform PushConstants {
-            int   sortDir;
             float width;
             float height;
         } pc;
 
         void main() {
             ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
-            int idx     = (pc.sortDir == 0) ? coord.x : coord.y;
-            int lineIdx = (pc.sortDir == 0) ? coord.y : coord.x;
-            int maxIdx  = (pc.sortDir == 0) ? int(pc.width) : int(pc.height);
+            int idx     = (sortDir == 0) ? coord.x : coord.y;
+            int lineIdx = (sortDir == 0) ? coord.y : coord.x;
+            int maxIdx  = (sortDir == 0) ? int(pc.width) : int(pc.height);
 
             float myKey = texelFetch(srcTexture, coord, 0).a;
 
@@ -104,7 +106,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             // Find segment start
             int segStart = idx;
             for (int s = idx - 1; s >= 0; s--) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                ivec2 c = (sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
                 if (texelFetch(srcTexture, c, 0).a < 0.0005) break;
                 segStart = s;
             }
@@ -112,7 +114,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             // Find segment end
             int segEnd = idx;
             for (int s = idx + 1; s < maxIdx; s++) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                ivec2 c = (sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
                 if (texelFetch(srcTexture, c, 0).a < 0.0005) break;
                 segEnd = s;
             }
@@ -122,7 +124,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             int rank = 0;
             for (int j = segStart; j <= segEnd; j++) {
                 if (j == idx) continue;
-                ivec2 c = (pc.sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
+                ivec2 c = (sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
                 float otherKey = texelFetch(srcTexture, c, 0).a;
                 if (otherKey < myKey || (otherKey == myKey && j < idx)) {
                     rank++;
@@ -147,19 +149,19 @@ public sealed partial class PixelSortEffect : FilterEffect
 
         layout(set = 0, binding = 0) uniform sampler2D rankTexture;
         layout(set = 0, binding = 1) uniform sampler2D originalTexture;
+        layout(constant_id = 0) const int sortDir = 0;
+        layout(constant_id = 1) const int ascending = 1;
 
         layout(push_constant) uniform PushConstants {
-            int   sortDir;
-            int   ascending;
             float width;
             float height;
         } pc;
 
         void main() {
             ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
-            int idx     = (pc.sortDir == 0) ? coord.x : coord.y;
-            int lineIdx = (pc.sortDir == 0) ? coord.y : coord.x;
-            int maxIdx  = (pc.sortDir == 0) ? int(pc.width) : int(pc.height);
+            int idx     = (sortDir == 0) ? coord.x : coord.y;
+            int lineIdx = (sortDir == 0) ? coord.y : coord.x;
+            int maxIdx  = (sortDir == 0) ? int(pc.width) : int(pc.height);
 
             vec4 rankData = texelFetch(rankTexture, coord, 0);
 
@@ -172,20 +174,20 @@ public sealed partial class PixelSortEffect : FilterEffect
             // Find segment boundaries using B channel
             int segStart = idx;
             for (int s = idx - 1; s >= 0; s--) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                ivec2 c = (sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
                 if (texelFetch(rankTexture, c, 0).b < 0.5) break;
                 segStart = s;
             }
 
             int segEnd = idx;
             for (int s = idx + 1; s < maxIdx; s++) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                ivec2 c = (sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
                 if (texelFetch(rankTexture, c, 0).b < 0.5) break;
                 segEnd = s;
             }
 
             // Target rank for this output position
-            int targetRank = (pc.ascending == 1)
+            int targetRank = (ascending == 1)
                 ? (idx - segStart)
                 : (segEnd - idx);
 
@@ -193,7 +195,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             vec4 originalAtIdx = texelFetch(originalTexture, coord, 0);
 
             for (int j = segStart; j <= segEnd; j++) {
-                ivec2 cj = (pc.sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
+                ivec2 cj = (sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
                 vec4 rd = texelFetch(rankTexture, cj, 0);
                 int rank = int(rd.r * 255.0 + 0.5) + int(rd.g * 255.0 + 0.5) * 256;
 
@@ -209,10 +211,22 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
         """;
 
-    private static GLSLShader? s_prepareShader;
-    private static GLSLShader? s_rankShader;
-    private static GLSLShader? s_gatherShader;
-    private static bool s_shadersInitialized;
+    // These fixed slots cover the complete finite specialization domain: six prepare, two rank,
+    // and four gather pipelines. They are retained for the process lifetime and never grow or evict.
+    private static readonly PixelSortPipelineCache<GLSLShader> s_shaderCache = new(
+        static sortKey => GLSLShader.CreateBuiltIn(
+            PrepareShaderSource,
+            [SpecializationConstant.Create(0, (int)sortKey, ShaderStage.Fragment)]),
+        static direction => GLSLShader.CreateBuiltIn(
+            RankShaderSource,
+            [SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment)]),
+        static (direction, ascending) => GLSLShader.CreateBuiltIn(
+            GatherRestoreShaderSource,
+            [
+                SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment),
+                SpecializationConstant.Create(1, ascending ? 1 : 0, ShaderStage.Fragment),
+            ],
+            hasMaskTexture: true));
 
     public PixelSortEffect()
     {
@@ -236,47 +250,46 @@ public sealed partial class PixelSortEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Ascending), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> Ascending { get; } = Property.Create(true);
 
-    private static void EnsureShadersInitialized()
+    private static PixelSortPipelines<GLSLShader>? GetOrCreateShaders(
+        PixelSortDirection direction,
+        PixelSortKey sortKey,
+        bool ascending)
     {
-        if (s_shadersInitialized) return;
-
         IGraphicsContext? context = GraphicsContextFactory.SharedContext;
         if (context == null || !context.Supports3DRendering)
         {
             s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
-            return;
+            return null;
         }
 
         try
         {
-            s_prepareShader = GLSLShader.Create(PrepareShaderSource);
-            s_rankShader = GLSLShader.Create(RankShaderSource);
-            s_gatherShader = GLSLShader.CreateDualTexture(GatherRestoreShaderSource);
-            s_shadersInitialized = true;
+            return s_shaderCache.GetOrCreate(sortKey, direction, ascending);
         }
         catch (Exception ex)
         {
-            s_logger.LogError(ex, "Failed to initialize PixelSort GLSL shaders.");
-            s_prepareShader = null;
-            s_rankShader = null;
-            s_gatherShader = null;
-            s_shadersInitialized = true;
+            s_logger.LogError(ex, "Failed to initialize a PixelSort GLSL shader variant.");
+            return null;
         }
     }
 
-    // Delivery (MaxWorkingScale == +inf) must not ship silently unsorted frames; preview keeps the
-    // source pixels and logs. Cancellation always propagates.
-    internal static bool ShouldRethrowPassFailure(Exception exception, float maxWorkingScale)
-        => exception is OperationCanceledException || float.IsPositiveInfinity(maxWorkingScale);
-
-    // Same delivery contract for the non-exception failure: an output target without a texture
-    // (allocation failure) must fail a delivery render instead of shipping the frame unsorted.
-    internal static void ThrowIfDeliveryAllocationFailure(float maxWorkingScale, int targetIndex)
+    internal static bool TrySwallowPassFailure(
+        Exception exception,
+        CustomFilterEffectContext context)
     {
-        if (float.IsPositiveInfinity(maxWorkingScale))
+        if (exception is OperationCanceledException || context.Intent == RenderIntent.Delivery)
+            return false;
+
+        context.RenderTargetLeaseSession?.MarkContentDropped();
+        return true;
+    }
+
+    internal static void ThrowIfDeliveryAllocationFailure(RenderIntent intent, int targetIndex)
+    {
+        if (intent == RenderIntent.Delivery)
         {
             throw new InvalidOperationException(
-                $"PixelSort could not allocate an output target for target {targetIndex}; the delivery render fails instead of shipping unsorted pixels.");
+                $"PixelSort output target {targetIndex} has no GPU texture; the delivery render fails instead of shipping unsorted pixels.");
         }
     }
 
@@ -296,9 +309,11 @@ public sealed partial class PixelSortEffect : FilterEffect
 
     private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
     {
-        EnsureShadersInitialized();
-
-        if (s_prepareShader == null || s_rankShader == null || s_gatherShader == null)
+        PixelSortPipelines<GLSLShader>? shaderPipelines = GetOrCreateShaders(
+            r.Direction,
+            r.SortKey,
+            r.Ascending);
+        if (shaderPipelines is not { } shaders)
             return;
 
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
@@ -311,63 +326,78 @@ public sealed partial class PixelSortEffect : FilterEffect
             RenderTarget? renderTarget = target.RenderTarget;
             if (renderTarget?.Texture == null) continue;
 
-            ITexture2D originalTexture = renderTarget.Texture;
-            int width = originalTexture.Width;
-            int height = originalTexture.Height;
-
             try
             {
-                using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+                // These passes read the backing texture from a separate Vulkan submission, which Skia's
+                // own ordering does not cover: an unsubmitted source reads back empty, and an empty
+                // source makes every pixel an anchor, so the gather pass returns the unsorted image.
+                renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+
+                ITexture2D originalTexture = renderTarget.Texture;
+                int width = originalTexture.Width;
+                int height = originalTexture.Height;
+
+                var scratchSize = new PixelSize(width, height);
+                using NativeFilterTextureLease prepLease = ctx.TryAcquireNativeScratchTexture(
+                    gfx,
+                    width,
+                    height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
+                using NativeFilterTextureLease rankLease = ctx.TryAcquireNativeScratchTexture(
+                    gfx,
+                    width,
+                    height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
+
+                ITexture2D prepTexture = prepLease.Texture;
+                ITexture2D rankTexture = rankLease.Texture;
 
                 // Pass 1: Prepare - encode sort key into alpha
-                s_prepareShader.ExecuteSingleTarget(
-                    originalTexture, prepTexture, depth,
+                shaders.Prepare.ExecuteSingleTarget(
+                    originalTexture, prepTexture,
                     new PreparePushConstants
                     {
                         ThresholdMin = r.ThresholdMin,
                         ThresholdMax = r.ThresholdMax,
-                        SortKeyType = (int)r.SortKey,
-                        SortDir = (int)r.Direction,
                         Width = width,
                         Height = height,
                     });
 
                 // Pass 2: Rank - compute each pixel's rank within its segment
-                s_rankShader.ExecuteSingleTarget(
-                    prepTexture, rankTexture, depth,
+                shaders.Rank.ExecuteSingleTarget(
+                    prepTexture, rankTexture,
                     new RankPushConstants
                     {
-                        SortDir = (int)r.Direction,
                         Width = width,
                         Height = height,
                     });
 
                 // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
+                EffectTarget newTarget = ctx.CreateNativeTargetLike(target);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
-                if (newRenderTarget?.Texture == null)
+                if (newRenderTarget is null)
                 {
                     newTarget.Dispose();
-                    ThrowIfDeliveryAllocationFailure(ctx.MaxWorkingScale, i);
+                    continue;
+                }
+
+                if (newRenderTarget.Texture is null)
+                {
+                    newTarget.Dispose();
+                    ThrowIfDeliveryAllocationFailure(ctx.Intent, i);
+                    ctx.RenderTargetLeaseSession?.MarkContentDropped();
                     continue;
                 }
 
                 try
                 {
-                    using ITexture2D gatherDepth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                    s_gatherShader.ExecuteSingleTargetWithMask(
-                        rankTexture, originalTexture, newRenderTarget.Texture, gatherDepth,
+                    shaders.Gather.ExecuteSingleTargetWithMask(
+                        rankTexture, originalTexture, newRenderTarget.Texture,
                         new GatherPushConstants
                         {
-                            SortDir = (int)r.Direction,
-                            Ascending = r.Ascending ? 1 : 0,
                             Width = width,
                             Height = height,
                         });
+                    shaders.Gather.SubmitPendingCommands();
 
                     target.Dispose();
                     ctx.Targets[i] = newTarget;
@@ -375,7 +405,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 catch (Exception ex)
                 {
                     newTarget.Dispose();
-                    if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
+                    if (!TrySwallowPassFailure(ex, ctx))
                     {
                         throw;
                     }
@@ -385,7 +415,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             }
             catch (Exception ex)
             {
-                if (ShouldRethrowPassFailure(ex, ctx.MaxWorkingScale))
+                if (!TrySwallowPassFailure(ex, ctx))
                 {
                     throw;
                 }
@@ -401,8 +431,6 @@ public sealed partial class PixelSortEffect : FilterEffect
     {
         public float ThresholdMin;
         public float ThresholdMax;
-        public int SortKeyType;
-        public int SortDir;
         public float Width;
         public float Height;
     }
@@ -410,7 +438,6 @@ public sealed partial class PixelSortEffect : FilterEffect
     [StructLayout(LayoutKind.Sequential)]
     private struct RankPushConstants
     {
-        public int SortDir;
         public float Width;
         public float Height;
     }
@@ -418,8 +445,6 @@ public sealed partial class PixelSortEffect : FilterEffect
     [StructLayout(LayoutKind.Sequential)]
     private struct GatherPushConstants
     {
-        public int SortDir;
-        public int Ascending;
         public float Width;
         public float Height;
     }

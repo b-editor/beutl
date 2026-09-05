@@ -13,7 +13,7 @@ public interface IRenderPass3D : IDisposable
     /// </summary>
     /// <param name="framebuffer">The framebuffer to render to.</param>
     /// <param name="clearColors">Clear colors for each color attachment.</param>
-    /// <param name="clearDepth">The depth value to clear the depth buffer with.</param>
+    /// <param name="clearDepth">The depth value to clear the depth buffer with; ignored by color-only passes.</param>
     void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f);
 
     /// <summary>
@@ -61,6 +61,10 @@ public interface IRenderPass3D : IDisposable
     /// </summary>
     /// <typeparam name="T">The type of push constants data.</typeparam>
     /// <param name="data">The push constants data.</param>
-    /// <param name="stageFlags">The shader stages that will access the push constants.</param>
-    void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged;
+    /// <remarks>
+    /// Which shader stages the update names is the bound pipeline layout's to decide, not the caller's: an
+    /// update must name every stage of every declared range it overlaps, so a caller naming only the stage
+    /// it happens to read from would be describing something the layout does not offer.
+    /// </remarks>
+    void SetPushConstants<T>(T data) where T : unmanaged;
 }

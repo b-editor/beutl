@@ -81,7 +81,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 "Beutl.Engine",
                 "Beutl.Graphics",
                 "Beutl.Graphics.Rendering",
-                "Beutl.Graphics.Effects");
+                "Beutl.Graphics.Effects",
+                "Beutl.Graphics.Shaders");
     }
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

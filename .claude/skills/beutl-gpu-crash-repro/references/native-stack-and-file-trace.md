@@ -2,13 +2,14 @@
 
 Deep-dive companion to `SKILL.md`. Read when the quick path (gdb native frame) is not enough.
 
-## Why macOS can't reproduce it
+## Why macOS can't reproduce the imported-image crash
 `RenderTarget.Create` / `VulkanTexture2D.CreateSkiaSurface` returns a **raster** (CPU) `SKSurface` on macOS,
 so there is no imported `VkImage` and no GPU-path native fault. On Linux it wraps a real imported `VkImage`
 in a `GRBackendRenderTarget`. Software SwiftShader (CI) exercises that GPU path; MoltenVK (dev Mac) does not.
-=> GPU-path native crashes are **Linux-only**; you must reproduce in a Linux container.
+=> This GPU-path crash is **Linux-only**; reproduce it in a Linux container. Process-exit compiler unloads are
+a separate failure class and do not require an imported image or GPU device.
 
-## Why arm64-native, never qemu x64 (the load-bearing lesson)
+## Why GPU-path Docker repro uses arm64-native, never qemu x64
 On Apple silicon, a `--platform linux/amd64` container runs x64 via **qemu-user**. A guest segfault dumps the
 **qemu process's arm64 core** — `readelf -n` shows `NT_ARM_TLS` / `NT_ARM_PAC_MASK` and register IPs in qemu's
 address space, which can't symbolize the guest x64 .NET/SwiftShader stack. Every ptrace-based tool also fails
@@ -22,6 +23,19 @@ confirm a suspected arch-specific behaviour.
 plus `eu-stack` (more tolerant of malformed notes); reading a static core needs no ptrace. The `# 0` frame
 + the first-arg register (arm64 `x0` = `this`) is usually the whole story, e.g.
 `#0 SkCanvas::restoreToCount(int)`, `x0 = 0x0` => a null/freed `SkCanvas` receiver.
+
+## Recognizing a process-exit compiler unload
+
+If managed work already printed `Passed!` or a harness printed `done:`, and the faulting main thread has libc
+exit handling directly below an unmapped PC, inspect dynamic-library lifetime before GPU ownership. Use
+`LD_DEBUG=libs` to record each compiler DSO's load, `fini`, and link-map destruction, then compare the core PC
+and argument register with offsets in that DSO. A library that registers a process-global `__cxa_atexit`
+callback without an associable DSO handle can leave that callback behind after `dlclose`.
+
+For Silk.NET shaderc, retain one `Shaderc.GetApi()` wrapper for the process lifetime while still releasing each
+compiler, options, and result handle. Verify with a GPU-free child process that compiles, disposes, compiles
+again, and exits normally; loop that process on each native architecture. File-tracing render calls does not
+help this signature because rendering has already completed.
 
 ## Getting the MANAGED call site (when gdb shows `?? ()`)
 The native frame's caller is JIT'd managed code gdb can't name. SOS would, but `dotnet-dump` /
@@ -40,6 +54,7 @@ survives process death) and fsync-per-call is orders of magnitude too slow over 
 
 ## Reading the signature of the crash
 - `Test host process crashed` with NO managed stack + no obtainable dump => native fault or an OS kill.
+- A main-thread `exit` stack after successful managed completion => inspect unloaded compiler DSOs first.
 - Watch RSS during the loop: flat memory rules out OOM; a long no-output "grind" then death suggests a
   giant software-Vulkan buffer, a hang, or just slow teardown before the fault.
 - Varying "current test" across runs (or `--blame` naming a trivial non-GPU test) => the fault is on a

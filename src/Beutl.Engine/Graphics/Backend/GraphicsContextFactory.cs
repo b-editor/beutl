@@ -1,6 +1,8 @@
-﻿using Beutl.Graphics.Backend.Composite;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -9,10 +11,13 @@ namespace Beutl.Graphics.Backend;
 
 public class GraphicsContextFactory
 {
+    internal const string VulkanValidationEnvironmentVariable = "BEUTL_VULKAN_VALIDATION";
+    internal const string VulkanValidationAppContextSwitch = "Beutl.Graphics.Vulkan.EnableValidation";
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(GraphicsContextFactory));
     private static bool s_failedToInitialize;
     private static VulkanInstance? s_vulkanInstance;
     private static VulkanPhysicalDeviceInfo? s_selectedPhysicalDevice;
+    private static Action s_reclaimQueueDischarge = GpuResourceReclaimQueue.DrainAfterContextSync;
 
     public static IGraphicsContext? SharedContext { get; private set; }
 
@@ -75,8 +80,21 @@ public class GraphicsContextFactory
         {
             VulkanSetup.Setup();
             var vk = Vk.GetApi();
-            s_vulkanInstance = new VulkanInstance(vk, enableValidation: false);
+            s_vulkanInstance = new VulkanInstance(vk, IsVulkanValidationEnabled());
         }
+    }
+
+    internal static bool IsVulkanValidationEnabled()
+    {
+        if (AppContext.TryGetSwitch(VulkanValidationAppContextSwitch, out bool enabled) && enabled)
+            return true;
+
+        string? value = Environment.GetEnvironmentVariable(VulkanValidationEnvironmentVariable);
+        return value is not null
+            && (value.Equals("1", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("on", StringComparison.OrdinalIgnoreCase));
     }
 
     public static IGraphicsContext CreateContext()
@@ -161,18 +179,144 @@ public class GraphicsContextFactory
 
     public static void Shutdown()
     {
-        RenderThread.Dispatcher.Invoke(() =>
+        RenderThread.Dispatcher.Invoke(static () =>
         {
-            SharedContext?.Dispose();
-            SharedContext = null;
+            List<Exception> failures = [];
 
-            if (s_vulkanInstance != null)
+            try
             {
-                s_vulkanInstance.Dispose();
-                s_vulkanInstance = null;
+                // A pool holds its targets until a request names a different context, which after this call
+                // never arrives, so nothing else ever destroys them on the device that owns them. Retiring
+                // first rather than last is what puts their backend releases ahead of both the flush that
+                // submits them and the destruction of the device they name.
+                try
+                {
+                    RenderTargetPool.RetireRetainedTargetsBeforeContextTeardown();
+                }
+                catch (Exception ex)
+                {
+                    AppendTeardownFailure(failures, ex);
+                }
+
+                // The flush speaks for a device that may already be abandoned or lost, so its failure has
+                // to reach the caller. What it must not decide is whether the queue is discharged.
+                try
+                {
+                    GpuResourceReclaimQueue.FlushAndDrain();
+                }
+                catch (Exception ex)
+                {
+                    AppendTeardownFailure(failures, ex);
+                }
+
+                // Everything still queued is owned by the context released below and destroys itself
+                // through that context's command pool. Discharging here re-defers each destroy onto a pool
+                // that is still live, which retires it behind the submission that reads it; leaving the
+                // queue for after the release would instead run every destroy immediately against a
+                // device that no longer exists.
+                try
+                {
+                    s_reclaimQueueDischarge();
+                }
+                catch (Exception ex)
+                {
+                    AppendTeardownFailure(failures, ex);
+                }
+            }
+            finally
+            {
+                // A context left installed is handed straight back by the next GetOrCreateShared, and the
+                // buffer-dimension memo is only invalidated by the context changing, so no failure above may
+                // decide whether the release happens.
+                try
+                {
+                    ReleaseInstalledGraphics();
+                }
+                catch (Exception ex)
+                {
+                    AppendTeardownFailure(failures, ex);
+                }
             }
 
-            s_selectedPhysicalDevice = null;
+            if (failures.Count == 1)
+            {
+                ExceptionDispatchInfo.Capture(failures[0]).Throw();
+            }
+
+            if (failures.Count > 1)
+            {
+                throw new AggregateException(
+                    "More than one graphics teardown step failed.",
+                    failures);
+            }
         });
     }
+
+    private static void AppendTeardownFailure(List<Exception> failures, Exception failure)
+    {
+        if (failure is AggregateException aggregate)
+            failures.AddRange(aggregate.Flatten().InnerExceptions);
+        else
+            failures.Add(failure);
+    }
+
+    /// <summary>Clears the installed graphics state before destroying it, so a failure cannot strand it.</summary>
+    private static void ReleaseInstalledGraphics()
+    {
+        IGraphicsContext? context = SharedContext;
+        VulkanInstance? vulkanInstance = s_vulkanInstance;
+        SharedContext = null;
+        s_vulkanInstance = null;
+        s_selectedPhysicalDevice = null;
+
+        try
+        {
+            context?.Dispose();
+        }
+        finally
+        {
+            vulkanInstance?.Dispose();
+        }
+    }
+
+    /// <summary>Installs <paramref name="replacement"/> as the discharge <see cref="Shutdown"/> runs, reporting what it replaced.</summary>
+    /// <remarks>
+    /// The production discharge cannot fail - <see cref="GpuResourceReclaimQueue"/> contains each queued
+    /// resource's own teardown failure - so standing in for it is the only way to pin that a discharge
+    /// which does fail still leaves the context released rather than stranded.
+    /// </remarks>
+    internal static Action ExchangeReclaimQueueDischarge(Action replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        Action previous = s_reclaimQueueDischarge;
+        s_reclaimQueueDischarge = replacement;
+        return previous;
+    }
+
+    /// <summary>Installs <paramref name="replacement"/> in place of the live state, reporting what it replaced.</summary>
+    /// <remarks>
+    /// <see cref="Shutdown"/> destroys state the whole process shares, so the only way to exercise it without
+    /// taking the device out from under every other caller is to stand in for that state, tear the stand-in
+    /// down, and put the real state back.
+    /// </remarks>
+    internal static InstalledGraphics ExchangeInstalledGraphics(InstalledGraphics replacement)
+    {
+        var previous = new InstalledGraphics(
+            SharedContext,
+            s_vulkanInstance,
+            s_selectedPhysicalDevice,
+            s_failedToInitialize);
+        SharedContext = replacement.SharedContext;
+        s_vulkanInstance = replacement.VulkanInstance;
+        s_selectedPhysicalDevice = replacement.PhysicalDevice;
+        s_failedToInitialize = replacement.FailedToInitialize;
+        return previous;
+    }
 }
+
+/// <summary>The process-wide graphics state <see cref="GraphicsContextFactory.Shutdown"/> tears down.</summary>
+internal readonly record struct InstalledGraphics(
+    IGraphicsContext? SharedContext,
+    VulkanInstance? VulkanInstance,
+    VulkanPhysicalDeviceInfo? PhysicalDevice,
+    bool FailedToInitialize);

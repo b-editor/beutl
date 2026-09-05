@@ -3,112 +3,13 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
-
-public sealed record RenderStillResponse(
-    string OutputPath,
-    int Width,
-    int Height,
-    string Time,
-    IReadOnlyList<string> Warnings,
-    StillFrameVisibilityAnalysis? VisibilityAnalysis = null,
-    IReadOnlyList<RenderStillActiveElement>? ActiveElements = null);
-
-public sealed record StillFrameVisibilityAnalysis(
-    int TotalPixels,
-    int VisiblePixels,
-    double VisiblePixelRatio,
-    int ForegroundPixels,
-    double ForegroundPixelRatio,
-    double OccupiedBoundsRatio,
-    double MaxQuadrantForegroundRatio,
-    int Left,
-    int Top,
-    int Right,
-    int Bottom,
-    int MinLuma,
-    int MaxLuma,
-    double MeanLuma,
-    double LumaStandardDeviation,
-    double BackgroundLuma,
-    int VisibilityThreshold,
-    int ForegroundDeltaThreshold,
-    IReadOnlyList<string> Warnings);
-
-public sealed record RenderStillActiveElement(
-    string Id,
-    string Name,
-    string Start,
-    string Length,
-    int ZIndex,
-    int ObjectCount);
-
-public sealed record RenderedTextBounds(
-    Element Element,
-    TextBlock TextBlock,
-    Rect Bounds);
-
-public sealed class RenderedFrameAnalysis : IDisposable
-{
-    public RenderedFrameAnalysis(TimeSpan time, Bitmap bitmap, IReadOnlyList<RenderedTextBounds> textBounds)
-    {
-        Time = time;
-        Bitmap = bitmap;
-        TextBounds = textBounds;
-    }
-
-    public TimeSpan Time { get; }
-
-    public Bitmap Bitmap { get; }
-
-    public IReadOnlyList<RenderedTextBounds> TextBounds { get; }
-
-    public void Dispose()
-    {
-        Bitmap.Dispose();
-    }
-}
-
-public sealed record RenderStoryboardResponse(
-    string ContactSheetPath,
-    IReadOnlyList<RenderStoryboardShot> Shots,
-    IReadOnlyList<CutEyeTrace> CutEyeTrace,
-    IReadOnlyList<string> ReviewNotes);
-
-public sealed record RenderStoryboardShot(
-    string Name,
-    double TimeSeconds,
-    string StillPath,
-    StillFrameVisibilityAnalysis? VisibilityAnalysis,
-    string Kind = "shot",
-    int SubdivisionLevel = 0);
-
-public sealed record StoryboardShotInput(
-    string Name,
-    double TimeSeconds);
-
-public sealed record NormalizedFocalPoint(
-    double X,
-    double Y);
-
-public sealed record CutEyeTrace(
-    string LeftFrame,
-    string RightFrame,
-    NormalizedFocalPoint LeftFocalPoint,
-    NormalizedFocalPoint RightFocalPoint,
-    double DisplacementRatio,
-    bool ExceedsEyeTraceBudget);
-
-public sealed record RenderStoryboardResult(
-    string Status,
-    string? JobId,
-    RenderStoryboardResponse? Result);
 
 public sealed class StillRenderer
 {
@@ -128,11 +29,10 @@ public sealed class StillRenderer
             Directory.CreateDirectory(directory);
         }
 
-        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         using Bitmap snapshot = await RenderBitmapAsync(
             scene,
             time,
-            normalizedScale,
+            renderScale,
             cancellationToken).ConfigureAwait(false);
 
         if (!snapshot.Save(outputPath, EncodedImageFormat.Png))
@@ -151,40 +51,44 @@ public sealed class StillRenderer
             CreateActiveElementSummaries(scene, time));
     }
 
-    public async ValueTask<Bitmap> RenderBitmapAsync(
+    public ValueTask<Bitmap> RenderBitmapAsync(
         Scene scene,
         TimeSpan time,
         float renderScale,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(scene);
-        if (ContainsGpuOnlyContent(scene, time)
-            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new RenderingUnavailableException(
-                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
-        }
-
-        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
-        return await RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            // Agent still render is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would decode cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
-
-            ThrowIfSourcesMissing(scene, time + scene.Start);
-            var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
-            renderer.Render(frame);
-            return renderer.Snapshot();
-        }, ct: cancellationToken).ConfigureAwait(false);
+        return RenderRenderedFrameAsync(
+            scene,
+            time,
+            renderScale,
+            static (_, renderer, _) => renderer.Snapshot(),
+            cancellationToken);
     }
 
-    public async ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
+    public ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
         Scene scene,
         TimeSpan time,
         float renderScale,
+        CancellationToken cancellationToken)
+    {
+        return RenderRenderedFrameAsync(
+            scene,
+            time,
+            renderScale,
+            static (renderedScene, renderer, renderedTime) =>
+            {
+                IReadOnlyList<RenderedTextBounds> textBounds =
+                    CreateRenderedTextBounds(renderedScene, renderer, renderedTime);
+                return new RenderedFrameAnalysis(renderedTime, renderer.Snapshot(), textBounds);
+            },
+            cancellationToken);
+    }
+
+    private static async ValueTask<TResult> RenderRenderedFrameAsync<TResult>(
+        Scene scene,
+        TimeSpan time,
+        float renderScale,
+        Func<Scene, SceneRenderer, TimeSpan, TResult> project,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -198,17 +102,12 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            // Agent still render is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would decode cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
-            IReadOnlyList<RenderedTextBounds> textBounds = CreateRenderedTextBounds(scene, renderer, time);
-            return new RenderedFrameAnalysis(time, renderer.Snapshot(), textBounds);
+            return project(scene, renderer, time);
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 

@@ -268,6 +268,10 @@
     <value>Píxeles mínimos</value>
     <comment />
   </data>
+  <data name="NodeCacheWarning" xml:space="preserve">
+    <value>Habilitar la caché de nodos puede cambiar el resultado del renderizado de la vista previa y rara vez ayuda mientras el contenido está animado; incluso puede ralentizar el renderizado. La exportación siempre se renderiza sin ella, por lo que la vista previa puede no coincidir con el resultado exportado.</value>
+    <comment />
+  </data>
   <data name="SwapTimelineScrollDirection" xml:space="preserve">
     <value>Invertir la dirección de desplazamiento de la línea de tiempo</value>
     <comment />

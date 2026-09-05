@@ -5,12 +5,6 @@ using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Nodes;
 
-public sealed partial class EllipseGeometryNode : GeometryNode<EllipseGeometry>;
-
-public sealed partial class RectGeometryNode : GeometryNode<RectGeometry>;
-
-public sealed partial class RoundedRectGeometryNode : GeometryNode<RoundedRectGeometry>;
-
 public partial class GeometryNode<T> : GraphNode
     where T : Geometry, new()
 {
@@ -60,7 +54,7 @@ public partial class GeometryNode<T> : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = GetOriginal()!;
             OutputPort = node.Object;
         }
     }

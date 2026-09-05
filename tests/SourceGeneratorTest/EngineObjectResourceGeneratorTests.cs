@@ -57,9 +57,13 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(source, Does.Contain("partial class Resource"));
             Assert.That(source, Does.Contain("global::Beutl.Engine.EngineObject.Resource"));
 
-            // Value properties X and Y are surfaced on the Resource.
+            // Value properties X and Y are surfaced on the Resource, as plain assignments: a setter moves
+            // no version, so reconciling and the author are the only things that invalidate a resource.
             Assert.That(source, Does.Contain("public float X"));
             Assert.That(source, Does.Contain("public float Y"));
+            Assert.That(source, Does.Contain("set => _x = value;"));
+            Assert.That(source, Does.Contain("set => _y = value;"));
+            Assert.That(source, Does.Not.Contain("Version++"));
 
             // Update override compares-and-updates each value property.
             Assert.That(source, Does.Contain("public override void Update"));
@@ -107,6 +111,15 @@ public class EngineObjectResourceGeneratorTests
             // surfaced as a Derived.Resource and compared via CompareAndUpdateObject.
             Assert.That(source, Does.Contain("Child"));
             Assert.That(source, Does.Contain("CompareAndUpdateObject(context"));
+            Assert.That(source, Does.Contain("set => _child = value;"));
+            Assert.That(source, Does.Contain("set => _optionalChild = value;"));
+            Assert.That(source, Does.Not.Contain("SetOwnedResource"));
+            Assert.That(source, Does.Not.Contain("ReplaceChild("));
+            Assert.That(source, Does.Not.Contain("DetachChild()"));
+            Assert.That(source, Does.Contain(
+                "get => _child ?? throw new global::System.InvalidOperationException"));
+            Assert.That(source, Does.Not.Contain("DetachOptionalChild()"));
+            Assert.That(source, Does.Not.Contain("ReplaceOptionalChild("));
             // The disposable object property is released by its backing field in Dispose.
             Assert.That(source, Does.Contain("_child?.Dispose();"));
         });

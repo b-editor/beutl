@@ -1,50 +1,46 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reactive;
 
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.Threshold), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Threshold : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<Threshold>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform float threshold;
+        uniform float smoothness;
+        uniform float strength;
 
-    static Threshold()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float threshold;
-            uniform float smoothness;
-            uniform float strength;
+        const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
 
-            const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
+        half4 apply(half4 color) {
+            float3 rgb = color.rgb;
 
-            half4 main(float2 coord) {
-                half4 c = src.eval(coord);
-                float3 rgb = c.rgb;
+            float luma = dot(rgb, LUMA);
+            float lower = threshold - smoothness * 0.5;
+            float upper = threshold + smoothness * 0.5;
 
-                float luma = dot(rgb, LUMA);
-                float lower = threshold - smoothness * 0.5;
-                float upper = threshold + smoothness * 0.5;
-                float t = smoothstep(lower, upper, luma);
+            // A band that collapses to zero width divides by zero inside smoothstep, and equal edges are
+            // undefined in the shading languages: Skia's CPU backend returns NaN there and Metal returns 0,
+            // so the value has to be written out rather than left to the backend. The band is centred on the
+            // threshold, so a band of any positive width evaluates to exactly 0.5 at the threshold; the
+            // collapsed band keeps that value and steps hard on either side of it.
+            float t = upper > lower
+                ? smoothstep(lower, upper, luma)
+                : (luma < threshold ? 0.0 : (luma > threshold ? 1.0 : 0.5));
 
-                t = mix(luma, t, strength);
-                return half4(t);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile threshold shader: {ErrorText}", errorText);
+            t = mix(luma, t, strength);
+            return half4(t);
         }
-    }
+        """;
+
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.CurrentPixel);
 
     public Threshold()
     {
@@ -65,37 +61,45 @@ public sealed partial class Threshold : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
-
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r, Unit.Default),
-            (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
+        context.Shader(ShaderDescription.CurrentPixel(
+            s_shaderSource,
+            bindings =>
+            {
+                bindings.Uniform("threshold", r.Value / 100f);
+                bindings.Uniform("smoothness", r.Smoothness / 100f);
+                bindings.Uniform("strength", r.Strength / 100f);
+            },
+            CreatesAlphaFromATransparentPixel(r) ? RenderHitTestContract.OutputBounds : null));
     }
 
-    private static void OnApply(Resource data, CustomFilterEffectContext context)
+    /// <remarks>
+    /// The entry point returns <c>half4(t)</c>, so <c>t</c> is the output alpha as well as the colour: at the
+    /// settings where a fully transparent pixel leaves with a non-zero <c>t</c>, the stage paints where its
+    /// input covers nothing, and a hit test forwarded to that input would miss pixels the viewer can see.
+    /// This evaluates the entry point itself at the luma a transparent premultiplied pixel carries - zero -
+    /// rather than restating it as an inequality on the properties: the answer turns over at exactly the
+    /// parameter boundaries a restatement gets wrong, and it has to keep tracking the SkSL above, degenerate
+    /// band included.
+    /// </remarks>
+    private static bool CreatesAlphaFromATransparentPixel(Resource r)
     {
-        if (s_shader is null) return;
-
-        for (int i = 0; i < context.Targets.Count; i++)
+        const float luma = 0f;
+        float threshold = r.Value / 100f;
+        float smoothness = r.Smoothness / 100f;
+        float lower = threshold - (smoothness * 0.5f);
+        float upper = threshold + (smoothness * 0.5f);
+        float t;
+        if (upper > lower)
         {
-            using var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["threshold"] = data.Value / 100f;
-            builder.Uniforms["smoothness"] = data.Smoothness / 100f;
-            builder.Uniforms["strength"] = data.Strength / 100f;
-
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
+            float x = Math.Clamp((luma - lower) / (upper - lower), 0f, 1f);
+            t = x * x * (3f - (2f * x));
         }
+        else
+        {
+            t = luma < threshold ? 0f : luma > threshold ? 1f : 0.5f;
+        }
+
+        return !(t * (r.Strength / 100f) <= 0f);
     }
 }

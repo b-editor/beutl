@@ -1,0 +1,1451 @@
+﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shaders;
+
+namespace Beutl.Graphics.Rendering.Requests;
+
+internal sealed class RegionAnalyzer
+{
+    /// <summary>
+    /// Resolves forward metadata and measures the request, without deriving any region requirement.
+    /// </summary>
+    /// <remarks>
+    /// Resolving forward metadata mutates the symbolic fragment bounds that target-scope lowering reads, so a
+    /// caller that goes on to compile must re-lower and call <see cref="Analyze"/>. Requirements derived here
+    /// would come from the pre-mutation dependency plan and be discarded, so this entry point does not spend
+    /// the propagation that produces them.
+    /// </remarks>
+    public RenderNodeMeasurement ResolveMeasurement(
+        RenderRequestOptions options,
+        IReadOnlyList<RenderFragmentReference> roots,
+        TargetDependencyPlan? targetDependencies = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(roots);
+
+        return ResolveMetadataPass(options, roots, targetDependencies).Measurement;
+    }
+
+    public RegionAnalysis Analyze(
+        RenderRequestOptions options,
+        IReadOnlyList<RenderFragmentReference> roots,
+        TargetDependencyPlan? targetDependencies = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(roots);
+
+        MetadataPass pass = ResolveMetadataPass(options, roots, targetDependencies);
+        targetDependencies = pass.TargetDependencies;
+        ImmutableArray<RenderFragmentReference> topologicalOrder = pass.TopologicalOrder;
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures = pass.BackingTargetBackdropCaptures;
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains = pass.TargetDomains;
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata = pass.Metadata;
+        RenderNodeMeasurement measurement = pass.Measurement;
+        Rect finalCommitBounds = options.RequestedRegion switch
+        {
+            { Width: 0 } empty => empty,
+            { Height: 0 } empty => empty,
+            { } requested => requested.Intersect(measurement.OutputBounds),
+            null => measurement.OutputBounds,
+        };
+        RequiredRegion finalCommitRegion = RequiredRegion.Region(finalCommitBounds);
+
+        var fragmentRequirements = new Dictionary<RenderFragmentReference, RequiredRegion>(
+            ReferenceEqualityComparer.Instance);
+        foreach (RenderFragmentReference root in roots)
+        {
+            RequiredRegion requirement = GetRootRequirement(
+                root,
+                finalCommitBounds,
+                options.TargetDomain);
+            UnionRequirement(fragmentRequirements, root, requirement);
+        }
+
+        var targetRequirements = new Dictionary<RenderFragmentReference, RequiredRegion>(
+            ReferenceEqualityComparer.Instance);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById =
+            topologicalOrder.ToDictionary(GetId);
+
+        // Both maps are derived from the immutable dependency plan, so they are invariant across the
+        // propagation passes below.
+        IReadOnlyDictionary<TargetTokenId, TargetDependencyStep> tokenProducers = targetDependencies.Steps
+            .ToDictionary(static step => step.OutputToken);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> targetScopes = targetDependencies.Scopes
+            .ToDictionary(static scope => scope.Id);
+        int remainingPasses = checked(topologicalOrder.Length + targetDependencies.Steps.Length + 1);
+        bool changed;
+        do
+        {
+            changed = PropagateFragmentRequirements(
+                topologicalOrder,
+                targetDomains,
+                fragmentRequirements,
+                targetRequirements);
+            changed |= PropagateTargetTokenRequirements(
+                targetDependencies,
+                tokenProducers,
+                targetScopes,
+                referencesById,
+                targetRequirements,
+                fragmentRequirements);
+            remainingPasses--;
+            if (changed && remainingPasses == 0)
+            {
+                throw new InvalidOperationException(
+                    "Target-token region propagation did not converge within the finite request graph.");
+            }
+        }
+        while (changed);
+
+        var fragmentRegions = ImmutableDictionary.CreateBuilder<RenderFragmentId, RequiredRegion>();
+        var targetAccessRegions = ImmutableDictionary.CreateBuilder<RenderFragmentId, RequiredRegion>();
+        foreach (RenderFragmentReference reference in topologicalOrder)
+        {
+            RenderFragmentId fragmentId = GetId(reference);
+            RequiredRegion requirement = GetRequirement(fragmentRequirements, reference);
+            fragmentRegions.Add(fragmentId, requirement);
+
+            if (targetRequirements.TryGetValue(reference, out RequiredRegion targetRequirement))
+                targetAccessRegions.Add(fragmentId, targetRequirement);
+        }
+
+        return new RegionAnalysis(
+            measurement,
+            options.TargetDomain,
+            options.RequestedRegion,
+            finalCommitBounds,
+            finalCommitRegion,
+            fragmentRegions.ToImmutable(),
+            targetAccessRegions.ToImmutable(),
+            metadata,
+            backingTargetBackdropCaptures);
+    }
+
+    private static MetadataPass ResolveMetadataPass(
+        RenderRequestOptions options,
+        IReadOnlyList<RenderFragmentReference> roots,
+        TargetDependencyPlan? targetDependencies)
+    {
+        targetDependencies ??= TargetDependencyLowerer.Lower(
+            roots.ToImmutableArray(),
+            options.TargetDomain);
+
+        ImmutableArray<RenderFragmentReference> topologicalOrder = GetTopologicalOrder(roots);
+        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures =
+            FindBackingTargetBackdropCaptures(topologicalOrder, targetDependencies);
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains =
+            ResolveTargetDomains(
+                roots,
+                options.TargetDomain,
+                targetDependencies,
+                backingTargetBackdropCaptures);
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata =
+            ResolveForwardMetadata(topologicalOrder, targetDomains, options);
+        return new MetadataPass(
+            targetDependencies,
+            topologicalOrder,
+            backingTargetBackdropCaptures,
+            targetDomains,
+            metadata,
+            Measure(options, roots));
+    }
+
+    private readonly record struct MetadataPass(
+        TargetDependencyPlan TargetDependencies,
+        ImmutableArray<RenderFragmentReference> TopologicalOrder,
+        ImmutableHashSet<RenderFragmentId> BackingTargetBackdropCaptures,
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> TargetDomains,
+        ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> Metadata,
+        RenderNodeMeasurement Measurement);
+
+    private static bool PropagateFragmentRequirements(
+        ImmutableArray<RenderFragmentReference> topologicalOrder,
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains,
+        Dictionary<RenderFragmentReference, RequiredRegion> fragmentRequirements,
+        Dictionary<RenderFragmentReference, RequiredRegion> targetRequirements)
+    {
+        bool changed = false;
+        for (int index = topologicalOrder.Length - 1; index >= 0; index--)
+        {
+            RenderFragmentReference reference = topologicalOrder[index];
+            RequiredRegion requirement = GetRequirement(fragmentRequirements, reference);
+
+            RequiredRegion? targetRequirement = GetTargetAccessRequirement(
+                reference,
+                requirement,
+                targetDomains[reference]);
+            if (targetRequirement is { } target)
+                changed |= UnionRequirement(targetRequirements, reference, target);
+
+            ImmutableArray<RequiredRegion> inputRequirements = GetInputRequirements(
+                reference,
+                requirement,
+                targetDomains[reference]);
+            if (inputRequirements.Length != reference.Inputs.Length)
+            {
+                throw new InvalidOperationException(
+                    "Region analysis must produce exactly one requirement per fragment input.");
+            }
+
+            for (int inputIndex = 0; inputIndex < reference.Inputs.Length; inputIndex++)
+            {
+                changed |= UnionRequirement(
+                    fragmentRequirements,
+                    reference.Inputs[inputIndex],
+                    inputRequirements[inputIndex]);
+            }
+        }
+
+        return changed;
+    }
+
+    private static bool PropagateTargetTokenRequirements(
+        TargetDependencyPlan plan,
+        IReadOnlyDictionary<TargetTokenId, TargetDependencyStep> producers,
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById,
+        IReadOnlyDictionary<RenderFragmentReference, RequiredRegion> targetRequirements,
+        Dictionary<RenderFragmentReference, RequiredRegion> fragmentRequirements)
+    {
+        bool changed = false;
+
+        foreach (TargetDependencyStep consumer in plan.Steps)
+        {
+            RenderFragmentReference consumerReference = referencesById[consumer.FragmentId];
+            if (!targetRequirements.TryGetValue(
+                    consumerReference,
+                    out RequiredRegion targetRequirement)
+                || targetRequirement.IsEmpty)
+            {
+                continue;
+            }
+
+            TargetTokenId token = consumer.InputToken;
+            TargetScopeId requirementScope = consumer.ScopeId;
+            RequiredRegion requirement = targetRequirement;
+            while (producers.TryGetValue(token, out TargetDependencyStep producer))
+            {
+                RenderFragmentReference producerReference = referencesById[producer.FragmentId];
+                TargetScopeId fragmentScope = ResolveFragmentOutputScope(
+                    producerReference,
+                    producer.ScopeId,
+                    scopes);
+                RequiredRegion fragmentRequirement = MapRequirementBetweenScopes(
+                    requirement,
+                    requirementScope,
+                    fragmentScope,
+                    scopes,
+                    referencesById);
+
+                if (producer.Kind != TargetDependencyKind.Capture)
+                {
+                    changed |= UnionRequirement(
+                        fragmentRequirements,
+                        producerReference,
+                        fragmentRequirement);
+                }
+
+                requirement = MapRequirementBetweenScopes(
+                    requirement,
+                    requirementScope,
+                    producer.ScopeId,
+                    scopes,
+                    referencesById);
+                requirementScope = producer.ScopeId;
+                token = producer.InputToken;
+            }
+        }
+
+        return changed;
+    }
+
+    private static TargetScopeId ResolveFragmentOutputScope(
+        RenderFragmentReference reference,
+        TargetScopeId executionScope,
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes)
+    {
+        TargetScopePlan scope = scopes[executionScope];
+        return scope.OwnerFragmentId == reference.Id && scope.ParentId is { } parentId
+            ? parentId
+            : executionScope;
+    }
+
+    private static RequiredRegion MapRequirementBetweenScopes(
+        RequiredRegion requirement,
+        TargetScopeId sourceScopeId,
+        TargetScopeId destinationScopeId,
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById)
+    {
+        if (requirement.IsEmpty || sourceScopeId == destinationScopeId)
+            return requirement;
+
+        TargetScopePlan sourceScope = scopes[sourceScopeId];
+        Rect mapped = requirement.IsFull
+            ? requirement.Resolve(
+                sourceScope.ResolvedDomain
+                ?? throw new InvalidOperationException(
+                    "A Full target-token requirement cannot cross an unresolved target scope."))
+            : requirement.Value;
+
+        var sourceAncestors = new Dictionary<TargetScopeId, int>();
+        TargetScopeId? cursor = sourceScopeId;
+        int depth = 0;
+        while (cursor is { } current)
+        {
+            sourceAncestors.Add(current, depth++);
+            cursor = scopes[current].ParentId;
+        }
+
+        var destinationPath = new List<TargetScopeId>();
+        cursor = destinationScopeId;
+        while (cursor is { } current && !sourceAncestors.ContainsKey(current))
+        {
+            destinationPath.Add(current);
+            cursor = scopes[current].ParentId;
+        }
+
+        TargetScopeId commonAncestor = cursor
+            ?? throw new InvalidOperationException(
+                "Target-token scopes must belong to one rooted scope tree.");
+        cursor = sourceScopeId;
+        while (cursor != commonAncestor)
+        {
+            TargetScopePlan child = scopes[cursor!.Value];
+            mapped = MapChildToParent(mapped, child, referencesById);
+            cursor = child.ParentId;
+        }
+
+        for (int index = destinationPath.Count - 1; index >= 0; index--)
+        {
+            TargetScopePlan child = scopes[destinationPath[index]];
+            mapped = MapParentToChild(mapped, child, referencesById);
+        }
+
+        return RequiredRegion.Region(mapped);
+    }
+
+    private static Rect MapChildToParent(
+        Rect requirement,
+        TargetScopePlan child,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById)
+    {
+        Rect mapped = child.OwnerFragmentId is { } ownerId
+            ? referencesById[ownerId].Payload switch
+            {
+                TargetScopeRenderFragmentPayload scope
+                    => scope.Description.Bounds.TransformBounds(requirement),
+                RawTargetScopeRenderFragmentPayload scope
+                    => scope.Description.Bounds.TransformBounds(requirement),
+                _ => requirement,
+            }
+            : requirement;
+        return mapped;
+    }
+
+    private static Rect MapParentToChild(
+        Rect requirement,
+        TargetScopePlan child,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById)
+    {
+        Rect mapped = child.OwnerFragmentId is { } ownerId
+            ? referencesById[ownerId].Payload switch
+            {
+                TargetScopeRenderFragmentPayload scope
+                    => scope.Description.Bounds.GetRequiredInputBounds(requirement),
+                RawTargetScopeRenderFragmentPayload scope
+                    => scope.Description.Bounds.GetRequiredInputBounds(requirement),
+                _ => requirement,
+            }
+            : requirement;
+        return child.ResolvedDomain is { } domain
+            ? mapped.Intersect(domain)
+            : mapped;
+    }
+
+    private static ImmutableArray<RenderFragmentReference> GetTopologicalOrder(
+        IReadOnlyList<RenderFragmentReference> roots)
+    {
+        var result = ImmutableArray.CreateBuilder<RenderFragmentReference>();
+        var visiting = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        var visited = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
+        foreach (RenderFragmentReference root in roots)
+        {
+            ArgumentNullException.ThrowIfNull(root);
+            Visit(root, visiting, visited, result);
+        }
+
+        return result.ToImmutable();
+
+        static void Visit(
+            RenderFragmentReference reference,
+            HashSet<RenderFragmentReference> visiting,
+            HashSet<RenderFragmentReference> visited,
+            ImmutableArray<RenderFragmentReference>.Builder result)
+        {
+            if (visited.Contains(reference))
+                return;
+            if (!visiting.Add(reference))
+                throw new InvalidOperationException("The recorded render graph contains a fragment cycle.");
+
+            foreach (RenderFragmentReference input in reference.Inputs)
+                Visit(input, visiting, visited, result);
+
+            visiting.Remove(reference);
+            visited.Add(reference);
+            result.Add(reference);
+        }
+    }
+
+    private static IReadOnlyDictionary<RenderFragmentReference, Rect?> ResolveTargetDomains(
+        IReadOnlyList<RenderFragmentReference> roots,
+        Rect? rootDomain,
+        TargetDependencyPlan targetDependencies,
+        IReadOnlySet<RenderFragmentId> backingTargetBackdropCaptures)
+    {
+        var result = new Dictionary<RenderFragmentReference, Rect?>(
+            ReferenceEqualityComparer.Instance);
+        var visitedDomains = new HashSet<VisitedDomain>(VisitedDomainComparer.Instance);
+        foreach (RenderFragmentReference root in roots)
+            Visit(root, rootDomain, result, visitedDomains);
+
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = result.Keys
+            .Where(static reference => reference.Id is not null)
+            .ToDictionary(static reference => reference.Id!.Value);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
+            .ToDictionary(static scope => scope.Id);
+        foreach (TargetDependencyStep capture in targetDependencies.Steps
+                     .Where(static step => step.Kind == TargetDependencyKind.Capture))
+        {
+            RenderFragmentReference reference = references[capture.FragmentId];
+            TargetScopePlan captureScope = scopes[capture.ScopeId];
+            if (backingTargetBackdropCaptures.Contains(capture.FragmentId))
+            {
+                // A value replay map materializes its input before replaying it through a transform. A backdrop
+                // reads the backing target outside that materialization boundary; resolving it inside the map
+                // would inverse-rasterize the target only to transform it forward again during replay.
+                TargetScopePlan current = captureScope;
+                while (current.ParentId is { } parentId)
+                {
+                    RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
+                        ? references[ownerId]
+                        : null;
+                    if (owner?.Payload is LayerRenderFragmentPayload
+                        or TargetLayerScopeRenderFragmentPayload)
+                    {
+                        break;
+                    }
+
+                    if (owner?.Payload is TargetScopeRenderFragmentPayload scope
+                        && scope.Description.BuiltInBackdropCapturesBackingTarget)
+                    {
+                        captureScope = scopes[parentId];
+                    }
+
+                    current = scopes[parentId];
+                }
+            }
+
+            result[reference] = captureScope.ResolvedDomain;
+        }
+        return result;
+
+        static void Visit(
+            RenderFragmentReference reference,
+            Rect? domain,
+            Dictionary<RenderFragmentReference, Rect?> result,
+            HashSet<VisitedDomain> visitedDomains)
+        {
+            if (!visitedDomains.Add(new VisitedDomain(reference, domain)))
+                return;
+
+            if (result.TryGetValue(reference, out Rect? existing))
+            {
+                bool isReusableCapture = reference.Kind is RenderFragmentKind.TargetCapture
+                    or RenderFragmentKind.BuiltInBackdropCapture;
+                if (existing != domain
+                    && (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
+                        || (reference.HasTargetEffects && !reference.CanBeUsedAsValueInput))
+                    && !isReusableCapture)
+                {
+                    throw new InvalidOperationException(
+                        "A target-effect fragment cannot be lowered into two different owning target domains.");
+                }
+            }
+            else
+            {
+                result.Add(reference, domain);
+            }
+
+            Rect? inputDomain = reference.Payload switch
+            {
+                TargetScopeRenderFragmentPayload scope when domain is { } finite
+                    => scope.Description.Bounds.GetRequiredInputBounds(finite),
+                RawTargetScopeRenderFragmentPayload scope when domain is { } finite
+                    => scope.Description.Bounds.GetRequiredInputBounds(finite),
+                LayerRenderFragmentPayload layer => layer.Domain ?? domain,
+                TargetLayerScopeRenderFragmentPayload layer
+                    => ResolveTargetRegion(layer.Region, domain),
+                _ => domain,
+            };
+            foreach (RenderFragmentReference input in reference.Inputs)
+                Visit(input, inputDomain, result, visitedDomains);
+        }
+    }
+
+    private readonly record struct VisitedDomain(RenderFragmentReference Reference, Rect? Domain);
+
+    /// <summary>
+    /// Pairs a fragment with a domain the traversal already lowered it into. One set for the whole traversal
+    /// replaces the per-fragment set the domain map used to hold.
+    /// </summary>
+    private sealed class VisitedDomainComparer : IEqualityComparer<VisitedDomain>
+    {
+        public static readonly VisitedDomainComparer Instance = new();
+
+        public bool Equals(VisitedDomain x, VisitedDomain y)
+            => ReferenceEquals(x.Reference, y.Reference) && Nullable.Equals(x.Domain, y.Domain);
+
+        public int GetHashCode(VisitedDomain obj)
+            => HashCode.Combine(RuntimeHelpers.GetHashCode(obj.Reference), obj.Domain);
+    }
+
+    private static ImmutableHashSet<RenderFragmentId> FindBackingTargetBackdropCaptures(
+        ImmutableArray<RenderFragmentReference> topologicalOrder,
+        TargetDependencyPlan targetDependencies)
+    {
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = topologicalOrder
+            .ToDictionary(GetId);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
+            .ToDictionary(static scope => scope.Id);
+        var result = ImmutableHashSet.CreateBuilder<RenderFragmentId>();
+        foreach (TargetDependencyStep capture in targetDependencies.Steps
+                     .Where(static step => step.Kind == TargetDependencyKind.Capture))
+        {
+            if (references[capture.FragmentId].Kind != RenderFragmentKind.BuiltInBackdropCapture)
+                continue;
+
+            TargetScopePlan current = scopes[capture.ScopeId];
+            while (current.ParentId is { } parentId)
+            {
+                RenderFragmentReference? owner = current.OwnerFragmentId is { } ownerId
+                    ? references[ownerId]
+                    : null;
+                if (owner?.Payload is LayerRenderFragmentPayload
+                    or TargetLayerScopeRenderFragmentPayload)
+                {
+                    break;
+                }
+
+                if (owner?.Payload is TargetScopeRenderFragmentPayload scope
+                    && scope.Description.BuiltInBackdropCapturesBackingTarget)
+                {
+                    result.Add(capture.FragmentId);
+                    break;
+                }
+
+                current = scopes[parentId];
+            }
+        }
+
+        return result.ToImmutable();
+    }
+
+    private static ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> ResolveForwardMetadata(
+        ImmutableArray<RenderFragmentReference> topologicalOrder,
+        IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains,
+        RenderRequestOptions options)
+    {
+        var result = ImmutableDictionary.CreateBuilder<RenderFragmentId, ResolvedFragmentMetadata>();
+        foreach (RenderFragmentReference reference in topologicalOrder)
+        {
+            Rect resolvedBounds = ResolveForwardBounds(reference, targetDomains[reference]);
+            RenderRectValidation.ThrowIfInvalidResult(
+                resolvedBounds,
+                "A resolved fragment contains invalid forward bounds.");
+            if (!reference.HasSymbolicBoundsDependency)
+            {
+                if (resolvedBounds != reference.RecordedBounds)
+                {
+                    // Concrete mappings are deliberately evaluated both while recording and here. Exact equality
+                    // enforces the public contract that bounds delegates are deterministic over an immutable snapshot;
+                    // a tolerance would hide mutable captures rather than accommodate numeric drift from identical inputs.
+                    throw new InvalidOperationException(
+                        "A forward bounds mapping changed between recording and graph-wide metadata resolution.");
+                }
+            }
+            else
+            {
+                // A symbolic fragment resolves over inputs that were meant to move, so the answer above is
+                // expected to differ from the recorded one and cannot stand in for this comparison. Replaying
+                // the mapping over the inputs' recorded metadata puts it back under the rule the branch above
+                // enforces, at the one input where a recorded answer exists.
+                SymbolicMetadataCrossCheck.VerifyForwardBounds(reference);
+            }
+
+            EffectiveScale resolvedScale;
+            if (reference.HasSymbolicBoundsDependency)
+            {
+                resolvedScale = ResolveForwardScale(reference, resolvedBounds, options);
+                // The density contract is held to its recorded answer the same way, and for the same reason.
+                SymbolicMetadataCrossCheck.VerifyForwardScale(reference, options);
+            }
+            else
+            {
+                resolvedScale = reference.RecordedEffectiveScale;
+            }
+            RenderFragmentHitTest? resolvedHitTest = reference.HasSymbolicBoundsDependency
+                ? ResolveForwardHitTest(reference)
+                : null;
+            reference.ApplyResolvedMetadata(resolvedBounds, resolvedScale, resolvedHitTest);
+            result.Add(
+                GetId(reference),
+                new ResolvedFragmentMetadata(
+                    resolvedBounds,
+                    ResolveQueryBounds(reference),
+                    resolvedScale));
+        }
+
+        return result.ToImmutable();
+    }
+
+    private static Rect ResolveForwardBounds(
+        RenderFragmentReference reference,
+        Rect? targetDomain)
+    {
+        if (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain)
+        {
+            return targetDomain
+                ?? throw new RenderTargetDomainRequiredException(reference.Kind == RenderFragmentKind.FilterEffectSegment
+                    ? "A CustomEffect without transformBounds requires a finite owning target domain from a "
+                      + "destination, finite Layer, or explicit TargetDomain."
+                    : "A symbolic full-target capture requires a finite owning target domain.");
+        }
+
+        // Only the two arms below read more than the first input's bounds, so the projection array is built
+        // there rather than for every fragment: this runs once per fragment in each of two metadata passes.
+        switch (reference.Kind)
+        {
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.OpaqueMap:
+            case RenderFragmentKind.OpaqueCombine:
+            case RenderFragmentKind.OpaqueExpand:
+                return ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Bounds
+                    .TransformBounds(reference.Inputs.SelectToArray(static input => input.Bounds));
+            case RenderFragmentKind.FilterEffectSegment:
+                return ResolveEffectItemBounds(reference);
+        }
+
+        return reference.Kind switch
+        {
+            RenderFragmentKind.ContributeValues when reference.Inputs.Length == 0
+                => reference.RecordedBounds,
+            RenderFragmentKind.ContributeValues
+                or RenderFragmentKind.Opacity
+                or RenderFragmentKind.Blend
+                => reference.Inputs[0].Bounds,
+            RenderFragmentKind.OpacityMask => reference.Inputs[0].Bounds,
+            RenderFragmentKind.Shader
+                => ((ShaderRenderFragmentPayload)reference.Payload!).Description.Bounds
+                    .TransformBounds(reference.Inputs[0].Bounds),
+            RenderFragmentKind.Geometry
+                => ((GeometryRenderFragmentPayload)reference.Payload!).Description.Bounds
+                    .TransformBounds(reference.Inputs[0].Bounds),
+            RenderFragmentKind.Layer
+                => ResolveLayerBounds(
+                    reference,
+                    ((LayerRenderFragmentPayload)reference.Payload!).Domain
+                    ?? throw new InvalidOperationException(
+                        "An owning-domain Layer must resolve before finite bounds mapping.")),
+            RenderFragmentKind.TargetLayerScope => UnionInputBounds(reference),
+            RenderFragmentKind.TargetScope
+                => ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
+                    .TransformBounds(reference.Inputs[0].Bounds),
+            RenderFragmentKind.RawTargetScope
+                => ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
+                    .TransformBounds(reference.Inputs[0].Bounds),
+            _ => reference.RecordedBounds,
+        };
+    }
+
+    private static Rect ResolveEffectItemBounds(RenderFragmentReference reference)
+    {
+        var payload = (FilterEffectSegmentRenderFragmentPayload)reference.Payload!;
+        if (payload.BoundsItems.IsDefaultOrEmpty)
+            return reference.RecordedBounds;
+
+        Rect bounds = default;
+        for (int index = 0; index < payload.StreamInputCount; index++)
+            bounds = bounds.Union(reference.Inputs[index].Bounds);
+        foreach (IFEItem item in payload.BoundsItems)
+            bounds = item.TransformBounds(bounds);
+        return bounds;
+    }
+
+    private static EffectiveScale ResolveForwardScale(
+        RenderFragmentReference reference,
+        Rect resolvedBounds,
+        RenderRequestOptions options)
+    {
+        // The projection array is built only in the arms that read more than the first input's scale, because
+        // this runs once per fragment in each of two metadata passes.
+        switch (reference.Kind)
+        {
+            case RenderFragmentKind.ContributeValues:
+            case RenderFragmentKind.Opacity:
+            case RenderFragmentKind.Blend:
+            case RenderFragmentKind.OpacityMask:
+                return reference.Inputs[0].EffectiveScale;
+            case RenderFragmentKind.Shader:
+                {
+                    var payload = (ShaderRenderFragmentPayload)reference.Payload!;
+                    bool materializes = payload.Description.Kind == ShaderDescriptionKind.WholeSource;
+                    if (payload.WorkingScalePolicy is { } policy)
+                    {
+                        return policy.Resolve(
+                            reference.Inputs,
+                            resolvedBounds,
+                            options.OutputScale,
+                            options.MaxWorkingScale);
+                    }
+
+                    if (!materializes)
+                        return reference.Inputs[0].EffectiveScale;
+
+                    return ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
+                }
+            case RenderFragmentKind.Geometry:
+                {
+                    var payload = (GeometryRenderFragmentPayload)reference.Payload!;
+                    return payload.WorkingScalePolicy is { } policy
+                        ? policy.Resolve(
+                            reference.Inputs,
+                            resolvedBounds,
+                            options.OutputScale,
+                            options.MaxWorkingScale)
+                        : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
+                }
+            case RenderFragmentKind.FilterEffectSegment:
+                {
+                    var payload = (FilterEffectSegmentRenderFragmentPayload)reference.Payload!;
+                    Rect[] inputBounds = reference.Inputs
+                        .SelectToArray(payload.StreamInputCount, static input => input.Bounds);
+                    EffectiveScale[] streamScales = reference.Inputs
+                        .SelectToArray(payload.StreamInputCount, static input => input.EffectiveScale);
+                    Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
+                        inputBounds,
+                        payload.BoundsItems,
+                        resolvedBounds);
+                    return payload.WorkingScalePolicy is { } policy
+                        ? policy.Resolve(
+                            streamScales,
+                            inputBounds,
+                            bufferBounds,
+                            options.OutputScale,
+                            options.MaxWorkingScale)
+                        : FilterEffectWorkingScalePolicy.ResolveMaterialized(
+                            streamScales,
+                            bufferBounds,
+                            options.OutputScale,
+                            options.MaxWorkingScale);
+                }
+            case RenderFragmentKind.OpaqueSource:
+            case RenderFragmentKind.OpaqueMap:
+            case RenderFragmentKind.OpaqueCombine:
+            case RenderFragmentKind.OpaqueExpand:
+                return ((OpaqueRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
+                    InputScales(reference),
+                    resolvedBounds,
+                    options.OutputScale,
+                    options.MaxWorkingScale);
+            case RenderFragmentKind.TargetCapture:
+                {
+                    TargetCaptureScaleContract scale =
+                        ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.Scale;
+                    return scale.PreservesTargetSupply
+                        ? EffectiveScale.Unbounded
+                        : scale.ResolveDeclared(
+                            resolvedBounds,
+                            options.OutputScale,
+                            options.MaxWorkingScale);
+                }
+            case RenderFragmentKind.TargetScope:
+                return ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
+                    InputScales(reference),
+                    resolvedBounds,
+                    options.OutputScale,
+                    options.MaxWorkingScale);
+            case RenderFragmentKind.RawTargetScope:
+                return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
+                    InputScales(reference),
+                    resolvedBounds,
+                    options.OutputScale,
+                    options.MaxWorkingScale);
+            default:
+                return reference.RecordedEffectiveScale;
+        }
+    }
+
+    private static EffectiveScale[] InputScales(RenderFragmentReference reference)
+        => reference.Inputs.SelectToArray(static input => input.EffectiveScale);
+
+    /// <summary>
+    /// The rule a symbolic fragment answers with once its own bounds and its inputs' are known.
+    /// </summary>
+    /// <remarks>
+    /// A fragment records the best rule the recording could state. Where that rule stood in for information
+    /// only graph-wide resolution has - a domain that was not yet finite, an input whose extent was symbolic -
+    /// this replaces it with the one the resolved graph supports.
+    /// </remarks>
+    private static RenderFragmentHitTest ResolveForwardHitTest(RenderFragmentReference reference)
+    {
+        return reference.Kind switch
+        {
+            RenderFragmentKind.ContributeValues
+                or RenderFragmentKind.Opacity
+                or RenderFragmentKind.Blend
+                or RenderFragmentKind.OpacityMask
+                or RenderFragmentKind.Layer
+                or RenderFragmentKind.TargetLayerScope
+                => RenderFragmentHitTest.Inputs,
+            RenderFragmentKind.Shader
+                => ((ShaderRenderFragmentPayload)reference.Payload!).Description.CreateFragmentHitTest(),
+            RenderFragmentKind.Geometry
+                => FromDescription(((GeometryRenderFragmentPayload)reference.Payload!).Description),
+            RenderFragmentKind.OpaqueSource
+                or RenderFragmentKind.OpaqueMap
+                or RenderFragmentKind.OpaqueCombine
+                or RenderFragmentKind.OpaqueExpand
+                => FromDescription(((OpaqueRenderFragmentPayload)reference.Payload!).Description),
+            RenderFragmentKind.FilterEffectSegment => RenderFragmentHitTest.Bounds,
+            RenderFragmentKind.MaterializedInput
+                => RenderFragmentHitTest.FromContract(
+                    ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.Resources),
+            RenderFragmentKind.TargetCapture
+                => RenderFragmentHitTest.FromContract(
+                    ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.Resources),
+            RenderFragmentKind.BuiltInBackdropCapture
+                => RenderFragmentHitTest.FromContract(
+                    ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
+                    ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.Resources),
+            RenderFragmentKind.TargetScope
+                => FromDescription(((TargetScopeRenderFragmentPayload)reference.Payload!).Description),
+            RenderFragmentKind.RawTargetScope
+                => FromDescription(((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description),
+            RenderFragmentKind.RawTargetCommand
+                => FromDescription(((RawTargetCommandRenderFragmentPayload)reference.Payload!).Description),
+            RenderFragmentKind.TargetCommand
+                => FromDescription(((TargetCommandRenderFragmentPayload)reference.Payload!).Description),
+            _ => throw new InvalidOperationException(
+                $"Fragment kind '{reference.Kind}' has no symbolic hit-test lowering rule."),
+        };
+    }
+
+    private static RenderFragmentHitTest FromDescription(GeometryDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
+
+    private static RenderFragmentHitTest FromDescription(OpaqueRenderDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
+
+    private static RenderFragmentHitTest FromDescription(TargetScopeDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
+
+    private static RenderFragmentHitTest FromDescription(RawTargetScopeDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
+
+    private static RenderFragmentHitTest FromDescription(RawTargetCommandDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
+
+    private static RenderFragmentHitTest FromDescription(TargetCommandDescription description)
+        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
+
+    private static EffectiveScale ResolveMaterializedScale(
+        EffectiveScale[] inputScales,
+        Rect resolvedBounds,
+        RenderRequestOptions options)
+    {
+        float workingScale = RenderScaleUtilities.ResolveWorkingScale(
+            inputScales,
+            options.OutputScale,
+            options.MaxWorkingScale);
+        workingScale = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(
+            resolvedBounds,
+            workingScale);
+        return EffectiveScale.At(workingScale);
+    }
+
+    private static Rect ResolveLayerBounds(
+        RenderFragmentReference reference,
+        Rect domain)
+    {
+        Rect bounds = default;
+        foreach (RenderFragmentReference input in reference.Inputs)
+        {
+            if (input.ContributesValuesToTarget)
+                bounds = bounds.Union(input.Bounds);
+            if (TargetWriteMetadataResolver.Resolve(input, domain) is { } affected)
+                bounds = bounds.Union(affected);
+        }
+
+        return bounds.Intersect(domain);
+    }
+
+    private static Rect UnionInputBounds(RenderFragmentReference reference)
+    {
+        Rect bounds = default;
+        foreach (RenderFragmentReference input in reference.Inputs)
+            bounds = bounds.Union(input.Bounds);
+        return bounds;
+    }
+
+    private static RenderNodeMeasurement Measure(
+        RenderRequestOptions options,
+        IReadOnlyList<RenderFragmentReference> roots)
+    {
+        Rect outputBounds = default;
+        Rect queryBounds = default;
+        int minimum = 0;
+        int? maximum = 0;
+        float densestSupply = 0;
+        bool hasContributingValues = false;
+        bool hasTargetEffects = false;
+
+        foreach (RenderFragmentReference root in roots)
+        {
+            minimum = checked(minimum + root.ValueCardinality.Minimum);
+            maximum = maximum is null || root.ValueCardinality.Maximum is null
+                ? null
+                : checked(maximum.Value + root.ValueCardinality.Maximum.Value);
+            hasContributingValues |= root.ContributesValuesToTarget;
+            hasTargetEffects |= root.HasTargetEffects;
+
+            if (root.ContributesValuesToTarget)
+                outputBounds = outputBounds.Union(root.Bounds);
+            if (TargetWriteMetadataResolver.Resolve(root, options.TargetDomain) is { } affected)
+                outputBounds = outputBounds.Union(affected);
+            queryBounds = queryBounds.Union(ResolveQueryBounds(root));
+
+            if (!root.EffectiveScale.IsUnbounded)
+                densestSupply = MathF.Max(densestSupply, root.EffectiveScale.Value);
+        }
+
+        if (options.TargetDomain is { } targetDomain)
+            outputBounds = outputBounds.Intersect(targetDomain);
+
+        EffectiveScale effectiveScale = densestSupply > 0
+            ? EffectiveScale.At(densestSupply)
+            : EffectiveScale.Unbounded;
+        return new RenderNodeMeasurement(
+            outputBounds,
+            queryBounds,
+            effectiveScale,
+            RenderValueCardinality.Range(minimum, maximum),
+            roots.Count > 0,
+            hasContributingValues,
+            hasTargetEffects);
+    }
+
+    private static Rect ResolveQueryBounds(RenderFragmentReference reference)
+    {
+        if (reference.Kind is RenderFragmentKind.TargetCapture
+            or RenderFragmentKind.BuiltInBackdropCapture)
+        {
+            return reference.ContributesValuesToTarget ? reference.Bounds : Rect.Empty;
+        }
+
+        if (reference.Payload is TargetCommandRenderFragmentPayload command)
+            return command.Description.QueryBounds;
+        if (reference.Payload is RawTargetCommandRenderFragmentPayload rawCommand)
+            return rawCommand.Description.QueryBounds;
+        if (reference.Payload is LayerRenderFragmentPayload layerPayload)
+        {
+            if (layerPayload is { DomainIsQueryFootprint: true, Domain: { } queryFootprint })
+                return queryFootprint;
+
+            Rect layerQuery = Rect.Empty;
+            foreach (RenderFragmentReference input in reference.Inputs)
+                layerQuery = layerQuery.Union(ResolveQueryBounds(input));
+            return layerQuery.Intersect(layerPayload.Domain ?? reference.Bounds);
+        }
+        if (reference.ContributesValuesToTarget)
+            return reference.Bounds.Union(ResolveDeclaredQueryFootprint(reference));
+        if (reference.Kind == RenderFragmentKind.OpacityMask)
+        {
+            return reference.Inputs.IsDefaultOrEmpty
+                ? Rect.Empty
+                : ResolveQueryBounds(reference.Inputs[0]);
+        }
+
+        Rect result = default;
+        foreach (RenderFragmentReference input in reference.Inputs)
+            result = result.Union(ResolveQueryBounds(input));
+
+        if (result.Width == 0 || result.Height == 0)
+            return Rect.Empty;
+
+        return reference.Payload switch
+        {
+            TargetScopeRenderFragmentPayload scope
+                => scope.Description.Bounds.TransformBounds(result),
+            RawTargetScopeRenderFragmentPayload scope
+                => scope.Description.Bounds.TransformBounds(result),
+            TargetLayerScopeRenderFragmentPayload layer
+                => layer.Region.Kind == TargetRegionKind.Region
+                    ? result.Intersect(layer.Region.Value)
+                    : layer.Region.Kind == TargetRegionKind.Empty ? Rect.Empty : result,
+            _ => result,
+        };
+    }
+
+    // A fixed-size viewport declares a query footprint wider than what it draws, and every value-contributing
+    // ancestor above it reports only its own content-derived bounds. The footprint is therefore resolved on its
+    // own descent, mapped through the same scopes the ordinary descent maps through.
+    private static Rect ResolveDeclaredQueryFootprint(RenderFragmentReference reference)
+    {
+        if (reference.Payload is LayerRenderFragmentPayload
+            { DomainIsQueryFootprint: true, Domain: { } queryFootprint })
+        {
+            return queryFootprint;
+        }
+
+        Rect result = default;
+        foreach (RenderFragmentReference input in reference.Inputs)
+            result = result.Union(ResolveDeclaredQueryFootprint(input));
+
+        if (result.Width == 0 || result.Height == 0)
+            return Rect.Empty;
+
+        return reference.Payload switch
+        {
+            TargetScopeRenderFragmentPayload scope
+                => scope.Description.Bounds.TransformBounds(result),
+            RawTargetScopeRenderFragmentPayload scope
+                => scope.Description.Bounds.TransformBounds(result),
+            TargetLayerScopeRenderFragmentPayload layer
+                => layer.Region.Kind == TargetRegionKind.Region
+                    ? result.Intersect(layer.Region.Value)
+                    : layer.Region.Kind == TargetRegionKind.Empty ? Rect.Empty : result,
+            _ => result,
+        };
+    }
+
+    private static RequiredRegion GetRootRequirement(
+        RenderFragmentReference root,
+        Rect finalCommitBounds,
+        Rect? targetDomain)
+    {
+        RequiredRegion result = RequiredRegion.Empty;
+        if (root.ContributesValuesToTarget)
+            result = result.Union(RequiredRegion.Region(finalCommitBounds.Intersect(root.Bounds)));
+
+        if (TargetWriteMetadataResolver.Resolve(root, targetDomain) is { } affected)
+        {
+            result = result.Union(
+                RequiredRegion.Region(finalCommitBounds.Intersect(affected)));
+        }
+
+        return result;
+    }
+
+    private static ImmutableArray<RequiredRegion> GetInputRequirements(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        Rect? targetDomain)
+    {
+        if (reference.Inputs.IsDefaultOrEmpty)
+            return [];
+        if (outputRequirement.IsEmpty)
+            return RepeatInputs(RequiredRegion.Empty, reference.Inputs.Length);
+
+        return reference.Payload switch
+        {
+            ShaderRenderFragmentPayload shader
+                => MapUnary(reference, outputRequirement, shader.Description.Bounds),
+            GeometryRenderFragmentPayload geometry
+                => MapUnary(reference, outputRequirement, geometry.Description.Bounds),
+            TargetScopeRenderFragmentPayload scope
+                => MapTargetScope(
+                    reference,
+                    outputRequirement,
+                    scope.Description.Bounds,
+                    targetDomain),
+            RawTargetScopeRenderFragmentPayload
+                => FullInputs(reference),
+            OpaqueRenderFragmentPayload opaque
+                => MapOpaque(reference, outputRequirement, opaque.Description.Bounds),
+            TargetCommandRenderFragmentPayload or RawTargetCommandRenderFragmentPayload
+                => FullInputs(reference),
+            FilterEffectSegmentRenderFragmentPayload effectItem
+                => MapEffectItem(reference, outputRequirement, effectItem, targetDomain),
+            BlendRenderFragmentPayload blend
+                when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
+                => MapDestructiveBlendInput(reference, outputRequirement),
+            OpacityRenderFragmentPayload or BlendRenderFragmentPayload
+                => MapScopedIdentityInputs(reference, outputRequirement, targetDomain),
+            OpacityMaskRenderFragmentPayload
+                => MapOpacityMask(reference, outputRequirement, targetDomain),
+            LayerRenderFragmentPayload layer
+                => MapScopeInputs(reference, outputRequirement, layer.Domain ?? reference.Bounds),
+            TargetLayerScopeRenderFragmentPayload layer
+                => MapScopeInputs(
+                    reference,
+                    outputRequirement,
+                    ResolveTargetRegion(layer.Region, targetDomain)),
+            _ => MapIdentityInputs(reference, outputRequirement),
+        };
+    }
+
+    private static ImmutableArray<RequiredRegion> MapUnary(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        RenderBoundsContract bounds)
+    {
+        if (reference.Inputs.Length != 1)
+            throw new InvalidOperationException("A unary bounds contract requires exactly one input fragment.");
+        if (bounds.RequiresFullInput)
+            return [RequiredRegion.Full];
+        if (outputRequirement.IsFull
+            && bounds.StructuralIdentity is RenderBoundsStructuralIdentity
+            {
+                Kind: RenderBoundsContractKind.Identity,
+            })
+        {
+            return [RequiredRegion.Full];
+        }
+
+        Rect requested = outputRequirement.Resolve(reference.Bounds);
+        Rect required = bounds.GetRequiredInputBounds(requested);
+        return [RequiredRegion.Region(required.Intersect(reference.Inputs[0].Bounds))];
+    }
+
+    private static ImmutableArray<RequiredRegion> MapTargetScope(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        RenderBoundsContract bounds,
+        Rect? targetDomain)
+    {
+        if (reference.Inputs.Length != 1)
+            throw new InvalidOperationException("A target scope requires exactly one input fragment.");
+
+        RequiredRegion required;
+        if (bounds.RequiresFullInput)
+        {
+            required = RequiredRegion.Full;
+        }
+        else if (outputRequirement.IsFull
+                 && bounds.StructuralIdentity is RenderBoundsStructuralIdentity
+                 {
+                     Kind: RenderBoundsContractKind.Identity,
+                 })
+        {
+            required = RequiredRegion.Full;
+        }
+        else
+        {
+            Rect requested = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
+            required = RequiredRegion.Region(bounds.GetRequiredInputBounds(requested));
+        }
+
+        Rect? inputTargetDomain = targetDomain is { } domain
+            ? bounds.GetRequiredInputBounds(domain)
+            : null;
+        return [RestrictToSemanticCoverage(reference.Inputs[0], required, inputTargetDomain)];
+    }
+
+    private static ImmutableArray<RequiredRegion> MapOpaque(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        OpaqueRenderBoundsContract bounds)
+    {
+        if (RequiresFullInputs(bounds))
+            return FullInputs(reference);
+        if (outputRequirement.IsFull && IsIdentityMap(bounds))
+            return FullInputs(reference);
+
+        Rect requested = outputRequirement.Resolve(reference.Bounds);
+        Rect[] inputBounds = reference.Inputs.SelectToArray(static input => input.Bounds);
+        IReadOnlyList<Rect> required = bounds.GetRequiredInputBounds(requested, inputBounds);
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(required.Count);
+        for (int index = 0; index < required.Count; index++)
+        {
+            result.Add(RequiredRegion.Region(required[index].Intersect(inputBounds[index])));
+        }
+
+        return result.MoveToImmutable();
+    }
+
+    private static bool RequiresFullInputs(OpaqueRenderBoundsContract bounds)
+    {
+        if (bounds.Kind == OpaqueRenderBoundsKind.FullInputs)
+            return true;
+
+        return bounds.StructuralIdentity is OpaqueRenderBoundsStructuralIdentity
+        {
+            Kind: OpaqueRenderBoundsKind.Map,
+            ForwardIdentity: RenderBoundsStructuralIdentity
+            {
+                Kind: RenderBoundsContractKind.FullInput or RenderBoundsContractKind.CustomFullInput,
+            },
+        };
+    }
+
+    private static bool IsIdentityMap(OpaqueRenderBoundsContract bounds)
+    {
+        return bounds.StructuralIdentity is OpaqueRenderBoundsStructuralIdentity
+        {
+            Kind: OpaqueRenderBoundsKind.Map,
+            ForwardIdentity: RenderBoundsStructuralIdentity
+            {
+                Kind: RenderBoundsContractKind.Identity,
+            },
+        };
+    }
+
+    private static ImmutableArray<RequiredRegion> MapScopedIdentityInputs(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        Rect? targetDomain)
+    {
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
+        foreach (RenderFragmentReference input in reference.Inputs)
+            result.Add(RestrictToSemanticCoverage(input, outputRequirement, targetDomain));
+        return result.MoveToImmutable();
+    }
+
+    private static ImmutableArray<RequiredRegion> MapDestructiveBlendInput(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement)
+    {
+        if (reference.Inputs.Length != 1)
+        {
+            throw new InvalidOperationException(
+                "A destructive blend command requires exactly one source input.");
+        }
+
+        return [outputRequirement.Intersect(reference.Inputs[0].Bounds)];
+    }
+
+    private static ImmutableArray<RequiredRegion> MapEffectItem(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        FilterEffectSegmentRenderFragmentPayload payload,
+        Rect? targetDomain)
+    {
+        if (outputRequirement.IsFull
+            || reference.BoundsRequirement != RenderFragmentBoundsRequirement.Finite)
+        {
+            return FullInputs(reference);
+        }
+
+        Rect requestedOutput = outputRequirement.Resolve(ResolveSemanticBounds(reference, targetDomain));
+        if (!EffectItemSamplingSupport.TryResolveSampledInput(payload.BoundsItems, requestedOutput, out Rect requested))
+            return FullInputs(reference);
+
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
+        for (int index = 0; index < reference.Inputs.Length; index++)
+        {
+            // A brush dependency is sampled by an opaque callback over the whole brush frame, so its
+            // region cannot be narrowed by the stream's backward region.
+            result.Add(index < payload.StreamInputCount
+                ? RestrictToSemanticCoverage(
+                    reference.Inputs[index],
+                    RequiredRegion.Region(requested),
+                    targetDomain)
+                : RequiredRegion.Full);
+        }
+
+        return result.MoveToImmutable();
+    }
+
+    private static ImmutableArray<RequiredRegion> MapOpacityMask(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        Rect? targetDomain)
+    {
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
+        result.Add(RestrictToSemanticCoverage(reference.Inputs[0], outputRequirement, targetDomain));
+        for (int index = 1; index < reference.Inputs.Length; index++)
+            result.Add(RequiredRegion.Full);
+        return result.MoveToImmutable();
+    }
+
+    private static RequiredRegion RestrictToSemanticCoverage(
+        RenderFragmentReference input,
+        RequiredRegion requirement,
+        Rect? targetDomain)
+    {
+        RequiredRegion result = requirement.Intersect(input.Bounds);
+        if (TargetWriteMetadataResolver.Resolve(input, targetDomain) is { } affected)
+            result = result.Union(requirement.Intersect(affected));
+        return result;
+    }
+
+    private static Rect ResolveSemanticBounds(
+        RenderFragmentReference reference,
+        Rect? targetDomain)
+    {
+        Rect result = reference.Bounds;
+        if (TargetWriteMetadataResolver.Resolve(reference, targetDomain) is { } affected)
+            result = result.Union(affected);
+        return result;
+    }
+
+    private static ImmutableArray<RequiredRegion> MapScopeInputs(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        Rect domain)
+    {
+        if (domain.Width == 0 || domain.Height == 0)
+        {
+            return RepeatInputs(RequiredRegion.Empty, reference.Inputs.Length);
+        }
+
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
+        foreach (RenderFragmentReference input in reference.Inputs)
+        {
+            RequiredRegion inputRequirement = RequiredRegion.Empty;
+            if (input.ContributesValuesToTarget)
+            {
+                inputRequirement = inputRequirement.Union(
+                    outputRequirement.Intersect(input.Bounds.Intersect(domain)));
+            }
+
+            if (TargetWriteMetadataResolver.Resolve(input, domain) is { } affected)
+            {
+                inputRequirement = inputRequirement.Union(
+                    outputRequirement.Intersect(affected.Intersect(domain)));
+            }
+
+            result.Add(inputRequirement);
+        }
+
+        return result.MoveToImmutable();
+    }
+
+    private static ImmutableArray<RequiredRegion> MapIdentityInputs(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement)
+    {
+        var result = ImmutableArray.CreateBuilder<RequiredRegion>(reference.Inputs.Length);
+        foreach (RenderFragmentReference input in reference.Inputs)
+        {
+            result.Add(outputRequirement.IsFull
+                ? RequiredRegion.Full
+                : outputRequirement.Intersect(input.Bounds));
+        }
+        return result.MoveToImmutable();
+    }
+
+    private static ImmutableArray<RequiredRegion> FullInputs(RenderFragmentReference reference)
+        => RepeatInputs(RequiredRegion.Full, reference.Inputs.Length);
+
+    /// <summary>Builds one requirement per input, all the same.</summary>
+    /// <remarks>
+    /// The propagation loop calls this once per fragment per pass and runs at least twice, so filling a
+    /// sized builder is preferred to the iterator <c>Repeat</c> would allocate for the range to walk.
+    /// </remarks>
+    private static ImmutableArray<RequiredRegion> RepeatInputs(RequiredRegion region, int count)
+    {
+        if (count == 0)
+            return [];
+
+        ImmutableArray<RequiredRegion>.Builder builder = ImmutableArray.CreateBuilder<RequiredRegion>(count);
+        for (int index = 0; index < count; index++)
+            builder.Add(region);
+        return builder.MoveToImmutable();
+    }
+
+    private static RequiredRegion? GetTargetAccessRequirement(
+        RenderFragmentReference reference,
+        RequiredRegion outputRequirement,
+        Rect? targetDomain)
+    {
+        return reference.Payload switch
+        {
+            TargetCaptureRenderFragmentPayload capture
+                => MapTargetAccess(outputRequirement, capture.Description.SourceRegion, targetDomain),
+            BuiltInBackdropCaptureRenderFragmentPayload capture
+                => MapTargetAccess(outputRequirement, capture.Description.SourceRegion, targetDomain),
+            TargetCommandRenderFragmentPayload command
+                when command.Description.Access == TargetAccess.Readback
+                => MapTargetAccess(RequiredRegion.Full, command.Description.AffectedRegion, targetDomain),
+            TargetCommandRenderFragmentPayload command
+                => MapTargetAccess(outputRequirement, command.Description.AffectedRegion, targetDomain),
+            BlendRenderFragmentPayload blend
+                when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
+                => MapTargetAccess(outputRequirement, TargetRegion.Full, targetDomain),
+            RawTargetCommandRenderFragmentPayload
+                => outputRequirement.IsEmpty ? RequiredRegion.Empty : RequiredRegion.Full,
+            RawTargetScopeRenderFragmentPayload
+                => outputRequirement.IsEmpty ? RequiredRegion.Empty : RequiredRegion.Full,
+            TargetLayerScopeRenderFragmentPayload layer
+                => MapTargetAccess(outputRequirement, layer.Region, targetDomain),
+            LayerRenderFragmentPayload layer
+                => outputRequirement.Intersect(layer.Domain ?? reference.Bounds),
+            _ => null,
+        };
+    }
+
+    private static RequiredRegion MapTargetAccess(
+        RequiredRegion requirement,
+        TargetRegion access,
+        Rect? targetDomain)
+    {
+        if (requirement.IsEmpty || access.Kind == TargetRegionKind.Empty)
+            return RequiredRegion.Empty;
+        if (access.Kind == TargetRegionKind.Full && requirement.IsFull)
+            return RequiredRegion.Full;
+
+        Rect domain = ResolveTargetRegion(access, targetDomain);
+        return requirement.IsFull
+            ? RequiredRegion.Region(domain)
+            : requirement.Intersect(domain);
+    }
+
+    private static Rect ResolveTargetRegion(TargetRegion region, Rect? targetDomain)
+    {
+        return region.Kind switch
+        {
+            TargetRegionKind.Empty => Rect.Empty,
+            TargetRegionKind.Region => region.Value,
+            TargetRegionKind.Full when targetDomain is { } domain => domain,
+            TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
+                "A target-less request with Full target access requires a finite TargetDomain."),
+            _ => throw new InvalidOperationException("The target region is uninitialized."),
+        };
+    }
+
+    private static bool UnionRequirement(
+        Dictionary<RenderFragmentReference, RequiredRegion> requirements,
+        RenderFragmentReference reference,
+        RequiredRegion requirement)
+    {
+        RequiredRegion previous = GetRequirement(requirements, reference);
+        RequiredRegion combined = previous.Union(requirement);
+        requirements[reference] = combined;
+        return combined != previous;
+    }
+
+    private static RequiredRegion GetRequirement(
+        Dictionary<RenderFragmentReference, RequiredRegion> requirements,
+        RenderFragmentReference reference)
+        => requirements.TryGetValue(reference, out RequiredRegion requirement)
+            ? requirement
+            : RequiredRegion.Empty;
+
+    private static RenderFragmentId GetId(RenderFragmentReference reference)
+        => reference.Id
+           ?? throw new InvalidOperationException(
+               "Region analysis requires every fragment to be committed to the request graph.");
+}
+
+internal enum RequiredRegionKind : byte
+{
+    Uninitialized,
+    Empty,
+    Full,
+    Region,
+}
