@@ -38,6 +38,31 @@ public sealed class AiPromptLibraryViewModelTests
         });
     }
 
+    [AvaloniaTest]
+    public void DeferredInitialReadFailureIsContainedOnTheUiDispatcher()
+    {
+        var library = new FakePromptLibrary
+        {
+            ReadFailure = new IOException("prompt storage unavailable"),
+        };
+        Task<AiPromptLibraryViewModel> creation = Task.Run(() =>
+            new AiPromptLibraryViewModel(
+                PromptTaskKind.Image,
+                static () => string.Empty,
+                static _ => { },
+                library));
+        bool completedWithoutUiPump = creation.Wait(TimeSpan.FromSeconds(2));
+        Assert.DoesNotThrow(() => Dispatcher.UIThread.RunJobs());
+        using AiPromptLibraryViewModel viewModel = creation.GetAwaiter().GetResult();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(completedWithoutUiPump, Is.True);
+            Assert.That(viewModel.Templates, Is.Empty);
+            Assert.That(viewModel.History, Is.Empty);
+            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+        }
+    }
+
     [Test]
     public void TemplatesAndHistory_AreSeparateListsFilteredByTaskWithPinnedItemsFirst()
     {
@@ -394,9 +419,13 @@ public sealed class AiPromptLibraryViewModelTests
 
         public string? RecoveredCorruptFilePath => null;
 
-        public IReadOnlyList<PromptHistoryEntry> History => _history;
+        public Exception? ReadFailure { get; init; }
 
-        public IReadOnlyList<PromptTemplate> Templates => _templates;
+        public IReadOnlyList<PromptHistoryEntry> History =>
+            ReadFailure is null ? _history : throw ReadFailure;
+
+        public IReadOnlyList<PromptTemplate> Templates =>
+            ReadFailure is null ? _templates : throw ReadFailure;
 
         public List<(PromptTaskKind TaskKind, string Prompt)> RecordCalls { get; } = [];
 

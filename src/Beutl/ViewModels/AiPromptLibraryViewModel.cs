@@ -283,11 +283,31 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
             }
             else
             {
-                Refresh();
-                if (Error.Value == Strings.AiResultUnavailable
-                    || Error.Value == Strings.AiAuthenticationRequired)
+                try
                 {
-                    Error.Value = null;
+                    Refresh();
+                    if (Error.Value == Strings.AiResultUnavailable
+                        || Error.Value == Strings.AiAuthenticationRequired)
+                    {
+                        Error.Value = null;
+                    }
+                }
+                catch (InvalidDataException ex)
+                {
+                    ClearPromptChoices();
+                    Error.Value = Strings.AiResultUnavailable;
+                    System.Diagnostics.Trace.TraceWarning(
+                        "Failed to read the prompt library: {0}",
+                        ex.Message);
+                }
+                catch (Exception ex) when (ex is AuthenticationRequiredException
+                    or IOException
+                    or UnauthorizedAccessException)
+                {
+                    ClearPromptChoices();
+                    Error.Value = ex is AuthenticationRequiredException
+                        ? Strings.AiAuthenticationRequired
+                        : Strings.AiResultUnavailable;
                 }
             }
         }
@@ -313,10 +333,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         // Clear the previous account before touching the new account's store.
         // A corrupt or unavailable destination must never leave the old
         // account's prompt text visible in the new session.
-        _templates.Clear();
-        _history.Clear();
-        HasTemplates.Value = false;
-        HasHistory.Value = false;
+        ClearPromptChoices();
         IsHistoryOpen.Value = false;
         TemplateName.Value = string.Empty;
         Error.Value = null;
@@ -340,6 +357,14 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
                 ? Strings.AiAuthenticationRequired
                 : Strings.AiResultUnavailable;
         }
+    }
+
+    private void ClearPromptChoices()
+    {
+        _templates.Clear();
+        _history.Clear();
+        HasTemplates.Value = false;
+        HasHistory.Value = false;
     }
 
     // A history entry has no name, so its first line stands in for one.
