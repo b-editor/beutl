@@ -86,12 +86,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
             long generation = Volatile.Read(ref _accountGeneration);
             Action initialRefresh = () =>
                 ApplyQueuedRefresh(identityChanged: false, account, generation);
-            if (dispatchToUi is not null)
-                dispatchToUi(initialRefresh);
-            else if (dispatcher.CheckAccess())
-                initialRefresh();
-            else
-                dispatcher.Invoke(initialRefresh);
+            _dispatchToUi(initialRefresh);
         }
         catch
         {

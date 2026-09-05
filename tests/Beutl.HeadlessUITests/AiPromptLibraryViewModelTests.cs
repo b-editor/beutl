@@ -1,5 +1,8 @@
 ﻿using System.Windows.Input;
 
+using Avalonia.Headless;
+using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.ViewModels;
@@ -9,6 +12,32 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class AiPromptLibraryViewModelTests
 {
+    [AvaloniaTest]
+    public async Task BackgroundConstructionDoesNotWaitForTheUiDispatcher()
+    {
+        var library = new FakePromptLibrary(
+            templates: [CreateTemplate(PromptTaskKind.Image, "Deferred", updatedMinute: 1)]);
+        Task<AiPromptLibraryViewModel> creation = Task.Run(() =>
+            new AiPromptLibraryViewModel(
+                PromptTaskKind.Image,
+                static () => string.Empty,
+                static _ => { },
+                library));
+
+        // Deliberately block the UI dispatcher. A synchronous Invoke in the
+        // constructor cannot complete until RunJobs below and fails this bound.
+        bool completedWithoutUiPump = creation.Wait(TimeSpan.FromSeconds(2));
+        Dispatcher.UIThread.RunJobs();
+        using AiPromptLibraryViewModel viewModel =
+            await creation.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completedWithoutUiPump, Is.True);
+            Assert.That(viewModel.Templates.Select(item => item.Name), Is.EqualTo(["Deferred"]));
+        });
+    }
+
     [Test]
     public void TemplatesAndHistory_AreSeparateListsFilteredByTaskWithPinnedItemsFirst()
     {
@@ -48,7 +77,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             _ => { },
-            library);
+            library,
+            dispatchToUi: static action => action());
 
         using (Assert.EnterMultipleScope())
         {
@@ -79,7 +109,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             value => applied = value,
-            library);
+            library,
+            dispatchToUi: static action => action());
 
         AiPromptChoice choice = viewModel.History.Single();
         Execute(viewModel.Apply, choice);
@@ -105,7 +136,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             prompt => appliedPrompt = prompt,
-            library);
+            library,
+            dispatchToUi: static action => action());
         viewModel.Error.Value = "previous error";
         viewModel.IsHistoryOpen.Value = true;
 
@@ -129,7 +161,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             _ => { },
-            library);
+            library,
+            dispatchToUi: static action => action());
         AiPromptChoice choice = Single(viewModel, isTemplate);
 
         Execute(viewModel.TogglePin, choice);
@@ -157,7 +190,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             _ => { },
-            library);
+            library,
+            dispatchToUi: static action => action());
         AiPromptChoice choice = Single(viewModel, isTemplate);
 
         Execute(viewModel.Delete, choice);
@@ -187,7 +221,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             _ => { },
-            library);
+            library,
+            dispatchToUi: static action => action());
 
         Execute(viewModel.ClearHistory);
 
@@ -212,7 +247,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Image,
             () => string.Empty,
             _ => { },
-            library);
+            library,
+            dispatchToUi: static action => action());
 
         viewModel.Record("new history");
 
@@ -234,7 +270,8 @@ public sealed class AiPromptLibraryViewModelTests
             PromptTaskKind.Video,
             () => "current prompt",
             _ => { },
-            library);
+            library,
+            dispatchToUi: static action => action());
         viewModel.TemplateName.Value = "Trailer";
         viewModel.Error.Value = "previous error";
 
@@ -267,7 +304,8 @@ public sealed class AiPromptLibraryViewModelTests
                 PromptTaskKind.ImageEdit,
                 () => prompt,
                 _ => { },
-                library);
+                library,
+                dispatchToUi: static action => action());
             viewModel.TemplateName.Value = templateName;
 
             Execute(viewModel.SaveTemplate);
