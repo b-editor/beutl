@@ -30,21 +30,31 @@ internal static class PromptLibraryProvider
     public static IPromptLibrary For(AiRequestRecoveryContext context)
         => new AccountPromptLibrary(context);
 
-    private sealed class AccountPromptLibrary(AiRequestRecoveryContext context) : IPromptLibrary
+    private static (string AccountKey, string StoragePath)? ResolveAccountStorage(
+        AiRequestRecoveryContext context)
+    {
+        string account = context.TryGetIdentity()?.AccountId ?? string.Empty;
+        if (account.Length == 0)
+            return null;
+
+        string accountKey = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(account)));
+        return (accountKey, Path.Combine(s_root, accountKey + ".json"));
+    }
+
+    private sealed class AccountPromptLibrary(AiRequestRecoveryContext context)
+        : IPromptLibrary, IPromptLibraryChangeSource
     {
         private PersistentPromptLibrary? Library
         {
             get
             {
-                string account = context.TryGetIdentity()?.AccountId
-                    ?? string.Empty;
-                if (account.Length == 0)
+                if (ResolveAccountStorage(context) is not { } account)
                     return null;
                 Directory.CreateDirectory(s_root);
-                string accountKey = Convert.ToHexString(
-                    System.Security.Cryptography.SHA256.HashData(
-                        System.Text.Encoding.UTF8.GetBytes(account)));
-                string path = Path.Combine(s_root, accountKey + ".json");
+                string accountKey = account.AccountKey;
+                string path = account.StoragePath;
                 lock (s_gate)
                 {
                     if (s_libraries.TryGetValue(accountKey, out PersistentPromptLibrary? cached))
@@ -240,6 +250,19 @@ internal static class PromptLibraryProvider
         public void ClearHistory() => Library?.ClearHistory();
         public void ClearTemplates() => Library?.ClearTemplates();
         public void ClearAll() => Library?.ClearAll();
+        public IDisposable SubscribeChanged(Action callback)
+        {
+            ArgumentNullException.ThrowIfNull(callback);
+            return PromptLibraryChangeHub.Subscribe(path =>
+            {
+                if (ResolveAccountStorage(context) is { } current
+                    && StringComparer.Ordinal.Equals(current.StoragePath, path))
+                {
+                    callback();
+                }
+            });
+        }
+
         private PersistentPromptLibrary Require() => Library ?? throw new AuthenticationRequiredException();
     }
 }

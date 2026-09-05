@@ -1431,6 +1431,47 @@ public sealed class AiDialogWorkflowTests
         }
     }
 
+    [Test]
+    public void AtomicImageSave_PreservesExistingFileWhenEncodingFails()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-ai-save-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        string destinationPath = Path.Combine(directory, "existing.png");
+        byte[] original = [9, 8, 7];
+        File.WriteAllBytes(destinationPath, original);
+
+        try
+        {
+            Assert.Throws<InvalidDataException>(() => AiAtomicFileWriter.Write(
+                destinationPath,
+                stream =>
+                {
+                    stream.Write([1, 2, 3]);
+                    throw new InvalidDataException("encoding failed");
+                },
+                CancellationToken.None));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(File.ReadAllBytes(destinationPath), Is.EqualTo(original));
+                Assert.That(
+                    Directory.EnumerateFiles(directory, "existing.png.*.tmp"),
+                    Is.Empty);
+            }
+
+            byte[] replacement = [1, 2, 3, 4];
+            AiAtomicFileWriter.Write(
+                destinationPath,
+                stream => stream.Write(replacement),
+                CancellationToken.None);
+            Assert.That(File.ReadAllBytes(destinationPath), Is.EqualTo(replacement));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [AvaloniaTest]
     public async Task VideoGeneration_PollsResultAndDisposeRemovesPreviewFile()
     {
@@ -1515,7 +1556,7 @@ public sealed class AiDialogWorkflowTests
         byte[] original = [9, 8, 7];
         await File.WriteAllBytesAsync(destinationPath, original);
         viewModel.SaveFilePicker = _ => Task.FromResult<AiSaveFileDestination?>(
-            new(destinationPath, _ => Task.FromResult<Stream>(File.OpenWrite(destinationPath))));
+            new(destinationPath));
 
         await viewModel.SaveToFile.ExecuteAsync();
 
@@ -1535,7 +1576,7 @@ public sealed class AiDialogWorkflowTests
         byte[] validOriginal = [6, 5, 4];
         await File.WriteAllBytesAsync(validDestinationPath, validOriginal);
         viewModel.SaveFilePicker = _ => Task.FromResult<AiSaveFileDestination?>(
-            new(validDestinationPath, _ => Task.FromResult<Stream>(File.OpenWrite(validDestinationPath))));
+            new(validDestinationPath));
 
         await viewModel.SaveToFile.ExecuteAsync();
 

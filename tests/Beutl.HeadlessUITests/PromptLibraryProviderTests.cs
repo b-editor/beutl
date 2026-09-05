@@ -1,4 +1,7 @@
-﻿using Beutl.Api.Services;
+﻿using System.Collections.Specialized;
+
+using Beutl.Api.Services;
+using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.ViewModels;
 
@@ -72,7 +75,8 @@ public sealed class PromptLibraryProviderTests
             static () => string.Empty,
             static _ => { },
             library,
-            context);
+            context,
+            static action => action());
         Assert.That(viewModel.History.Select(item => item.Prompt),
             Is.EqualTo(["A private prompt"]));
 
@@ -106,7 +110,8 @@ public sealed class PromptLibraryProviderTests
             static () => string.Empty,
             static _ => { },
             library,
-            context);
+            context,
+            static action => action());
         viewModel.TemplateName.Value = "old account";
         viewModel.IsHistoryOpen.Value = true;
         bool followingHandlerRan = false;
@@ -122,6 +127,302 @@ public sealed class PromptLibraryProviderTests
             Assert.That(viewModel.TemplateName.Value, Is.Empty);
             Assert.That(viewModel.IsHistoryOpen.Value, Is.False);
             Assert.That(viewModel.Error.Value, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task IdentityChangeDuringInitialSnapshotCannotPublishThePreviousAccount()
+    {
+        string? account = "account-a";
+        using var context = Context(() => account);
+        using var initialSnapshotStarted = new ManualResetEventSlim();
+        using var releaseInitialSnapshot = new ManualResetEventSlim();
+        using var identityPublished = new ManualResetEventSlim();
+        context.IdentityChanged += identityPublished.Set;
+        var library = new BlockingAccountPromptLibrary(
+            () => account,
+            initialSnapshotStarted,
+            releaseInitialSnapshot);
+        Task<AiPromptLibraryViewModel> creation = Task.Run(() =>
+            new AiPromptLibraryViewModel(
+                PromptTaskKind.Image,
+                static () => string.Empty,
+                static _ => { },
+                library,
+                context,
+                static action => action()));
+
+        try
+        {
+            Assert.That(initialSnapshotStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            account = "account-b";
+            Task identityChange = Task.Run(context.RefreshIdentity);
+            Assert.That(identityPublished.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            releaseInitialSnapshot.Set();
+            using AiPromptLibraryViewModel viewModel =
+                await creation.WaitAsync(TimeSpan.FromSeconds(5));
+            await identityChange.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(
+                viewModel.Templates.Select(item => item.Name),
+                Is.EqualTo(["Account B"]));
+        }
+        finally
+        {
+            releaseInitialSnapshot.Set();
+            if (creation.IsCompletedSuccessfully)
+                creation.Result.Dispose();
+        }
+    }
+
+    [Test]
+    public void SameAccountViewModelsRefreshAfterEverySharedLibraryMutation()
+    {
+        using var context = Context(() => "account-a");
+        IPromptLibrary writer = PromptLibraryProvider.For(context);
+        using var first = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            static action => action());
+        using var second = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            static action => action());
+
+        PromptTemplate template = writer.SaveTemplate(
+            "Shared",
+            PromptTaskKind.Image,
+            "shared template");
+        PromptHistoryEntry history = writer.Record(
+            PromptTaskKind.Image,
+            "shared history");
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Templates.Select(item => item.Id), Is.EqualTo([template.Id]));
+            Assert.That(second.Templates.Select(item => item.Id), Is.EqualTo([template.Id]));
+            Assert.That(first.History.Select(item => item.Id), Is.EqualTo([history.Id]));
+            Assert.That(second.History.Select(item => item.Id), Is.EqualTo([history.Id]));
+        });
+
+        Assert.That(writer.SetTemplatePinned(template.Id, true), Is.True);
+        Assert.That(writer.SetHistoryPinned(history.Id, true), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Templates.Single().IsPinned, Is.True);
+            Assert.That(second.Templates.Single().IsPinned, Is.True);
+            Assert.That(first.History.Single().IsPinned, Is.True);
+            Assert.That(second.History.Single().IsPinned, Is.True);
+        });
+
+        Assert.That(writer.DeleteTemplate(template.Id), Is.True);
+        writer.ClearHistory();
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Templates, Is.Empty);
+            Assert.That(second.Templates, Is.Empty);
+            Assert.That(first.History, Is.Empty);
+            Assert.That(second.History, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task BackgroundMutationIsAppliedThroughTheCapturedUiDispatcher()
+    {
+        using var context = Context(() => "account-a");
+        IPromptLibrary writer = PromptLibraryProvider.For(context);
+        var dispatcher = new QueuedUiDispatcher();
+        using var first = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            dispatcher.Dispatch);
+        using var second = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            dispatcher.Dispatch);
+        bool notificationRanDuringUiDrain = false;
+        ((INotifyCollectionChanged)second.Templates).CollectionChanged += (_, _) =>
+            notificationRanDuringUiDrain = dispatcher.IsDraining;
+
+        dispatcher.Defer = true;
+        await Task.Run(() =>
+        {
+            writer.SaveTemplate("Background", PromptTaskKind.Image, "background prompt");
+        });
+        Assert.That(second.Templates, Is.Empty);
+
+        dispatcher.Drain();
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.Templates.Select(item => item.Name), Is.EqualTo(["Background"]));
+            Assert.That(notificationRanDuringUiDrain, Is.True);
+        });
+    }
+
+    [Test]
+    public void SharedLibrarySubscriptionFollowsAccountSwitchAndStopsAfterDispose()
+    {
+        string? account = "account-a";
+        using var context = Context(() => account);
+        IPromptLibrary writer = PromptLibraryProvider.For(context);
+        using var active = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            static action => action());
+        var disposed = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            static action => action());
+
+        writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
+        account = "account-b";
+        context.RefreshIdentity();
+        Assert.Multiple(() =>
+        {
+            Assert.That(active.Templates, Is.Empty);
+            Assert.That(disposed.Templates, Is.Empty);
+        });
+
+        writer.SaveTemplate("Account B", PromptTaskKind.Image, "private B");
+        Assert.Multiple(() =>
+        {
+            Assert.That(active.Templates.Select(item => item.Name), Is.EqualTo(["Account B"]));
+            Assert.That(disposed.Templates.Select(item => item.Name), Is.EqualTo(["Account B"]));
+        });
+
+        disposed.Dispose();
+        writer.SaveTemplate("Account B 2", PromptTaskKind.Image, "private B 2");
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                active.Templates.Select(item => item.Name),
+                Is.EqualTo(["Account B 2", "Account B"]));
+            Assert.That(
+                disposed.Templates.Select(item => item.Name),
+                Is.EqualTo(["Account B"]));
+        });
+
+        account = "account-a";
+        context.RefreshIdentity();
+        Assert.Multiple(() =>
+        {
+            Assert.That(active.Templates.Select(item => item.Name), Is.EqualTo(["Account A"]));
+            Assert.That(disposed.Templates.Select(item => item.Name), Is.EqualTo(["Account B"]));
+        });
+    }
+
+    [Test]
+    public async Task QueuedLibraryRefreshRechecksAccountGenerationAndDisposal()
+    {
+        string? account = "account-a";
+        using var context = Context(() => account);
+        IPromptLibrary writer = PromptLibraryProvider.For(context);
+        var dispatcher = new QueuedUiDispatcher();
+        using var active = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            dispatcher.Dispatch);
+        var disposed = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            dispatcher.Dispatch);
+        writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
+
+        dispatcher.Defer = true;
+        await Task.Run(() =>
+            writer.SaveTemplate("Stale A", PromptTaskKind.Image, "stale A"));
+        account = "account-b";
+        context.RefreshIdentity();
+        disposed.Dispose();
+        dispatcher.Drain();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(active.Templates, Is.Empty,
+                "The queued account-A refresh must not publish after the account-B transition.");
+            Assert.That(
+                disposed.Templates.Select(item => item.Name),
+                Is.EqualTo(["Account A"]),
+                "A queued refresh must not mutate a disposed ViewModel.");
+        });
+    }
+
+    [Test]
+    public void SharedViewModelsRecoverAfterTransientAccountLibraryBindingFailure()
+    {
+        string? account = "account-a";
+        using var context = Context(() => account);
+        IPromptLibrary writer = PromptLibraryProvider.For(context);
+        using var first = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            static action => action());
+        using var second = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            PromptLibraryProvider.For(context),
+            context,
+            static action => action());
+        writer.SaveTemplate("Account A", PromptTaskKind.Image, "private A");
+
+        account = "account-b";
+        string migrationLockPath = Path.Combine(_home, "ai-prompts.migrated.lock");
+        using (var heldMigrationLock = new FileStream(
+                   migrationLockPath,
+                   FileMode.OpenOrCreate,
+                   FileAccess.ReadWrite,
+                   FileShare.None))
+        {
+            context.RefreshIdentity();
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Templates, Is.Empty);
+                Assert.That(second.Templates, Is.Empty);
+                Assert.That(first.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+                Assert.That(second.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+            });
+        }
+
+        // No second identity event occurs. The first successful mutation must publish
+        // through the account-scoped hub and refresh every still-live workspace.
+        PromptTemplate recovered = writer.SaveTemplate(
+            "Recovered B",
+            PromptTaskKind.Image,
+            "private B");
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Templates.Select(item => item.Id), Is.EqualTo([recovered.Id]));
+            Assert.That(second.Templates.Select(item => item.Id), Is.EqualTo([recovered.Id]));
+            Assert.That(first.Error.Value, Is.Null);
+            Assert.That(second.Error.Value, Is.Null);
         });
     }
 
@@ -244,5 +545,101 @@ public sealed class PromptLibraryProviderTests
         public void ClearHistory() { }
         public void ClearTemplates() { }
         public void ClearAll() { }
+    }
+
+    private sealed class BlockingAccountPromptLibrary(
+        Func<string?> account,
+        ManualResetEventSlim initialSnapshotStarted,
+        ManualResetEventSlim releaseInitialSnapshot)
+        : IPromptLibrary, IPromptLibraryChangeSource
+    {
+        private int _templateReads;
+
+        public string StoragePath => string.Empty;
+        public bool RetainRecentPromptText => false;
+        public string? RecoveredCorruptFilePath => null;
+        public IReadOnlyList<PromptHistoryEntry> History => [];
+        public IReadOnlyList<PromptTemplate> Templates
+        {
+            get
+            {
+                string name = account() == "account-a" ? "Account A" : "Account B";
+                PromptTemplate[] snapshot =
+                [
+                    new PromptTemplate(
+                        Guid.Parse("f1570c99-2514-4e24-ad69-350f745924b6"),
+                        name,
+                        PromptTaskKind.Image,
+                        name,
+                        DateTimeOffset.UnixEpoch,
+                        DateTimeOffset.UnixEpoch,
+                        false),
+                ];
+                if (Interlocked.Increment(ref _templateReads) == 1)
+                {
+                    initialSnapshotStarted.Set();
+                    if (!releaseInitialSnapshot.Wait(TimeSpan.FromSeconds(5)))
+                        throw new TimeoutException("The initial prompt snapshot was not released.");
+                }
+                return snapshot;
+            }
+        }
+
+        public IDisposable SubscribeChanged(Action callback) => new MemoryStream();
+        public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
+        public PromptTemplate SaveTemplate(string name, PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
+        public bool SetHistoryPinned(Guid id, bool isPinned) => false;
+        public bool SetTemplatePinned(Guid id, bool isPinned) => false;
+        public bool DeleteHistory(Guid id) => false;
+        public bool DeleteTemplate(Guid id) => false;
+        public void ClearHistory() { }
+        public void ClearTemplates() { }
+        public void ClearAll() { }
+    }
+
+    private sealed class QueuedUiDispatcher
+    {
+        private readonly object _gate = new();
+        private readonly Queue<Action> _queued = new();
+
+        public bool Defer { get; set; }
+
+        public bool IsDraining { get; private set; }
+
+        public void Dispatch(Action action)
+        {
+            lock (_gate)
+            {
+                if (Defer)
+                {
+                    _queued.Enqueue(action);
+                    return;
+                }
+            }
+            action();
+        }
+
+        public void Drain()
+        {
+            IsDraining = true;
+            try
+            {
+                while (true)
+                {
+                    Action? action;
+                    lock (_gate)
+                    {
+                        action = _queued.Count > 0 ? _queued.Dequeue() : null;
+                    }
+                    if (action is null)
+                        return;
+                    action();
+                }
+            }
+            finally
+            {
+                IsDraining = false;
+            }
+        }
     }
 }

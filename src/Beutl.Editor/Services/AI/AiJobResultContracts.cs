@@ -212,31 +212,45 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (!_registrations.TryGetValue(kind, out List<Registration>? registrations))
-            {
-                registrations = [];
-                _registrations.Add(kind, registrations);
-            }
-
-            bool exists = registrations.Count > 0;
-            if (registration.Mode == AiJobResultHandlerRegistrationMode.Add && exists)
-            {
-                throw new ArgumentException(
-                    $"An AI job result handler for '{contribution.Kind}' is already registered. Use Replace explicitly.",
-                    nameof(registration));
-            }
-            if (registration.Mode == AiJobResultHandlerRegistrationMode.Replace && !exists)
-            {
-                throw new ArgumentException(
-                    $"An AI job result handler for '{contribution.Kind}' cannot be replaced because it is not registered.",
-                    nameof(registration));
-            }
-
-            var result = new Registration(this, new RegistrationState(kind, handler));
-            registrations.Add(result);
-            return result;
+            return RegisterCore_NoLock(registration, kind, handler);
         }
     }
+
+    private Registration RegisterCore_NoLock(
+        AiJobResultHandlerRegistration registration,
+        AiJobKindId kind,
+        IAiJobResultHandler handler)
+    {
+        if (!_registrations.TryGetValue(kind, out List<Registration>? registrations))
+        {
+            registrations = [];
+            _registrations.Add(kind, registrations);
+        }
+
+        bool exists = registrations.Count > 0;
+        if (registration.Mode == AiJobResultHandlerRegistrationMode.Add && exists)
+        {
+            throw new ArgumentException(
+                $"An AI job result handler for '{registration.Contribution.Kind}' is already registered. Use Replace explicitly.",
+                nameof(registration));
+        }
+        if (registration.Mode == AiJobResultHandlerRegistrationMode.Replace && !exists)
+        {
+            throw new ArgumentException(
+                $"An AI job result handler for '{registration.Contribution.Kind}' cannot be replaced because it is not registered.",
+                nameof(registration));
+        }
+
+        var result = new Registration(this, new RegistrationState(kind, handler));
+        registrations.Add(result);
+        return result;
+    }
+
+    private Registration RegisterCore_NoLock(AiJobResultHandlerRegistration registration)
+        => RegisterCore_NoLock(
+            registration,
+            Normalize(registration.Contribution.Kind),
+            registration.Contribution.Handler);
 
     public bool TryAcquire(
         AiJobKindId kind,
@@ -382,25 +396,10 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
             _extensionRegistrations
             .Where(pair => !currentSet.Contains(pair.Key))
             .ToArray();
-        foreach (AiJobResultHandlerExtension extension in _extensionRegistrations.Keys
-                     .Where(extension => !currentSet.Contains(extension))
-                     .ToArray())
-        {
-            _extensionRegistrations.Remove(extension);
-        }
-
-        foreach ((AiJobResultHandlerExtension extension, List<Registration> registrations)
-                 in removedRegistrations)
-        {
-            ExtensionRegistrationLifetimes.Retire(
-                extension,
-                () => DisposeRegistrationsAsync(registrations));
-        }
 
         var candidates = new List<(
             AiJobResultHandlerExtension Extension,
-            AiJobResultHandlerRegistration[] Registrations,
-            List<Registration> Owned)>();
+            AiJobResultHandlerRegistration[] Registrations)>();
         foreach (AiJobResultHandlerExtension extension in currentExtensions)
         {
             if (_extensionRegistrations.ContainsKey(extension))
@@ -408,7 +407,7 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
 
             try
             {
-                candidates.Add((extension, ValidateRegistrations(extension), []));
+                candidates.Add((extension, ValidateRegistrations(extension)));
             }
             catch (Exception ex)
             {
@@ -418,48 +417,134 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
 
         var failures = new Dictionary<AiJobResultHandlerExtension, Exception>(
             ReferenceEqualityComparer.Instance);
-        foreach (AiJobResultHandlerRegistrationMode mode in new[]
-                 {
-                     AiJobResultHandlerRegistrationMode.Add,
-                     AiJobResultHandlerRegistrationMode.Replace,
-                 })
+        List<(AiJobResultHandlerExtension Extension, List<Registration> Owned)> retired = [];
+        lock (_gate)
         {
-            foreach ((AiJobResultHandlerExtension extension,
-                     AiJobResultHandlerRegistration[] registrations,
-                     List<Registration> owned) in candidates)
-            {
-                if (failures.ContainsKey(extension))
-                    continue;
-
-                try
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            // Re-seed scratch validation from the current effective handler per kind. Replaying
+            // raw extension modes is not valid once a replacement was registered before its
+            // later base: the effective replacement is live even though its original Replace
+            // operation would fail against an empty scratch registry. The actual registry keeps
+            // the full fallback stack below for lease-safe restoration; scratch only needs the
+            // current top state before candidate operations are tested.
+            var removedRegistrationSet = new HashSet<Registration>(
+                removedRegistrations.SelectMany(pair => pair.Value),
+                ReferenceEqualityComparer.Instance);
+            AiJobResultHandlerRegistration[] baseRegistrations = _registrations
+                .Select(pair => new
                 {
-                    foreach (AiJobResultHandlerRegistration registration in registrations
-                                 .Where(registration => registration.Mode == mode))
+                    pair.Key,
+                    Registration = pair.Value.LastOrDefault(
+                        registration => !removedRegistrationSet.Contains(registration)),
+                })
+                .Where(pair => pair.Registration is not null)
+                .OrderBy(pair => pair.Key.Value, StringComparer.Ordinal)
+                .Select(pair => pair.Registration!.ToSeedRegistration())
+                .ToArray();
+
+            while (true)
+            {
+                var newFailures = new Dictionary<
+                    AiJobResultHandlerExtension,
+                    (Exception Exception, int Phase)>(ReferenceEqualityComparer.Instance);
+                var working = new List<AiJobResultHandlerRegistration>(baseRegistrations);
+                AiJobResultHandlerRegistrationMode[] phases =
+                [
+                    AiJobResultHandlerRegistrationMode.Add,
+                    AiJobResultHandlerRegistrationMode.Replace,
+                ];
+
+                for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
+                {
+                    AiJobResultHandlerRegistrationMode mode = phases[phaseIndex];
+                    foreach ((AiJobResultHandlerExtension extension,
+                             AiJobResultHandlerRegistration[] registrations) in candidates)
                     {
-                        owned.Add((Registration)Register(registration));
+                        if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                            continue;
+
+                        AiJobResultHandlerRegistration[] phase = registrations
+                            .Where(registration => registration.Mode == mode)
+                            .ToArray();
+                        if (phase.Length == 0)
+                            continue;
+
+                        try
+                        {
+                            _ = new AiJobResultHandlerRegistry(working.Concat(phase));
+                            working.AddRange(phase);
+                        }
+                        catch (Exception ex)
+                        {
+                            newFailures.Add(extension, (ex, phaseIndex));
+                        }
                     }
                 }
-                catch (Exception ex)
+
+                if (newFailures.Count > 0)
                 {
-                    failures.Add(extension, ex);
+                    int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
+                    KeyValuePair<AiJobResultHandlerExtension, (Exception Exception, int Phase)> rejected =
+                        newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
+                    failures.TryAdd(rejected.Key, rejected.Value.Exception);
+                    continue;
                 }
+
+                // Remove old extension registrations and retire their states only after the
+                // scratch composition has succeeded. No failed candidate can poison this map.
+                foreach ((AiJobResultHandlerExtension extension, List<Registration> registrations)
+                         in removedRegistrations)
+                {
+                    _extensionRegistrations.Remove(extension);
+                    foreach (Registration registration in registrations)
+                        RetireRegistration_NoLock(registration);
+                    retired.Add((extension, registrations));
+                }
+
+                var ownedByExtension = new Dictionary<
+                    AiJobResultHandlerExtension,
+                    List<Registration>>(ReferenceEqualityComparer.Instance);
+                foreach ((AiJobResultHandlerExtension extension, _) in candidates)
+                {
+                    if (!failures.ContainsKey(extension))
+                        ownedByExtension.Add(extension, []);
+                }
+
+                foreach (AiJobResultHandlerRegistrationMode mode in phases)
+                {
+                    foreach ((AiJobResultHandlerExtension extension,
+                             AiJobResultHandlerRegistration[] registrations) in candidates)
+                    {
+                        if (failures.ContainsKey(extension))
+                            continue;
+
+                        List<Registration> owned = ownedByExtension[extension];
+                        foreach (AiJobResultHandlerRegistration registration in registrations
+                                     .Where(registration => registration.Mode == mode))
+                        {
+                            owned.Add(RegisterCore_NoLock(registration));
+                        }
+                    }
+                }
+
+                foreach ((AiJobResultHandlerExtension extension, List<Registration> owned) in ownedByExtension)
+                {
+                    _extensionRegistrations[extension] = owned;
+                }
+
+                break;
             }
         }
 
-        foreach ((AiJobResultHandlerExtension extension, _, List<Registration> owned) in candidates)
+        foreach ((AiJobResultHandlerExtension extension, List<Registration> registrations) in retired)
         {
-            if (failures.TryGetValue(extension, out Exception? failure))
-            {
-                ExtensionRegistrationLifetimes.Retire(
-                    extension,
-                    () => DisposeRegistrationsAsync(owned));
-                ReportFailure(extension, failure);
-            }
-            else
-            {
-                _extensionRegistrations.Add(extension, owned);
-            }
+            ExtensionRegistrationLifetimes.Retire(
+                extension,
+                () => DisposeRegistrationsAsync(registrations));
         }
+
+        foreach ((AiJobResultHandlerExtension extension, Exception failure) in failures)
+            ReportFailure(extension, failure);
     }
 
     private Task UnregisterAsync(Registration registration, RegistrationState state)
@@ -479,6 +564,20 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
         }
 
         return drain;
+    }
+
+    private void RetireRegistration_NoLock(Registration registration)
+    {
+        (AiJobKindId Kind, Task Drain)? retired = registration.RetireNoLock();
+        if (retired is null)
+            return;
+
+        if (_registrations.TryGetValue(retired.Value.Kind, out List<Registration>? registrations))
+        {
+            registrations.Remove(registration);
+            if (registrations.Count == 0)
+                _registrations.Remove(retired.Value.Kind);
+        }
     }
 
     private static ValueTask DisposeRegistrationsAsync(IEnumerable<Registration> registrations)
@@ -614,6 +713,14 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
         public ValueTask DisposeAsync()
             => new(_retirement.Value);
 
+        public (AiJobKindId Kind, Task Drain)? RetireNoLock()
+        {
+            RegistrationOwner? owner = Volatile.Read(ref _owner);
+            return owner is null
+                ? null
+                : (owner.State.Kind, owner.State.RetireAsync());
+        }
+
         private async Task RetireCoreAsync()
         {
             RegistrationOwner? owner = Volatile.Read(ref _owner);
@@ -633,6 +740,16 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
         private sealed record RegistrationOwner(
             AiJobResultHandlerRegistry Registry,
             RegistrationState State);
+
+        public AiJobResultHandlerRegistration ToSeedRegistration()
+        {
+            RegistrationOwner? owner = Volatile.Read(ref _owner);
+            if (owner is null)
+                throw new ObjectDisposedException(nameof(IAiJobResultHandlerRegistration));
+
+            return new AiJobResultHandlerRegistration(
+                new AiJobResultContribution(owner.State.Kind, owner.State.Handler));
+        }
     }
 
     private sealed class HandlerLease(RegistrationState state) : IAiJobResultHandlerLease

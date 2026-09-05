@@ -115,6 +115,43 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
+    public async Task Item_ThrowingRetryHandlerDisablesOnlyThatJobsRetry()
+    {
+        var descriptor = new AiJobKindDescriptor(
+            new AiJobKindId("vendor.throwing-retry"),
+            new AiJobStatusMap(
+            [
+                KeyValuePair.Create(
+                    new AiJobStatusId("failed"),
+                    new AiJobStatusSemantics(true, false, AiJobOutcomes.Failed)),
+            ]))
+        {
+            RetryHandler = new ThrowingRetryHandler(),
+        };
+        await using IAiJobKindRegistration registration = _jobKinds.Register(descriptor);
+
+        AiJobItemViewModel? item = null;
+        Assert.DoesNotThrow(() => item = new AiJobItemViewModel(
+            CreateJob(
+                "vendor.throwing-retry",
+                "failed",
+                ParseInput("{ \"prompt\": \"safe\" }"),
+                canRetry: true),
+            _jobKinds,
+            _resultHandlers));
+
+        using (item!)
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(item!.Summary, Is.EqualTo("safe"));
+                Assert.That(item.CanRetry, Is.False);
+                Assert.That(item.IsTerminal, Is.True);
+            }
+        }
+    }
+
+    [Test]
     public void Item_CanceledUsesDistinctLocalizedPresentation()
     {
         using var item = CreateItem(CreateJob(
@@ -1768,6 +1805,22 @@ public sealed class AiJobCenterTests
                 return ValueTask.CompletedTask;
             }
         }
+    }
+
+    private sealed class ThrowingRetryHandler : IAiJobRetryHandler
+    {
+        public bool CanRetry(AiJob job, AiJobStatusSemantics status)
+            => throw new InvalidOperationException("eligibility failed");
+
+        public ValueTask<AiJobRetryPreflight> GetPreflightAsync(
+            AiJob job,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public ValueTask<AiJobRetryPreparationResult> PrepareAsync(
+            AiJob job,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 
     private class SlowRetryHandler : IAiJobRetryHandler

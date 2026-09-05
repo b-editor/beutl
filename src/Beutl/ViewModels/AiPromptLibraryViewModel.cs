@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Language;
 using Beutl.Services.AI;
@@ -17,25 +18,39 @@ namespace Beutl.ViewModels;
 internal sealed class AiPromptLibraryViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly object _refreshGate = new();
+    private readonly Action<Action> _dispatchToUi;
     private readonly IPromptLibrary _library;
+    private readonly IDisposable? _libraryChangeSubscription;
     private readonly AiRequestRecoveryContext? _recoveryContext;
     private readonly PromptTaskKind _taskKind;
     private readonly Func<string> _getPrompt;
     private readonly Action<string> _applyPrompt;
     private readonly ObservableCollection<AiPromptChoice> _templates = [];
     private readonly ObservableCollection<AiPromptChoice> _history = [];
+    private bool _disposed;
+    private long _accountGeneration;
 
     public AiPromptLibraryViewModel(
         PromptTaskKind taskKind,
         Func<string> getPrompt,
         Action<string> applyPrompt,
         IPromptLibrary? library = null,
-        AiRequestRecoveryContext? recoveryContext = null)
+        AiRequestRecoveryContext? recoveryContext = null,
+        Action<Action>? dispatchToUi = null)
     {
         _taskKind = taskKind;
         _getPrompt = getPrompt ?? throw new ArgumentNullException(nameof(getPrompt));
         _applyPrompt = applyPrompt ?? throw new ArgumentNullException(nameof(applyPrompt));
         _recoveryContext = recoveryContext;
+        Dispatcher dispatcher = Dispatcher.UIThread;
+        _dispatchToUi = dispatchToUi ?? (action =>
+        {
+            if (dispatcher.CheckAccess())
+                action();
+            else
+                dispatcher.Post(action);
+        });
         _library = library ?? PromptLibraryProvider.For(
             recoveryContext ?? throw new ArgumentNullException(nameof(recoveryContext)));
         Templates = new ReadOnlyObservableCollection<AiPromptChoice>(_templates);
@@ -53,12 +68,38 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         ClearHistory.Subscribe(() =>
         {
             _library.ClearHistory();
-            Refresh();
+            RefreshAfterLocalMutation();
         }).DisposeWith(_disposables);
 
-        Refresh();
         if (_recoveryContext is not null)
             _recoveryContext.IdentityChanged += RefreshForIdentity;
+        IDisposable? changeSubscription = null;
+        try
+        {
+            changeSubscription = (_library as IPromptLibraryChangeSource)?
+                .SubscribeChanged(RefreshFromLibraryChange);
+            _libraryChangeSubscription = changeSubscription;
+            // Subscribe before the initial snapshot. A mutation that wins this race is then
+            // either visible to the snapshot or followed by a notification; it cannot be lost
+            // between reading the shared library and attaching the observer.
+            string? account = CurrentAccount();
+            long generation = Volatile.Read(ref _accountGeneration);
+            Action initialRefresh = () =>
+                ApplyQueuedRefresh(identityChanged: false, account, generation);
+            if (dispatchToUi is not null)
+                dispatchToUi(initialRefresh);
+            else if (dispatcher.CheckAccess())
+                initialRefresh();
+            else
+                dispatcher.Invoke(initialRefresh);
+        }
+        catch
+        {
+            changeSubscription?.Dispose();
+            if (_recoveryContext is not null)
+                _recoveryContext.IdentityChanged -= RefreshForIdentity;
+            throw;
+        }
     }
 
     /// <summary>Named prompts the account keeps, newest and pinned first.</summary>
@@ -100,13 +141,21 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
 
         try { _library.Record(_taskKind, prompt); }
         catch (AuthenticationRequiredException) { return; }
-        Refresh();
+        RefreshAfterLocalMutation();
     }
 
     public void Dispose()
     {
+        lock (_refreshGate)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            Interlocked.Increment(ref _accountGeneration);
+        }
         if (_recoveryContext is not null)
             _recoveryContext.IdentityChanged -= RefreshForIdentity;
+        _libraryChangeSubscription?.Dispose();
         IsHistoryOpen.Dispose();
         TemplateName.Dispose();
         HasTemplates.Dispose();
@@ -135,7 +184,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
             : _library.SetHistoryPinned(choice.Id, !choice.IsPinned);
         if (changed)
         {
-            Refresh();
+            RefreshAfterLocalMutation();
         }
     }
 
@@ -149,7 +198,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
             : _library.DeleteHistory(choice.Id);
         if (deleted)
         {
-            Refresh();
+            RefreshAfterLocalMutation();
         }
     }
 
@@ -160,7 +209,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         {
             _library.SaveTemplate(TemplateName.Value, _taskKind, _getPrompt());
             TemplateName.Value = string.Empty;
-            Refresh();
+            RefreshAfterLocalMutation();
         }
         catch (ArgumentException)
         {
@@ -206,7 +255,65 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         HasHistory.Value = _history.Count > 0;
     }
 
+    private void RefreshFromLibraryChange()
+    {
+        string? account = CurrentAccount();
+        long generation = Volatile.Read(ref _accountGeneration);
+        QueueRefresh(identityChanged: false, account, generation);
+    }
+
+    private void QueueRefresh(bool identityChanged, string? account, long generation)
+    {
+        _dispatchToUi(() => ApplyQueuedRefresh(identityChanged, account, generation));
+    }
+
+    private void ApplyQueuedRefresh(bool identityChanged, string? account, long generation)
+    {
+        lock (_refreshGate)
+        {
+            if (_disposed)
+                return;
+            if (generation != Volatile.Read(ref _accountGeneration))
+                return;
+            string? currentAccount = CurrentAccount();
+            if (generation != Volatile.Read(ref _accountGeneration)
+                || !StringComparer.Ordinal.Equals(account, currentAccount))
+            {
+                return;
+            }
+
+            if (identityChanged)
+            {
+                RefreshForIdentityCore();
+            }
+            else
+            {
+                Refresh();
+                if (Error.Value == Strings.AiResultUnavailable
+                    || Error.Value == Strings.AiAuthenticationRequired)
+                {
+                    Error.Value = null;
+                }
+            }
+        }
+    }
+
+    private void RefreshAfterLocalMutation()
+    {
+        if (_libraryChangeSubscription is null)
+            RefreshFromLibraryChange();
+    }
+
     private void RefreshForIdentity()
+    {
+        long generation = Interlocked.Increment(ref _accountGeneration);
+        QueueRefresh(identityChanged: true, CurrentAccount(), generation);
+    }
+
+    private string? CurrentAccount()
+        => _recoveryContext?.TryGetIdentity()?.AccountId;
+
+    private void RefreshForIdentityCore()
     {
         // Clear the previous account before touching the new account's store.
         // A corrupt or unavailable destination must never leave the old

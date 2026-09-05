@@ -1143,6 +1143,7 @@ internal enum AiJobConfirmationAction
 
 public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<AiJobItemViewModel>();
     private readonly object _stateGate = new();
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly AiJobResultHandlerRegistry _resultHandlers;
@@ -1408,7 +1409,18 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
                 {
                     status = AiJobStatusSemantics.Unknown;
                 }
-                canRetry = descriptor.RetryHandler?.CanRetry(_response, status) == true;
+                try
+                {
+                    canRetry = descriptor.RetryHandler?.CanRetry(_response, status) == true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "AI job retry handler for '{Kind}' failed while checking eligibility.",
+                        _response.Kind);
+                    canRetry = false;
+                }
             }
         }
 

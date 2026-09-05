@@ -320,6 +320,58 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
+    public async Task LoadMigrationReloadsAfterTakingTheCrossProcessWriteLock()
+    {
+        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
+        var seed = new PersistentPromptLibrary(_storagePath, options);
+        seed.SaveTemplate("Original", PromptTaskKind.Image, "original prompt");
+        string versionOne = File.ReadAllText(_storagePath).Replace(
+            $"\"version\": {PersistentPromptLibrary.CurrentStorageVersion}",
+            "\"version\": 1",
+            StringComparison.Ordinal);
+        File.WriteAllText(_storagePath, versionOne);
+
+        using var initialReadCompleted = new ManualResetEventSlim();
+        using var releaseMigration = new ManualResetEventSlim();
+        Task<PersistentPromptLibrary> delayedLoad = Task.Run(() =>
+            new PersistentPromptLibrary(
+                _storagePath,
+                options,
+                beforeNormalizationWriteLock: () =>
+                {
+                    initialReadCompleted.Set();
+                    if (!releaseMigration.Wait(TimeSpan.FromSeconds(5)))
+                        throw new TimeoutException("The delayed migration was not released.");
+                }));
+
+        try
+        {
+            Assert.That(initialReadCompleted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            var concurrent = new PersistentPromptLibrary(_storagePath, options);
+            concurrent.SaveTemplate(
+                "Concurrent",
+                PromptTaskKind.Video,
+                "written after the stale read");
+
+            releaseMigration.Set();
+            PersistentPromptLibrary loaded = await delayedLoad.WaitAsync(TimeSpan.FromSeconds(5));
+            var reloaded = new PersistentPromptLibrary(_storagePath, options);
+
+            string[] expected = ["Concurrent", "Original"];
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(loaded.Templates.Select(item => item.Name), Is.EqualTo(expected));
+                Assert.That(reloaded.Templates.Select(item => item.Name), Is.EqualTo(expected));
+            }
+        }
+        finally
+        {
+            releaseMigration.Set();
+            await delayedLoad.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Test]
     public void JsonSchema_ContainsNoAuthenticationOrGeneratedAssetFieldsAndLeavesNoTempFiles()
     {
         var library = new PersistentPromptLibrary(

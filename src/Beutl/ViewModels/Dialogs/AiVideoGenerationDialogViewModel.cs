@@ -2146,9 +2146,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             IStorageFile? file = await storage.SaveFilePickerAsync(options);
             destination = file is null
                 ? null
-                : new AiSaveFileDestination(
-                    file.Path.LocalPath,
-                    _ => file.OpenWriteAsync());
+                : new AiSaveFileDestination(file.Path.LocalPath);
         }
 
         if (destination is null || !operation.IsCurrent)

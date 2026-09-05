@@ -1338,9 +1338,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             IStorageFile? file = await storage.SaveFilePickerAsync(options);
             destination = file is null
                 ? null
-                : new AiSaveFileDestination(
-                    file.Path.LocalPath,
-                    _ => file.OpenWriteAsync());
+                : new AiSaveFileDestination(file.Path.LocalPath);
         }
 
         if (destination is null || !operation.IsCurrent)
@@ -1348,12 +1346,17 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
         try
         {
-            await using Stream stream = await destination.OpenWriteAsync(operation.CancellationToken);
             if (!operation.TryPublish(() =>
                 {
                     operation.CancellationToken.ThrowIfCancellationRequested();
-                    stream.SetLength(0);
-                    bitmap.Save(stream, EncodedImageFormat.Png);
+                    AiAtomicFileWriter.Write(
+                        destination.Path,
+                        stream =>
+                        {
+                            if (!bitmap.Save(stream, EncodedImageFormat.Png))
+                                throw new IOException("Failed to encode the edited AI image as PNG.");
+                        },
+                        operation.CancellationToken);
                 }))
                 return;
             operation.TryPublish(() =>
