@@ -85,7 +85,7 @@ public sealed class ShaderDescriptionTests
     }
 
     [Test]
-    public void LumaColor_ReusesOneNativeLoweringAndProgramIdentity()
+    public void LumaColor_ReusesOneSkslDescriptionWithoutNativeLowering()
     {
         ShaderDescription first = BuiltInColorFilterShader.LumaColor();
         ShaderDescription second = BuiltInColorFilterShader.LumaColor();
@@ -93,9 +93,7 @@ public sealed class ShaderDescriptionTests
         Assert.Multiple(() =>
         {
             Assert.That(first, Is.SameAs(second));
-            Assert.That(first.SpirvLowering, Is.SameAs(second.SpirvLowering));
-            Assert.That(first.SpirvLowering!.ProgramIdentity,
-                Is.SameAs(second.SpirvLowering!.ProgramIdentity));
+            Assert.That(first.SpirvLowering, Is.Null);
         });
     }
 

@@ -76,7 +76,7 @@ public sealed class VulkanPipelineConstructionReleaseTests
     }
 
     [Test]
-    public void VulkanShaderCompiler_ReleasesPartialConstructionAndNativeApi()
+    public void VulkanShaderCompiler_ReleasesHandlesAndRetainsOneNativeApi()
     {
         DirectoryInfo directory = FindRepositoryRoot();
         string path = Path.Combine(
@@ -96,11 +96,13 @@ public sealed class VulkanPipelineConstructionReleaseTests
             Assert.That(optionsInitialization, Is.GreaterThan(compilerInitialization));
             Assert.That(
                 constructor,
-                Does.Match(@"catch\s*\{\s*Release\s*\(\s*shaderc\s*,\s*compiler\s*,\s*options\s*\)\s*;\s*throw\s*;\s*\}"));
-            Assert.That(source, Does.Contain("shaderc.CompileOptionsRelease(options)"));
-            Assert.That(source, Does.Contain("shaderc.CompilerRelease(compiler)"));
-            Assert.That(source, Does.Contain("shaderc.Dispose()"));
-            Assert.That(source, Does.Contain("Release(_shaderc, _compiler, _options)"));
+                Does.Match(@"catch\s*\{\s*Release\s*\(\s*compiler\s*,\s*options\s*\)\s*;\s*throw\s*;\s*\}"));
+            Assert.That(source, Does.Contain("static readonly Shaderc s_shaderc = Shaderc.GetApi()"));
+            Assert.That(Regex.Matches(source, @"Shaderc\.GetApi\s*\(\s*\)"), Has.Count.EqualTo(1));
+            Assert.That(source, Does.Contain("s_shaderc.CompileOptionsRelease(options)"));
+            Assert.That(source, Does.Contain("s_shaderc.CompilerRelease(compiler)"));
+            Assert.That(source, Does.Not.Contain("s_shaderc.Dispose()"));
+            Assert.That(source, Does.Contain("Release(_compiler, _options)"));
         });
     }
 

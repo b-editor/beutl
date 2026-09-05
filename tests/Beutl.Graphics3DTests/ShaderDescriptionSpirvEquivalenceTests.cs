@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -14,15 +15,45 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class ShaderDescriptionSpirvEquivalenceTests
 {
-    private const float MaximumLoweringError = 0.002f;
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
+
+    private const string NativeIdentitySource =
+        """
+        #version 450
+        layout(set = 0, binding = 0) uniform sampler2D src;
+        layout(push_constant) uniform PushConstants { ivec4 sourceTexelOffset; } constants;
+        layout(location = 0) out vec4 outColor;
+
+        void main()
+        {
+            ivec2 sourceCoord = ivec2(gl_FragCoord.xy) + constants.sourceTexelOffset.xy;
+            outColor = texelFetch(src, sourceCoord, 0);
+        }
+        """;
+
+    private static readonly ShaderDescription s_nativeIdentity = ShaderDescription.CurrentPixel(
+        new SkslSource("half4 apply(half4 color) { return color; }", ShaderDescriptionKind.CurrentPixel),
+        new SpirvShaderLowering(NativeIdentitySource, []),
+        bindings: null);
+
+    [Test]
+    public void ShaderCompiler_ReusesProcessLifetimeApiAfterInstanceDispose()
+    {
+        byte[] first;
+        using (var compiler = new VulkanShaderCompiler())
+            first = compiler.CompileToSpirv(NativeIdentitySource, ShaderStage.Fragment);
+
+        using var secondCompiler = new VulkanShaderCompiler();
+        byte[] second = secondCompiler.CompileToSpirv(NativeIdentitySource, ShaderStage.Fragment);
+
+        Assert.That(second, Is.EqualTo(first).And.Not.Empty);
+    }
 
     [TestCase(0.5f)]
     [TestCase(1f)]
     [TestCase(2f)]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
-    public void LumaColor_AutoSpirvMatchesSksl(float outputScale)
+    public void LumaColor_AutoAlwaysUsesSksl(float outputScale)
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -35,11 +66,11 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
             Assert.Multiple(() =>
             {
                 Assert.That(expectedStatistics.SpirvShaderRunExecutions, Is.Zero);
-                Assert.That(actualStatistics.SpirvShaderRunExecutions, Is.EqualTo(1));
+                Assert.That(actualStatistics.SpirvShaderRunExecutions, Is.Zero);
+                Assert.That(actual, Is.EqualTo(expected));
                 Assert.That(
-                    MaximumAbsoluteDifference(actual, expected),
-                    Is.LessThanOrEqualTo(MaximumLoweringError),
-                    "The native luma lowering must preserve the SkSL premultiplied-linear result.");
+                    actual.Select(static value => (float)BitConverter.UInt16BitsToHalf(value)),
+                    Has.All.Matches<float>(float.IsFinite));
                 Assert.That(expected, Has.Some.Not.Zero, "the comparison must not be vacuous");
             });
         });
@@ -48,24 +79,22 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
-    public void LumaColor_ExplicitSpirvUsesTheNativeProgram()
+    public void Identity_ExplicitSpirvMatchesSksl()
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             (ushort[] expected, _) = Render(
                 ShaderBackendPreference.Sksl,
-                BuiltInColorFilterShader.LumaColor());
+                s_nativeIdentity);
             (ushort[] actual, RenderExecutionStatistics statistics) = Render(
                 ShaderBackendPreference.Spirv,
-                BuiltInColorFilterShader.LumaColor());
+                s_nativeIdentity);
 
             Assert.Multiple(() =>
             {
                 Assert.That(statistics.SpirvShaderRunExecutions, Is.EqualTo(1));
-                Assert.That(
-                    MaximumAbsoluteDifference(actual, expected),
-                    Is.LessThanOrEqualTo(MaximumLoweringError));
+                Assert.That(actual, Is.EqualTo(expected));
             });
         });
     }
@@ -73,7 +102,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
-    public void LumaColor_SubmitsNativeCommandsBeforeExecutionReturns()
+    public void Identity_SubmitsNativeCommandsBeforeExecutionReturns()
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -82,7 +111,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
 
             (_, RenderExecutionStatistics statistics) = Render(
                 ShaderBackendPreference.Auto,
-                BuiltInColorFilterShader.LumaColor(),
+                s_nativeIdentity,
                 commandEvents: events);
 
             Assert.Multiple(() =>
@@ -97,7 +126,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    public void LumaColor_AutoUsesSkslForACroppedFootprint()
+    public void Identity_AutoUsesSkslForACroppedFootprint()
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -105,11 +134,11 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
             var requestedRegion = new Rect(4, 3, 12, 8);
             (ushort[] expected, _) = Render(
                 ShaderBackendPreference.Sksl,
-                BuiltInColorFilterShader.LumaColor(),
+                s_nativeIdentity,
                 requestedRegion: requestedRegion);
             (ushort[] actual, RenderExecutionStatistics statistics) = Render(
                 ShaderBackendPreference.Auto,
-                BuiltInColorFilterShader.LumaColor(),
+                s_nativeIdentity,
                 requestedRegion: requestedRegion);
 
             Assert.Multiple(() =>
@@ -122,7 +151,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
 
     [Test]
     [Category("GpuPassFusionGpu")]
-    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
     public void AutoFallsBackAndRetriesWhenNativeCompilationFails()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -163,7 +191,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
-    public void ProductionRenderer_ReusesTheNativeLumaProgram()
+    public void Renderer_ReusesNativeTestProgram()
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
@@ -172,7 +200,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
             using var source = new RectangleRenderNode(s_bounds, gradient, pen: null);
             using var root = new MaterializedShaderNode(
                 source,
-                BuiltInColorFilterShader.LumaColor());
+                s_nativeIdentity);
             using var renderer = new RenderNodeRenderer(
                 root,
                 new RenderNodeRenderRequest
@@ -206,19 +234,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
                 Assert.That(warmTargets.Creates, Is.EqualTo(coldTargets.Creates));
             });
         });
-    }
-
-    private static float MaximumAbsoluteDifference(ushort[] left, ushort[] right)
-    {
-        Assert.That(left, Has.Length.EqualTo(right.Length));
-        float maximum = 0;
-        for (int index = 0; index < left.Length; index++)
-        {
-            float leftValue = (float)BitConverter.UInt16BitsToHalf(left[index]);
-            float rightValue = (float)BitConverter.UInt16BitsToHalf(right[index]);
-            maximum = Math.Max(maximum, Math.Abs(leftValue - rightValue));
-        }
-        return maximum;
     }
 
     private static (ushort[] Pixels, RenderExecutionStatistics Statistics) Render(
