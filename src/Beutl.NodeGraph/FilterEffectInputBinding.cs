@@ -10,7 +10,6 @@ internal sealed class FilterEffectInputBinding : IDisposable
 {
     private static readonly AsyncLocal<FilterEffectInputBinding?> s_current = new();
     private static readonly RenderResourceSlot<Func<Ref<Bitmap>?, Ref<Bitmap>?>> s_previewSinkSlot = new();
-    private static readonly RenderResourceSlot[] s_previewSlots = [s_previewSinkSlot];
     private static readonly RenderInputReadback[] s_noPreviewReadback = [];
     private static readonly RenderInputReadback[] s_singlePreviewReadback = [RenderInputReadback.Values([0])];
     private readonly RenderNodeContext _context;
@@ -177,8 +176,7 @@ internal sealed class FilterEffectInputBinding : IDisposable
                     Rect.Empty,
                     RenderHitTestContract.None,
                     inputReadbacks: inputReadbacks,
-                    resources: [s_previewSinkSlot.Bind(sink)],
-                    slots: s_previewSlots)));
+                    resources: [s_previewSinkSlot.Bind(sink)])));
         }
 
         _previews.Clear();

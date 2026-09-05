@@ -305,7 +305,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
     {
         components.AddInt32(resources.Count);
         for (int index = 0; index < resources.Count; index++)
-            components.AddReference(resources[index].Slot.ValueType);
+            components.AddReference(resources[index].Resource.ValueType);
     }
 
     /// <summary>

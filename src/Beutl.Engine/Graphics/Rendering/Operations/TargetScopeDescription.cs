@@ -73,9 +73,6 @@ public sealed class TargetScopeDescription
     /// <param name="deviceGridMapping">
     /// Whether replay preserves the input device grid. The default assumes remapping.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
-    /// </param>
     public static TargetScopeDescription Create<TState>(
         TState state,
         Action<TargetScopeSession, TState> execute,
@@ -85,8 +82,7 @@ public sealed class TargetScopeDescription
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -100,11 +96,7 @@ public sealed class TargetScopeDescription
             deviceGridSensitivity,
             deviceGridMapping,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)),
+            resources,
             isValueReplayMap: false,
             transformSpace,
             builtInBackdropCapturesBackingTarget: false);

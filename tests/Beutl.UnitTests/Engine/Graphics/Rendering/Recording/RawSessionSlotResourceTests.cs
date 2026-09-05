@@ -63,8 +63,6 @@ public sealed class RawSessionSlotResourceTests
     {
         private static readonly RenderResourceSlot<Payload> s_slot = new();
 
-        private static readonly RenderResourceSlot[] s_slots = [s_slot];
-
         private readonly Payload _bound = new("bound");
         private readonly Payload _rebound = new("rebound");
         private bool _useRebound;
@@ -90,8 +88,7 @@ public sealed class RawSessionSlotResourceTests
                     static (session, _) => session.UseResource(s_slot, static payload => payload.Reach()),
                     s_domain,
                     RenderHitTestContract.OutputBounds,
-                    resources: [s_slot.Bind(token)],
-                    slots: s_slots)));
+                    resources: [s_slot.Bind(token)])));
                 return;
             }
 
@@ -112,8 +109,7 @@ public sealed class RawSessionSlotResourceTests
                 RenderBoundsContract.FullInput,
                 RenderHitTestContract.AnyInput,
                 RenderScaleContract.PreserveInputSupply,
-                resources: [s_slot.Bind(token)],
-                slots: s_slots)));
+                resources: [s_slot.Bind(token)])));
         }
     }
 

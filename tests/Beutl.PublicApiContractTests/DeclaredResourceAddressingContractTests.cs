@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -13,7 +14,6 @@ public sealed class DeclaredResourceAddressingContractTests
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
     private static readonly RenderResourceSlot<Payload> s_leftSlot = new();
     private static readonly RenderResourceSlot<Payload> s_rightSlot = new();
-    private static readonly RenderResourceSlot<Payload> s_unboundSlot = new();
     private static readonly RenderResourceSlot<Payload> s_missingSlot = new();
 
     // Read once here rather than inside the callback: Colors.Red is a get-only property whose getter this
@@ -37,8 +37,7 @@ public sealed class DeclaredResourceAddressingContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: bindings,
-            slots: [s_leftSlot, s_rightSlot]);
+            resources: bindings);
 
     private static OpaqueRenderDescription MissingLookupDescription(RenderResourceBinding binding)
         => OpaqueRenderDescription.Create(
@@ -48,12 +47,11 @@ public sealed class DeclaredResourceAddressingContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: [binding],
-            slots: [s_leftSlot]);
+            resources: [binding]);
 
     [TestCase(false)]
     [TestCase(true)]
-    public void TypedBindingsRemainStableWhenSameTypedResourcesAreReordered(bool reverse)
+    public void TypedBindingsAddressSameTypedResourcesRegardlessOfBindingOrder(bool reverse)
     {
         var reached = new List<string>();
         using var node = new DelegateSourceNode(context =>
@@ -76,47 +74,26 @@ public sealed class DeclaredResourceAddressingContractTests
     }
 
     [Test]
-    public void DescriptionsRejectMissingDuplicateAndUnexpectedSlots()
+    public void ADescriptionRejectsAReleasedBinding()
     {
-        ArgumentException? missing = null;
-        ArgumentException? duplicate = null;
-        ArgumentException? unexpected = null;
-        using var node = new DelegateSourceNode(context =>
+        RenderResourceBinding binding = default;
+        using (var first = new DelegateSourceNode(context =>
+               {
+                   RenderResource<Payload> token = context.Borrow(new Payload());
+                   binding = s_leftSlot.Bind(token);
+                   context.Publish(context.OpaqueSource(MissingLookupDescription(binding)));
+               }))
         {
-            RenderResource<Payload> first = context.Borrow(new Payload());
-            RenderResource<Payload> second = context.Borrow(new Payload());
-            missing = Assert.Throws<ArgumentException>(() =>
-                TwoPayloadDescription([s_leftSlot.Bind(first)]));
-            duplicate = Assert.Throws<ArgumentException>(() =>
-                TwoPayloadDescription([s_leftSlot.Bind(first), s_leftSlot.Bind(second)]));
-            unexpected = Assert.Throws<ArgumentException>(() =>
-                TwoPayloadDescription([s_leftSlot.Bind(first), s_unboundSlot.Bind(second)]));
-        });
+            _ = Measure(first);
+        }
 
-        _ = Measure(node);
+        ArgumentException? exception = null;
+        using var second = new DelegateSourceNode(_ =>
+            exception = Assert.Throws<ArgumentException>(() => MissingLookupDescription(binding)));
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(missing!.ParamName, Is.EqualTo("resources"));
-            Assert.That(duplicate!.ParamName, Is.EqualTo("resources"));
-            Assert.That(unexpected!.ParamName, Is.EqualTo("resources"));
-        });
-    }
+        _ = Measure(second);
 
-    [Test]
-    public void ADescriptionRejectsTheSameSlotTwice()
-    {
-        ArgumentException? exception = Assert.Throws<ArgumentException>(() =>
-            OpaqueRenderDescription.Create(
-                (byte)0,
-                static (_, _) => { },
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                slots: [s_leftSlot, s_leftSlot]));
-
-        Assert.That(exception!.ParamName, Is.EqualTo("slots"));
+        Assert.That(exception!.ParamName, Is.EqualTo("resources"));
     }
 
     [Test]
@@ -159,6 +136,10 @@ public sealed class DeclaredResourceAddressingContractTests
                     [typeof(RenderResource<OtherPayload>)]),
                 Is.Null,
                 "A slot can only bind a token of its exact declared resource type.");
+            Assert.That(typeof(RenderResourceBinding).IsValueType, Is.True);
+            Assert.That(
+                typeof(RenderResourceBinding).IsDefined(typeof(IsReadOnlyAttribute), inherit: false),
+                Is.True);
             Assert.That(typeof(RenderResourceBinding).GetConstructors(), Is.Empty);
             Assert.That(typeof(RenderResourceBinding).GetProperties(), Is.Empty);
             Assert.That(typeof(RenderResource<Payload>).GetMethod("Bind"), Is.Null);

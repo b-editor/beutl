@@ -25,9 +25,9 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     private const string WholeSourceSource =
         "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }";
 
-    private static readonly Rect s_slotProbeBounds = new(0, 0, 4, 4);
+    private static readonly Rect s_resourceProbeBounds = new(0, 0, 4, 4);
 
-    private static readonly string[] s_slotBindingFamilyNames =
+    private static readonly string[] s_resourceBindingFamilyNames =
     [
         "OpaqueRenderDescription.Create",
         "TargetScopeDescription.Create",
@@ -41,10 +41,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         "MaterializedInputDescription.FromRenderTarget",
     ];
 
-    /// <summary>Binds <paramref name="resources"/> against <paramref name="slots"/> through one factory.</summary>
-    private delegate IReadOnlyList<RenderResourceBinding> BindSlots(
-        IReadOnlyList<RenderResourceBinding> resources,
-        IReadOnlyList<RenderResourceSlot>? slots);
+    private delegate IReadOnlyList<RenderResourceBinding> BindResources(
+        IReadOnlyList<RenderResourceBinding> resources);
 
     [Test]
     public void EffectItemDescriptions_AreTheExternalRecordingSurface()
@@ -125,15 +123,14 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 Is.False,
                 "that knob names a planner fast path an out-of-tree node has no model of");
             Assert.That(
-                parameters.Any(static parameter =>
-                    parameter.Name == "slots"
-                    && parameter.ParameterType == typeof(IReadOnlyList<RenderResourceSlot>)),
-                Is.True);
+                parameters.Any(static parameter => parameter.Name == "slots"),
+                Is.False,
+                "each binding already identifies its typed slot, so a second declaration list is redundant");
         });
     }
 
     [Test]
-    public void EveryDescriptionFactory_DeclaresTheSlotListParameter()
+    public void EveryDescriptionFactory_UsesBindingsWithoutASeparateSlotList()
     {
         (Type Description, string Factory)[] factories =
         [
@@ -163,10 +160,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 foreach (MethodInfo overload in overloads)
                 {
                     Assert.That(
-                        overload.GetParameters().Any(static parameter =>
-                            parameter.Name == "slots"
-                            && parameter.ParameterType == typeof(IReadOnlyList<RenderResourceSlot>)),
-                        Is.True,
+                        overload.GetParameters().Any(static parameter => parameter.Name == "slots"),
+                        Is.False,
                         label);
                 }
             }
@@ -316,31 +311,23 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     }
 
     [Test]
-    public void EveryDescriptionFactoryGivenItsDeclaredSlots_ChecksAndNormalizesTheBindings()
+    public void EveryDescriptionFactory_RejectsDuplicateAndDefaultBindings()
     {
-        RenderResourceSlot<SlotSubject> slotA = new();
-        RenderResourceSlot<SlotSubject> slotB = new();
-        var a = new SlotSubject();
-        var b = new SlotSubject();
+        RenderResourceSlot<SlotSubject> slot = new();
+        var subject = new SlotSubject();
         using RenderTarget target = RenderTarget.CreateNull(4, 4);
-        RenderResourceBinding? bindA = null;
-        RenderResourceBinding? bindB = null;
-        List<(string Name, IReadOnlyList<RenderResourceBinding> Normalized, Exception? Unbound,
-            Exception? Undeclared, Exception? BoundTwice)> observed = [];
+        List<(string Name, Exception? Duplicate, Exception? Uninitialized)> observed = [];
 
         using var node = new DelegateNode(context =>
         {
-            bindA = slotA.Bind(context.Borrow(a));
-            bindB = slotB.Bind(context.Borrow(b));
+            RenderResourceBinding binding = slot.Bind(context.Borrow(subject));
 
-            foreach ((string name, BindSlots bind) in SlotBindingFamilies(context.Borrow(target)))
+            foreach ((string name, BindResources bind) in ResourceBindingFamilies(context.Borrow(target)))
             {
                 observed.Add((
                     name,
-                    bind([bindB, bindA], [slotA, slotB]),
-                    Catch(() => bind([bindA], [slotA, slotB])),
-                    Catch(() => bind([bindA, bindB], [slotA])),
-                    Catch(() => bind([bindA, bindA], [slotA, slotB]))));
+                    Catch(() => bind([binding, binding])),
+                    Catch(() => bind([default]))));
             }
 
             context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
@@ -351,68 +338,20 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
 
         Assert.That(
             observed.Select(static entry => entry.Name),
-            Is.EqualTo(s_slotBindingFamilyNames),
+            Is.EqualTo(s_resourceBindingFamilyNames),
             "every factory in the family answers this table, so one joining or leaving is reported here");
         Assert.Multiple(() =>
         {
-            foreach ((string name, IReadOnlyList<RenderResourceBinding> normalized, Exception? unbound,
-                Exception? undeclared, Exception? boundTwice) in observed)
+            foreach ((string name, Exception? duplicate, Exception? uninitialized) in observed)
             {
                 Assert.That(
-                    normalized,
-                    Is.EqualTo(new[] { bindA, bindB }),
-                    $"{name} must reorder its bindings into declared-slot order, so the order they were "
-                    + "written in cannot reach the recorded operation");
-                Assert.That(
-                    unbound,
+                    duplicate,
                     Is.InstanceOf<ArgumentException>(),
-                    $"{name} must refuse a declared slot left unbound");
+                    $"{name} must refuse one typed slot bound more than once");
                 Assert.That(
-                    undeclared,
+                    uninitialized,
                     Is.InstanceOf<ArgumentException>(),
-                    $"{name} must refuse a binding whose slot it did not declare");
-                Assert.That(
-                    boundTwice,
-                    Is.InstanceOf<ArgumentException>(),
-                    $"{name} must refuse one slot bound twice while another goes unbound");
-            }
-        });
-    }
-
-    [Test]
-    public void EveryDescriptionFactoryWithoutDeclaredSlots_BindsNothingAndRefusesAnUndeclaredBinding()
-    {
-        RenderResourceSlot<SlotSubject> slot = new();
-        var subject = new SlotSubject();
-        using RenderTarget target = RenderTarget.CreateNull(4, 4);
-        List<(string Name, IReadOnlyList<RenderResourceBinding> Recorded, Exception? Undeclared)> observed = [];
-
-        using var node = new DelegateNode(context =>
-        {
-            RenderResourceBinding binding = slot.Bind(context.Borrow(subject));
-
-            foreach ((string name, BindSlots bind) in SlotBindingFamilies(context.Borrow(target)))
-                observed.Add((name, bind([], null), Catch(() => bind([binding], null))));
-
-            context.Publish(context.OpaqueSource(MetadataSource(new Rect(0, 0, 4, 4))));
-        });
-
-        using var renderer = CreateRenderer(node);
-        renderer.Measure();
-
-        Assert.That(observed.Select(static entry => entry.Name), Is.EqualTo(s_slotBindingFamilyNames));
-        Assert.Multiple(() =>
-        {
-            foreach ((string name, IReadOnlyList<RenderResourceBinding> recorded, Exception? undeclared) in observed)
-            {
-                Assert.That(
-                    recorded,
-                    Is.Empty,
-                    $"{name} must still record when nothing is declared and nothing is bound");
-                Assert.That(
-                    (undeclared as ArgumentException)?.ParamName,
-                    Is.EqualTo("slots"),
-                    $"{name} must name the declaration the author left out, not the bindings they wrote");
+                    $"{name} must refuse default(RenderResourceBinding)");
             }
         });
     }
@@ -539,104 +478,94 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(ShaderDescription);
     }
 
-    /// <summary>Enumerates public factories that bind declared resource slots.</summary>
+    /// <summary>Enumerates public factories that retain resource bindings.</summary>
     /// <remarks>
     /// Shader descriptions expose bindings through <see cref="ShaderDescription.HitTestResources"/>.
     /// </remarks>
-    private static IEnumerable<(string Name, BindSlots Bind)> SlotBindingFamilies(
+    private static IEnumerable<(string Name, BindResources Bind)> ResourceBindingFamilies(
         RenderResource<RenderTarget> materializedTarget)
     {
-        yield return ("OpaqueRenderDescription.Create", static (resources, slots)
+        yield return ("OpaqueRenderDescription.Create", static resources
             => OpaqueRenderDescription.Create(
                 (byte)0,
                 static (_, _) => { },
-                OpaqueRenderBoundsContract.Source(s_slotProbeBounds),
+                OpaqueRenderBoundsContract.Source(s_resourceProbeBounds),
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: resources,
-                slots: slots).Resources);
+                resources: resources).Resources);
 
-        yield return ("TargetScopeDescription.Create", static (resources, slots)
+        yield return ("TargetScopeDescription.Create", static resources
             => TargetScopeDescription.Create(
                 (byte)0,
                 static (_, _) => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.OutputBounds,
                 RenderScaleContract.PreserveInputSupply,
-                resources: resources,
-                slots: slots).Resources);
+                resources: resources).Resources);
 
-        yield return ("TargetCommandDescription.Create", static (resources, slots)
+        yield return ("TargetCommandDescription.Create", static resources
             => TargetCommandDescription.Create(
                 (byte)0,
                 static (_, _) => { },
                 TargetRegion.Full,
-                s_slotProbeBounds,
+                s_resourceProbeBounds,
                 RenderHitTestContract.OutputBounds,
-                resources: resources,
-                slots: slots).Resources);
+                resources: resources).Resources);
 
-        yield return ("RawTargetScopeDescription.Create", static (resources, slots)
+        yield return ("RawTargetScopeDescription.Create", static resources
             => RawTargetScopeDescription.Create(
                 (byte)0,
                 static (_, _) => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.OutputBounds,
                 RenderScaleContract.PreserveInputSupply,
-                resources,
-                slots).Resources);
+                resources).Resources);
 
-        yield return ("RawTargetCommandDescription.Create", static (resources, slots)
+        yield return ("RawTargetCommandDescription.Create", static resources
             => RawTargetCommandDescription.Create(
                 (byte)0,
                 static (_, _) => { },
-                s_slotProbeBounds,
+                s_resourceProbeBounds,
                 RenderHitTestContract.OutputBounds,
-                resources,
-                slots).Resources);
+                resources).Resources);
 
-        yield return ("GeometryDescription.Create", static (resources, slots)
+        yield return ("GeometryDescription.Create", static resources
             => GeometryDescription.Create(
                 (byte)0,
                 static (_, _) => { },
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.OutputBounds,
-                resources: resources,
-                slots: slots).Resources);
+                resources: resources).Resources);
 
-        yield return ("ShaderDescription.CurrentPixel", static (resources, slots)
+        yield return ("ShaderDescription.CurrentPixel", static resources
             => ShaderDescription.CurrentPixel(
                 CurrentPixelSource,
-                hitTestResources: resources,
-                slots: slots).HitTestResources);
+                hitTestResources: resources).HitTestResources);
 
-        yield return ("ShaderDescription.WholeSource", static (resources, slots)
+        yield return ("ShaderDescription.WholeSource", static resources
             => ShaderDescription.WholeSource(
                 WholeSourceSource,
                 RenderBoundsContract.Identity,
-                hitTestResources: resources,
-                slots: slots).HitTestResources);
+                hitTestResources: resources).HitTestResources);
 
-        yield return ("TargetCaptureDescription.Create", static (resources, slots)
+        yield return ("TargetCaptureDescription.Create", static resources
             => TargetCaptureDescription.Create(
                 TargetRegion.Full,
-                s_slotProbeBounds,
+                s_resourceProbeBounds,
                 RenderHitTestContract.OutputBounds,
                 TargetCaptureScaleContract.MaterializeAtWorkingScale,
-                resources,
-                slots).Resources);
+                resources).Resources);
 
-        yield return ("MaterializedInputDescription.FromRenderTarget", (resources, slots)
+        yield return ("MaterializedInputDescription.FromRenderTarget", resources
             => MaterializedInputDescription.FromRenderTarget(
                 materializedTarget,
-                s_slotProbeBounds,
+                s_resourceProbeBounds,
                 EffectiveScale.At(1),
-                PixelRect.FromRect(s_slotProbeBounds, 1),
+                PixelRect.FromRect(s_resourceProbeBounds, 1),
                 default,
                 RenderHitTestContract.OutputBounds,
-                resources,
-                slots).Resources);
+                resources).Resources);
     }
 
     private static Exception? Catch(Func<IReadOnlyList<RenderResourceBinding>> bind)

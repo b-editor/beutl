@@ -17,8 +17,6 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     private static readonly Color s_untintedParticle = Colors.White;
     private static readonly SKColor s_opaqueWhite = SKColors.White;
     private static readonly RenderResourceSlot<Brush.Resource> s_fallbackFillSlot = new();
-    private static readonly RenderResourceSlot[] s_fallbackSlots = [s_fallbackFillSlot];
-    private static readonly RenderResourceSlot[] s_particleSlots = [s_particlesSlot];
     private static readonly OpaqueRenderBoundsContract s_fallbackBoundsContract =
         OpaqueRenderBoundsContract.Source(s_fallbackBounds);
 
@@ -78,8 +76,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                     : TargetRegion.Region(totalBounds),
                 queryBounds: totalBounds,
                 hitTest: RenderHitTestContract.None,
-                resources: [s_particlesSlot.Bind(particlesToken)],
-                slots: s_particleSlots));
+                resources: [s_particlesSlot.Bind(particlesToken)]));
 
         // A union beyond the buffer budget is mostly off-target travel. Preserve the finite layer for
         // ordinary emitters, but clip an oversized union to its owning target before allocation.
@@ -124,8 +121,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.Vector,
-            resources: [s_fallbackFillSlot.Bind(fillToken)],
-            slots: s_fallbackSlots));
+            resources: [s_fallbackFillSlot.Bind(fillToken)]));
     }
 
     private static void DrawFallbackParticle(OpaqueRenderSession session, Brush.Resource fill)

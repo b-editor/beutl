@@ -103,7 +103,7 @@ The context validates publication ownership, topology, resource transfer, and ca
 
 ## Operation descriptions
 
-Every callback-defined operation is recorded through one immutable *description*. A description states, in a single expression, everything the recorded operation is made of: the execution callback, the state that callback reads, the metadata contracts the planner reads, the resource slots the operation declares, and the bindings that fill those slots. Build it where you record it and hand it straight to the matching context method.
+Every callback-defined operation is recorded through one immutable *description*. A description states, in a single expression, everything the recorded operation is made of: the execution callback, the state that callback reads, the metadata contracts the planner reads, and the ordered resource bindings the operation declares. Build it where you record it and hand it straight to the matching context method.
 
 ```csharp
 public RenderFragmentHandle OpaqueSource(OpaqueRenderDescription description);
@@ -117,7 +117,7 @@ public RenderFragmentHandle RawTargetScope(RenderFragmentHandle input, RawTarget
 public RenderFragmentHandle RawTargetCommand(RawTargetCommandDescription description);
 ```
 
-Rebuilding a description each frame does not cost a plan. The engine keys a compiled plan on the *shape* of the work — the callback's method and the declared contracts — and never on the values a recording carries, so a description built inside `Process` compiles the same plan every request. Hoist only what is genuinely fixed and worth not rebuilding: a `RenderResourceSlot<T>`, the `RenderResourceSlot[]` a description declares, a `RenderHitTestContract` over a slot, a parsed `SkslSource`. The values that change belong in the `state` argument, where the callback reaches them through its `TState` parameter, and in the bindings.
+Rebuilding a description each frame does not cost a plan. The engine keys a compiled plan on the *shape* of the work — the callback's method and the declared contracts — and never on the values a recording carries, so a description built inside `Process` compiles the same plan every request. Hoist only what is genuinely fixed and worth not rebuilding: a `RenderResourceSlot<T>`, a `RenderHitTestContract` over a slot, or a parsed `SkslSource`. The values that change belong in the `state` argument, where the callback reaches them through its `TState` parameter, and in the bindings.
 
 `RenderNode.PrepareForRequest(RenderNodePreparation)` runs on every request before that node's children are recorded. Recording walks children first, so a node whose children depend on the request - one that records a nested graph at the request's density - cannot rebuild them from `Process`, where they are already recorded. `RenderNodePreparation` carries only what is settled before any fragment exists: the request's output scale, working-scale ceiling, intent, purpose, and target domain. It runs on every request, so an override that changes nothing must cost nothing.
 
@@ -127,7 +127,6 @@ Rebuilding a description each frame does not cost a plan. The engine keys a comp
 private sealed record DrawState(float Opacity);
 
 private static readonly RenderResourceSlot<Brush.Resource> s_brush = new();
-private static readonly RenderResourceSlot[] s_slots = [s_brush];
 
 public override void Process(RenderNodeContext context)
 {
@@ -143,13 +142,12 @@ public override void Process(RenderNodeContext context)
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.PreserveInputSupply,
-            resources: [s_brush.Bind(brush)],
-            slots: s_slots),
+            resources: [s_brush.Bind(brush)]),
         static (current, input, description) => current.OpaqueMap(input, description));
 }
 ```
 
-The callback for a guarded operation receives a session that addresses resources through the declared `RenderResourceSlot<T>`. It cannot use an arbitrary request token the description did not declare.
+The callback for a guarded operation receives a session that addresses resources through the `RenderResourceSlot<T>` carried by a binding. It cannot use an arbitrary request token the description did not declare.
 
 ## Painted sources
 
@@ -166,8 +164,7 @@ public RenderFragmentHandle PaintedSource<TState>(
     RenderScaleContract scale,
     RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
     bool supportsDirectDstOut = true,
-    IEnumerable<RenderResourceBinding>? bindings = null,
-    IEnumerable<RenderResourceSlot>? slots = null,
+    IReadOnlyList<RenderResourceBinding>? bindings = null,
     Thickness rasterOutset = default)
     where TState : notnull;
 
@@ -182,7 +179,6 @@ It cannot be a description, because it borrows its fill and its pen from the rec
 
 ```csharp
 private static readonly RenderResourceSlot<Geometry.Resource> s_geometry = new();
-private static readonly RenderResourceSlot[] s_geometrySlots = [s_geometry];
 
 public override void Process(RenderNodeContext context)
 {
@@ -199,8 +195,7 @@ public override void Process(RenderNodeContext context)
         PenHelper.GetBounds(geometry.Bounds, pen),
         RenderHitTestContract.OutputBounds,
         RenderScaleContract.Vector,
-        bindings: [s_geometry.Bind(resource)],
-        slots: s_geometrySlots));
+        bindings: [s_geometry.Bind(resource)]));
 }
 ```
 
@@ -210,21 +205,21 @@ public override void Process(RenderNodeContext context)
 public RenderResource<T> Own<T>(T resource) where T : class, IDisposable;
 public RenderResource<T> Borrow<T>(T resource) where T : class;
 
-public abstract class RenderResourceSlot { }
-
-public sealed class RenderResourceSlot<T> : RenderResourceSlot
+public sealed class RenderResourceSlot<T>
     where T : class
 {
     public RenderResourceSlot();
     public RenderResourceBinding Bind(RenderResource<T> resource);
 }
+
+public readonly struct RenderResourceBinding { }
 ```
 
 `Own` transfers disposal responsibility to the active request family. `Borrow` retains caller ownership and requires the raw object to remain usable for the request. Both return opaque request-scoped tokens; neither is a public output-reuse identity.
 
-Every factory takes its slots and its bindings together, and always checks one against the other. `slots:` is an `IEnumerable<RenderResourceSlot>` of the non-generic base, which is how slots of different resource types travel together; the base is not otherwise part of the authoring surface. `resources:` — spelled `bindings:` on `PaintedSource` and `hitTestResources:` on the shader factories, where the bindings serve only a declared hit test — is a sequence of `RenderResourceBinding`, each produced by `slot.Bind(token)`. It must bind every declared slot exactly once and may not bind an undeclared or differently typed token.
+Each factory accepts one ordered binding list: `resources:` — spelled `bindings:` on `PaintedSource` and `hitTestResources:` on the shader factories, where the bindings serve only a declared hit test. Each `RenderResourceBinding` is produced by `slot.Bind(token)`, and the authored binding order is the declaration order used by the operation's structural identity. The typed `Bind` method prevents pairing a slot with a differently typed token.
 
-Declaring the slots is what makes that check possible, and it is also what orders the bindings: they are reordered into the `slots:` order before the operation is recorded, so the order the author happened to write them in never reaches the plan the recording compiles. Omitting `slots:` therefore declares no slots rather than skipping the check — binding a resource without declaring its slot is refused. `RenderResourceBinding` is intentionally created only by a typed slot.
+`RenderResourceBinding` is a readonly struct with no public constructor. Description construction rejects its uninitialized default value, a slot bound more than once, and a released resource. A slot does not need a separate declaration list; when no binding addresses the slot, `UseResource` or a slot-backed hit test throws when it tries to read it.
 
 Guarded opaque, geometry, and target callbacks lease a resource through their slot:
 
@@ -236,15 +231,14 @@ static (session, state) => session.UseResource(
 
 ## Raw target work
 
-Raw work is for existing behavior that must access an unguarded canvas and cannot be represented with typed operations. It is opaque external work and never becomes persistently reusable output. It still declares typed slots and binds them like every other description.
+Raw work is for existing behavior that must access an unguarded canvas and cannot be represented with typed operations. It is opaque external work and never becomes persistently reusable output. It still declares ordered resource bindings like every other description.
 
-Raw sessions accept a resource either way: `UseResource(slot, use)` addresses the binding the description declared, and `UseResource(token, use)` addresses a token directly. Prefer the slot from a state-passing callback, and put the token in state only where the callback needs it by identity — binding it to a declared slot as well is what gets the declaration checked before execution.
+Raw sessions accept a resource either way: `UseResource(slot, use)` addresses the matching binding, and `UseResource(token, use)` addresses a token directly. Prefer the slot from a state-passing callback, and put the token in state only where the callback needs it by identity; the token must still appear in the description's bindings.
 
 ```csharp
 private readonly record struct BackdropState(RenderResource<IBackdrop> Resource);
 
 private static readonly RenderResourceSlot<IBackdrop> s_backdrop = new();
-private static readonly RenderResourceSlot[] s_slots = [s_backdrop];
 
 public override void Process(RenderNodeContext context)
 {
@@ -258,8 +252,7 @@ public override void Process(RenderNodeContext context)
                 value => value.Draw(session.Canvas)),
             queryBounds: _bounds,
             hitTest: RenderHitTestContract.OutputBounds,
-            resources: [s_backdrop.Bind(backdrop)],
-            slots: s_slots)));
+            resources: [s_backdrop.Bind(backdrop)])));
 }
 ```
 
@@ -300,7 +293,7 @@ A whole-source stage that enlarges what it samples also declares `inputDemand`: 
 
 Several descriptions over one source can share its parsed form: `SkslSource.CurrentPixel(source)` and `SkslSource.WholeSource(source)` validate the text once, and the matching `ShaderDescription` factories accept the result in place of a raw string. Hold that parsed source in a `static readonly` field, as the example does, so recording a stage does not re-tokenize it. The parsed source is immutable and carries its `Kind` and `IdentityHash`; passing one of the wrong kind is rejected where the description is created.
 
-`GeometryDescription.Create(state, render, bounds, hitTest, requiresReadback, inputDemand, resources, slots)` follows the same model for `RenderNodeContext.Geometry(input, description)` and `FilterEffectContext.Geometry(description)`. Geometry callbacks lease declared tokens through slots.
+`GeometryDescription.Create(state, render, bounds, hitTest, requiresReadback, inputDemand, resources)` follows the same model for `RenderNodeContext.Geometry(input, description)` and `FilterEffectContext.Geometry(description)`. Geometry callbacks lease declared tokens through typed slots carried by those bindings.
 
 `FilterEffectContext` takes the same descriptions, without an input handle — the effect chain supplies the input:
 

@@ -45,8 +45,7 @@ public sealed class TargetAuthoringContractTests
             TargetRegion.Region(s_bounds),
             s_bounds,
             RenderHitTestContract.OutputBounds,
-            resources: [payload],
-            slots: [s_payloadSlot]);
+            resources: [payload]);
 
     private static TargetCommandDescription ShapeCommand(CommandState state)
         => TargetCommandDescription.Create(
@@ -219,8 +218,7 @@ public sealed class TargetAuthoringContractTests
                 static (session, _) => session.UseResource(s_payloadSlot, static bound => bound.Uses++),
                 Rect.Empty,
                 RenderHitTestContract.None,
-                resources: [s_payloadSlot.Bind(context.Borrow(payload))],
-                slots: [s_payloadSlot]))));
+                resources: [s_payloadSlot.Bind(context.Borrow(payload))]))));
 
         using RenderNodeRasterization rasterization = Rasterize(node);
 

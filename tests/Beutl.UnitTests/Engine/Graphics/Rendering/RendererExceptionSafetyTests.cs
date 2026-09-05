@@ -269,8 +269,7 @@ internal sealed class FixedOpsNode : RenderNode
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: [s_fillSlot.Bind(fillResource)],
-                slots: [s_fillSlot]);
+                resources: [s_fillSlot.Bind(fillResource)]);
             context.Publish(context.OpaqueSource(description));
         }
     }

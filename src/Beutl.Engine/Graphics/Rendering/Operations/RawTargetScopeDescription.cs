@@ -39,9 +39,6 @@ public sealed class RawTargetScopeDescription
     /// <param name="execute">
     /// A static execution callback.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
-    /// </param>
     /// <remarks>
     /// Raw work is not output-cacheable. Static execution still gives repeated recordings one plan identity.
     /// </remarks>
@@ -51,8 +48,7 @@ public sealed class RawTargetScopeDescription
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -64,11 +60,7 @@ public sealed class RawTargetScopeDescription
             hitTest,
             scale,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)));
+            resources);
 
     /// <summary>
     /// Creates a raw scope whose recorded work can never satisfy a later request's plan lookup.

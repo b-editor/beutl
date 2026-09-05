@@ -21,8 +21,7 @@ public sealed class GeometryAuthoringContractTests
                 static required => required.Inflate(new Thickness(2))),
             RenderHitTestContract.Custom(GeometryHitTest),
             requiresReadback: true,
-            resources: [binding],
-            slots: [s_metadataSlot]);
+            resources: [binding]);
 
     [Test]
     public void Geometry_ExposesZeroOrOneBoundsHitTestResourceAndEligibilityContracts()
@@ -300,8 +299,7 @@ public sealed class GeometryAuthoringContractTests
                 RenderBoundsContract.Identity,
                 RenderHitTestContract.OutputBounds,
                 requiresReadback: true,
-                resources: [s_resourceSlot.Bind(token)],
-                slots: [s_resourceSlot]));
+                resources: [s_resourceSlot.Bind(token)]));
         }
 
         private void ExecuteGeometry(GeometrySession session)

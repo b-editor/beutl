@@ -105,7 +105,9 @@ src/Beutl.Engine/Graphics/
 │   │   ├── TargetScopeDescription.cs   # also the two RawTarget descriptions and their sessions
 │   │   ├── TargetRegion.cs             # symbolic Full/Empty/Region(Rect) scope extent
 │   │   ├── TargetCommandDescription.cs
-│   │   └── RenderResource.cs           # RenderResource/RenderResourceSlot/RenderResourceBinding
+│   │   ├── RenderResource.cs           # request-scoped resource tokens
+│   │   ├── RenderResourceSlot{T}.cs    # typed callback address
+│   │   └── RenderResourceBinding.cs    # ordered resource declaration
 │   ├── Planning/
 │   │   ├── RecordedRenderGraph.cs
 │   │   ├── RenderRequest.cs

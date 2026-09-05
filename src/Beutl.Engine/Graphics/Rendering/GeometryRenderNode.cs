@@ -7,7 +7,6 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
     : BrushRenderNode(fill, pen)
 {
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
-    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot];
 
     public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
 
@@ -59,8 +58,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
                 hitTestState,
                 static (value, state, _, point) => state.HitTest(value, point)),
             RenderScaleContract.Vector,
-            bindings: [s_geometrySlot.Bind(geometryResource)],
-            slots: s_slots));
+            bindings: [s_geometrySlot.Bind(geometryResource)]));
     }
 
     protected override void OnDispose(bool disposing)

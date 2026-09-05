@@ -276,8 +276,7 @@ public sealed class ShaderAuthoringContractTests
                 hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
                     s_sharedColorSlot,
                     static (_, _) => true),
-                hitTestResources: [binding, binding],
-                slots: [s_sharedColorSlot]));
+                hitTestResources: [binding, binding]));
             context.Publish(context.OpaqueSource(SourceDescription(Colors.White)));
         });
 
@@ -386,8 +385,7 @@ public sealed class ShaderAuthoringContractTests
                         tint.HitTests++;
                         return tint.Color.Alpha > 0 && point.X < 4;
                     }),
-                hitTestResources: [s_colorSlot.Bind(token)],
-                slots: [s_colorSlot]);
+                hitTestResources: [s_colorSlot.Bind(token)]);
             RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
             context.Publish(context.Shader(source, description));
         });

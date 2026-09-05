@@ -368,11 +368,6 @@ public sealed class RenderNodeAuthoringContractTests
                     [
                         s_ownedSlot.Bind(ownedToken),
                         s_borrowedSlot.Bind(borrowedToken),
-                    ],
-                    slots:
-                    [
-                        s_ownedSlot,
-                        s_borrowedSlot,
                     ]));
             context.PublishRange([input, declaredResourceSource]);
         });

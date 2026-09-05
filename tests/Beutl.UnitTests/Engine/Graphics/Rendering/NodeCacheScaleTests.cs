@@ -209,8 +209,6 @@ public class NodeCacheScaleTests
     {
         private static readonly RenderResourceSlot<Brush.Resource> s_fillSlot = new();
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
-        private static readonly RenderResourceSlot[] s_slots = [s_fillSlot, s_probeSlot];
-
         private readonly ExecutionProbe _probe = new();
 
         public int ExecuteCount => _probe.Count;
@@ -237,8 +235,7 @@ public class NodeCacheScaleTests
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 4f),
-                resources: [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)],
-                slots: s_slots)));
+                resources: [s_fillSlot.Bind(fillResource), s_probeSlot.Bind(probeResource)])));
         }
     }
 
@@ -291,8 +288,7 @@ public class NodeCacheScaleTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 1),
-                resources: [s_probeSlot.Bind(probeResource)],
-                slots: [s_probeSlot]));
+                resources: [s_probeSlot.Bind(probeResource)]));
             TargetScopeDescription replayDescription = TargetScopeDescription.CreateValueReplayMap(
                 bounds,
                 static (session, replayBounds) => session.Canvas.Use(_ => session.ReplayInput()),

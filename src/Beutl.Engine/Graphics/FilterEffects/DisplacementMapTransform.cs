@@ -85,8 +85,6 @@ public abstract partial class DisplacementMapTransform : EngineObject
     private static readonly SKColor s_transparent = SKColors.Transparent;
 
     private static readonly RenderResourceSlot<Brush.Resource> s_hitTestMapSlot = new();
-    private static readonly RenderResourceSlot[] s_hitTestSlots = [s_hitTestMapSlot];
-
     // The working format of every stage in the graph. A map sampled in any other space would report a
     // different displacement from the one the entry point read.
     private static readonly SKColorSpace s_workingColorSpace = SKColorSpace.CreateSrgbLinear();
@@ -135,12 +133,6 @@ public abstract partial class DisplacementMapTransform : EngineObject
             (semanticOrigin.Y + context.OutputBounds.Height / 2 + center.Y) * context.WorkingScale));
     }
 
-    /// <summary>The three parts a stage passes to <see cref="ShaderDescription"/> to declare a hit test.</summary>
-    private protected readonly record struct HitTestDeclaration(
-        RenderHitTestContract? Contract,
-        IReadOnlyList<RenderResourceBinding>? Resources,
-        IReadOnlyList<RenderResourceSlot>? Slots);
-
     /// <summary>Declares a hit test that resolves a coordinate the way the shader fallback resamples one.</summary>
     /// <remarks>
     /// <para>
@@ -157,7 +149,9 @@ public abstract partial class DisplacementMapTransform : EngineObject
     /// allocate. Those stages keep the forwarded query and the defect it carries.
     /// </para>
     /// </remarks>
-    private protected static HitTestDeclaration DeclareSampling(
+    private protected static (
+        RenderHitTestContract? Contract,
+        IReadOnlyList<RenderResourceBinding>? Resources) DeclareSampling(
         Brush.Resource displacementMap,
         RenderResource<Brush.Resource> map,
         DrawableMapTransformKind kind,
@@ -181,7 +175,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 channel,
                 signed),
             static (state, context, point) => state.HitTest(context, point));
-        return new HitTestDeclaration(contract, [s_hitTestMapSlot.Bind(map)], s_hitTestSlots);
+        return (contract, [s_hitTestMapSlot.Bind(map)]);
     }
 
     /// <summary>Answers a hit test the way a fallback entry point resolves the coordinate it samples.</summary>

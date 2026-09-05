@@ -6,8 +6,8 @@
 flowchart LR
     N[RenderNode] --> C[RenderNodeContext]
     C --> G[RecordedRenderGraph]
-    S[typed RenderResourceSlot] --> D[immutable Description]
-    B[RenderResourceBinding] --> D
+    S[typed RenderResourceSlot] --> B[RenderResourceBinding]
+    B --> D[immutable Description]
     D --> C
     G --> M[ResolvedFragmentMetadata]
     M --> R[RequiredRegion]
@@ -48,7 +48,7 @@ A handle represents a fragment in the active recording transaction. It carries n
 
 ### Operation descriptions
 
-A public callback operation is one immutable description. It holds the execution callback, the state that callback reads, the operation metadata, and the resource slots the operation declares together with the bindings that fill them. There is no separate schema object: a description is built where it is recorded and handed straight to the context method that records it.
+A public callback operation is one immutable description. It holds the execution callback, the state that callback reads, the operation metadata, and the ordered resource bindings the operation declares. There is no separate schema object: a description is built where it is recorded and handed straight to the context method that records it.
 
 A plan is keyed by the shape of the work — the callback's method and the declared contracts — and never by the values a recording carries, so a description rebuilt each request compiles the same plan. Changing the state a description carries is ordinary node content change and requires the owning node to call `MarkChanged()` before the next request.
 
@@ -66,19 +66,19 @@ A painted source has no description and is recorded through `RenderNodeContext.P
 
 `RenderResource<T>` is an opaque request-scoped token. `RenderNodeContext.Own` transfers a disposable raw object to the request family; `Borrow` leaves ownership with the caller. Neither changes output invalidation semantics.
 
-`RenderResourceSlot<T>` is a typed address. A description declares its slots in `slots:` and binds each one exactly once in `resources:`, where `slot.Bind(token)` creates the only valid public binding form; an undeclared or differently typed token is rejected. Declaring the slots is also what orders the bindings, since the order reaches the operation's structural identity. Omitting the slot list declares none rather than skipping the check.
+`RenderResourceSlot<T>` is a typed address. Calling `slot.Bind(token)` creates a `RenderResourceBinding`, and the ordered `resources:` sequence is the complete declaration: its authored order reaches the operation's structural identity. The binding factory prevents a mismatched token type, while description construction rejects duplicate slots, uninitialized bindings, and released resources. `RenderResourceBinding` is a readonly struct with no public constructor, so `default` is invalid rather than an empty declaration.
 
-Guarded sessions use `UseResource(slot, callback)` to lease the matching raw value. Raw sessions additionally offer `UseResource(token, callback)` for a callback that needs the resource by identity; the token then lives in the description's state and the same token is also bound to a declared slot for validation.
+Guarded sessions use `UseResource(slot, callback)` to lease the matching raw value. A slot need not be listed separately; if no binding declares it, the callback or hit test fails at lookup. Raw sessions additionally offer `UseResource(token, callback)` for a callback that needs the resource by identity; the token then lives in the description's state and must also appear in the description's bindings.
 
 ### ShaderDescription and GeometryDescription
 
 `ShaderDescription` holds source, entry-point kind, bounds behavior, uniforms, and child-shader slots. `.CurrentPixel` models `half4 apply(half4 color)`; `.WholeSource` models `half4 main(float2 coord)` with `uniform shader src;`. Both take an `Action<ShaderBindingBuilder>` that runs immediately, while the description is being constructed, and is never retained; `ShaderBindingBuilder` writes canonical uniform values, registers execution-time uniform binders, and declares typed child resources. `SkslSource.CurrentPixel` and `SkslSource.WholeSource` parse and validate the text once so several descriptions can share it. The result is passed to `RenderNodeContext.Shader` or `FilterEffectContext.Shader`.
 
-`GeometryDescription` holds a geometry callback, bounds, hit testing, optional readback, an optional input demand, and slots, and is passed to the corresponding context method.
+`GeometryDescription` holds a geometry callback, bounds, hit testing, optional readback, an optional input demand, and resource bindings, and is passed to the corresponding context method.
 
 ### Raw target descriptions
 
-Raw descriptions declare metadata and typed slots even though their canvas work is opaque external, and both take state like every other description. A raw scope wraps and replays one input exactly once. A raw command has no logical value input. Both prevent persistent output reuse because the renderer cannot inspect their internal canvas behavior — the opaque canvas is the reason, not the absence of state passing.
+Raw descriptions declare metadata and ordered resource bindings even though their canvas work is opaque external, and both take state like every other description. A raw scope wraps and replays one input exactly once. A raw command has no logical value input. Both prevent persistent output reuse because the renderer cannot inspect their internal canvas behavior — the opaque canvas is the reason, not the absence of state passing.
 
 ### Metadata contracts
 

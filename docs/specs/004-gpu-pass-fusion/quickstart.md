@@ -69,13 +69,12 @@ public override void Process(RenderNodeContext context)
 
 ### Guarded operation descriptions
 
-Build the description inside `Process` and hand it straight to the recording method. Hoist only what is genuinely fixed — a slot, the slot list a description declares, a hit-test contract over a slot — because the plan is keyed by the callback's method and the declared contracts, not by the values a recording carries.
+Build the description inside `Process` and hand it straight to the recording method. Hoist only what is genuinely fixed — a typed slot or a hit-test contract over one — because the plan is keyed by the callback's method and the declared contracts, not by the values a recording carries.
 
 ```csharp
 private sealed record DrawState(float Opacity);
 
 private static readonly RenderResourceSlot<Brush.Resource> s_brush = new();
-private static readonly RenderResourceSlot[] s_slots = [s_brush];
 
 public override void Process(RenderNodeContext context)
 {
@@ -91,23 +90,21 @@ public override void Process(RenderNodeContext context)
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.PreserveInputSupply,
-            resources: [s_brush.Bind(brush)],
-            slots: s_slots),
+            resources: [s_brush.Bind(brush)]),
         static (current, input, description) => current.OpaqueMap(input, description));
 }
 ```
 
-Every slot declared through `slots:` must be bound exactly once in `resources:`. Guarded callbacks lease it through `session.UseResource(slot, ...)`. `Borrow` retains caller ownership; `Own` transfers a disposable raw object to the request family. Neither takes caller-controlled reuse metadata.
+Each binding in `resources:` declares its typed slot, and the authored binding order is the declaration order. Duplicate slots, uninitialized bindings, and released resources are rejected when the description is created. A guarded callback leases a binding through `session.UseResource(slot, ...)`; reading a slot with no binding fails at that read. `Borrow` retains caller ownership; `Own` transfers a disposable raw object to the request family. Neither takes caller-controlled reuse metadata.
 
 ### Raw target work
 
-Raw work remains request-local, but it still passes state and declares typed slots:
+Raw work remains request-local, but it still passes state and declares ordered resource bindings:
 
 ```csharp
 private readonly record struct RawState(RenderResource<IBackdrop> Resource);
 
 private static readonly RenderResourceSlot<IBackdrop> s_backdrop = new();
-private static readonly RenderResourceSlot[] s_slots = [s_backdrop];
 
 public override void Process(RenderNodeContext context)
 {
@@ -121,12 +118,11 @@ public override void Process(RenderNodeContext context)
                 value => value.Draw(session.Canvas)),
             queryBounds: _bounds,
             hitTest: RenderHitTestContract.OutputBounds,
-            resources: [s_backdrop.Bind(backdrop)],
-            slots: s_slots)));
+            resources: [s_backdrop.Bind(backdrop)])));
 }
 ```
 
-This callback reaches its resource by token, which raw sessions allow and guarded ones do not; the same token is bound to the declared slot so the schema is still checked. What makes raw work unreusable is the opaque canvas, not the token — a raw description passes state like any other, and that state is what gives the planner one plan per callback instead of one per recording. A raw scope uses `RawTargetScopeDescription` and must replay its input exactly once.
+This callback reaches its resource by token, which raw sessions allow and guarded ones do not; the token is still present in the binding declaration so access is checked. What makes raw work unreusable is the opaque canvas, not the token — a raw description passes state like any other, and that state is what gives the planner one plan per callback instead of one per recording. A raw scope uses `RawTargetScopeDescription` and must replay its input exactly once.
 
 ## 5. Add shader and geometry stages
 
@@ -153,7 +149,7 @@ public override void Process(RenderNodeContext context)
 }
 ```
 
-Use `.WholeSource` for a whole-input shader with `uniform shader src;` and fixed bounds behavior. Renderer-generated names are reserved: any shader source that declares a binding named `__beutl_pixel` or `__beutl_head_main`, a `__beutl_s<N>_`-prefixed name, or an `fe`-prefixed name containing `_`, is rejected, and a whole-source shader may not declare a renderer-generated top-level name. The `bindings` action runs immediately and is never retained, so it may close over this recording's values; the execution-time binders it registers may not, and take their changing value as an argument beside them. `ShaderBindingBuilder.Resource` declares typed child-shader slots. `GeometryDescription.Create` follows the same shape for geometry callbacks, metadata, optional readback, and slots. `FilterEffectContext` accepts a `ShaderDescription` and a `GeometryDescription` directly.
+Use `.WholeSource` for a whole-input shader with `uniform shader src;` and fixed bounds behavior. Renderer-generated names are reserved: any shader source that declares a binding named `__beutl_pixel` or `__beutl_head_main`, a `__beutl_s<N>_`-prefixed name, or an `fe`-prefixed name containing `_`, is rejected, and a whole-source shader may not declare a renderer-generated top-level name. The `bindings` action runs immediately and is never retained, so it may close over this recording's values; the execution-time binders it registers may not, and take their changing value as an argument beside them. `ShaderBindingBuilder.Resource` declares typed child-shader slots. `GeometryDescription.Create` follows the same shape for geometry callbacks, metadata, optional readback, and resource bindings. `FilterEffectContext` accepts a `ShaderDescription` and a `GeometryDescription` directly.
 
 ## 6. Record complete roots, then analyze and execute
 

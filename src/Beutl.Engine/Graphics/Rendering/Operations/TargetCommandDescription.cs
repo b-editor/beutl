@@ -62,9 +62,6 @@ public sealed class TargetCommandDescription
     /// <param name="inputDemand">
     /// Per-input density required for the command's resolved output demand.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
-    /// </param>
     public static TargetCommandDescription Create<TState>(
         TState state,
         Action<TargetCommandSession, TState> execute,
@@ -74,8 +71,7 @@ public sealed class TargetCommandDescription
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IReadOnlyList<RenderResourceBinding>? resources = null,
-        RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        RenderInputDemandContract inputDemand = default)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -90,11 +86,7 @@ public sealed class TargetCommandDescription
             inputReadbacks,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             inputDemand,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)));
+            resources);
 
     /// <summary>
     /// Creates a command whose effect on the target can never satisfy a later request's cache lookup.

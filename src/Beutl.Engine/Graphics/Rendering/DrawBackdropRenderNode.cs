@@ -3,7 +3,6 @@
 public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNode()
 {
     private static readonly RenderResourceSlot<IBackdrop> s_backdropSlot = new();
-    private static readonly RenderResourceSlot[] s_slots = [s_backdropSlot];
 
     public IBackdrop Backdrop { get; private set; } = backdrop;
 
@@ -54,8 +53,7 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
                     value => value.Draw(session.Canvas)),
                 bounds,
                 hitTest,
-                resources: [s_backdropSlot.Bind(resource)],
-                slots: s_slots)));
+                resources: [s_backdropSlot.Bind(resource)])));
     }
 
     private readonly record struct BackdropCaptureState;

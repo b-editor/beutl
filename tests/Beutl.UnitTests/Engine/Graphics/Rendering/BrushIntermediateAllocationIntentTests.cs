@@ -271,8 +271,7 @@ public sealed class BrushIntermediateAllocationIntentTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [s_brushSlot.Bind(brushToken)],
-                slots: [s_brushSlot]);
+                resources: [s_brushSlot.Bind(brushToken)]);
             context.Publish(context.OpaqueSource(description));
         }
 

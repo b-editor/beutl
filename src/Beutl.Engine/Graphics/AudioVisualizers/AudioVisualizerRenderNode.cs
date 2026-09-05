@@ -8,8 +8,6 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
 {
     private static readonly RenderResourceSlot<AudioVisualizerDrawable.Resource> s_visualizerSlot = new();
 
-    private static readonly RenderResourceSlot[] s_slots = [s_visualizerSlot];
-
     public (AudioVisualizerDrawable.Resource Resource, int Version)? Visualizer { get; private set; } = resource.Capture();
 
     public bool Update(AudioVisualizerDrawable.Resource resource)
@@ -45,8 +43,7 @@ internal sealed class AudioVisualizerRenderNode(AudioVisualizerDrawable.Resource
             // A visualizer strokes bars and curves that overlap one another, so its coverage cannot be
             // composited straight into a destination-out blend.
             supportsDirectDstOut: false,
-            bindings: [s_visualizerSlot.Bind(resourceToken)],
-            slots: s_slots));
+            bindings: [s_visualizerSlot.Bind(resourceToken)]));
     }
 
     protected override void OnDispose(bool disposing)

@@ -34,7 +34,7 @@ public sealed class GeometryDescription
             hitTest.StructuralIdentity,
             requiresReadback,
             inputDemand.StructuralIdentity,
-            resources.Select(static binding => binding.Slot.ValueType).ToArray());
+            resources.Select(static binding => binding.Resource.ValueType).ToArray());
     }
 
     /// <summary>Gets the pure mapping from complete input bounds to conservative complete output bounds.</summary>
@@ -82,9 +82,6 @@ public sealed class GeometryDescription
     /// <param name="resources">
     /// Declared resources copied immediately, or <see langword="null"/>.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
-    /// </param>
     /// <returns>An immutable deferred geometry description.</returns>
     /// <exception cref="ArgumentNullException">
     /// <paramref name="render"/> or <paramref name="state"/> is <see langword="null"/>.
@@ -99,8 +96,7 @@ public sealed class GeometryDescription
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
         RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -113,11 +109,7 @@ public sealed class GeometryDescription
             RenderDescriptionValidation.StructuralIdentityOfExecution(render),
             requiresReadback,
             inputDemand,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)));
+            resources);
 
     /// <summary>
     /// Creates a geometry description whose value can never satisfy a later request's cache lookup.

@@ -75,7 +75,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
             }
 
             RenderResource<Brush.Resource> map = BorrowDisplacementMap(context, displacementMap);
-            HitTestDeclaration hitTest = DeclareSampling(
+            var hitTest = DeclareSampling(
                 displacementMap,
                 map,
                 DrawableMapTransformKind.Rotation,
@@ -99,8 +99,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 },
                 spreadMethod.ToSKShaderTileMode(),
                 hitTest: hitTest.Contract,
-                hitTestResources: hitTest.Resources,
-                slots: hitTest.Slots));
+                hitTestResources: hitTest.Resources));
         }
     }
 }

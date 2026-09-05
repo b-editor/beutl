@@ -167,8 +167,7 @@ public sealed class ShaderRequestScaleIdentityTests
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(static _ => 2f),
-                resources: [s_probeSlot.Bind(probeToken)],
-                slots: [s_probeSlot]);
+                resources: [s_probeSlot.Bind(probeToken)]);
 
             RenderFragmentHandle input = context.OpaqueSource(source);
             context.Publish(context.ContributeValues(context.Shader(input, description)));

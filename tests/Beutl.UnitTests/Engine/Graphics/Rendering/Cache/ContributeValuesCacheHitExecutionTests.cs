@@ -201,8 +201,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.ZeroOrOne,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [ContributeValuesCacheHitExecutionSlots.Probe.Bind(probeResource)],
-                slots: [ContributeValuesCacheHitExecutionSlots.Probe]));
+                resources: [ContributeValuesCacheHitExecutionSlots.Probe.Bind(probeResource)]));
             context.Publish(context.ContributeValues(combined));
         }
     }
@@ -233,8 +232,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Dynamic,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [ContributeValuesCacheHitExecutionSlots.Probe.Bind(probeResource)],
-                slots: [ContributeValuesCacheHitExecutionSlots.Probe]);
+                resources: [ContributeValuesCacheHitExecutionSlots.Probe.Bind(probeResource)]);
             RenderFragmentHandle expanded = context.OpaqueExpand([], description);
             context.Publish(context.ContributeValues(expanded));
         }
@@ -270,8 +268,7 @@ public sealed class ContributeValuesCacheHitExecutionTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [ContributeValuesCacheHitExecutionSlots.ScaleProbe.Bind(probeResource)],
-                slots: [ContributeValuesCacheHitExecutionSlots.ScaleProbe]);
+                resources: [ContributeValuesCacheHitExecutionSlots.ScaleProbe.Bind(probeResource)]);
             context.Publish(context.OpaqueCombine([input], description));
         }
 

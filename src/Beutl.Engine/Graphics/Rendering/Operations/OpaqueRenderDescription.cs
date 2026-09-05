@@ -159,9 +159,6 @@ public sealed class OpaqueRenderDescription
     /// <param name="inputDemand">
     /// Per-input density required by a combine or expand for its resolved output demand.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
-    /// </param>
     public static OpaqueRenderDescription Create<TState>(
         TState state,
         Action<OpaqueRenderSession, TState> execute,
@@ -172,8 +169,7 @@ public sealed class OpaqueRenderDescription
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IReadOnlyList<RenderResourceBinding>? resources = null,
-        RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        RenderInputDemandContract inputDemand = default)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -188,11 +184,7 @@ public sealed class OpaqueRenderDescription
             deviceGridSensitivity,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
             inputReadbacks,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)),
+            resources,
             inputDemand);
 
     /// <summary>
@@ -270,10 +262,7 @@ public sealed class OpaqueRenderDescription
     /// purely by BESG003 rather than by the shape being unreachable.
     /// </remarks>
     /// <param name="resources">
-    /// Bindings the engine has already checked, stored as they arrive. Each entry reaches this having been
-    /// refused if it were null, addressed an already-bound slot, or carried a released resource, so the list
-    /// is taken on that basis rather than re-read: the caller assembles it and hands over the only reference
-    /// to it.
+    /// The fresh binding array assembled by <see cref="RenderNodeContext"/>, stored without another copy.
     /// </param>
     internal static OpaqueRenderDescription CreateEngineSource<TState>(
         TState state,

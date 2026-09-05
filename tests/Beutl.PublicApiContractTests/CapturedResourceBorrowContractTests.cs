@@ -28,8 +28,7 @@ public sealed class CapturedResourceBorrowContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: [payload],
-            slots: [s_payloadSlot]);
+            resources: [payload]);
 
     [Test]
     public void BorrowedResource_IsBoundByItsTypedSlotWithoutAnAuthorIdentity()

@@ -172,21 +172,16 @@ public sealed class ShaderDescription
     /// <exception cref="ArgumentException">
     /// The source grammar, entry point, declarations, or supplied bindings are invalid or incompatible.
     /// </exception>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="hitTestResources"/> must bind each exactly once.
-    /// </param>
     public static ShaderDescription CurrentPixel(
         string source,
         Action<ShaderBindingBuilder>? bindings = null,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
         => CurrentPixel(
             new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
             bindings,
             hitTest,
-            hitTestResources,
-            slots);
+            hitTestResources);
 
     /// <summary>
     /// Creates a current-pixel stage from a source that was already normalized and validated.
@@ -199,8 +194,7 @@ public sealed class ShaderDescription
         SkslSource source,
         Action<ShaderBindingBuilder>? bindings,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         if (source.Kind != ShaderDescriptionKind.CurrentPixel)
             throw new ArgumentException("The parsed source is not a CurrentPixel source.", nameof(source));
@@ -215,15 +209,13 @@ public sealed class ShaderDescription
             bindings,
             SKShaderTileMode.Decal,
             hitTest,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
+            RenderDescriptionValidation.CopyResourceBindings(
                 hitTestResources,
-                nameof(slots),
                 nameof(hitTestResources)));
     }
 
     /// <summary>Creates a current-pixel stage with both its existing SkSL and Vulkan-native lowerings.</summary>
-    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IReadOnlyList{RenderResourceSlot})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
+    /// <inheritdoc cref="CurrentPixel(string, Action{ShaderBindingBuilder}, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding})" path="/param[@name='hitTest']|/param[@name='hitTestResources']"/>
     internal static ShaderDescription CurrentPixel(
         SkslSource source,
         SpirvShaderLowering spirvLowering,
@@ -245,7 +237,9 @@ public sealed class ShaderDescription
             bindings,
             SKShaderTileMode.Decal,
             hitTest,
-            hitTestResources ?? []);
+            RenderDescriptionValidation.CopyResourceBindings(
+                hitTestResources,
+                nameof(hitTestResources)));
     }
 
     /// <summary>Creates a materializing shader stage that may sample arbitrary upstream locations.</summary>
@@ -272,9 +266,6 @@ public sealed class ShaderDescription
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="sourceTileMode"/> is not a defined <see cref="SKShaderTileMode"/> value.
     /// </exception>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="hitTestResources"/> must bind each exactly once.
-    /// </param>
     public static ShaderDescription WholeSource(
         string source,
         RenderBoundsContract bounds,
@@ -282,8 +273,7 @@ public sealed class ShaderDescription
         SKShaderTileMode sourceTileMode = SKShaderTileMode.Decal,
         RenderInputDemandContract inputDemand = default,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         bounds.ThrowIfUninitialized(nameof(bounds));
         hitTest?.ThrowIfUninitialized(nameof(hitTest));
@@ -299,15 +289,13 @@ public sealed class ShaderDescription
             bindings,
             sourceTileMode,
             hitTest,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
+            RenderDescriptionValidation.CopyResourceBindings(
                 hitTestResources,
-                nameof(slots),
                 nameof(hitTestResources)));
     }
 
     /// <summary>Creates a materializing shader stage from a source that was already normalized and validated.</summary>
-    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderBindingBuilder}, SKShaderTileMode, RenderInputDemandContract, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding}, IReadOnlyList{RenderResourceSlot})" path="/param|/remarks|/exception"/>
+    /// <inheritdoc cref="WholeSource(string, RenderBoundsContract, Action{ShaderBindingBuilder}, SKShaderTileMode, RenderInputDemandContract, RenderHitTestContract?, IReadOnlyList{RenderResourceBinding})" path="/param|/remarks|/exception"/>
     public static ShaderDescription WholeSource(
         SkslSource source,
         RenderBoundsContract bounds,
@@ -315,8 +303,7 @@ public sealed class ShaderDescription
         SKShaderTileMode sourceTileMode,
         RenderInputDemandContract inputDemand = default,
         RenderHitTestContract? hitTest = null,
-        IReadOnlyList<RenderResourceBinding>? hitTestResources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
     {
         if (source.Kind != ShaderDescriptionKind.WholeSource)
             throw new ArgumentException("The parsed source is not a WholeSource source.", nameof(source));
@@ -334,10 +321,8 @@ public sealed class ShaderDescription
             bindings,
             sourceTileMode,
             hitTest,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
+            RenderDescriptionValidation.CopyResourceBindings(
                 hitTestResources,
-                nameof(slots),
                 nameof(hitTestResources)));
     }
 

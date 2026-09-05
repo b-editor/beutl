@@ -1788,8 +1788,7 @@ public class SourceEffectiveScaleFlowTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.Custom(
                     new ConstantWorkingScaleResolver(density).Resolve),
-                resources: [s_fillSlot.Bind(fillToken)],
-                slots: [s_fillSlot]);
+                resources: [s_fillSlot.Bind(fillToken)]);
             RenderFragmentHandle current = context.OpaqueSource(description);
             current = context.RecordNode(_preserve, [current]).Single();
             current = context.RecordNode(_fixed, [current]).Single();
@@ -2253,8 +2252,7 @@ internal static class ScaleRecordingTestHelper
                 RenderHitTestContract.None,
                 RenderValueCardinality.Single,
                 scaleContract,
-                resources: [s_fillSlot.Bind(fillToken), s_probeSlot.Bind(probeToken)],
-                slots: [s_fillSlot, s_probeSlot])));
+                resources: [s_fillSlot.Bind(fillToken), s_probeSlot.Bind(probeToken)])));
         }
     }
 

@@ -58,7 +58,6 @@ public sealed class ShaderDescriptionResourceStateTests
                     probe.BoundAlphas.Add(value);
                     writer.Set(SKShader.CreateColor(new SKColor(255, 255, 255, (byte)(value * 255))));
                 }),
-            slots: [s_tintSlot],
             hitTestResources: [s_tintSlot.Bind(token)]);
 
     private static void BindResource(ShaderDescription description)

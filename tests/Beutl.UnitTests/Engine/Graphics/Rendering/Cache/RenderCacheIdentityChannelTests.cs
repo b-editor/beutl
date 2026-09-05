@@ -115,8 +115,7 @@ public sealed class RenderCacheIdentityChannelTests
     private static OpaqueRenderDescription Describe<TState>(
         TState state,
         Action<OpaqueRenderSession, TState> execute,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
         => OpaqueRenderDescription.Create(
             state,
@@ -125,8 +124,7 @@ public sealed class RenderCacheIdentityChannelTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
-            resources: resources,
-            slots: slots);
+            resources: resources);
 
     internal sealed class ColorBox
     {
@@ -160,8 +158,7 @@ public sealed class RenderCacheIdentityChannelTests
                     output.Canvas.Use(canvas => canvas.Clear(box.Color));
                     session.Publish(output);
                 }),
-                resources: [BindProbe(context)],
-                slots: [RenderCacheIdentityChannelSlots.Probe]);
+                resources: [BindProbe(context)]);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
@@ -182,8 +179,7 @@ public sealed class RenderCacheIdentityChannelTests
                     output.Canvas.Use(canvas => canvas.Clear(Color));
                     session.Publish(output);
                 }),
-                resources: [BindProbe(context)],
-                slots: [RenderCacheIdentityChannelSlots.Probe]);
+                resources: [BindProbe(context)]);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
@@ -212,8 +208,7 @@ public sealed class RenderCacheIdentityChannelTests
                     output.Canvas.Use(canvas => canvas.Clear(color));
                     session.Publish(output);
                 }),
-                resources: [BindProbe(context)],
-                slots: [RenderCacheIdentityChannelSlots.Probe]);
+                resources: [BindProbe(context)]);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
 
@@ -246,8 +241,7 @@ public sealed class RenderCacheIdentityChannelTests
                         session.Publish(output);
                     });
                 }),
-                resources: [RenderCacheIdentityChannelSlots.Payload.Bind(resource), BindProbe(context)],
-                slots: [RenderCacheIdentityChannelSlots.Payload, RenderCacheIdentityChannelSlots.Probe]);
+                resources: [RenderCacheIdentityChannelSlots.Payload.Bind(resource), BindProbe(context)]);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }
@@ -283,8 +277,7 @@ public sealed class RenderCacheIdentityChannelTests
                         session.Publish(output);
                     });
                 }),
-                resources: [RenderCacheIdentityChannelSlots.ReadColor.Bind(sink), BindProbe(context)],
-                slots: [RenderCacheIdentityChannelSlots.ReadColor, RenderCacheIdentityChannelSlots.Probe]);
+                resources: [RenderCacheIdentityChannelSlots.ReadColor.Bind(sink), BindProbe(context)]);
             context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
         }
     }

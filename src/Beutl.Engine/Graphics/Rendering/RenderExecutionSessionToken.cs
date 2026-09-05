@@ -242,7 +242,7 @@ internal sealed class RenderExecutionSessionToken
         for (int index = 0; index < declaredResources.Count; index++)
         {
             RenderResourceBinding binding = declaredResources[index];
-            if (!ReferenceEquals(binding.Slot, slot))
+            if (!ReferenceEquals(binding.SlotIdentity, slot))
                 continue;
 
             if (binding.Resource is not RenderResource<T> resource)

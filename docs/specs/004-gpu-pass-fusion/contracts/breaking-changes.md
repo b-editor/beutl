@@ -4,7 +4,7 @@
 
 BREAKING CHANGE: render-node work is now recorded through `void RenderNode.Process(RenderNodeContext)`. Nodes publish transaction-scoped fragment handles; they do not receive an immediate canvas, return an operation, or control retained output state directly.
 
-BREAKING CHANGE: public callback authoring now goes through immutable operation *descriptions* — `OpaqueRenderDescription`, `TargetScopeDescription`, `TargetCommandDescription`, `RawTargetScopeDescription`, `RawTargetCommandDescription`, `ShaderDescription`, and `GeometryDescription`. Each is built where it is recorded, from the callback, the state that callback reads, the metadata contracts, and the resource slots and bindings the operation declares. The former public callback-record construction path is no longer an authoring API.
+BREAKING CHANGE: public callback authoring now goes through immutable operation *descriptions* — `OpaqueRenderDescription`, `TargetScopeDescription`, `TargetCommandDescription`, `RawTargetScopeDescription`, `RawTargetCommandDescription`, `ShaderDescription`, and `GeometryDescription`. Each is built where it is recorded, from the callback, the state that callback reads, the metadata contracts, and the ordered resource bindings the operation declares. The former public callback-record construction path is no longer an authoring API.
 
 BREAKING CHANGE: `RenderNode.HasChanges` is the only public content-invalidation signal, and it is read-only: a node raises it by calling `RenderNode.MarkChanged()` when its pixel-, metadata-, or topology-affecting state changes. No public API accepts caller-supplied cache identity, resource content metadata, or a manual operation fingerprint.
 
@@ -206,7 +206,7 @@ public override void Process(RenderNodeContext context)
 }
 ```
 
-`TargetCommandDescription` declares its affected `TargetRegion`, independent query bounds, hit testing, access, per-input readback selectors, and resource slots. `TargetScopeDescription` surrounds exactly one input and must call `ReplayInput()` exactly once. Raw variants are explicit opaque-external boundaries and are never persistently reusable.
+`TargetCommandDescription` declares its affected `TargetRegion`, independent query bounds, hit testing, access, per-input readback selectors, and resource bindings. `TargetScopeDescription` surrounds exactly one input and must call `ReplayInput()` exactly once. Raw variants are explicit opaque-external boundaries and are never persistently reusable.
 
 A target capture is a value read, not an implicit redraw:
 
@@ -237,13 +237,12 @@ Choose persistent caching per request with `RenderNodeRenderRequest.CacheOptions
 
 #### Guarded opaque work
 
-The callback, the values it reads, the metadata contracts, and the declared slots and their bindings all go into one `OpaqueRenderDescription` built at the point of recording.
+The callback, the values it reads, the metadata contracts, and the ordered resource bindings all go into one `OpaqueRenderDescription` built at the point of recording.
 
 ```csharp
 private sealed record DrawState(float Opacity);
 
 private static readonly RenderResourceSlot<Brush.Resource> s_brush = new();
-private static readonly RenderResourceSlot[] s_slots = [s_brush];
 
 public override void Process(RenderNodeContext context)
 {
@@ -259,17 +258,16 @@ public override void Process(RenderNodeContext context)
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.PreserveInputSupply,
-            resources: [s_brush.Bind(brush)],
-            slots: s_slots),
+            resources: [s_brush.Bind(brush)]),
         static (current, input, description) => current.OpaqueMap(input, description));
 }
 ```
 
-A description does not name its topology: the bounds, scale, cardinality, and hit-test contracts it declares decide whether `OpaqueSource`, `OpaqueMap`, `OpaqueCombine`, or `OpaqueExpand` may record it, and an incompatible pairing is rejected at the recording method. Rebuilding the description every request costs nothing in plan terms — the plan is keyed by the callback's method and the declared contracts, never by the values a recording carries — so hoist only the genuinely fixed parts, as the slot and its `RenderResourceSlot[]` are hoisted above.
+A description does not name its topology: the bounds, scale, cardinality, and hit-test contracts it declares decide whether `OpaqueSource`, `OpaqueMap`, `OpaqueCombine`, or `OpaqueExpand` may record it, and an incompatible pairing is rejected at the recording method. Rebuilding the description every request costs nothing in plan terms — the plan is keyed by the callback's method and the declared contracts, never by the values a recording carries — so hoist only genuinely fixed parts such as the typed slot above.
 
 #### Target work
 
-Use `TargetScopeDescription` for one guarded replay scope and `TargetCommandDescription` for a guarded current-target command. Declare bounds, hit testing, scale where applicable, target region/access, readback behavior, and the resource slots and bindings in the description itself.
+Use `TargetScopeDescription` for one guarded replay scope and `TargetCommandDescription` for a guarded current-target command. Declare bounds, hit testing, scale where applicable, target region/access, readback behavior, and the ordered resource bindings in the description itself.
 
 Raw canvas behavior has matching descriptions. It remains opaque external work, but its binding schema is still checked:
 
@@ -277,7 +275,6 @@ Raw canvas behavior has matching descriptions. It remains opaque external work, 
 private readonly record struct RawState(RenderResource<IBackdrop> Resource);
 
 private static readonly RenderResourceSlot<IBackdrop> s_backdrop = new();
-private static readonly RenderResourceSlot[] s_slots = [s_backdrop];
 
 public override void Process(RenderNodeContext context)
 {
@@ -291,12 +288,11 @@ public override void Process(RenderNodeContext context)
                 value => value.Draw(session.Canvas)),
             queryBounds: _bounds,
             hitTest: RenderHitTestContract.OutputBounds,
-            resources: [s_backdrop.Bind(backdrop)],
-            slots: s_slots)));
+            resources: [s_backdrop.Bind(backdrop)])));
 }
 ```
 
-For a raw scope, use `RawTargetScopeDescription` and call `ReplayInput` exactly once. Both raw and guarded sessions address a resource by the slot the description declared; the raw sessions additionally keep a token overload for a callback that needs the resource by identity. In both cases, the typed slot in `slots:` and `slot.Bind(token)` in `resources:` are mandatory.
+For a raw scope, use `RawTargetScopeDescription` and call `ReplayInput` exactly once. Both raw and guarded sessions address a resource by the slot its binding declares; the raw sessions additionally keep a token overload for a callback that needs the resource by identity. In both cases, `slot.Bind(token)` in `resources:` declares the resource. A missing slot fails when a callback or hit test reads it.
 
 Raw work is unreusable because its canvas is opaque to the renderer, not because it cannot pass state: `RawTargetScopeDescription.Create<TState>` and `RawTargetCommandDescription.Create<TState>` both take state, and what that buys is the identity the planner keys the *shape* of the work by — a static callback recorded twice is one plan.
 
@@ -312,7 +308,7 @@ RenderResource<TemporarySurface> scratch = context.Own(new TemporarySurface());
 RenderResourceBinding binding = s_texture.Bind(texture);
 ```
 
-`Borrow` leaves ownership with the caller. `Own` transfers a disposable object to the request family. Neither method accepts identity or content arguments. `RenderResourceBinding` has no public constructor and binding names are not part of the API. A description declares its `RenderResourceSlot<T>` values in `slots:` and binds each one exactly once in `resources:` — spelled `bindings:` on `RenderNodeContext.PaintedSource` and `hitTestResources:` on the shader factories. The declaration is what makes that check possible and what orders the bindings before they reach the plan, so omitting `slots:` declares no slots rather than skipping the check: binding a resource without declaring its slot is refused.
+`Borrow` leaves ownership with the caller. `Own` transfers a disposable object to the request family. Neither method accepts identity or content arguments. `RenderResourceBinding` is a readonly struct with no public constructor, and binding names are not part of the API. A description declares each `RenderResourceSlot<T>` by including `slot.Bind(token)` in its ordered `resources:` list — spelled `bindings:` on `RenderNodeContext.PaintedSource` and `hitTestResources:` on the shader factories. That authored order is the declaration order. Construction rejects default bindings, duplicate slots, and released resources; a missing slot is reported only if a callback or hit test tries to read it.
 
 #### Shader and geometry work
 
@@ -339,7 +335,7 @@ public override void Process(RenderNodeContext context)
 }
 ```
 
-`ShaderDescription.WholeSource` declares a whole-input shader and fixed bounds mapping. The `bindings` action itself runs immediately, while the description is being constructed, and is never retained, so it may close over this recording's values. The callbacks it *registers* are retained and are stricter: the execution-time binders taken by `ShaderBindingBuilder.Uniform(name, value, bind)` and `ShaderBindingBuilder.Resource(name, token, coordinateSpace, bind)` may read nothing beyond their arguments and the `RenderNode` declaring them, so every changing value they need arrives as the `value` beside them and invalidates through `HasChanges`. `Resource` is also what declares a typed child-shader slot. `GeometryDescription.Create` follows the same shape for geometry callbacks, bounds, hit testing, optional readback, and slots.
+`ShaderDescription.WholeSource` declares a whole-input shader and fixed bounds mapping. The `bindings` action itself runs immediately, while the description is being constructed, and is never retained, so it may close over this recording's values. The callbacks it *registers* are retained and are stricter: the execution-time binders taken by `ShaderBindingBuilder.Uniform(name, value, bind)` and `ShaderBindingBuilder.Resource(name, token, coordinateSpace, bind)` may read nothing beyond their arguments and the `RenderNode` declaring them, so every changing value they need arrives as the `value` beside them and invalidates through `HasChanges`. `Resource` is also what declares a typed child-shader slot. `GeometryDescription.Create` follows the same shape for geometry callbacks, bounds, hit testing, optional readback, and resource bindings.
 
 `FilterEffectContext.Shader` and `FilterEffectContext.Geometry` take the same descriptions, without an input handle — the effect chain supplies the input.
 
@@ -562,7 +558,7 @@ correctly passes nothing, which is the default.
 - Each returned `RenderNodeRasterization` exclusively owns its nullable bitmap until disposal.
 - `MaterializedDrawableBrush.Image` transfers to the `BrushConstructor` that requested it; the constructor disposes it once the tile shader is built, or once the fill fails, so a materializer returns a fresh image per call and never caches, shares, or disposes one.
 - `Own` transfers one disposable resource to the request family; `Borrow` leaves the raw resource with its external owner.
-- A description's declared slots and their bindings state how its deferred callback reaches resources; callbacks borrow session inputs, canvases, and declared resources only for callback duration.
+- A description's ordered bindings state how its deferred callback reaches resources; callbacks borrow session inputs, canvases, and declared resources only for callback duration.
 - A state value handed to a deferred binder is read once, while the description is being built - but reading a reference does not copy what it points at. A reference-typed value is borrowed on the same terms as the resource beside it: its pixel-affecting contents must stay read-only until the request executes, because the binder runs after the whole recording pass.
 - Deferred outputs remain executor-owned until publication or discard.
 - A recording or execution failure publishes no partial output; cleanup continues best-effort without replacing the primary exception.

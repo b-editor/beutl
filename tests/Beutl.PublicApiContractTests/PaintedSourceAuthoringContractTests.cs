@@ -56,17 +56,15 @@ public sealed class PaintedSourceAuthoringContractTests
     }
 
     [Test]
-    public void PaintedSource_RejectsABindingItDidNotDeclareAndEmptyBounds()
+    public void PaintedSource_RejectsADefaultBindingAndEmptyBounds()
     {
-        var straySlot = new RenderResourceSlot<PaintRecord>();
         var rect = new Rect(1, 1, 2, 2);
-        Exception? unbound = null;
+        Exception? uninitialized = null;
         Exception? empty = null;
 
         using var node = new DelegateProbeNode(context =>
         {
-            RenderResource<PaintRecord> token = context.Borrow(new PaintRecord(rect));
-            unbound = Assert.Catch(() => context.PaintedSource(
+            uninitialized = Assert.Catch(() => context.PaintedSource(
                 rect,
                 static (canvas, fill, pen, current) => canvas.DrawRectangle(current, fill, pen),
                 null,
@@ -74,7 +72,7 @@ public sealed class PaintedSourceAuthoringContractTests
                 rect,
                 RenderHitTestContract.OutputBounds,
                 RenderScaleContract.Vector,
-                bindings: [straySlot.Bind(token)]));
+                bindings: [default]));
             empty = Assert.Catch(() => context.PaintedSource(
                 rect,
                 static (canvas, fill, pen, current) => canvas.DrawRectangle(current, fill, pen),
@@ -89,7 +87,7 @@ public sealed class PaintedSourceAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(unbound, Is.TypeOf<ArgumentException>());
+            Assert.That(uninitialized, Is.TypeOf<ArgumentException>());
             Assert.That(empty, Is.TypeOf<ArgumentException>());
         }
     }
@@ -235,8 +233,6 @@ public sealed class PaintedSourceAuthoringContractTests
             s_recordSlot,
             static (state, point) => state.Rect.ContainsExclusive(point));
 
-        private static readonly RenderResourceSlot[] s_slots = [s_recordSlot];
-
         public Rect DeclaredBounds { get; private set; }
 
         public override void Process(RenderNodeContext context)
@@ -255,8 +251,7 @@ public sealed class PaintedSourceAuthoringContractTests
                 bounds,
                 s_hitTest,
                 RenderScaleContract.Vector,
-                bindings: [s_recordSlot.Bind(context.Borrow(record))],
-                slots: s_slots));
+                bindings: [s_recordSlot.Bind(context.Borrow(record))]));
         }
     }
 

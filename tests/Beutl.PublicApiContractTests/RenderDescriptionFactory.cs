@@ -20,8 +20,7 @@ internal static class RenderDescriptionFactory
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IReadOnlyList<RenderResourceBinding>? resources = null,
-        RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        RenderInputDemandContract inputDemand = default)
     {
         return OpaqueRenderDescription.Create(
             execute,
@@ -33,8 +32,7 @@ internal static class RenderDescriptionFactory
             deviceGridSensitivity,
             inputReadbacks,
             resources,
-            inputDemand,
-            slots);
+            inputDemand);
     }
 
     public static GeometryDescription Geometry(
@@ -43,8 +41,7 @@ internal static class RenderDescriptionFactory
         RenderHitTestContract hitTest,
         bool requiresReadback = false,
         RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
     {
         return GeometryDescription.Create(
             render,
@@ -53,8 +50,7 @@ internal static class RenderDescriptionFactory
             hitTest,
             requiresReadback,
             inputDemand,
-            resources,
-            slots);
+            resources);
     }
 
     public static TargetScopeDescription TargetScope(
@@ -65,8 +61,7 @@ internal static class RenderDescriptionFactory
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
         RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
     {
         return TargetScopeDescription.Create(
             execute,
@@ -77,8 +72,7 @@ internal static class RenderDescriptionFactory
             deviceGridSensitivity,
             deviceGridMapping,
             transformSpace,
-            resources,
-            slots);
+            resources);
     }
 
     public static TargetCommandDescription TargetCommand(
@@ -89,8 +83,7 @@ internal static class RenderDescriptionFactory
         TargetAccess access = TargetAccess.ReadWrite,
         IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IReadOnlyList<RenderResourceBinding>? resources = null,
-        RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        RenderInputDemandContract inputDemand = default)
     {
         return TargetCommandDescription.Create(
             execute,
@@ -101,7 +94,6 @@ internal static class RenderDescriptionFactory
             access,
             inputReadbacks,
             resources,
-            inputDemand,
-            slots);
+            inputDemand);
     }
 }

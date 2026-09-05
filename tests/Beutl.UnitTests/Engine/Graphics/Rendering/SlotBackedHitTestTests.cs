@@ -222,8 +222,6 @@ public sealed class SlotBackedHitTestTests
             s_shapeSlot,
             static (shape, point) => shape.Contains(point));
 
-        private static readonly RenderResourceSlot[] s_slots = [s_shapeSlot];
-
         public bool Concrete { get; private set; }
 
         public bool HitInside { get; private set; }
@@ -248,8 +246,7 @@ public sealed class SlotBackedHitTestTests
                 s_hitTest,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: [s_shapeSlot.Bind(token)],
-                slots: s_slots));
+                resources: [s_shapeSlot.Bind(token)]));
             Concrete = handle.TryHitTest(new Point(20, 20), out bool inside);
             HitInside = inside;
             handle.TryHitTest(new Point(80, 80), out bool outside);
@@ -308,8 +305,7 @@ public sealed class SlotBackedHitTestTests
                 RenderHitTestContract.FromSlot(
                     s_shapeSlot,
                     static (shape, point) => shape.Contains(point)),
-                resources: bind ? [s_shapeSlot.Bind(shapeResource)] : null,
-                slots: bind ? [s_shapeSlot] : null)));
+                resources: bind ? [s_shapeSlot.Bind(shapeResource)] : null)));
         }
     }
 
@@ -327,8 +323,7 @@ public sealed class SlotBackedHitTestTests
                     s_shapeSlot,
                     static (shape, point) => shape.Contains(point)),
                 TargetCaptureScaleContract.MaterializeAtWorkingScale,
-                resources: [s_shapeSlot.Bind(shapeResource)],
-                slots: [s_shapeSlot]));
+                resources: [s_shapeSlot.Bind(shapeResource)]));
             context.Publish(context.ContributeValues(capture));
         }
     }
@@ -341,8 +336,6 @@ public sealed class SlotBackedHitTestTests
         private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
             s_shapeSlot,
             static (shape, point) => shape.Contains(point));
-
-        private static readonly RenderResourceSlot[] s_slots = [s_fillSlot, s_shapeSlot];
 
         public override void Process(RenderNodeContext context)
         {
@@ -361,8 +354,7 @@ public sealed class SlotBackedHitTestTests
                 s_hitTest,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: [s_fillSlot.Bind(fill), s_shapeSlot.Bind(shapeResource)],
-                slots: s_slots)));
+                resources: [s_fillSlot.Bind(fill), s_shapeSlot.Bind(shapeResource)])));
         }
     }
 }

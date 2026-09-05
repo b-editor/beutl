@@ -1933,12 +1933,9 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         } => true,
 
         // The engine's own resource address, which the BESG004 message tells authors to move a
-        // per-recording value onto. The slot is an identity and nothing else - it is sealed and neither it
-        // nor its base declares an instance field, which RenderResourceSlotStateTests pins - and outside
-        // Beutl.Engine it is a metadata class the walk below is not allowed to read. Leaving it to the walk
-        // would have the rule rejecting the fix it recommends, which is the state authors suppress a rule
-        // over. The abstract base is deliberately not named here: it is a base the engine derives a stateful
-        // slot from, so only the sealed one is an address and nothing else.
+        // per-recording value onto. The slot is an identity and nothing else, and outside Beutl.Engine it is
+        // a metadata class the walk below is not allowed to read. Leaving it to the walk would have the rule
+        // rejecting the fix it recommends, which is the state authors suppress a rule over.
         INamedTypeSymbol { Name: "RenderResourceSlot", IsSealed: true } slot
             when slot.ContainingNamespace.ToDisplayString() == "Beutl.Graphics.Rendering" => true,
 

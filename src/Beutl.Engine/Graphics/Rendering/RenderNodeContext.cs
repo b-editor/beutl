@@ -567,8 +567,8 @@ public sealed class RenderNodeContext
     /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to that
     /// call. This is the engine-side overload, and it keeps two things the public one beside it withholds:
     /// <paramref name="directReplayAtExactIntegerReduction"/>, which names a planner fast path an out-of-tree node
-    /// has no model of and cannot decide for itself, and a bare <paramref name="resources"/> list, whose tokens the
-    /// engine binds to slots of its own - addressable by nothing, so no declared hit test can resolve one.
+    /// has no model of and cannot decide for itself, and a bare <paramref name="resources"/> list converted to
+    /// engine-only bindings that no declared hit test can address.
     /// </remarks>
     internal RenderFragmentHandle PaintedSource<TState>(
         TState state,
@@ -589,9 +589,8 @@ public sealed class RenderNodeContext
         scale.ThrowIfUninitialized(nameof(scale));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
 
-        // The engine binds each declared resource to a slot of its own, one per entry, so the result is
-        // sized from the declaration rather than grown into by a projection. Declaring none is what every
-        // painted primitive that only fills and strokes does, so that case reaches the shared empty array.
+        // The result is sized from the declaration rather than grown into by a projection. Declaring none is
+        // what every painted primitive that only fills and strokes does, so that case shares the empty array.
         IReadOnlyList<RenderResource> declared = resources ?? Array.Empty<RenderResource>();
         RenderDescriptionValidation.ThrowIfResourcesUndeclarable(declared, nameof(resources));
         RenderResourceBinding[] engineBindings = declared.Count == 0
@@ -659,9 +658,6 @@ public sealed class RenderNodeContext
     /// <param name="bindings">
     /// Additional slot-addressed resources, or <see langword="null"/>.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="bindings"/> must bind each exactly once.
-    /// </param>
     /// <param name="rasterOutset">
     /// Local buffer-only padding for filtering or anti-aliasing outside <paramref name="outputBounds"/>.
     /// </param>
@@ -678,7 +674,6 @@ public sealed class RenderNodeContext
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
         bool supportsDirectDstOut = true,
         IReadOnlyList<RenderResourceBinding>? bindings = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null,
         Thickness rasterOutset = default)
         where TState : notnull
     {
@@ -686,6 +681,8 @@ public sealed class RenderNodeContext
         hitTest.ThrowIfUninitialized(nameof(hitTest));
         scale.ThrowIfUninitialized(nameof(scale));
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(outputBounds, nameof(outputBounds));
+        IReadOnlyList<RenderResourceBinding> declaredBindings = bindings ?? Array.Empty<RenderResourceBinding>();
+        RenderDescriptionValidation.ThrowIfBindingsUndeclarable(declaredBindings, nameof(bindings));
 
         return PaintedSourceCore(
             state,
@@ -698,11 +695,7 @@ public sealed class RenderNodeContext
             directReplayAtExactIntegerReduction: false,
             deviceGridSensitivity,
             supportsDirectDstOut,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                bindings,
-                nameof(slots),
-                nameof(bindings)));
+            declaredBindings);
     }
 
     private RenderFragmentHandle PaintedSourceCore<TState>(

@@ -1010,8 +1010,7 @@ public sealed class DirectSkiaFilterReplayTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [s_fillSlot.Bind(fill), s_probeSlot.Bind(probe)],
-                slots: [s_fillSlot, s_probeSlot]);
+                resources: [s_fillSlot.Bind(fill), s_probeSlot.Bind(probe)]);
             context.Publish(context.OpaqueSource(description));
         }
     }

@@ -140,27 +140,11 @@ internal static class RenderDescriptionValidation
         => callback.Target is RenderNode ? callback.Method : callback;
 
     /// <summary>
-    /// How many slots a declaration may hold before the duplicate check stops being a linear scan.
-    /// </summary>
-    /// <remarks>
-    /// A node declares its slot list once and hands it over on every recording, so this runs on the render
-    /// path. At the sizes a declaration actually reaches - two is the widest any built-in node declares -
-    /// building a hash set to reject a repeat costs several times what comparing the handful of references
-    /// in place does. Past this width the quadratic scan is the more expensive of the two and the set is
-    /// built after all.
-    /// </remarks>
-    private const int LinearSlotScanLimit = 8;
-
-    /// <summary>
     /// Runs every per-element check a bare resource declaration owes - not null, still declarable - over the
     /// list it arrived in.
     /// </summary>
     /// <remarks>
-    /// A bare declaration carries no cross-element check, so unlike the binding pass beside it this needs no
-    /// width limit to stay cheap: one indexed read per element serves any length. Nothing is copied: what
-    /// arrives through a read-only interface is held to being stable for the length of this call, and neither
-    /// caller retains the list past it - each reads it once to bind an engine slot per entry and keeps only
-    /// the bindings.
+    /// Nothing is copied: neither caller retains the list after creating one engine binding per entry.
     /// </remarks>
     public static void ThrowIfResourcesUndeclarable(
         IReadOnlyList<RenderResource> resources,
@@ -205,62 +189,30 @@ internal static class RenderDescriptionValidation
     }
 
     /// <summary>
-    /// Runs every per-element check a description's bindings owe - not null, addressing a distinct slot,
+    /// Runs every per-element check a description's bindings owe - initialized, addressing a distinct slot,
     /// carrying a resource that can still be declared - over a list that already offers indexed reads.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A pass of its own rather than work folded into <see cref="OrderByDeclaredSlots"/>: that scan walks
-    /// the declared slots, so a fault found in declared-slot order would answer a doubly-bound slot with
-    /// the message for an undeclared one. Reading the bindings in their own order keeps each fault
-    /// reported as itself.
-    /// </para>
-    /// <para id="in-place">
-    /// The list is read where it lies. What arrives through a read-only interface is held to being stable
-    /// for the length of this call, and nothing here retains it, so a copy would buy nothing the promise
-    /// does not already give. Which duplicate check is the cheaper turns on the width: past
-    /// <see cref="LinearSlotScanLimit"/> the quadratic scan costs more than the set built to replace it.
-    /// </para>
+    /// The list is read where it lies. Resource declarations are short, so scanning the preceding bindings
+    /// avoids allocating a set on the render path.
     /// </remarks>
-    private static void ThrowIfBindingsUndeclarable(
+    internal static void ThrowIfBindingsUndeclarable(
         IReadOnlyList<RenderResourceBinding> bindings,
         string parameterName)
     {
-        if (bindings.Count > LinearSlotScanLimit)
-        {
-            var slots = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
-            for (int index = 0; index < bindings.Count; index++)
-            {
-                RenderResourceBinding? binding = bindings[index];
-                if (binding is null)
-                {
-                    throw new ArgumentException(
-                        "A declared render resource binding cannot be null.",
-                        parameterName);
-                }
-
-                if (!slots.Add(binding.Slot))
-                {
-                    throw new ArgumentException(
-                        "A render resource slot cannot be bound more than once.",
-                        parameterName);
-                }
-
-                ThrowIfUndeclarable(binding.Resource, parameterName);
-            }
-
-            return;
-        }
-
         for (int index = 0; index < bindings.Count; index++)
         {
-            RenderResourceBinding? binding = bindings[index];
-            if (binding is null)
-                throw new ArgumentException("A declared render resource binding cannot be null.", parameterName);
+            RenderResourceBinding binding = bindings[index];
+            if (!binding.IsInitialized)
+            {
+                throw new ArgumentException(
+                    "A declared render resource binding cannot be uninitialized.",
+                    parameterName);
+            }
 
             for (int bound = 0; bound < index; bound++)
             {
-                if (ReferenceEquals(bindings[bound].Slot, binding.Slot))
+                if (ReferenceEquals(bindings[bound].SlotIdentity, binding.SlotIdentity))
                 {
                     throw new ArgumentException(
                         "A render resource slot cannot be bound more than once.",
@@ -270,170 +222,6 @@ internal static class RenderDescriptionValidation
 
             ThrowIfUndeclarable(binding.Resource, parameterName);
         }
-    }
-
-    /// <summary>
-    /// Runs every per-element check a slot declaration owes - not null, declared once - over the list it
-    /// arrived in.
-    /// </summary>
-    /// <inheritdoc cref="ThrowIfBindingsUndeclarable" path="/remarks/para[@id='in-place']"/>
-    private static void ThrowIfSlotsUndeclarable(
-        IReadOnlyList<RenderResourceSlot> slots,
-        string parameterName)
-    {
-        if (slots.Count > LinearSlotScanLimit)
-        {
-            var seen = new HashSet<RenderResourceSlot>(ReferenceEqualityComparer.Instance);
-            for (int index = 0; index < slots.Count; index++)
-            {
-                RenderResourceSlot? slot = slots[index];
-                if (slot is null)
-                    throw new ArgumentException("A render resource slot cannot be null.", parameterName);
-
-                if (!seen.Add(slot))
-                {
-                    throw new ArgumentException(
-                        "A render resource slot cannot be declared more than once.",
-                        parameterName);
-                }
-            }
-
-            return;
-        }
-
-        for (int index = 0; index < slots.Count; index++)
-        {
-            RenderResourceSlot? slot = slots[index];
-            if (slot is null)
-                throw new ArgumentException("A render resource slot cannot be null.", parameterName);
-
-            for (int declared = 0; declared < index; declared++)
-            {
-                if (ReferenceEquals(slots[declared], slot))
-                {
-                    throw new ArgumentException(
-                        "A render resource slot cannot be declared more than once.",
-                        parameterName);
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Puts a description's bindings into declared-slot order, refusing a set that does not match.
-    /// </summary>
-    /// <remarks>
-    /// The bindings arrive as the caller's own list, already checked by
-    /// <see cref="ThrowIfBindingsUndeclarable"/>, so this re-checks nothing that pass refused, and it does
-    /// not copy them first: every element is written into the array built here, so a copy taken beforehand
-    /// would only be overwritten by it. Which binding answers for a
-    /// declared slot is found by scanning, which for the widths a declaration reaches is cheaper than the
-    /// index built to avoid the scan; past <see cref="LinearSlotScanLimit"/> that reverses and the index
-    /// is built.
-    /// </remarks>
-    private static IReadOnlyList<RenderResourceBinding> OrderByDeclaredSlots(
-        IReadOnlyList<RenderResourceSlot> declaredSlots,
-        IReadOnlyList<RenderResourceBinding> bindings,
-        string parameterName)
-    {
-        if (declaredSlots.Count != bindings.Count)
-        {
-            throw new ArgumentException(
-                "A render description must bind every resource slot it declares exactly once.",
-                parameterName);
-        }
-
-        Dictionary<RenderResourceSlot, RenderResourceBinding>? bySlot = null;
-        if (bindings.Count > LinearSlotScanLimit)
-        {
-            bySlot = new Dictionary<RenderResourceSlot, RenderResourceBinding>(
-                bindings.Count,
-                ReferenceEqualityComparer.Instance);
-            foreach (RenderResourceBinding binding in bindings)
-                bySlot.Add(binding.Slot, binding);
-        }
-
-        var ordered = new RenderResourceBinding[declaredSlots.Count];
-        for (int index = 0; index < ordered.Length; index++)
-        {
-            RenderResourceSlot slot = declaredSlots[index];
-            RenderResourceBinding? bound = bySlot is null
-                ? FindBinding(bindings, slot)
-                : bySlot.GetValueOrDefault(slot);
-            if (bound is null)
-            {
-                throw new ArgumentException(
-                    "A render description contains a resource slot it did not declare.",
-                    parameterName);
-            }
-
-            ordered[index] = bound;
-        }
-
-        return ordered;
-    }
-
-    private static RenderResourceBinding? FindBinding(
-        IReadOnlyList<RenderResourceBinding> bindings,
-        RenderResourceSlot slot)
-    {
-        for (int index = 0; index < bindings.Count; index++)
-        {
-            if (ReferenceEquals(bindings[index].Slot, slot))
-                return bindings[index];
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Applies a declared slot list to a factory that is handed bindings alone.
-    /// </summary>
-    /// <remarks>
-    /// A bindings-only factory has no slot list of its own, so nothing there can tell a caller that bound one
-    /// slot twice and another not at all. Passing the declared slots restores that check, and with it the
-    /// normalization it performs: the returned bindings are in declared-slot order, so a structural identity
-    /// built from them - <see cref="Beutl.Graphics.Effects.GeometryDescription"/>'s resource-type sequence
-    /// among them - stops depending on the order the caller happened to write them in.
-    /// <para>
-    /// A <see langword="null"/> <paramref name="slots"/> declares none rather than opting out of the check,
-    /// so an omitted slot list still reaches the same validation an empty one does. Bindings supplied against
-    /// it are refused here: the recorded operation would otherwise carry resources in the order the caller
-    /// wrote them, which is exactly the order dependence this normalization exists to remove.
-    /// </para>
-    /// </remarks>
-    public static IReadOnlyList<RenderResourceBinding> BindDeclaredSlots(
-        IReadOnlyList<RenderResourceSlot>? slots,
-        IReadOnlyList<RenderResourceBinding>? bindings,
-        string slotsParameterName,
-        string bindingsParameterName)
-    {
-        // Both lists are read where they lie: what arrives through a read-only interface is held to being
-        // stable for the length of this call, and neither is retained past it - the ordering below writes
-        // every binding it resolves into an array of its own, so a copy taken here would only be
-        // overwritten by it.
-        IReadOnlyList<RenderResourceSlot> declaredSlots = slots ?? Array.Empty<RenderResourceSlot>();
-        ThrowIfSlotsUndeclarable(declaredSlots, slotsParameterName);
-
-        IReadOnlyList<RenderResourceBinding> declaredBindings =
-            bindings ?? Array.Empty<RenderResourceBinding>();
-        ThrowIfBindingsUndeclarable(declaredBindings, bindingsParameterName);
-        if (declaredSlots.Count == 0)
-        {
-            if (declaredBindings.Count > 0)
-            {
-                throw new ArgumentException(
-                    "A render call that declares no resource slots cannot bind a resource. Declare the slots "
-                    + "the bindings address, so each one is checked and ordered against that declaration.",
-                    slotsParameterName);
-            }
-
-            // Declaring nothing and binding nothing is the default every recording path takes, and it is
-            // already checked by the two counts above.
-            return Array.Empty<RenderResourceBinding>();
-        }
-
-        return OrderByDeclaredSlots(declaredSlots, declaredBindings, bindingsParameterName);
     }
 
     public static void ThrowIfUndeclarable(RenderResource resource, string parameterName)

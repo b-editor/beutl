@@ -31,13 +31,13 @@ Each `Process` invocation creates a transaction checkpoint. The recorder provide
 
 ### Description lowering
 
-Public authoring passes an operation description to the context. Internally the description is split into execution state plus the immutable metadata the planner reads: callback code, bounds/hit-test/scale/cardinality or target contracts, and the declared resource-slot schema on one side, the recording's state and bindings on the other.
+Public authoring passes an operation description to the context. Internally the description is split into execution state plus the immutable metadata the planner reads: callback code, bounds/hit-test/scale/cardinality or target contracts, and the ordered resource-binding schema on one side, the recording's state and bound resources on the other.
 
 The engine derives plan shape from the first half only. A description rebuilt with different values therefore produces the same plan shape, and no description has to be held across requests for reuse to work. There is no caller-provided operation or resource identifier in the lowering protocol.
 
 ### Resource binding validation
 
-A description declares a heterogeneous list of `RenderResourceSlot` values and must bind exactly those slots, once each, through typed `slot.Bind(token)` values. The declaration also orders the bindings, so the order the author wrote them in does not reach the operation's structural identity. Guarded execution sessions use a slot to lease the raw value. Raw execution sessions additionally allow token leasing because the raw-canvas boundary is request-local; the token then travels in the description's state and is still bound to its matching slot.
+A description declares resources only through an ordered list of `RenderResourceBinding` values produced by `RenderResourceSlot<T>.Bind(token)`. That authored order is the declaration order. Construction rejects an uninitialized binding, a duplicate slot, or a released resource; the typed `Bind` method prevents a mismatched token type. Guarded execution sessions use a slot to lease the raw value, and a missing slot fails when the callback or hit test reads it. Raw execution sessions additionally allow token leasing because the raw-canvas boundary is request-local; the token then travels in the description's state and must still appear in its bindings.
 
 ## Recorded IR
 

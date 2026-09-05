@@ -32,19 +32,12 @@ public sealed class TargetCaptureDescription
     /// </remarks>
     public IReadOnlyList<RenderResourceBinding> Resources { get; }
 
-    /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
-    /// </param>
     public static TargetCaptureDescription Create(
         TargetRegion sourceRegion,
         Rect bounds,
         RenderHitTestContract hitTest,
         TargetCaptureScaleContract scale,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
     {
         sourceRegion.ThrowIfUninitialized(nameof(sourceRegion));
         if (sourceRegion.Kind == TargetRegionKind.Empty)
@@ -74,11 +67,7 @@ public sealed class TargetCaptureDescription
             bounds,
             hitTest,
             scale,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)));
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 
     /// <summary>

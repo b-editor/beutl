@@ -36,7 +36,7 @@ public sealed class RenderHitTestContext
 
         foreach (RenderResourceBinding binding in _resources)
         {
-            if (ReferenceEquals(binding.Slot, slot))
+            if (ReferenceEquals(binding.SlotIdentity, slot))
             {
                 var resource = (RenderResource<T>)binding.Resource;
                 return resource.Registry.Use(resource, use);

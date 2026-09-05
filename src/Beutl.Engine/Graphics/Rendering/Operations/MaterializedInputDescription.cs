@@ -46,12 +46,6 @@ public sealed class MaterializedInputDescription
 
     internal RenderHitTestContract HitTest { get; }
 
-    /// <param name="slots">
-    /// The resource slots this operation declares. <paramref name="resources"/> must bind every one of them
-    /// exactly once and is reordered into this list's order, so the order the caller wrote the bindings in
-    /// never reaches the recorded operation. Omitting the list declares no slots rather than skipping that
-    /// check, so binding a resource without declaring its slot is an error.
-    /// </param>
     public static MaterializedInputDescription FromRenderTarget(
         RenderResource<RenderTarget> target,
         Rect bounds,
@@ -59,8 +53,7 @@ public sealed class MaterializedInputDescription
         PixelRect deviceBounds,
         Vector deviceGridOffset,
         RenderHitTestContract hitTest,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (target.RegistrationState == RenderResourceRegistrationState.Released)
@@ -108,11 +101,7 @@ public sealed class MaterializedInputDescription
             deviceBounds,
             deviceGridOffset,
             hitTest,
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)));
+            RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 
     internal void ValidateTargetDeviceSize(RenderTarget target)

@@ -6,7 +6,6 @@ namespace Beutl.Graphics.Rendering;
 public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation operation) : ContainerRenderNode
 {
     private static readonly RenderResourceSlot<Geometry.Resource> s_geometrySlot = new();
-    private static readonly RenderResourceSlot[] s_slots = [s_geometrySlot];
 
     public (Geometry.Resource Resource, int Version)? Clip { get; private set; } = clip.Capture();
 
@@ -76,8 +75,7 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
                 RenderScaleContract.PreserveInputSupply,
                 deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
                 deviceGridMapping: RenderDeviceGridMapping.Preserved,
-                resources: [s_geometrySlot.Bind(resource)],
-                slots: s_slots),
+                resources: [s_geometrySlot.Bind(resource)]),
             static (context, input, value) => context.TargetScope(input, value));
     }
 

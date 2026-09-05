@@ -43,9 +43,7 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
             public abstract class RenderNode { }
 
-            public abstract class RenderResourceSlot { }
-
-            public sealed class RenderResourceSlot<T> : RenderResourceSlot
+            public sealed class RenderResourceSlot<T>
                 where T : class { }
 
             public sealed class OpaqueRenderSession { }

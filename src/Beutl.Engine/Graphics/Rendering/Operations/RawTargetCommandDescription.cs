@@ -35,9 +35,6 @@ public sealed class RawTargetCommandDescription
     /// <param name="execute">
     /// A static execution callback.
     /// </param>
-    /// <param name="slots">
-    /// Declared slots. <paramref name="resources"/> must bind each exactly once.
-    /// </param>
     /// <remarks>
     /// Raw commands publish no cacheable value. Static execution gives repeated recordings one plan identity.
     /// </remarks>
@@ -46,8 +43,7 @@ public sealed class RawTargetCommandDescription
         Action<RawTargetCommandSession, TState> execute,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        IReadOnlyList<RenderResourceSlot>? slots = null)
+        IReadOnlyList<RenderResourceBinding>? resources = null)
         where TState : notnull
         => CreateCore(
             RenderDescriptionValidation.CreateStateChannel(
@@ -58,11 +54,7 @@ public sealed class RawTargetCommandDescription
             queryBounds,
             hitTest,
             RenderDescriptionValidation.StructuralIdentityOfExecution(execute),
-            RenderDescriptionValidation.BindDeclaredSlots(
-                slots,
-                resources,
-                nameof(slots),
-                nameof(resources)));
+            resources);
 
     /// <summary>
     /// Creates a raw command whose recorded work can never satisfy a later request's plan lookup.

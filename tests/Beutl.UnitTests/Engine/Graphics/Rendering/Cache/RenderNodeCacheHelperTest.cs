@@ -309,8 +309,6 @@ public class RenderNodeCacheHelperTest
     {
         private static readonly Rect s_bounds = new(0, 0, 100, 100);
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
-        private static readonly RenderResourceSlot[] s_slots = [s_probeSlot];
-
         private readonly ExecutionProbe _probe = new();
         private Color _color = color;
 
@@ -339,8 +337,7 @@ public class RenderNodeCacheHelperTest
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector,
-                resources: [s_probeSlot.Bind(probe)],
-                slots: s_slots)));
+                resources: [s_probeSlot.Bind(probe)])));
         }
     }
 
