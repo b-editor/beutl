@@ -251,19 +251,55 @@ public sealed class CaptionCatalog : IAsyncDisposable
         var codecOwners = new Dictionary<CaptionFormatId, HashSet<Extension>>();
         CaptionCodecExtension[] codecExtensions =
             extensionProvider.GetExtensions<CaptionCodecExtension>();
+        var codecCandidates = new List<(
+            CaptionCodecExtension Extension,
+            CaptionCodecRegistration[] Registrations)>();
         foreach (CaptionCodecExtension extension in codecExtensions)
         {
-            TryAddCodecExtension(extension, codecRegistrations, codecOwners);
+            try
+            {
+                CaptionCodecRegistration[] registrations = ValidateRegistrations(
+                        extension.Registrations,
+                        "A caption codec extension returned a null registration collection.",
+                        "A caption codec extension returned a null registration.")
+                    .OrderBy(registration =>
+                        registration.Mode == CaptionCodecRegistrationMode.Add ? 0 : 1)
+                    .ToArray();
+                codecCandidates.Add((extension, registrations));
+            }
+            catch (Exception ex)
+            {
+                ReportFailure(CaptionCatalogContributionKind.Codec, extension, ex);
+            }
         }
+        ComposeCodecExtensions(codecCandidates, codecRegistrations, codecOwners);
 
         List<CaptionTemplateRegistration> templateRegistrations = [.. _hostTemplateRegistrations];
         var templateOwners = new Dictionary<CaptionTemplateId, Extension>();
         CaptionTemplateExtension[] templateExtensions =
             extensionProvider.GetExtensions<CaptionTemplateExtension>();
+        var templateCandidates = new List<(
+            CaptionTemplateExtension Extension,
+            CaptionTemplateRegistration[] Registrations)>();
         foreach (CaptionTemplateExtension extension in templateExtensions)
         {
-            TryAddTemplateExtension(extension, templateRegistrations, templateOwners);
+            try
+            {
+                CaptionTemplateRegistration[] registrations = ValidateRegistrations(
+                        extension.Registrations,
+                        "A caption template extension returned a null registration collection.",
+                        "A caption template extension returned a null registration.")
+                    .OrderBy(registration =>
+                        registration.Mode == CaptionTemplateRegistrationMode.Add ? 0 : 1)
+                    .ToArray();
+                templateCandidates.Add((extension, registrations));
+            }
+            catch (Exception ex)
+            {
+                ReportFailure(CaptionCatalogContributionKind.Template, extension, ex);
+            }
         }
+        ComposeTemplateExtensions(templateCandidates, templateRegistrations, templateOwners);
 
         _activeCodecExtensions.Clear();
         _activeCodecExtensions.UnionWith(codecExtensions);
@@ -310,63 +346,169 @@ public sealed class CaptionCatalog : IAsyncDisposable
         return new ValueTask(Task.WhenAll(first.AsTask(), second.AsTask()));
     }
 
-    private void TryAddCodecExtension(
-        CaptionCodecExtension extension,
+    private void ComposeCodecExtensions(
+        List<(CaptionCodecExtension Extension, CaptionCodecRegistration[] Registrations)> candidates,
         List<CaptionCodecRegistration> accepted,
         Dictionary<CaptionFormatId, HashSet<Extension>> owners)
     {
-        try
+        var failures = new Dictionary<CaptionCodecExtension, Exception>(
+            ReferenceEqualityComparer.Instance);
+        CaptionCodecRegistration[] hostRegistrations = accepted.ToArray();
+        while (true)
         {
-            CaptionCodecRegistration[] registrations = ValidateRegistrations(
-                extension.Registrations,
-                "A caption codec extension returned a null registration collection.",
-                "A caption codec extension returned a null registration.");
-            var candidate = new CaptionCodecRegistry(accepted.Concat(registrations));
-            accepted.AddRange(registrations);
-            foreach (CaptionCodecRegistration registration in registrations)
+            var working = new List<CaptionCodecRegistration>(hostRegistrations);
+            var newFailures = new Dictionary<
+                CaptionCodecExtension,
+                (Exception Exception, int Phase)>(
+                ReferenceEqualityComparer.Instance);
+            for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
             {
-                CaptionFormatId format = registration.Contribution.Format;
-                if (registration.Mode == CaptionCodecRegistrationMode.Replace)
-                    owners.Remove(format);
-                if (!owners.TryGetValue(format, out HashSet<Extension>? formatOwners))
+                foreach ((CaptionCodecExtension extension, CaptionCodecRegistration[] registrations)
+                         in candidates)
                 {
-                    formatOwners = new HashSet<Extension>(ReferenceEqualityComparer.Instance);
-                    owners.Add(format, formatOwners);
+                    if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                        continue;
+                    CaptionCodecRegistration[] phase = registrations
+                        .Where(registration => phaseIndex == 0
+                            ? registration.Mode == CaptionCodecRegistrationMode.Add
+                            : registration.Mode != CaptionCodecRegistrationMode.Add)
+                        .ToArray();
+                    if (phase.Length == 0)
+                        continue;
+                    try
+                    {
+                        _ = new CaptionCodecRegistry(working.Concat(phase));
+                        working.AddRange(phase);
+                    }
+                    catch (Exception ex)
+                    {
+                        newFailures.Add(extension, (ex, phaseIndex));
+                    }
                 }
-                formatOwners.Add(extension);
             }
+
+            if (newFailures.Count > 0)
+            {
+                int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
+                KeyValuePair<CaptionCodecExtension, (Exception Exception, int Phase)> rejected =
+                    newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
+                failures.TryAdd(rejected.Key, rejected.Value.Exception);
+                continue;
+            }
+
+            accepted.Clear();
+            accepted.AddRange(working);
+            owners.Clear();
+            for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
+            {
+                foreach ((CaptionCodecExtension extension, CaptionCodecRegistration[] registrations)
+                         in candidates.Where(candidate => !failures.ContainsKey(candidate.Extension)))
+                {
+                    foreach (CaptionCodecRegistration registration in registrations
+                                 .Where(registration => phaseIndex == 0
+                                     ? registration.Mode == CaptionCodecRegistrationMode.Add
+                                     : registration.Mode != CaptionCodecRegistrationMode.Add))
+                    {
+                        CaptionFormatId format = registration.Contribution.Format;
+                        if (registration.Mode == CaptionCodecRegistrationMode.Replace)
+                            owners.Remove(format);
+                        if (!owners.TryGetValue(format, out HashSet<Extension>? formatOwners))
+                        {
+                            formatOwners = new HashSet<Extension>(ReferenceEqualityComparer.Instance);
+                            owners.Add(format, formatOwners);
+                        }
+                        formatOwners.Add(extension);
+                    }
+                }
+            }
+            break;
         }
-        catch (Exception ex)
+
+        foreach ((CaptionCodecExtension extension, Exception failure) in failures)
         {
-            ReportFailure(CaptionCatalogContributionKind.Codec, extension, ex);
+            ReportFailure(CaptionCatalogContributionKind.Codec, extension, failure);
         }
     }
 
-    private void TryAddTemplateExtension(
-        CaptionTemplateExtension extension,
+    private void ComposeTemplateExtensions(
+        List<(CaptionTemplateExtension Extension, CaptionTemplateRegistration[] Registrations)> candidates,
         List<CaptionTemplateRegistration> accepted,
         Dictionary<CaptionTemplateId, Extension> owners)
     {
-        try
+        var failures = new Dictionary<CaptionTemplateExtension, Exception>(
+            ReferenceEqualityComparer.Instance);
+        CaptionTemplateRegistration[] hostRegistrations = accepted.ToArray();
+        while (true)
         {
-            CaptionTemplateRegistration[] registrations = ValidateRegistrations(
-                extension.Registrations,
-                "A caption template extension returned a null registration collection.",
-                "A caption template extension returned a null registration.");
-            var candidate = new CaptionTemplateRegistry();
-            ValueTask validation = candidate.ReplaceAsync(accepted.Concat(registrations));
-            if (!validation.IsCompletedSuccessfully)
+            var working = new List<CaptionTemplateRegistration>(hostRegistrations);
+            var newFailures = new Dictionary<
+                CaptionTemplateExtension,
+                (Exception Exception, int Phase)>(
+                ReferenceEqualityComparer.Instance);
+            for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
             {
-                throw new InvalidOperationException(
-                    "Caption template registration validation unexpectedly required an asynchronous drain.");
+                foreach ((CaptionTemplateExtension extension, CaptionTemplateRegistration[] registrations)
+                         in candidates)
+                {
+                    if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                        continue;
+                    CaptionTemplateRegistration[] phase = registrations
+                        .Where(registration => phaseIndex == 0
+                            ? registration.Mode == CaptionTemplateRegistrationMode.Add
+                            : registration.Mode != CaptionTemplateRegistrationMode.Add)
+                        .ToArray();
+                    if (phase.Length == 0)
+                        continue;
+                    try
+                    {
+                        var candidate = new CaptionTemplateRegistry();
+                        ValueTask validation = candidate.ReplaceAsync(working.Concat(phase));
+                        if (!validation.IsCompletedSuccessfully)
+                        {
+                            throw new InvalidOperationException(
+                                "Caption template registration validation unexpectedly required an asynchronous drain.");
+                        }
+                        working.AddRange(phase);
+                    }
+                    catch (Exception ex)
+                    {
+                        newFailures.Add(extension, (ex, phaseIndex));
+                    }
+                }
             }
-            accepted.AddRange(registrations);
-            foreach (CaptionTemplateRegistration registration in registrations)
-                owners[registration.Contribution.Id] = extension;
+
+            if (newFailures.Count > 0)
+            {
+                int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
+                KeyValuePair<CaptionTemplateExtension, (Exception Exception, int Phase)> rejected =
+                    newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
+                failures.TryAdd(rejected.Key, rejected.Value.Exception);
+                continue;
+            }
+
+            accepted.Clear();
+            accepted.AddRange(working);
+            owners.Clear();
+            for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
+            {
+                foreach ((CaptionTemplateExtension extension, CaptionTemplateRegistration[] registrations)
+                         in candidates.Where(candidate => !failures.ContainsKey(candidate.Extension)))
+                {
+                    foreach (CaptionTemplateRegistration registration in registrations
+                                 .Where(registration => phaseIndex == 0
+                                     ? registration.Mode == CaptionTemplateRegistrationMode.Add
+                                     : registration.Mode != CaptionTemplateRegistrationMode.Add))
+                    {
+                        owners[registration.Contribution.Id] = extension;
+                    }
+                }
+            }
+            break;
         }
-        catch (Exception ex)
+
+        foreach ((CaptionTemplateExtension extension, Exception failure) in failures)
         {
-            ReportFailure(CaptionCatalogContributionKind.Template, extension, ex);
+            ReportFailure(CaptionCatalogContributionKind.Template, extension, failure);
         }
     }
 

@@ -587,6 +587,32 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task FailedRequest_PropagatesCancellationWhileReadingTheErrorBody()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var content = new CancellationBlockedContent(cancellation.Token);
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = content,
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+
+        Task<AiImageResult> request = app.GetResource<IAiImageGenerationService>()
+            .GenerateAsync(
+                new AiImageGenerationRequest("a lighthouse", new AiImageAspectRatioId("16:9")),
+                new Progress<AiImagePreview>(_ => { }),
+                cancellation.Token);
+        await content.ReadStarted.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        OperationCanceledException error = Assert.CatchAsync<OperationCanceledException>(async () =>
+            await request.WaitAsync(TimeSpan.FromSeconds(5)))!;
+        Assert.That(error.CancellationToken.IsCancellationRequested, Is.True);
+    }
+
+    [Test]
     public async Task ImageGeneration_ReportsEachRoughPictureAndReturnsTheFinishedOne()
     {
         using var handler = new RecordingHandler(_ => EventStream(
@@ -1640,5 +1666,36 @@ public sealed class AiCapabilityServiceTests
             Memory<byte> destination,
             CancellationToken cancellationToken = default)
             => base.ReadAsync(destination[..Math.Min(destination.Length, 1)], cancellationToken);
+    }
+
+    private sealed class CancellationBlockedContent(CancellationToken readCancellation) : HttpContent
+    {
+        private readonly TaskCompletionSource _readStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task ReadStarted => _readStarted.Task;
+
+        protected override Task SerializeToStreamAsync(
+            Stream stream,
+            TransportContext? context)
+            => BlockReadAsync(readCancellation);
+
+        protected override async Task SerializeToStreamAsync(
+            Stream stream,
+            TransportContext? context,
+            CancellationToken cancellationToken)
+            => await BlockReadAsync(readCancellation);
+
+        private async Task BlockReadAsync(CancellationToken cancellationToken)
+        {
+            _readStarted.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+            return false;
+        }
     }
 }

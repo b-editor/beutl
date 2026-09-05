@@ -65,48 +65,11 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
 
     public IElementSourceHandlerRegistration Register(ElementSourceHandlerRegistration registration)
     {
-        ArgumentNullException.ThrowIfNull(registration);
-        IElementSourceHandler handler = registration.Handler;
-        ArgumentNullException.ThrowIfNull(handler);
-        Type sourceType = handler.SourceType
-            ?? throw new ArgumentException("A source handler must declare its source type.", nameof(handler));
-        if (!typeof(Models.ElementSource).IsAssignableFrom(sourceType))
-        {
-            throw new ArgumentException(
-                $"Source type '{sourceType.FullName}' does not derive from ElementSource.",
-                nameof(handler));
-        }
+        PreparedRegistration prepared = PrepareRegistration(registration);
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            bool exists = _handlers.TryGetValue(sourceType, out List<Registration>? entries)
-                && entries.Count > 0;
-            if (registration.Mode == ElementSourceHandlerRegistrationMode.Add && exists)
-            {
-                throw new ArgumentException(
-                    $"A handler for element source '{sourceType.FullName}' is already registered. "
-                    + "Use Replace explicitly.",
-                    nameof(registration));
-            }
-            if (registration.Mode == ElementSourceHandlerRegistrationMode.Replace && !exists)
-            {
-                throw new ArgumentException(
-                    $"A handler for element source '{sourceType.FullName}' cannot be replaced "
-                    + "because it is not registered.",
-                    nameof(registration));
-            }
-
-            entries ??= [];
-            _handlers[sourceType] = entries;
-            var state = new RegistrationState(
-                sourceType,
-                handler,
-                registration.Order,
-                ++_registrationSequence);
-            var registrationOwner = new Registration(this, state);
-            entries.Add(registrationOwner);
-            return registrationOwner;
+            return RegisterPrepared_NoLock(prepared);
         }
     }
 
@@ -261,30 +224,95 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
                 () => DisposeRegistrationsAsync(registrations));
         }
 
+        var candidates = new List<(
+            ElementSourceHandlerExtension Extension,
+            PreparedRegistration[] Registrations)>();
         foreach (ElementSourceHandlerExtension extension in currentExtensions)
         {
             if (_extensionRegistrations.ContainsKey(extension))
                 continue;
 
-            var registrations = new List<Registration>();
             try
             {
-                foreach (ElementSourceHandlerRegistration registration in ValidateRegistrations(extension))
-                {
-                    registrations.Add((Registration)Register(registration));
-                }
-
-                _extensionRegistrations.Add(extension, registrations);
+                candidates.Add((
+                    extension,
+                    ValidateRegistrations(extension).Select(PrepareRegistration).ToArray()));
             }
             catch (Exception ex)
             {
-                ExtensionRegistrationLifetimes.Retire(
-                    extension,
-                    () => DisposeRegistrationsAsync(registrations));
-
                 ReportFailure(extension, ex);
             }
         }
+
+        var failures = new Dictionary<ElementSourceHandlerExtension, Exception>(
+            ReferenceEqualityComparer.Instance);
+        lock (_gate)
+        {
+            while (true)
+            {
+                var attemptOwned = new Dictionary<
+                    ElementSourceHandlerExtension,
+                    List<Registration>>(ReferenceEqualityComparer.Instance);
+                foreach ((ElementSourceHandlerExtension extension, _) in candidates)
+                {
+                    if (!failures.ContainsKey(extension))
+                        attemptOwned.Add(extension, []);
+                }
+                var newFailures = new Dictionary<
+                    ElementSourceHandlerExtension,
+                    (Exception Exception, int Phase)>(ReferenceEqualityComparer.Instance);
+                ElementSourceHandlerRegistrationMode[] phases =
+                [
+                    ElementSourceHandlerRegistrationMode.Add,
+                    ElementSourceHandlerRegistrationMode.Replace,
+                ];
+                for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
+                {
+                    ElementSourceHandlerRegistrationMode mode = phases[phaseIndex];
+                    foreach ((ElementSourceHandlerExtension extension,
+                             PreparedRegistration[] registrations) in candidates)
+                    {
+                        if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                            continue;
+                        try
+                        {
+                            foreach (PreparedRegistration registration in registrations
+                                         .Where(registration => registration.Mode == mode))
+                            {
+                                attemptOwned[extension].Add(RegisterPrepared_NoLock(registration));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            newFailures.Add(extension, (ex, phaseIndex));
+                        }
+                    }
+                }
+
+                if (newFailures.Count > 0)
+                {
+                    foreach (List<Registration> owned in attemptOwned.Values)
+                    {
+                        DisposeRegistrationsAsync(owned).AsTask().GetAwaiter().GetResult();
+                    }
+                    int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
+                    KeyValuePair<ElementSourceHandlerExtension, (Exception Exception, int Phase)> rejected =
+                        newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
+                    failures.TryAdd(rejected.Key, rejected.Value.Exception);
+                    continue;
+                }
+
+                foreach ((ElementSourceHandlerExtension extension, List<Registration> owned)
+                         in attemptOwned)
+                {
+                    _extensionRegistrations.Add(extension, owned);
+                }
+                break;
+            }
+        }
+
+        foreach ((ElementSourceHandlerExtension extension, Exception failure) in failures)
+            ReportFailure(extension, failure);
     }
 
     private Task UnregisterAsync(Registration registration, RegistrationState state)
@@ -304,6 +332,60 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
         }
 
         return drain;
+    }
+
+    private static PreparedRegistration PrepareRegistration(
+        ElementSourceHandlerRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        IElementSourceHandler handler = registration.Handler;
+        ArgumentNullException.ThrowIfNull(handler);
+        Type sourceType = handler.SourceType
+            ?? throw new ArgumentException("A source handler must declare its source type.", nameof(handler));
+        if (!typeof(Models.ElementSource).IsAssignableFrom(sourceType))
+        {
+            throw new ArgumentException(
+                $"Source type '{sourceType.FullName}' does not derive from ElementSource.",
+                nameof(handler));
+        }
+
+        return new PreparedRegistration(
+            sourceType,
+            handler,
+            registration.Mode,
+            registration.Order);
+    }
+
+    private Registration RegisterPrepared_NoLock(PreparedRegistration registration)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        bool exists = _handlers.TryGetValue(registration.SourceType, out List<Registration>? entries)
+            && entries.Count > 0;
+        if (registration.Mode == ElementSourceHandlerRegistrationMode.Add && exists)
+        {
+            throw new ArgumentException(
+                $"A handler for element source '{registration.SourceType.FullName}' is already registered. "
+                + "Use Replace explicitly.",
+                nameof(registration));
+        }
+        if (registration.Mode == ElementSourceHandlerRegistrationMode.Replace && !exists)
+        {
+            throw new ArgumentException(
+                $"A handler for element source '{registration.SourceType.FullName}' cannot be replaced "
+                + "because it is not registered.",
+                nameof(registration));
+        }
+
+        entries ??= [];
+        _handlers[registration.SourceType] = entries;
+        var state = new RegistrationState(
+            registration.SourceType,
+            registration.Handler,
+            registration.Order,
+            ++_registrationSequence);
+        var owner = new Registration(this, state);
+        entries.Add(owner);
+        return owner;
     }
 
     private static ValueTask DisposeRegistrationsAsync(IEnumerable<Registration> registrations)
@@ -335,6 +417,12 @@ public sealed class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry
 
         return snapshot;
     }
+
+    private readonly record struct PreparedRegistration(
+        Type SourceType,
+        IElementSourceHandler Handler,
+        ElementSourceHandlerRegistrationMode Mode,
+        int Order);
 
     private void ReportFailure(ElementSourceHandlerExtension extension, Exception exception)
     {

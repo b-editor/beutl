@@ -8,11 +8,16 @@ internal static class AiTemporaryFileStore
         | UnixFileMode.UserExecute;
     private const UnixFileMode FileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
     private const string SessionLockName = ".lock";
+    private static readonly TimeSpan s_coordinationLockTimeout = TimeSpan.FromSeconds(30);
     private static readonly object s_gate = new();
     private static readonly HashSet<string> s_cleanedDirectories = new(StringComparer.Ordinal);
     private static readonly string s_sessionId = Guid.NewGuid().ToString("N");
     private static readonly Dictionary<string, FileStream> s_sessionLocks =
         new(StringComparer.Ordinal);
+
+    internal static Action<string>? BeforeSessionClaim { get; set; }
+
+    internal static Action<string>? BeforeSessionCleanup { get; set; }
 
     public static string RootDirectory => Path.Combine(
         BeutlEnvironment.GetHomeDirectoryPath(),
@@ -24,13 +29,19 @@ internal static class AiTemporaryFileStore
         string prefix,
         string extension)
     {
-        string directory = GetCategoryDirectory(category);
+        string categoryRoot = GetCategoryRootDirectory(category);
+        string directory = Path.Combine(categoryRoot, s_sessionId);
         string normalizedPrefix = NormalizeComponent(prefix, nameof(prefix));
         string normalizedExtension = NormalizeExtension(extension);
-        EnsurePrivateDirectory(directory);
-        HoldSession(directory);
+        EnsurePrivateDirectory(categoryRoot);
+        using (AcquireCoordinationLock(categoryRoot))
+        {
+            EnsurePrivateDirectory(directory);
+            BeforeSessionClaim?.Invoke(directory);
+            HoldSession(directory);
+        }
         CleanAbandonedSessionsOnce(
-            GetCategoryRootDirectory(category),
+            categoryRoot,
             DateTimeOffset.UtcNow);
 
         while (true)
@@ -92,39 +103,54 @@ internal static class AiTemporaryFileStore
     /// it is removed however old it looks.
     /// </summary>
     internal static void CleanAbandonedSessions(string categoryRoot, DateTimeOffset now)
+        => CleanAbandonedSessions(categoryRoot, now, s_sessionId);
+
+    internal static void CleanAbandonedSessions(
+        string categoryRoot,
+        DateTimeOffset now,
+        string currentSessionId)
     {
         if (!Directory.Exists(categoryRoot))
             return;
 
-        // Files written directly here belong to a version that had no sessions.
-        CleanStaleFiles(categoryRoot, now);
-
-        foreach (string session in Directory.EnumerateDirectories(categoryRoot))
+        var claimedSessions = new List<(string Directory, FileStream Claim)>();
+        using (FileStream coordinationLock = AcquireCoordinationLock(categoryRoot))
         {
-            if (string.Equals(Path.GetFileName(session), s_sessionId, StringComparison.Ordinal))
-                continue;
+            foreach (string session in Directory.EnumerateDirectories(categoryRoot))
+            {
+                if (string.Equals(Path.GetFileName(session), currentSessionId, StringComparison.Ordinal))
+                    continue;
 
-            FileStream? claimed;
-            try
-            {
-                claimed = OpenSessionLock(session);
+                try
+                {
+                    claimedSessions.Add((session, OpenSessionLock(session)));
+                }
+                catch (IOException)
+                {
+                    // Held by a live process.
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
-            catch (IOException)
-            {
-                // Held by a live process.
-                continue;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                continue;
-            }
+        }
 
-            using (claimed)
+        try
+        {
+            // Files written directly here belong to a version that had no sessions.
+            CleanStaleFiles(categoryRoot, now);
+            foreach ((string session, FileStream claim) in claimedSessions)
             {
+                BeforeSessionCleanup?.Invoke(session);
                 CleanStaleFiles(session, now);
+                claim.Dispose();
+                TryRemoveFinishedSession(session);
             }
-
-            TryRemoveFinishedSession(session);
+        }
+        finally
+        {
+            foreach ((_, FileStream claim) in claimedSessions)
+                claim.Dispose();
         }
     }
 
@@ -196,25 +222,60 @@ internal static class AiTemporaryFileStore
             if (s_sessionLocks.ContainsKey(sessionDirectory))
                 return;
 
-            try
-            {
-                s_sessionLocks[sessionDirectory] = OpenSessionLock(sessionDirectory);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                // Without the lock the directory only looks abandoned to another
-                // process once its files are stale, which is what the store did
-                // before sessions existed.
-            }
+            s_sessionLocks[sessionDirectory] = OpenSessionLock(sessionDirectory);
         }
     }
 
     private static FileStream OpenSessionLock(string sessionDirectory)
-        => new(
-            Path.Combine(sessionDirectory, SessionLockName),
-            System.IO.FileMode.OpenOrCreate,
-            FileAccess.ReadWrite,
-            FileShare.None);
+        => OpenExclusiveLock(Path.Combine(sessionDirectory, SessionLockName));
+
+    private static FileStream AcquireCoordinationLock(string categoryRoot)
+    {
+        string path = Path.Combine(categoryRoot, SessionLockName);
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + s_coordinationLockTimeout;
+        IOException? lastFailure = null;
+        do
+        {
+            try
+            {
+                return OpenExclusiveLock(path);
+            }
+            catch (IOException ex)
+            {
+                lastFailure = ex;
+                Thread.Sleep(10);
+            }
+        }
+        while (DateTimeOffset.UtcNow < deadline);
+
+        throw new IOException(
+            $"Could not coordinate AI temporary-file sessions in '{categoryRoot}'.",
+            lastFailure);
+    }
+
+    private static FileStream OpenExclusiveLock(string path)
+    {
+        var options = new FileStreamOptions
+        {
+            Mode = System.IO.FileMode.OpenOrCreate,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.None,
+        };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = FileMode;
+
+        var stream = new FileStream(path, options);
+        try
+        {
+            EnsurePrivateFile(path);
+            return stream;
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
+    }
 
     private static void TryRemoveFinishedSession(string sessionDirectory)
     {

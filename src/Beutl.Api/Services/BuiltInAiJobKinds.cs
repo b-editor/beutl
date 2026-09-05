@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Beutl.Language;
 
@@ -764,7 +765,7 @@ internal sealed class AiVideoJobRetryHandler(
             string? parsedAspect = aspectElement.ValueKind == JsonValueKind.String
                 ? aspectElement.GetString()
                 : null;
-            if (parsedAspect is not ("1:1" or "16:9" or "9:16" or "4:3" or "3:4"))
+            if (!IsStructurallyValidAspectRatio(parsedAspect))
                 return false;
             aspectRatio = parsedAspect;
         }
@@ -796,6 +797,35 @@ internal sealed class AiVideoJobRetryHandler(
             generateAudio,
             seed);
         return true;
+    }
+
+    private static bool IsStructurallyValidAspectRatio([NotNullWhen(true)] string? value)
+    {
+        if (value is not { Length: > 0 and <= 256 }
+            || !string.Equals(value, value.Trim(), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        int separator = value.IndexOf(':');
+        return separator > 0
+            && separator == value.LastIndexOf(':')
+            && separator < value.Length - 1
+            && IsPositiveDecimal(value.AsSpan(0, separator))
+            && IsPositiveDecimal(value.AsSpan(separator + 1));
+    }
+
+    private static bool IsPositiveDecimal(ReadOnlySpan<char> value)
+    {
+        bool hasNonZeroDigit = false;
+        foreach (char character in value)
+        {
+            if (character is < '0' or > '9')
+                return false;
+            hasNonZeroDigit |= character != '0';
+        }
+
+        return hasNonZeroDigit;
     }
 
     private static AiModelOption? ResolveModel(AiModelCatalog catalog, AiJob job)

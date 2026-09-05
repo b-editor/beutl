@@ -113,6 +113,173 @@ public sealed class CaptionTemplateRegistryTests
     }
 
     [Test]
+    public async Task Catalog_ComposesCodecOverlayEnumeratedBeforeItsBase()
+    {
+        var format = new CaptionFormatId("beutl.tests.dependent-caption");
+        var codec = new TestCodec();
+        var overlay = new RegistrationCodecExtension(
+        [
+            new CaptionCodecRegistration(
+                new CaptionCodecContribution(format, encoder: codec),
+                CaptionCodecRegistrationMode.Merge),
+        ]);
+        var baseExtension = new RegistrationCodecExtension(
+        [
+            new CaptionCodecRegistration(new CaptionCodecContribution(
+                format,
+                new CaptionCodecDescriptor(format, [".dependent-caption"]),
+                decoder: codec)),
+        ]);
+        var failures = new List<CaptionCatalogExtensionFailure>();
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+            "Default",
+            [],
+            extensions,
+            failures.Add);
+
+        extensions.AddExtensions(5, [overlay, baseExtension]);
+
+        CaptionCodecInfo info = catalog.Codecs.GetRequired(format);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(info.CanDecode, Is.True);
+            Assert.That(info.CanEncode, Is.True);
+            Assert.That(overlay.RegistrationsReadCount, Is.EqualTo(1));
+            Assert.That(baseExtension.RegistrationsReadCount, Is.EqualTo(1));
+            Assert.That(failures, Is.Empty);
+        }
+    }
+
+    [Test]
+    public async Task Catalog_ComposesMutuallyDependentCodecExtensionsAfterAllBases()
+    {
+        var formatX = new CaptionFormatId("beutl.tests.dependent-x");
+        var formatY = new CaptionFormatId("beutl.tests.dependent-y");
+        var codec = new TestCodec();
+        var first = new RegistrationCodecExtension(
+        [
+            new CaptionCodecRegistration(new CaptionCodecContribution(
+                formatY,
+                new CaptionCodecDescriptor(formatY, [".dependent-y"]),
+                decoder: codec)),
+            new CaptionCodecRegistration(
+                new CaptionCodecContribution(formatX, encoder: codec),
+                CaptionCodecRegistrationMode.Merge),
+        ]);
+        var second = new RegistrationCodecExtension(
+        [
+            new CaptionCodecRegistration(new CaptionCodecContribution(
+                formatX,
+                new CaptionCodecDescriptor(formatX, [".dependent-x"]),
+                decoder: codec)),
+            new CaptionCodecRegistration(
+                new CaptionCodecContribution(formatY, encoder: codec),
+                CaptionCodecRegistrationMode.Merge),
+        ]);
+        var failures = new List<CaptionCatalogExtensionFailure>();
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+            "Default",
+            [],
+            extensions,
+            failures.Add);
+
+        extensions.AddExtensions(6, [first, second]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.Codecs.GetRequired(formatX).CanDecode, Is.True);
+            Assert.That(catalog.Codecs.GetRequired(formatX).CanEncode, Is.True);
+            Assert.That(catalog.Codecs.GetRequired(formatY).CanDecode, Is.True);
+            Assert.That(catalog.Codecs.GetRequired(formatY).CanEncode, Is.True);
+            Assert.That(failures, Is.Empty);
+        }
+    }
+
+    [Test]
+    public async Task Catalog_ReevaluatesHealthyCodecAfterInvalidProvisionalAddIsRejected()
+    {
+        var format = new CaptionFormatId("beutl.tests.provisional-codec");
+        var missing = new CaptionFormatId("beutl.tests.missing-codec");
+        var codec = new TestCodec();
+        var invalid = new RegistrationCodecExtension(
+        [
+            new CaptionCodecRegistration(new CaptionCodecContribution(
+                format,
+                new CaptionCodecDescriptor(format, [".invalid"]),
+                decoder: codec)),
+            new CaptionCodecRegistration(
+                new CaptionCodecContribution(missing, encoder: codec),
+                CaptionCodecRegistrationMode.Merge),
+        ]);
+        var healthy = new RegistrationCodecExtension(
+        [
+            new CaptionCodecRegistration(new CaptionCodecContribution(
+                format,
+                new CaptionCodecDescriptor(format, [".healthy"]),
+                decoder: codec)),
+        ]);
+        var failures = new List<CaptionCatalogExtensionFailure>();
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+            "Default",
+            [],
+            extensions,
+            failures.Add);
+
+        extensions.AddExtensions(7, [invalid, healthy]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.Codecs.GetRequired(format).FileExtensions,
+                Is.EqualTo(new[] { ".healthy" }));
+            Assert.That(failures, Has.Count.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public async Task Catalog_ReevaluatesHealthyTemplateAfterInvalidProvisionalAddIsRejected()
+    {
+        CaptionTemplateContribution invalidTemplate = CreateText(
+            "beutl.tests.provisional-template",
+            "Invalid provisional");
+        CaptionTemplateContribution healthyTemplate = CreateText(
+            "beutl.tests.provisional-template",
+            "Healthy");
+        CaptionTemplateContribution missingTemplate = CreateText(
+            "beutl.tests.missing-template",
+            "Missing");
+        var invalid = new TestTemplateExtension(
+        [
+            new CaptionTemplateRegistration(invalidTemplate),
+            new CaptionTemplateRegistration(
+                missingTemplate,
+                CaptionTemplateRegistrationMode.Replace),
+        ]);
+        var healthy = new TestTemplateExtension(
+        [
+            new CaptionTemplateRegistration(healthyTemplate),
+        ]);
+        var failures = new List<CaptionCatalogExtensionFailure>();
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+            "Default",
+            [],
+            extensions,
+            failures.Add);
+
+        extensions.AddExtensions(8, [invalid, healthy]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.Templates.GetRequired(healthyTemplate.Id).Name,
+                Is.EqualTo("Healthy"));
+            Assert.That(failures, Has.Count.EqualTo(1));
+        }
+    }
+
+    [Test]
     public async Task Catalog_DiscardsAnInvalidExtensionAtomically()
     {
         CaptionTemplateContribution valid = CreateText(
@@ -350,6 +517,28 @@ public sealed class CaptionTemplateRegistryTests
 
         public override IReadOnlyCollection<CaptionCodecRegistration> Registrations
             => _registrations;
+    }
+
+    private sealed class RegistrationCodecExtension : CaptionCodecExtension
+    {
+        private readonly IReadOnlyCollection<CaptionCodecRegistration> _registrations;
+
+        public RegistrationCodecExtension(
+            IReadOnlyCollection<CaptionCodecRegistration> registrations)
+        {
+            _registrations = registrations;
+        }
+
+        public int RegistrationsReadCount { get; private set; }
+
+        public override IReadOnlyCollection<CaptionCodecRegistration> Registrations
+        {
+            get
+            {
+                RegistrationsReadCount++;
+                return _registrations;
+            }
+        }
     }
 
     private sealed class TestTemplateExtension(

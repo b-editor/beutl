@@ -889,6 +889,10 @@ internal abstract class AiMeteredCapabilityService(
         {
             body = await message.Content.ReadAsStringAsync(cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception)
         {
             // A body that cannot be read says nothing more than the status did.

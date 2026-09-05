@@ -104,4 +104,114 @@ public sealed class AiTemporaryFileStoreTests
 
         Directory.Delete(categoryRoot, recursive: true);
     }
+
+    [Test]
+    public async Task Create_ClaimsSessionBeforeAConcurrentProcessCanSweepIt()
+    {
+        string category = $"creation-race-{Guid.NewGuid():N}";
+        string categoryRoot = AiTemporaryFileStore.GetCategoryRootDirectory(category);
+        using var directoryExposed = new ManualResetEventSlim();
+        using var releaseSessionClaim = new ManualResetEventSlim();
+        AiTemporaryFileStore.BeforeSessionClaim = directory =>
+        {
+            if (!string.Equals(Path.GetDirectoryName(directory), categoryRoot, StringComparison.Ordinal))
+                return;
+
+            directoryExposed.Set();
+            if (!releaseSessionClaim.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("The session claim was not released by the test.");
+        };
+
+        Task<(string Path, FileStream Stream)> creation = Task.Run(() =>
+            AiTemporaryFileStore.Create(category, "race", ".wav"));
+        try
+        {
+            Assert.That(directoryExposed.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            using var sweepStarted = new ManualResetEventSlim();
+            Task sweep = Task.Run(() =>
+            {
+                sweepStarted.Set();
+                AiTemporaryFileStore.CleanAbandonedSessions(
+                    categoryRoot,
+                    DateTimeOffset.UtcNow + AiTemporaryFileStore.StaleAge,
+                    "another-process");
+            });
+            Assert.That(sweepStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            await Task.Delay(100);
+            Assert.That(sweep.IsCompleted, Is.False,
+                "The sweeper must wait until the creator publishes its session lock.");
+
+            releaseSessionClaim.Set();
+            (string path, FileStream stream) = await creation.WaitAsync(TimeSpan.FromSeconds(5));
+            using (stream)
+            {
+                stream.WriteByte(1);
+            }
+            await sweep.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(File.Exists(path), Is.True,
+                "A concurrent process must not sweep a session after its creator claims it.");
+            File.Delete(path);
+        }
+        finally
+        {
+            releaseSessionClaim.Set();
+            AiTemporaryFileStore.BeforeSessionClaim = null;
+            if (!creation.IsCompleted)
+            {
+                await creation.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
+    }
+
+    [Test]
+    public async Task SlowSessionCleanupDoesNotHoldTheCategoryCoordinationLock()
+    {
+        string category = $"slow-cleanup-{Guid.NewGuid():N}";
+        string categoryRoot = AiTemporaryFileStore.GetCategoryRootDirectory(category);
+        string abandoned = Path.Combine(categoryRoot, "abandoned");
+        AiTemporaryFileStore.EnsurePrivateDirectory(abandoned);
+        string stale = Path.Combine(abandoned, "stale.tmp");
+        await File.WriteAllBytesAsync(stale, [1]);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        File.SetLastWriteTimeUtc(
+            stale,
+            (now - AiTemporaryFileStore.StaleAge - TimeSpan.FromMinutes(1)).UtcDateTime);
+        using var cleanupStarted = new ManualResetEventSlim();
+        using var releaseCleanup = new ManualResetEventSlim();
+        AiTemporaryFileStore.BeforeSessionCleanup = directory =>
+        {
+            if (!string.Equals(directory, abandoned, StringComparison.Ordinal))
+                return;
+            cleanupStarted.Set();
+            if (!releaseCleanup.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("The slow cleanup was not released by the test.");
+        };
+
+        Task cleanup = Task.Run(() => AiTemporaryFileStore.CleanAbandonedSessions(
+            categoryRoot,
+            now,
+            "another-process"));
+        try
+        {
+            Assert.That(cleanupStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            Task<(string Path, FileStream Stream)> creation = Task.Run(() =>
+                AiTemporaryFileStore.Create(category, "responsive", ".wav"));
+            (string path, FileStream stream) = await creation.WaitAsync(TimeSpan.FromSeconds(2));
+            stream.Dispose();
+            Assert.That(File.Exists(path), Is.True);
+            File.Delete(path);
+
+            releaseCleanup.Set();
+            await cleanup.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            releaseCleanup.Set();
+            AiTemporaryFileStore.BeforeSessionCleanup = null;
+            await cleanup.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
 }

@@ -128,6 +128,40 @@ public sealed class ElementSourceHandlerRegistryTests
     }
 
     [Test]
+    public async Task ExtensionRegistrations_ComposeReplacementEnumeratedBeforeItsBase()
+    {
+        var provider = new ExtensionProvider();
+        var failures = new List<ElementSourceHandlerExtensionFailure>();
+        await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
+        var baseHandler = new TestHandler(typeof(FirstSource));
+        var replacementHandler = new TestHandler(typeof(FirstSource));
+        var replacement = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(
+                replacementHandler,
+                ElementSourceHandlerRegistrationMode.Replace),
+        ]);
+        var baseExtension = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(baseHandler),
+        ]);
+
+        provider.AddExtensions(3, [replacement, baseExtension]);
+
+        Assert.That(registry.TryAcquire(
+            typeof(FirstSource),
+            out IElementSourceHandlerLease? lease), Is.True);
+        using (lease)
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(lease!.Handler, Is.SameAs(replacementHandler));
+            Assert.That(replacement.RegistrationsReadCount, Is.EqualTo(1));
+            Assert.That(baseExtension.RegistrationsReadCount, Is.EqualTo(1));
+            Assert.That(failures, Is.Empty);
+        }
+    }
+
+    [Test]
     public async Task InvalidExtensionRegistration_RollsBackPartialContributions()
     {
         var provider = new ExtensionProvider();
@@ -156,6 +190,79 @@ public sealed class ElementSourceHandlerRegistryTests
             {
                 Assert.That(lease!.Handler, Is.SameAs(hostHandler));
             }
+        }
+    }
+
+    [Test]
+    public async Task InvalidProvisionalRegistration_DoesNotShadowAValidExtension()
+    {
+        var provider = new ExtensionProvider();
+        var failures = new List<ElementSourceHandlerExtensionFailure>();
+        await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
+        var invalidHandler = new TestHandler(typeof(FirstSource));
+        var validHandler = new TestHandler(typeof(FirstSource));
+        var invalidExtension = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(invalidHandler),
+            new ElementSourceHandlerRegistration(
+                new TestHandler(typeof(SecondSource)),
+                ElementSourceHandlerRegistrationMode.Replace),
+        ]);
+        var validExtension = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(validHandler),
+        ]);
+
+        provider.AddExtensions(5, [invalidExtension, validExtension]);
+
+        Assert.That(registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? lease), Is.True);
+        using (lease)
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(lease!.Handler, Is.SameAs(validHandler));
+            Assert.That(registry.TryAcquire(typeof(SecondSource), out _), Is.False);
+            Assert.That(failures, Has.Count.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public async Task InvalidExtensionNeverPublishesItsPartialRegistration()
+    {
+        var provider = new ExtensionProvider();
+        var failures = new List<ElementSourceHandlerExtensionFailure>();
+        await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
+        using var invalidGetterEntered = new ManualResetEventSlim();
+        using var releaseInvalidGetter = new ManualResetEventSlim();
+        var extension = new TestExtension(
+        [
+            new ElementSourceHandlerRegistration(new TestHandler(typeof(FirstSource))),
+            new ElementSourceHandlerRegistration(new BlockingInvalidHandler(
+                invalidGetterEntered,
+                releaseInvalidGetter)),
+        ]);
+
+        Task addition = Task.Run(() => provider.AddExtensions(4, [extension]));
+        Assert.That(invalidGetterEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        Task<bool> acquisition = Task.Run(() =>
+        {
+            bool acquired = registry.TryAcquire(
+                typeof(FirstSource),
+                out IElementSourceHandlerLease? lease);
+            lease?.Dispose();
+            return acquired;
+        });
+        Assert.That(
+            await acquisition.WaitAsync(TimeSpan.FromSeconds(2)),
+            Is.False,
+            "Plugin getters must run before the registry gate is acquired.");
+
+        releaseInvalidGetter.Set();
+        await addition.WaitAsync(TimeSpan.FromSeconds(5));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(acquisition.Result, Is.False);
+            Assert.That(failures, Has.Count.EqualTo(1));
         }
     }
 
@@ -194,10 +301,51 @@ public sealed class ElementSourceHandlerRegistryTests
             => throw new NotSupportedException();
     }
 
-    private sealed class TestExtension(
-        IReadOnlyCollection<ElementSourceHandlerRegistration> registrations)
-        : ElementSourceHandlerExtension
+    private sealed class BlockingInvalidHandler(
+        ManualResetEventSlim entered,
+        ManualResetEventSlim release) : IElementSourceHandler
     {
-        public override IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations { get; } = registrations;
+        public Type SourceType
+        {
+            get
+            {
+                entered.Set();
+                if (!release.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("The invalid handler getter was not released.");
+                return typeof(string);
+            }
+        }
+
+        public ValueTask<ElementSourcePreflightResult> PreflightAsync(
+            ElementSourcePreflightContext context,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
+            ElementSourceMaterializationContext context,
+            IElementSourcePreflight preflight,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class TestExtension : ElementSourceHandlerExtension
+    {
+        private readonly IReadOnlyCollection<ElementSourceHandlerRegistration> _registrations;
+
+        public TestExtension(IReadOnlyCollection<ElementSourceHandlerRegistration> registrations)
+        {
+            _registrations = registrations;
+        }
+
+        public int RegistrationsReadCount { get; private set; }
+
+        public override IReadOnlyCollection<ElementSourceHandlerRegistration> Registrations
+        {
+            get
+            {
+                RegistrationsReadCount++;
+                return _registrations;
+            }
+        }
     }
 }

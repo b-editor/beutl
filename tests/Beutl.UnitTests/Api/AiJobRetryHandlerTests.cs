@@ -507,9 +507,48 @@ public class AiJobRetryHandlerTests
         Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\" waves \"}"), failed), Is.False);
         Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"" + new string('x', 4001) + "\"}"), failed), Is.False);
         Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"ignored\":true}"), failed), Is.False);
-        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"3:2\"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"3x2\"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"0:2\"}"), failed), Is.False);
+        Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"3:0\"}"), failed), Is.False);
         Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\",\"aspectRatio\":\"3:4\"}"), failed), Is.True);
         Assert.That(handler.CanRetry(Job("video", "{\"prompt\":\"waves\"}"), failed), Is.True);
+    }
+
+    [Test]
+    public async Task VideoRetry_AcceptsAnAspectRatioPublishedByTheCurrentModel()
+    {
+        var catalog = new AiModelCatalog([
+            KeyValuePair.Create(AiOperations.VideoGeneration, ImmutableArray.Create(new AiModelOption(
+                new AiModelId("video/model"), "Video", AiModelCostTier.Low, true,
+                Video: new AiVideoModelCapabilities(
+                    AiCapabilityDimension<int>.Supported([4]),
+                    AiCapabilityDimension<string>.Supported(["720p"]),
+                    AiCapabilityDimension<string>.Supported(["21:9"]), true, true))))]);
+        var handler = new AiVideoJobRetryHandler(
+            Mock.Of<IAiVideoService>(),
+            EntitlementService(),
+            AvailabilityService(available: true),
+            ModelCatalogService(catalog),
+            RetryContext());
+        AiJob job = Job(
+            "video",
+            "{\"prompt\":\"waves\",\"durationSeconds\":4,\"resolution\":\"720p\",\"aspectRatio\":\"21:9\"}")
+            with
+        {
+            Model = new AiModelId("video/model"),
+        };
+        AiJobStatusSemantics failed = new(
+            isTerminal: true,
+            shouldPoll: false,
+            outcome: AiJobOutcomes.Failed);
+
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(job, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(handler.CanRetry(job, failed), Is.True);
+            Assert.That(preflight.CanSubmit, Is.True);
+        }
     }
 
     [Test]
