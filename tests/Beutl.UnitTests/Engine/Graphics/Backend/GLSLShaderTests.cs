@@ -244,6 +244,55 @@ public class GLSLShaderTests
         });
     }
 
+    [TestCase(0)]
+    [TestCase(1)]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void ApplyMultiPass_DeclinedPreviewScratchKeepsTheSourceAndReleasesEarlierLeases(
+        int declineAt)
+    {
+        IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = RenderTarget.Create(4, 4)
+                ?? throw new InvalidOperationException("Could not create the GLSL source target.");
+            var factory = new FailAtTargetFactory(declineAt);
+            using var pool = new RenderTargetPool(factory);
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview, source);
+            using var targets = new EffectTargets
+            {
+                new EffectTarget(source, new Rect(0, 0, 4, 4)),
+            };
+            EffectTarget original = targets[0];
+            var context = new CustomFilterEffectContext(
+                targets,
+                RenderIntent.Preview,
+                RenderRequestPurpose.Auxiliary,
+                renderTargetLeaseSession: session);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+
+            Assert.That(
+                () => shader.ApplyMultiPass<DummyPush>(context, 3, static (_, _) => new DummyPush()),
+                Throws.Nothing);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(targets[0], Is.SameAs(original));
+                Assert.That(session.ContentDropObserved, Is.True);
+                Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+                Assert.That(factory.CreateCalls, Is.EqualTo(declineAt + 1));
+            });
+            graphicsContext.WaitIdle();
+            shader.Dispose();
+            targets.Dispose();
+            session.Dispose();
+            pool.Dispose();
+            source.Dispose();
+            GpuResourceReclaimQueue.FlushAndDrain();
+        });
+    }
+
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
@@ -380,6 +429,21 @@ public class GLSLShaderTests
         }
 
         return target;
+    }
+
+    private sealed class FailAtTargetFactory(int failAt) : IRenderTargetFactory
+    {
+        public int CreateCalls { get; private set; }
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            int index = CreateCalls++;
+            if (index == failAt)
+                return null;
+
+            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height)
+                ?? throw new InvalidOperationException("Could not create a GLSL scratch target.");
+        }
     }
 
     private static CustomFilterEffectContext CreateCustomContext(

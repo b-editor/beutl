@@ -76,6 +76,7 @@ public sealed class RenderPipelineMigrationCensusTests
             ["tests/Beutl.PublicApiContractTests/CapturedResourceBorrowContractTests.cs"] = 1,
             ["tests/Beutl.PublicApiContractTests/DeclaredPlannerTraitContractTests.cs"] = 2,
             ["tests/Beutl.PublicApiContractTests/DeclaredResourceAddressingContractTests.cs"] = 1,
+            ["tests/Beutl.PublicApiContractTests/DetachedResourceAuthoringContractTests.cs"] = 1,
             ["tests/Beutl.PublicApiContractTests/FilterEffectCompatibilityContractTests.cs"] = 5,
             ["tests/Beutl.PublicApiContractTests/RenderNodeContextMetadataContractTests.cs"] = 3,
             ["tests/Beutl.PublicApiContractTests/GeometryAuthoringContractTests.cs"] = 2,
@@ -214,7 +215,7 @@ public sealed class RenderPipelineMigrationCensusTests
             AssertDeclaredBaseline("test", 7, s_startingTestOverrideBaseline);
             AssertAllOverridesAreMapped(overrides);
             AssertBaselineInventory("production", 31, s_productionOverrideBaseline, overrides);
-            AssertBaselineInventory("test", 263, s_testOverrideBaseline, overrides);
+            AssertBaselineInventory("test", 264, s_testOverrideBaseline, overrides);
         }
     }
 

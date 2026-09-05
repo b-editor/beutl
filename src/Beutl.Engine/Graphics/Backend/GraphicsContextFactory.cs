@@ -228,7 +228,14 @@ public class GraphicsContextFactory
                 // A context left installed is handed straight back by the next GetOrCreateShared, and the
                 // buffer-dimension memo is only invalidated by the context changing, so no failure above may
                 // decide whether the release happens.
-                ReleaseInstalledGraphics();
+                try
+                {
+                    ReleaseInstalledGraphics();
+                }
+                catch (Exception ex)
+                {
+                    AppendTeardownFailure(failures, ex);
+                }
             }
 
             if (failures.Count == 1)
@@ -239,7 +246,7 @@ public class GraphicsContextFactory
             if (failures.Count > 1)
             {
                 throw new AggregateException(
-                    "More than one graphics teardown step ahead of the context release failed.",
+                    "More than one graphics teardown step failed.",
                     failures);
             }
         });

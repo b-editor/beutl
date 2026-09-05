@@ -5786,6 +5786,39 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void ANullableValueTypeUsingWhoseDisposeReadsAMutableStatic_IsReported()
+    {
+        string stubs = DisposalStubs.Replace(
+            "internal sealed class Scope : IDisposable",
+            "internal struct Scope : IDisposable");
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{stubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using (Scope? scope = new Scope(box))
+                            {
+                            }
+
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the compiler conditionally disposes the struct stored in Nullable<T>, so the callback still "
+            + "runs that Dispose body");
+    }
+
+    [Test]
     public void AMethodGroupWhoseUsingScopeDisposeReadsAMutableStatic_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze($$"""

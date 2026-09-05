@@ -4,6 +4,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
@@ -78,6 +79,52 @@ public sealed class DetachedResourceAuthoringContractTests
         EngineObject? original = detached.GetOriginal();
 
         Assert.That(original, Is.Null);
+    }
+
+    [Test]
+    public void ADetachedFilterEffectResource_IsRejectedByTheDefaultRenderNode()
+    {
+        using var detached = new Blur.Resource { IsEnabled = true };
+
+        InvalidOperationException? creationError = Assert.Throws<InvalidOperationException>(
+            () => detached.CreateRenderNode());
+        using var directNode = new FilterEffectRenderNode(detached);
+        directNode.AddChild(new EllipseRenderNode(new Rect(0, 0, 10, 10), Brushes.Resource.White, null));
+        InvalidOperationException? processingError = Assert.Throws<InvalidOperationException>(
+            () => Measure(directNode));
+        using var disabled = new Blur.Resource();
+        using var disabledNode = new FilterEffectRenderNode(disabled);
+        disabledNode.AddChild(new EllipseRenderNode(new Rect(0, 0, 10, 10), Brushes.Resource.White, null));
+        RenderNodeMeasurement disabledMeasurement = Measure(disabledNode);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(creationError!.Message, Does.Contain("detached").IgnoreCase);
+            Assert.That(creationError.Message, Does.Contain(nameof(FilterEffect.Resource.CreateRenderNode)));
+            Assert.That(processingError!.Message, Does.Contain("detached").IgnoreCase);
+            Assert.That(disabledMeasurement.HasFragments, Is.True);
+        });
+    }
+
+    [Test]
+    public void AnAttachedFilterEffectResource_StillCreatesTheDefaultRenderNode()
+    {
+        var effect = new Blur();
+        using FilterEffect.Resource attached = effect.ToResource(CompositionContext.Default);
+
+        using FilterEffectRenderNode node = attached.CreateRenderNode();
+
+        Assert.That(node, Is.TypeOf<FilterEffectRenderNode>());
+    }
+
+    [Test]
+    public void ADetachedFilterEffectResource_CanCreateAndRunAnOverriddenRenderNode()
+    {
+        using var detached = new DetachedBlurResource { IsEnabled = true };
+        using FilterEffectRenderNode node = detached.CreateRenderNode();
+
+        Assert.That(node, Is.TypeOf<DetachedFilterEffectRenderNode>());
+        Assert.DoesNotThrow(() => Measure(node));
     }
 
     [Test]
@@ -343,6 +390,26 @@ public sealed class DetachedResourceAuthoringContractTests
             MiterLimit = 10,
             TrimEnd = 100,
         };
+    }
+
+    private static RenderNodeMeasurement Measure(RenderNode node)
+    {
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
+        return renderer.Measure();
+    }
+
+    private sealed class DetachedBlurResource : Blur.Resource
+    {
+        public override FilterEffectRenderNode CreateRenderNode()
+            => new DetachedFilterEffectRenderNode(this);
+    }
+
+    private sealed class DetachedFilterEffectRenderNode(FilterEffect.Resource resource)
+        : FilterEffectRenderNode(resource)
+    {
+        public override void Process(RenderNodeContext context) => context.PassThrough();
     }
 }
 

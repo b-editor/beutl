@@ -345,7 +345,7 @@ public class CustomFilterEffectContext
         return renderTarget is null ? null : source.CreateReplacement(renderTarget);
     }
 
-    internal NativeFilterTextureLease AcquireNativeScratchTexture(
+    internal NativeFilterTextureLease? TryAcquireNativeScratchTexture(
         IGraphicsContext graphicsContext,
         int width,
         int height)
@@ -362,7 +362,10 @@ public class CustomFilterEffectContext
             var size = new PixelSize(width, height);
             RenderTargetLease? renderTargetLease = _renderTargetLeaseSession.TryAcquire(size);
             if (renderTargetLease is null)
-                throw RenderTargetPool.CreateAllocationFailure(size);
+            {
+                _renderTargetLeaseSession.MarkContentDropped();
+                return null;
+            }
 
             ITexture2D? texture = renderTargetLease.Target.Texture;
             if (texture is null

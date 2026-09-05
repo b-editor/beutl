@@ -276,14 +276,20 @@ public sealed class GLSLShader : IDisposable
                 continue;
             }
 
-            using NativeFilterTextureLease pingLease = context.AcquireNativeScratchTexture(
+            using NativeFilterTextureLease? pingLease = context.TryAcquireNativeScratchTexture(
                 graphicsContext,
                 width,
                 height);
-            using NativeFilterTextureLease pongLease = context.AcquireNativeScratchTexture(
+            if (pingLease is null)
+                continue;
+
+            using NativeFilterTextureLease? pongLease = context.TryAcquireNativeScratchTexture(
                 graphicsContext,
                 width,
                 height);
+            if (pongLease is null)
+                continue;
+
             ITexture2D pingTexture = pingLease.Texture;
             ITexture2D pongTexture = pongLease.Texture;
 

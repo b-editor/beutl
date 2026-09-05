@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Moq;
 using SkiaSharp;
 
@@ -9,7 +10,7 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 public sealed class NativeFilterScratchTextureTests
 {
     [Test]
-    public void AcquireNativeScratchTexture_ClearsOwnedTextureBeforeReturningIt()
+    public void TryAcquireNativeScratchTexture_ClearsOwnedTextureBeforeReturningIt()
     {
         var texture = new ClearableTexture(8, 6);
 
@@ -23,17 +24,18 @@ public sealed class NativeFilterScratchTextureTests
             RenderIntent.Delivery,
             RenderRequestPurpose.Auxiliary);
 
-        using NativeFilterTextureLease lease = context.AcquireNativeScratchTexture(
+        using NativeFilterTextureLease? lease = context.TryAcquireNativeScratchTexture(
             graphicsContext.Object,
             8,
             6);
 
-        Assert.That(lease.Texture, Is.SameAs(texture));
+        Assert.That(lease, Is.Not.Null);
+        Assert.That(lease!.Texture, Is.SameAs(texture));
         Assert.That(texture.ClearCount, Is.EqualTo(1));
     }
 
     [Test]
-    public void AcquireNativeScratchTexture_RejectsTextureWithoutOrderedClear()
+    public void TryAcquireNativeScratchTexture_RejectsTextureWithoutOrderedClear()
     {
         var texture = new Mock<ITexture2D>();
         texture.SetupGet(x => x.Width).Returns(8);
@@ -50,10 +52,59 @@ public sealed class NativeFilterScratchTextureTests
             RenderRequestPurpose.Auxiliary);
 
         InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
-            context.AcquireNativeScratchTexture(graphicsContext.Object, 8, 6));
+            context.TryAcquireNativeScratchTexture(graphicsContext.Object, 8, 6));
 
         Assert.That(exception!.Message, Does.Contain("ordered transparent clear"));
         texture.Verify(x => x.Dispose(), Times.Once);
+    }
+
+    [Test]
+    public void TryAcquireNativeScratchTexture_DeclinedPreviewMarksTheContentDrop()
+    {
+        using var pool = new RenderTargetPool(new DecliningTargetFactory());
+        using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview);
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            renderTargetLeaseSession: session);
+        var graphicsContext = new Mock<IGraphicsContext>();
+
+        using NativeFilterTextureLease? lease = context.TryAcquireNativeScratchTexture(
+            graphicsContext.Object,
+            8,
+            6);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lease, Is.Null);
+            Assert.That(session.ContentDropObserved, Is.True);
+        });
+    }
+
+    [Test]
+    public void TryAcquireNativeScratchTexture_DeclinedDeliveryStillFailsFast()
+    {
+        using var pool = new RenderTargetPool(new DecliningTargetFactory());
+        using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery);
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Frame,
+            renderTargetLeaseSession: session);
+        var graphicsContext = new Mock<IGraphicsContext>();
+
+        Assert.That(
+            () => context.TryAcquireNativeScratchTexture(graphicsContext.Object, 8, 6),
+            Throws.TypeOf<InvalidOperationException>().With.Message.Contains("could not allocate"));
+        Assert.That(session.ContentDropObserved, Is.False);
+    }
+
+    private sealed class DecliningTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation) => null;
     }
 
     private sealed class ClearableTexture(int width, int height)

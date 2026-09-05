@@ -3,9 +3,11 @@ using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
@@ -271,10 +273,16 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
     }
 
-    // Delivery must not ship silently unsorted frames; preview keeps the source pixels and logs.
-    // Cancellation always propagates.
-    internal static bool ShouldRethrowPassFailure(Exception exception, RenderIntent intent)
-        => exception is OperationCanceledException || intent == RenderIntent.Delivery;
+    internal static bool TrySwallowPassFailure(
+        Exception exception,
+        CustomFilterEffectContext context)
+    {
+        if (exception is OperationCanceledException || context.Intent == RenderIntent.Delivery)
+            return false;
+
+        context.RenderTargetLeaseSession?.MarkContentDropped();
+        return true;
+    }
 
     internal static void ThrowIfDeliveryAllocationFailure(RenderIntent intent, int targetIndex)
     {
@@ -329,14 +337,16 @@ public sealed partial class PixelSortEffect : FilterEffect
                 int width = originalTexture.Width;
                 int height = originalTexture.Height;
 
-                using NativeFilterTextureLease prepLease = ctx.AcquireNativeScratchTexture(
+                var scratchSize = new PixelSize(width, height);
+                using NativeFilterTextureLease prepLease = ctx.TryAcquireNativeScratchTexture(
                     gfx,
                     width,
-                    height);
-                using NativeFilterTextureLease rankLease = ctx.AcquireNativeScratchTexture(
+                    height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
+                using NativeFilterTextureLease rankLease = ctx.TryAcquireNativeScratchTexture(
                     gfx,
                     width,
-                    height);
+                    height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
+
                 ITexture2D prepTexture = prepLease.Texture;
                 ITexture2D rankTexture = rankLease.Texture;
 
@@ -395,7 +405,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 catch (Exception ex)
                 {
                     newTarget.Dispose();
-                    if (ShouldRethrowPassFailure(ex, ctx.Intent))
+                    if (!TrySwallowPassFailure(ex, ctx))
                     {
                         throw;
                     }
@@ -405,7 +415,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             }
             catch (Exception ex)
             {
-                if (ShouldRethrowPassFailure(ex, ctx.Intent))
+                if (!TrySwallowPassFailure(ex, ctx))
                 {
                     throw;
                 }

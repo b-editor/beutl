@@ -18,6 +18,13 @@ public abstract partial class FilterEffect : EngineObject
         /// </summary>
         public virtual FilterEffectRenderNode CreateRenderNode()
         {
+            if (GetOriginal() is null)
+            {
+                throw new InvalidOperationException(
+                    "The default FilterEffectRenderNode cannot be created from a detached filter-effect resource. "
+                    + "Override CreateRenderNode() to provide a render node that supports detached resources.");
+            }
+
             return new FilterEffectRenderNode(this);
         }
 

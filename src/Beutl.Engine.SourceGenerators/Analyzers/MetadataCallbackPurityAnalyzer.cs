@@ -944,6 +944,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol type,
         bool asynchronous)
     {
+        if (type is INamedTypeSymbol named
+            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        {
+            type = named.TypeArguments[0];
+        }
+
         string name = asynchronous
             ? WellKnownMemberNames.DisposeAsyncMethodName
             : WellKnownMemberNames.DisposeMethodName;
