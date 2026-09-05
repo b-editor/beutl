@@ -33,9 +33,11 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
 
     private ShaderProgramBackend Backend { get; }
 
-    private string Source { get; }
+    internal string Source { get; }
 
-    private SkslBackendBudget Budget { get; }
+    internal SkslBackendBudget Budget { get; }
+
+    internal ImmutableArray<SkslMergedBindingLayout> Bindings => _bindings;
 
     internal static ShaderProgramIdentity CreateSksl(
         string source,

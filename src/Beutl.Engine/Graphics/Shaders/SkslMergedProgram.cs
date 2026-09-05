@@ -6,7 +6,8 @@ internal sealed class SkslMergedProgram
 {
     internal SkslMergedProgram(
         string source,
-        ImmutableArray<SkslMergedStageLayout> stages,
+        int firstStageIndex,
+        int stageCount,
         ImmutableArray<SkslMergedBindingLayout> bindings,
         SkslBackendBudget budget,
         int uniformVectorCount,
@@ -18,46 +19,35 @@ internal sealed class SkslMergedProgram
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(budget);
-        if (stages.IsDefault)
-            throw new ArgumentException("The stage layout array must be initialized.", nameof(stages));
+        ArgumentOutOfRangeException.ThrowIfNegative(firstStageIndex);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stageCount);
         if (bindings.IsDefault)
             throw new ArgumentException("The binding layout array must be initialized.", nameof(bindings));
         if (overflowReasons.IsDefault)
             throw new ArgumentException("The overflow-reason array must be initialized.", nameof(overflowReasons));
 
-        Source = source;
-        Stages = stages;
-        Bindings = bindings;
-        Budget = budget;
+        FirstStageIndex = firstStageIndex;
+        StageCount = stageCount;
         UniformVectorCount = uniformVectorCount;
         SamplerCount = samplerCount;
         ChildCount = childCount;
         SourceByteCount = sourceByteCount;
         ProgramTokenCount = programTokenCount;
         OverflowReasons = overflowReasons;
-        Identity = ShaderProgramIdentity.CreateSksl(Source, Bindings, Budget);
-        IsPremultipliedCoverageHomogeneous = true;
-        foreach (ref readonly SkslMergedStageLayout stage in Stages.AsSpan())
-        {
-            if (stage.CoverageBehavior != SkslCoverageBehavior.PremultipliedCoverageHomogeneous)
-            {
-                IsPremultipliedCoverageHomogeneous = false;
-                break;
-            }
-        }
+        Identity = ShaderProgramIdentity.CreateSksl(source, bindings, budget);
     }
 
-    public string Source { get; }
+    public string Source => Identity.Source;
 
-    public ImmutableArray<SkslMergedStageLayout> Stages { get; }
+    public int FirstStageIndex { get; }
 
-    public ImmutableArray<SkslMergedBindingLayout> Bindings { get; }
+    public int StageCount { get; }
 
-    public SkslBackendBudget Budget { get; }
+    public ImmutableArray<SkslMergedBindingLayout> Bindings => Identity.Bindings;
+
+    public SkslBackendBudget Budget => Identity.Budget;
 
     public ShaderProgramIdentity Identity { get; }
-
-    public int StageCount => Stages.Length;
 
     public int UniformVectorCount { get; }
 
@@ -73,7 +63,4 @@ internal sealed class SkslMergedProgram
 
     public bool RequiresStandaloneExecution => !OverflowReasons.IsEmpty;
 
-    public bool IsPremultipliedCoverageHomogeneous { get; }
-
-    public bool RequiresResolvedCoverage => !IsPremultipliedCoverageHomogeneous;
 }

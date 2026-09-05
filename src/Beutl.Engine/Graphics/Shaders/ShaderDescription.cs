@@ -13,7 +13,6 @@ namespace Beutl.Graphics.Shaders;
 public sealed class ShaderDescription
 {
     private ShaderDescription(
-        ShaderDescriptionKind kind,
         SkslSource parsed,
         SpirvShaderLowering? spirvLowering,
         RenderBoundsContract bounds,
@@ -23,19 +22,32 @@ public sealed class ShaderDescription
         RenderHitTestContract? hitTest,
         IReadOnlyList<RenderResourceBinding> hitTestResources)
     {
-        var builder = new ShaderBindingBuilder();
-        bindings?.Invoke(builder);
-        builder.Close();
-        ValidateBindings(parsed, builder.Names, builder.Uniforms, builder.Resources, kind);
+        IReadOnlyList<ShaderUniformBinding> uniforms;
+        IReadOnlyList<ShaderResourceBinding> resources;
+        ShaderBindingBuilder? builder = null;
+        if (bindings is null)
+        {
+            uniforms = Array.Empty<ShaderUniformBinding>();
+            resources = Array.Empty<ShaderResourceBinding>();
+        }
+        else
+        {
+            builder = new ShaderBindingBuilder();
+            bindings(builder);
+            builder.Close();
+            uniforms = builder.Uniforms;
+            resources = builder.Resources;
+        }
+        ShaderDescriptionKind kind = parsed.Kind;
+        ValidateBindings(parsed, builder, uniforms, resources, kind);
 
-        Kind = kind;
         Source = parsed;
         Bounds = bounds;
         InputDemand = inputDemand;
         HitTest = hitTest;
         HitTestResources = hitTestResources;
-        Uniforms = builder.Uniforms;
-        Resources = builder.Resources;
+        Uniforms = uniforms;
+        Resources = resources;
         // Every resource binding is produced by an execution binder; a uniform may or may not be. Indexed
         // rather than queried: a description is built once per recording, so an enumerator here is garbage
         // once a frame.
@@ -46,7 +58,9 @@ public sealed class ShaderDescription
         SourceTileMode = sourceTileMode;
         spirvLowering?.ValidateForDescription(kind, parsed, Uniforms, Resources);
         SpirvLowering = spirvLowering;
-        var uniformIdentities = new ShaderBindingStructuralIdentity[Uniforms.Count];
+        ShaderBindingStructuralIdentity[] uniformIdentities = Uniforms.Count == 0
+            ? Array.Empty<ShaderBindingStructuralIdentity>()
+            : new ShaderBindingStructuralIdentity[Uniforms.Count];
         for (int index = 0; index < uniformIdentities.Length; index++)
         {
             ShaderUniformBinding uniform = Uniforms[index];
@@ -55,14 +69,17 @@ public sealed class ShaderDescription
                 uniform.DefinitionFingerprint);
         }
 
-        var resourceIdentities = new ShaderResourceStructuralIdentity[Resources.Count];
+        ShaderResourceStructuralIdentity[] resourceIdentities = Resources.Count == 0
+            ? Array.Empty<ShaderResourceStructuralIdentity>()
+            : new ShaderResourceStructuralIdentity[Resources.Count];
         for (int index = 0; index < resourceIdentities.Length; index++)
         {
             ShaderResourceBinding resource = Resources[index];
             resourceIdentities[index] = new ShaderResourceStructuralIdentity(
                 resource.Name,
                 resource.CoordinateSpace,
-                resource.DefinitionFingerprint);
+                resource.Resource.ValueType,
+                resource.BinderIdentity);
         }
 
         StructuralIdentity = new ShaderDescriptionStructuralIdentity(
@@ -78,7 +95,7 @@ public sealed class ShaderDescription
     }
 
     /// <summary>Gets whether the stage transforms only the current pixel or samples the complete upstream source.</summary>
-    public ShaderDescriptionKind Kind { get; }
+    public ShaderDescriptionKind Kind => Source.Kind;
 
     /// <summary>Gets the non-null normalized SkSL compatibility source.</summary>
     /// <remarks>Backend program validation may still reject the source during execution.</remarks>
@@ -201,7 +218,6 @@ public sealed class ShaderDescription
         hitTest?.ThrowIfUninitialized(nameof(hitTest));
 
         return new ShaderDescription(
-            ShaderDescriptionKind.CurrentPixel,
             source,
             spirvLowering: null,
             RenderBoundsContract.Identity,
@@ -229,7 +245,6 @@ public sealed class ShaderDescription
         hitTest?.ThrowIfUninitialized(nameof(hitTest));
 
         return new ShaderDescription(
-            ShaderDescriptionKind.CurrentPixel,
             source,
             spirvLowering,
             RenderBoundsContract.Identity,
@@ -281,7 +296,6 @@ public sealed class ShaderDescription
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
 
         return new ShaderDescription(
-            ShaderDescriptionKind.WholeSource,
             new SkslSource(source, ShaderDescriptionKind.WholeSource),
             spirvLowering: null,
             bounds,
@@ -313,7 +327,6 @@ public sealed class ShaderDescription
             throw new ArgumentOutOfRangeException(nameof(sourceTileMode), sourceTileMode, "The source tile mode is invalid.");
 
         return new ShaderDescription(
-            ShaderDescriptionKind.WholeSource,
             source,
             spirvLowering: null,
             bounds,
@@ -326,19 +339,16 @@ public sealed class ShaderDescription
                 nameof(hitTestResources)));
     }
 
-    /// <param name="supplied">
-    /// The builder's own name set, which already holds exactly the names the two lists carry. Rebuilding it here
-    /// would allocate a second set per recording for the same membership.
-    /// </param>
     private static void ValidateBindings(
         SkslSource source,
-        HashSet<string> supplied,
-        List<ShaderUniformBinding> uniforms,
-        List<ShaderResourceBinding> resources,
+        ShaderBindingBuilder? builder,
+        IReadOnlyList<ShaderUniformBinding> uniforms,
+        IReadOnlyList<ShaderResourceBinding> resources,
         ShaderDescriptionKind kind)
     {
-        foreach (ShaderUniformBinding uniform in uniforms)
+        for (int index = 0; index < uniforms.Count; index++)
         {
+            ShaderUniformBinding uniform = uniforms[index];
             if (!source.Uniforms.TryGetValue(uniform.Name, out SkslUniformDeclaration declaration))
                 throw new ArgumentException($"The shader does not declare uniform '{uniform.Name}'.", nameof(uniforms));
             if (declaration.IsShader)
@@ -346,8 +356,9 @@ public sealed class ShaderDescription
             uniform.ValidateDeclaration(declaration);
         }
 
-        foreach (ShaderResourceBinding resource in resources)
+        for (int index = 0; index < resources.Count; index++)
         {
+            ShaderResourceBinding resource = resources[index];
             if (kind == ShaderDescriptionKind.WholeSource && resource.Name == "src")
             {
                 throw new ArgumentException(
@@ -377,7 +388,7 @@ public sealed class ShaderDescription
                 continue;
             }
 
-            if (!supplied.Contains(name))
+            if (builder?.ContainsName(name) != true)
                 throw new ArgumentException($"Shader binding '{name}' was declared but not supplied.", nameof(uniforms));
         }
 
@@ -390,6 +401,7 @@ public sealed class ShaderDescription
                 nameof(source));
         }
     }
+
 }
 
 internal sealed class ShaderDescriptionStructuralIdentity(
@@ -451,4 +463,5 @@ internal readonly record struct ShaderBindingStructuralIdentity(string Name, obj
 internal readonly record struct ShaderResourceStructuralIdentity(
     string Name,
     ShaderResourceCoordinateSpace CoordinateSpace,
-    object DefinitionFingerprint);
+    Type ResourceType,
+    object BinderIdentity);

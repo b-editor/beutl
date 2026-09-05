@@ -317,7 +317,7 @@ internal static class FilterEffectStageFallbackExecutor
                     outputBounds,
                     outputBounds,
                     output.DeviceBounds,
-                    output.RasterBounds,
+                    output.RasterBounds.Position,
                     input.Scale,
                     outputScale,
                     output.Scale.Value,
@@ -350,8 +350,9 @@ internal static class FilterEffectStageFallbackExecutor
         List<SKShader> children,
         ShaderExecutionContext? context)
     {
-        foreach (ShaderUniformBinding binding in description.Uniforms)
+        for (int index = 0; index < description.Uniforms.Count; index++)
         {
+            ShaderUniformBinding binding = description.Uniforms[index];
             if (!description.Source.Uniforms.TryGetValue(
                     binding.Name,
                     out SkslUniformDeclaration declaration))
@@ -385,8 +386,9 @@ internal static class FilterEffectStageFallbackExecutor
 
         ShaderExecutionContext resourceContext = context
             ?? throw new InvalidOperationException("A shader resource binding requires an execution context.");
-        foreach (ShaderResourceBinding binding in description.Resources)
+        for (int index = 0; index < description.Resources.Count; index++)
         {
+            ShaderResourceBinding binding = description.Resources[index];
             SKShader child = binding.Bind(resourceContext);
             children.Add(child);
             runtimeChildren[binding.Name] = child;

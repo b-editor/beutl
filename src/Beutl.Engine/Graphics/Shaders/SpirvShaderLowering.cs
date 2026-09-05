@@ -1,5 +1,4 @@
 ﻿using System.Buffers.Binary;
-using System.Collections.ObjectModel;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -18,7 +17,7 @@ namespace Beutl.Graphics.Shaders;
 /// </remarks>
 internal sealed class SpirvShaderLowering
 {
-    private readonly IReadOnlyList<SpirvPushConstantBinding> _pushConstants;
+    private readonly SpirvPushConstantBinding[] _pushConstants;
 
     public SpirvShaderLowering(
         string fragmentShaderSource,
@@ -27,7 +26,7 @@ internal sealed class SpirvShaderLowering
         ArgumentException.ThrowIfNullOrWhiteSpace(fragmentShaderSource);
         ArgumentNullException.ThrowIfNull(pushConstants);
 
-        FragmentShaderSource = fragmentShaderSource.Replace("\r\n", "\n", StringComparison.Ordinal)
+        string normalizedSource = fragmentShaderSource.Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n');
         SpirvPushConstantBinding[] copy = pushConstants.ToArray();
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -45,16 +44,14 @@ internal sealed class SpirvShaderLowering
             }
         }
 
-        _pushConstants = new ReadOnlyCollection<SpirvPushConstantBinding>(copy);
+        _pushConstants = copy;
         StructuralIdentity = new SpirvShaderLoweringStructuralIdentity(
-            FragmentShaderSource,
+            normalizedSource,
             copy);
-        ProgramIdentity = ShaderProgramIdentity.CreateSpirv(FragmentShaderSource);
+        ProgramIdentity = ShaderProgramIdentity.CreateSpirv(normalizedSource);
     }
 
-    public string FragmentShaderSource { get; }
-
-    public IReadOnlyList<SpirvPushConstantBinding> PushConstants => _pushConstants;
+    public string FragmentShaderSource => ProgramIdentity.Source;
 
     internal object StructuralIdentity { get; }
 
@@ -78,7 +75,7 @@ internal sealed class SpirvShaderLowering
                 "The SPIR-V CurrentPixel lowering currently supports only its implicit source texture.",
                 nameof(resources));
         }
-        if (_pushConstants.Count != uniforms.Count)
+        if (_pushConstants.Length != uniforms.Count)
         {
             throw new ArgumentException(
                 "Every CurrentPixel uniform must have exactly one SPIR-V push-constant mapping.",
@@ -88,11 +85,22 @@ internal sealed class SpirvShaderLowering
         var occupiedRanges = new List<(int Start, int End, string Name)>();
         foreach (SpirvPushConstantBinding mapping in _pushConstants)
         {
-            ShaderUniformBinding binding = uniforms.SingleOrDefault(
-                item => string.Equals(item.Name, mapping.Name, StringComparison.Ordinal))
-                ?? throw new ArgumentException(
+            int bindingIndex = -1;
+            for (int index = 0; index < uniforms.Count; index++)
+            {
+                if (string.Equals(uniforms[index].Name, mapping.Name, StringComparison.Ordinal))
+                {
+                    bindingIndex = index;
+                    break;
+                }
+            }
+            if (bindingIndex < 0)
+            {
+                throw new ArgumentException(
                     $"SPIR-V push constant '{mapping.Name}' has no matching shader uniform binding.",
                     nameof(uniforms));
+            }
+            ShaderUniformBinding binding = uniforms[bindingIndex];
             SkslUniformDeclaration declaration = skslSource.Uniforms[binding.Name];
             (int alignment, int byteSize) = GetLayout(mapping.Name, declaration);
             if (mapping.Offset % alignment != 0)

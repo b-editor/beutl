@@ -2,7 +2,7 @@
 
 /// <summary>Describes one immutable uniform binding declared for a shader.</summary>
 /// <remarks>Instances are created through <see cref="ShaderBindingBuilder"/>.</remarks>
-internal sealed class ShaderUniformBinding
+internal readonly struct ShaderUniformBinding
 {
     private readonly ShaderUniformValue _directValue;
     private readonly Action<ShaderUniformWriter, ShaderExecutionContext>? _bind;
@@ -15,6 +15,7 @@ internal sealed class ShaderUniformBinding
         Name = name;
         DefinitionFingerprint = definitionFingerprint;
         _directValue = directValue;
+        _bind = null;
     }
 
     internal ShaderUniformBinding(
@@ -24,6 +25,7 @@ internal sealed class ShaderUniformBinding
     {
         Name = name;
         DefinitionFingerprint = definitionFingerprint;
+        _directValue = default;
         _bind = bind;
     }
 

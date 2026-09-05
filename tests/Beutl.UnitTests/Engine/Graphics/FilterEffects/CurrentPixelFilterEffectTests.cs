@@ -174,7 +174,7 @@ public sealed class CurrentPixelFilterEffectTests
         ];
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
-            descriptions.Select(static description => new SkslSnippetStage(description)).ToArray(),
+            descriptions,
             SkslBackendBudgetResolver.Portable);
 
         Assert.Multiple(() =>
@@ -573,6 +573,7 @@ public sealed class CurrentPixelFilterEffectTests
             s_bounds,
             s_bounds,
             PixelRect.FromRect(s_bounds, 1),
+            s_bounds.Position,
             EffectiveScale.At(1),
             outputScale: 1,
             workingScale: 1,

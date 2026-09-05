@@ -28,8 +28,8 @@ public sealed class ProgramCacheTests
         using var cache = CreateCache(maxRetainedBytes: 64);
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
-        SkslMergedProgram first = SkslSnippetMerger.Merge([new SkslSnippetStage(description)]);
-        SkslMergedProgram equivalent = SkslSnippetMerger.Merge([new SkslSnippetStage(description)]);
+        SkslMergedProgram first = SkslSnippetMerger.Merge([description]);
+        SkslMergedProgram equivalent = SkslSnippetMerger.Merge([description]);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         SkslMergedProgram? factoryArgument = null;
         int factoryCalls = 0;
@@ -249,11 +249,7 @@ public sealed class ProgramCacheTests
                 0,
                 0,
                 SkslBindingKind.Uniform,
-                "gain",
-                "__beutl_s0_gain",
-                "float",
-                null,
-                null)]);
+                "__beutl_s0_gain")]);
         ProgramCacheContextKey context = Context("device-a", "context-a");
         int nextId = 0;
 

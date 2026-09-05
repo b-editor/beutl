@@ -31,8 +31,7 @@ internal static class RasterShaderMapping
             workingScale);
         return new ShaderEvaluationFrame(
             deviceBounds,
-            deviceBounds.ToRect(workingScale).Translate(-deviceGridOffset),
-            destinationDeviceBounds.Position - deviceBounds.Position);
+            deviceBounds.ToRect(workingScale).Translate(-deviceGridOffset));
     }
 
     public static SKShader CreateSemanticImageShader(

@@ -15,9 +15,8 @@ namespace Beutl.Graphics.Shaders;
 /// </remarks>
 public sealed class ShaderBindingBuilder
 {
-    private readonly List<ShaderUniformBinding> _uniforms = [];
-    private readonly List<ShaderResourceBinding> _resources = [];
-    private readonly HashSet<string> _names = new(StringComparer.Ordinal);
+    private List<ShaderUniformBinding>? _uniforms;
+    private List<ShaderResourceBinding>? _resources;
     private bool _closed;
 
     internal ShaderBindingBuilder()
@@ -146,15 +145,8 @@ public sealed class ShaderBindingBuilder
             name,
             resource,
             coordinateSpace,
-            new ResourceBindingStructuralKey(
-                typeof(T),
-                RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
-            (writer, value, context) => bind(writer, (T)value, context),
-            use => resource.Registry.Use(resource, value =>
-            {
-                use(value);
-                return true;
-            })));
+            RenderDescriptionValidation.StructuralIdentityOfExecution(bind),
+            (writer, value, context) => bind(writer, (T)value, context)));
     }
 
     /// <summary>Declares a child-shader resource whose binder also receives an author value.</summary>
@@ -200,15 +192,8 @@ public sealed class ShaderBindingBuilder
             name,
             resource,
             coordinateSpace,
-            new ResourceBindingStructuralKey(
-                typeof(T),
-                RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
-            (writer, raw, context) => bind(writer, (T)raw, value, context),
-            use => resource.Registry.Use(resource, raw =>
-            {
-                use(raw);
-                return true;
-            })));
+            RenderDescriptionValidation.StructuralIdentityOfExecution(bind),
+            (writer, raw, context) => bind(writer, (T)raw, value, context)));
     }
 
     private static void ThrowIfCoordinateSpaceUndefined(ShaderResourceCoordinateSpace coordinateSpace)
@@ -221,35 +206,24 @@ public sealed class ShaderBindingBuilder
     /// The list itself, handed to the description that closed this builder. Nothing can append to it afterwards,
     /// so the description keeps it rather than copying it.
     /// </remarks>
-    internal List<ShaderUniformBinding> Uniforms => _uniforms;
+    internal IReadOnlyList<ShaderUniformBinding> Uniforms
+        => _uniforms is { } uniforms ? uniforms : Array.Empty<ShaderUniformBinding>();
 
     /// <inheritdoc cref="Uniforms"/>
-    internal List<ShaderResourceBinding> Resources => _resources;
-
-    /// <summary>Gets the names of the bindings the two lists carry.</summary>
-    /// <remarks>
-    /// A name enters this set only in <see cref="CompleteBinding(ShaderUniformBinding)"/> or
-    /// <see cref="CompleteBinding(ShaderResourceBinding)"/>, alongside the binding that carries it, so the set is
-    /// exactly the union of the two lists' names and the description does not have to rebuild it. Committing the
-    /// name in <see cref="BeginBinding"/> instead would leave it behind when a declaration throws after its name
-    /// is accepted and the callback swallows that exception, and the description would then take a uniform the
-    /// shader declares but nothing writes.
-    /// </remarks>
-    internal HashSet<string> Names => _names;
+    internal IReadOnlyList<ShaderResourceBinding> Resources
+        => _resources is { } resources ? resources : Array.Empty<ShaderResourceBinding>();
 
     /// <summary>Closes the builder so that the description taking its lists can rely on them never growing.</summary>
     internal void Close() => _closed = true;
 
     private void CompleteBinding(ShaderUniformBinding binding)
     {
-        _names.Add(binding.Name);
-        _uniforms.Add(binding);
+        (_uniforms ??= []).Add(binding);
     }
 
     private void CompleteBinding(ShaderResourceBinding binding)
     {
-        _names.Add(binding.Name);
-        _resources.Add(binding);
+        (_resources ??= []).Add(binding);
     }
 
     private void BeginBinding(string name)
@@ -265,8 +239,31 @@ public sealed class ShaderBindingBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (!IsIdentifier(name))
             throw new ArgumentException("A shader binding name must be a valid identifier.", nameof(name));
-        if (_names.Contains(name))
+        if (ContainsName(name))
             throw new ArgumentException($"Duplicate shader binding name '{name}'.", nameof(name));
+    }
+
+    internal bool ContainsName(string name)
+    {
+        if (_uniforms is { } uniforms)
+        {
+            for (int index = 0; index < uniforms.Count; index++)
+            {
+                if (string.Equals(uniforms[index].Name, name, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        if (_resources is { } resources)
+        {
+            for (int index = 0; index < resources.Count; index++)
+            {
+                if (string.Equals(resources[index].Name, name, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsIdentifier(string name)
@@ -284,5 +281,3 @@ public sealed class ShaderBindingBuilder
 }
 
 internal sealed record CustomUniformStructuralKey(Type Type, object Binder);
-
-internal sealed record ResourceBindingStructuralKey(Type Type, object Binder);

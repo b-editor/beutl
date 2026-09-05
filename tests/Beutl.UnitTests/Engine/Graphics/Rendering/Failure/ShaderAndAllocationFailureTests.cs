@@ -36,12 +36,11 @@ public sealed class ShaderAndAllocationFailureTests
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
-        var stage = new SkslSnippetStage(description);
-        SkslMergedProgram before = SkslSnippetMerger.Merge([stage]);
+        SkslMergedProgram before = SkslSnippetMerger.Merge([description]);
 
         ArgumentException? failure = Assert.Throws<ArgumentException>(
             () => SkslSnippetMerger.Merge([]));
-        SkslMergedProgram after = SkslSnippetMerger.Merge([stage]);
+        SkslMergedProgram after = SkslSnippetMerger.Merge([description]);
 
         Assert.Multiple(() =>
         {

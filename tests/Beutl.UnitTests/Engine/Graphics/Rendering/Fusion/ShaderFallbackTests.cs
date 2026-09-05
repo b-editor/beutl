@@ -120,7 +120,7 @@ public sealed class ShaderFallbackTests
                 currentPixelSource,
                 static bindings => bindings.Uniform("gain", 1f));
             SkslMergedProgram fallback = SkslSnippetMerger.MergeAndSplit(
-                [new SkslSnippetStage(description)],
+                [description],
                 SkslBackendBudgetResolver.Portable)[0];
             Assert.That(
                 fallback.OverflowReasons,

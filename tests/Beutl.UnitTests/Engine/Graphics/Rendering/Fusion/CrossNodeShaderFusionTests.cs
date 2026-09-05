@@ -33,12 +33,6 @@ public sealed class CrossNodeShaderFusionTests
                 RenderFragmentKind.Opacity,
                 RenderFragmentKind.Shader,
             }));
-            Assert.That(run.Program.Stages.Select(static stage => stage.CoverageBehavior), Is.EqualTo(new[]
-            {
-                SkslCoverageBehavior.RequiresResolvedCoverage,
-                SkslCoverageBehavior.PremultipliedCoverageHomogeneous,
-                SkslCoverageBehavior.RequiresResolvedCoverage,
-            }));
             Assert.That(run.Program.StageCount, Is.EqualTo(3));
             Assert.That(run.IsFused, Is.True);
             Assert.That(run.GetOutput(compiled.Graph).CanBeUsedAsValueInput, Is.True,

@@ -18,7 +18,6 @@ public sealed class ShaderExecutionContext
     private readonly PixelRect _deviceBounds;
     private readonly PixelSize _semanticOutputSize;
     private readonly Point _logicalOrigin;
-    private readonly Vector _deviceGridOffset;
     private readonly EffectiveScale _inputEffectiveScale;
     private readonly float _outputScale;
     private readonly float _workingScale;
@@ -32,35 +31,7 @@ public sealed class ShaderExecutionContext
         Rect outputBounds,
         Rect requiredRegion,
         PixelRect deviceBounds,
-        EffectiveScale inputEffectiveScale,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        RenderIntent intent,
-        RenderRequestPurpose purpose)
-        : this(
-            token,
-            inputBounds,
-            outputBounds,
-            requiredRegion,
-            deviceBounds,
-            deviceBounds.ToRect(workingScale),
-            inputEffectiveScale,
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            intent,
-            purpose)
-    {
-    }
-
-    internal ShaderExecutionContext(
-        RenderExecutionSessionToken token,
-        Rect inputBounds,
-        Rect outputBounds,
-        Rect requiredRegion,
-        PixelRect deviceBounds,
-        Rect rasterBounds,
+        Point logicalOrigin,
         EffectiveScale inputEffectiveScale,
         float outputScale,
         float workingScale,
@@ -74,12 +45,12 @@ public sealed class ShaderExecutionContext
         _outputBounds = outputBounds;
         _requiredRegion = requiredRegion;
         _deviceBounds = deviceBounds;
-        _logicalOrigin = rasterBounds.Position;
-        _deviceGridOffset = new Vector(
-            (deviceBounds.X / workingScale) - rasterBounds.X,
-            (deviceBounds.Y / workingScale) - rasterBounds.Y);
+        _logicalOrigin = logicalOrigin;
+        var deviceGridOffset = new Vector(
+            (deviceBounds.X / workingScale) - logicalOrigin.X,
+            (deviceBounds.Y / workingScale) - logicalOrigin.Y);
         _semanticOutputSize = PixelRect.FromRect(
-                outputBounds.Translate(_deviceGridOffset),
+                outputBounds.Translate(deviceGridOffset),
                 workingScale)
             .Size;
         if (_semanticOutputSize.Width <= 0 || _semanticOutputSize.Height <= 0)
@@ -162,7 +133,13 @@ public sealed class ShaderExecutionContext
     /// </summary>
     public Vector DeviceGridOffset
     {
-        get { _token.ThrowIfInactive(); return _deviceGridOffset; }
+        get
+        {
+            _token.ThrowIfInactive();
+            return new Vector(
+                (_deviceBounds.X / _workingScale) - _logicalOrigin.X,
+                (_deviceBounds.Y / _workingScale) - _logicalOrigin.Y);
+        }
     }
 
     /// <summary>Gets the logical point represented by local output-device coordinate <c>(0, 0)</c>.</summary>

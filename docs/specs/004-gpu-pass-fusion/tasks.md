@@ -159,7 +159,7 @@ description: "Dependency-ordered implementation tasks for renderer-wide GPU pass
 
   *Amended (`991f49e70`).* The WholeSource entry became a one-directional barrier — read it as WholeSource-as-successor. `WholeSourceStagesStartRunsAndNeverBecomeSuccessors` asserts that a WholeSource stage *starts* a fused run and only refuses to become a successor, and `FusionDisabled_KeepsWholeSourceInACompatibilityIsland` shows the old whole-pass shape surviving under `FusionMode.Disabled`. Same change as the T076 note.
 
-- [X] T071 [P] [US1] Add token-aware merge tests for identifier isolation, functions/constants/arrays, binding layout, stage/uniform/sampler/child/source limits, deterministic splits, hash collisions, stage order, and coverage-homogeneity metadata; mark hardware execution cases `[Category("GpuPassFusionGpu")]` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/SkslSnippetMergerTests.cs`
+- [X] T071 [P] [US1] Add token-aware merge tests for identifier isolation, functions/constants/arrays, binding layout, stage/uniform/sampler/child/source limits, deterministic splits, hash collisions, and stage order; mark hardware execution cases `[Category("GpuPassFusionGpu")]` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Fusion/SkslSnippetMergerTests.cs`
 
 ### Implementation for User Story 1
 

@@ -177,6 +177,7 @@ public sealed class WholeSourceFilterEffectTests
                 outputBounds,
                 requestedRegion,
                 requestedDeviceBounds,
+                requestedDeviceBounds.ToRect(1).Position,
                 EffectiveScale.At(1),
                 outputScale: 1,
                 workingScale: 1,

@@ -67,10 +67,9 @@ internal sealed class ExecutionIslandPlanner
             if (cacheResolution.HasHitProducer(GetId(reference)))
                 continue;
 
-            if (TryCreateStage(reference, out StageCandidate? stage, out ExecutionIslandBoundaryReason reason))
+            if (TryCreateStage(reference, out StageCandidate stage, out ExecutionIslandBoundaryReason reason))
             {
-                StageCandidate accepted = stage!;
-                if (fusionMode == FusionMode.Disabled && accepted.IsWholeSourceHeadOnly)
+                if (fusionMode == FusionMode.Disabled && stage.IsWholeSourceHeadOnly)
                 {
                     rejectedStageClassifications.Add(
                         reference,
@@ -80,7 +79,7 @@ internal sealed class ExecutionIslandPlanner
                 }
                 else
                 {
-                    stageCandidates.Add(reference, accepted);
+                    stageCandidates.Add(reference, stage);
                 }
             }
             else if (reference.Kind is RenderFragmentKind.Shader or RenderFragmentKind.Opacity)
@@ -131,17 +130,17 @@ internal sealed class ExecutionIslandPlanner
             ProgramGroup? previous = null;
             foreach (ProgramGroup group in groups)
             {
-                if (previous is not null)
+                if (previous is { } previousGroup)
                 {
                     ExecutionIslandBoundaryReason splitReason = fusionMode == FusionMode.Disabled
                         ? ExecutionIslandBoundaryReason.FusionDisabled
                         : ExecutionIslandBoundaryReason.BackendLimit;
                     boundaries.Add(new ExecutionIslandBoundary(
-                        GetFragmentIndex(previous.Stages[^1].Fragment),
+                        GetFragmentIndex(previousGroup.Stages[^1].Fragment),
                         GetFragmentIndex(group.Stages[0].Fragment),
                         splitReason,
                         splitReason == ExecutionIslandBoundaryReason.BackendLimit
-                            ? GetSplitLimits(previous.Stages, group.Stages, budget)
+                            ? GetSplitLimits(previousGroup.Stages, group.Stages, budget)
                             : []));
                 }
                 else
@@ -166,7 +165,7 @@ internal sealed class ExecutionIslandPlanner
 
                 ImmutableArray<int> stageFragmentIndices =
                 [.. group.Stages.Select(static item => GetFragmentIndex(item.Fragment))];
-                if (group.Stages[0].Snippet.Description.Kind == ShaderDescriptionKind.WholeSource)
+                if (group.Stages[0].Description.Kind == ShaderDescriptionKind.WholeSource)
                 {
                     RenderFragmentReference head = group.Stages[0].Fragment;
                     RenderFragmentReference output = group.Stages[^1].Fragment;
@@ -337,7 +336,7 @@ internal sealed class ExecutionIslandPlanner
             ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference current in references)
         {
-            if (!stages.TryGetValue(current, out StageCandidate? currentStage)
+            if (!stages.TryGetValue(current, out StageCandidate currentStage)
                 || currentStage.IsWholeSourceHeadOnly
                 || current.Inputs.Length != 1)
                 continue;
@@ -399,21 +398,21 @@ internal sealed class ExecutionIslandPlanner
             var disabled = new List<ProgramGroup>(chain.Count);
             foreach (StageCandidate stage in chain)
             {
-                SkslMergedProgram program = SkslSnippetMerger.MergeAndSplit([stage.Snippet], budget).Single();
+                SkslMergedProgram program = SkslSnippetMerger.MergeAndSplit([stage.Description], budget).Single();
                 disabled.Add(new ProgramGroup([stage], program));
             }
             return disabled;
         }
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
-            chain.SelectToArray(static item => item.Snippet),
+            chain.SelectToArray(static item => item.Description),
             budget);
         var result = new List<ProgramGroup>(programs.Count);
         foreach (SkslMergedProgram program in programs)
         {
-            var stages = new StageCandidate[program.Stages.Length];
+            var stages = new StageCandidate[program.StageCount];
             for (int index = 0; index < stages.Length; index++)
-                stages[index] = chain[program.Stages[index].StageIndex];
+                stages[index] = chain[program.FirstStageIndex + index];
             result.Add(new ProgramGroup(stages, program));
         }
         return result;
@@ -496,10 +495,10 @@ internal sealed class ExecutionIslandPlanner
 
     private static bool TryCreateStage(
         RenderFragmentReference fragment,
-        out StageCandidate? stage,
+        out StageCandidate stage,
         out ExecutionIslandBoundaryReason rejectionReason)
     {
-        stage = null;
+        stage = default;
         rejectionReason = ExecutionIslandBoundaryReason.UnsafeComposite;
         if (fragment.Kind is not (RenderFragmentKind.Shader or RenderFragmentKind.Opacity))
             return false;
@@ -528,7 +527,6 @@ internal sealed class ExecutionIslandPlanner
         }
 
         ShaderDescription description;
-        SkslCoverageBehavior coverageBehavior;
         if (fragment.Kind == RenderFragmentKind.Shader)
         {
             var payload = (ShaderRenderFragmentPayload?)fragment.Payload;
@@ -538,7 +536,6 @@ internal sealed class ExecutionIslandPlanner
                 return false;
             }
             description = payload.Description;
-            coverageBehavior = SkslCoverageBehavior.RequiresResolvedCoverage;
         }
         else
         {
@@ -552,13 +549,9 @@ internal sealed class ExecutionIslandPlanner
                 return false;
             }
             description = payload.FusionDescription;
-            coverageBehavior = SkslCoverageBehavior.PremultipliedCoverageHomogeneous;
         }
 
-        stage = new StageCandidate(
-            fragment,
-            new SkslSnippetStage(description, coverageBehavior),
-            description.Kind == ShaderDescriptionKind.WholeSource);
+        stage = new StageCandidate(fragment, description);
         return true;
     }
 
@@ -634,7 +627,7 @@ internal sealed class ExecutionIslandPlanner
         SkslBackendBudget budget)
     {
         SkslMergedProgram combined = SkslSnippetMerger.Merge(
-            previous.Concat(current.Take(1)).Select(static item => item.Snippet).ToArray());
+            previous.Concat(current.Take(1)).Select(static item => item.Description).ToArray());
         var result = ImmutableArray.CreateBuilder<SkslBackendLimit>();
         if (combined.StageCount > budget.MaxStages)
             result.Add(SkslBackendLimit.StageCount);
@@ -661,16 +654,18 @@ internal sealed class ExecutionIslandPlanner
     private static int GetFragmentIndex(RenderFragmentId id)
         => checked((int)id.Value - 1);
 
-    private sealed record StageCandidate(
+    private readonly record struct StageCandidate(
         RenderFragmentReference Fragment,
-        SkslSnippetStage Snippet,
-        bool IsWholeSourceHeadOnly);
+        ShaderDescription Description)
+    {
+        public bool IsWholeSourceHeadOnly => Description.Kind == ShaderDescriptionKind.WholeSource;
+    }
 
-    private sealed record ProgramGroup(
+    private readonly record struct ProgramGroup(
         IReadOnlyList<StageCandidate> Stages,
         SkslMergedProgram Program);
 
-    private sealed record IslandDraft(
+    private readonly record struct IslandDraft(
         long AuthoredOrder,
         ImmutableArray<int> FragmentIndices,
         SkslMergedProgram? Program);

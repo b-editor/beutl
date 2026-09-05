@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using System.Text;
 
 namespace Beutl.Graphics.Shaders;
@@ -43,7 +42,7 @@ internal static class SkslSnippetMerger
         SkslLexer.Tokenize(HeadMainHeader).Count
         + SkslLexer.Tokenize(MainFooter).Count;
 
-    public static SkslMergedProgram Merge(IReadOnlyList<SkslSnippetStage> stages)
+    public static SkslMergedProgram Merge(IReadOnlyList<ShaderDescription> stages)
     {
         PreparedStage[] prepared = ValidateAndPrepare(stages);
         return CreateProgram(
@@ -53,7 +52,7 @@ internal static class SkslSnippetMerger
     }
 
     public static IReadOnlyList<SkslMergedProgram> MergeAndSplit(
-        IReadOnlyList<SkslSnippetStage> stages,
+        IReadOnlyList<ShaderDescription> stages,
         SkslBackendBudget budget)
     {
         ArgumentNullException.ThrowIfNull(budget);
@@ -96,10 +95,10 @@ internal static class SkslSnippetMerger
         if (current.Count != 0)
             result.Add(CreateProgram(current, budget, currentMetrics));
 
-        return new ReadOnlyCollection<SkslMergedProgram>(result);
+        return result;
     }
 
-    private static PreparedStage[] ValidateAndPrepare(IReadOnlyList<SkslSnippetStage> stages)
+    private static PreparedStage[] ValidateAndPrepare(IReadOnlyList<ShaderDescription> stages)
     {
         ArgumentNullException.ThrowIfNull(stages);
         if (stages.Count == 0)
@@ -108,27 +107,27 @@ internal static class SkslSnippetMerger
         var result = new PreparedStage[stages.Count];
         for (int index = 0; index < stages.Count; index++)
         {
-            SkslSnippetStage stage = stages[index]
+            ShaderDescription description = stages[index]
                 ?? throw new ArgumentException("A shader stage cannot be null.", nameof(stages));
-            if (index != 0 && stage.Description.Kind == ShaderDescriptionKind.WholeSource)
+            if (index != 0 && description.Kind == ShaderDescriptionKind.WholeSource)
             {
                 throw new ArgumentException(
                     "A WholeSource shader can participate only as the first stage of a snippet run.",
                     nameof(stages));
             }
-            result[index] = Prepare(index, stage);
+            result[index] = Prepare(index, description);
         }
         return result;
     }
 
-    private static PreparedStage Prepare(int index, SkslSnippetStage stage)
+    private static PreparedStage Prepare(int index, ShaderDescription description)
     {
-        bool isWholeSourceHead = stage.Description.Kind == ShaderDescriptionKind.WholeSource;
+        bool isWholeSourceHead = description.Kind == ShaderDescriptionKind.WholeSource;
         string prefix = isWholeSourceHead ? HeadPrefix : GetPrefix(index);
         IReadOnlySet<string> renamedNames = isWholeSourceHead
             ? s_headEntryPoint
-            : stage.Description.Source.TopLevelSymbols;
-        RenameResult renamed = Rename(stage.Description.Source, prefix, renamedNames);
+            : description.Source.TopLevelSymbols;
+        RenameResult renamed = Rename(description.Source, prefix, renamedNames);
         bool appendNewline = renamed.Source.Length == 0 || renamed.Source[^1] != '\n';
         string invocation = isWholeSourceHead ? string.Empty : CreateInvocation(prefix);
         int sourceBytes = Encoding.UTF8.GetByteCount(renamed.Source);
@@ -144,14 +143,14 @@ internal static class SkslSnippetMerger
         }
         return new PreparedStage(
             index,
-            stage,
+            description,
             isWholeSourceHead,
             prefix,
             renamed.Source,
             appendNewline,
             invocation,
-            GetUniformVectorCount(stage.Description.Source),
-            stage.Description.Resources.Count,
+            GetUniformVectorCount(description.Source),
+            description.Resources.Count,
             sourceBytes,
             programTokens);
     }
@@ -168,25 +167,21 @@ internal static class SkslSnippetMerger
         int bindingCount = 0;
         for (int index = 0; index < stages.Count; index++)
         {
-            ShaderDescription description = stages[index].Stage.Description;
+            ShaderDescription description = stages[index].Description;
             bindingCount = checked(bindingCount + description.Uniforms.Count + description.Resources.Count);
         }
-        var stageLayouts = ImmutableArray.CreateBuilder<SkslMergedStageLayout>(stages.Count);
         var bindingLayouts = ImmutableArray.CreateBuilder<SkslMergedBindingLayout>(bindingCount);
 
-        foreach (PreparedStage prepared in stages)
+        for (int stageIndex = 0; stageIndex < stages.Count; stageIndex++)
         {
+            PreparedStage prepared = stages[stageIndex];
             source.Append(prepared.Source);
             if (prepared.AppendNewline)
                 source.Append('\n');
 
-            stageLayouts.Add(new SkslMergedStageLayout(
-                prepared.Index,
-                prepared.Prefix,
-                prepared.Stage.CoverageBehavior));
             AddBindings(
-                prepared.Index,
-                prepared.Stage,
+                stageIndex,
+                prepared.Description,
                 prepared.IsWholeSourceHead ? string.Empty : prepared.Prefix,
                 bindingLayouts);
         }
@@ -208,7 +203,8 @@ internal static class SkslSnippetMerger
 
         return new SkslMergedProgram(
             mergedSource,
-            stageLayouts.MoveToImmutable(),
+            stages[0].Index,
+            stages.Count,
             bindingLayouts.MoveToImmutable(),
             budget,
             metrics.UniformVectorCount,
@@ -277,39 +273,28 @@ internal static class SkslSnippetMerger
 
     private static void AddBindings(
         int stageIndex,
-        SkslSnippetStage stage,
+        ShaderDescription description,
         string prefix,
         ImmutableArray<SkslMergedBindingLayout>.Builder result)
     {
-        ShaderDescription description = stage.Description;
         for (int bindingIndex = 0; bindingIndex < description.Uniforms.Count; bindingIndex++)
         {
             ShaderUniformBinding binding = description.Uniforms[bindingIndex];
-            SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
             result.Add(new SkslMergedBindingLayout(
                 stageIndex,
                 bindingIndex,
                 SkslBindingKind.Uniform,
-                binding.Name,
-                prefix + binding.Name,
-                declaration.Type,
-                declaration.ArrayExtent,
-                null));
+                prefix + binding.Name));
         }
 
         for (int bindingIndex = 0; bindingIndex < description.Resources.Count; bindingIndex++)
         {
             ShaderResourceBinding binding = description.Resources[bindingIndex];
-            SkslUniformDeclaration declaration = description.Source.Uniforms[binding.Name];
             result.Add(new SkslMergedBindingLayout(
                 stageIndex,
                 bindingIndex,
                 SkslBindingKind.Resource,
-                binding.Name,
-                prefix + binding.Name,
-                declaration.Type,
-                declaration.ArrayExtent,
-                binding.CoordinateSpace));
+                prefix + binding.Name));
         }
     }
 
@@ -394,7 +379,7 @@ internal static class SkslSnippetMerger
 
     private sealed record PreparedStage(
         int Index,
-        SkslSnippetStage Stage,
+        ShaderDescription Description,
         bool IsWholeSourceHead,
         string Prefix,
         string Source,

@@ -28,23 +28,21 @@ public sealed class SkslSnippetMergerTests
             source,
             static bindings => bindings.Uniform("gain", 0.75f));
 
-        SkslMergedProgram program = SkslSnippetMerger.Merge(
-            [new(first), new(second)]);
-        string firstPrefix = program.Stages[0].Prefix;
-        string secondPrefix = program.Stages[1].Prefix;
+        SkslMergedProgram program = SkslSnippetMerger.Merge([first, second]);
+        const string FirstPrefix = "__beutl_s0_";
+        const string SecondPrefix = "__beutl_s1_";
 
         Assert.Multiple(() =>
         {
-            Assert.That(firstPrefix, Is.Not.EqualTo(secondPrefix));
-            Assert.That(program.Source, Does.Contain($"uniform float {firstPrefix}gain;")
-                .And.Contain($"uniform float {secondPrefix}gain;"));
-            Assert.That(program.Source, Does.Contain($"{firstPrefix}weights[2]")
-                .And.Contain($"{secondPrefix}weights[2]"));
-            Assert.That(program.Source, Does.Contain($"{firstPrefix}adjust")
-                .And.Contain($"{secondPrefix}adjust"));
+            Assert.That(program.Source, Does.Contain($"uniform float {FirstPrefix}gain;")
+                .And.Contain($"uniform float {SecondPrefix}gain;"));
+            Assert.That(program.Source, Does.Contain($"{FirstPrefix}weights[2]")
+                .And.Contain($"{SecondPrefix}weights[2]"));
+            Assert.That(program.Source, Does.Contain($"{FirstPrefix}adjust")
+                .And.Contain($"{SecondPrefix}adjust"));
             Assert.That(program.Source, Does.Contain("color.rrr")
-                .And.Not.Contain($"color.{firstPrefix}")
-                .And.Not.Contain($"color.{secondPrefix}"));
+                .And.Not.Contain($"color.{FirstPrefix}")
+                .And.Not.Contain($"color.{SecondPrefix}"));
             Assert.That(program.Source, Does.Contain("/* gain weights adjust */"),
                 "comments are copied verbatim rather than interpreted as identifiers");
         });
@@ -62,20 +60,19 @@ public sealed class SkslSnippetMergerTests
             source,
             static bindings => bindings.Uniform("gain", 0.5f));
 
-        SkslMergedProgram program = SkslSnippetMerger.Merge(
-            [new(description), new(description)]);
+        SkslMergedProgram program = SkslSnippetMerger.Merge([description, description]);
 
         Assert.Multiple(() =>
         {
             Assert.That(
                 description.Source.TopLevelSymbols,
                 Is.EquivalentTo(new[] { "gain", "bias", "helper", "apply" }));
-            foreach (SkslMergedStageLayout stage in program.Stages)
+            foreach (string prefix in new[] { "__beutl_s0_", "__beutl_s1_" })
             {
-                Assert.That(program.Source, Does.Contain($"uniform highp float {stage.Prefix}gain;"));
-                Assert.That(program.Source, Does.Contain($"const mediump float {stage.Prefix}bias"));
-                Assert.That(program.Source, Does.Contain($"highp float4 {stage.Prefix}helper("));
-                Assert.That(program.Source, Does.Contain($"half4 {stage.Prefix}apply("));
+                Assert.That(program.Source, Does.Contain($"uniform highp float {prefix}gain;"));
+                Assert.That(program.Source, Does.Contain($"const mediump float {prefix}bias"));
+                Assert.That(program.Source, Does.Contain($"highp float4 {prefix}helper("));
+                Assert.That(program.Source, Does.Contain($"half4 {prefix}apply("));
             }
         });
 
@@ -97,22 +94,21 @@ public sealed class SkslSnippetMergerTests
             "half4 blue(half4 value) { return half4(0, 0, value.b, value.a); } "
             + "half4 apply(half4 color) { return blue(color); }");
 
-        SkslMergedProgram program = SkslSnippetMerger.Merge([new(red), new(blue)]);
-        string firstPrefix = program.Stages[0].Prefix;
-        string secondPrefix = program.Stages[1].Prefix;
+        SkslMergedProgram program = SkslSnippetMerger.Merge([red, blue]);
 
         int firstCall = program.Source.IndexOf(
-            $"__beutl_pixel = {firstPrefix}apply(__beutl_pixel);",
+            "__beutl_pixel = __beutl_s0_apply(__beutl_pixel);",
             StringComparison.Ordinal);
         int secondCall = program.Source.IndexOf(
-            $"__beutl_pixel = {secondPrefix}apply(__beutl_pixel);",
+            "__beutl_pixel = __beutl_s1_apply(__beutl_pixel);",
             StringComparison.Ordinal);
 
         Assert.Multiple(() =>
         {
             Assert.That(firstCall, Is.GreaterThanOrEqualTo(0));
             Assert.That(secondCall, Is.GreaterThan(firstCall));
-            Assert.That(program.Stages.Select(static stage => stage.StageIndex), Is.EqualTo(new[] { 0, 1 }));
+            Assert.That(program.FirstStageIndex, Is.Zero);
+            Assert.That(program.StageCount, Is.EqualTo(2));
         });
     }
 
@@ -135,23 +131,19 @@ public sealed class SkslSnippetMergerTests
                     static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)));
             });
 
-        SkslMergedProgram first = SkslSnippetMerger.Merge([new(description)]);
-        SkslMergedProgram second = SkslSnippetMerger.Merge([new(description)]);
+        SkslMergedProgram first = SkslSnippetMerger.Merge([description]);
+        SkslMergedProgram second = SkslSnippetMerger.Merge([description]);
 
         Assert.Multiple(() =>
         {
             Assert.That(
                 first.Bindings.Select(static binding =>
-                    (binding.StageIndex, binding.Kind, binding.OriginalName, binding.MergedName,
-                        binding.Type, binding.ArrayExtent, binding.CoordinateSpace)),
+                    (binding.StageIndex, binding.BindingIndex, binding.Kind, binding.MergedName)),
                 Is.EqualTo(new[]
                 {
-                    (0, SkslBindingKind.Uniform, "gain", "__beutl_s0_gain", "float", (int?)null,
-                        (ShaderResourceCoordinateSpace?)null),
-                    (0, SkslBindingKind.Uniform, "offset", "__beutl_s0_offset", "float2", (int?)null,
-                        (ShaderResourceCoordinateSpace?)null),
-                    (0, SkslBindingKind.Resource, "lookup", "__beutl_s0_lookup", "shader", (int?)null,
-                        (ShaderResourceCoordinateSpace?)ShaderResourceCoordinateSpace.Value),
+                    (0, 0, SkslBindingKind.Uniform, "__beutl_s0_gain"),
+                    (0, 1, SkslBindingKind.Uniform, "__beutl_s0_offset"),
+                    (0, 0, SkslBindingKind.Resource, "__beutl_s0_lookup"),
                 }));
             Assert.That(second.Bindings, Is.EqualTo(first.Bindings));
             Assert.That(second.Identity, Is.EqualTo(first.Identity));
@@ -162,7 +154,7 @@ public sealed class SkslSnippetMergerTests
     public void MergeAndSplit_SplitsBeforeStageLimitDeterministically()
     {
         var stages = Enumerable.Range(0, 5)
-            .Select(_ => new SkslSnippetStage(ShaderDescription.CurrentPixel(Identity)))
+            .Select(static _ => ShaderDescription.CurrentPixel(Identity))
             .ToArray();
         SkslBackendBudget budget = Budget(maxStages: 2);
 
@@ -173,8 +165,8 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(first.Select(static program => program.StageCount), Is.EqualTo(new[] { 2, 2, 1 }));
             Assert.That(
-                first.Select(static program => program.Stages.Select(static stage => stage.StageIndex).ToArray()),
-                Is.EqualTo(new[] { new[] { 0, 1 }, new[] { 2, 3 }, new[] { 4 } }));
+                first.Select(static program => program.FirstStageIndex),
+                Is.EqualTo(new[] { 0, 2, 4 }));
             Assert.That(second.Select(static program => program.Source),
                 Is.EqualTo(first.Select(static program => program.Source)));
             Assert.That(first, Has.All.Matches<SkslMergedProgram>(static program => !program.RequiresStandaloneExecution));
@@ -192,7 +184,7 @@ public sealed class SkslSnippetMergerTests
             static bindings => bindings.Uniform("matrix", (ReadOnlySpan<float>)[1, 0, 0, 1]));
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
-            [new(first), new(second)],
+            [first, second],
             Budget(maxUniformVectors: 2));
 
         Assert.Multiple(() =>
@@ -217,7 +209,7 @@ public sealed class SkslSnippetMergerTests
             : Budget(maxChildren: 2);
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
-            [new(first), new(second)],
+            [first, second],
             budget);
 
         Assert.Multiple(() =>
@@ -234,11 +226,11 @@ public sealed class SkslSnippetMergerTests
     {
         using var registry = new RenderRequestResourceRegistry();
         SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
-        SkslSnippetStage[] stages = Enumerable.Range(0, budget.MaxSamplers)
+        ShaderDescription[] stages = Enumerable.Range(0, budget.MaxSamplers)
             .Select(index =>
             {
                 RenderResource<object> resource = registry.RegisterBorrowed(new object());
-                return new SkslSnippetStage(ResourceShader($"lookup{index}", resource));
+                return ResourceShader($"lookup{index}", resource);
             })
             .ToArray();
 
@@ -268,7 +260,7 @@ public sealed class SkslSnippetMergerTests
         ShaderDescription description = ResourceShader(budget.MaxSamplers, registry);
 
         SkslMergedProgram program = SkslSnippetMerger.MergeAndSplit(
-            [new SkslSnippetStage(description)],
+            [description],
             budget).Single();
 
         Assert.Multiple(() =>
@@ -278,7 +270,7 @@ public sealed class SkslSnippetMergerTests
             Assert.That(program.OverflowReasons, Does.Contain(SkslBackendLimit.Samplers));
             Assert.That(program.OverflowReasons.Contains(SkslBackendLimit.Children),
                 Is.EqualTo(program.ChildCount > budget.MaxChildren));
-            Assert.That(program.Stages.Length, Is.EqualTo(1),
+            Assert.That(program.StageCount, Is.EqualTo(1),
                 "an individually unsupported stage remains visible to the ordinary unfused fallback");
         });
     }
@@ -286,10 +278,10 @@ public sealed class SkslSnippetMergerTests
     [Test]
     public void MergeAndSplit_AccountsForGeneratedSourceLimit()
     {
-        SkslSnippetStage first = new(ShaderDescription.CurrentPixel(Identity));
-        SkslSnippetStage second = new(ShaderDescription.CurrentPixel(
+        ShaderDescription first = ShaderDescription.CurrentPixel(Identity);
+        ShaderDescription second = ShaderDescription.CurrentPixel(
             "half4 helper(half4 value) { return value; } "
-            + "half4 apply(half4 color) { return helper(color); }"));
+            + "half4 apply(half4 color) { return helper(color); }");
         SkslMergedProgram firstOnly = SkslSnippetMerger.Merge([first]);
         SkslMergedProgram secondOnly = SkslSnippetMerger.Merge([second]);
         int limit = Math.Max(firstOnly.SourceByteCount, secondOnly.SourceByteCount);
@@ -302,18 +294,17 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(programs, Has.Count.EqualTo(2));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(program => program.SourceByteCount <= limit));
-            Assert.That(programs.SelectMany(static program => program.Stages)
-                .Select(static stage => stage.StageIndex), Is.EqualTo(new[] { 0, 1 }));
+            Assert.That(programs.SelectMany(StageIndices), Is.EqualTo(new[] { 0, 1 }));
         });
     }
 
     [Test]
     public void MergeAndSplit_AccountsForBackendProgramTokenLimit()
     {
-        SkslSnippetStage first = new(ShaderDescription.CurrentPixel(Identity));
-        SkslSnippetStage second = new(ShaderDescription.CurrentPixel(
+        ShaderDescription first = ShaderDescription.CurrentPixel(Identity);
+        ShaderDescription second = ShaderDescription.CurrentPixel(
             "half4 helper(half4 value) { return value; } "
-            + "half4 apply(half4 color) { return helper(color); }"));
+            + "half4 apply(half4 color) { return helper(color); }");
         SkslMergedProgram firstOnly = SkslSnippetMerger.Merge([first]);
         SkslMergedProgram secondOnly = SkslSnippetMerger.Merge([second]);
         int limit = Math.Max(firstOnly.ProgramTokenCount, secondOnly.ProgramTokenCount);
@@ -326,8 +317,7 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(programs, Has.Count.EqualTo(2));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(program => program.ProgramTokenCount <= limit));
-            Assert.That(programs.SelectMany(static program => program.Stages)
-                .Select(static stage => stage.StageIndex), Is.EqualTo(new[] { 0, 1 }));
+            Assert.That(programs.SelectMany(StageIndices), Is.EqualTo(new[] { 0, 1 }));
         });
     }
 
@@ -339,8 +329,8 @@ public sealed class SkslSnippetMergerTests
             + "const highp float gain = 1.0;\r\n"
             + "half4 apply(half4 color) { return color * gain; }\r\n";
         ShaderDescription description = ShaderDescription.CurrentPixel(source);
-        SkslSnippetStage[] stages = Enumerable.Range(0, 11)
-            .Select(_ => new SkslSnippetStage(description))
+        ShaderDescription[] stages = Enumerable.Range(0, 11)
+            .Select(_ => description)
             .ToArray();
         SkslMergedProgram merged = SkslSnippetMerger.Merge(stages);
 
@@ -386,12 +376,10 @@ public sealed class SkslSnippetMergerTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                belowByteBoundary.SelectMany(static program => program.Stages)
-                    .Select(static stage => stage.StageIndex),
+                belowByteBoundary.SelectMany(StageIndices),
                 Is.EqualTo(Enumerable.Range(0, 11)));
             Assert.That(
-                belowTokenBoundary.SelectMany(static program => program.Stages)
-                    .Select(static stage => stage.StageIndex),
+                belowTokenBoundary.SelectMany(StageIndices),
                 Is.EqualTo(Enumerable.Range(0, 11)));
         });
     }
@@ -399,9 +387,9 @@ public sealed class SkslSnippetMergerTests
     [Test]
     public void MergeAndSplit_ReportsSingleStageBackendOverflowForStandaloneFallback()
     {
-        SkslSnippetStage stage = new(ShaderDescription.CurrentPixel(
+        ShaderDescription stage = ShaderDescription.CurrentPixel(
             "uniform float gain; half4 apply(half4 color) { return color * gain; }",
-            static bindings => bindings.Uniform("gain", 0.5f)));
+            static bindings => bindings.Uniform("gain", 0.5f));
 
         SkslMergedProgram program = SkslSnippetMerger.MergeAndSplit(
             [stage],
@@ -411,34 +399,8 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(program.RequiresStandaloneExecution, Is.True);
             Assert.That(program.OverflowReasons, Does.Contain(SkslBackendLimit.UniformVectors));
-            Assert.That(program.Stages.Length, Is.EqualTo(1),
+            Assert.That(program.StageCount, Is.EqualTo(1),
                 "an individually unsupported stage remains visible to the ordinary unfused fallback");
-        });
-    }
-
-    [Test]
-    public void CoverageMetadata_RequiresEveryStageToHaveAnEngineProof()
-    {
-        ShaderDescription description = ShaderDescription.CurrentPixel(Identity);
-        SkslMergedProgram homogeneous = SkslSnippetMerger.Merge(
-            [
-                new(description, SkslCoverageBehavior.PremultipliedCoverageHomogeneous),
-                new(description, SkslCoverageBehavior.PremultipliedCoverageHomogeneous),
-            ]);
-        SkslMergedProgram mixed = SkslSnippetMerger.Merge(
-            [
-                new(description, SkslCoverageBehavior.PremultipliedCoverageHomogeneous),
-                new(description),
-            ]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(homogeneous.IsPremultipliedCoverageHomogeneous, Is.True);
-            Assert.That(homogeneous.RequiresResolvedCoverage, Is.False);
-            Assert.That(mixed.IsPremultipliedCoverageHomogeneous, Is.False);
-            Assert.That(mixed.RequiresResolvedCoverage, Is.True);
-            Assert.That(mixed.Stages[1].CoverageBehavior,
-                Is.EqualTo(SkslCoverageBehavior.RequiresResolvedCoverage));
         });
     }
 
@@ -456,7 +418,7 @@ public sealed class SkslSnippetMergerTests
             static bindings => bindings.Uniform("gain", 0.5f));
 
         SkslMergedProgram program = SkslSnippetMerger.Merge(
-            [new SkslSnippetStage(wholeSource), new SkslSnippetStage(currentPixel)]);
+            [wholeSource, currentPixel]);
 
         Assert.Multiple(() =>
         {
@@ -491,7 +453,7 @@ public sealed class SkslSnippetMergerTests
 
         Assert.That(
             () => SkslSnippetMerger.Merge(
-                [new SkslSnippetStage(currentPixel), new SkslSnippetStage(wholeSource)]),
+                [currentPixel, wholeSource]),
             Throws.TypeOf<ArgumentException>());
     }
 
@@ -503,7 +465,7 @@ public sealed class SkslSnippetMergerTests
             static bindings => bindings.Uniform("gain", 0.5f));
         ShaderDescription second = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return half4(color.a - color.rgb, color.a); }");
-        SkslMergedProgram program = SkslSnippetMerger.Merge([new(first), new(second)]);
+        SkslMergedProgram program = SkslSnippetMerger.Merge([first, second]);
 
         using SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(program.Source, out string? error);
 
@@ -513,6 +475,9 @@ public sealed class SkslSnippetMergerTests
             Assert.That(effect, Is.Not.Null);
         });
     }
+
+    private static IEnumerable<int> StageIndices(SkslMergedProgram program)
+        => Enumerable.Range(program.FirstStageIndex, program.StageCount);
 
     private static ShaderDescription ResourceShader(string name, RenderResource<object> resource)
     {

@@ -69,6 +69,7 @@ public sealed class ShaderDescriptionResourceStateTests
             new Rect(0, 0, 8, 8),
             new Rect(0, 0, 8, 8),
             new PixelRect(0, 0, 8, 8),
+            default,
             EffectiveScale.At(1),
             outputScale: 1,
             workingScale: 1,

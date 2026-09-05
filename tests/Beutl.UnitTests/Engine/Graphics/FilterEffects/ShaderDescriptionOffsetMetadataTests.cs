@@ -89,6 +89,7 @@ public sealed class ShaderDescriptionOffsetMetadataTests
             s_bounds,
             s_bounds,
             new PixelRect(0, 0, 8, 6),
+            default,
             EffectiveScale.At(1),
             outputScale: 1,
             workingScale: 1,

@@ -35,13 +35,13 @@ public sealed class CurvesAndLutEffectShaderTests
             ShaderDescription description = item.Description;
             tokens = description.Resources.Select(static binding => binding.Resource).ToArray();
             SkslMergedProgram portableProgram = SkslSnippetMerger.MergeAndSplit(
-                [new SkslSnippetStage(description)],
+                [description],
                 SkslBackendBudgetResolver.Portable).Single();
             SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit(
-                [new SkslSnippetStage(description)],
+                [description],
                 SkslBackendBudgetResolver.Resolve(GRBackend.Vulkan)).Single();
             SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit(
-                [new SkslSnippetStage(description)],
+                [description],
                 SkslBackendBudgetResolver.Resolve(GRBackend.Metal)).Single();
 
             Assert.Multiple(() =>

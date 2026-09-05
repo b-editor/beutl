@@ -202,6 +202,7 @@ public sealed class SKSLScriptEffectShaderTests
                 s_bounds,
                 new Rect(0, 0, 2, 3),
                 new PixelRect(0, 0, 2, 3),
+                default,
                 EffectiveScale.At(1),
                 outputScale: 1,
                 workingScale: 2,

@@ -97,14 +97,13 @@ public sealed class SkslBackendBudgetResolverTests
     {
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
-        var stage = new SkslSnippetStage(description);
         SkslBackendBudget portable = SkslBackendBudgetResolver.Portable;
         SkslBackendBudget vulkan = SkslBackendBudgetResolver.Resolve(GRBackend.Vulkan);
         SkslBackendBudget metal = SkslBackendBudgetResolver.Resolve(GRBackend.Metal);
 
-        SkslMergedProgram portableProgram = SkslSnippetMerger.MergeAndSplit([stage], portable).Single();
-        SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([stage], vulkan).Single();
-        SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([stage], metal).Single();
+        SkslMergedProgram portableProgram = SkslSnippetMerger.MergeAndSplit([description], portable).Single();
+        SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([description], vulkan).Single();
+        SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([description], metal).Single();
         var contextIdentity = new RenderCacheDeviceContextIdentity("device", "context");
         ProgramCacheContextKey portableContext = SkRuntimeEffectProgramCache.CreateContextKey(
             contextIdentity,
@@ -137,9 +136,8 @@ public sealed class SkslBackendBudgetResolverTests
         SkslBackendBudget metal = CreateIdentityBudget(SkslBackendCapabilityClass.Metal);
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
-        var stage = new SkslSnippetStage(description);
-        SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([stage], vulkan).Single();
-        SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([stage], metal).Single();
+        SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([description], vulkan).Single();
+        SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([description], metal).Single();
         var contextIdentity = new RenderCacheDeviceContextIdentity("device", "context");
 
         Assert.Multiple(() =>

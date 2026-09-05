@@ -571,7 +571,7 @@ internal sealed partial class RenderRequestExecutor
 
         private bool HasExecutionContextBinders(CompiledShaderRun run)
         {
-            for (int index = 0; index < run.Program.Stages.Length; index++)
+            for (int index = 0; index < run.Program.StageCount; index++)
             {
                 if (run.GetDescription(_graph, index).HasExecutionContextBinder)
                     return true;
@@ -595,7 +595,7 @@ internal sealed partial class RenderRequestExecutor
             bindingToken.RunAndComplete(
                 () =>
                 {
-                    var contexts = new ShaderExecutionContext?[run.Program.Stages.Length];
+                    var contexts = new ShaderExecutionContext?[run.Program.StageCount];
                     for (int index = 0; index < contexts.Length; index++)
                     {
                         if (!run.GetDescription(_graph, index).HasExecutionContextBinder)
@@ -628,12 +628,10 @@ internal sealed partial class RenderRequestExecutor
             SKRuntimeEffectChildren runtimeChildren,
             List<SKShader> children)
         {
-            int firstStageIndex = run.Program.Stages[0].StageIndex;
             foreach (ref readonly SkslMergedBindingLayout layout in run.Program.Bindings.AsSpan())
             {
-                int localIndex = layout.StageIndex - firstStageIndex;
-                if ((uint)localIndex >= (uint)run.Program.Stages.Length
-                    || run.Program.Stages[localIndex].StageIndex != layout.StageIndex)
+                int localIndex = layout.StageIndex;
+                if ((uint)localIndex >= (uint)run.Program.StageCount)
                 {
                     throw new InvalidOperationException(
                         "A merged shader binding references a non-canonical stage index.");
@@ -671,14 +669,15 @@ internal sealed partial class RenderRequestExecutor
             SKShader shader,
             ShaderEvaluationFrame frame)
         {
-            if (frame.FragmentOrigin == default)
+            PixelPoint fragmentOrigin = destination.DeviceBounds.Position - frame.DeviceBounds.Position;
+            if (fragmentOrigin == default)
             {
                 PaintInEvaluationFrameCore(destination, shader);
                 return;
             }
 
             using SKShader rebased = shader.WithLocalMatrix(
-                SKMatrix.CreateTranslation(-frame.FragmentOrigin.X, -frame.FragmentOrigin.Y));
+                SKMatrix.CreateTranslation(-fragmentOrigin.X, -fragmentOrigin.Y));
             PaintInEvaluationFrameCore(destination, rebased);
         }
 
@@ -811,7 +810,7 @@ internal sealed partial class RenderRequestExecutor
                 outputBounds,
                 requiredRegion,
                 deviceBounds,
-                rasterBounds,
+                rasterBounds.Position,
                 inputEffectiveScale,
                 _options.OutputScale,
                 workingScale,
@@ -979,7 +978,7 @@ internal sealed partial class RenderRequestExecutor
                         outputBounds,
                         requiredRegion,
                         frame.DeviceBounds,
-                        frame.RasterBounds,
+                        frame.RasterBounds.Position,
                         input.EffectiveScale,
                         _options.OutputScale,
                         output.EffectiveScale.Value,
@@ -1014,8 +1013,9 @@ internal sealed partial class RenderRequestExecutor
             SKRuntimeEffectChildren runtimeChildren,
             List<SKShader> children)
         {
-            foreach (ShaderUniformBinding binding in description.Uniforms)
+            for (int index = 0; index < description.Uniforms.Count; index++)
             {
+                ShaderUniformBinding binding = description.Uniforms[index];
                 if (!description.Source.Uniforms.TryGetValue(
                         binding.Name,
                         out SkslUniformDeclaration declaration))
@@ -1045,8 +1045,9 @@ internal sealed partial class RenderRequestExecutor
             children.Add(inputShader);
             runtimeChildren[childName] = inputShader;
 
-            foreach (ShaderResourceBinding binding in description.Resources)
+            for (int index = 0; index < description.Resources.Count; index++)
             {
+                ShaderResourceBinding binding = description.Resources[index];
                 SKShader child = binding.Bind(context
                     ?? throw new InvalidOperationException(
                         "A shader resource binding requires an execution context."));
