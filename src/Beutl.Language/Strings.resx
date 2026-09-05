@@ -1696,6 +1696,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>Transcribe</value>
   </data>
+  <data name="AiSubtitle_Transcribing" xml:space="preserve">
+    <value>Transcribing…</value>
+  </data>
   <data name="AiSubtitle_AddToScene" xml:space="preserve">
     <value>Add subtitles to scene</value>
   </data>

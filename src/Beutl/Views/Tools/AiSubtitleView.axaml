@@ -7,6 +7,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              d:DesignHeight="640"
              d:DesignWidth="520"
@@ -163,6 +164,19 @@
                             Content="{x:Static lang:Strings.Cancel}"
                             IsVisible="{CompiledBinding IsTranscribing.Value}" />
                 </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <ui:ProgressRing x:Name="TranscriptionProgressRing"
+                                     Width="16"
+                                     Height="16"
+                                     AutomationProperties.Name="{CompiledBinding TranscriptionStatusText.Value}"
+                                     IsIndeterminate="True"
+                                     IsVisible="{CompiledBinding IsTranscribing.Value}" />
+                    <TextBlock x:Name="TranscriptionStatusText"
+                               VerticalAlignment="Center"
+                               AutomationProperties.Name="{CompiledBinding TranscriptionStatusText.Value}"
+                               AutomationProperties.LiveSetting="Polite"
+                               Text="{CompiledBinding TranscriptionStatusText.Value}" />
+                </StackPanel>
             </StackPanel>
 
             <Border Padding="10"

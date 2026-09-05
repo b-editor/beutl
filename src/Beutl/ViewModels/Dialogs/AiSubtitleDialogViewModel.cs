@@ -114,6 +114,10 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
         IsTranscribing = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
+        TranscriptionStatusText = IsTranscribing
+            .Select(value => value ? Strings.AiSubtitle_Transcribing : string.Empty)
+            .ToReadOnlyReactivePropertySlim(string.Empty)
+            .DisposeWith(_disposables);
 
         InitializeCaptionEditing();
 
@@ -183,6 +187,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
     public ReactivePropertySlim<CaptionTemplateDescriptor> SelectedCaptionTemplate { get; }
 
     public ReactivePropertySlim<bool> IsTranscribing { get; }
+
+    public ReadOnlyReactivePropertySlim<string> TranscriptionStatusText { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanTranscribe { get; }
 

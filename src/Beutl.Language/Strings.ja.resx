@@ -1690,6 +1690,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_Transcribe" xml:space="preserve">
     <value>文字起こし</value>
   </data>
+  <data name="AiSubtitle_Transcribing" xml:space="preserve">
+    <value>文字起こし中…</value>
+  </data>
   <data name="AiSubtitle_AddToScene" xml:space="preserve">
     <value>字幕をシーンに追加</value>
   </data>

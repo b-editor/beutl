@@ -5,6 +5,8 @@ using System.Reactive.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using Avalonia.Automation;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -23,6 +25,8 @@ using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -3815,6 +3819,90 @@ public sealed class AiDialogWorkflowTests
             language = "en",
             segments = new[] { new { start = 0.0, end = 0.04, text = "new caption" } },
         }));
+
+    [AvaloniaTest]
+    public async Task SceneMixTranscription_ShowsProgressWhileAudioIsPrepared()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-scene-mix-progress");
+        var preparationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePreparation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var handler = new StubHandler((request, cancellationToken) =>
+            request.RequestUri?.AbsolutePath switch
+            {
+                "/api/v3/user/entitlements" => Task.FromResult(
+                    JsonResponse(HttpStatusCode.OK, EntitlementsJson())),
+                "/api/v3/ai/transcriptions" => Task.FromResult(
+                    CreateTranscriptionResponse("progress-transcription")),
+                _ => Task.FromResult(JsonResponse(HttpStatusCode.NotFound, "{}")),
+            });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        viewModel.SceneMixChunkDuration = TimeSpan.FromSeconds(1);
+        viewModel.SceneMixAudioComposer = async (start, duration, cancellationToken) =>
+        {
+            preparationStarted.TrySetResult();
+            await releasePreparation.Task.WaitAsync(cancellationToken);
+            return new AudioFrameSnapshot(new float[16_000], 16_000, 1, start);
+        };
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 340, Height = 900 };
+
+        Task? transcription = null;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+                && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
+            editor.Scene.Start = TimeSpan.Zero;
+            editor.Scene.Duration = TimeSpan.FromSeconds(1);
+            await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+
+            transcription = viewModel.Transcribe.ExecuteAsync();
+            await preparationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Render();
+            ProgressRing progress = view.FindControl<ProgressRing>("TranscriptionProgressRing")!;
+            TextBlock status = view.FindControl<TextBlock>("TranscriptionStatusText")!;
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.IsTranscribing.Value, Is.True);
+                Assert.That(transcription.IsCompleted, Is.False);
+                Assert.That(progress.IsEffectivelyVisible, Is.True);
+                Assert.That(progress.IsIndeterminate, Is.True);
+                Assert.That(status.IsEffectivelyVisible, Is.True);
+                Assert.That(
+                    viewModel.TranscriptionStatusText.Value,
+                    Is.EqualTo(Strings.AiSubtitle_Transcribing));
+                Assert.That(
+                    AutomationProperties.GetName(progress),
+                    Is.EqualTo(Strings.AiSubtitle_Transcribing));
+                Assert.That(
+                    AutomationProperties.GetLiveSetting(status),
+                    Is.EqualTo(AutomationLiveSetting.Polite));
+            }
+        }
+        finally
+        {
+            releasePreparation.TrySetResult();
+            try
+            {
+                if (transcription is not null)
+                    await transcription.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                window.Close();
+                HeadlessTestHelpers.Settle();
+            }
+        }
+
+        Assert.That(viewModel.IsTranscribing.Value, Is.False);
+    }
 
     [AvaloniaTest]
     public async Task SceneMixTranscription_StopsWhereItIsWhenAskedTo()

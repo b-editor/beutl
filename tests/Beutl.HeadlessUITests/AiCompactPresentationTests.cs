@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
@@ -18,6 +19,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -689,19 +691,76 @@ public sealed class AiCompactPresentationTests
     }
 
     [AvaloniaTest]
-    public async Task Subtitle_OffersOneStopForTranscriptionAndTranslation()
+    public async Task Subtitle_ShowsProgressAndOffersOneStopForTranscriptionAndTranslation()
     {
         await TestReset.ResetShellAsync();
         BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
         using AiSubtitleDialogViewModel viewModel = CreateSubtitleDialog(clients);
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 340, Height = 900 };
 
-        Assert.That(viewModel.StopRequest.CanExecute(), Is.False);
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            ProgressRing progress = view.FindControl<ProgressRing>("TranscriptionProgressRing")!;
+            TextBlock status = view.FindControl<TextBlock>("TranscriptionStatusText")!;
+            AutomationPeer statusPeer = ControlAutomationPeer.CreatePeerForElement(status);
+            var automationChanges = new List<AutomationPropertyChangedEventArgs>();
+            statusPeer.PropertyChanged += (_, args) => automationChanges.Add(args);
 
-        viewModel.IsTranscribing.Value = true;
-        Assert.That(viewModel.StopRequest.CanExecute(), Is.True);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.StopRequest.CanExecute(), Is.False);
+                Assert.That(progress.IsEffectivelyVisible, Is.False);
+                Assert.That(status.IsEffectivelyVisible, Is.True);
+                Assert.That(status.Text, Is.Empty);
+                Assert.That(viewModel.TranscriptionStatusText.Value, Is.Empty);
+            }
 
-        viewModel.IsTranscribing.Value = false;
-        Assert.That(viewModel.StopRequest.CanExecute(), Is.False);
+            viewModel.IsTranscribing.Value = true;
+            HeadlessTestHelpers.Render();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.StopRequest.CanExecute(), Is.True);
+                Assert.That(progress.IsEffectivelyVisible, Is.True);
+                Assert.That(progress.IsIndeterminate, Is.True);
+                Assert.That(status.IsEffectivelyVisible, Is.True);
+                Assert.That(status.Text, Is.EqualTo(Strings.AiSubtitle_Transcribing));
+                Assert.That(
+                    viewModel.TranscriptionStatusText.Value,
+                    Is.EqualTo(Strings.AiSubtitle_Transcribing));
+                Assert.That(
+                    AutomationProperties.GetName(progress),
+                    Is.EqualTo(Strings.AiSubtitle_Transcribing));
+                Assert.That(
+                    AutomationProperties.GetLiveSetting(status),
+                    Is.EqualTo(AutomationLiveSetting.Polite));
+                Assert.That(
+                    automationChanges.Any(change =>
+                        ReferenceEquals(
+                            change.Property,
+                            AutomationElementIdentifiers.NameProperty)
+                        && Equals(change.NewValue, Strings.AiSubtitle_Transcribing)),
+                    Is.True);
+            }
+
+            viewModel.IsTranscribing.Value = false;
+            HeadlessTestHelpers.Render();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.StopRequest.CanExecute(), Is.False);
+                Assert.That(progress.IsEffectivelyVisible, Is.False);
+                Assert.That(status.IsEffectivelyVisible, Is.True);
+                Assert.That(status.Text, Is.Empty);
+                Assert.That(viewModel.TranscriptionStatusText.Value, Is.Empty);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]
