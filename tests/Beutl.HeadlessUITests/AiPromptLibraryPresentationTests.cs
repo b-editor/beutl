@@ -192,10 +192,12 @@ public sealed class AiPromptLibraryPresentationTests
 
             ToggleButton toggle = view.GetLogicalDescendants().OfType<ToggleButton>().Single();
             Popup popup = view.GetLogicalDescendants().OfType<Popup>().Single();
+            object? transparentButtonTheme = Application.Current!.FindResource("TransparentButton");
 
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(popup.IsOpen, Is.False, "The history stays out of the way until asked for.");
+                Assert.That(toggle.Theme, Is.SameAs(transparentButtonTheme));
                 Assert.That(toggle.Bounds.Width, Is.LessThanOrEqualTo(40),
                     "The button is small enough to sit above the prompt box.");
             }

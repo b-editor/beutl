@@ -18,6 +18,7 @@
                       MinHeight="0"
                       AutomationProperties.Name="{x:Static lang:Strings.AiPromptHistory}"
                       IsChecked="{CompiledBinding IsHistoryOpen.Value, Mode=TwoWay}"
+                      Theme="{StaticResource TransparentButton}"
                       ToolTip.Tip="{x:Static lang:Strings.AiPromptHistory}">
             <icons:FluentIcon FontSize="12" Icon="History" />
         </ToggleButton>
