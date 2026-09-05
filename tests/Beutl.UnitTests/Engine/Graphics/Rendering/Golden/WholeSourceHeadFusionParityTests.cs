@@ -119,19 +119,13 @@ public sealed class WholeSourceHeadFusionParityTests
         using FilterEffect.Resource resource = effects.ToResource(CompositionContext.Default);
         using var root = new FilterEffectRenderNode(resource);
         root.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;
@@ -178,19 +172,13 @@ public sealed class WholeSourceHeadFusionParityTests
         using FilterEffect.Resource resource = effects.ToResource(CompositionContext.Default);
         using var root = new FilterEffectRenderNode(resource);
         root.AddChild(new RectangleRenderNode(contentBounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = canvasBounds,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = canvasBounds,
+            CacheOptions = RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+        }, new CpuTargetFactory());
         var canvasSize = new PixelSize(100, 100);
         SKSurface surface = SKSurface.Create(new SKImageInfo(
                 canvasSize.Width,

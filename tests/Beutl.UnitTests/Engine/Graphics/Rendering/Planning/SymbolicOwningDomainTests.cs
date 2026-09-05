@@ -75,18 +75,12 @@ public sealed class SymbolicOwningDomainTests
         using TransformRenderNode root = WrapInTranslation(
             CreateFilter(effect, new Rect(-5, 10, 10, 10)),
             10);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -146,17 +140,11 @@ public sealed class SymbolicOwningDomainTests
     {
         var effect = new SymbolicDomainFilterEffect();
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var target = new CpuRenderTarget(64, 48);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -169,16 +157,11 @@ public sealed class SymbolicOwningDomainTests
     {
         var effect = new SymbolicDomainFilterEffect();
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
         InvalidOperationException? error = Assert.Throws<RenderTargetDomainRequiredException>(() => renderer.Measure());
 
@@ -400,18 +383,12 @@ public sealed class SymbolicOwningDomainTests
         using var root = new ContainerRenderNode();
         root.AddChild(new RectangleRenderNode(s_rootDomain, Brushes.Resource.White, null));
         root.AddChild(WrapInTranslation(probe, 10));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -433,18 +410,12 @@ public sealed class SymbolicOwningDomainTests
         using var root = new LayerRenderNode(domain);
         root.AddChild(new RectangleRenderNode(domain, Brushes.Resource.White, null));
         root.AddChild(probe);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var target = new CpuRenderTarget(100, 60);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -474,20 +445,14 @@ public sealed class SymbolicOwningDomainTests
                 Is.EqualTo(EffectiveScale.At(density)));
         }
 
-        using var renderer = new RenderNodeRenderer(
-            probe,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = density,
-                    MaxWorkingScale = 4,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(probe, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            OutputScale = density,
+            MaxWorkingScale = 4,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         PixelSize deviceSize = PixelRect.FromRect(domain, density).Size;
         using var target = new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
         using var canvas = new ImmediateCanvas(

@@ -205,15 +205,12 @@ public static class ObjectTemplatePreviewRenderer
 
                 using var renderer = new RenderNodeRenderer(
                     root,
-                    new RenderNodeRendererOptions
+                    new RenderNodeRenderRequest
                     {
-                        DefaultRequest = new RenderNodeRenderRequest
-                        {
-                            Intent = RenderIntent.Preview,
-                            OutputScale = scale,
-                            MaxWorkingScale = scale * 2f,
-                            CacheOptions = RenderCacheOptions.Disabled,
-                        },
+                        Intent = RenderIntent.Preview,
+                        OutputScale = scale,
+                        MaxWorkingScale = scale * 2f,
+                        CacheOptions = RenderCacheOptions.Disabled,
                     });
                 renderer.Render(canvas);
             }
@@ -253,14 +250,11 @@ public static class ObjectTemplatePreviewRenderer
     {
         using var renderer = new RenderNodeRenderer(
             root,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = targetDomain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = targetDomain,
+                CacheOptions = RenderCacheOptions.Disabled,
             });
         return renderer.Measure().OutputBounds;
     }

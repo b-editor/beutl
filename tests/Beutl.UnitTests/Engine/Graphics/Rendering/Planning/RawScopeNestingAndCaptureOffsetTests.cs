@@ -305,19 +305,13 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         scope.AddChild(new DrawBackdropRenderNode(probe, domain));
         root.AddChild(scope);
         var factory = new FailureTestTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            OutputScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+        }, factory);
 
         NotSupportedException? failure = Assert.Throws<NotSupportedException>(() => renderer.Rasterize());
 
@@ -402,33 +396,22 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
     /// attach instead, and a capture clamped to the engine ceiling is past what several devices allow.
     /// </remarks>
     private static RenderNodeRenderer CreateProbeRenderer(RenderNode node, Rect domain)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            OutputScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    OutputScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            OutputScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
     private sealed class MarkNode : RenderNode
     {

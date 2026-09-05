@@ -90,18 +90,12 @@ public sealed class EffectItemTypedSuffixExecutionTests
             bounds,
             Brushes.Resource.Red,
             null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
@@ -474,18 +468,12 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using var root = new FilterEffectRenderNode(
             downstreamEffect.ToResource(CompositionContext.Default));
         root.AddChild(inner);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap!;
@@ -534,20 +522,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
             new Rect(4, 2, 6, 4),
             Brushes.Resource.Red,
             null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
@@ -611,20 +593,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using var root = new FilterEffectRenderNode(
             observingEffect.ToResource(CompositionContext.Default));
         root.AddChild(movingNode);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 24, 20),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 24, 20),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Rect movedInputRaster = inputBounds.Translate(movedBounds.Position - inputBounds.Position);
@@ -674,20 +650,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
             new Rect(0, 0, 1, 1),
             Brushes.Resource.White,
             null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
@@ -739,20 +709,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
             sourceBounds,
             Brushes.Resource.OrangeRed,
             null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var actualTarget = new CpuRenderTarget((int)domain.Width, (int)domain.Height);
         using (var actualCanvas = new ImmediateCanvas(actualTarget, RenderIntent.Preview, logicalSize: domain.Size))
         {
@@ -812,20 +776,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using var root = new FilterEffectRenderNode(
             observingEffect.ToResource(CompositionContext.Default));
         root.AddChild(noOpNode);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -988,20 +946,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
         using var root = new FilterEffectRenderNode(
             effect.ToResource(CompositionContext.Default));
         root.AddChild(new MaterializedInputNode(source, bounds));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 32, 24),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 32, 24),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+        }, new CpuTargetFactory());
         using var destination = new CpuRenderTarget(32, 24);
         using var canvas = new ImmediateCanvas(
             destination,

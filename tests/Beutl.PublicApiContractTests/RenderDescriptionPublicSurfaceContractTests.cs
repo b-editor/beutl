@@ -664,15 +664,12 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = 2,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                OutputScale = 1,
+                MaxWorkingScale = 2,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
     private static void AssertContextRecordingSurface(Type context, string methodName, Type description)

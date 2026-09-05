@@ -168,16 +168,11 @@ public sealed class DetachedGeometryResourceTests
             owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = RenderCacheOptions.Disabled
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled
+        });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
             ?? throw new AssertionException("Detached geometry rasterization returned no bitmap.");
@@ -206,16 +201,11 @@ public sealed class DetachedGeometryResourceTests
         using var detached = new RectGeometry.Resource { Width = 30, Height = 40 };
         using var node = new GeometryClipRenderNode(detached, ClipOperation.Intersect);
         node.AddChild(new RectangleRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = RenderCacheOptions.Disabled
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled
+        });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 

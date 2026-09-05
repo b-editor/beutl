@@ -16,17 +16,12 @@ public class HitTestParityTests
         var rect = new Rect(0, 0, 100, 80);
         using var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         using var node = new EllipseRenderNode(rect, fill, null);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = outputScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = outputScale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         return renderer.HitTest(point);
     }
 
@@ -92,17 +87,12 @@ public class HitTestParityTests
     {
         using var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         node.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1f,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1f,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         return renderer.HitTest(point);
     }
 }

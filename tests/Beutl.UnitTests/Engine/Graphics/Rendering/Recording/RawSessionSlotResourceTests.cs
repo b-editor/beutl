@@ -49,19 +49,13 @@ public sealed class RawSessionSlotResourceTests
 
     private static void Render(RenderNode node)
     {
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
         renderer.Rasterize().Dispose();
     }
 

@@ -117,16 +117,11 @@ public class SourceEffectiveScaleFlowTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(sourceScale),
             MosaicNode());
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         using RenderTarget target = RenderTarget.Create(120, 90)!;
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1))
         {
@@ -331,18 +326,12 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(measurement.HasTargetEffects, Is.True);
         });
 
-        using var renderer = new RenderNodeRenderer(
-            transform,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(transform, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap!;
         Span<ushort> row = bitmap.GetRow<ushort>((int)domain.Height / 2);
@@ -786,18 +775,12 @@ public class SourceEffectiveScaleFlowTests
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
                 2));
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    TargetDomain = bounds,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            TargetDomain = bounds,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -819,20 +802,14 @@ public class SourceEffectiveScaleFlowTests
         var observedWorkingScales = new List<float>();
         Rect bounds = new(0, 0, 12, 8);
         using var node = new DivergentScaleFanOutNode(bounds, observedWorkingScales);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = maxWorkingScale,
-                    TargetDomain = bounds,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            MaxWorkingScale = maxWorkingScale,
+            TargetDomain = bounds,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -854,19 +831,13 @@ public class SourceEffectiveScaleFlowTests
             new LayerTargetCommandProbeNode(
                 bounds,
                 scale => observedScale = scale));
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    TargetDomain = bounds,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            TargetDomain = bounds,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -894,21 +865,15 @@ public class SourceEffectiveScaleFlowTests
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
         WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    OutputScale = requestedDensity,
-                    MaxWorkingScale = requestedDensity,
-                    TargetDomain = childBounds,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            OutputScale = requestedDensity,
+            MaxWorkingScale = requestedDensity,
+            TargetDomain = childBounds,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -940,24 +905,18 @@ public class SourceEffectiveScaleFlowTests
         RenderNode layer = ScaleRecordingTestHelper.Layer(layerDomain);
         WarmForCacheCapture(layer);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, layer);
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = new RenderCacheOptions(
-                        true,
-                        new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1)),
-                    OutputScale = requestedDensity,
-                    MaxWorkingScale = requestedDensity,
-                    TargetDomain = childBounds,
-                    RequestedRegion = requestedRegion,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = new RenderCacheOptions(
+                true,
+                new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1)),
+            OutputScale = requestedDensity,
+            MaxWorkingScale = requestedDensity,
+            TargetDomain = childBounds,
+            RequestedRegion = requestedRegion,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -988,21 +947,15 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         WarmForCacheCapture(node);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 4,
-                    TargetDomain = bounds,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            OutputScale = 1,
+            MaxWorkingScale = 4,
+            TargetDomain = bounds,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -1036,21 +989,15 @@ public class SourceEffectiveScaleFlowTests
         var opacity = new OpacityRenderNode(2);
         WarmForCacheCapture(opacity);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(materializedInput, opacity);
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 4,
-                    TargetDomain = bounds,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            OutputScale = 1,
+            MaxWorkingScale = 4,
+            TargetDomain = bounds,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         using RenderNodeRasterization warm = renderer.Rasterize();
@@ -1080,21 +1027,15 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         WarmForCacheCapture(node);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 4,
-                    TargetDomain = bounds,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            OutputScale = 1,
+            MaxWorkingScale = 4,
+            TargetDomain = bounds,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -1123,24 +1064,18 @@ public class SourceEffectiveScaleFlowTests
             sourceDeviceBounds.Height);
         using var node = new MaterializedSourceRenderNode(source, bounds, sourceScale);
         WarmForCacheCapture(node);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = new RenderCacheOptions(
-                        true,
-                        new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1)),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    TargetDomain = bounds,
-                    RequestedRegion = requestedRegion,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = new RenderCacheOptions(
+                true,
+                new RenderCacheRules(MaxPixels: 1_000, MinPixels: 1)),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            TargetDomain = bounds,
+            RequestedRegion = requestedRegion,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -1174,19 +1109,13 @@ public class SourceEffectiveScaleFlowTests
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
                 0.5f));
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    TargetDomain = bounds,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            TargetDomain = bounds,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization result = renderer.Rasterize();
@@ -1229,19 +1158,13 @@ public class SourceEffectiveScaleFlowTests
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
                 2));
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    TargetDomain = bounds,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            TargetDomain = bounds,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization result = renderer.Rasterize();
@@ -1302,19 +1225,13 @@ public class SourceEffectiveScaleFlowTests
             new ConstantWorkingScaleRenderNode(
                 effect.ToResource(CompositionContext.Default),
                 2));
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    RequestedRegion = firstBounds,
-                    MaxWorkingScale = 4,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            RequestedRegion = firstBounds,
+            MaxWorkingScale = 4,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         using RenderNodeRasterization raster = renderer.Rasterize();
@@ -1414,17 +1331,11 @@ public class SourceEffectiveScaleFlowTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
             new FixedWorkingScaleRenderNode(effect.ToResource(CompositionContext.Default)));
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization result = renderer.Rasterize();
 
@@ -1629,18 +1540,12 @@ public class SourceEffectiveScaleFlowTests
     {
         RenderExecutionStatistics statistics = default;
         using (root)
-        using (var renderer = new RenderNodeRenderer(
-                   root,
-                   new RenderNodeRendererOptions
-                   {
-                       DefaultRequest = new RenderNodeRenderRequest
-                       {
-                           Intent = RenderIntent.Preview,
-                           CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                           TargetDomain = targetDomain,
-                       },
-                       TargetFactory = new CpuTargetFactory(),
-                   }))
+        using (var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            TargetDomain = targetDomain,
+        }, new CpuTargetFactory()))
         using (renderer.Rasterize())
         {
             statistics = renderer.LastExecutionStatistics;
@@ -1674,21 +1579,15 @@ public class SourceEffectiveScaleFlowTests
         RenderNode node,
         Rect targetDomain,
         FusionMode fusionMode)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 4,
-                    TargetDomain = targetDomain,
-                    FusionMode = fusionMode,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            OutputScale = 1,
+            MaxWorkingScale = 4,
+            TargetDomain = targetDomain,
+            FusionMode = fusionMode,
+        }, new CpuTargetFactory());
 
     private static void WarmForCacheCapture(RenderNode node)
     {
@@ -2085,16 +1984,11 @@ public class SourceEffectiveScaleFlowTests
             using var pipeline = ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(1)),
                 new OversampleMosaicRenderNode(mosaic.ToResource(CompositionContext.Default)));
-            using var renderer = new RenderNodeRenderer(
-                pipeline,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
 
             RenderNodeMeasurement measurement = renderer.Measure();
             Assert.That(measurement.HasFragments, Is.True,
@@ -2250,19 +2144,14 @@ internal static class ScaleRecordingTestHelper
         float maxWorkingScale = float.PositiveInfinity,
         Rect? targetDomain = null)
     {
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = outputScale,
-                    MaxWorkingScale = maxWorkingScale,
-                    TargetDomain = targetDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = outputScale,
+            MaxWorkingScale = maxWorkingScale,
+            TargetDomain = targetDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         return renderer.Measure();
     }
 

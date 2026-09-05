@@ -44,21 +44,15 @@ public partial class MeasureNode : GraphNode
                     {
                         using var renderer = new RenderNodeRenderer(
                             renderNode,
-                            new RenderNodeRendererOptions
-                            {
-                                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
-                            });
+                            new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
                         rect = renderer.Measure().QueryBounds;
                     }
                     catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
                     {
-                        using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRendererOptions
+                        using var renderer = new RenderNodeRenderer(renderNode, new RenderNodeRenderRequest
                         {
-                            DefaultRequest = new RenderNodeRenderRequest
-                            {
-                                Intent = RenderIntent.Preview,
-                                TargetDomain = domain,
-                            },
+                            Intent = RenderIntent.Preview,
+                            TargetDomain = domain,
                         });
                         rect = renderer.Measure().QueryBounds;
                     }

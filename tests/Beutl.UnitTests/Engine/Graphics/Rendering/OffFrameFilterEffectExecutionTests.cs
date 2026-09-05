@@ -142,21 +142,15 @@ public sealed class OffFrameFilterEffectExecutionTests
     {
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
         using var destination = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_frame.Size);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_frame,
-                    RequestedRegion = s_frame,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_frame,
+            RequestedRegion = s_frame,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         renderer.Render(destination);
         using Bitmap result = target.Snapshot();
         return result.GetPixelSpan().ToArray();

@@ -102,17 +102,12 @@ public class SceneDrawableBoundsTests
             drawable.Render(context, resource);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
         return renderer.Measure();
     }
 }

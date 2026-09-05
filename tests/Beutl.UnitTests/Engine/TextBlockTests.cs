@@ -55,17 +55,12 @@ public class TextBlockTests
             tb.Render(context, resource);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 1920, 1080),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 1920, 1080),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Assert.That(rasterization.IsEmpty, Is.False);
         Bitmap bmp = rasterization.Bitmap!;

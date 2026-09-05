@@ -48,19 +48,13 @@ public sealed class TargetCaptureValueWrapperTests
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 8, 12), red, null));
         root.AddChild(new RectangleRenderNode(captureBounds, blue, null));
         root.AddChild(new ContributingTargetCaptureNode(captureBounds));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
         (float leftRed, float leftBlue) = RedBlueAt(raster.Bitmap!, 2, 6);
@@ -83,19 +77,13 @@ public sealed class TargetCaptureValueWrapperTests
         using var root = new ContainerRenderNode();
         root.AddChild(new RectangleRenderNode(s_bounds, fill, null));
         root.AddChild(new TargetCaptureValueWrapperNode(wrapper));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         return renderer.Rasterize();
     }

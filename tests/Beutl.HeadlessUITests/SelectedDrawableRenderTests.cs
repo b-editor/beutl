@@ -437,12 +437,7 @@ public class SelectedDrawableRenderTests
                 OutputScale = 1,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             };
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = request,
-                });
+            using var renderer = new RenderNodeRenderer(root, request);
             RenderNodeMeasurement measurement = renderer.Measure();
             RenderNodeRasterization rasterization = renderer.Rasterize(request with
             {

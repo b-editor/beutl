@@ -740,16 +740,13 @@ public sealed class RenderNodeAuthoringContractTests
     {
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = targetDomain,
-                    OutputScale = outputScale,
-                    MaxWorkingScale = maxWorkingScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = targetDomain,
+                OutputScale = outputScale,
+                MaxWorkingScale = maxWorkingScale,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
         return renderer.Measure();
     }

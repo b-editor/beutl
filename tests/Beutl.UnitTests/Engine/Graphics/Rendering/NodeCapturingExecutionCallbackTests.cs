@@ -186,19 +186,13 @@ public sealed class NodeCapturingExecutionCallbackTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode root)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     /// <summary>A source whose drawing reads the level the node holds.</summary>
     private sealed class PaintingNode(byte level) : RenderNode

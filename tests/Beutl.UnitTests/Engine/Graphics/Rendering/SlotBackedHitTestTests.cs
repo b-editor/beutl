@@ -181,17 +181,12 @@ public sealed class SlotBackedHitTestTests
 
     private static bool HitTest(RenderNode node, Point point)
     {
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1f,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1f,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
         return renderer.HitTest(point);
     }
 

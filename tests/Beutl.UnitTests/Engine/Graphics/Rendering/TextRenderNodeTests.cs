@@ -98,16 +98,11 @@ public class TextRenderNodeTests
             new Rect(rasterBounds.X, rasterBounds.Y, 0, rasterBounds.Height));
 
         using var node = new TextRenderNode(text, Brushes.Resource.White, null);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.Multiple(() =>

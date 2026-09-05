@@ -117,23 +117,13 @@ public sealed class DeliveryIntentDeclarationContractTests
     }
 
     [Test]
-    public void TheRendererOptions_RequireACompleteDefaultRequest()
+    public void TheRenderNodeRendererConstructor_RequiresACompleteDefaultRequest()
     {
-        PropertyInfo defaultRequest = RequireProperty(
-            typeof(RenderNodeRendererOptions),
-            nameof(RenderNodeRendererOptions.DefaultRequest));
-
-        Assert.That(defaultRequest.GetCustomAttribute<RequiredMemberAttribute>(), Is.Not.Null);
-    }
-
-    [Test]
-    public void TheRenderNodeRendererConstructor_RequiresStatedOptions()
-    {
-        ParameterInfo options = RequireParameter(typeof(RenderNodeRenderer), "options");
+        ParameterInfo defaultRequest = RequireParameter(typeof(RenderNodeRenderer), "defaultRequest");
 
         Assert.Multiple(() =>
         {
-            Assert.That(options.HasDefaultValue, Is.False);
+            Assert.That(defaultRequest.HasDefaultValue, Is.False);
             Assert.That(
                 typeof(RenderNodeRenderer).GetConstructors(BindingFlags.Public | BindingFlags.Instance)
                     .Any(static constructor => constructor.GetParameters()
@@ -151,11 +141,17 @@ public sealed class DeliveryIntentDeclarationContractTests
     {
         using FilterEffect.Resource resource = CreateStrokeEffectResource();
         using FilterEffectRenderNode previewNode = CreateScene(resource);
-        using var previewRenderer = new RenderNodeRenderer(previewNode, CreateOptions(RenderIntent.Preview));
+        using var previewRenderer = new RenderNodeRenderer(
+            previewNode,
+            CreateRequest(RenderIntent.Preview),
+            new FailSecondTargetFactory());
         using RenderNodeRasterization dropped = previewRenderer.Rasterize();
 
         using FilterEffectRenderNode deliveryNode = CreateScene(resource);
-        using var deliveryRenderer = new RenderNodeRenderer(deliveryNode, CreateOptions(RenderIntent.Delivery));
+        using var deliveryRenderer = new RenderNodeRenderer(
+            deliveryNode,
+            CreateRequest(RenderIntent.Delivery),
+            new FailSecondTargetFactory());
 
         Assert.Multiple(() =>
         {
@@ -169,19 +165,15 @@ public sealed class DeliveryIntentDeclarationContractTests
         });
     }
 
-    private static RenderNodeRendererOptions CreateOptions(RenderIntent intent)
+    private static RenderNodeRenderRequest CreateRequest(RenderIntent intent)
         => new()
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = intent,
-                TargetDomain = s_domain,
-                OutputScale = 1,
-                MaxWorkingScale = intent == RenderIntent.Delivery ? float.PositiveInfinity : 2,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                Purpose = RenderRequestPurpose.Frame,
-            },
-            TargetFactory = new FailSecondTargetFactory(),
+            Intent = intent,
+            TargetDomain = s_domain,
+            OutputScale = 1,
+            MaxWorkingScale = intent == RenderIntent.Delivery ? float.PositiveInfinity : 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
         };
 
     private static FilterEffect.Resource CreateStrokeEffectResource()

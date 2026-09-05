@@ -181,19 +181,14 @@ public sealed class BitmapSamplingQualityTests
             source.GetOriginal()!.Render(context, source);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, frame.ToSize(1)),
-                    OutputScale = scale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Enabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, frame.ToSize(1)),
+            OutputScale = scale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Enabled,
+        });
         using RenderTarget target = RenderTarget.Create(
             (int)MathF.Ceiling(frame.Width * scale),
             (int)MathF.Ceiling(frame.Height * scale))

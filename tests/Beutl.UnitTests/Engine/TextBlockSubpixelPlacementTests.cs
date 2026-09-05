@@ -75,16 +75,11 @@ public class TextBlockSubpixelPlacementTests
         using (var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview))
         {
             canvas.Clear();
-            using var renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
             renderer.Render(canvas);
         }
 

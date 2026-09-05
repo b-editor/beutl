@@ -340,20 +340,14 @@ public sealed class ShaderAndAllocationFailureTests
         RenderNode root,
         IRenderTargetFactory factory,
         RenderIntent intent = RenderIntent.Preview)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = intent,
-                    TargetDomain = new Rect(0, 0, 8, 8),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            TargetDomain = new Rect(0, 0, 8, 8),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
     private sealed class ShaderNode(ShaderDescription description) : RenderNode
     {

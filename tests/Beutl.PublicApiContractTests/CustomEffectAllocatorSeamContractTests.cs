@@ -21,7 +21,7 @@ public sealed class CustomEffectAllocatorSeamContractTests
 
         using (FilterEffect.Resource resource = new ProbeEffect(probe).ToResource(CompositionContext.Default))
         using (FilterEffectRenderNode node = CreateScene(resource))
-        using (var renderer = new RenderNodeRenderer(node, CreateOptions(factory)))
+        using (var renderer = new RenderNodeRenderer(node, CreateRequest(), factory))
         using (renderer.Rasterize())
         {
         }
@@ -53,19 +53,15 @@ public sealed class CustomEffectAllocatorSeamContractTests
         });
     }
 
-    private static RenderNodeRendererOptions CreateOptions(IRenderTargetFactory factory)
+    private static RenderNodeRenderRequest CreateRequest()
         => new()
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = s_domain,
-                OutputScale = 1,
-                MaxWorkingScale = 2,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                Purpose = RenderRequestPurpose.Frame,
-            },
-            TargetFactory = factory,
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            OutputScale = 1,
+            MaxWorkingScale = 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
         };
 
     private static FilterEffectRenderNode CreateScene(FilterEffect.Resource resource)

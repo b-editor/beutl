@@ -143,20 +143,15 @@ public sealed class WholeSourceFragmentOriginTests
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(frameExtent, frameExtent)))
         {
             canvas.Clear();
-            using var renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(0, 0, frameExtent, frameExtent),
-                        OutputScale = 1,
-                        MaxWorkingScale = 1,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                        FusionMode = fused ? FusionMode.Enabled : FusionMode.Disabled,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(0, 0, frameExtent, frameExtent),
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                FusionMode = fused ? FusionMode.Enabled : FusionMode.Disabled,
+            });
             renderer.Render(canvas);
         }
 

@@ -358,19 +358,14 @@ public sealed class GpuPassFusionFeature003RegressionTests
         {
             destinationCanvas.Clear(Colors.Black);
             using var node = new MaterializedBitmapNode(source);
-            using var renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Delivery,
-                        TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                        OutputScale = scale,
-                        MaxWorkingScale = float.PositiveInfinity,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                OutputScale = scale,
+                MaxWorkingScale = float.PositiveInfinity,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
             renderer.Render(destinationCanvas);
         }
 

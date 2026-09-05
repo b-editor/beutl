@@ -448,39 +448,27 @@ public sealed class ShaderAuthoringContractTests
     private static RenderNodeRenderer CreateHitTestRenderer(RenderNode node)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
-            });
+            new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
         return renderer.Measure();
     }
 
     private static RenderNodeRasterization Rasterize(RenderNode node)
     {
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         return renderer.Rasterize();
     }
 

@@ -344,21 +344,15 @@ public sealed class DegradedPreviewCachePurityTests
         RenderNode node,
         IRenderTargetFactory factory,
         RenderIntent intent)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = intent,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
 
     /// <summary>A node that publishes one opaque source and therefore needs a buffer of its own.</summary>
     private sealed class IntermediateNode(Rect bounds) : RenderNode

@@ -120,15 +120,12 @@ public sealed class OpaqueSourceStateContractTests
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_domain,
+                CacheOptions = RenderCacheOptions.Disabled,
+                Purpose = RenderRequestPurpose.Frame,
             });
 
     private sealed class SourceNode(Action<RenderNodeContext> process) : RenderNode

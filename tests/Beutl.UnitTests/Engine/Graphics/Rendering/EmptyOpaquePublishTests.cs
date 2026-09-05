@@ -107,21 +107,15 @@ public sealed class EmptyOpaquePublishTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     /// <summary>
     /// A source that shrinks its output before publishing it, read by a map that records what arrived.

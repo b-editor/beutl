@@ -29,19 +29,13 @@ public sealed class ShaderFallbackTests
                 "uniform shader src; half4 main(float2 p) { return src.eval(p).bgra; }",
                 RenderBoundsContract.Identity);
         using var node = new ShaderNode(source, description);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -88,19 +82,13 @@ public sealed class ShaderFallbackTests
             "uniform shader src; half4 main(float2 p) { this is not valid SkSL; }",
             RenderBoundsContract.Identity);
         using var node = new ShaderNode(source, invalid);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         Assert.That(
             () => renderer.Rasterize(),
@@ -141,19 +129,13 @@ public sealed class ShaderFallbackTests
         }
 
         using var node = new ShaderNode(source, description);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
@@ -217,20 +199,14 @@ public sealed class ShaderFallbackTests
         RenderNode node,
         Rect requestedRegion,
         FusionMode fusionMode)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+        }, new CpuTargetFactory());
 
     private sealed class ShaderNode(RenderTarget source, ShaderDescription description) : RenderNode
     {

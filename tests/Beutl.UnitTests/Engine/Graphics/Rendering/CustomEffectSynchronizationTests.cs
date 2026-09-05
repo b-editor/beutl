@@ -427,37 +427,26 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_targetDomain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_targetDomain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     private static RenderNodeRenderer CreateGpuRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_targetDomain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_targetDomain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        });
 
     [SuppressResourceClassGeneration]
     private sealed partial class CopyingCustomEffect(bool synchronizeSource = false) : FilterEffect

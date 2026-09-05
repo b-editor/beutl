@@ -209,21 +209,15 @@ public sealed class RenderPipelineBenchmarkNodeTests
     }
 
     private static RenderNodeRenderer CreateCpuRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 64, 48),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 64, 48),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     private static IEnumerable<ExecutionIslandBoundaryReason> CompileBoundaryReasons(FilterEffect effect)
     {

@@ -82,16 +82,12 @@ public sealed class RecordingSideEffectTests
         var tripwire = new SideEffectTripwire();
         var targetFactory = new CountingTargetFactory();
         using var node = new DeferredShapeProbeNode(tripwire);
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = DeferredShapeProbeNode.Bounds,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
-            TargetFactory = targetFactory,
-        });
+            Intent = RenderIntent.Preview,
+            TargetDomain = DeferredShapeProbeNode.Bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, targetFactory);
 
         RenderNodeMeasurement measurement = renderer.Measure();
 

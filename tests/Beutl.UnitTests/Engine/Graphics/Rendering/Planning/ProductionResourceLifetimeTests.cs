@@ -30,18 +30,14 @@ public sealed class ProductionResourceLifetimeTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(node, new RenderNodeRendererOptions
+        => new(node, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = s_bounds,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
-            TargetFactory = new CpuTargetFactory(),
-        });
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
     private sealed class LinearOpaqueChainNode(int stageCount) : RenderNode
     {

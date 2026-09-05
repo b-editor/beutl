@@ -127,16 +127,11 @@ public sealed class ShaderDescriptionOffsetMetadataTests
             RenderScaleContract.MaterializeAtWorkingScale);
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
     private sealed class TranslateNode(ShaderDescription description) : RenderNode
     {

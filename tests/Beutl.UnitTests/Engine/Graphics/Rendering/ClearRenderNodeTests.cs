@@ -54,17 +54,12 @@ public class ClearRenderNodeTest
         // Arrange
         var color = new Color(255, 0, 0, 255);
         var node = new ClearRenderNode(color);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 100, 100),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 100, 100),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         using var renderTarget = RenderTarget.CreateNull(100, 100);
         using var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview);
 

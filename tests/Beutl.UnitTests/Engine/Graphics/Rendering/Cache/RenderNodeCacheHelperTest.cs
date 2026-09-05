@@ -281,21 +281,15 @@ public class RenderNodeCacheHelperTest
         RenderNode node,
         bool useRenderCache = true,
         RenderCacheRules? cacheRules = null)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 100, 100),
-                    CacheOptions = new RenderCacheOptions(
-                        useRenderCache,
-                        cacheRules ?? RenderCacheRules.Default),
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 100, 100),
+            CacheOptions = new RenderCacheOptions(
+                useRenderCache,
+                cacheRules ?? RenderCacheRules.Default),
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     private static void RenderRequests(RenderNodeRenderer renderer, int count)
     {

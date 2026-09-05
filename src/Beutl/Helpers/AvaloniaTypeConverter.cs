@@ -457,16 +457,13 @@ public static class AvaloniaTypeConverter
 
                 using var renderer = new RenderNodeRenderer(
                     node,
-                    new RenderNodeRendererOptions
+                    new RenderNodeRenderRequest
                     {
-                        DefaultRequest = new RenderNodeRenderRequest
-                        {
-                            Intent = RenderIntent.Preview,
-                            // A grouped drawable records a full-target layer scope, which cannot be
-                            // resolved without a domain; use the canvas the content was recorded against.
-                            TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
-                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                        },
+                        Intent = RenderIntent.Preview,
+                        // A grouped drawable records a full-target layer scope, which cannot be
+                        // resolved without a domain; use the canvas the content was recorded against.
+                        TargetDomain = new Graphics.Rect(0, 0, 1920, 1080),
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                     });
                 using RenderNodeRasterization rasterization = renderer.Rasterize();
                 Media.Bitmap? bitmap = rasterization.Bitmap;

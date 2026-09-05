@@ -191,19 +191,14 @@ public sealed class BrushIntermediateAllocationIntentTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode root, RenderIntent intent)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = intent,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
     private static ImageBrush.Resource CreateImageBrush()
     {

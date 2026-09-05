@@ -210,7 +210,7 @@ public sealed class AllocationCensusHarness
             {
                 using var root = new DrawableRenderNode(resources[0]);
                 RecordScene(root, resources);
-                using var renderer = new RenderNodeRenderer(root, CreateOptions(false));
+                using var renderer = new RenderNodeRenderer(root, CreateRequest(false), new CpuTargetFactory());
                 for (int frame = 0; frame < WarmupFrames; frame++)
                     renderer.Rasterize().Dispose();
 
@@ -280,7 +280,7 @@ public sealed class AllocationCensusHarness
         {
             using var root = new DrawableRenderNode(resources[0]);
             RecordScene(root, resources);
-            using var renderer = new RenderNodeRenderer(root, CreateOptions(warmCache));
+            using var renderer = new RenderNodeRenderer(root, CreateRequest(warmCache), new CpuTargetFactory());
             var revalidated = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
             for (int frame = 0; frame < WarmupFrames; frame++)
             {
@@ -307,17 +307,13 @@ public sealed class AllocationCensusHarness
         }
     }
 
-    private static RenderNodeRendererOptions CreateOptions(bool warmCache)
+    private static RenderNodeRenderRequest CreateRequest(bool warmCache)
         => new()
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
-                CacheOptions = warmCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled,
-                Purpose = RenderRequestPurpose.Frame,
-            },
-            TargetFactory = new CpuTargetFactory(),
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
+            CacheOptions = warmCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
         };
 
     private static string RunCensus(bool warmCache)

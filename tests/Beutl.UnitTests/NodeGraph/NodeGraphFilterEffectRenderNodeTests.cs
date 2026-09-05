@@ -149,13 +149,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.Value = previous;
         var source = new CountingOpaqueSourceRenderNode(bounds);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -185,13 +182,10 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         var source = new CountingOpaqueSourceRenderNode(bounds);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -240,13 +234,10 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         renderer.Measure();
@@ -285,13 +276,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.Value = previous;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -319,13 +307,10 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -364,13 +349,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.ContentChanged += handler;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         InvalidOperationException? failure;
@@ -424,13 +406,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.IsEnabled = true;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 20, 10));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -468,13 +447,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 20, 10));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -574,13 +550,10 @@ public class NodeGraphFilterEffectRenderNodeTests
             source,
             new TransformRenderNode(Matrix.CreateTranslation(7, 4), TransformOperator.Prepend),
             resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -611,13 +584,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -654,14 +624,11 @@ public class NodeGraphFilterEffectRenderNodeTests
             source,
             new LayerRenderNode(default),
             resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(0, 0, 64, 48),
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 64, 48),
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -698,16 +665,12 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.IsEnabled = true;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(0, 0, 64, 48),
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
-            TargetFactory = new CpuTargetFactory(),
-        });
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 64, 48),
+            CacheOptions = RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -761,14 +724,11 @@ public class NodeGraphFilterEffectRenderNodeTests
             new LayerRenderNode(default),
             resource.CreateRenderNode(),
             new TransformRenderNode(Matrix.CreateTranslation(100, 100), TransformOperator.Prepend));
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(0, 0, 200, 200),
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 200, 200),
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -808,14 +768,11 @@ public class NodeGraphFilterEffectRenderNodeTests
             source,
             new LayerRenderNode(default),
             resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(0, 0, 64, 48),
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 64, 48),
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -859,13 +816,10 @@ public class NodeGraphFilterEffectRenderNodeTests
             source,
             new LayerRenderNode(default),
             resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         Assert.That(
@@ -901,14 +855,11 @@ public class NodeGraphFilterEffectRenderNodeTests
             source,
             new LayerRenderNode(default),
             resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = new Rect(0, 0, 64, 48),
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 64, 48),
+            CacheOptions = RenderCacheOptions.Disabled,
         });
 
         renderer.Measure();
@@ -937,13 +888,10 @@ public class NodeGraphFilterEffectRenderNodeTests
             using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
             var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 8, 8));
             using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-            using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+            using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
             Assert.That(
@@ -997,13 +945,10 @@ public class NodeGraphFilterEffectRenderNodeTests
             }
         });
 
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
         using (RenderNodeRasterization first = renderer.Rasterize())
         {
@@ -1148,13 +1093,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 8, 8));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         Assert.That(
@@ -1268,13 +1210,10 @@ public class NodeGraphFilterEffectRenderNodeTests
         using var pipeline = transformInputBeforeGraph
             ? ScaleRecordingTestHelper.Pipeline(source, graphInput, resource.CreateRenderNode())
             : ScaleRecordingTestHelper.Pipeline(source, graphInput);
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled,
         });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         return rasterization.Bitmap?.Clone()
@@ -1297,13 +1236,10 @@ public class NodeGraphFilterEffectRenderNodeTests
                     resource.CreateRenderNode())
                 : ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode()));
         }
-        using var renderer = new RenderNodeRenderer(root, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled,
         });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         return rasterization.Bitmap?.Clone()

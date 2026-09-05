@@ -741,15 +741,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         drawable.GetOriginal()!.Render(context, drawable);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = Intent,
-                    OutputScale = _currentDensity,
-                    MaxWorkingScale = MaxWorkingScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                },
+                Intent = Intent,
+                OutputScale = _currentDensity,
+                MaxWorkingScale = MaxWorkingScale,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
             });
         renderer.Render(this);
     }
@@ -760,15 +757,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         VerifyNestedExecutionOperation();
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = Intent,
-                    OutputScale = _currentDensity,
-                    MaxWorkingScale = MaxWorkingScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                },
+                Intent = Intent,
+                OutputScale = _currentDensity,
+                MaxWorkingScale = MaxWorkingScale,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
             });
         renderer.Render(this);
     }

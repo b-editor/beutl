@@ -846,19 +846,14 @@ public sealed class DrawableGroupIsolationTests
                 context.DrawDrawable(resource);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, frame.ToSize(1)),
-                    OutputScale = outputScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, frame.ToSize(1)),
+            OutputScale = outputScale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+        });
         renderer.Render(canvas);
         statistics = renderer.LastExecutionStatistics;
         return target.Snapshot();

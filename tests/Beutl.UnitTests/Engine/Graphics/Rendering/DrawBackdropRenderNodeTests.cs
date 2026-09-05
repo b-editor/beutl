@@ -68,17 +68,12 @@ public sealed class DrawBackdropRenderNodeTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode root)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
     private sealed class StubBackdrop : IBackdrop
     {

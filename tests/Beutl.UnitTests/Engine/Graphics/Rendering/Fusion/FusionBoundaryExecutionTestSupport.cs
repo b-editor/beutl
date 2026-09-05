@@ -284,21 +284,16 @@ internal static class FusionBoundaryExecutionTestSupport
         FusionMode fusionMode,
         bool useRenderCache = false)
     {
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                    FusionMode = fusionMode,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            FusionMode = fusionMode,
+            Purpose = RenderRequestPurpose.Frame,
+        });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap?.Clone()
             ?? throw new InvalidOperationException("The fusion-boundary render unexpectedly produced no bitmap.");

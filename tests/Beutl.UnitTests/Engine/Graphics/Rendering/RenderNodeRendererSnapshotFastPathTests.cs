@@ -151,19 +151,15 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
         Rect targetDomain,
         Rect? requestedRegion,
         IRenderTargetFactory targetFactory)
-        => new(node, new RenderNodeRendererOptions
+        => new(node, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = targetDomain,
-                RequestedRegion = requestedRegion,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
-            TargetFactory = targetFactory,
-        });
+            Intent = RenderIntent.Preview,
+            TargetDomain = targetDomain,
+            RequestedRegion = requestedRegion,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, targetFactory);
 
     private static Bitmap CreateTokenBitmap(int width, int height)
     {

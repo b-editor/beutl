@@ -753,17 +753,14 @@ public sealed class ResampledStageHitTestTests
         return node;
     }
 
-    private static RenderNodeRendererOptions Options(float outputScale = 1f, Rect? targetDomain = null)
+    private static RenderNodeRenderRequest Options(float outputScale = 1f, Rect? targetDomain = null)
         => new()
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = targetDomain ?? new Rect(0, 0, Size, Size),
-                OutputScale = outputScale,
-                MaxWorkingScale = outputScale,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Delivery,
+            TargetDomain = targetDomain ?? new Rect(0, 0, Size, Size),
+            OutputScale = outputScale,
+            MaxWorkingScale = outputScale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         };
 
     /// <remarks>

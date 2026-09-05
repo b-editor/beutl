@@ -427,17 +427,13 @@ public class RenderNodeRendererExceptionSafetyTests
     private static RenderNodeRenderer CreateRenderer(
         RenderNode node,
         IRenderTargetFactory? targetFactory = null)
-        => new(node, new RenderNodeRendererOptions
+        => new(node, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                OutputScale = 1,
-                MaxWorkingScale = float.PositiveInfinity,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
-            TargetFactory = targetFactory,
-        });
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = float.PositiveInfinity,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, targetFactory);
 
     private static void Execute(EntryPoint entryPoint, RenderNodeRenderer renderer)
     {

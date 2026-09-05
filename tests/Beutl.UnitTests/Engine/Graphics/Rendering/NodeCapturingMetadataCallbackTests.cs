@@ -195,19 +195,13 @@ public sealed class NodeCapturingMetadataCallbackTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode root)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     /// <summary>A source shifted by a distance the node holds, read by the node's own bounds mapping.</summary>
     private sealed class ShiftedSourceNode(float offset) : RenderNode

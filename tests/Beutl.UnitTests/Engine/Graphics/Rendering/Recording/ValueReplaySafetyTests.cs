@@ -134,19 +134,13 @@ public sealed class ValueReplaySafetyTests
     private static RenderNodeRenderer CreateRenderer(
         RenderNode root,
         IRenderTargetFactory targetFactory)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = 8,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-                TargetFactory = targetFactory,
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = 8,
+            CacheOptions = RenderCacheOptions.Disabled,
+        }, targetFactory);
 
     private static RenderNode CreateTransformedLayer(
         Matrix transform,

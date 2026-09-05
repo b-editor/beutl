@@ -146,19 +146,13 @@ public sealed class CrossNodeShaderFusionTests
         int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
         var targetFactory = new CpuTargetFactory();
         using var node = new LongShaderChainNode(stageCount);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = targetFactory,
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, targetFactory);
         using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: new Size(24, 16));
 
@@ -179,19 +173,13 @@ public sealed class CrossNodeShaderFusionTests
         int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
         var targetFactory = new CpuTargetFactory();
         using var node = new LongShaderChainNode(stageCount, bindLastStage: true);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = targetFactory,
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, targetFactory);
         using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: new Size(24, 16));
 
@@ -215,18 +203,13 @@ public sealed class CrossNodeShaderFusionTests
             int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
             var cpuFactory = new CpuTargetFactory();
             using var node = new LongShaderChainNode(stageCount);
-            using var renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                        FusionMode = FusionMode.Enabled,
-                        Purpose = RenderRequestPurpose.Frame,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                FusionMode = FusionMode.Enabled,
+                Purpose = RenderRequestPurpose.Frame,
+            });
             using RenderTarget cpuDestination = cpuFactory.CreateCpuTarget(new PixelSize(24, 16));
             using var cpuCanvas = new ImmediateCanvas(cpuDestination, RenderIntent.Preview, logicalSize: new Size(24, 16));
             using RenderTarget gpuDestination = RenderTarget.Create(24, 16)
@@ -419,8 +402,8 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(enabled.TargetPoolStatistics.LeasedTargets, Is.Zero);
                 Assert.That(disabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(3));
                 Assert.That(disabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.Zero);
-                Assert.That(enabled.Options.DefaultRequest.FusionMode, Is.EqualTo(FusionMode.Enabled));
-                Assert.That(disabled.Options.DefaultRequest.FusionMode, Is.EqualTo(FusionMode.Disabled));
+                Assert.That(enabled.DefaultRequest.FusionMode, Is.EqualTo(FusionMode.Enabled));
+                Assert.That(disabled.DefaultRequest.FusionMode, Is.EqualTo(FusionMode.Disabled));
                 Assert.That(enabled.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
                 Assert.That(enabled.StructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
                 Assert.That(enabled.StructuralPlanCacheStatistics.Hits, Is.EqualTo(1));
@@ -581,42 +564,31 @@ public sealed class CrossNodeShaderFusionTests
         RenderNode node,
         FusionMode fusionMode,
         bool useRenderCache = false)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                    FusionMode = fusionMode,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            FusionMode = fusionMode,
+            Purpose = RenderRequestPurpose.Frame,
+        });
 
     private static RenderNodeRenderer CreateCpuRenderer(
         RenderNode node,
         FusionMode fusionMode,
         IRenderTargetFactory targetFactory)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = targetFactory,
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+            Purpose = RenderRequestPurpose.Frame,
+        }, targetFactory);
 
     private static Bitmap RenderWithActiveDestinationState(RenderNodeRenderer renderer)
         => RenderWithDestinationTranslation(renderer, 2, 1);

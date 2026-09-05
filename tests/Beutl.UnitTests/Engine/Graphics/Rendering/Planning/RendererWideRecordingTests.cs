@@ -625,18 +625,12 @@ public sealed class RendererWideRecordingTests
         using var completeTarget = new CompleteTargetRenderNode(first, [second, third]);
         using var destination = new CpuRenderTarget(8, 8);
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var renderer = new RenderNodeRenderer(
-            completeTarget,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 8, 8),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(completeTarget, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 8, 8),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         renderer.Render(canvas);
 
@@ -659,18 +653,12 @@ public sealed class RendererWideRecordingTests
         using var completeTarget = new CompleteTargetRenderNode(clear, [source, command, capture]);
         using var destination = new CpuRenderTarget(8, 8);
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var renderer = new RenderNodeRenderer(
-            completeTarget,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 8, 8),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(completeTarget, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 8, 8),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         renderer.Render(canvas);
 

@@ -46,19 +46,13 @@ public sealed class DeclaredResourceOrderTests
     public void SwappingTwoDeclaredSlots_CompilesASeparateStructuralPlan()
     {
         using var node = new TwoResourceNode(swapped: false);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         long afterAuthoredOrder = CompilationsAfterFrame(renderer);
         long afterUnchangedFrame = CompilationsAfterFrame(renderer);

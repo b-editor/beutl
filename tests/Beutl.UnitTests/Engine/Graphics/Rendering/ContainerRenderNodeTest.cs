@@ -76,16 +76,11 @@ public class ContainerRenderNodeTest
         var node = new ContainerRenderNode();
         var bounds = new Rect(5, 10, 20, 30);
         node.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
         RenderNodeMeasurement result = renderer.Measure();
 

@@ -175,16 +175,13 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
                 BuiltInColorFilterShader.LumaColor());
             using var renderer = new RenderNodeRenderer(
                 root,
-                new RenderNodeRendererOptions
+                new RenderNodeRenderRequest
                 {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = s_bounds,
-                        OutputScale = 1,
-                        MaxWorkingScale = 1,
-                        CacheOptions = RenderCacheOptions.Disabled,
-                    },
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = s_bounds,
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = RenderCacheOptions.Disabled,
                 });
 
             using RenderNodeRasterization cold = renderer.Rasterize();

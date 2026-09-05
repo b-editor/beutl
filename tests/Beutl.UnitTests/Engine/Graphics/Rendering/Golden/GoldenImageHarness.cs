@@ -37,19 +37,14 @@ internal static class GoldenImageHarness
             resource.GetOriginal()!.Render(ctx, resource);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, logicalSize.ToSize(1)),
-                    RequestedRegion = requestedRegion,
-                    OutputScale = scale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, logicalSize.ToSize(1)),
+            RequestedRegion = requestedRegion,
+            OutputScale = scale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         renderer.Render(canvas);
 
         return target.Snapshot();

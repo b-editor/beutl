@@ -114,16 +114,13 @@ public sealed partial class DrawableTextureSource : TextureSource
 
                 using var renderer = new RenderNodeRenderer(
                     drawableNode,
-                    new RenderNodeRendererOptions
+                    new RenderNodeRenderRequest
                     {
-                        DefaultRequest = new RenderNodeRenderRequest
-                        {
-                            Intent = RenderIntent.Preview,
-                            TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
-                            OutputScale = density,
-                            MaxWorkingScale = density,
-                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                        },
+                        Intent = RenderIntent.Preview,
+                        TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
+                        OutputScale = density,
+                        MaxWorkingScale = density,
+                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
                     });
                 using (var canvas = new ImmediateCanvas(_renderTarget, RenderIntent.Preview, density, density))
                 {

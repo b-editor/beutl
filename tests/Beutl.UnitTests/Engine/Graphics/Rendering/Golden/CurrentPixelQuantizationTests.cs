@@ -104,19 +104,14 @@ public sealed class CurrentPixelQuantizationTests
                                         ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
             using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, logicalSize: s_frame.ToSize(1));
             canvas.Clear();
-            using var renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Delivery,
-                        TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                        OutputScale = 1,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                        FusionMode = fusionMode,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(default, s_frame.ToSize(1)),
+                OutputScale = 1,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                FusionMode = fusionMode,
+            });
             renderer.Render(canvas);
             return target.Snapshot();
         }

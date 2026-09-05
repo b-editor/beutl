@@ -25,16 +25,11 @@ public sealed class DrawableResourceRenderTests
             attached.GetOriginal()!.Render(context, attached);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
         Assert.That(rasterization.Bitmap, Is.Not.Null);

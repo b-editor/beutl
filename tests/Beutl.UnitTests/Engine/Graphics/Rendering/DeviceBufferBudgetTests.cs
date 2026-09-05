@@ -803,21 +803,15 @@ public sealed class DeviceBufferBudgetTests
             RenderNodeCacheHelper.BeginLifecycle(effectNode).CompleteSuccessfully(advanceWarmup: true);
 
         RenderCacheDecision[] segmentDecisions = ResolveEffectSegmentDecisions(pipeline);
-        using var renderer = new RenderNodeRenderer(
-            pipeline,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = RenderCacheOptions.Enabled,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    TargetDomain = s_overBudgetDomain,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new RecordingCpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Enabled,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            TargetDomain = s_overBudgetDomain,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new RecordingCpuTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -923,21 +917,15 @@ public sealed class DeviceBufferBudgetTests
             emitter.Render(recording, resource);
 
         var factory = new RecordingCpuTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(default, s_particleFrame),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(default, s_particleFrame),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
         using var destination = new CpuRenderTarget(
             new PixelSize((int)s_particleFrame.Width, (int)s_particleFrame.Height));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: s_particleFrame);

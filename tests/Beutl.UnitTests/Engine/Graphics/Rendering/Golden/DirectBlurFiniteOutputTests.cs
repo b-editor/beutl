@@ -100,21 +100,16 @@ public sealed class DirectBlurFiniteOutputTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    Purpose = RenderRequestPurpose.Frame,
-                    TargetDomain = s_frame,
-                    RequestedRegion = s_frame,
-                    OutputScale = 1f,
-                    MaxWorkingScale = 2f,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            Purpose = RenderRequestPurpose.Frame,
+            TargetDomain = s_frame,
+            RequestedRegion = s_frame,
+            OutputScale = 1f,
+            MaxWorkingScale = 2f,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
     private static void AssertFiniteVisibleResult(RenderNodeRasterization result, string label)
     {

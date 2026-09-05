@@ -34,16 +34,11 @@ public class VideoSourceRenderNodeTest
     public void Measure_ReportsConcreteNativeDensity_NotUnbounded()
     {
         using var node = new VideoSourceRenderNode(_resource!, frame: 0, Brushes.Resource.White, null);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.That(measurement.HasFragments, Is.True);

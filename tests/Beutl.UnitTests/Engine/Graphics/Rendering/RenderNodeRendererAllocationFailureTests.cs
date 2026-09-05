@@ -220,24 +220,18 @@ public sealed class RenderNodeRendererAllocationFailureTests
         RenderIntent intent,
         IRenderTargetFactory factory,
         Rect? requestedRegion = null)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = intent,
-                    TargetDomain = s_domain,
-                    RequestedRegion = requestedRegion,
-                    OutputScale = 1,
-                    MaxWorkingScale = intent == RenderIntent.Delivery
-                    ? float.PositiveInfinity
-                    : 2,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            TargetDomain = s_domain,
+            RequestedRegion = requestedRegion,
+            OutputScale = 1,
+            MaxWorkingScale = intent == RenderIntent.Delivery
+            ? float.PositiveInfinity
+            : 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
 
     private sealed class FailSecondTargetFactory : CpuTargetFactory
     {

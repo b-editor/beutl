@@ -192,19 +192,13 @@ public sealed class RecordingBufferPoolingTests
                     context.DrawDrawable(resource);
             }
 
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
-                        CacheOptions = RenderCacheOptions.Enabled,
-                        Purpose = RenderRequestPurpose.Frame,
-                    },
-                    TargetFactory = new CpuTargetFactory(),
-                });
+            using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
+                CacheOptions = RenderCacheOptions.Enabled,
+                Purpose = RenderRequestPurpose.Frame,
+            }, new CpuTargetFactory());
 
             var revalidated = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
             for (int frame = 0; frame < frames; frame++)

@@ -12,8 +12,8 @@ namespace Beutl.Graphics.Rendering;
 /// Records, plans, and executes one render-node root while retaining reusable plans, programs, and targets.
 /// </summary>
 /// <remarks>
-/// The renderer borrows <see cref="Root"/>, its cache, <see cref="RenderNodeRendererOptions.TargetFactory"/>,
-/// render destinations, and returned rasterizations. It owns its plan/program caches and pooled targets.
+/// The renderer borrows <see cref="Root"/>, its target factory, render destinations, and returned rasterizations.
+/// It owns its plan/program caches and pooled targets.
 /// Public calls on one instance are synchronous and must not overlap. After <see cref="Dispose"/>, every public
 /// rendering or metadata method throws <see cref="ObjectDisposedException"/>.
 /// </remarks>
@@ -27,11 +27,13 @@ public sealed class RenderNodeRenderer : IDisposable
 
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
     /// <param name="root">The non-null caller-owned root recorded for every request.</param>
-    /// <param name="options">
-    /// The non-null renderer ownership options and default request copied for the renderer lifetime.
+    /// <param name="defaultRequest">The non-null default request copied for the renderer lifetime.</param>
+    /// <param name="targetFactory">
+    /// The optional caller-owned factory for renderer-owned intermediate targets, or <see langword="null"/>
+    /// to use the engine's current-backend RGBA16F allocator.
     /// </param>
     /// <exception cref="ArgumentNullException">
-    /// <paramref name="root"/> or <paramref name="options"/> is <see langword="null"/>.
+    /// <paramref name="root"/> or <paramref name="defaultRequest"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// The configured render intent or request purpose is not defined.
@@ -39,19 +41,17 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <exception cref="ArgumentException">
     /// A configured target domain or requested region is not finite, or the target domain is empty.
     /// </exception>
-    public RenderNodeRenderer(RenderNode root, RenderNodeRendererOptions options)
+    public RenderNodeRenderer(
+        RenderNode root,
+        RenderNodeRenderRequest defaultRequest,
+        IRenderTargetFactory? targetFactory = null)
     {
         ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(options.DefaultRequest);
+        ArgumentNullException.ThrowIfNull(defaultRequest);
 
         Root = root;
-        Options = new RenderNodeRendererOptions
-        {
-            DefaultRequest = CopyAndSanitizeRequest(options.DefaultRequest),
-            TargetFactory = options.TargetFactory,
-        };
-        _targetPool = new RenderTargetPool(Options.TargetFactory);
+        DefaultRequest = CopyAndSanitizeRequest(defaultRequest);
+        _targetPool = new RenderTargetPool(targetFactory);
         _structuralPlanCache = new StructuralPlanCache();
         _programCache = SkRuntimeEffectProgramCache.Create();
         _spirvProgramCache = SpirvShaderProgramCache.Create();
@@ -60,8 +60,8 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Gets the caller-owned root node.</summary>
     public RenderNode Root { get; }
 
-    /// <summary>Gets the sanitized renderer option snapshot owned by this renderer.</summary>
-    public RenderNodeRendererOptions Options { get; }
+    /// <summary>Gets the sanitized default request snapshot owned by this renderer.</summary>
+    public RenderNodeRenderRequest DefaultRequest { get; }
 
     /// <summary>Gets whether this renderer has released its owned state.</summary>
     public bool IsDisposed { get; private set; }
@@ -85,7 +85,7 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Synchronously renders the selected root stream into a borrowed destination.</summary>
     /// <param name="destination">The non-null caller-owned destination canvas.</param>
     /// <param name="requestOptions">
-    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// A complete request, or <see langword="null"/> to use <see cref="DefaultRequest"/>.
     /// The destination supplies output scale and target domain; its maximum working scale clamps this request.
     /// </param>
     /// <remarks>
@@ -326,7 +326,7 @@ public sealed class RenderNodeRenderer : IDisposable
     /// origin.
     /// </remarks>
     /// <param name="requestOptions">
-    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// A complete request, or <see langword="null"/> to use <see cref="DefaultRequest"/>.
     /// </param>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
@@ -505,7 +505,7 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <returns>The resolved measurement.</returns>
     /// <remarks>This call performs no pixel callback, target allocation, readback, or cache publication.</remarks>
     /// <param name="requestOptions">
-    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// A complete request, or <see langword="null"/> to use <see cref="DefaultRequest"/>.
     /// </param>
     /// <exception cref="ObjectDisposedException">This renderer is disposed.</exception>
     public RenderNodeMeasurement Measure(RenderNodeRenderRequest? requestOptions = null)
@@ -545,7 +545,7 @@ public sealed class RenderNodeRenderer : IDisposable
     /// <summary>Tests the root at a logical point using recorded CPU-only metadata.</summary>
     /// <param name="point">The point in root request coordinates.</param>
     /// <param name="requestOptions">
-    /// A complete request, or <see langword="null"/> to use <see cref="RenderNodeRendererOptions.DefaultRequest"/>.
+    /// A complete request, or <see langword="null"/> to use <see cref="DefaultRequest"/>.
     /// </param>
     /// <returns><see langword="true"/> when a published fragment is hit.</returns>
     /// <remarks>This call performs no pixel callback, target allocation, or readback.</remarks>
@@ -753,7 +753,7 @@ public sealed class RenderNodeRenderer : IDisposable
 
     private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
         => request is null
-            ? Options.DefaultRequest
+            ? DefaultRequest
             : CopyAndSanitizeRequest(request);
 
     private static RenderNodeRenderRequest CopyAndSanitizeRequest(RenderNodeRenderRequest request)

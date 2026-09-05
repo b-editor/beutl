@@ -21,13 +21,10 @@ public sealed class RenderScaleMappingContractTests
         using var node = new SupplyMappingNode(EffectiveScale.At(inputDensity));
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -41,13 +38,10 @@ public sealed class RenderScaleMappingContractTests
         using var node = new SupplyMappingNode(EffectiveScale.Unbounded);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -206,15 +200,12 @@ public sealed class RenderScaleMappingContractTests
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = 4,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
+                Intent = RenderIntent.Preview,
+                OutputScale = 1,
+                MaxWorkingScale = 4,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
     private sealed class MaterializationDensityProbe

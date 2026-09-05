@@ -20,22 +20,16 @@ public sealed class RenderNodeRendererLifetimeTests
         using var source = new TrackingRenderTarget(new PixelSize(8, 8));
         using var node = new ShaderNode(source, bounds);
         using var factory = new TrackingTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    RequestedRegion = emptySelection,
-                    OutputScale = 2,
-                    MaxWorkingScale = 2,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            RequestedRegion = emptySelection,
+            OutputScale = 2,
+            MaxWorkingScale = 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -62,20 +56,14 @@ public sealed class RenderNodeRendererLifetimeTests
         using var source = new TrackingRenderTarget(new PixelSize(8, 8));
         using var node = new ShaderNode(source, bounds);
         using var factory = new TrackingTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    RequestedRegion = new Rect(x, y, width, height),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            RequestedRegion = new Rect(x, y, width, height),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
         using RenderTarget target = RenderTarget.CreateNull(8, 8);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
@@ -99,20 +87,14 @@ public sealed class RenderNodeRendererLifetimeTests
         using var node = new ShaderNode(source, bounds);
         using var factory = new TrackingTargetFactory(
             index => index == 0 ? cleanup : null);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         using (RenderNodeRasterization seeded = renderer.Rasterize())
         {
@@ -160,20 +142,14 @@ public sealed class RenderNodeRendererLifetimeTests
         RenderNodeCache.PublishAtomically(
             [RenderCacheTestSupport.CreatePublication(node.Cache, cacheSeed, bounds)]);
         using var factory = new TrackingTargetFactory();
-        var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap

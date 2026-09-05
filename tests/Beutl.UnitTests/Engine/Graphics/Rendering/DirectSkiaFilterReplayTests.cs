@@ -754,22 +754,16 @@ public sealed class DirectSkiaFilterReplayTests
         Rect? requestedRegion = null,
         RenderCacheOptions? cacheOptions = null,
         Rect? targetDomain = null)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = outputDensity,
-                    MaxWorkingScale = maxWorkingDensity,
-                    TargetDomain = targetDomain,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = cacheOptions ?? RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = outputDensity,
+            MaxWorkingScale = maxWorkingDensity,
+            TargetDomain = targetDomain,
+            RequestedRegion = requestedRegion,
+            CacheOptions = cacheOptions ?? RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     private static void AssertMatchingRgbaF16Rasterization(
         RenderNodeRasterization actual,

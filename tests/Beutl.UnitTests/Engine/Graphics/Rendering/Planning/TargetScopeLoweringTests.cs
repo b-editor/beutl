@@ -87,18 +87,12 @@ public sealed class TargetScopeLoweringTests
         int owningScopeCount = compiled.TargetDependencies.Scopes.Count(scope =>
             scope.OwnerFragmentId is { } owner
             && References(compiled.Graph)[owner].Kind == RenderFragmentKind.Layer);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -142,18 +136,12 @@ public sealed class TargetScopeLoweringTests
         });
 
         var factory = new CpuTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
         using RenderNodeRasterization raster = renderer.Rasterize();
         Bitmap bitmap = raster.Bitmap!;
         Assert.Multiple(() =>
@@ -207,18 +195,12 @@ public sealed class TargetScopeLoweringTests
                 Is.EqualTo(clipDomain));
         });
 
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using RenderNodeRasterization raster = renderer.Rasterize();
 
         Assert.Multiple(() =>
@@ -293,18 +275,12 @@ public sealed class TargetScopeLoweringTests
             _ => throw new ArgumentOutOfRangeException(nameof(scopeKind)),
         };
         root.AddChild(new ClearRenderNode(Colors.White));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -403,18 +379,12 @@ public sealed class TargetScopeLoweringTests
     {
         using var root = new EmptyTargetLayerNode(TargetRegion.Full);
         root.AddChild(new FullCommandNode(Colors.White));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -463,18 +433,12 @@ public sealed class TargetScopeLoweringTests
         empty.AddChild(suppressed);
         root.AddChild(empty);
         root.AddChild(visible);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -541,18 +505,12 @@ public sealed class TargetScopeLoweringTests
     {
         var domain = new Rect(10, 20, 40, 30);
         using var root = new FullCommandNode(Colors.White);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = domain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = domain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
 
@@ -571,18 +529,12 @@ public sealed class TargetScopeLoweringTests
     public void ReadbackCommandWrites_AreIncludedInOutputPlanning()
     {
         using var root = new WritingReadbackCommandNode();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_rootDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_rootDomain,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -601,18 +553,12 @@ public sealed class TargetScopeLoweringTests
         var factory = new CpuTargetFactory();
         var shifted = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
         using var root = new SourceNode(shifted, "shifted-raster", execute: true);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 2,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         using (RenderNodeRasterization raster = renderer.Rasterize())
         {
@@ -627,18 +573,12 @@ public sealed class TargetScopeLoweringTests
 
         int allocationsAfterShifted = factory.AllocationCount;
         var emptySelection = new Rect(70, 80, 0, 5);
-        using var emptyRenderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = emptySelection,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var emptyRenderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = emptySelection,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
         using RenderNodeRasterization empty = emptyRenderer.Rasterize();
 
         Assert.Multiple(() =>

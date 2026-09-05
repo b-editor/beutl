@@ -117,18 +117,12 @@ public sealed class ExecutionIslandOrderTests
     private static RenderNodeRenderer CreateRenderer(
         RenderNode root,
         RenderCacheOptions cacheOptions)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_frame,
-                    CacheOptions = cacheOptions,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_frame,
+            CacheOptions = cacheOptions,
+        }, new CpuTargetFactory());
 
     private static void AssertReversePublicationOrder(Bitmap bitmap, string frame)
     {

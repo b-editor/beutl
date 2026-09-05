@@ -304,19 +304,14 @@ public sealed class RasterFootprintMetadataTests
             RenderIntent.Preview,
             density,
             logicalSize: logicalBounds.Size);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = logicalBounds,
-                    OutputScale = density,
-                    MaxWorkingScale = density,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = logicalBounds,
+            OutputScale = density,
+            MaxWorkingScale = density,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
         Assert.That(() => renderer.Render(destination), Throws.Nothing);
     }

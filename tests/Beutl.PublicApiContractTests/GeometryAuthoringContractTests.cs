@@ -183,17 +183,14 @@ public sealed class GeometryAuthoringContractTests
         float maxWorkingScale)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = outputScale,
-                    MaxWorkingScale = maxWorkingScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+                Intent = RenderIntent.Preview,
+                OutputScale = outputScale,
+                MaxWorkingScale = maxWorkingScale,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            },
+            new CpuTargetFactory());
 
     private static RenderNodeRasterization Rasterize(RenderNode node)
     {

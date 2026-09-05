@@ -271,18 +271,13 @@ public class RenderScaleBenchmarkTests
                 resource.GetOriginal()!.Render(context, resource);
             }
 
-            _renderer = new RenderNodeRenderer(
-                _node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Delivery,
-                        TargetDomain = new Rect(default, _logicalSize),
-                        OutputScale = scale,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
-                });
+            _renderer = new RenderNodeRenderer(_node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Delivery,
+                TargetDomain = new Rect(default, _logicalSize),
+                OutputScale = scale,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
         }
 
         public Bitmap Render()

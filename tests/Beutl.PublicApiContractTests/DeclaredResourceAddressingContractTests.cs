@@ -207,15 +207,12 @@ public sealed class DeclaredResourceAddressingContractTests
     private static RenderNodeRenderer CreateRenderer(RenderNode node, RenderCacheOptions cacheOptions)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = cacheOptions,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_bounds,
+                CacheOptions = cacheOptions,
+                Purpose = RenderRequestPurpose.Frame,
             });
 
     private sealed class DelegateSourceNode(Action<RenderNodeContext> process) : RenderNode

@@ -48,21 +48,15 @@ public sealed class ParticleRenderNodeAllocationTests
             emitter.Render(context, resource);
 
         var factory = new BoundedTargetFactory(maximumDimension: 512);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, s_frame),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame);
 
@@ -221,21 +215,15 @@ public sealed class ParticleRenderNodeAllocationTests
             emitter.Render(context, resource);
 
         var factory = new BoundedTargetFactory(maximumDimension: 4096);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, s_frame),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame))
         {
@@ -280,21 +268,15 @@ public sealed class ParticleRenderNodeAllocationTests
             emitter.Render(context, resource);
 
         var factory = new BoundedTargetFactory(maximumDimension: 4096);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, s_frame),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, factory);
         using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame);
         renderer.Render(canvas);

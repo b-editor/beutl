@@ -15,19 +15,13 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         const float outputScale = 2;
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds);
         var factory = new CpuTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = outputScale,
-                    MaxWorkingScale = 2,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = outputScale,
+            MaxWorkingScale = 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
@@ -60,19 +54,13 @@ public sealed class RenderNodeRendererDeviceBoundsTests
 
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds);
         var factory = new CpuTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
@@ -96,12 +84,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         using var root = new DomainProbeNode(context => observedDomain = context.TargetDomain);
         using var target = new DeviceBoundsRenderTarget(deviceSize);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density: 2, logicalSize: logicalSize);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
 
         using (canvas.PushDeviceSpace())
             renderer.Render(canvas);

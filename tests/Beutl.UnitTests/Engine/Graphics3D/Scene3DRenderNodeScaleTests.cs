@@ -38,18 +38,13 @@ public class Scene3DRenderNodeScaleTests
         scene.RenderHeight.CurrentValue = 32;
         using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         using var node = new Scene3DRenderNode(resource);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 2,
-                    MaxWorkingScale = 0.5f,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 2,
+            MaxWorkingScale = 0.5f,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 

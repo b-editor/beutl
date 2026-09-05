@@ -623,7 +623,7 @@ public class CustomFilterEffectContext
     /// <see cref="FilterEffectActivator"/>'s public constructor builds a <i>standalone</i> activator, which
     /// allocates from the process-wide shared graphics context because it has no render to belong to. That is
     /// the wrong answer inside a custom effect: when the caller configured a
-    /// <see cref="RenderNodeRendererOptions.TargetFactory"/>, <see cref="Targets"/> holds surfaces the shared
+    /// <see cref="RenderNodeRenderer"/> target factory, <see cref="Targets"/> holds surfaces the shared
     /// allocator knows nothing about, and a standalone activator's flush buffer would meet them inside a
     /// single draw — two graphics contexts in one flush. Mint the activator here instead of constructing one.
     /// </para>

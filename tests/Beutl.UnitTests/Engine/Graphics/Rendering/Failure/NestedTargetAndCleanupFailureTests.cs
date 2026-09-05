@@ -272,20 +272,15 @@ public sealed class NestedTargetAndCleanupFailureTests
         var childBounds = new Rect(2, 1, 5, 4);
         using var child = new ShiftedNestedChildNode(childBounds);
         using var parent = new NestedOutputConsumerNode(child, fullDomain);
-        using var renderer = new RenderNodeRenderer(
-            parent,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = fullDomain,
-                    RequestedRegion = fullDomain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(parent, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = fullDomain,
+            RequestedRegion = fullDomain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
@@ -314,20 +309,14 @@ public sealed class NestedTargetAndCleanupFailureTests
         using var child = new NestedChildNode();
         using var parent = new NestedParentNode(child);
         var factory = new FailureTestTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            parent,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(parent, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         RenderNodeMeasurement measurement = renderer.Measure();
         bool hit = renderer.HitTest(new Point(1, 1));

@@ -187,17 +187,14 @@ public sealed class PaintedSourceAuthoringContractTests
     private static RenderNodeRenderer CreateRenderer(RenderNode node, Rect targetDomain)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    TargetDomain = targetDomain,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+                Intent = RenderIntent.Preview,
+                OutputScale = 1,
+                TargetDomain = targetDomain,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            },
+            new CpuTargetFactory());
 
     private static RenderNodeMeasurement Measure(RenderNode node)
     {

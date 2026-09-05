@@ -73,16 +73,11 @@ public class BackdropScaleTests
             const int dev = 200; // ceil(100 logical x w)
 
             using var snapshot = new SnapshotBackdropRenderNode();
-            using var renderer = new RenderNodeRenderer(
-                snapshot,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(snapshot, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
 
             // 1. Capture on a flush-style canvas (SurfaceDensity = w).
             using RenderTarget captureTarget = RenderTarget.Create(dev, dev)!;

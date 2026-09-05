@@ -82,15 +82,12 @@ public sealed class DeclaredPlannerTraitContractTests
         using var node = new StatefulSourceNode(Colors.Red);
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_bounds,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+                Purpose = RenderRequestPurpose.Frame,
             });
 
         for (int i = 0; i < 5; i++)
@@ -144,13 +141,10 @@ public sealed class DeclaredPlannerTraitContractTests
     {
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_bounds
             });
         return renderer.Measure();
     }

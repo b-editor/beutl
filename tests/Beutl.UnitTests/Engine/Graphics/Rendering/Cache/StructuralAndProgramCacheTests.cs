@@ -24,20 +24,14 @@ public sealed class StructuralAndProgramCacheTests
         source.Value.Canvas.Clear(new SKColor(160, 96, 32, 224));
         using Bitmap sourceBitmap = source.Snapshot();
         using var node = new ExecutableParameterShaderNode(source);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 8, 8),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 8, 8),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         ushort[]? firstPixels = null;
         ushort[]? finalPixels = null;
 
@@ -192,12 +186,7 @@ public sealed class StructuralAndProgramCacheTests
     public void Renderer_PersistsStructuralCacheAcrossRequests()
     {
         using var node = new EmptyNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
 
         using (renderer.Rasterize())
         {
@@ -217,18 +206,12 @@ public sealed class StructuralAndProgramCacheTests
     public void RenderInputReadbackSelection_ReplacesStructuralPlanAndRebindsSnapshots()
     {
         using var node = new MutableTargetCommandReadbackNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 8, 8),
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 8, 8),
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         using (renderer.Rasterize())
         {

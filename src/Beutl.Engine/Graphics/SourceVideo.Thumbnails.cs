@@ -140,15 +140,12 @@ public partial class SourceVideo : IThumbnailsProvider
             node = new DrawableRenderNode(resource);
             renderer = new RenderNodeRenderer(
                 node,
-                new RenderNodeRendererOptions
+                new RenderNodeRenderRequest
                 {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
-                        OutputScale = 1,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(0, 0, thumbWidth, maxHeight),
+                    OutputScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 });
 
             for (int i = effectiveStart; i <= effectiveEnd; i++)

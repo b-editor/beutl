@@ -71,20 +71,15 @@ public sealed class GpuPassFusionScaleRegionTests
         var completeBounds = new Rect(123.25f, 9, 10_000.25f, 12);
         var requestedRegion = new Rect(9_000, 9, 8, 8);
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(4), completeBounds);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = completeBounds,
-                    RequestedRegion = requestedRegion,
-                    OutputScale = 1,
-                    MaxWorkingScale = float.PositiveInfinity,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = completeBounds,
+            RequestedRegion = requestedRegion,
+            OutputScale = 1,
+            MaxWorkingScale = float.PositiveInfinity,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
         RenderNodeMeasurement measurement = renderer.Measure();
         float expected = RenderScaleUtilities.ClampWorkingScaleToExactBufferBudget(completeBounds, 4);
@@ -109,21 +104,15 @@ public sealed class GpuPassFusionScaleRegionTests
     {
         var outputBounds = new Rect(10, 20, 30, 40);
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(1), outputBounds);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 200, 300),
-                    RequestedRegion = new Rect(100, 200, 25, 20),
-                    OutputScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 200, 300),
+            RequestedRegion = new Rect(100, 200, 25, 20),
+            OutputScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -140,21 +129,15 @@ public sealed class GpuPassFusionScaleRegionTests
         var declaredBounds = new Rect(10.25f, 20.5f, 8, 6);
         var requestedRegion = new Rect(12.25f, 22.5f, 3, 2);
         using var node = new ShiftedCallbackNode(declaredBounds);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 40, 40),
-                    RequestedRegion = requestedRegion,
-                    OutputScale = 1,
-                    MaxWorkingScale = 4,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 40, 40),
+            RequestedRegion = requestedRegion,
+            OutputScale = 1,
+            MaxWorkingScale = 4,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         Assert.That(node.CallbackCount, Is.Zero, "metadata resolution must not execute guarded work");
@@ -185,21 +168,15 @@ public sealed class GpuPassFusionScaleRegionTests
         var declaredBounds = new Rect(10, 20, 12, 8);
         var requestedRegion = new Rect(12, 22, 4, 3);
         using var node = new TypedValueRoiNode(declaredBounds);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 40, 40),
-                    RequestedRegion = requestedRegion,
-                    OutputScale = 2,
-                    MaxWorkingScale = 4,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 40, 40),
+            RequestedRegion = requestedRegion,
+            OutputScale = 2,
+            MaxWorkingScale = 4,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         Assert.That(node.TotalCallbackCount, Is.Zero);
@@ -233,21 +210,15 @@ public sealed class GpuPassFusionScaleRegionTests
         var declaredBounds = new Rect(10, 20, 12, 8);
         var requestedRegion = new Rect(12, 22, 4, 3);
         using var node = new TargetReadbackRoiNode(declaredBounds);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 40, 40),
-                    RequestedRegion = requestedRegion,
-                    OutputScale = 2,
-                    MaxWorkingScale = 4,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(0, 0, 40, 40),
+            RequestedRegion = requestedRegion,
+            OutputScale = 2,
+            MaxWorkingScale = 4,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         Assert.That(node.CallbackCount, Is.Zero);
@@ -280,18 +251,12 @@ public sealed class GpuPassFusionScaleRegionTests
         var declaredBounds = new Rect(10, 20, 12, 8);
         var requestedRegion = new Rect(12, 22, 4, 3);
         using var node = new TargetReadbackRoiNode(declaredBounds);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var target = new CpuRenderTarget(80, 80);
         using var canvas = new ImmediateCanvas(
             target,
@@ -323,18 +288,12 @@ public sealed class GpuPassFusionScaleRegionTests
         var declaredBounds = new Rect(10, 20, 12, 8);
         var requestedRegion = new Rect(12, 22, 4, 3);
         using var node = new TargetReadbackRoiNode(declaredBounds);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using var target = new CpuRenderTarget(80, 80);
         using var canvas = new ImmediateCanvas(
             target,
@@ -435,18 +394,12 @@ public sealed class GpuPassFusionScaleRegionTests
     }
 
     private static RenderNodeRenderer CreateClipBlurRenderer(RenderNode node, Rect? requestedRegion)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
     [TestCase(CaptureContainer.FiniteLayer)]
     [TestCase(CaptureContainer.TargetLayerScope)]
@@ -459,20 +412,14 @@ public sealed class GpuPassFusionScaleRegionTests
         RenderFragmentOutputIdentity declaredAtTwo = RecordCaptureIdentity(node, outputScale: 2, builtIn: false);
         RenderFragmentOutputIdentity backdropIdentity = RecordCaptureIdentity(node, outputScale: 1, builtIn: true);
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 2,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_domain,
+            OutputScale = 1,
+            MaxWorkingScale = 2,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
         Assert.Multiple(() =>
@@ -601,20 +548,15 @@ public sealed class GpuPassFusionScaleRegionTests
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 2, new Size(width, height)))
         {
             canvas.Clear();
-            using var renderer = new RenderNodeRenderer(
-                node,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(0, 0, width, height),
-                        OutputScale = 1,
-                        MaxWorkingScale = 2,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                        FusionMode = mode,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(0, 0, width, height),
+                OutputScale = 1,
+                MaxWorkingScale = 2,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                FusionMode = mode,
+            });
             renderer.Render(canvas);
         }
 

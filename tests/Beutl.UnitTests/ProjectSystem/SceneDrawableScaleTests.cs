@@ -176,17 +176,12 @@ public class SceneDrawableScaleTests
                     drawable.Render(context, resource);
                 }
 
-                using var renderer = new RenderNodeRenderer(
-                    root,
-                    new RenderNodeRendererOptions
-                    {
-                        DefaultRequest = new RenderNodeRenderRequest
-                        {
-                            Intent = RenderIntent.Preview,
-                            TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
-                            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                        },
-                    });
+                using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+                {
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+                });
                 using RenderNodeRasterization rasterization = renderer.Rasterize();
 
                 Assert.Multiple(() =>
@@ -451,19 +446,14 @@ public class SceneDrawableScaleTests
                 inner.FrameSize.ToSize(1),
                 outputScale: 1);
 
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
-                        OutputScale = 1,
-                        CacheOptions = RenderCacheOptions.Disabled,
-                        Purpose = RenderRequestPurpose.Bounds,
-                    },
-                });
+            using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
+                OutputScale = 1,
+                CacheOptions = RenderCacheOptions.Disabled,
+                Purpose = RenderRequestPurpose.Bounds,
+            });
             renderer.Measure();
             int afterRecordingScale = retrying.RenderCalls;
 

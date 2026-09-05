@@ -232,17 +232,12 @@ public sealed class RenderCacheResolutionTests
     {
         using var node = new SolidCacheNode();
         node.Cache.RecordStableRequests();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+        });
 
         using (renderer.Rasterize())
         using (renderer.Rasterize())
@@ -1569,21 +1564,15 @@ public sealed class RenderCacheResolutionTests
     private static RenderNodeRenderer CreateFrameRenderer(
         RenderNode node,
         IRenderTargetFactory? targetFactory = null)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = targetFactory,
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+        }, targetFactory);
 
     private static Scenario SingleCandidate(
         Rect? requestedRegion = null,

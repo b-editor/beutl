@@ -28,20 +28,14 @@ public sealed class ContributeValuesCacheHitExecutionTests
         var producer = new EmptyCombineContributionNode();
         producer.Cache.RecordStableRequests();
         using var node = new ValueConsumerNode(producer);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization miss = renderer.Rasterize();
         Assert.That(producer.Cache.IsCached, Is.True,
@@ -64,21 +58,15 @@ public sealed class ContributeValuesCacheHitExecutionTests
         var producer = new IndependentDensityProducerNode();
         producer.Cache.RecordStableRequests();
         using var node = new IndependentDensityObserverNode(producer);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    MaxWorkingScale = 4,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            MaxWorkingScale = 4,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization miss = renderer.Rasterize();
         using RenderNodeRasterization hit = renderer.Rasterize();
@@ -102,23 +90,17 @@ public sealed class ContributeValuesCacheHitExecutionTests
     {
         using var node = new IndependentDensityProducerNode();
         node.Cache.RecordStableRequests();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    MaxWorkingScale = 4,
-                    CacheOptions = new RenderCacheOptions(
-                        true,
-                        new RenderCacheRules(MaxPixels: 200, MinPixels: 1)),
-                    Purpose = RenderRequestPurpose.Frame,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            MaxWorkingScale = 4,
+            CacheOptions = new RenderCacheOptions(
+                true,
+                new RenderCacheRules(MaxPixels: 200, MinPixels: 1)),
+            Purpose = RenderRequestPurpose.Frame,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization first = renderer.Rasterize();
         using RenderNodeRasterization second = renderer.Rasterize();
@@ -140,20 +122,14 @@ public sealed class ContributeValuesCacheHitExecutionTests
             root.AddChild(new EmptyCombineContributionNode());
 
         var factory = new CountingTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                    FusionMode = FusionMode.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+            FusionMode = FusionMode.Disabled,
+        }, factory);
 
         renderer.Rasterize().Dispose();
 

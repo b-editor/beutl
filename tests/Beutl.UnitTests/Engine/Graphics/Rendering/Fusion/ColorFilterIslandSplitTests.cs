@@ -249,19 +249,13 @@ public sealed class ColorFilterIslandSplitTests
         using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         using var node = new FilterEffectRenderNode(resource);
         node.AddChild(new EllipseRenderNode(s_bounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+        }, new CpuTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;

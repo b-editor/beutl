@@ -53,16 +53,11 @@ public class ProxyVideoLogicalSizeTests
         source.ReadFrom(new Uri(scope.OriginalPath));
         using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = true });
         using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.Multiple(() =>
@@ -84,16 +79,11 @@ public class ProxyVideoLogicalSizeTests
         source.ReadFrom(new Uri(path));
         using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = false });
         using var node = new VideoSourceRenderNode(resource, frame: 0, Brushes.Resource.White, null);
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.Multiple(() =>

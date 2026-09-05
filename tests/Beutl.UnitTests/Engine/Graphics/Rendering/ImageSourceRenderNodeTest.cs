@@ -158,13 +158,10 @@ public class ImageSourceRenderNodeTest
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(node, new RenderNodeRendererOptions
+        => new(node, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
     private sealed class InputFeedingNode(RenderNode child) : RenderNode

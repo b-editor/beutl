@@ -192,24 +192,18 @@ public class NodeCacheScaleTests
         RenderCacheRules? cacheRules = null,
         Rect? targetDomain = null,
         Rect? requestedRegion = null)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = targetDomain ?? s_bounds,
-                    RequestedRegion = requestedRegion,
-                    OutputScale = outputScale,
-                    MaxWorkingScale = maxWorkingScale,
-                    CacheOptions = new RenderCacheOptions(
-                        true,
-                        cacheRules ?? RenderCacheRules.Default),
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = targetDomain ?? s_bounds,
+            RequestedRegion = requestedRegion,
+            OutputScale = outputScale,
+            MaxWorkingScale = maxWorkingScale,
+            CacheOptions = new RenderCacheOptions(
+                true,
+                cacheRules ?? RenderCacheRules.Default),
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
 
     private sealed class ConcreteSourceNode : RenderNode
     {

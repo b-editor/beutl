@@ -121,9 +121,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         _root = CreateScene(_scene, animatedNodes, sceneResources);
         _animatedNodes = animatedNodes.AsReadOnly();
         _sceneResources = sceneResources.AsReadOnly();
-        RenderNodeRendererOptions options = CreateRendererOptions(_scene);
-        RenderPipelineInternalDiagnostics.SetPurpose(options, RenderRequestPurpose.Frame);
-        _renderer = new RenderNodeRenderer(_root, options);
+        _renderer = new RenderNodeRenderer(_root, CreateRendererRequest(_scene));
     }
 
     public void WarmAndVerify()
@@ -443,18 +441,16 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         string caseName)
         => GetSetupRenderPlan(RenderPipelineBenchmarkScenes.Get(caseName));
 
-    private static RenderNodeRendererOptions CreateRendererOptions(RenderPipelineBenchmarkSceneDefinition scene)
+    private static RenderNodeRenderRequest CreateRendererRequest(RenderPipelineBenchmarkSceneDefinition scene)
         => new()
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = s_targetDomain,
-                OutputScale = 1,
-                MaxWorkingScale = 1,
-                CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(scene.HasStaticPrefixCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                FusionMode = RenderPipelineBenchmarkConfig.GetFusionMode(),
-            },
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_targetDomain,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(scene.HasStaticPrefixCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            Purpose = RenderRequestPurpose.Frame,
+            FusionMode = RenderPipelineBenchmarkConfig.GetFusionMode(),
         };
 
     private static void AssertMatchingDiagnosticOutput(
@@ -763,9 +759,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
             _root = CreateScene(scene, animatedNodes, sceneResources);
             _animatedNodes = animatedNodes.AsReadOnly();
             _sceneResources = sceneResources.AsReadOnly();
-            RenderNodeRendererOptions options = CreateRendererOptions(scene);
-            RenderPipelineInternalDiagnostics.Attach(options, RenderRequestPurpose.Frame);
-            _renderer = new RenderNodeRenderer(_root, options);
+            _renderer = new RenderNodeRenderer(_root, CreateRendererRequest(scene));
         }
 
         public DiagnosticCapture Capture(int productionNextFrame)
@@ -1040,12 +1034,6 @@ internal static class RenderPipelineInternalDiagnostics
 
     // There is no request-wide diagnostics recorder, so counters come from the component statistics
     // the renderer publishes rather than from a per-request snapshot.
-    public static void Attach(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
-        => SetPurpose(options, purpose);
-
-    public static void SetPurpose(RenderNodeRendererOptions options, RenderRequestPurpose purpose)
-        => SetProperty(GetProperty(options, "DefaultRequest"), "Purpose", purpose);
-
     public static SortedDictionary<string, long> CaptureLatestCounters(object renderer, out bool succeeded)
     {
         SortedDictionary<string, long> result = CaptureNumericProperties(renderer, "LastExecutionStatistics");

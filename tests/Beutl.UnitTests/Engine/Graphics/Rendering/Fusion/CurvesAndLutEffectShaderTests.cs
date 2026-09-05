@@ -224,20 +224,14 @@ public sealed class CurvesAndLutEffectShaderTests
         // Under a container, so an ancestor whose own recording is replayable is in play too.
         using var root = new ContainerRenderNode();
         root.AddChild(lutNode);
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = renderCacheEnabled
-                        ? RenderCacheOptions.Default
-                        : RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = renderCacheEnabled
+                ? RenderCacheOptions.Default
+                : RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
 
         // Past RenderNodeCache.StableRequestCount, so the warmed-up render cache is live by the time
         // the cube data is mutated and cannot be what carries the change through.
@@ -409,18 +403,12 @@ public sealed class CurvesAndLutEffectShaderTests
             s_bounds,
             Brushes.Resource.Red,
             null));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         if (expectedShaderStages is int expected)
         {

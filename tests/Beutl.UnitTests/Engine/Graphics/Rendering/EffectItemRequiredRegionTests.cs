@@ -21,18 +21,12 @@ public sealed class EffectItemRequiredRegionTests
             EffectiveScale.At(1),
             sourceBounds,
             session => observed.Add(session.RequiredRegion)));
-        using var renderer = new RenderNodeRenderer(
-            filter,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
-            });
+        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new BudgetedCpuTargetFactory(int.MaxValue));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -52,18 +46,12 @@ public sealed class EffectItemRequiredRegionTests
             EffectiveScale.At(1),
             sourceBounds,
             session => observed.Add(session.RequiredRegion)));
-        using var renderer = new RenderNodeRenderer(
-            filter,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
-            });
+        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new BudgetedCpuTargetFactory(int.MaxValue));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -123,19 +111,13 @@ public sealed class EffectItemRequiredRegionTests
             (int)(frame.Width * scale),
             (int)(frame.Height * scale));
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, scale, logicalSize: frame.ToSize(1));
-        using var renderer = new RenderNodeRenderer(
-            filter,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(default, frame.ToSize(1)),
-                    OutputScale = scale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = new Rect(default, frame.ToSize(1)),
+            OutputScale = scale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         renderer.Render(canvas);
 
@@ -250,17 +232,11 @@ public sealed class EffectItemRequiredRegionTests
     {
         using FilterEffectRenderNode filter = CreateDilateNode(radius);
         filter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            filter,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = intent,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
-            });
+        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new BudgetedCpuTargetFactory(int.MaxValue));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
@@ -289,18 +265,12 @@ public sealed class EffectItemRequiredRegionTests
     {
         using FilterEffectRenderNode filter = CreateErodeNode(radius);
         filter.AddChild(new RectangleRenderNode(sourceBounds, Brushes.Resource.White, null));
-        using var renderer = new RenderNodeRenderer(
-            filter,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    RequestedRegion = requestedRegion,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = new BudgetedCpuTargetFactory(int.MaxValue),
-            });
+        using var renderer = new RenderNodeRenderer(filter, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            RequestedRegion = requestedRegion,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new BudgetedCpuTargetFactory(int.MaxValue));
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap

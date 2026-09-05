@@ -69,19 +69,14 @@ public sealed class CurvesFiniteOutputTests
             context.DrawDrawable(resource);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                    OutputScale = outputScale,
-                    MaxWorkingScale = outputScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, s_frame.ToSize(1)),
+            OutputScale = outputScale,
+            MaxWorkingScale = outputScale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         renderer.Render(canvas);
         return target.Snapshot();
     }

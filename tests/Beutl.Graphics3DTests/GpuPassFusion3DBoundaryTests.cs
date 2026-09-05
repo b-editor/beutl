@@ -57,16 +57,13 @@ public sealed class GpuPassFusion3DBoundaryTests
 
             using var renderer = new RenderNodeRenderer(
                 root,
-                new RenderNodeRendererOptions
+                new RenderNodeRenderRequest
                 {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = new Rect(0, 0, 32, 24),
-                        OutputScale = 1,
-                        MaxWorkingScale = 1,
-                        CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    },
+                    Intent = RenderIntent.Preview,
+                    TargetDomain = new Rect(0, 0, 32, 24),
+                    OutputScale = 1,
+                    MaxWorkingScale = 1,
+                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                 });
             using RenderNodeRasterization rasterization = renderer.Rasterize();
             Bitmap bitmap = rasterization.Bitmap
@@ -122,16 +119,13 @@ public sealed class GpuPassFusion3DBoundaryTests
 
             using (var renderer = new RenderNodeRenderer(
                        sceneNode,
-                       new RenderNodeRendererOptions
+                       new RenderNodeRenderRequest
                        {
-                           DefaultRequest = new RenderNodeRenderRequest
-                           {
-                               Intent = RenderIntent.Preview,
-                               TargetDomain = new Rect(0, 0, 32, 24),
-                               OutputScale = 1,
-                               MaxWorkingScale = 1,
-                               CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                           },
+                           Intent = RenderIntent.Preview,
+                           TargetDomain = new Rect(0, 0, 32, 24),
+                           OutputScale = 1,
+                           MaxWorkingScale = 1,
+                           CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
                        }))
             {
                 Assert.That(resource.Renderer, Is.Null);

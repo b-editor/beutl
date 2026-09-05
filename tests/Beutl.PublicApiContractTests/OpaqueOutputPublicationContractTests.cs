@@ -82,17 +82,14 @@ public sealed class OpaqueOutputPublicationContractTests
     {
         using RenderNodeRenderer renderer = new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_domain,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_domain,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                CacheOptions = RenderCacheOptions.Disabled,
+                Purpose = RenderRequestPurpose.Frame,
             });
         renderer.Rasterize().Dispose();
     }

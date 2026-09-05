@@ -394,18 +394,13 @@ public class ResolutionScaleTests
     public void RenderNodeRenderer_SanitizesDegenerateOutputScaleToOne(float bad)
     {
         using var node = new ContainerRenderNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = bad,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
-        Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1f));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = bad,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
+        Assert.That(renderer.DefaultRequest.OutputScale, Is.EqualTo(1f));
     }
 
     [TestCase(float.NaN)]
@@ -414,24 +409,19 @@ public class ResolutionScaleTests
     public void RenderNodeRenderer_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
     {
         using var node = new ContainerRenderNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = bad,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
-        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = bad,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
+        Assert.That(renderer.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
         // and it must not pull a resolved working scale to zero / NaN
         float w = RenderScaleUtilities.ResolveWorkingScale(
             [EffectiveScale.At(3f)],
             1f,
-            renderer.Options.DefaultRequest.MaxWorkingScale);
+            renderer.DefaultRequest.MaxWorkingScale);
         Assert.That(w, Is.EqualTo(3f));
     }
 
@@ -441,19 +431,14 @@ public class ResolutionScaleTests
     public void RenderNodeRenderer_DegenerateMaxWorkingScale_IsStableAcrossNodeKinds(float bad)
     {
         using var node = new PassThroughRenderNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = bad,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
-        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = bad,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
+        Assert.That(renderer.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
     [TestCase(float.NaN)]
@@ -462,18 +447,13 @@ public class ResolutionScaleTests
     public void RenderNodeRenderer_DegenerateOutputScale_DefaultsToOne(float bad)
     {
         using var node = new PassThroughRenderNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = bad,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
-        Assert.That(renderer.Options.DefaultRequest.OutputScale, Is.EqualTo(1f));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = bad,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
+        Assert.That(renderer.DefaultRequest.OutputScale, Is.EqualTo(1f));
     }
 
     // --- Shader device-buffer dimensions (the size SKSL/GLSL resolution uniforms must report) ------------
@@ -501,16 +481,11 @@ public class ResolutionScaleTests
         // Unbounded supply density; a wrongly-concrete value would inflate the upstream working scale.
         using var node = new LayerRenderNode(new Rect(0, 0, 100, 100));
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
         RenderNodeMeasurement measurement = renderer.Measure();
 
         Assert.That(measurement.HasFragments, Is.True);

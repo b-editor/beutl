@@ -94,40 +94,30 @@ public class MaxWorkingScaleSanitizationTests
     public void RenderNodeRenderer_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         using var node = new ContainerRenderNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = maxWorkingScale,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = maxWorkingScale,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
-        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        Assert.That(renderer.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
     [Test]
     public void RenderNodeRenderer_FinitePositiveCeiling_PassesThrough()
     {
         using var node = new ContainerRenderNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1,
-                    MaxWorkingScale = 3,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1,
+            MaxWorkingScale = 3,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        });
 
-        Assert.That(renderer.Options.DefaultRequest.MaxWorkingScale, Is.EqualTo(3));
+        Assert.That(renderer.DefaultRequest.MaxWorkingScale, Is.EqualTo(3));
     }
 
     [TestCaseSource(nameof(DegenerateCeilings))]

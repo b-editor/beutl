@@ -46,17 +46,12 @@ public sealed class HitTestDomainAgreementTests
     public void AFiniteLayerDoesNotHitWhatItsDomainClipsAway()
     {
         using var node = new ClippedLayerNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1f,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1f,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
         RenderNodeMeasurement measurement = renderer.Measure();
 
@@ -75,18 +70,13 @@ public sealed class HitTestDomainAgreementTests
     public void AFiniteTargetLayerScopeDoesNotHitWhatItsRegionClipsAway()
     {
         using var node = new ScopedCommandNode();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1f,
-                    TargetDomain = ScopedCommandNode.CommandBounds,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1f,
+            TargetDomain = ScopedCommandNode.CommandBounds,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
         Assert.Multiple(() =>
         {
@@ -99,18 +89,13 @@ public sealed class HitTestDomainAgreementTests
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    OutputScale = 1f,
-                    TargetDomain = s_targetDomain,
-                    CacheOptions = RenderCacheOptions.Disabled,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = 1f,
+            TargetDomain = s_targetDomain,
+            CacheOptions = RenderCacheOptions.Disabled,
+        });
 
     private sealed class ScopedCommandNode : RenderNode
     {

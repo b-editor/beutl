@@ -38,13 +38,10 @@ public sealed class RenderNodeContextMetadataContractTests
     {
         using var renderer = new RenderNodeRenderer(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, 64, 64),
-                },
+                Intent = RenderIntent.Preview,
+                TargetDomain = new Rect(0, 0, 64, 64),
             });
         renderer.Measure();
     }

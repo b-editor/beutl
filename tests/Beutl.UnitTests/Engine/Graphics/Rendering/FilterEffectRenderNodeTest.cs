@@ -115,13 +115,10 @@ public class FilterEffectRenderNodeTest
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)
-        => new(node, new RenderNodeRendererOptions
+        => new(node, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
     private static Bitmap RenderCurrentPixelBuiltIns(
@@ -137,19 +134,13 @@ public class FilterEffectRenderNodeTest
             },
         };
         using var node = CreateNode(group.ToResource(CompositionContext.Default));
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = fusionMode,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;
         return rasterization.Bitmap?.Clone()

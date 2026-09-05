@@ -297,7 +297,7 @@ public class Renderer : IRenderer
     public PixelSize DeviceSize { get; }
 
     internal RenderIntent FrameRequestIntent
-        => _frameRenderer.Options.DefaultRequest.Intent;
+        => _frameRenderer.DefaultRequest.Intent;
 
     internal StructuralPlanCacheStatistics FrameStructuralPlanCacheStatistics
         => _frameRenderer.StructuralPlanCacheStatistics;
@@ -501,17 +501,14 @@ public class Renderer : IRenderer
         RenderCacheOptions? cacheOptions = null)
         => new(
             node,
-            new RenderNodeRendererOptions
+            new RenderNodeRenderRequest
             {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = Intent,
-                    TargetDomain = new Rect(default, FrameSize.ToSize(1)),
-                    OutputScale = OutputScale,
-                    MaxWorkingScale = MaxWorkingScale,
-                    CacheOptions = cacheOptions ?? CacheOptions,
-                    Purpose = purpose,
-                },
+                Intent = Intent,
+                TargetDomain = new Rect(default, FrameSize.ToSize(1)),
+                OutputScale = OutputScale,
+                MaxWorkingScale = MaxWorkingScale,
+                CacheOptions = cacheOptions ?? CacheOptions,
+                Purpose = purpose,
             });
 
     private void AddDetachedHandler(Drawable drawable)

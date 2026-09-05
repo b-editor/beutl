@@ -127,17 +127,14 @@ public sealed class ThresholdDegenerateBandTests
         return node;
     }
 
-    private static RenderNodeRendererOptions Options()
+    private static RenderNodeRenderRequest Options()
         => new()
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(0, 0, Size, Size),
-                OutputScale = 1f,
-                MaxWorkingScale = 1f,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(0, 0, Size, Size),
+            OutputScale = 1f,
+            MaxWorkingScale = 1f,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         };
 
     private static float Alpha(Bitmap bitmap, int x, int y)

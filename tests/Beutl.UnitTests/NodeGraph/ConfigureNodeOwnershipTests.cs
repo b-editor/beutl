@@ -78,12 +78,7 @@ public sealed class ConfigureNodeOwnershipTests
                 "disposing one ConfigureNode output must not dispose its producer-owned input");
             Assert.That(secondOutput.IsDisposed, Is.False);
 
-            using var renderer = new RenderNodeRenderer(
-                secondOutput,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest { Intent = RenderIntent.Preview },
-                });
+            using var renderer = new RenderNodeRenderer(secondOutput, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
             Assert.DoesNotThrow(() => renderer.Measure());
             Assert.That(source.RenderNode.ProcessCount, Is.EqualTo(1),
                 "the remaining ConfigureNode branch must still record its shared source");
@@ -130,13 +125,10 @@ public sealed class ConfigureNodeOwnershipTests
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             new NonValueCommandRenderNode(),
             resource.CreateRenderNode());
-        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRendererOptions
+        using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
         {
-            DefaultRequest = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            },
+            Intent = RenderIntent.Preview,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
 
         Assert.That(

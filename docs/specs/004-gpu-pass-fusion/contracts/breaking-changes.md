@@ -461,27 +461,24 @@ Replace each `RenderNodeProcessor` use according to its intent:
 | operation-bounds union used to size a raster | `RenderNodeRenderer.Measure().OutputBounds` |
 | `PullToRoot` followed by operation hit tests | `RenderNodeRenderer.HitTest(point)` |
 | `Rasterize` or `RasterizeAndConcat` | one owned `RenderNodeRasterization` from `Rasterize()` |
-| protected `CreateRenderTarget` override | `RenderNodeRendererOptions.TargetFactory` |
+| protected `CreateRenderTarget` override | `RenderNodeRenderer` constructor `targetFactory` argument |
 
 A direct host supplies one complete request:
 
 ```csharp
 using var renderer = new RenderNodeRenderer(
     root,
-    new RenderNodeRendererOptions
+    new RenderNodeRenderRequest
     {
-        DefaultRequest = new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Delivery,
-            Purpose = RenderRequestPurpose.Frame,
-            TargetDomain = targetDomain,
-            RequestedRegion = requestedRegion,
-            OutputScale = outputScale,
-            MaxWorkingScale = maxWorkingScale,
-            CacheOptions = RenderCacheOptions.Enabled,
-        },
-        TargetFactory = targetFactory,
-    });
+        Intent = RenderIntent.Delivery,
+        Purpose = RenderRequestPurpose.Frame,
+        TargetDomain = targetDomain,
+        RequestedRegion = requestedRegion,
+        OutputScale = outputScale,
+        MaxWorkingScale = maxWorkingScale,
+        CacheOptions = RenderCacheOptions.Enabled,
+    },
+    targetFactory);
 
 RenderNodeMeasurement measurement = renderer.Measure();
 using RenderNodeRasterization rasterization = renderer.Rasterize();

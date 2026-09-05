@@ -2093,12 +2093,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 OutputScale = 1,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             };
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = request,
-                });
+            using var renderer = new RenderNodeRenderer(root, request);
             RenderNodeRenderRequest measureRequest = request with
             {
                 TargetDomain = ResolveSelectedDrawableDomain(
@@ -2140,12 +2135,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 MaxWorkingScale = WorkingScaleCeiling.Export(),
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             };
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = request,
-                });
+            using var renderer = new RenderNodeRenderer(root, request);
             RenderNodeRenderRequest exportRequest = request with
             {
                 TargetDomain = ResolveSelectedDrawableDomain(

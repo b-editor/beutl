@@ -167,21 +167,15 @@ public sealed class RecordingAndPlanningFailureTests
     {
         using var node = new BoundsFailureNode(failurePoint);
         var factory = new FailureTestTargetFactory();
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    RequestedRegion = new Rect(2, 2, 2, 2),
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                },
-                TargetFactory = factory,
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            RequestedRegion = new Rect(2, 2, 2, 2),
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
 
@@ -560,21 +554,15 @@ internal static class FailureTestSupport
         bool useRenderCache = false,
         RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary,
         RenderIntent intent = RenderIntent.Preview)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = intent,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                    Purpose = purpose,
-                },
-                TargetFactory = factory,
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            Purpose = purpose,
+        }, factory);
 
     public static RenderRequest CreateFrameRequest(bool useRenderCache)
         => new(new RenderRequestOptions(

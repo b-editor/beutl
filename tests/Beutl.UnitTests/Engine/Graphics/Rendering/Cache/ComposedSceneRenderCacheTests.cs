@@ -186,7 +186,7 @@ public sealed class ComposedSceneRenderCacheTests
     }
 
     [Test]
-    public void PlainGroup_DefaultRenderNodeRendererOptionsDoNotUsePersistentCache()
+    public void PlainGroup_DefaultRenderRequestDoesNotUsePersistentCache()
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
@@ -211,18 +211,12 @@ public sealed class ComposedSceneRenderCacheTests
             Assert.That(cacheable, Is.Not.Null, "the plain group must contain an eligible geometry node");
             cacheable!.Cache.RecordStableRequests();
 
-            using var renderer = new RenderNodeRenderer(
-                root,
-                new RenderNodeRendererOptions
-                {
-                    DefaultRequest = new RenderNodeRenderRequest
-                    {
-                        Intent = RenderIntent.Preview,
-                        TargetDomain = s_frameBounds,
-                        Purpose = RenderRequestPurpose.Frame,
-                    },
-                    TargetFactory = new CpuTargetFactory(),
-                });
+            using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = s_frameBounds,
+                Purpose = RenderRequestPurpose.Frame,
+            }, new CpuTargetFactory());
             using RenderNodeRasterization first = renderer.Rasterize();
             using RenderNodeRasterization second = renderer.Rasterize();
 
@@ -383,19 +377,13 @@ public sealed class ComposedSceneRenderCacheTests
         RenderNode root,
         bool useRenderCache)
     {
-        return new RenderNodeRenderer(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_frameBounds,
-                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-                TargetFactory = new CpuTargetFactory(),
-            });
+        return new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_frameBounds,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            Purpose = RenderRequestPurpose.Frame,
+        }, new CpuTargetFactory());
     }
 
     private static void AssertProductionCacheSequenceParity(

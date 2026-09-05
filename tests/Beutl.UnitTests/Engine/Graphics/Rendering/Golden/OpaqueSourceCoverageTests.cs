@@ -71,19 +71,14 @@ public sealed class OpaqueSourceCoverageTests
             drawable.GetOriginal()!.Render(context, drawable);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    OutputScale = density,
-                    MaxWorkingScale = density,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Auxiliary,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            OutputScale = density,
+            MaxWorkingScale = density,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Auxiliary,
+        });
         return renderer.Rasterize();
     }
 
@@ -109,20 +104,15 @@ public sealed class OpaqueSourceCoverageTests
         RenderNode node,
         float density,
         bool useRenderCache)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                    OutputScale = density,
-                    MaxWorkingScale = density,
-                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, s_frame.ToSize(1)),
+            OutputScale = density,
+            MaxWorkingScale = density,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            Purpose = RenderRequestPurpose.Frame,
+        });
 
     private static Bitmap RenderWithRenderer(RenderNodeRenderer renderer, float density)
     {

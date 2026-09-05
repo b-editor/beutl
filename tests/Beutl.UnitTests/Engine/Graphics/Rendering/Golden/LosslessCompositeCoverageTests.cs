@@ -569,21 +569,16 @@ public sealed class LosslessCompositeCoverageTests
         bool useRenderCache,
         FusionMode fusionMode = FusionMode.Enabled,
         float maxWorkingScale = 1)
-        => new(
-            root,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(0, 0, 180, 140),
-                    OutputScale = 1,
-                    MaxWorkingScale = maxWorkingScale,
-                    CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-                    FusionMode = fusionMode,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        => new(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(0, 0, 180, 140),
+            OutputScale = 1,
+            MaxWorkingScale = maxWorkingScale,
+            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            FusionMode = fusionMode,
+            Purpose = RenderRequestPurpose.Frame,
+        });
 
     private static Bitmap RenderNodeRendererToBitmap(
         RenderNodeRenderer renderer,
@@ -693,20 +688,15 @@ public sealed class LosslessCompositeCoverageTests
             resource.GetOriginal()!.Render(context, resource);
         }
 
-        using var renderer = new RenderNodeRenderer(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Delivery,
-                    TargetDomain = new Rect(default, frame.ToSize(1)),
-                    OutputScale = density,
-                    MaxWorkingScale = density,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            TargetDomain = new Rect(default, frame.ToSize(1)),
+            OutputScale = density,
+            MaxWorkingScale = density,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = RenderRequestPurpose.Frame,
+        });
 
         using RenderTarget target = CreateFrameTarget(density, frame);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: frame.ToSize(1));

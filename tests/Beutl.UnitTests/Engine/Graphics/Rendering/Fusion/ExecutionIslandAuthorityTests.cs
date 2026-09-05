@@ -279,21 +279,16 @@ public sealed class ExecutionIslandAuthorityTests
 
     private static RenderNodeRenderer CreateRenderer(
         RenderNode node)
-        => new(
-            node,
-            new RenderNodeRendererOptions
-            {
-                DefaultRequest = new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = s_bounds,
-                    OutputScale = 1,
-                    MaxWorkingScale = 1,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                    FusionMode = FusionMode.Enabled,
-                    Purpose = RenderRequestPurpose.Frame,
-                },
-            });
+        => new(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            OutputScale = 1,
+            MaxWorkingScale = 1,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Enabled,
+            Purpose = RenderRequestPurpose.Frame,
+        });
 
     private static CompiledRenderRequest CompileTerminalOpacity()
     {
