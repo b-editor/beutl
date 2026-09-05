@@ -226,6 +226,10 @@ public class AiSubtitleTemplateTests
                 "The preview must contain the renderer output for the selected caption template.");
             using (Assert.EnterMultipleScope())
             {
+                Assert.That(
+                    Math.Max(bitmapView.Source!.Value.Width, bitmapView.Source.Value.Height),
+                    Is.GreaterThan(ObjectTemplatePreviewRenderer.PreviewWidth),
+                    "Subtitle previews must retain more detail than saved object-template thumbnails.");
                 Assert.That(bitmapView.IsEffectivelyVisible, Is.True);
                 Assert.That(fallback.IsEffectivelyVisible, Is.False);
                 Assert.That(previewPeer.GetAutomationControlType(), Is.EqualTo(AutomationControlType.Image));
@@ -749,6 +753,8 @@ public class AiSubtitleTemplateTests
                 Is.EqualTo(new[] { "First", "Second" }));
             Assert.That(subtitles.Select(subtitle => subtitle.Id).Distinct().Count(), Is.EqualTo(2));
             Assert.That(subtitles.All(subtitle => subtitle.Size.CurrentValue == 48), Is.True);
+            Assert.That(subtitles.All(subtitle =>
+                subtitle.FontFamily.CurrentValue?.Name == CaptionPresentationDefaults.FontFamilyName), Is.True);
             Assert.That(subtitles.All(subtitle =>
             {
                 TranslateTransform translate = GetTranslate(subtitle);

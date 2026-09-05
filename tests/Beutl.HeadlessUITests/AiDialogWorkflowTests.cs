@@ -2371,6 +2371,132 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SubtitleTranslation_WrapsProviderTextWithoutValidationWarningOrDataLoss()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-translation-wrap");
+        const string translatedText =
+            "This translated caption is intentionally longer than the default line length.";
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                using JsonDocument json = JsonDocument.Parse(body);
+                object[] segments = json.RootElement.GetProperty("segments")
+                    .EnumerateArray()
+                    .Select(segment => (object)new
+                    {
+                        id = segment.GetProperty("id").GetString(),
+                        // Providers may return text that exceeds the editor's
+                        // line-length limit. The imported value must be wrapped,
+                        // not rejected (or truncated) as a validation error.
+                        text = translatedText,
+                    })
+                    .ToArray();
+                return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
+                {
+                    jobId = "translation-wrap",
+                    segments,
+                }));
+            }
+
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 2, Text = "source caption" },
+        ];
+        await WaitUntilAsync(() => viewModel.CanTranslate.Value);
+
+        await viewModel.Translate.ExecuteAsync();
+
+        string importedText = viewModel.Cues.Single().Text;
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CaptionValidationMessage.Value, Is.Null,
+                "Translation used to surface the exact line-count warning after import.");
+            Assert.That(importedText.Replace("\n", " ", StringComparison.Ordinal)
+                    .Replace("  ", " ", StringComparison.Ordinal),
+                Is.EqualTo(translatedText),
+                "Wrapping must preserve the translated words.");
+            Assert.That(importedText.Split('\n'), Has.Length.LessThanOrEqualTo(2));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task SubtitleTranslation_SplitsOverlongProviderTextWithoutLineCountWarning()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-subtitle-translation-split");
+        const string translatedText =
+            "これは字幕エディターの既定の一行あたりの文字数を大きく超えるように意図的に作成された長い翻訳結果です。"
+            + "翻訳された文章の内容を一文字も失わず、読みやすい複数の字幕へ分割して表示できることを確認します。";
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                string body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                using JsonDocument json = JsonDocument.Parse(body);
+                object[] segments = json.RootElement.GetProperty("segments")
+                    .EnumerateArray()
+                    .Select(segment => (object)new
+                    {
+                        id = segment.GetProperty("id").GetString(),
+                        text = translatedText,
+                    })
+                    .ToArray();
+                return JsonResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new
+                {
+                    jobId = "translation-split",
+                    segments,
+                }));
+            }
+
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.ResultSegments.Value =
+        [
+            new AiTranscriptionSegment { Start = 0, End = 10, Text = "source caption" },
+        ];
+        await WaitUntilAsync(() => viewModel.CanTranslate.Value);
+
+        await viewModel.Translate.ExecuteAsync();
+
+        string importedText = string.Join('\n', viewModel.Cues.Select(cue => cue.Text));
+        string importedLetters = new(importedText.Where(character => !char.IsWhiteSpace(character)).ToArray());
+        string translatedLetters = new(translatedText.Where(character => !char.IsWhiteSpace(character)).ToArray());
+        Assert.That(viewModel.Cues, Has.Count.EqualTo(2));
+        Assert.That(viewModel.Cues[0].TryCreateCue(out CaptionCue? firstCue), Is.True);
+        Assert.That(viewModel.Cues[1].TryCreateCue(out CaptionCue? secondCue), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CaptionValidationMessage.Value, Is.Null,
+                "An overlong translation must be split into timed cues instead of leaving a line-count warning.");
+            Assert.That(firstCue!.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(firstCue!.End, Is.EqualTo(secondCue!.Start));
+            Assert.That(secondCue.End, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(viewModel.Cues.All(cue => cue.Text.Split('\n').Length <= 2), Is.True);
+            Assert.That(importedLetters, Is.EqualTo(translatedLetters),
+                "Splitting must preserve every translated non-whitespace character.");
+        });
+    }
+
+    [AvaloniaTest]
     public async Task SubtitleTranslation_SecondBatchFailureKeepsPaidPartialAndResumesWithoutRebilling()
     {
         await TestReset.ResetShellAsync();

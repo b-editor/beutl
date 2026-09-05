@@ -338,7 +338,7 @@ internal sealed class CaptionAiJobResultHandler(
             language: recovered.Language)));
         var templates = new CaptionTemplateRegistry(
         [
-            CaptionTemplateDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
+            CaptionPresentationDefaults.CreateDefaultText(Strings.AiSubtitle_DefaultTemplate),
         ]);
         CaptionSceneImportResult result = await AiCaptionSceneImporter.AddAsync(
             context.Editor.Scene,

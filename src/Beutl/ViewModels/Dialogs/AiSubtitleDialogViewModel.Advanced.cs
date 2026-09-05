@@ -1547,7 +1547,7 @@ public sealed partial class AiSubtitleDialogViewModel
         }
     }
 
-    private static CaptionDocument BuildTranslationDocument(
+    private CaptionDocument BuildTranslationDocument(
         TranslationOperation operation,
         bool includeUntranslatedParts)
     {
@@ -1575,14 +1575,72 @@ public sealed partial class AiSubtitleDialogViewModel
                 throw new InvalidOperationException("The translation result is incomplete.");
             }
 
-            translatedCues.Add(cue with
+            // Translation providers are not required to honor the editor's
+            // display limits. Normalize each completed cue here so importing
+            // a translation does not immediately surface a line warning.
+            string translatedText = string.Concat(cuePieces.Select(piece =>
+                operation.TranslatedPieces.TryGetValue(piece.Id, out string? translated)
+                    ? translated
+                    : piece.Text));
+            if (!fullyTranslated)
             {
-                Text = string.Concat(cuePieces.Select(piece =>
-                    operation.TranslatedPieces.TryGetValue(piece.Id, out string? translated)
-                        ? translated
-                        : piece.Text)),
-                Language = fullyTranslated ? operation.TargetLanguage : cue.Language,
-            });
+                translatedCues.Add(cue with { Text = translatedText });
+                continue;
+            }
+
+            CaptionTextConstraints constraints = CreateTextConstraints();
+            string wrappedText = CaptionTextWrapper.Wrap(translatedText, constraints);
+            string[] lines = wrappedText.Split('\n');
+            if (lines.Length > constraints.MaximumLineCount
+                && (translatedText.Contains('\n') || translatedText.Contains('\r')))
+            {
+                // A provider may emit presentation line breaks of its own.
+                // Collapse those only when they would exceed the editor's
+                // line-count limit; the wrapper then lays the text out using
+                // the user's configured limits.
+                string flattened = translatedText
+                    .Replace("\r\n", "\n", StringComparison.Ordinal)
+                    .Replace('\r', '\n')
+                    .Replace('\n', ' ');
+                wrappedText = CaptionTextWrapper.Wrap(flattened, constraints);
+                lines = wrappedText.Split('\n');
+            }
+            int cueCount = (lines.Length + constraints.MaximumLineCount - 1)
+                / constraints.MaximumLineCount;
+            long durationTicks = (cue.End - cue.Start).Ticks;
+            // A valid cue normally has enough duration for every split. Keep
+            // the original cue as a last resort when the interval is shorter
+            // than the number of split cues rather than creating invalid
+            // timing or losing text.
+            if (cueCount <= 1 || durationTicks < cueCount)
+            {
+                translatedCues.Add(cue with
+                {
+                    Text = wrappedText,
+                    Language = operation.TargetLanguage,
+                });
+                continue;
+            }
+
+            long baseDuration = durationTicks / cueCount;
+            long remainder = durationTicks % cueCount;
+            long elapsed = 0;
+            for (int splitIndex = 0; splitIndex < cueCount; splitIndex++)
+            {
+                int firstLine = splitIndex * constraints.MaximumLineCount;
+                int lineCount = Math.Min(constraints.MaximumLineCount, lines.Length - firstLine);
+                long splitDuration = baseDuration + (splitIndex < remainder ? 1 : 0);
+                TimeSpan splitStart = cue.Start + TimeSpan.FromTicks(elapsed);
+                elapsed += splitDuration;
+                TimeSpan splitEnd = cue.Start + TimeSpan.FromTicks(elapsed);
+                translatedCues.Add(cue with
+                {
+                    Start = splitStart,
+                    End = splitEnd,
+                    Text = string.Join('\n', lines, firstLine, lineCount),
+                    Language = operation.TargetLanguage,
+                });
+            }
         }
 
         return new CaptionDocument(translatedCues);

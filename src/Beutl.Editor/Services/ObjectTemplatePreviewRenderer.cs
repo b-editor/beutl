@@ -24,6 +24,8 @@ public static class ObjectTemplatePreviewRenderer
     public const int PreviewWidth = 256;
     public const int PreviewHeight = 144;
 
+    private const int MaxRenderDimension = 2048;
+
     private const int MaxPreviewBytes = 256 * 1024;
     private const float MaxPreviewScale = 64f;
     private const byte BlankAlphaThreshold = 8;
@@ -73,16 +75,22 @@ public static class ObjectTemplatePreviewRenderer
         }
     }
 
+    /// <summary>
+    /// Renders element previews at an explicit output density. The output dimensions are bounded
+    /// to keep callers from allocating an unbounded render target.
+    /// </summary>
     internal static async ValueTask<byte[]?> RenderElementsPngAsync(
         IReadOnlyList<Element> elements,
         PixelSize frameSize,
+        PixelSize outputSize,
         CancellationToken cancellationToken = default)
     {
         if (elements.Count == 0) return null;
+        ValidateOutputSize(outputSize);
         try
         {
             return await RenderThread.Dispatcher.InvokeAsync(
-                () => RenderElements(elements, frameSize, cancellationToken), ct: cancellationToken)
+                () => RenderElements(elements, frameSize, outputSize, cancellationToken), ct: cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -108,12 +116,13 @@ public static class ObjectTemplatePreviewRenderer
     {
         // The element belongs to the edited scene, so the throwaway scene gets a clone. Start is
         // rebased because SceneCompositor only collects elements whose Range contains the time.
-        return RenderElements([element], default);
+        return RenderElements([element], default, new PixelSize(PreviewWidth, PreviewHeight));
     }
 
     private static byte[]? RenderElements(
         IReadOnlyList<Element> elements,
         PixelSize requestedFrameSize,
+        PixelSize outputSize,
         CancellationToken cancellationToken = default)
     {
         var copies = new List<Element>(elements.Count);
@@ -163,7 +172,8 @@ public static class ObjectTemplatePreviewRenderer
 
         return RenderResources(
             [.. frame.Objects.OfType<Drawable.Resource>()],
-            frameSize.ToSize(1));
+            frameSize.ToSize(1),
+            outputSize);
     }
 
     // Read from the live element: the clone is detached and can no longer reach its scene. A
@@ -188,7 +198,7 @@ public static class ObjectTemplatePreviewRenderer
     private static byte[]? RenderDrawable(Drawable drawable)
     {
         using var resource = drawable.ToResource(CompositionContext.Default);
-        return RenderResources([resource], AvailableSize);
+        return RenderResources([resource], AvailableSize, new PixelSize(PreviewWidth, PreviewHeight));
     }
 
     /// <summary>
@@ -201,7 +211,10 @@ public static class ObjectTemplatePreviewRenderer
     /// tall. <paramref name="availableSize"/> still has to be the authored frame, because that is
     /// what alignment resolves against. The resources belong to the caller.
     /// </remarks>
-    private static byte[]? RenderResources(IReadOnlyList<Drawable.Resource> resources, Size availableSize)
+    private static byte[]? RenderResources(
+        IReadOnlyList<Drawable.Resource> resources,
+        Size availableSize,
+        PixelSize outputSize)
     {
         if (resources.Count == 0)
             return null;
@@ -211,7 +224,7 @@ public static class ObjectTemplatePreviewRenderer
             return null;
 
         float scale = Math.Clamp(
-            MathF.Min(PreviewWidth / bounds.Width, PreviewHeight / bounds.Height),
+            MathF.Min(outputSize.Width / bounds.Width, outputSize.Height / bounds.Height),
             float.Epsilon,
             MaxPreviewScale);
         if (!float.IsFinite(scale) || scale <= 0f)
@@ -281,6 +294,19 @@ public static class ObjectTemplatePreviewRenderer
     }
 
     private static Size AvailableSize => new(PreviewWidth, PreviewHeight);
+
+    private static void ValidateOutputSize(PixelSize outputSize)
+    {
+        if (outputSize.Width <= 0 || outputSize.Height <= 0
+            || outputSize.Width > MaxRenderDimension
+            || outputSize.Height > MaxRenderDimension)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(outputSize),
+                outputSize,
+                $"Preview output must be positive and no larger than {MaxRenderDimension}x{MaxRenderDimension}.");
+        }
+    }
 
     // Assigning the live object to a fresh shape would tear it out of the edited scene's hierarchy,
     // so the sample shape only ever receives a detached copy.

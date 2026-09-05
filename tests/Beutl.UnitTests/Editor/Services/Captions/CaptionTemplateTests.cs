@@ -17,9 +17,24 @@ public class CaptionTemplateTests
     private static readonly CaptionTemplateProviderId s_testProvider = new("beutl.tests");
 
     [Test]
-    public void DefaultTemplate_CreatesTextDescriptionAndAppliesContextPlacement()
+    public void DefaultFactory_UsesTheRenderingEngineDefaultFont()
     {
         CaptionTemplateContribution template = CaptionTemplateDefaults.CreateDefaultText("Default");
+        var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello");
+        var context = new CaptionElementContext(0, "Caption");
+
+        TextBlock text = CreateTextBlock(template.CreateElements(cue, context).Single());
+
+        Assert.That(text.FontFamily.CurrentValue, Is.EqualTo(FontFamily.Default));
+    }
+
+    [Test]
+    public void DefaultTemplate_CreatesTextDescriptionAndAppliesContextPlacement()
+    {
+        var fontFamily = new FontFamily("Noto Sans JP");
+        CaptionTemplateContribution template = CaptionTemplateDefaults.CreateDefaultText(
+            "Default",
+            new DefaultTextCaptionElementFactory(fontFamily));
         var cue = new CaptionCue(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1.2), "Hello");
         var context = new CaptionElementContext(
             layer: 3,
@@ -39,6 +54,7 @@ public class CaptionTemplateTests
             Assert.That(description.Position, Is.EqualTo(new Point(0, 240)));
             Assert.That(text.Text.CurrentValue, Is.EqualTo("Hello"));
             Assert.That(text.Size.CurrentValue, Is.EqualTo(48));
+            Assert.That(text.FontFamily.CurrentValue?.Name, Is.EqualTo("Noto Sans JP"));
             Assert.That(text.AlignmentX.CurrentValue, Is.EqualTo(AlignmentX.Center));
             Assert.That(text.AlignmentY.CurrentValue, Is.EqualTo(AlignmentY.Center));
         }

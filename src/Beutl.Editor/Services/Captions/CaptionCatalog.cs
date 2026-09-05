@@ -95,13 +95,30 @@ public sealed class CaptionCatalog : IAsyncDisposable
         IEnumerable<ObjectTemplateItem> objectTemplates,
         IExtensionProvider extensionProvider,
         Action<CaptionCatalogExtensionFailure>? reportFailure = null)
+        => ComposeWithDefaultElementFactory(
+            defaultTemplateName,
+            objectTemplates,
+            extensionProvider,
+            DefaultTextCaptionElementFactory.Instance,
+            reportFailure);
+
+    /// <summary>
+    /// Creates a dynamically composed catalog using a host-supplied factory for its default template.
+    /// </summary>
+    public static CaptionCatalog ComposeWithDefaultElementFactory(
+        string defaultTemplateName,
+        IEnumerable<ObjectTemplateItem> objectTemplates,
+        IExtensionProvider extensionProvider,
+        ICaptionElementFactory defaultElementFactory,
+        Action<CaptionCatalogExtensionFailure>? reportFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(defaultTemplateName);
         ArgumentNullException.ThrowIfNull(objectTemplates);
         ArgumentNullException.ThrowIfNull(extensionProvider);
+        ArgumentNullException.ThrowIfNull(defaultElementFactory);
 
         var defaultTemplateRegistration = new CaptionTemplateRegistration(
-            CaptionTemplateDefaults.CreateDefaultText(defaultTemplateName));
+            CaptionTemplateDefaults.CreateDefaultText(defaultTemplateName, defaultElementFactory));
         CaptionTemplateRegistration[] hostTemplates =
         [
             defaultTemplateRegistration,

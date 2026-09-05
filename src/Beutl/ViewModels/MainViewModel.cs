@@ -60,11 +60,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
-        _captionCatalog = CaptionCatalog.Compose(
+        _captionCatalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             Beutl.Language.Strings.AiSubtitle_DefaultTemplate,
             Beutl.Editor.Services.ObjectTemplateService.Instance.FindByBaseType(
                 typeof(Beutl.Graphics.Drawable)),
             _extensionProvider,
+            CaptionPresentationDefaults.ElementFactory,
             failure => _logger.LogWarning(
                 failure.Exception,
                 "Ignoring invalid caption {ContributionKind} contribution from {ExtensionName}.",
