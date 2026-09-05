@@ -127,6 +127,7 @@ public class AiSubtitleTemplateTests
         await TestReset.ResetShellAsync();
         using AiSubtitleDialogViewModel viewModel =
             TestShell.MainViewModel.CreateAiSubtitleToolViewModel(null);
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
         var view = new AiSubtitleView { DataContext = viewModel };
         var viewWindow = new AvaloniaWindow { Content = view, Width = 460, Height = 640 };
         AvaloniaWindow? itemWindow = null;
@@ -242,6 +243,53 @@ public class AiSubtitleTemplateTests
                 Assert.That(hasBlue, Is.True,
                     "The second element from the selected template was not rendered in the preview.");
             }
+
+            Beutl.Media.Bitmap pagePreview = bitmapView.Source.Value;
+            int rendersBeforePageChange = previewFactory.CreateCount;
+            viewModel.SelectedSubtitlePageIndex.Value = 0;
+            HeadlessTestHelpers.Render();
+            await Task.Delay(200);
+            HeadlessTestHelpers.Settle();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null);
+                Assert.That(bitmapView.Source, Is.Null);
+                Assert.That(previewFactory.CreateCount, Is.EqualTo(rendersBeforePageChange),
+                    "A hidden Edit page must not keep rendering template previews.");
+            }
+
+            viewModel.BeforeTemplatePreviewAdmission = () =>
+                viewModel.SelectedSubtitlePageIndex.Value = 0;
+            try
+            {
+                viewModel.SelectedSubtitlePageIndex.Value = 1;
+            }
+            finally
+            {
+                viewModel.BeforeTemplatePreviewAdmission = null;
+            }
+            await Task.Delay(200);
+            HeadlessTestHelpers.Settle();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.SelectedSubtitlePageIndex.Value, Is.Zero);
+                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null);
+                Assert.That(previewFactory.CreateCount, Is.EqualTo(rendersBeforePageChange),
+                    "A page switch that wins preview admission must prevent hidden renderer work.");
+            }
+
+            viewModel.SelectedSubtitlePageIndex.Value = 1;
+            for (int attempt = 0;
+                 attempt < 30
+                 && (bitmapView.Source?.Value is null
+                     || ReferenceEquals(bitmapView.Source.Value, pagePreview));
+                 attempt++)
+            {
+                await Task.Delay(100);
+                HeadlessTestHelpers.Settle();
+            }
+            Assert.That(bitmapView.Source?.Value, Is.Not.Null);
+            Assert.That(bitmapView.Source!.Value, Is.Not.SameAs(pagePreview));
 
             Beutl.Media.Bitmap initialPreview = bitmapView.Source.Value;
             editor.Scene.FrameSize = new Beutl.Media.PixelSize(640, 800);
@@ -376,6 +424,79 @@ public class AiSubtitleTemplateTests
                     },
                     position: new Beutl.Graphics.Point(140, context.DefaultPosition.Y)),
             ];
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task TemplatePreview_PageChangeCancelsAnAdmittedRender()
+    {
+        await TestReset.ResetShellAsync();
+        var renderStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancellationObserved = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRenderer = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        byte[] latePng;
+        using (var bitmap = new Beutl.Media.Bitmap(2, 2))
+        using (var stream = new MemoryStream())
+        {
+            Assert.That(bitmap.Save(stream, EncodedImageFormat.Png), Is.True);
+            latePng = stream.ToArray();
+        }
+        AiSubtitleDialogViewModel viewModel =
+            TestShell.MainViewModel.CreateAiSubtitleToolViewModel(null);
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
+        viewModel.TemplatePreviewRenderer = async (_, _, cancellationToken) =>
+        {
+            using CancellationTokenRegistration registration = cancellationToken.Register(
+                () => cancellationObserved.TrySetResult());
+            renderStarted.TrySetResult();
+            await releaseRenderer.Task;
+            return latePng;
+        };
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new AvaloniaWindow { Content = view, Width = 320, Height = 640 };
+        Task? disposal = null;
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            await renderStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            viewModel.SelectedSubtitlePageIndex.Value = 0;
+            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Beutl.Controls.BitmapView preview = view.GetVisualDescendants()
+                .OfType<Beutl.Controls.BitmapView>()
+                .Single(item => item.Name == "CaptionTemplatePreviewBitmap");
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            disposal = viewModel.DisposeAsync().AsTask();
+            await Task.Delay(100);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(disposal.IsCompleted, Is.False,
+                    "Disposal must drain the admitted renderer even after its page is hidden.");
+                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null);
+                Assert.That(preview.Source, Is.Null);
+                Assert.That(viewModel.SelectedSubtitlePageIndex.Value, Is.Zero);
+            }
+
+            releaseRenderer.TrySetResult();
+            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+            HeadlessTestHelpers.Settle();
+            Assert.That(preview.Source, Is.Null,
+                "Bytes returned after cancellation must not publish a late preview image.");
+        }
+        finally
+        {
+            releaseRenderer.TrySetResult();
+            if (window.IsVisible)
+                window.Close();
+            HeadlessTestHelpers.Settle();
+            disposal ??= viewModel.DisposeAsync().AsTask();
+            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
         }
     }
 

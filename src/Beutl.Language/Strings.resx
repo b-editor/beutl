@@ -2209,6 +2209,18 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AiSubtitle_CueEditing" xml:space="preserve">
     <value>Cues</value>
   </data>
+  <data name="AiSubtitle_Edit" xml:space="preserve">
+    <value>Edit captions</value>
+  </data>
+  <data name="AiSubtitle_TranscribeDescription" xml:space="preserve">
+    <value>Choose an audio source and create timed captions.</value>
+  </data>
+  <data name="AiSubtitle_EditDescription" xml:space="preserve">
+    <value>Review timing and text, choose an appearance, then add the captions to the scene.</value>
+  </data>
+  <data name="AiSubtitle_TranslateDescription" xml:space="preserve">
+    <value>Translate the current captions into another language.</value>
+  </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>Captions file</value>
   </data>

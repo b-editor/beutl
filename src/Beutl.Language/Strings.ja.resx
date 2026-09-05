@@ -2203,6 +2203,18 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AiSubtitle_CueEditing" xml:space="preserve">
     <value>キュー</value>
   </data>
+  <data name="AiSubtitle_Edit" xml:space="preserve">
+    <value>字幕編集</value>
+  </data>
+  <data name="AiSubtitle_TranscribeDescription" xml:space="preserve">
+    <value>音声ソースを選び、時間情報付きの字幕を作成します。</value>
+  </data>
+  <data name="AiSubtitle_EditDescription" xml:space="preserve">
+    <value>タイミングと本文を確認し、見た目を選んで字幕をシーンに追加します。</value>
+  </data>
+  <data name="AiSubtitle_TranslateDescription" xml:space="preserve">
+    <value>現在の字幕を別の言語に翻訳します。</value>
+  </data>
   <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
     <value>字幕ファイル</value>
   </data>

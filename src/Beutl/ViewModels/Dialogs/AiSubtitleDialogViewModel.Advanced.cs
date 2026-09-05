@@ -35,6 +35,9 @@ public sealed partial class AiSubtitleDialogViewModel
     // minutes.
     private static readonly TimeSpan s_sceneMixChunkDuration = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan s_sceneMixComposeSlice = TimeSpan.FromSeconds(5);
+    private const int TranscribePageIndex = 0;
+    private const int EditPageIndex = 1;
+    private const int TranslatePageIndex = 2;
     private readonly CompositeDisposable _captionDisposables = [];
     private readonly object _templatePreviewGate = new();
     private int _templatePreviewAttachments;
@@ -183,6 +186,12 @@ public sealed partial class AiSubtitleDialogViewModel
 
     public ReactivePropertySlim<double> TemplatePreviewFontSize { get; private set; } = null!;
 
+    internal ReactivePropertySlim<int> SelectedSubtitlePageIndex { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsTranscribePage { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsEditPage { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsTranslatePage { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsSubtitleOperationActive { get; private set; } = null!;
+
     /// <summary>
     /// The rendered output of the selected caption template. Keeping this as a bitmap makes the
     /// preview use the same Beutl renderer as the element that will be added to the scene instead
@@ -191,6 +200,18 @@ public sealed partial class AiSubtitleDialogViewModel
     internal ReactivePropertySlim<Ref<Beutl.Media.Bitmap>?> TemplatePreviewImage { get; private set; } = null!;
 
     internal Action? BeforeTemplatePreviewAdmission { get; set; }
+
+    internal Func<
+        IReadOnlyList<Element>,
+        Beutl.Media.PixelSize,
+        CancellationToken,
+        Task<byte[]?>> TemplatePreviewRenderer
+    { get; set; }
+        = static (elements, frameSize, cancellationToken) =>
+            CaptionTemplatePreviewRenderer.RenderPngAsync(
+                elements,
+                frameSize,
+                cancellationToken).AsTask();
 
     public IReadOnlyList<CaptionLanguageOption> SourceLanguages { get; private set; } = null!;
 
@@ -278,6 +299,14 @@ public sealed partial class AiSubtitleDialogViewModel
         TemplatePreviewText = new ReactivePropertySlim<string>(Strings.AiSubtitle_PreviewSample)
             .DisposeWith(_captionDisposables);
         TemplatePreviewFontSize = new ReactivePropertySlim<double>(24).DisposeWith(_captionDisposables);
+        SelectedSubtitlePageIndex = new ReactivePropertySlim<int>(TranscribePageIndex)
+            .DisposeWith(_captionDisposables);
+        IsTranscribePage = SelectedSubtitlePageIndex.Select(value => value == TranscribePageIndex)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
+        IsEditPage = SelectedSubtitlePageIndex.Select(value => value == EditPageIndex)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
+        IsTranslatePage = SelectedSubtitlePageIndex.Select(value => value == TranslatePageIndex)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
         TemplatePreviewImage = new ReactivePropertySlim<Ref<Beutl.Media.Bitmap>?>()
             .DisposeWith(_captionDisposables);
         DetectedLanguageText = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
@@ -286,6 +315,10 @@ public sealed partial class AiSubtitleDialogViewModel
         HasValidCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
         HasTimingValidCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
         IsTranslating = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        IsSubtitleOperationActive = IsTranscribing.CombineLatest(
+                IsTranslating,
+                (transcribing, translating) => transcribing || translating)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
         TranslationPreview = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
         TranslatedLineCount = new ReactivePropertySlim<int>().DisposeWith(_captionDisposables);
 
@@ -396,6 +429,7 @@ public sealed partial class AiSubtitleDialogViewModel
         MaximumLineLength.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
         MaximumLineCount.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
         SelectedCaptionTemplate.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
+        SelectedSubtitlePageIndex.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
         SelectedCue.Subscribe(_ =>
         {
             RefreshCueCommandStates();
@@ -2794,6 +2828,7 @@ public sealed partial class AiSubtitleDialogViewModel
         Error.Value = null;
         IsTranscribing.Value = false;
         IsTranslating.Value = false;
+        SelectedSubtitlePageIndex.Value = TranscribePageIndex;
         ResultSegments.Value = null;
         ReplaceCues(new CaptionDocument());
         SelectedSourceLanguage.Value = SourceLanguages[0];
@@ -3020,6 +3055,8 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         MarkCaptionDocumentChanged();
         SelectedCue.Value = _editableCues.FirstOrDefault();
+        if (document.Count > 0)
+            SelectedSubtitlePageIndex.Value = EditPageIndex;
         RefreshCaptionState();
     }
 
@@ -3170,6 +3207,19 @@ public sealed partial class AiSubtitleDialogViewModel
         if (_disposed)
             return;
 
+        if (SelectedSubtitlePageIndex.Value != EditPageIndex)
+        {
+            CancellationTokenSource? previewCts;
+            lock (_templatePreviewGate)
+            {
+                previewCts = _templatePreviewCts;
+                _templatePreviewCts = null;
+            }
+            CancelTemplatePreview(previewCts);
+            ReplaceTemplatePreviewImage(null);
+            return;
+        }
+
         string text = SelectedCue.Value?.Text
             ?? _editableCues.FirstOrDefault()?.Text
             ?? Strings.AiSubtitle_PreviewSample;
@@ -3231,7 +3281,9 @@ public sealed partial class AiSubtitleDialogViewModel
         AsyncOperationLifetime.Operation? operation;
         lock (_templatePreviewGate)
         {
-            if (_disposed || _templatePreviewAttachments <= 0)
+            if (_disposed
+                || _templatePreviewAttachments <= 0
+                || SelectedSubtitlePageIndex.Value != EditPageIndex)
             {
                 cts.Dispose();
                 return;
@@ -3336,7 +3388,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 if (elements.Count == 0)
                     return;
 
-                byte[]? png = await CaptionTemplatePreviewRenderer.RenderPngAsync(
+                byte[]? png = await TemplatePreviewRenderer(
                         elements,
                         frameSize,
                         cancellationToken)
@@ -3355,6 +3407,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         if (!cancellationToken.IsCancellationRequested
+                            && SelectedSubtitlePageIndex.Value == EditPageIndex
                             && ownedOperation.TryPublish(() => ReplaceTemplatePreviewImage(image)))
                         {
                             transferred = true;

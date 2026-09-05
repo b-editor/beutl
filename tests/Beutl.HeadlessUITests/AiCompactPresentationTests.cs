@@ -203,6 +203,7 @@ public sealed class AiCompactPresentationTests
         await TestReset.ResetShellAsync();
         BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
         using AiSubtitleDialogViewModel viewModel = CreateSubtitleDialog(clients);
+        viewModel.SelectedSubtitlePageIndex.Value = 1;
         var view = new AiSubtitleView { DataContext = viewModel };
         var window = new Window { Content = view, Width = 460, Height = 900 };
 
@@ -215,12 +216,12 @@ public sealed class AiCompactPresentationTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(viewModel.Cues, Is.Empty);
-                Assert.That(cues.IsVisible, Is.False,
+                Assert.That(cues.IsEffectivelyVisible, Is.False,
                     "An empty cue list is a sentence, not an empty box.");
                 Assert.That(
                     view.GetLogicalDescendants().OfType<TextBlock>()
                         .Any(text => text.Text == Strings.AiSubtitle_CueListEmpty
-                            && text.IsVisible),
+                            && text.IsEffectivelyVisible),
                     Is.True,
                     "It says what would put cues there.");
             }
@@ -754,6 +755,140 @@ public sealed class AiCompactPresentationTests
                 Assert.That(status.IsEffectivelyVisible, Is.True);
                 Assert.That(status.Text, Is.Empty);
                 Assert.That(viewModel.TranscriptionStatusText.Value, Is.Empty);
+            }
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Subtitle_SeparatesTranscribeEditAndTranslateWorkflows()
+    {
+        await TestReset.ResetShellAsync();
+        BeutlApiApplication clients = TestShell.MainViewModel._beutlClients;
+        await using AiSubtitleDialogViewModel viewModel = CreateSubtitleDialog(clients);
+        var view = new AiSubtitleView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 180, Height = 900 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TabStrip workflow = view.FindControl<TabStrip>("SubtitleWorkflowTabs")!;
+            Button stop = view.FindControl<Button>("SubtitleStopButton")!;
+            ScrollViewer scroll = (ScrollViewer)view.Content!;
+            TabStripItem[] workflowItems = workflow.GetVisualDescendants()
+                .OfType<TabStripItem>()
+                .ToArray();
+            ComboBox source = FindByAutomationName<ComboBox>(view, Strings.AiSubtitle_AudioSource);
+            ComboBox template = view.FindControl<ComboBox>("CaptionTemplateComboBox")!;
+            ComboBox target = FindByAutomationName<ComboBox>(view, Strings.AiSubtitle_TargetLanguage);
+            ListBox cues = view.FindControl<ListBox>("CaptionCueList")!;
+            TextBlock transcribeDescription = view.GetLogicalDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Text == Strings.AiSubtitle_TranscribeDescription);
+            TextBlock editDescription = view.GetLogicalDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Text == Strings.AiSubtitle_EditDescription);
+            TextBlock translateDescription = view.GetLogicalDescendants()
+                .OfType<TextBlock>()
+                .Single(text => text.Text == Strings.AiSubtitle_TranslateDescription);
+            double[] workflowItemTops = workflowItems
+                .Select(item => item.TranslatePoint(default, workflow)?.Y ?? double.PositiveInfinity)
+                .ToArray();
+            double rightmostWorkflowItem = workflowItems.Max(item =>
+                item.TranslatePoint(new Point(item.Bounds.Width, 0), workflow)?.X
+                ?? double.PositiveInfinity);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(workflowItems.Select(AutomationProperties.GetName),
+                    Is.EqualTo(new[]
+                    {
+                        Strings.AiSubtitle_Transcribe,
+                        Strings.AiSubtitle_Edit,
+                        Strings.AiSubtitle_Translate,
+                    }));
+                Assert.That(workflowItemTops.Select(value => Math.Round(value)).Distinct().Count(),
+                    Is.GreaterThan(1),
+                    "The workflow choices wrap instead of clipping in a 180px dock.");
+                Assert.That(rightmostWorkflowItem, Is.LessThanOrEqualTo(workflow.Bounds.Width + 1));
+                Assert.That(scroll.Extent.Width, Is.LessThanOrEqualTo(scroll.Viewport.Width + 1));
+                Assert.That(viewModel.SelectedSubtitlePageIndex.Value, Is.Zero);
+                Assert.That(source.IsEffectivelyVisible, Is.True);
+                Assert.That(template.IsEffectivelyVisible, Is.False);
+                Assert.That(target.IsEffectivelyVisible, Is.False);
+                Assert.That(transcribeDescription.IsEffectivelyVisible, Is.True);
+                Assert.That(editDescription.IsEffectivelyVisible, Is.False);
+                Assert.That(translateDescription.IsEffectivelyVisible, Is.False);
+                Assert.That(stop.IsEffectivelyVisible, Is.False);
+            }
+
+            viewModel.HistoryOverwriteMessage.Value = "History notice";
+            viewModel.HasPendingHistoryResult.Value = true;
+            viewModel.PartialResultMessage.Value = "Partial notice";
+            viewModel.HasPartialResult.Value = true;
+            viewModel.Error.Value = "Global error";
+            HeadlessTestHelpers.Render();
+            TextBlock historyNotice = view.GetLogicalDescendants().OfType<TextBlock>()
+                .Single(text => text.Text == "History notice");
+            TextBlock partialNotice = view.GetLogicalDescendants().OfType<TextBlock>()
+                .Single(text => text.Text == "Partial notice");
+            TextBlock errorNotice = view.GetLogicalDescendants().OfType<TextBlock>()
+                .Single(text => text.Text == "Global error");
+            for (int page = 0; page < 3; page++)
+            {
+                workflow.SelectedIndex = page;
+                HeadlessTestHelpers.Render();
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(historyNotice.IsEffectivelyVisible, Is.True);
+                    Assert.That(partialNotice.IsEffectivelyVisible, Is.True);
+                    Assert.That(errorNotice.IsEffectivelyVisible, Is.True);
+                }
+            }
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.SelectedSubtitlePageIndex.Value, Is.EqualTo(2));
+                Assert.That(source.IsEffectivelyVisible, Is.False);
+                Assert.That(template.IsEffectivelyVisible, Is.False);
+                Assert.That(target.IsEffectivelyVisible, Is.True);
+                Assert.That(translateDescription.IsEffectivelyVisible, Is.True);
+            }
+
+            viewModel.IsTranslating.Value = true;
+            viewModel.ResultSegments.Value =
+            [
+                new AiTranscriptionSegment { Start = 0, End = 2, Text = "Ready to edit" },
+            ];
+            HeadlessTestHelpers.Render();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.SelectedSubtitlePageIndex.Value, Is.EqualTo(1));
+                Assert.That(workflow.SelectedIndex, Is.EqualTo(1));
+                Assert.That(workflow.IsEffectivelyEnabled, Is.False,
+                    "Navigation stays on the page that owns the operation context.");
+                Assert.That(stop.IsEffectivelyVisible, Is.True,
+                    "The shared cancel action remains reachable independently of page content.");
+                Assert.That(template.IsEffectivelyVisible, Is.True);
+                Assert.That(target.IsEffectivelyVisible, Is.False);
+            }
+            viewModel.IsTranslating.Value = false;
+            HeadlessTestHelpers.Render();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.SelectedSubtitlePageIndex.Value, Is.EqualTo(1));
+                Assert.That(workflow.SelectedIndex, Is.EqualTo(1));
+                Assert.That(source.IsEffectivelyVisible, Is.False);
+                Assert.That(template.IsEffectivelyVisible, Is.True);
+                Assert.That(cues.IsEffectivelyVisible, Is.True);
+                Assert.That(target.IsEffectivelyVisible, Is.False);
+                Assert.That(editDescription.IsEffectivelyVisible, Is.True);
+                Assert.That(stop.IsEffectivelyVisible, Is.False);
             }
         }
         finally

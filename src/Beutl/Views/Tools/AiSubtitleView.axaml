@@ -76,9 +76,32 @@
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
+            <TabStrip x:Name="SubtitleWorkflowTabs"
+                      AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle}"
+                      IsEnabled="{CompiledBinding !IsSubtitleOperationActive.Value}"
+                      SelectedIndex="{CompiledBinding SelectedSubtitlePageIndex.Value, Mode=TwoWay}"
+                      Theme="{StaticResource LiteNavTabStrip}">
+                <TabStrip.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </TabStrip.ItemsPanel>
+                <TabStripItem AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Transcribe}">
+                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_Transcribe}" />
+                </TabStripItem>
+                <TabStripItem AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Edit}">
+                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_Edit}" />
+                </TabStripItem>
+                <TabStripItem AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Translate}">
+                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_Translate}" />
+                </TabStripItem>
+            </TabStrip>
             <!--  One field per row: a source names the range it covers, and half a
                   docked tab is not enough width to read that.  -->
-            <StackPanel Spacing="8">
+            <StackPanel IsVisible="{CompiledBinding IsTranscribePage.Value}" Spacing="8">
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{x:Static lang:Strings.AiSubtitle_TranscribeDescription}"
+                           TextWrapping="Wrap" />
                 <StackPanel Spacing="4">
                     <TextBlock Text="{x:Static lang:Strings.AiSubtitle_AudioSource}" />
                     <ComboBox HorizontalAlignment="Stretch"
@@ -107,7 +130,10 @@
                            Text="{CompiledBinding DetectedLanguageText.Value}" />
             </StackPanel>
 
-            <StackPanel Spacing="4">
+            <StackPanel IsVisible="{CompiledBinding IsEditPage.Value}" Spacing="4">
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{x:Static lang:Strings.AiSubtitle_EditDescription}"
+                           TextWrapping="Wrap" />
                 <TextBlock Text="{x:Static lang:Strings.AiSubtitle_Template}"
                            ToolTip.Tip="{x:Static lang:Strings.AiSubtitle_TemplateDescription}" />
                 <ComboBox x:Name="CaptionTemplateComboBox"
@@ -155,26 +181,18 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel Spacing="8">
+            <StackPanel IsVisible="{CompiledBinding IsTranscribePage.Value}" Spacing="8">
                 <StackPanel IsVisible="{CompiledBinding Usage.HasSnapshot.Value}" Spacing="4">
                     <tools:AiUsageSummaryView DataContext="{CompiledBinding Usage}" />
                     <tools:AiUsageEstimateView DataContext="{CompiledBinding TranscriptionEstimate}" />
                 </StackPanel>
-                <!--  A long scene takes minutes to transcribe, so leaving is a button
-                      rather than closing the tab.  -->
-                <Grid ColumnDefinitions="*,Auto">
-                    <Button HorizontalAlignment="Stretch"
-                            Classes="accent"
-                            Command="{CompiledBinding Transcribe}"
-                            Content="{x:Static lang:Strings.AiSubtitle_Transcribe}"
-                            IsEnabled="{CompiledBinding CanTranscribe.Value}" />
-                    <Button Grid.Column="1"
-                            Margin="8,0,0,0"
-                            AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
-                            Command="{CompiledBinding StopRequest}"
-                            Content="{x:Static lang:Strings.Cancel}"
-                            IsVisible="{CompiledBinding IsTranscribing.Value}" />
-                </Grid>
+                <!--  A long scene takes minutes to transcribe, so the shared stop
+                      action remains available below every workflow page.  -->
+                <Button HorizontalAlignment="Stretch"
+                        Classes="accent"
+                        Command="{CompiledBinding Transcribe}"
+                        Content="{x:Static lang:Strings.AiSubtitle_Transcribe}"
+                        IsEnabled="{CompiledBinding CanTranscribe.Value}" />
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <ui:ProgressRing x:Name="TranscriptionProgressRing"
                                      Width="16"
@@ -233,7 +251,9 @@
                 </StackPanel>
             </Border>
 
-            <StackPanel IsEnabled="{CompiledBinding !IsTranslating.Value}" Spacing="8">
+            <StackPanel IsEnabled="{CompiledBinding !IsTranslating.Value}"
+                        IsVisible="{CompiledBinding IsEditPage.Value}"
+                        Spacing="8">
                 <!--  Reading a file in or out is about the whole set; the icons below
                       act on the one cue that is selected. Keeping them apart is what
                       says which is which.  -->
@@ -336,7 +356,6 @@
                            IsVisible="{CompiledBinding CaptionValidationMessage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Text="{CompiledBinding CaptionValidationMessage.Value}"
                            TextWrapping="Wrap" />
-
                 <!--  Wrapping is one action driven by the two numbers beside it, so it
                       lives with them rather than among the cue actions.  -->
                 <StackPanel Spacing="4">
@@ -371,47 +390,55 @@
                                 Content="{x:Static lang:Strings.AiSubtitle_WrapCues}" />
                     </WrapPanel>
                 </StackPanel>
-
-                <StackPanel Spacing="8">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="{x:Static lang:Strings.AiSubtitle_TargetLanguage}" />
-                        <ComboBox HorizontalAlignment="Stretch"
-                                  AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TargetLanguage}"
-                                  ItemsSource="{CompiledBinding TargetLanguages}"
-                                  SelectedItem="{CompiledBinding SelectedTargetLanguage.Value}" />
-                    </StackPanel>
-                    <StackPanel IsVisible="{CompiledBinding TranslationModelPicker.HasChoice.Value}" Spacing="4">
-                        <TextBlock Text="{x:Static lang:Strings.AiModel}" />
-                        <ComboBox HorizontalAlignment="Stretch"
-                                  AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
-                                  ItemsSource="{CompiledBinding TranslationModelPicker.Options}"
-                                  SelectedItem="{CompiledBinding TranslationModelPicker.Selected.Value}" />
-                    </StackPanel>
-                    <tools:AiUsageEstimateView DataContext="{CompiledBinding TranslationEstimate}" />
-                    <Button HorizontalAlignment="Left"
-                            AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Translate}"
-                            Command="{CompiledBinding Translate}"
-                            Content="{x:Static lang:Strings.AiSubtitle_Translate}"
-                            IsEnabled="{CompiledBinding CanTranslate.Value}" />
-                </StackPanel>
             </StackPanel>
 
-            <!--  Translation runs on the same stop as transcription, and its own panel
-                  is disabled while it runs, so the button belongs outside it.  -->
-            <Button HorizontalAlignment="Left"
+            <StackPanel IsEnabled="{CompiledBinding !IsTranslating.Value}"
+                        IsVisible="{CompiledBinding IsTranslatePage.Value}"
+                        Spacing="8">
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{x:Static lang:Strings.AiSubtitle_TranslateDescription}"
+                           TextWrapping="Wrap" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.AiSubtitle_TargetLanguage}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TargetLanguage}"
+                              ItemsSource="{CompiledBinding TargetLanguages}"
+                              SelectedItem="{CompiledBinding SelectedTargetLanguage.Value}" />
+                </StackPanel>
+                <StackPanel IsVisible="{CompiledBinding TranslationModelPicker.HasChoice.Value}" Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                              ItemsSource="{CompiledBinding TranslationModelPicker.Options}"
+                              SelectedItem="{CompiledBinding TranslationModelPicker.Selected.Value}" />
+                </StackPanel>
+                <tools:AiUsageEstimateView DataContext="{CompiledBinding TranslationEstimate}" />
+                <Button HorizontalAlignment="Left"
+                        AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_Translate}"
+                        Command="{CompiledBinding Translate}"
+                        Content="{x:Static lang:Strings.AiSubtitle_Translate}"
+                        IsEnabled="{CompiledBinding CanTranslate.Value}" />
+            </StackPanel>
+
+            <StackPanel IsVisible="{CompiledBinding IsTranslatePage.Value}" Spacing="6">
+                <!--  The line the model has just translated, while the rest is still
+                      being worked on.  -->
+                <TextBlock AutomationProperties.LiveSetting="Polite"
+                           Opacity="0.7"
+                           IsVisible="{CompiledBinding TranslationPreview.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{CompiledBinding TranslationPreview.Value}"
+                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="NoWrap" />
+            </StackPanel>
+
+            <!--  A result can move the workflow to Edit while the operation is settling,
+                  so its stop action remains reachable independently of the selected page.  -->
+            <Button x:Name="SubtitleStopButton"
+                    HorizontalAlignment="Left"
                     AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
                     Command="{CompiledBinding StopRequest}"
                     Content="{x:Static lang:Strings.Cancel}"
-                    IsVisible="{CompiledBinding IsTranslating.Value}" />
-
-            <!--  The line the model has just translated, while the rest is still
-                  being worked on.  -->
-            <TextBlock AutomationProperties.LiveSetting="Polite"
-                       Opacity="0.7"
-                       IsVisible="{CompiledBinding TranslationPreview.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                       Text="{CompiledBinding TranslationPreview.Value}"
-                       TextTrimming="CharacterEllipsis"
-                       TextWrapping="NoWrap" />
+                    IsVisible="{CompiledBinding IsSubtitleOperationActive.Value}" />
 
             <TextBlock AutomationProperties.LiveSetting="Assertive"
                        AutomationProperties.Name="{CompiledBinding Error.Value}"
@@ -429,7 +456,8 @@
 
             <Button Command="{CompiledBinding AddToScene}"
                     Content="{x:Static lang:Strings.AiSubtitle_AddToScene}"
-                    IsEnabled="{CompiledBinding CanAddToScene.Value}" />
+                    IsEnabled="{CompiledBinding CanAddToScene.Value}"
+                    IsVisible="{CompiledBinding IsEditPage.Value}" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>
