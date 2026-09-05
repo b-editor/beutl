@@ -397,28 +397,67 @@ public sealed class AiJobResultHandlerRegistry : IAsyncDisposable
                 () => DisposeRegistrationsAsync(registrations));
         }
 
+        var candidates = new List<(
+            AiJobResultHandlerExtension Extension,
+            AiJobResultHandlerRegistration[] Registrations,
+            List<Registration> Owned)>();
         foreach (AiJobResultHandlerExtension extension in currentExtensions)
         {
             if (_extensionRegistrations.ContainsKey(extension))
                 continue;
 
-            var registrations = new List<Registration>();
             try
             {
-                foreach (AiJobResultHandlerRegistration registration in ValidateRegistrations(extension))
-                {
-                    registrations.Add((Registration)Register(registration));
-                }
-
-                _extensionRegistrations.Add(extension, registrations);
+                candidates.Add((extension, ValidateRegistrations(extension), []));
             }
             catch (Exception ex)
             {
+                ReportFailure(extension, ex);
+            }
+        }
+
+        var failures = new Dictionary<AiJobResultHandlerExtension, Exception>(
+            ReferenceEqualityComparer.Instance);
+        foreach (AiJobResultHandlerRegistrationMode mode in new[]
+                 {
+                     AiJobResultHandlerRegistrationMode.Add,
+                     AiJobResultHandlerRegistrationMode.Replace,
+                 })
+        {
+            foreach ((AiJobResultHandlerExtension extension,
+                     AiJobResultHandlerRegistration[] registrations,
+                     List<Registration> owned) in candidates)
+            {
+                if (failures.ContainsKey(extension))
+                    continue;
+
+                try
+                {
+                    foreach (AiJobResultHandlerRegistration registration in registrations
+                                 .Where(registration => registration.Mode == mode))
+                    {
+                        owned.Add((Registration)Register(registration));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(extension, ex);
+                }
+            }
+        }
+
+        foreach ((AiJobResultHandlerExtension extension, _, List<Registration> owned) in candidates)
+        {
+            if (failures.TryGetValue(extension, out Exception? failure))
+            {
                 ExtensionRegistrationLifetimes.Retire(
                     extension,
-                    () => DisposeRegistrationsAsync(registrations));
-
-                ReportFailure(extension, ex);
+                    () => DisposeRegistrationsAsync(owned));
+                ReportFailure(extension, failure);
+            }
+            else
+            {
+                _extensionRegistrations.Add(extension, owned);
             }
         }
     }

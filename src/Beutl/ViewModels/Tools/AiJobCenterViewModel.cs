@@ -667,13 +667,15 @@ public sealed class AiJobCenterViewModel : IDisposable, IAsyncDisposable
 
         try
         {
-            if (!_jobKinds.TryAcquire(item.Job.Kind, out IAiJobKindLease? lease))
-                return;
-
-            using (lease)
+            AiJobStatusSemantics status = AiJobStatusSemantics.Unknown;
+            IAiJobKindLease? kindLease = null;
+            if (_jobKinds.TryAcquire(item.Job.Kind, out kindLease))
             {
-                AiJobKindDescriptor descriptor = lease.Descriptor;
-                AiJobStatusSemantics status = descriptor.StatusResolver.Resolve(item.Job.Status);
+                status = kindLease.Descriptor.StatusResolver.Resolve(item.Job.Status);
+            }
+
+            using (kindLease)
+            {
                 if (!_resultHandlers.TryAcquire(item.Job.Kind, out IAiJobResultHandlerLease? resultHandlerLease))
                 {
                     return;

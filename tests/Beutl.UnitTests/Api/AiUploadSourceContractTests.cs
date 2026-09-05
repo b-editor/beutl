@@ -47,6 +47,26 @@ public sealed class AiUploadSourceContractTests
     }
 
     [Test]
+    public async Task FromBytesSnapshotsMutableCallerMemoryAtConstruction()
+    {
+        byte[] callerBuffer = [1, 2, 3];
+        AiUploadSource source = AiUploadSource.FromBytes(
+            "snapshot.bin",
+            "application/octet-stream",
+            callerBuffer);
+        callerBuffer[0] = 9;
+
+        await using Stream first = await source.OpenReadAsync(CancellationToken.None);
+        await using Stream second = await source.OpenReadAsync(CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(await ReadAllAsync(first), Is.EqualTo(new byte[] { 1, 2, 3 }));
+            Assert.That(await ReadAllAsync(second), Is.EqualTo(new byte[] { 1, 2, 3 }));
+        }
+    }
+
+    [Test]
     public void Validation_RejectsASeekableStreamThatExceedsItsDeclaredLength()
     {
         var source = new AiUploadSource(
@@ -109,6 +129,13 @@ public sealed class AiUploadSourceContractTests
                 CancellationToken.None);
         });
         Assert.That(original.WasDisposed, Is.True);
+    }
+
+    private static async Task<byte[]> ReadAllAsync(Stream stream)
+    {
+        using var destination = new MemoryStream();
+        await stream.CopyToAsync(destination);
+        return destination.ToArray();
     }
 
     private sealed class NonSeekableStream(byte[] bytes) : Stream

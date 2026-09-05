@@ -785,6 +785,40 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
+    public async Task IndependentResultHandlerRunsWithoutAJobKindDescriptor()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-independent-result-handler");
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        var resultHandler = new IndependentResultHandler();
+        await using IAiJobResultHandlerRegistration registration = _resultHandlers.Register(
+            new AiJobResultHandlerRegistration(new AiJobResultContribution(
+                new AiJobKindId("vendor.independent"),
+                resultHandler)));
+        using var viewModel = CreateJobCenter(editor, clients);
+        using var item = new AiJobItemViewModel(
+            CreateJob(
+                "vendor.independent",
+                "ready",
+                url: "https://beutl.beditor.net/api/contents/independent"),
+            clients.GetResource<IAiJobKindRegistry>(),
+            _resultHandlers);
+
+        Assert.That(item.CanAddToScene, Is.True);
+        await viewModel.AddToSceneAsync(item);
+
+        Assert.That(resultHandler.HandleCount, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
     public async Task RetryConfirmationPinsOriginatingHandlerAcrossReplacementAndCancel()
     {
         await TestReset.ResetShellAsync();
@@ -1864,6 +1898,32 @@ public sealed class AiJobCenterTests
                 && ReferenceEquals(
                     context.Editor.ElementAdder,
                     expectedEditor.GetService(typeof(IElementAdder)));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class IndependentResultHandler : IAiJobResultHandler
+    {
+        public int HandleCount { get; private set; }
+
+        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
+            => new("Independent", "Ready", "Independent result", string.Empty, false);
+
+        public AiJobCompletionPresentation? CreateCompletion(
+            AiJob job,
+            AiJobStatusSemantics status,
+            AiJobPresentation presentation)
+            => null;
+
+        public bool CanHandle(AiJob job, AiJobStatusSemantics status) => true;
+
+        public Task HandleAsync(
+            AiJob job,
+            IAiJobResultContext context,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HandleCount++;
             return Task.CompletedTask;
         }
     }

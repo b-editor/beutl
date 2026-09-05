@@ -71,6 +71,34 @@ public sealed class AiJobKindAbstractionsTests
         }
     }
 
+    [Test]
+    public async Task EditorResultHandlerExtensionsComposeReplacementAfterLaterBase()
+    {
+        var extensions = new ExtensionProvider();
+        var original = new TestResultHandler();
+        var replacement = new TestResultHandler();
+        var replaceExtension = new TestResultHandlerExtension(
+            new AiJobResultHandlerRegistration(
+                new AiJobResultContribution(new AiJobKindId("tests.package-result"), replacement),
+                AiJobResultHandlerRegistrationMode.Replace));
+        var addExtension = new TestResultHandlerExtension(
+            new AiJobResultHandlerRegistration(
+                new AiJobResultContribution(new AiJobKindId("tests.package-result"), original)));
+        await using var registry = new AiJobResultHandlerRegistry([], extensions);
+
+        extensions.AddExtensions(200, [replaceExtension, addExtension]);
+
+        Assert.That(registry.TryAcquire(
+            new AiJobKindId("tests.package-result"),
+            out IAiJobResultHandlerLease? lease), Is.True);
+        using (lease)
+        {
+            Assert.That(lease!.Handler, Is.SameAs(replacement));
+        }
+
+        await extensions.RemoveExtensions(200).DrainAsync();
+    }
+
     private sealed class TestResultHandler : IAiJobResultHandler
     {
         public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
@@ -89,5 +117,12 @@ public sealed class AiJobKindAbstractionsTests
             IAiJobResultContext context,
             CancellationToken cancellationToken)
             => Task.CompletedTask;
+    }
+
+    private sealed class TestResultHandlerExtension(
+        params AiJobResultHandlerRegistration[] registrations) : AiJobResultHandlerExtension
+    {
+        public override IReadOnlyCollection<AiJobResultHandlerRegistration> Registrations { get; } =
+            registrations;
     }
 }

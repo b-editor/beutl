@@ -93,6 +93,7 @@ public sealed class AiUploadSource
         string mediaType,
         ReadOnlyMemory<byte> bytes)
     {
+        byte[] snapshot = bytes.ToArray();
         return new AiUploadSource(
             fileName,
             mediaType,
@@ -100,9 +101,9 @@ public sealed class AiUploadSource
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return ValueTask.FromResult<Stream>(
-                    new MemoryStream(bytes.ToArray(), writable: false));
+                    new MemoryStream(snapshot, writable: false));
             },
-            bytes.Length);
+            snapshot.Length);
     }
 
     /// <summary>
