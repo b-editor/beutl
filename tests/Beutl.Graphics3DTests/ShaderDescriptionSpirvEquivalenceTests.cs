@@ -79,6 +79,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    [Platform("MacOSX")]
     public void Identity_ExplicitSpirvMatchesSksl()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -102,6 +103,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    [Platform("MacOSX")]
     public void Identity_SubmitsNativeCommandsBeforeExecutionReturns()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -191,6 +193,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [Test]
     [Category("GpuPassFusionGpu")]
     [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    [Platform("MacOSX")]
     public void Renderer_ReusesNativeTestProgram()
     {
         GpuTestEnvironment.EnsureAvailable();
