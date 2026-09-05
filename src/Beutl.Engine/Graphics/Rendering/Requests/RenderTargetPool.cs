@@ -725,11 +725,11 @@ internal sealed class RenderTargetPool : IDisposable
             _leasedTargets--;
         }
         else if (failedLease is
-                 {
-                     State: RenderTargetLeaseState.Leased
+        {
+            State: RenderTargetLeaseState.Leased
                          or RenderTargetLeaseState.ReleaseFailed
                          or RenderTargetLeaseState.Deferred,
-                 })
+        })
         {
             failedLease.State = RenderTargetLeaseState.Evicted;
             _leasedTargets--;
