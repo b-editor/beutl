@@ -123,6 +123,7 @@ public sealed class DeferredCallbackFailureTests
             token,
             density: 1,
             s_bounds,
+            PixelRect.FromRect(s_bounds, 1),
             () => throw primary,
             CallbackCanvasCapability.Draw);
 

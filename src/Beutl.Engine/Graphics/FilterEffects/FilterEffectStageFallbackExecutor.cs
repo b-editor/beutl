@@ -528,8 +528,7 @@ internal static class FilterEffectStageFallbackExecutor
                     input.DeviceBounds,
                     input.RasterBounds,
                     inputImage,
-                    createSnapshot,
-                    description.RequiresReadback);
+                    createSnapshot);
                 var callbackCanvas = new RenderCallbackCanvas(
                     token,
                     output.Scale.Value,
@@ -545,13 +544,9 @@ internal static class FilterEffectStageFallbackExecutor
                     CallbackCanvasCapability.Draw,
                     rasterBounds: output.RasterBounds);
                 var session = new GeometrySession(
-                    token,
                     executionInput,
                     outputBounds,
-                    outputBounds,
-                    output.DeviceBounds,
                     outputScale,
-                    output.Scale.Value,
                     maxWorkingScale,
                     intent,
                     purpose,

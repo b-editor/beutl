@@ -36,6 +36,8 @@ public readonly record struct RenderExecutionInputRange(int StartIndex, int Coun
                 parameterName);
         }
 
-        return Array.AsReadOnly(copiedRanges);
+        return copiedRanges.Length == 0
+            ? copiedRanges
+            : Array.AsReadOnly(copiedRanges);
     }
 }

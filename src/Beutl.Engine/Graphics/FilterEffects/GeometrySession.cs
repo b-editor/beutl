@@ -5,118 +5,94 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class GeometrySession
 {
-    private readonly RenderExecutionSessionToken _token;
+    private readonly RenderCallbackCanvas _canvas;
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
     private readonly Rect _allocatedOutputBounds;
     private Rect _outputBounds;
     private bool _discarded;
 
     internal GeometrySession(
-        RenderExecutionSessionToken token,
         RenderExecutionInput input,
         Rect outputBounds,
-        Rect requiredRegion,
-        PixelRect deviceBounds,
         float outputScale,
-        float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
         RenderRequestPurpose purpose,
         RenderCallbackCanvas canvas,
         IReadOnlyList<RenderResourceBinding> resources)
     {
-        ArgumentNullException.ThrowIfNull(token);
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(resources);
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(outputBounds));
-        RenderRectValidation.ThrowIfInvalidInput(requiredRegion, nameof(requiredRegion));
         if (!float.IsFinite(outputScale) || outputScale <= 0)
             throw new ArgumentOutOfRangeException(nameof(outputScale));
-        if (!float.IsFinite(workingScale) || workingScale <= 0)
-            throw new ArgumentOutOfRangeException(nameof(workingScale));
         maxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
 
-        _token = token;
+        _canvas = canvas;
         _resourceBindings = resources;
         _allocatedOutputBounds = outputBounds;
         _outputBounds = outputBounds;
         Input = input;
-        RequiredRegion = requiredRegion;
-        DeviceBounds = deviceBounds;
         OutputScale = outputScale;
-        WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
         Intent = intent;
         Purpose = purpose;
-        Canvas = canvas;
     }
 
     public RenderExecutionInput Input
     {
-        get { _token.ThrowIfInactive(); return field; }
+        get { _canvas.Token.ThrowIfInactive(); return field; }
     }
 
     public Rect OutputBounds
     {
-        get { _token.ThrowIfInactive(); return _outputBounds; }
+        get { _canvas.Token.ThrowIfInactive(); return _outputBounds; }
     }
 
-    public Rect RequiredRegion
-    {
-        get { _token.ThrowIfInactive(); return field; }
-    }
+    public Rect RequiredRegion => _canvas.LogicalBounds;
 
-    public PixelRect DeviceBounds
-    {
-        get { _token.ThrowIfInactive(); return field; }
-    }
+    public PixelRect DeviceBounds => _canvas.DeviceBounds;
 
-    public PixelSize DeviceSize
-    {
-        get { _token.ThrowIfInactive(); return DeviceBounds.Size; }
-    }
+    public PixelSize DeviceSize => _canvas.DeviceBounds.Size;
 
     public float OutputScale
     {
-        get { _token.ThrowIfInactive(); return field; }
+        get { _canvas.Token.ThrowIfInactive(); return field; }
     }
 
-    public float WorkingScale
-    {
-        get { _token.ThrowIfInactive(); return field; }
-    }
+    public float WorkingScale => _canvas.Density;
 
     public float MaxWorkingScale
     {
-        get { _token.ThrowIfInactive(); return field; }
+        get { _canvas.Token.ThrowIfInactive(); return field; }
     }
 
     public RenderIntent Intent
     {
-        get { _token.ThrowIfInactive(); return field; }
+        get { _canvas.Token.ThrowIfInactive(); return field; }
     }
 
     public RenderRequestPurpose Purpose
     {
-        get { _token.ThrowIfInactive(); return field; }
+        get { _canvas.Token.ThrowIfInactive(); return field; }
     }
 
     public RenderCallbackCanvas Canvas
     {
-        get { _token.ThrowIfInactive(); return field; }
+        get { _canvas.Token.ThrowIfInactive(); return _canvas; }
     }
 
     /// <summary>Uses the resource bound to a declared slot.</summary>
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {
-        _token.UseResource(slot, _resourceBindings, use);
+        _canvas.Token.UseResource(slot, _resourceBindings, use);
     }
 
     public void SetOutputBounds(Rect logicalBounds)
     {
-        _token.ThrowIfInactive();
+        _canvas.Token.ThrowIfInactive();
         RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
         if (!_allocatedOutputBounds.Contains(logicalBounds))
         {
@@ -130,7 +106,7 @@ public sealed class GeometrySession
 
     public void DiscardOutput()
     {
-        _token.ThrowIfInactive();
+        _canvas.Token.ThrowIfInactive();
         _discarded = true;
     }
 

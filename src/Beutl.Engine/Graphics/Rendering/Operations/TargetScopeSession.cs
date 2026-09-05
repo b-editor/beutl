@@ -2,9 +2,7 @@
 
 public sealed class TargetScopeSession
 {
-    private readonly RenderExecutionSessionToken _token;
     private readonly Rect _outputBounds;
-    private readonly Rect _requiredRegion;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
     private readonly RenderCallbackCanvas _canvas;
@@ -13,18 +11,14 @@ public sealed class TargetScopeSession
     private bool _replayed;
 
     internal TargetScopeSession(
-        RenderExecutionSessionToken token,
         Rect outputBounds,
-        Rect requiredRegion,
         RenderIntent intent,
         RenderRequestPurpose purpose,
         RenderCallbackCanvas canvas,
         IReadOnlyList<RenderResourceBinding> resources,
         Action<ImmediateCanvas> replayInput)
     {
-        _token = token;
         _outputBounds = outputBounds;
-        _requiredRegion = requiredRegion;
         _intent = intent;
         _purpose = purpose;
         _canvas = canvas;
@@ -34,36 +28,33 @@ public sealed class TargetScopeSession
 
     public Rect OutputBounds
     {
-        get { _token.ThrowIfInactive(); return _outputBounds; }
+        get { _canvas.Token.ThrowIfInactive(); return _outputBounds; }
     }
 
-    public Rect RequiredRegion
-    {
-        get { _token.ThrowIfInactive(); return _requiredRegion; }
-    }
+    public Rect RequiredRegion => _canvas.LogicalBounds;
 
     public RenderIntent Intent
     {
-        get { _token.ThrowIfInactive(); return _intent; }
+        get { _canvas.Token.ThrowIfInactive(); return _intent; }
     }
 
     public RenderRequestPurpose Purpose
     {
-        get { _token.ThrowIfInactive(); return _purpose; }
+        get { _canvas.Token.ThrowIfInactive(); return _purpose; }
     }
 
     public RenderCallbackCanvas Canvas
     {
-        get { _token.ThrowIfInactive(); return _canvas; }
+        get { _canvas.Token.ThrowIfInactive(); return _canvas; }
     }
 
     public void ReplayInput()
     {
-        _token.ThrowIfInactive();
+        _canvas.Token.ThrowIfInactive();
         if (_replayed)
             throw new InvalidOperationException("A target scope input must be replayed exactly once.");
 
-        ImmediateCanvas canvas = _token.GetActiveCanvas(_canvas);
+        ImmediateCanvas canvas = _canvas.Token.GetActiveCanvas(_canvas);
         _replayed = true;
         canvas.ReplayTargetScopeInput(_replayInput);
     }
@@ -72,12 +63,12 @@ public sealed class TargetScopeSession
     public void UseResource<T>(RenderResourceSlot<T> slot, Action<T> use)
         where T : class
     {
-        _token.UseResource(slot, _resourceBindings, use);
+        _canvas.Token.UseResource(slot, _resourceBindings, use);
     }
 
     internal void ValidateCompletion()
     {
-        _token.ThrowIfInactive();
+        _canvas.Token.ThrowIfInactive();
         if (!_replayed)
             throw new InvalidOperationException("A target scope input must be replayed exactly once.");
     }

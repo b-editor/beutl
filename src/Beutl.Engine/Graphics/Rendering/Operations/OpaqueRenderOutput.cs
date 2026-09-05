@@ -2,28 +2,19 @@
 
 public sealed class OpaqueRenderOutput : IDisposable
 {
-    private readonly RenderExecutionSessionToken _token;
     private readonly OpaqueRenderSession _owner;
-    private readonly Rect _allocationBounds;
-    private readonly EffectiveScale _effectiveScale;
     private readonly RenderCallbackCanvas _canvas;
     private readonly Action<OpaqueRenderOutput>? _release;
     private Rect _bounds;
     private OpaqueRenderOutputState _state;
 
     internal OpaqueRenderOutput(
-        RenderExecutionSessionToken token,
         OpaqueRenderSession owner,
-        Rect bounds,
-        EffectiveScale effectiveScale,
         RenderCallbackCanvas canvas,
         Action<OpaqueRenderOutput>? release = null)
     {
-        _token = token;
         _owner = owner;
-        _allocationBounds = bounds;
-        _bounds = bounds;
-        _effectiveScale = effectiveScale;
+        _bounds = canvas.LogicalBounds;
         _canvas = canvas;
         _release = release;
     }
@@ -35,7 +26,7 @@ public sealed class OpaqueRenderOutput : IDisposable
 
     public EffectiveScale EffectiveScale
     {
-        get { ThrowIfUnavailable(); return _effectiveScale; }
+        get { ThrowIfUnavailable(); return EffectiveScale.At(_canvas.Density); }
     }
 
     public RenderCallbackCanvas Canvas
@@ -47,7 +38,7 @@ public sealed class OpaqueRenderOutput : IDisposable
     {
         ThrowIfUnavailable();
         RenderRectValidation.ThrowIfInvalidInput(logicalBounds, nameof(logicalBounds));
-        if (!_allocationBounds.Contains(logicalBounds))
+        if (!_canvas.LogicalBounds.Contains(logicalBounds))
         {
             throw new ArgumentException(
                 "Output bounds may only shrink within the allocated output bounds.",
@@ -66,7 +57,7 @@ public sealed class OpaqueRenderOutput : IDisposable
 
     public void Dispose()
     {
-        _token.ThrowIfInactive();
+        _owner.Token.ThrowIfInactive();
         if (_state != OpaqueRenderOutputState.Active)
             return;
 
@@ -86,7 +77,7 @@ public sealed class OpaqueRenderOutput : IDisposable
 
     private void ThrowIfUnavailable()
     {
-        _token.ThrowIfInactive();
+        _owner.Token.ThrowIfInactive();
         if (_state != OpaqueRenderOutputState.Active)
             throw new InvalidOperationException("The opaque output lease is no longer active.");
     }

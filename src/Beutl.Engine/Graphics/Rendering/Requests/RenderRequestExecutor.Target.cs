@@ -75,16 +75,13 @@ internal sealed partial class RenderRequestExecutor
                             destination,
                             capability);
                         var session = new TargetCommandSession(
-                            token,
                             inputs,
                             inputRanges,
                             affectedBounds,
-                            requiredRegion,
                             _options.Intent,
                             _options.Purpose,
                             callbackCanvas,
                             description.Resources,
-                            description.Access == TargetAccess.Readback,
                             description.Access == TargetAccess.Readback
                                 ? () => TakeTargetSnapshot(ref targetSnapshot)
                                 : null);
@@ -156,9 +153,7 @@ internal sealed partial class RenderRequestExecutor
                         destination,
                         CallbackCanvasCapability.TargetScope);
                     var session = new TargetScopeSession(
-                        token,
                         fragment.Bounds,
-                        requiredRegion,
                         _options.Intent,
                         _options.Purpose,
                         callbackCanvas,
@@ -281,8 +276,7 @@ internal sealed partial class RenderRequestExecutor
                     value.DeviceBounds,
                     value.RasterBounds,
                     image,
-                    createSnapshot,
-                    requiresReadback));
+                    createSnapshot));
             }
 
             return inputs;
@@ -314,8 +308,7 @@ internal sealed partial class RenderRequestExecutor
                     value.DeviceBounds,
                     value.RasterBounds,
                     image,
-                    createSnapshot,
-                    requiresReadback));
+                    createSnapshot));
             }
 
             return inputs;

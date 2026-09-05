@@ -10,53 +10,9 @@ public sealed class RenderExecutionInput
     private readonly EffectiveScale _effectiveScale;
     private readonly PixelRect _deviceBounds;
     private readonly Rect _rasterBounds;
-    private readonly Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> _draw;
-    private readonly Action<ImmediateCanvas, Point> _drawDeviceSpace;
+    private readonly SKImage _image;
     private readonly Func<Bitmap>? _createSnapshot;
-    private readonly bool _readbackDeclared;
     private bool _snapshotUsed;
-
-    internal RenderExecutionInput(
-        RenderExecutionSessionToken token,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
-        Action<ImmediateCanvas, Point> drawDeviceSpace,
-        Func<Bitmap>? createSnapshot,
-        bool readbackDeclared)
-        : this(
-            token,
-            bounds,
-            effectiveScale,
-            PixelRect.FromRect(bounds, effectiveScale.Value),
-            draw,
-            drawDeviceSpace,
-            createSnapshot,
-            readbackDeclared)
-    {
-    }
-
-    internal RenderExecutionInput(
-        RenderExecutionSessionToken token,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        PixelRect deviceBounds,
-        Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
-        Action<ImmediateCanvas, Point> drawDeviceSpace,
-        Func<Bitmap>? createSnapshot,
-        bool readbackDeclared)
-        : this(
-            token,
-            bounds,
-            effectiveScale,
-            deviceBounds,
-            deviceBounds.ToRect(effectiveScale.Value),
-            draw,
-            drawDeviceSpace,
-            createSnapshot,
-            readbackDeclared)
-    {
-    }
 
     internal RenderExecutionInput(
         RenderExecutionSessionToken token,
@@ -64,10 +20,8 @@ public sealed class RenderExecutionInput
         EffectiveScale effectiveScale,
         PixelRect deviceBounds,
         Rect rasterBounds,
-        Action<ImmediateCanvas, Rect, SKPaint?, SKSamplingOptions?> draw,
-        Action<ImmediateCanvas, Point> drawDeviceSpace,
-        Func<Bitmap>? createSnapshot,
-        bool readbackDeclared)
+        SKImage image,
+        Func<Bitmap>? createSnapshot)
     {
         ArgumentNullException.ThrowIfNull(token);
         RenderDescriptionValidation.ThrowIfFiniteNonEmpty(bounds, nameof(bounds));
@@ -78,14 +32,7 @@ public sealed class RenderExecutionInput
                 nameof(effectiveScale));
         }
 
-        ArgumentNullException.ThrowIfNull(draw);
-        ArgumentNullException.ThrowIfNull(drawDeviceSpace);
-        if (readbackDeclared && createSnapshot is null)
-        {
-            throw new ArgumentException(
-                "Declared input readback requires a snapshot provider.",
-                nameof(createSnapshot));
-        }
+        ArgumentNullException.ThrowIfNull(image);
 
         _token = token;
         _bounds = bounds;
@@ -96,34 +43,8 @@ public sealed class RenderExecutionInput
             deviceBounds,
             rasterBounds);
         _rasterBounds = rasterBounds;
-        _draw = draw;
-        _drawDeviceSpace = drawDeviceSpace;
+        _image = image;
         _createSnapshot = createSnapshot;
-        _readbackDeclared = readbackDeclared;
-    }
-
-    internal RenderExecutionInput(
-        RenderExecutionSessionToken token,
-        Rect bounds,
-        EffectiveScale effectiveScale,
-        PixelRect deviceBounds,
-        Rect rasterBounds,
-        SKImage image,
-        Func<Bitmap>? createSnapshot,
-        bool readbackDeclared)
-        : this(
-            token,
-            bounds,
-            effectiveScale,
-            deviceBounds,
-            rasterBounds,
-            (canvas, destination, paint, sampling) =>
-                canvas.DrawExecutionInput(image, destination, paint, sampling),
-            (canvas, point) => canvas.DrawExecutionInputDeviceSpace(image, point),
-            createSnapshot,
-            readbackDeclared)
-    {
-        ArgumentNullException.ThrowIfNull(image);
     }
 
     public Rect Bounds
@@ -183,7 +104,7 @@ public sealed class RenderExecutionInput
     {
         ArgumentNullException.ThrowIfNull(canvas);
         _token.VerifyActiveCanvas(canvas);
-        _draw(canvas, _rasterBounds, null, null);
+        canvas.DrawExecutionInput(_image, _rasterBounds);
     }
 
     /// <summary>
@@ -202,7 +123,7 @@ public sealed class RenderExecutionInput
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(paint);
         _token.VerifyActiveCanvas(canvas);
-        _draw(canvas, _rasterBounds, paint, sampling);
+        canvas.DrawExecutionInput(_image, _rasterBounds, paint, sampling);
     }
 
     public void DrawDeviceSpace(ImmediateCanvas canvas, Point devicePoint)
@@ -212,8 +133,8 @@ public sealed class RenderExecutionInput
             throw new ArgumentException("The device-space point must be finite.", nameof(devicePoint));
 
         PixelPoint canvasOrigin = _token.GetActiveCanvasDeviceOrigin(canvas);
-        _drawDeviceSpace(
-            canvas,
+        canvas.DrawExecutionInputDeviceSpace(
+            _image,
             new Point(devicePoint.X - canvasOrigin.X, devicePoint.Y - canvasOrigin.Y));
     }
 
@@ -221,7 +142,7 @@ public sealed class RenderExecutionInput
     {
         _token.ThrowIfInactive();
         ArgumentNullException.ThrowIfNull(use);
-        if (!_readbackDeclared || _createSnapshot is null)
+        if (_createSnapshot is null)
             throw new InvalidOperationException("CPU readback was not declared for this execution input.");
         if (_snapshotUsed)
             throw new InvalidOperationException("An execution input snapshot is a one-shot lease.");

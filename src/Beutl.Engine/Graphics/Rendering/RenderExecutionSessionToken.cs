@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed class RenderExecutionSessionToken
 {
-    private readonly Dictionary<object, int> _authorizedResources = new(ReferenceEqualityComparer.Instance);
+    private Dictionary<object, int>? _authorizedResources;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private RenderExecutionCallbackGuard.Scope _callbackGuard = RenderExecutionCallbackGuard.Enter();
     private bool _active = true;
@@ -33,7 +33,7 @@ internal sealed class RenderExecutionSessionToken
         _active = false;
         _activeCanvas = null;
         _activeFacade = null;
-        _authorizedResources.Clear();
+        _authorizedResources = null;
         _callbackGuard.Dispose();
         if (hasActiveCanvas)
             throw new InvalidOperationException("An execution canvas is still active.");
@@ -164,8 +164,10 @@ internal sealed class RenderExecutionSessionToken
         ArgumentNullException.ThrowIfNull(resource);
         ArgumentNullException.ThrowIfNull(use);
 
-        _authorizedResources.TryGetValue(resource, out int count);
-        _authorizedResources[resource] = count + 1;
+        Dictionary<object, int> authorizedResources = _authorizedResources ??=
+            new(ReferenceEqualityComparer.Instance);
+        authorizedResources.TryGetValue(resource, out int count);
+        authorizedResources[resource] = count + 1;
         try
         {
             use();
@@ -173,9 +175,9 @@ internal sealed class RenderExecutionSessionToken
         finally
         {
             if (count == 0)
-                _authorizedResources.Remove(resource);
+                authorizedResources.Remove(resource);
             else
-                _authorizedResources[resource] = count;
+                authorizedResources[resource] = count;
         }
     }
 
@@ -260,7 +262,7 @@ internal sealed class RenderExecutionSessionToken
     }
 
     public bool IsResourceAuthorized(object resource)
-        => _active && _authorizedResources.ContainsKey(resource);
+        => _active && _authorizedResources?.ContainsKey(resource) == true;
 
     private void UseResourceCore<T>(RenderResource<T> resource, Action<T> use)
         where T : class

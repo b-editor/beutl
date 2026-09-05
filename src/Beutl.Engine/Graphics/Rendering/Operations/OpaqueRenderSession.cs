@@ -43,7 +43,9 @@ public sealed class OpaqueRenderSession
         ArgumentNullException.ThrowIfNull(createOutput);
         ArgumentNullException.ThrowIfNull(publish);
         _token = token;
-        _inputs = Array.AsReadOnly(inputs.ToArray());
+        _inputs = inputs.Count == 0
+            ? Array.Empty<RenderExecutionInput>()
+            : Array.AsReadOnly(inputs.ToArray());
         _inputRanges = RenderExecutionInputRange.CopyAndValidate(
             _inputs,
             inputRanges,

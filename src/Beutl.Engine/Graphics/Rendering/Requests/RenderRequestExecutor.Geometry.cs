@@ -126,8 +126,7 @@ internal sealed partial class RenderRequestExecutor
                         input.DeviceBounds,
                         input.RasterBounds,
                         inputImage,
-                        createSnapshot,
-                        description.RequiresReadback);
+                        createSnapshot);
                     var callbackCanvas = new RenderCallbackCanvas(
                         token,
                         output.EffectiveScale.Value,
@@ -143,13 +142,9 @@ internal sealed partial class RenderRequestExecutor
                         CallbackCanvasCapability.Draw,
                         rasterBounds: output.RasterBounds);
                     var session = new GeometrySession(
-                        token,
                         executionInput,
                         outputBounds,
-                        requiredRegion,
-                        output.DeviceBounds,
                         _options.OutputScale,
-                        output.EffectiveScale.Value,
                         _options.MaxWorkingScale,
                         _options.Intent,
                         _options.Purpose,
@@ -256,8 +251,7 @@ internal sealed partial class RenderRequestExecutor
                                 input.DeviceBounds,
                                 input.RasterBounds,
                                 image,
-                                createSnapshot,
-                                requiresReadback));
+                                createSnapshot));
                         }
 
                         float density = declaredScale.IsUnbounded
@@ -302,7 +296,7 @@ internal sealed partial class RenderRequestExecutor
                             _options.Intent,
                             _options.Purpose,
                             description.Resources,
-                            (_, logicalBounds, requestedOutputDensity) =>
+                            (owner, logicalBounds, requestedOutputDensity) =>
                             {
                                 float outputDensity = requestedOutputDensity is { } requested
                                     ? Math.Min(requested, _options.MaxWorkingScale)
@@ -350,10 +344,7 @@ internal sealed partial class RenderRequestExecutor
                                     CallbackCanvasCapability.Draw,
                                     rasterBounds: value.RasterBounds);
                                 var output = new OpaqueRenderOutput(
-                                    token,
-                                    session!,
-                                    logicalBounds,
-                                    outputScale,
+                                    owner,
                                     canvas,
                                     _ => ReleaseUnpublished(value));
                                 outputLeases.Add(output, value);

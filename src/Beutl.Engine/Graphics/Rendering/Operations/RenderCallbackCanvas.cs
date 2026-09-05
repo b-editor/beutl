@@ -8,7 +8,6 @@ public sealed class RenderCallbackCanvas
     private readonly RenderExecutionSessionToken _token;
     private readonly float _density;
     private readonly Rect _logicalBounds;
-    private readonly Point _logicalOrigin;
     private readonly PixelRect _deviceBounds;
     private readonly PixelPoint _backingDeviceOrigin;
     private readonly Rect _rasterBounds;
@@ -16,28 +15,6 @@ public sealed class RenderCallbackCanvas
     private readonly CallbackCanvasCapability _capability;
     private readonly bool _mapLogicalOrigin;
     private bool _used;
-
-    internal RenderCallbackCanvas(
-        RenderExecutionSessionToken token,
-        float density,
-        Rect logicalBounds,
-        Func<ImmediateCanvas> openCanvas,
-        CallbackCanvasCapability capability,
-        bool mapLogicalOrigin = true,
-        PixelPoint? backingDeviceOrigin = null,
-        Rect? rasterBounds = null)
-        : this(
-            token,
-            density,
-            logicalBounds,
-            PixelRect.FromRect(logicalBounds, density),
-            openCanvas,
-            capability,
-            mapLogicalOrigin,
-            backingDeviceOrigin,
-            rasterBounds)
-    {
-    }
 
     internal RenderCallbackCanvas(
         RenderExecutionSessionToken token,
@@ -74,7 +51,6 @@ public sealed class RenderCallbackCanvas
         _backingDeviceOrigin = mapLogicalOrigin
             ? _deviceBounds.Position
             : backingDeviceOrigin ?? default;
-        _logicalOrigin = _rasterBounds.Position;
         _openCanvas = openCanvas;
         _capability = capability;
         _mapLogicalOrigin = mapLogicalOrigin;
@@ -118,7 +94,7 @@ public sealed class RenderCallbackCanvas
 
     public Point LogicalOrigin
     {
-        get { _token.ThrowIfInactive(); return _logicalOrigin; }
+        get { _token.ThrowIfInactive(); return _rasterBounds.Position; }
     }
 
     public PixelRect DeviceBounds
@@ -150,6 +126,8 @@ public sealed class RenderCallbackCanvas
         get { _token.ThrowIfInactive(); return _rasterBounds; }
     }
 
+    internal RenderExecutionSessionToken Token => _token;
+
     internal PixelPoint DeviceOriginUnchecked => _backingDeviceOrigin;
 
     public void Use(Action<ImmediateCanvas> draw)
@@ -174,7 +152,7 @@ public sealed class RenderCallbackCanvas
             // under a shrinking transform maps it to a sub-pixel span the device grid would snap away.
             if (_mapLogicalOrigin)
             {
-                canvas.PushTransform(Matrix.CreateTranslation(-_logicalOrigin.X, -_logicalOrigin.Y));
+                canvas.PushTransform(Matrix.CreateTranslation(-_rasterBounds.X, -_rasterBounds.Y));
                 canvas.ClipRectCoveringDevicePixels(_rasterBounds);
             }
             else if (_capability is CallbackCanvasCapability.TargetScope

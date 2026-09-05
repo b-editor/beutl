@@ -20,19 +20,21 @@ public sealed class RasterFootprintMetadataTests
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
         PixelRect deviceBounds = PixelRect.FromRect(bounds, density);
         Rect rasterBounds = deviceBounds.ToRect(density);
-        Rect? drawnBounds = null;
         var token = new RenderExecutionSessionToken();
+        using var inputTarget = new CpuRenderTarget(deviceBounds.Width, deviceBounds.Height);
+        inputTarget.Value.Canvas.Clear(SKColors.White);
+        using SKImage inputImage = inputTarget.Value.Snapshot();
         var input = new RenderExecutionInput(
             token,
             bounds,
             EffectiveScale.At(density),
             deviceBounds,
-            draw: (_, destination, _, _) => drawnBounds = destination,
-            drawDeviceSpace: static (_, _) => { },
-            createSnapshot: null,
-            readbackDeclared: false);
+            rasterBounds,
+            inputImage,
+            createSnapshot: null);
 
-        using RenderTarget target = RenderTarget.CreateNull(deviceBounds.Width, deviceBounds.Height);
+        using var target = new CpuRenderTarget(deviceBounds.Width, deviceBounds.Height);
+        target.Value.Canvas.Clear(SKColors.Transparent);
         var canvas = new RenderCallbackCanvas(
             token,
             density,
@@ -42,6 +44,7 @@ public sealed class RasterFootprintMetadataTests
             CallbackCanvasCapability.Draw);
 
         canvas.Use(input.Draw);
+        using Bitmap rendered = target.Snapshot();
 
         Assert.Multiple(() =>
         {
@@ -49,7 +52,9 @@ public sealed class RasterFootprintMetadataTests
             Assert.That(input.DeviceBounds, Is.EqualTo(deviceBounds));
             Assert.That(input.RasterBounds, Is.EqualTo(rasterBounds));
             Assert.That(input.LogicalOrigin, Is.EqualTo(rasterBounds.Position));
-            Assert.That(drawnBounds, Is.EqualTo(rasterBounds));
+            Assert.That(
+                MeasureAlphaBounds(rendered),
+                Is.EqualTo(new PixelRect(0, 0, deviceBounds.Width, deviceBounds.Height)));
         });
 
         token.Complete();
@@ -97,27 +102,35 @@ public sealed class RasterFootprintMetadataTests
     {
         var callbackBounds = new Rect(10, 12, 8, 6);
         var token = new RenderExecutionSessionToken();
-        Point? observedLocalPoint = null;
+        var inputBounds = new Rect(0, 0, 2, 2);
+        PixelRect inputDeviceBounds = PixelRect.FromRect(inputBounds, 1);
+        using var inputTarget = new CpuRenderTarget(inputDeviceBounds.Width, inputDeviceBounds.Height);
+        inputTarget.Value.Canvas.Clear(SKColors.White);
+        using SKImage inputImage = inputTarget.Value.Snapshot();
         var input = new RenderExecutionInput(
             token,
-            new Rect(0, 0, 2, 2),
+            inputBounds,
             EffectiveScale.At(1),
-            draw: static (_, _, _, _) => { },
-            drawDeviceSpace: (_, point) => observedLocalPoint = point,
-            createSnapshot: null,
-            readbackDeclared: false);
-        using RenderTarget target = RenderTarget.CreateNull(64, 48);
+            inputDeviceBounds,
+            inputDeviceBounds.ToRect(1),
+            inputImage,
+            createSnapshot: null);
+        using var target = new CpuRenderTarget(64, 48);
+        target.Value.Canvas.Clear(SKColors.Transparent);
+        PixelRect callbackDeviceBounds = PixelRect.FromRect(callbackBounds, 1);
         var facade = new RenderCallbackCanvas(
             token,
             density: 1,
             callbackBounds,
+            callbackDeviceBounds,
             () => new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(64, 48)),
             CallbackCanvasCapability.TargetCommandRegion,
             mapLogicalOrigin: false);
 
-        facade.Use(canvas => input.DrawDeviceSpace(canvas, new Point(20, 30)));
+        facade.Use(canvas => input.DrawDeviceSpace(canvas, new Point(14, 15)));
+        using Bitmap rendered = target.Snapshot();
 
-        Assert.That(observedLocalPoint, Is.EqualTo(new Point(20, 30)));
+        Assert.That(MeasureAlphaBounds(rendered), Is.EqualTo(new PixelRect(14, 15, 2, 2)));
         token.Complete();
     }
 
@@ -227,36 +240,6 @@ public sealed class RasterFootprintMetadataTests
         });
     }
 
-    [TestCase(1.7f)]
-    [TestCase(1.3333333f)]
-    [TestCase(1.06f)]
-    public void ExecutionInput_AcceptsLargeCanonicalDeviceFootprints(float density)
-    {
-        var logicalBounds = new Rect(0, 0, 1920, 1080);
-        PixelRect deviceBounds = PixelRect.FromRect(logicalBounds, density);
-        Rect rasterBounds = deviceBounds.ToRect(density);
-        var token = new RenderExecutionSessionToken();
-        try
-        {
-            Assert.That(
-                () => new RenderExecutionInput(
-                    token,
-                    logicalBounds,
-                    EffectiveScale.At(density),
-                    deviceBounds,
-                    rasterBounds,
-                    draw: static (_, _, _, _) => { },
-                    drawDeviceSpace: static (_, _) => { },
-                    createSnapshot: null,
-                    readbackDeclared: false),
-                Throws.Nothing);
-        }
-        finally
-        {
-            token.Complete();
-        }
-    }
-
     [Test]
     public void CallbackCanvas_RejectsAnOffByOneBackingExtent()
     {
@@ -340,8 +323,6 @@ public sealed class RasterFootprintMetadataTests
                 expectedBounds = RenderScaleUtilities.AddRasterApron(facade.DeviceBounds);
                 using var paint = new SKPaint { Color = SKColors.White };
                 var session = new TargetScopeSession(
-                    token,
-                    callbackBounds,
                     callbackBounds,
                     RenderIntent.Preview,
                     RenderRequestPurpose.Frame,

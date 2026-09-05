@@ -248,6 +248,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             token,
             density: 2,
             logicalBounds,
+            deviceBounds,
             () => new ImmediateCanvas(target, RenderIntent.Preview, 2, logicalSize: deviceBounds.Size.ToSize(2)),
             CallbackCanvasCapability.Draw);
         ImmediateCanvas? retainedCanvas = null;
@@ -285,20 +286,24 @@ public sealed class RenderDescriptionAndExecutionContractTests
     }
 
     [Test]
-    public void ExecutionInput_RequiresActiveSameSessionCanvasAndUsesShiftedDevicePlacement()
+    public void ExecutionInput_RequiresActiveSameSessionCanvasAndExposesRasterMetadata()
     {
         var token = new RenderExecutionSessionToken();
         var inputBounds = new Rect(4, 6, 10, 12);
-        Rect? logicalPlacement = null;
-        Point? devicePlacement = null;
+        PixelRect inputDeviceBounds = PixelRect.FromRect(inputBounds, 2);
+        Rect inputRasterBounds = inputDeviceBounds.ToRect(2);
+        using SKSurface inputSurface = SKSurface.Create(new SKImageInfo(
+            inputDeviceBounds.Width,
+            inputDeviceBounds.Height));
+        using SKImage inputImage = inputSurface.Snapshot();
         var input = new RenderExecutionInput(
             token,
             inputBounds,
             EffectiveScale.At(2),
-            draw: (_, destination, _, _) => logicalPlacement = destination,
-            drawDeviceSpace: (_, point) => devicePlacement = point,
-            createSnapshot: null,
-            readbackDeclared: false);
+            inputDeviceBounds,
+            inputRasterBounds,
+            inputImage,
+            createSnapshot: null);
         var callbackBounds = new Rect(10.25f, 20.25f, 8, 8);
         PixelRect callbackDeviceBounds = PixelRect.FromRect(callbackBounds, 2);
         using RenderTarget callbackTarget = RenderTarget.CreateNull(
@@ -308,6 +313,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
             token,
             2,
             callbackBounds,
+            callbackDeviceBounds,
             () => new ImmediateCanvas(callbackTarget, RenderIntent.Preview, 2, logicalSize: callbackDeviceBounds.Size.ToSize(2)),
             CallbackCanvasCapability.Draw);
         using RenderTarget externalTarget = RenderTarget.CreateNull(8, 8);
@@ -325,13 +331,10 @@ public sealed class RenderDescriptionAndExecutionContractTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(logicalPlacement, Is.EqualTo(input.DeviceBounds.ToRect(2)));
-            Assert.That(devicePlacement, Is.EqualTo(new Point(3, 5)));
-            Assert.That(input.DeviceBounds, Is.EqualTo(PixelRect.FromRect(inputBounds, 2)));
+            Assert.That(input.DeviceBounds, Is.EqualTo(inputDeviceBounds));
             Assert.That(input.DeviceSize, Is.EqualTo(input.DeviceBounds.Size));
-            Assert.That(input.RasterBounds, Is.EqualTo(input.DeviceBounds.ToRect(2)));
-            Assert.That(input.LogicalOrigin,
-                Is.EqualTo(new Point(input.DeviceBounds.X / 2f, input.DeviceBounds.Y / 2f)));
+            Assert.That(input.RasterBounds, Is.EqualTo(inputRasterBounds));
+            Assert.That(input.LogicalOrigin, Is.EqualTo(inputRasterBounds.Position));
         });
 
         token.Complete();
@@ -343,14 +346,20 @@ public sealed class RenderDescriptionAndExecutionContractTests
     {
         var token = new RenderExecutionSessionToken();
         Bitmap? supplied = null;
+        var bounds = new Rect(0, 0, 2, 2);
+        PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);
+        using SKSurface inputSurface = SKSurface.Create(new SKImageInfo(
+            deviceBounds.Width,
+            deviceBounds.Height));
+        using SKImage inputImage = inputSurface.Snapshot();
         var input = new RenderExecutionInput(
             token,
-            new Rect(0, 0, 2, 2),
+            bounds,
             EffectiveScale.At(1),
-            draw: static (_, _, _, _) => { },
-            drawDeviceSpace: static (_, _) => { },
-            createSnapshot: () => supplied = new Bitmap(2, 2),
-            readbackDeclared: true);
+            deviceBounds,
+            deviceBounds.ToRect(1),
+            inputImage,
+            createSnapshot: () => supplied = new Bitmap(2, 2));
         var expected = new InvalidOperationException("callback failed");
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
@@ -382,12 +391,11 @@ public sealed class RenderDescriptionAndExecutionContractTests
             token,
             1,
             bounds,
+            deviceBounds,
             () => new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: deviceBounds.Size.ToSize(1)),
             CallbackCanvasCapability.TargetScope);
         int replayCount = 0;
         var session = new TargetScopeSession(
-            token,
-            bounds,
             bounds,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
