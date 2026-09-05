@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.ViewModels.Tools;
 
@@ -56,5 +58,17 @@ public partial class AiJobCenterView : UserControl
         {
             viewModel.CancelConfirmation();
         }
+    }
+}
+
+internal sealed class AiJobCard : Border
+{
+    protected override AutomationPeer OnCreateAutomationPeer()
+        => new AiJobCardAutomationPeer(this);
+
+    private sealed class AiJobCardAutomationPeer(AiJobCard owner) : ControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore()
+            => AutomationControlType.ListItem;
     }
 }

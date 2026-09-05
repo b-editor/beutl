@@ -4,10 +4,12 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Templates;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -319,11 +321,10 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
-    public void View_UsesVirtualizingPanelAndLabelsEveryAction()
+    public void View_UsesItemsControlWithVirtualizingPanelAndLabelsEveryAction()
     {
         var view = new AiJobCenterView();
         var viewWindow = new Window { Content = view, Width = 360, Height = 640 };
-        Window? itemWindow = null;
         using var item = CreateItem(CreateJob(
             kind: "image",
             status: "failed",
@@ -336,8 +337,21 @@ public sealed class AiJobCenterTests
             viewWindow.Show();
             HeadlessTestHelpers.Render();
 
-            ListBox jobList = view.FindControl<ListBox>("JobList")!;
+            ItemsControl jobList = view.FindControl<ItemsControl>("JobList")!;
             Assert.That(jobList, Is.Not.Null);
+            Assert.That(AutomationProperties.GetName(jobList), Is.EqualTo(Strings.AiJobCenter));
+            Assert.That(jobList, Is.TypeOf<ItemsControl>(),
+                "Job cards must not inherit ListBox selection backgrounds.");
+            ScrollViewer scrollViewer = jobList.FindAncestorOfType<ScrollViewer>()!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(scrollViewer, Is.Not.Null,
+                    "The ItemsControl must remain inside an explicit scrolling container.");
+                Assert.That(scrollViewer.HorizontalScrollBarVisibility,
+                    Is.EqualTo(ScrollBarVisibility.Disabled));
+                Assert.That(scrollViewer.VerticalScrollBarVisibility,
+                    Is.EqualTo(ScrollBarVisibility.Auto));
+            });
             Assert.That(
                 jobList.GetVisualDescendants().OfType<VirtualizingStackPanel>(),
                 Is.Not.Empty,
@@ -346,17 +360,22 @@ public sealed class AiJobCenterTests
             AssertAction(view.FindControl<Button>("RefreshButton"), Strings.Refresh);
             AssertAction(view.FindControl<Button>("LoadMoreButton"), Strings.AiJobCenter_LoadMore);
 
-            IDataTemplate template = jobList.ItemTemplate!;
-            Control content = new ContentPresenter
-            {
-                Content = item,
-                ContentTemplate = template,
-            };
-            itemWindow = new Window { Content = content, Width = 220, Height = 360 };
-            itemWindow.Show();
+            jobList.ItemsSource = new[] { item };
             HeadlessTestHelpers.Render();
 
-            List<Button> buttons = content.GetVisualDescendants().OfType<Button>().ToList();
+            ContentPresenter itemContainer = (ContentPresenter)jobList.ContainerFromIndex(0)!;
+            Assert.That(itemContainer.HorizontalContentAlignment,
+                Is.EqualTo(HorizontalAlignment.Stretch));
+            AiJobCard card = itemContainer.GetVisualDescendants().OfType<AiJobCard>().Single();
+            AutomationPeer cardPeer = ControlAutomationPeer.CreatePeerForElement(card);
+            Assert.Multiple(() =>
+            {
+                Assert.That(cardPeer.GetAutomationControlType(),
+                    Is.EqualTo(AutomationControlType.ListItem));
+                Assert.That(cardPeer.GetName(), Is.EqualTo(item.Summary));
+                Assert.That(cardPeer.IsControlElement(), Is.True);
+            });
+            List<Button> buttons = itemContainer.GetVisualDescendants().OfType<Button>().ToList();
             Button addButton = buttons.Single(button => Equals(button.Content, Strings.AiAddToScene));
             Button retryButton = buttons.Single(button => Equals(button.Content, Strings.AiJobCenter_Retry));
             Button deleteButton = buttons.Single(button =>
@@ -378,7 +397,6 @@ public sealed class AiJobCenterTests
         }
         finally
         {
-            itemWindow?.Close();
             viewWindow.Close();
             HeadlessTestHelpers.Settle();
         }
