@@ -2809,7 +2809,7 @@ public sealed class AiDialogWorkflowTests
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
-        using (var firstDialog = CreateSubtitleDialog(
+        await using (var firstDialog = CreateSubtitleDialog(
                    clients,
                    draftStore: draftStore,
                    draftScopes: draftScopes))
@@ -2822,11 +2822,12 @@ public sealed class AiDialogWorkflowTests
         }
         AssertStoredCaptionDraftJob(draftStore, draftScope, "translation-1");
 
-        using var restoredDialog = CreateSubtitleDialog(
+        await using var restoredDialog = CreateSubtitleDialog(
             clients,
             draftStore: draftStore,
             draftScopes: draftScopes);
-        await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value);
+        await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value
+            && restoredDialog.HasPartialResult.Value);
         Assert.That(restoredDialog.HasPartialResult.Value, Is.True);
         restoredDialog.ApplyPartialResult.Execute();
         await WaitUntilAsync(() => restoredDialog.CanTranslate.Value);
