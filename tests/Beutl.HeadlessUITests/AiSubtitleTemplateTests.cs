@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless.NUnit;
@@ -10,6 +11,7 @@ using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Editor.Services.Captions;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -19,6 +21,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
+using SkiaSharp;
 using AvaloniaComboBox = Avalonia.Controls.ComboBox;
 using AvaloniaControl = Avalonia.Controls.Control;
 using AvaloniaListBox = Avalonia.Controls.ListBox;
@@ -33,6 +36,7 @@ public class AiSubtitleTemplateTests
 {
     private const int SavedTemplatePackageId = -42_101;
     private const int CustomTemplatePackageId = -42_102;
+    private const int PreviewTemplatePackageId = -42_103;
 
     private static string NewWorkspace(string name)
     {
@@ -161,6 +165,217 @@ public class AiSubtitleTemplateTests
             itemWindow?.Close();
             viewWindow.Close();
             HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task View_RendersTheSelectedCaptionTemplateOutput()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("ai-subtitle-template-preview");
+        var previewFactory = new PreviewCaptionFactory();
+        var template = new CaptionTemplateContribution(
+            new CaptionTemplateId("beutl.tests.preview"),
+            new CaptionTemplateProviderId("beutl.tests"),
+            "Preview",
+            previewFactory,
+            DefaultCaptionPlacementPolicy.Instance);
+        AiSubtitleDialogViewModel? ownedViewModel = null;
+        AvaloniaWindow? ownedWindow = null;
+
+        try
+        {
+            TestShell.Extensions.AddExtensions(
+                PreviewTemplatePackageId,
+                [new TestTemplateExtension([new CaptionTemplateRegistration(template)])]);
+            AiSubtitleDialogViewModel viewModel =
+                TestShell.MainViewModel.CreateAiSubtitleToolViewModel(editor);
+            ownedViewModel = viewModel;
+            viewModel.SelectedCaptionTemplate.Value = viewModel.CaptionTemplates
+                .Single(item => item.Id == template.Id);
+            viewModel.ResultSegments.Value =
+            [
+                new AiTranscriptionSegment { Start = 0, End = 2, Text = "Rendered cue" },
+            ];
+            await Task.Delay(200);
+            HeadlessTestHelpers.Settle();
+            Assert.That(previewFactory.CreateCount, Is.Zero,
+                "A hidden subtitle tool must not start renderer work that delays its teardown.");
+            var view = new AiSubtitleView { DataContext = viewModel };
+            var window = new AvaloniaWindow { Content = view, Width = 460, Height = 640 };
+            ownedWindow = window;
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Beutl.Controls.BitmapView bitmapView = view.GetVisualDescendants()
+                .OfType<Beutl.Controls.BitmapView>()
+                .Single(item => item.Name == "CaptionTemplatePreviewBitmap");
+            AvaloniaTextBlock fallback = view.GetVisualDescendants()
+                .OfType<AvaloniaTextBlock>()
+                .Single(item => item.Name == "CaptionTemplatePreviewFallback");
+            AutomationPeer previewPeer = ControlAutomationPeer.CreatePeerForElement(bitmapView);
+            for (int attempt = 0;
+                 attempt < 30 && bitmapView.Source?.Value is null;
+                 attempt++)
+            {
+                await Task.Delay(100);
+                HeadlessTestHelpers.Settle();
+            }
+
+            Assert.That(bitmapView.Source?.Value, Is.Not.Null,
+                "The preview must contain the renderer output for the selected caption template.");
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(bitmapView.IsEffectivelyVisible, Is.True);
+                Assert.That(fallback.IsEffectivelyVisible, Is.False);
+                Assert.That(previewPeer.GetAutomationControlType(), Is.EqualTo(AutomationControlType.Image));
+                Assert.That(previewPeer.GetName(),
+                    Is.EqualTo(Beutl.Language.Strings.AiSubtitle_TemplatePreview));
+                Assert.That(previewPeer.IsContentElement(), Is.True);
+                Assert.That(previewFactory.CreateCount, Is.GreaterThan(0));
+            }
+            (bool hasRed, bool hasGreen, bool hasBlue) = GetPreviewColors(bitmapView.Source!.Value);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(hasRed, Is.True,
+                    "The selected template's rendered color was not present in the preview.");
+                Assert.That(hasGreen, Is.False);
+                Assert.That(hasBlue, Is.True,
+                    "The second element from the selected template was not rendered in the preview.");
+            }
+
+            Beutl.Media.Bitmap initialPreview = bitmapView.Source.Value;
+            editor.Scene.FrameSize = new Beutl.Media.PixelSize(640, 800);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(bitmapView.Source, Is.Null);
+                Assert.That(bitmapView.IsEffectivelyVisible, Is.False);
+                Assert.That(fallback.IsEffectivelyVisible, Is.True,
+                    "The text fallback must remain visible while a replacement preview is rendered.");
+            }
+            for (int attempt = 0;
+                 attempt < 30
+                 && (bitmapView.Source?.Value is null
+                     || ReferenceEquals(bitmapView.Source.Value, initialPreview));
+                 attempt++)
+            {
+                await Task.Delay(100);
+                HeadlessTestHelpers.Settle();
+            }
+
+            Assert.That(bitmapView.Source?.Value, Is.Not.Null);
+            Assert.That(bitmapView.Source!.Value, Is.Not.SameAs(initialPreview),
+                "Changing the scene frame must invalidate the caption template preview.");
+            (hasRed, hasGreen, hasBlue) = GetPreviewColors(bitmapView.Source.Value);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(hasRed, Is.False);
+                Assert.That(hasGreen, Is.True,
+                    "The preview did not use the updated frame-height placement context.");
+                Assert.That(hasBlue, Is.True);
+                Assert.That(bitmapView.IsEffectivelyVisible, Is.True);
+                Assert.That(fallback.IsEffectivelyVisible, Is.False);
+            }
+
+            int rendersBeforeUnload = previewFactory.CreateCount;
+            viewModel.BeforeTemplatePreviewAdmission = window.Close;
+            try
+            {
+                editor.Scene.FrameSize = new Beutl.Media.PixelSize(640, 900);
+            }
+            finally
+            {
+                viewModel.BeforeTemplatePreviewAdmission = null;
+            }
+            await Task.Delay(200);
+            HeadlessTestHelpers.Settle();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(window.IsVisible, Is.False);
+                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null);
+                Assert.That(previewFactory.CreateCount, Is.EqualTo(rendersBeforeUnload),
+                    "The last unload must close preview admission before a concurrent refresh installs work.");
+            }
+        }
+        finally
+        {
+            try
+            {
+                ownedWindow?.Close();
+                HeadlessTestHelpers.Settle();
+            }
+            finally
+            {
+                try
+                {
+                    if (ownedViewModel is not null)
+                        await ownedViewModel.DisposeAsync();
+                }
+                finally
+                {
+                    TestShell.Extensions.RemoveExtensions(PreviewTemplatePackageId);
+                }
+            }
+        }
+    }
+
+    private static (bool Red, bool Green, bool Blue) GetPreviewColors(Beutl.Media.Bitmap bitmap)
+    {
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, EncodedImageFormat.Png);
+        using SKBitmap decoded = SKBitmap.Decode(stream.ToArray());
+        bool hasRed = false;
+        bool hasGreen = false;
+        bool hasBlue = false;
+        for (int y = 0; y < decoded.Height && (!hasRed || !hasGreen || !hasBlue); y++)
+        {
+            for (int x = 0; x < decoded.Width; x++)
+            {
+                SKColor pixel = decoded.GetPixel(x, y);
+                hasRed |= pixel.Alpha > 80 && pixel.Red > 160 && pixel.Green < 120;
+                hasGreen |= pixel.Alpha > 80 && pixel.Green > 160 && pixel.Red < 120;
+                hasBlue |= pixel.Alpha > 80 && pixel.Blue > 160 && pixel.Red < 120;
+            }
+        }
+        return (hasRed, hasGreen, hasBlue);
+    }
+
+    private sealed class PreviewCaptionFactory : ICaptionElementFactory
+    {
+        private int _createCount;
+
+        public int CreateCount => Volatile.Read(ref _createCount);
+
+        public IReadOnlyList<ElementDescription> CreateElements(
+            CaptionCue cue,
+            CaptionElementContext context)
+        {
+            Interlocked.Increment(ref _createCount);
+            Color primaryColor = cue.Text != "Rendered cue"
+                ? Colors.Yellow
+                : context.DefaultPosition.Y < 200
+                    ? Colors.Red
+                    : Colors.Lime;
+            return
+            [
+                context.CreateDescription(
+                    cue,
+                    () => new TextBlock
+                    {
+                        Text = { CurrentValue = cue.Text },
+                        Size = { CurrentValue = 96 },
+                        Fill = { CurrentValue = new SolidColorBrush(primaryColor) },
+                    },
+                    position: new Beutl.Graphics.Point(-140, context.DefaultPosition.Y)),
+                context.CreateDescription(
+                    cue,
+                    () => new RectShape
+                    {
+                        Width = { CurrentValue = 80 },
+                        Height = { CurrentValue = 60 },
+                        Fill = { CurrentValue = new SolidColorBrush(Colors.Blue) },
+                    },
+                    position: new Beutl.Graphics.Point(140, context.DefaultPosition.Y)),
+            ];
         }
     }
 

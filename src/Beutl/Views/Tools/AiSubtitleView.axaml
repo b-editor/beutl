@@ -134,13 +134,24 @@
                         Padding="8"
                         Background="{DynamicResource ControlFillColorDefaultBrush}"
                         CornerRadius="6">
-                    <TextBlock HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TemplatePreview}"
-                               FontSize="{CompiledBinding TemplatePreviewFontSize.Value}"
-                               Text="{CompiledBinding TemplatePreviewText.Value}"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap" />
+                    <Grid>
+                        <tools:CaptionTemplatePreviewBitmapView x:Name="CaptionTemplatePreviewBitmap"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TemplatePreview}"
+                                                                IsVisible="{CompiledBinding TemplatePreviewImage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                                Source="{CompiledBinding TemplatePreviewImage.Value}"
+                                                                Stretch="Uniform" />
+                        <TextBlock x:Name="CaptionTemplatePreviewFallback"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TemplatePreview}"
+                                   FontSize="{CompiledBinding TemplatePreviewFontSize.Value}"
+                                   IsVisible="{CompiledBinding TemplatePreviewImage.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                                   Text="{CompiledBinding TemplatePreviewText.Value}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </Grid>
                 </Border>
             </StackPanel>
 

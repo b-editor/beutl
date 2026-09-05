@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -35,6 +36,9 @@ public sealed partial class AiSubtitleDialogViewModel
     private static readonly TimeSpan s_sceneMixChunkDuration = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan s_sceneMixComposeSlice = TimeSpan.FromSeconds(5);
     private readonly CompositeDisposable _captionDisposables = [];
+    private readonly object _templatePreviewGate = new();
+    private int _templatePreviewAttachments;
+    private CancellationTokenSource? _templatePreviewCts;
     private readonly ObservableCollection<EditableCaptionCueViewModel> _editableCues = [];
     private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
     private readonly ReactivePropertySlim<long> _translationEstimateRevision = new();
@@ -179,6 +183,15 @@ public sealed partial class AiSubtitleDialogViewModel
 
     public ReactivePropertySlim<double> TemplatePreviewFontSize { get; private set; } = null!;
 
+    /// <summary>
+    /// The rendered output of the selected caption template. Keeping this as a bitmap makes the
+    /// preview use the same Beutl renderer as the element that will be added to the scene instead
+    /// of approximating a template with an Avalonia text block.
+    /// </summary>
+    internal ReactivePropertySlim<Ref<Beutl.Media.Bitmap>?> TemplatePreviewImage { get; private set; } = null!;
+
+    internal Action? BeforeTemplatePreviewAdmission { get; set; }
+
     public IReadOnlyList<CaptionLanguageOption> SourceLanguages { get; private set; } = null!;
 
     public IReadOnlyList<CaptionLanguageOption> TargetLanguages { get; private set; } = null!;
@@ -265,6 +278,8 @@ public sealed partial class AiSubtitleDialogViewModel
         TemplatePreviewText = new ReactivePropertySlim<string>(Strings.AiSubtitle_PreviewSample)
             .DisposeWith(_captionDisposables);
         TemplatePreviewFontSize = new ReactivePropertySlim<double>(24).DisposeWith(_captionDisposables);
+        TemplatePreviewImage = new ReactivePropertySlim<Ref<Beutl.Media.Bitmap>?>()
+            .DisposeWith(_captionDisposables);
         DetectedLanguageText = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
         HasCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
         _editableCues.CollectionChanged += OnEditableCuesChanged;
@@ -394,6 +409,11 @@ public sealed partial class AiSubtitleDialogViewModel
             .DisposeWith(_captionDisposables);
         if (_editViewModel is { } editViewModel)
         {
+            editViewModel.Scene.GetObservable(Scene.FrameSizeProperty)
+                .DistinctUntilChanged()
+                .Skip(1)
+                .Subscribe(_ => RefreshTemplatePreview())
+                .DisposeWith(_captionDisposables);
             editViewModel.Scene.Edited += OnCaptionSceneEdited;
             Disposable.Create(() => editViewModel.Scene.Edited -= OnCaptionSceneEdited)
                 .DisposeWith(_captionDisposables);
@@ -413,6 +433,8 @@ public sealed partial class AiSubtitleDialogViewModel
         _editableCues.Clear();
         _captionDraftSession?.Dispose();
         _captionDraftSession = null;
+        StopTemplatePreviewAdmission();
+        ReplaceTemplatePreviewImage(null);
         _captionDisposables.Dispose();
         _transcriptionEstimateRevision.Dispose();
         _translationEstimateRevision.Dispose();
@@ -3145,36 +3167,258 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private void RefreshTemplatePreview()
     {
+        if (_disposed)
+            return;
+
         string text = SelectedCue.Value?.Text
             ?? _editableCues.FirstOrDefault()?.Text
             ?? Strings.AiSubtitle_PreviewSample;
         TemplatePreviewText.Value = string.IsNullOrWhiteSpace(text)
             ? Strings.AiSubtitle_PreviewSample
             : text;
+        TemplatePreviewFontSize.Value = 24;
+        CaptionCue cue = SelectedCue.Value?.TryCreateCue(out CaptionCue? selectedCue) == true
+            && selectedCue is not null
+            ? string.IsNullOrWhiteSpace(selectedCue.Text)
+                ? selectedCue with { Text = TemplatePreviewText.Value }
+                : selectedCue
+            : new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(2), TemplatePreviewText.Value);
+        if (Volatile.Read(ref _templatePreviewAttachments) > 0)
+            RefreshTemplatePreviewImage(cue);
+    }
+
+    internal void AttachTemplatePreview()
+    {
+        bool refresh;
+        lock (_templatePreviewGate)
+        {
+            if (_disposed)
+                return;
+
+            _templatePreviewAttachments++;
+            refresh = _templatePreviewAttachments == 1;
+        }
+        if (refresh)
+            RefreshTemplatePreview();
+    }
+
+    internal void DetachTemplatePreview()
+    {
+        CancellationTokenSource? previewCts;
+        lock (_templatePreviewGate)
+        {
+            if (_templatePreviewAttachments <= 0)
+                return;
+
+            _templatePreviewAttachments--;
+            if (_templatePreviewAttachments > 0)
+                return;
+
+            previewCts = _templatePreviewCts;
+            _templatePreviewCts = null;
+        }
+
+        CancelTemplatePreview(previewCts);
+        if (!_disposed)
+            ReplaceTemplatePreviewImage(null);
+    }
+
+    private void RefreshTemplatePreviewImage(CaptionCue cue)
+    {
+        BeforeTemplatePreviewAdmission?.Invoke();
+        CancellationTokenSource cts = new();
+        CancellationTokenSource? previous;
+        AsyncOperationLifetime.Operation? operation;
+        lock (_templatePreviewGate)
+        {
+            if (_disposed || _templatePreviewAttachments <= 0)
+            {
+                cts.Dispose();
+                return;
+            }
+
+            operation = _operations.TryEnter();
+            if (operation is null)
+            {
+                cts.Dispose();
+                return;
+            }
+
+            previous = _templatePreviewCts;
+            _templatePreviewCts = cts;
+        }
+
+        CancelTemplatePreview(previous);
+        if (!operation.TryPublish(() => ReplaceTemplatePreviewImage(null)))
+        {
+            lock (_templatePreviewGate)
+            {
+                if (ReferenceEquals(_templatePreviewCts, cts))
+                    _templatePreviewCts = null;
+            }
+            operation.Dispose();
+            cts.Dispose();
+            return;
+        }
+        CaptionTemplateId templateId = SelectedCaptionTemplate.Value.Id;
+        Beutl.Media.PixelSize frameSize = _editViewModel is { } editor
+            ? new Beutl.Media.PixelSize(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height)
+            : new Beutl.Media.PixelSize(1920, 1080);
+        _ = RenderTemplatePreviewImageAsync(cue, templateId, frameSize, cts, operation);
+    }
+
+    private async Task RenderTemplatePreviewImageAsync(
+        CaptionCue cue,
+        CaptionTemplateId templateId,
+        Beutl.Media.PixelSize frameSize,
+        CancellationTokenSource cts,
+        AsyncOperationLifetime.Operation operation)
+    {
+        using AsyncOperationLifetime.Operation ownedOperation = operation;
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cts.Token,
+            ownedOperation.CancellationToken);
+        CancellationToken cancellationToken = linkedCts.Token;
         try
         {
-            var cue = new CaptionCue(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(2),
-                TemplatePreviewText.Value);
-            var context = new CaptionElementContext(0, Strings.AiSubtitle);
-            using CaptionTemplateLease template = _captionTemplates.Acquire(
-                SelectedCaptionTemplate.Value.Id);
-            Beutl.Graphics.Shapes.TextBlock? preview = template
-                .CreateElements(cue, context)
-                .Select(description => description.Source)
-                .OfType<ElementSource.EngineObject>()
-                .Select(source => source.Factory())
-                .OfType<Beutl.Graphics.Shapes.TextBlock>()
-                .FirstOrDefault();
-            TemplatePreviewFontSize.Value = preview is null
-                ? 24
-                : Math.Clamp(preview.Size.CurrentValue * 0.5, 12, 42);
+            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            var elements = new List<Element>();
+            using (CaptionTemplateLease template = _captionTemplates.Acquire(
+                       templateId))
+            {
+                CaptionElementContext context = new(
+                    0,
+                    Strings.AiSubtitle,
+                    new Beutl.Graphics.Point(
+                        0,
+                        frameSize.Height * 0.35f));
+                foreach (ElementDescription description in template.CreateElements(cue, context))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Element element;
+                    switch (description.Source)
+                    {
+                        case ElementSource.EngineObject source:
+                            element = new Element
+                            {
+                                Start = description.Start,
+                                Length = description.Length ?? TimeSpan.FromSeconds(2),
+                                ZIndex = description.Layer,
+                            };
+                            element.AddObject(source.Factory());
+                            break;
+                        case ElementSource.ElementTemplate source:
+                            element = source.Factory()
+                                ?? throw new InvalidOperationException("The element-template factory returned null.");
+                            element.Start = description.Start;
+                            if (description.Length is { } length)
+                                element.Length = length;
+                            element.ZIndex = description.Layer;
+                            break;
+                        default:
+                            return;
+                    }
+
+                    if (description.Position is { } position)
+                    {
+                        foreach (Beutl.Graphics.Drawable drawable in element.Objects.OfType<Beutl.Graphics.Drawable>())
+                        {
+                            Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.CurrentValue;
+                            Beutl.Helpers.AddOrSetHelper.AddOrSet(
+                                ref transform,
+                                new Beutl.Graphics.Transformation.TranslateTransform(position));
+                            drawable.Transform.CurrentValue = transform;
+                        }
+                    }
+
+                    elements.Add(element);
+                }
+                if (elements.Count == 0)
+                    return;
+
+                byte[]? png = await CaptionTemplatePreviewRenderer.RenderPngAsync(
+                        elements,
+                        frameSize,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                Ref<Beutl.Media.Bitmap>? image = null;
+                if (png is { Length: > 0 })
+                {
+                    using var stream = new MemoryStream(png, writable: false);
+                    image = Ref<Beutl.Media.Bitmap>.Create(Beutl.Media.Bitmap.FromStream(stream));
+                }
+
+                bool transferred = false;
+                try
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (!cancellationToken.IsCancellationRequested
+                            && ownedOperation.TryPublish(() => ReplaceTemplatePreviewImage(image)))
+                        {
+                            transferred = true;
+                        }
+                    });
+                }
+                finally
+                {
+                    if (!transferred)
+                        image?.Dispose();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to create a subtitle template preview.");
-            TemplatePreviewFontSize.Value = 24;
+            _logger.LogDebug(ex, "Failed to render a subtitle template preview.");
+        }
+        finally
+        {
+            lock (_templatePreviewGate)
+            {
+                if (ReferenceEquals(_templatePreviewCts, cts))
+                    _templatePreviewCts = null;
+            }
+            cts.Dispose();
+        }
+    }
+
+    private void StopTemplatePreviewAdmission()
+        => CancelTemplatePreview(CloseTemplatePreviewAdmission());
+
+    private CancellationTokenSource? CloseTemplatePreviewAdmission()
+    {
+        lock (_templatePreviewGate)
+        {
+            _templatePreviewAttachments = 0;
+            CancellationTokenSource? previewCts = _templatePreviewCts;
+            _templatePreviewCts = null;
+            return previewCts;
+        }
+    }
+
+    private void ReplaceTemplatePreviewImage(Ref<Beutl.Media.Bitmap>? image)
+    {
+        Ref<Beutl.Media.Bitmap>? previous = TemplatePreviewImage.Value;
+        TemplatePreviewImage.Value = image;
+        previous?.Dispose();
+    }
+
+    private void CancelTemplatePreview(CancellationTokenSource? cancellation)
+    {
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to cancel a superseded subtitle template preview.");
         }
     }
 

@@ -232,18 +232,25 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 
     private Task BeginDisposeAsync()
     {
+        TaskCompletionSource completion;
+        CancellationTokenSource? previewCts;
+        Task disposeTask;
         lock (_disposeGate)
         {
             if (_disposeTask is not null)
                 return _disposeTask;
 
             _disposed = true;
-            var completion = new TaskCompletionSource(
+            previewCts = CloseTemplatePreviewAdmission();
+            completion = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             _disposeTask = completion.Task;
-            _ = CompleteDisposeAsync(completion);
-            return completion.Task;
+            disposeTask = completion.Task;
         }
+
+        CancelTemplatePreview(previewCts);
+        _ = CompleteDisposeAsync(completion);
+        return disposeTask;
     }
 
     private async Task CompleteDisposeAsync(TaskCompletionSource completion)

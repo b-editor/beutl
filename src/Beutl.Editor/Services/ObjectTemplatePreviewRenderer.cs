@@ -73,6 +73,26 @@ public static class ObjectTemplatePreviewRenderer
         }
     }
 
+    internal static async ValueTask<byte[]?> RenderElementsPngAsync(
+        IReadOnlyList<Element> elements,
+        PixelSize frameSize,
+        CancellationToken cancellationToken = default)
+    {
+        if (elements.Count == 0) return null;
+        try
+        {
+            return await RenderThread.Dispatcher.InvokeAsync(
+                () => RenderElements(elements, frameSize, cancellationToken), ct: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            s_logger.LogDebug(ex, "Failed to render caption template preview.");
+            return null;
+        }
+    }
+
     private static byte[]? Render(ICoreSerializable instance)
     {
         return instance switch
@@ -88,18 +108,37 @@ public static class ObjectTemplatePreviewRenderer
     {
         // The element belongs to the edited scene, so the throwaway scene gets a clone. Start is
         // rebased because SceneCompositor only collects elements whose Range contains the time.
-        if (Clone(element, typeof(Element)) is not Element copy)
-            return null;
+        return RenderElements([element], default);
+    }
 
-        copy.Start = TimeSpan.Zero;
-        TimeSpan time = copy.Length > TimeSpan.Zero
-            ? copy.Length / 2
+    private static byte[]? RenderElements(
+        IReadOnlyList<Element> elements,
+        PixelSize requestedFrameSize,
+        CancellationToken cancellationToken = default)
+    {
+        var copies = new List<Element>(elements.Count);
+        foreach (Element element in elements)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Clone(element, typeof(Element)) is not Element copy)
+                return null;
+            copy.Start = TimeSpan.Zero;
+            copies.Add(copy);
+        }
+        if (copies.Count == 0) return null;
+        cancellationToken.ThrowIfCancellationRequested();
+
+        TimeSpan duration = copies.Select(item => item.Length)
+            .Where(item => item > TimeSpan.Zero).DefaultIfEmpty(TimeSpan.Zero).Min();
+        TimeSpan time = duration > TimeSpan.Zero
+            ? duration / 2
             : TimeSpan.Zero;
 
         // The element's sizes are authored against its own scene's frame — a caption is a 355pt
         // glyph in a 1920x1080 project — so the preview scene has to keep that frame for layout to
         // resolve the way it did there.
-        PixelSize frameSize = ResolveFrameSize(element);
+        PixelSize frameSize = requestedFrameSize.Width > 0 && requestedFrameSize.Height > 0
+            ? requestedFrameSize : ResolveFrameSize(elements[0]);
 
         // Scene.Children_CollectionChanged relates each element's path to the scene's own, so both
         // need a Uri even though this scene is never written. The paths are synthetic; nothing on
@@ -107,11 +146,14 @@ public static class ObjectTemplatePreviewRenderer
         string directory = Path.Combine(Path.GetTempPath(), "beutl-template-preview");
         var scene = new Scene(frameSize.Width, frameSize.Height, string.Empty)
         {
-            Duration = copy.Length > TimeSpan.Zero ? copy.Length : TimeSpan.FromSeconds(1),
+            Duration = duration > TimeSpan.Zero ? duration : TimeSpan.FromSeconds(1),
             Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, "preview.scene"))
         };
-        copy.Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, $"{copy.Id}.belm"));
-        scene.Children.Add(copy);
+        foreach (Element copy in copies)
+        {
+            copy.Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, $"{copy.Id}.belm"));
+            scene.Children.Add(copy);
+        }
 
         // The compositor, not a hand-rolled walk, is what resolves the flow operators an element
         // may carry (DrawableGroup / DrawableDecorator populate their children from the flow).
