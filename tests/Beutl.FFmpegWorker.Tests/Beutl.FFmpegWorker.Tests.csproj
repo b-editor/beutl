@@ -37,6 +37,7 @@
 
   <!-- Worker-side FFmpeg-calling encoding types (direct in-process, GPL originals). -->
   <ItemGroup>
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegErrorCodeExtractor.cs" Link="Linked\FFmpegErrorCodeExtractor.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Encoding\FFmpegEncodingController.cs" Link="Linked\FFmpegEncodingController.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />

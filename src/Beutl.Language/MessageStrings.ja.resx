@@ -422,4 +422,19 @@
   <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
     <value>ffmpeg 実行ファイルが見つかりませんでした。ffmpeg をインストールして PATH に追加してください。</value>
   </data>
+  <data name="FFmpegErrorInvalidData" xml:space="preserve">
+    <value>入力ファイルが壊れているか、書き込みが完了していない可能性があります。ファイルを再エクスポートまたは復元してからやり直してください。</value>
+  </data>
+  <data name="FFmpegErrorDecoderNotFound" xml:space="preserve">
+    <value>このコーデックに対応するデコーダーが同梱の FFmpeg ビルドに見つかりませんでした。</value>
+  </data>
+  <data name="FFmpegErrorDemuxerNotFound" xml:space="preserve">
+    <value>このコンテナ形式は同梱の FFmpeg ビルドでサポートされていません。</value>
+  </data>
+  <data name="FFmpegErrorProtocolNotFound" xml:space="preserve">
+    <value>このストリームプロトコルは同梱の FFmpeg ビルドでサポートされていません。</value>
+  </data>
+  <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
+    <value>入力に適切なストリームが見つかりませんでした。</value>
+  </data>
 </root>

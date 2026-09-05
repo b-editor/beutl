@@ -21,6 +21,10 @@ public sealed class IpcMessage
     [JsonPropertyName("errorStack")]
     public string? ErrorStackTrace { get; set; }
 
+    // FFmpeg AVERROR code, if available.
+    [JsonPropertyName("errorCode")]
+    public int? ErrorCode { get; set; }
+
     public T? GetPayload<T>()
     {
         if (Payload is not { } element)
@@ -38,7 +42,8 @@ public sealed class IpcMessage
         };
     }
 
-    public static IpcMessage CreateError(int id, string error, string? stackTrace = null)
+    public static IpcMessage CreateError(
+        int id, string error, string? stackTrace = null, int? errorCode = null)
     {
         return new IpcMessage
         {
@@ -46,6 +51,7 @@ public sealed class IpcMessage
             Type = MessageType.Error,
             Error = error,
             ErrorStackTrace = stackTrace,
+            ErrorCode = errorCode,
         };
     }
 
@@ -87,6 +93,8 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(QueryAudioFormatsResponse))]
 // Supporting types
 [JsonSerializable(typeof(Dictionary<string, string>))]
+// Nullable error code
+[JsonSerializable(typeof(int?))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]

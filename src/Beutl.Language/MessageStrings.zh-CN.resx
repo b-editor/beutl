@@ -428,4 +428,19 @@
   <data name="WindowCapture_FfmpegNotFound" xml:space="preserve">
     <value>未找到 ffmpeg 可执行文件。请安装 ffmpeg 并确保它在 PATH 中。</value>
   </data>
+  <data name="FFmpegErrorInvalidData" xml:space="preserve">
+    <value>输入文件似乎已损坏、不完整或仍在写入中。请重新导出或恢复该文件后重试。</value>
+  </data>
+  <data name="FFmpegErrorDecoderNotFound" xml:space="preserve">
+    <value>内置的 FFmpeg 版本中找不到此编解码器的解码器。</value>
+  </data>
+  <data name="FFmpegErrorDemuxerNotFound" xml:space="preserve">
+    <value>内置的 FFmpeg 版本不支持此容器格式。</value>
+  </data>
+  <data name="FFmpegErrorProtocolNotFound" xml:space="preserve">
+    <value>内置的 FFmpeg 版本不支持此流媒体协议。</value>
+  </data>
+  <data name="FFmpegErrorStreamNotFound" xml:space="preserve">
+    <value>在输入中未找到合适的流。</value>
+  </data>
 </root>

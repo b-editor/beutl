@@ -59,7 +59,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private IDisposable? _currentFrameSubscription;
     private readonly object _renderRequestLock = new();
     private CancellationTokenSource? _cts;
-    private bool _isDisposing;
+    private volatile bool _isDisposing;
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
@@ -366,9 +366,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     IObservable<AudioFrameSnapshot> IPreviewPlayer.AudioFramePushed => _audioFramePushed;
 
-    private void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
+    internal void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
     {
-        if (pcm == null) return;
+        // An abandoned audio task may still publish after disposal begins.
+        if (pcm == null || _isDisposing) return;
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
         // visualizer tab opened after this point can replay it on subscribe.
@@ -376,6 +377,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int channels = pcm.NumChannels;
         var interleaved = new float[samples * channels];
         MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan).CopyTo(interleaved);
+        // Teardown completes the subject so a racing publish is ignored.
         _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime));
     }
 
@@ -639,6 +641,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (Interlocked.Exchange(ref processing, 1) != 0) return;
                 try
                 {
+                    // Do not let a timer callback touch state after disposal.
+                    if (_isDisposing)
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
                     // A Pause() timeout may have disowned this task while it is still blocked in the
                     // WhenAll below; once a newer session has claimed, stop the loop instead of
                     // dequeuing frames or writing shared preview state (PreviewImage / CurrentTime /
@@ -2044,7 +2053,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
-        _audioFramePushed.Dispose();
+        // Complete so an abandoned audio task can finish without throwing.
+        _audioFramePushed.OnCompleted();
         BeginEditTimecodeRequested.Dispose();
         PreviewInvalidated = null;
         Scene = null!;

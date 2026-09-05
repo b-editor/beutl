@@ -259,7 +259,7 @@ public sealed class ResampleNode : AudioNode
             try
             {
                 var buffer = new float[sampleCount * _channelCount];
-                int samplesRead = _wdlResampler!.Read(buffer, 0, buffer.Length);
+                int samplesRead = _wdlResampler!.Read(buffer.AsSpan());
 
                 // Copy interleaved samples back to AudioBuffer
                 for (int ch = 0; ch < _channelCount; ch++)
@@ -320,13 +320,13 @@ public sealed class ResampleNode : AudioNode
             _inputBuffers.Enqueue(buffer);
         }
 
-        public int Read(float[] buffer, int offset, int count)
+        public int Read(Span<float> buffer)
         {
             if (_disposed)
                 return 0;
 
             int total = 0;
-            while (total < count)
+            while (total < buffer.Length)
             {
                 if (_currentBuffer is null)
                 {
@@ -337,7 +337,7 @@ public sealed class ResampleNode : AudioNode
                     _position = 0;
                 }
 
-                int samplesPerChannel = (count - total) / ChannelCount;
+                int samplesPerChannel = (buffer.Length - total) / ChannelCount;
                 int availableSamples = _currentBuffer.SampleCount - _position;
                 int samplesToRead = Math.Min(samplesPerChannel, availableSamples);
                 if (samplesToRead <= 0)
@@ -351,7 +351,7 @@ public sealed class ResampleNode : AudioNode
                 {
                     for (int ch = 0; ch < ChannelCount; ch++)
                     {
-                        buffer[offset + total + i * ChannelCount + ch]
+                        buffer[total + i * ChannelCount + ch]
                             = _currentBuffer.GetChannelData(ch)[_position + i];
                     }
                 }
