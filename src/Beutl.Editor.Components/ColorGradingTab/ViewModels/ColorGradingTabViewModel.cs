@@ -3,9 +3,11 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
+using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ColorGradingTab.ViewModels;
@@ -24,6 +26,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly CompositeDisposable _effectDisposables = [];
+    private readonly ILogger _logger = Log.CreateLogger<ColorGradingTabViewModel>();
 
     public ColorGradingTabViewModel(IEditorContext editorContext)
     {
@@ -136,11 +139,13 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         return _editorContext.GetService(serviceType);
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         ClearEditors();
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public void ReadFromJson(JsonObject json)
     {
@@ -226,8 +231,18 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     }
 
     private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
+        => _ = CloseAfterDetachAsync();
+
+    internal async Task CloseAfterDetachAsync()
     {
-        _editorContext.CloseToolTab(this);
+        try
+        {
+            await _editorContext.CloseToolTabAsync(this);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to close the detached color-grading tab.");
+        }
     }
 
     private void ClearEditors()

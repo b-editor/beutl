@@ -161,17 +161,13 @@ public sealed partial class MacWindow : Window
         {
             var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
 
-            menuItem.Click += (s, e) =>
+            menuItem.Click += async (s, e) =>
             {
                 if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
                     && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
                     && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    await editorContext.OpenToolTabAsync(toolContext);
                 }
             };
 
@@ -214,13 +210,25 @@ public sealed partial class MacWindow : Window
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
+                    if (selectedTab.Context.Value is not null)
                     {
-                        selectedTab.Context.Value.Dispose();
-                        selectedTab.Context.Value = context;
+                        try
+                        {
+                            EditorContextReplacementStatus replacement =
+                                await viewModel.EditorService.ReplaceContextAsync(selectedTab, editorExtension);
+                            if (replacement != EditorContextReplacementStatus.Succeeded)
+                            {
+                                NotificationService.ShowInformation(
+                                    title: MessageStrings.ContextNotCreated,
+                                    message: MessageStrings.OperationFailed);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            NotificationService.ShowError(
+                                MessageStrings.ContextNotCreated,
+                                ex.Message);
+                        }
                     }
                     else
                     {
@@ -413,6 +421,8 @@ public sealed partial class MacWindow : Window
 
     private bool _captureStopped;
     private Task? _captureStopTask;
+    private bool _viewModelDisposed;
+    private Task? _viewModelDisposeTask;
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -434,23 +444,52 @@ public sealed partial class MacWindow : Window
             }
         }
 
+        if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
+        {
+            e.Cancel = true;
+            if (_viewModelDisposeTask is null)
+            {
+                viewModel.Dispose();
+                _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
+            }
+            return;
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
+    }
 
-        if (DataContext is MainViewModel viewModel)
+    private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
+    {
+        try
         {
-            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+        }
+        finally
+        {
+            _viewModelDisposed = true;
+            Close();
         }
     }
 
     private async Task StopCaptureAndCloseAsync(MainView mv)
     {
-        await mv.EnsureCaptureStoppedAsync();
-        _captureStopped = true;
-        Close();
+        try
+        {
+            await mv.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+        finally
+        {
+            _captureStopped = true;
+            Close();
+        }
     }
 
     private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();

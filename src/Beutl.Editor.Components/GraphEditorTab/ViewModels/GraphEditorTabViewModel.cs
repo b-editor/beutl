@@ -77,14 +77,16 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposed = true;
         if (Element.Value is IHierarchical h)
             h.DetachedFromHierarchy -= OnElementDetached;
         _animationDisposables.Dispose();
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public object? GetService(Type serviceType)
     {
@@ -143,17 +145,17 @@ public sealed class GraphEditorTabViewModel : IToolContext
     private void OnElementDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
         if (_disposed) return;
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(async void () =>
         {
             if (!_disposed)
-                _editorContext.CloseToolTab(this);
+                await _editorContext.CloseToolTabAsync(this);
         });
     }
 
     private void OnAnimationDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
         if (_disposed) return;
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(async void () =>
         {
             if (_disposed) return;
             if (sender is KeyFrameAnimation animation)
@@ -173,7 +175,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
             if (Items.Count == 0)
             {
-                _editorContext.CloseToolTab(this);
+                await _editorContext.CloseToolTabAsync(this);
             }
         });
     }

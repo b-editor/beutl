@@ -21,18 +21,23 @@ public record LoadedPackageInfo(LocalPackage Package, PluginLoadContext? LoadCon
 
 public sealed class PackageManager(
     InstalledPackageRepository installedPackageRepository,
-    ExtensionProvider extensionProvider,
+    IExtensionRegistry extensionRegistry,
     ContextCommandManager commandManager,
     BeutlApiApplication apiApplication,
     ILoadContextUnloadDiagnostics? unloadDiagnostics = null) : PackageLoader
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
+    private readonly Dictionary<int, Task<bool>> _unloadOperations = [];
+    private readonly Dictionary<int, PendingRollbackInfo> _pendingRollbacks = [];
+    private readonly HashSet<int> _quarantinedPackages = [];
+    private readonly HashSet<int> _loadingPackages = [];
+    private readonly object _packageLifecycleGate = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
 
-    public ExtensionProvider ExtensionProvider => extensionProvider;
+    public IExtensionRegistry ExtensionRegistry => extensionRegistry;
 
     public ContextCommandManager ContextCommandManager => commandManager;
 
@@ -65,96 +70,34 @@ public sealed class PackageManager(
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // Resolve the resource and link the lifetime token under one dispose-gate hold so a
-        // concurrent DisposeAsync cannot invalidate the resource between admission and use.
-        DiscoverService discover = apiApplication.GetResourceWithLifetime<DiscoverService>(
-            cancellationToken, out CancellationTokenSource operationCts);
-        using (operationCts)
+        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken operationToken = operationCts.Token;
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            CancellationToken operationToken = operationCts.Token;
-            using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+            PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
+
+            var updates = new List<PackageUpdate>(packages.Length);
+            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
+
+            for (int i = 0; i < packages.Length; i++)
             {
-                PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
-
-                var updates = new List<PackageUpdate>(packages.Length);
-
-                for (int i = 0; i < packages.Length; i++)
-                {
-                    operationToken.ThrowIfCancellationRequested();
-                    PackageIdentity pkg = packages[i];
-                    NuGetVersion version = pkg.Version;
-                    string versionStr = version.ToString();
-                    try
-                    {
-                        activity?.AddEvent(new("Checking updates"));
-                        activity?.SetTag("PackageId", pkg.Id);
-                        activity?.SetTag("Version", versionStr);
-                        Package remotePackage = await discover.GetPackage(pkg.Id, operationToken).ConfigureAwait(false);
-                        activity?.AddEvent(new("Checked updates"));
-
-                        Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
-
-                        foreach (Release? item in releases)
-                        {
-                            operationToken.ThrowIfCancellationRequested();
-                            // 降順
-                            if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
-                            {
-                                Release? oldRelease = await Helper
-                                    .TryGetOrDefault(
-                                        () => remotePackage.GetReleaseAsync(versionStr, operationToken),
-                                        operationToken)
-                                    .ConfigureAwait(false);
-                                updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                                _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
-                                break;
-                            }
-                        }
-                    }
-                    catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex,
-                            "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
-                    }
-                }
-
                 operationToken.ThrowIfCancellationRequested();
-                return updates;
-            }
-        }
-    }
-
-    public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        // See the other CheckUpdate overload: resolve the resource and link the lifetime
-        // token under one dispose-gate hold.
-        DiscoverService discover = apiApplication.GetResourceWithLifetime<DiscoverService>(
-            cancellationToken, out CancellationTokenSource operationCts);
-        using (operationCts)
-        {
-            CancellationToken operationToken = operationCts.Token;
-            using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
-            {
-                LocalPackage? pkg = _loadedPackages.Values
-                    .Select(x => x.Package)
-                    .FirstOrDefault(v =>
-                        !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
-                if (pkg != null)
+                PackageIdentity pkg = packages[i];
+                NuGetVersion version = pkg.Version;
+                string versionStr = version.ToString();
+                try
                 {
-                    string versionStr = pkg.Version;
-                    var version = new NuGetVersion(versionStr);
                     activity?.AddEvent(new("Checking updates"));
-                    activity?.SetTag("PackageName", pkg.Name);
+                    activity?.SetTag("PackageId", pkg.Id);
                     activity?.SetTag("Version", versionStr);
-                    Package remotePackage = await discover.GetPackage(pkg.Name, operationToken).ConfigureAwait(false);
+                    Package remotePackage = await discover
+                        .GetPackage(pkg.Id, operationToken)
+                        .ConfigureAwait(false);
                     activity?.AddEvent(new("Checked updates"));
 
-                    Release[] releases = await remotePackage.GetReleasesAsync(operationToken).ConfigureAwait(false);
+                    Release[] releases = await remotePackage
+                        .GetReleasesAsync(operationToken)
+                        .ConfigureAwait(false);
 
                     foreach (Release? item in releases)
                     {
@@ -162,21 +105,100 @@ public sealed class PackageManager(
                         // 降順
                         if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                         {
-                            Release? oldRelease = await Helper
-                                .TryGetOrDefault(
-                                    () => remotePackage.GetReleaseAsync(pkg.Version, operationToken),
+                            Release? oldRelease = await TryGetReleaseAsync(
+                                    remotePackage,
+                                    versionStr,
                                     operationToken)
                                 .ConfigureAwait(false);
-                            operationToken.ThrowIfCancellationRequested();
-                            _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
-                            return new PackageUpdate(remotePackage, oldRelease, item);
+                            updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                            _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
+                            break;
                         }
                     }
                 }
-
-                operationToken.ThrowIfCancellationRequested();
-                return null;
+                catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
+                }
             }
+
+            operationToken.ThrowIfCancellationRequested();
+            return updates;
+        }
+    }
+
+    public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken operationToken = operationCts.Token;
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
+        {
+            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
+
+            LocalPackage? pkg = _loadedPackages.Values
+                .Select(x => x.Package)
+                .FirstOrDefault(v =>
+                    !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+            if (pkg != null)
+            {
+                string versionStr = pkg.Version;
+                var version = new NuGetVersion(versionStr);
+                activity?.AddEvent(new("Checking updates"));
+                activity?.SetTag("PackageName", pkg.Name);
+                activity?.SetTag("Version", versionStr);
+                Package remotePackage = await discover
+                    .GetPackage(pkg.Name, operationToken)
+                    .ConfigureAwait(false);
+                activity?.AddEvent(new("Checked updates"));
+
+                Release[] releases = await remotePackage
+                    .GetReleasesAsync(operationToken)
+                    .ConfigureAwait(false);
+
+                foreach (Release? item in releases)
+                {
+                    operationToken.ThrowIfCancellationRequested();
+                    // 降順
+                    if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
+                    {
+                        Release? oldRelease = await TryGetReleaseAsync(
+                                remotePackage,
+                                pkg.Version,
+                                operationToken)
+                            .ConfigureAwait(false);
+                        _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
+                        return new PackageUpdate(remotePackage, oldRelease, item);
+                    }
+                }
+            }
+
+            operationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+    }
+
+    private static async Task<Release?> TryGetReleaseAsync(
+        Package package,
+        string version,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await package.GetReleaseAsync(version, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -273,15 +295,68 @@ public sealed class PackageManager(
         }
     }
 
-    public async ValueTask<bool> Unload(LocalPackage package)
+    public ValueTask<bool> Unload(LocalPackage package)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+        TaskCompletionSource<bool>? completion = null;
+        Task<bool> operation;
+        lock (_packageLifecycleGate)
+        {
+            if (_unloadOperations.TryGetValue(package.LocalId, out operation!))
+                return new ValueTask<bool>(operation);
+
+            if (_quarantinedPackages.Contains(package.LocalId))
+                return new ValueTask<bool>(false);
+
+            if (_loadingPackages.Contains(package.LocalId))
+                return new ValueTask<bool>(false);
+
+            completion = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            operation = completion.Task;
+            _unloadOperations.Add(package.LocalId, operation);
+        }
+
+        _ = RunUnloadAsync(package, completion);
+        return new ValueTask<bool>(operation);
+    }
+
+    private async Task RunUnloadAsync(
+        LocalPackage package,
+        TaskCompletionSource<bool> completion)
+    {
+        try
+        {
+            completion.TrySetResult(await UnloadOnceAsync(package).ConfigureAwait(false));
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+        finally
+        {
+            lock (_packageLifecycleGate)
+            {
+                if (!_quarantinedPackages.Contains(package.LocalId))
+                {
+                    _unloadOperations.Remove(package.LocalId);
+                }
+            }
+        }
+    }
+
+    private async Task<bool> UnloadOnceAsync(LocalPackage package)
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Unload"))
         {
-            var result = UnloadCore(activity, package, out WeakReference? weakReference, out string[] assemblyNames);
-            if (!result || weakReference == null)
+            PackageUnloadResult? result = await UnloadCoreAsync(activity, package);
+            if (result is null)
             {
                 return false;
             }
+
+            WeakReference weakReference = result.LoadContextReference;
+            string[] assemblyNames = result.AssemblyNames;
 
             for (int i = 0; weakReference.IsAlive && (i < 10); i++)
             {
@@ -303,46 +378,143 @@ public sealed class PackageManager(
         }
     }
 
-    private bool UnloadCore(
-        Activity? activity, LocalPackage package,
-        [NotNullWhen(true)] out WeakReference? weakReference, out string[] assemblyNames)
+    private async ValueTask<PackageUnloadResult?> UnloadCoreAsync(
+        Activity? activity,
+        LocalPackage package)
     {
-        weakReference = null;
-        assemblyNames = [];
+        string[] assemblyNames = [];
         activity?.SetTag("PackageName", package.Name);
 
         if (package.LocalId == LocalPackage.Reserved0)
         {
             _logger.LogWarning("Cannot unload built-in extensions.");
-            return false;
+            return null;
         }
 
-        if (!_loadedPackages.TryRemove(package.LocalId, out LoadedPackageInfo? info))
+        if (!_loadedPackages.TryGetValue(package.LocalId, out LoadedPackageInfo? info))
         {
             _logger.LogWarning("Package {PackageName} is not loaded.", package.Name);
-            return false;
+            return null;
         }
 
-        Extension[] extensions = extensionProvider.RemoveExtensions(package.LocalId);
+        // Only the registries below have explicit operation leases. Other
+        // extension families create long-lived editor/output/window objects,
+        // so their package files are updated safely on the next restart.
+        ExtensionRemoval? removal = null;
+        var requiresRestart = false;
+        List<Exception>? retirementFailures = null;
+        try
+        {
+            extensionRegistry.SynchronizeMutation(() =>
+            {
+                IReadOnlyList<Extension> packageExtensions =
+                    extensionRegistry.GetPackageExtensions(package.LocalId);
+                if (packageExtensions.Any(extension => !SupportsLiveUnload(extension)))
+                {
+                    requiresRestart = true;
+                    return;
+                }
+
+                removal = extensionRegistry.RemoveExtensions(package.LocalId);
+            });
+        }
+        catch (ExtensionRemovalNotificationException ex)
+        {
+            removal = ex.Removal;
+            retirementFailures = [ex];
+        }
+        if (requiresRestart)
+        {
+            _logger.LogInformation(
+                "Package {PackageName} contains extensions that require restart for safe unload.",
+                package.Name);
+            return null;
+        }
+
+        if (removal is null)
+        {
+            throw new InvalidOperationException(
+                $"The extension registry did not remove package {package.Name}.");
+        }
+
+        IReadOnlyList<Extension> extensions = removal.Extensions;
+        foreach (Extension ext in extensions)
+        {
+            if (ext is ViewExtension viewExtension)
+            {
+                try
+                {
+                    // Commands are a discoverability surface too. Retire them before waiting so
+                    // no new package-owned callback can start while the package is draining.
+                    commandManager.Unregister(viewExtension);
+                }
+                catch (Exception ex)
+                {
+                    (retirementFailures ??= []).Add(ex);
+                    _logger.LogError(
+                        ex,
+                        "Failed to unregister commands for extension {ExtensionName}.",
+                        ext.GetType().Name);
+                }
+            }
+
+            try
+            {
+                // Configuration notifications can call package code and therefore belong to the
+                // synchronous retirement phase, not post-unload cleanup.
+                CleanupExtensionSettings(ext);
+            }
+            catch (Exception ex)
+            {
+                (retirementFailures ??= []).Add(ex);
+                _logger.LogError(
+                    ex,
+                    "Failed to detach settings for extension {ExtensionName}.",
+                    ext.GetType().Name);
+            }
+        }
+
+        try
+        {
+            // Drain every extension in the package before invoking any extension-level unload.
+            // Packages commonly share static resources across several extension entry points.
+            await removal.DrainAsync();
+        }
+        catch (Exception ex)
+        {
+            (retirementFailures ??= []).Add(ex);
+            _logger.LogError(
+                ex,
+                "Package {PackageName} registrations failed to drain; the load context remains quarantined.",
+                package.Name);
+        }
+
+        if (retirementFailures is not null)
+        {
+            lock (_packageLifecycleGate)
+            {
+                _quarantinedPackages.Add(package.LocalId);
+            }
+
+            activity?.SetStatus(ActivityStatusCode.Error, "Extension retirement failed");
+            return null;
+        }
+
         foreach (Extension ext in extensions)
         {
             try
             {
-                if (ext is ViewExtension viewExtension)
-                {
-                    commandManager.Unregister(viewExtension);
-                }
-
                 ext.Unload();
-                CleanupExtensionSettings(ext);
-
                 _logger.LogInformation("Extension {ExtensionName} unloaded.", ext.GetType().Name);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to unload extension {ExtensionName}.", ext.GetType().Name);
             }
+
         }
+
+        _loadedPackages.TryRemove(package.LocalId, out _);
 
         if (info.LoadContext is { } loadContext)
         {
@@ -365,9 +537,17 @@ public sealed class PackageManager(
         }
 
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
-        weakReference = new WeakReference(info.LoadContext, trackResurrection: true);
-        return true;
+        return new PackageUnloadResult(
+            new WeakReference(info.LoadContext, trackResurrection: true),
+            assemblyNames);
     }
+
+    private sealed record PackageUnloadResult(
+        WeakReference LoadContextReference,
+        string[] AssemblyNames);
+
+    private static bool SupportsLiveUnload(Extension extension)
+        => extension is ILiveUnloadExtension;
 
     private Action<string>? _dumpOpener;
 
@@ -460,7 +640,37 @@ public sealed class PackageManager(
         IEnumerable<Type> extensionTypes)
     {
         List<Extension> extensions = [];
+        ExtensionRemoval? rollbackRemoval = null;
         var addedToProvider = false;
+        var addedToLoadedPackages = false;
+        bool alreadyKnown;
+        lock (_packageLifecycleGate)
+        {
+            alreadyKnown = _loadingPackages.Contains(package.LocalId)
+                           || _unloadOperations.ContainsKey(package.LocalId)
+                           || _quarantinedPackages.Contains(package.LocalId)
+                           || _loadedPackages.ContainsKey(package.LocalId);
+            if (!alreadyKnown)
+            {
+                _loadingPackages.Add(package.LocalId);
+            }
+        }
+
+        if (alreadyKnown)
+        {
+            // The caller resolved the package's assemblies into a collectible
+            // context before this could be known. Nothing will ever reference
+            // them, so the context goes with the rejection rather than staying
+            // loaded for the life of the process.
+            if (loadContext is { })
+            {
+                TryUnloadLoadContext(package, loadContext);
+            }
+
+            throw new InvalidOperationException(
+                $"Package {package.Name} is already loaded, loading, unloading, or quarantined.");
+        }
+
         try
         {
             extensions = LoadPackageExtensions(extensionTypes);
@@ -468,33 +678,150 @@ public sealed class PackageManager(
             activity?.AddEvent(new ActivityEvent("Extensions loaded"));
             activity?.SetTag("ExtensionCount", extensions.Count);
 
-            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
+            ExtensionRegistry.AddExtensions(package.LocalId, extensions);
             addedToProvider = true;
 
-            if (!_loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, loadContext)))
+            lock (_packageLifecycleGate)
             {
-                throw new InvalidOperationException($"Package {package.Name} is already loaded.");
+                if (!_loadedPackages.TryAdd(
+                        package.LocalId,
+                        new LoadedPackageInfo(package, loadContext)))
+                {
+                    throw new InvalidOperationException(
+                        $"Package {package.Name} is already loaded, unloading, or quarantined.");
+                }
+
+                _loadingPackages.Remove(package.LocalId);
             }
+            addedToLoadedPackages = true;
 
             return assemblies;
         }
-        catch
+        catch (Exception loadFailure)
         {
+            if (loadFailure is ExtensionRegistrationNotificationException registrationFailure)
+            {
+                rollbackRemoval = registrationFailure.Removal;
+            }
             if (addedToProvider)
             {
-                ExtensionProvider.RemoveExtensions(package.LocalId);
+                try
+                {
+                    rollbackRemoval = ExtensionRegistry.RemoveExtensions(package.LocalId);
+                }
+                catch (ExtensionRemovalNotificationException ex)
+                {
+                    rollbackRemoval = ex.Removal;
+                }
+            }
+            if (addedToLoadedPackages)
+            {
+                lock (_packageLifecycleGate)
+                {
+                    _loadedPackages.TryRemove(package.LocalId, out _);
+                }
             }
 
-            // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
-            // only when a later registration step threw; this is not a double-unload.
-            RollbackLoadedExtensions(extensions);
-            if (loadContext is { })
+            bool rollbackPending = rollbackRemoval is not null;
+            lock (_packageLifecycleGate)
             {
-                TryUnloadLoadContext(package, loadContext);
+                _loadingPackages.Remove(package.LocalId);
+                if (rollbackPending)
+                {
+                    _quarantinedPackages.Add(package.LocalId);
+                }
+            }
+
+            if (rollbackRemoval is null)
+            {
+                // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
+                // only when a later registration step threw; this is not a double-unload.
+                RollbackLoadedExtensions(extensions);
+                if (loadContext is { })
+                {
+                    TryUnloadLoadContext(package, loadContext);
+                }
+            }
+            else
+            {
+                StartRollbackAfterDrain(
+                    package,
+                    extensions,
+                    loadContext,
+                    rollbackRemoval);
             }
 
             throw;
         }
+    }
+
+    private void StartRollbackAfterDrain(
+        LocalPackage package,
+        List<Extension> extensions,
+        PluginLoadContext? loadContext,
+        ExtensionRemoval removal)
+    {
+        Extension[] rollbackExtensions = extensions.ToArray();
+        extensions.Clear();
+        var pendingRollback = new PendingRollbackInfo(
+            package,
+            rollbackExtensions,
+            loadContext);
+        lock (_packageLifecycleGate)
+        {
+            _pendingRollbacks.Add(package.LocalId, pendingRollback);
+        }
+        pendingRollback.Operation = DrainAndRollbackAsync(
+            pendingRollback,
+            removal);
+    }
+
+    private async Task DrainAndRollbackAsync(
+        PendingRollbackInfo pendingRollback,
+        ExtensionRemoval removal)
+    {
+        try
+        {
+            await removal.DrainAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            lock (_packageLifecycleGate)
+            {
+                _quarantinedPackages.Add(pendingRollback.Package.LocalId);
+            }
+            _logger.LogError(
+                ex,
+                "Package {PackageName} failed to drain after registration rollback; its load context remains quarantined.",
+                pendingRollback.Package.Name);
+            return;
+        }
+
+        var rollbackList = pendingRollback.Extensions.ToList();
+        RollbackLoadedExtensions(rollbackList);
+        if (pendingRollback.LoadContext is not null)
+        {
+            TryUnloadLoadContext(pendingRollback.Package, pendingRollback.LoadContext);
+        }
+        lock (_packageLifecycleGate)
+        {
+            _pendingRollbacks.Remove(pendingRollback.Package.LocalId);
+            _quarantinedPackages.Remove(pendingRollback.Package.LocalId);
+        }
+    }
+
+    private sealed class PendingRollbackInfo(
+        LocalPackage package,
+        IReadOnlyList<Extension> extensions,
+        PluginLoadContext? loadContext)
+    {
+        public LocalPackage Package { get; } = package;
+
+        public IReadOnlyList<Extension> Extensions { get; } = extensions;
+
+        public PluginLoadContext? LoadContext { get; } = loadContext;
+
+        public Task? Operation { get; set; }
     }
 
     internal List<Extension> LoadPackageExtensions(IEnumerable<Type> extensionTypes)

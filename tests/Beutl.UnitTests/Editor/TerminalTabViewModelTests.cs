@@ -162,12 +162,12 @@ public class TerminalTabViewModelTests
     }
 
     [Test]
-    public void Header_NumbersEachInstance()
+    public async Task Header_NumbersEachInstance()
     {
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
-        using var first = new TerminalTabViewModel(editorContext);
-        using var second = new TerminalTabViewModel(editorContext);
+        await using var first = new TerminalTabViewModel(editorContext);
+        await using var second = new TerminalTabViewModel(editorContext);
 
         Assert.Multiple(() =>
         {
@@ -178,10 +178,10 @@ public class TerminalTabViewModelTests
     }
 
     [Test]
-    public void Header_AppendsTheTitleTheShellReports()
+    public async Task Header_AppendsTheTitleTheShellReports()
     {
         var scene = new Scene(640, 480, string.Empty);
-        using var viewModel = new TerminalTabViewModel(new TestEditorContext(scene));
+        await using var viewModel = new TerminalTabViewModel(new TestEditorContext(scene));
         string numbered = viewModel.Header.Value;
 
         viewModel.TerminalTitle.Value = "  vim Program.cs  ";
@@ -192,15 +192,15 @@ public class TerminalTabViewModelTests
     }
 
     [Test]
-    public void Instance_numbers_stay_unique_across_a_view_state_round_trip()
+    public async Task Instance_numbers_stay_unique_across_a_view_state_round_trip()
     {
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
-        using var sceneA = new TerminalTabViewModel(editorContext);
+        await using var sceneA = new TerminalTabViewModel(editorContext);
         var json = new JsonObject();
         sceneA.WriteToJson(json);
 
-        using var sceneB = new TerminalTabViewModel(editorContext);
+        await using var sceneB = new TerminalTabViewModel(editorContext);
         sceneB.ReadFromJson(json);
 
         Assert.Multiple(() =>
@@ -212,7 +212,7 @@ public class TerminalTabViewModelTests
     }
 
     [Test]
-    public void Dispose_RaisesDisposedOnce()
+    public async Task Dispose_RaisesDisposedOnce()
     {
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
@@ -220,8 +220,8 @@ public class TerminalTabViewModelTests
         int disposedCount = 0;
         viewModel.Disposed += (_, _) => disposedCount++;
 
-        viewModel.Dispose();
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
+        await viewModel.DisposeAsync();
 
         Assert.Multiple(() =>
         {
@@ -232,6 +232,8 @@ public class TerminalTabViewModelTests
 
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext
     {
+        public IEditorContextCloseService CloseService => TestEditorContextCloseService.Instance;
+
         private readonly Dictionary<Type, object> _services = [];
 
         public CoreObject Object { get; } = obj;
@@ -265,13 +267,16 @@ public class TerminalTabViewModelTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item)
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item)
         {
-            return false;
+            return new ValueTask<bool>(false);
         }
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

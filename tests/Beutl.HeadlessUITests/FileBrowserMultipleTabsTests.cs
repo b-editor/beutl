@@ -34,7 +34,7 @@ public class FileBrowserMultipleTabsTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     private static BeutlToolDockable[] FileBrowsers(EditViewModel editor)
@@ -59,7 +59,7 @@ public class FileBrowserMultipleTabsTests
         EditViewModel editor = await OpenEditorForNewScene("filebrowser-second-tab");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
 
-        Assert.That(editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left), Is.True);
+        Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(FileBrowserTabExtension.Instance, left), Is.True);
         HeadlessTestHelpers.Settle();
 
         BeutlToolDockable[] browsers = FileBrowsers(editor);
@@ -76,7 +76,7 @@ public class FileBrowserMultipleTabsTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("filebrowser-titles");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
-        editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left);
+        await editor.DockHost.OpenToolTabFromExtensionAsync(FileBrowserTabExtension.Instance, left);
         HeadlessTestHelpers.Settle();
 
         BeutlToolDockable[] browsers = FileBrowsers(editor);
@@ -107,7 +107,7 @@ public class FileBrowserMultipleTabsTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("filebrowser-roundtrip");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
-        editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left);
+        await editor.DockHost.OpenToolTabFromExtensionAsync(FileBrowserTabExtension.Instance, left);
         HeadlessTestHelpers.Settle();
 
         BeutlToolDockable[] browsers = FileBrowsers(editor);
@@ -123,7 +123,7 @@ public class FileBrowserMultipleTabsTests
         var restored = new DockHostViewModel("filebrowser-roundtrip", editor);
         try
         {
-            restored.ReadFromJson(json);
+            await restored.ReadFromJsonAsync(json);
             HeadlessTestHelpers.Settle();
 
             string[] paths = restored.Factory.EnumerateTools()
@@ -136,7 +136,7 @@ public class FileBrowserMultipleTabsTests
         }
         finally
         {
-            restored.Dispose();
+            await restored.DisposeAsync();
         }
     }
 
@@ -160,7 +160,7 @@ public class FileBrowserMultipleTabsTests
         var restored = new DockHostViewModel("filebrowser-legacy-id", editor);
         try
         {
-            restored.ReadFromJson(json);
+            await restored.ReadFromJsonAsync(json);
             HeadlessTestHelpers.Settle();
 
             BeutlToolDockable[] browsers = restored.Factory.EnumerateTools()
@@ -179,7 +179,7 @@ public class FileBrowserMultipleTabsTests
         }
         finally
         {
-            restored.Dispose();
+            await restored.DisposeAsync();
         }
     }
 
@@ -205,13 +205,13 @@ public class FileBrowserMultipleTabsTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("filebrowser-close-one");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
-        editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left);
+        await editor.DockHost.OpenToolTabFromExtensionAsync(FileBrowserTabExtension.Instance, left);
         HeadlessTestHelpers.Settle();
 
         BeutlToolDockable[] browsers = FileBrowsers(editor);
         var survivor = (FileBrowserTabViewModel)browsers[1].ToolContext;
 
-        editor.DockHost.CloseToolTab(browsers[0].ToolContext);
+        await editor.DockHost.CloseToolTabAsync(browsers[0].ToolContext);
         HeadlessTestHelpers.Settle();
 
         survivor.NavigateToHome();

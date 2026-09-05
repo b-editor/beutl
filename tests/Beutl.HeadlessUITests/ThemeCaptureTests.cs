@@ -82,17 +82,18 @@ public class ThemeCaptureTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
-    private static void AddRectangle(EditViewModel editor, TimeSpan start, int layer)
+    private static async Task AddRectangle(EditViewModel editor, TimeSpan start, int layer)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: start,
             Length: TimeSpan.FromSeconds(2),
             Layer: layer,
-            EngineObjectFactory: () => new RectShape()));
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
     }
 
@@ -233,7 +234,7 @@ public class ThemeCaptureTests
         EditViewModel editor = await OpenEditorForNewScene("themecapture");
         for (int layer = 0; layer < 3; layer++)
         {
-            AddRectangle(editor, TimeSpan.FromSeconds(layer * 0.5), layer);
+            await AddRectangle(editor, TimeSpan.FromSeconds(layer * 0.5), layer);
         }
 
         var window = new Window
@@ -306,11 +307,12 @@ public class ThemeCaptureTests
         EditViewModel editor = await OpenEditorForNewScene("inspectorcapture");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: CreateDecoratedRect));
+            Source: new ElementSource.EngineObject(CreateDecoratedRect))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.First();
@@ -436,7 +438,7 @@ public class ThemeCaptureTests
 
         FileBrowserTabViewModel? browser = editor.FindToolTab<FileBrowserTabViewModel>();
         Assert.That(browser, Is.Not.Null, "File Browser tab missing from the default layout.");
-        editor.OpenToolTab(browser!);
+        await editor.OpenToolTabAsync(browser!);
         HeadlessTestHelpers.Settle();
 
         Project project = editor.Scene.FindRequiredHierarchicalParent<Project>();

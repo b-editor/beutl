@@ -45,7 +45,7 @@ public class PreviewRenderErrorTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        EditViewModel editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        EditViewModel editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
         // Opening a scene queues a preview render that is dispatched asynchronously to the
         // render thread; when it succeeds it posts a clear of PreviewRenderError. Drain it
@@ -68,14 +68,15 @@ public class PreviewRenderErrorTests
         HeadlessTestHelpers.Settle();
     }
 
-    private static void AddFaultingDrawable(EditViewModel editor)
+    private static async Task AddFaultingDrawable(EditViewModel editor)
     {
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => new PreviewFaultDrawable()));
+            Source: new ElementSource.EngineObject(() => new PreviewFaultDrawable()))],
+            CancellationToken.None);
         editor.FrameCacheManager.Value.Clear();
     }
 
@@ -97,7 +98,7 @@ public class PreviewRenderErrorTests
                 .Take(1)
                 .Subscribe(message => errorReported.TrySetResult(message!));
 
-            AddFaultingDrawable(editor);
+            await AddFaultingDrawable(editor);
             editor.Player.QueuePreviewRender();
 
             string message = await errorReported.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -138,7 +139,7 @@ public class PreviewRenderErrorTests
         try
         {
             NotificationService.Handler = notifications;
-            AddFaultingDrawable(editor);
+            await AddFaultingDrawable(editor);
             using var isPlaying = new ReactivePropertySlim<bool>(true);
             using var player = new BufferedPlayer(
                 editor, editor.Scene, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None);
@@ -165,11 +166,12 @@ public class PreviewRenderErrorTests
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("buffered-object-disposed-error");
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => new PreviewObjectDisposedFaultDrawable()));
+            Source: new ElementSource.EngineObject(() => new PreviewObjectDisposedFaultDrawable()))],
+            CancellationToken.None);
         editor.FrameCacheManager.Value.Clear();
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(
@@ -216,11 +218,12 @@ public class PreviewRenderErrorTests
         EditViewModel editor = await OpenEditorForNewScene("canceled-rendering-buffered-player");
         var drawable = new ArmablePreviewFaultDrawable();
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => drawable));
+            Source: new ElementSource.EngineObject(() => drawable))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
         RenderThread.Dispatcher.Invoke(static () => { });
         editor.FrameCacheManager.Value.Clear();
@@ -260,11 +263,12 @@ public class PreviewRenderErrorTests
         EditViewModel editor = await OpenEditorForNewScene("disposed-rendering-buffered-player");
         var drawable = new ArmablePreviewFaultDrawable();
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => drawable));
+            Source: new ElementSource.EngineObject(() => drawable))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
         RenderThread.Dispatcher.Invoke(static () => { });
         editor.FrameCacheManager.Value.Clear();
@@ -307,7 +311,7 @@ public class PreviewRenderErrorTests
         try
         {
             NotificationService.Handler = notifications;
-            AddFaultingDrawable(editor);
+            await AddFaultingDrawable(editor);
             var errorReported = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable subscription = editor.Player.PreviewRenderError
                 .Where(static message => !string.IsNullOrEmpty(message))
@@ -372,11 +376,12 @@ public class PreviewRenderErrorTests
         EditViewModel editor = await OpenEditorForNewScene("superseded-preview-error");
         var drawable = new SupersededPreviewFaultDrawable();
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => drawable));
+            Source: new ElementSource.EngineObject(() => drawable))],
+            CancellationToken.None);
         editor.FrameCacheManager.Value.Clear();
 
         try

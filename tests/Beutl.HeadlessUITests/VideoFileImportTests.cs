@@ -9,6 +9,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -58,7 +59,7 @@ public class VideoFileImportTests
         HeadlessTestHelpers.Settle();
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        return (EditViewModel)tab.Context.Value;
+        return (EditViewModel)tab.Context.Value!;
     }
 
     [AvaloniaTest]
@@ -70,11 +71,12 @@ public class VideoFileImportTests
         string path = CreateImportFile("sample", withAudio: false);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(5),
             Layer: 0,
-            FileName: path));
+            Source: new ElementSource.File(path))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1),
@@ -99,11 +101,12 @@ public class VideoFileImportTests
         string path = CreateImportFile("sample", withAudio: true);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(5),
             Layer: 0,
-            FileName: path));
+            Source: new ElementSource.File(path))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(2),
@@ -112,6 +115,76 @@ public class VideoFileImportTests
         Assert.That(editor.Scene.Children.Count(c => c.Objects.OfType<SourceSound>().Any()), Is.EqualTo(1));
         Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1),
             "音声要素がある場合は従来どおりグループ化する");
+    }
+
+    [AvaloniaTest]
+    public async Task ImportVideoWithAudioTrack_CreatesBothProducedElements()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("videoaudio-prepare");
+        RegisterImportDecoder();
+        string path = CreateImportFile("prepared", withAudio: true);
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ElementAddResult result = await adder.AddAsync(
+        [
+            new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(5),
+                Layer: 0,
+                Source: new ElementSource.File(path)),
+        ], CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        IReadOnlyList<Element> created = result.Elements;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Items, Has.Count.EqualTo(1));
+            Assert.That(result.Items[0].CompanionElements, Has.Count.EqualTo(1));
+            Assert.That(created, Has.Count.EqualTo(2));
+            Assert.That(
+                created.Select(element => element.Objects.Single().GetType()),
+                Is.EqualTo(new[] { typeof(SourceVideo), typeof(SourceSound) }));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImportVideoWithAudioTrack_WhenCompanionLayerIsLocked_RefusesEntireImport()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("videoaudio-locked-companion");
+        RegisterImportDecoder();
+        string path = CreateImportFile("locked", withAudio: true);
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        }
+
+        string sceneDirectory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+        string[] filesBefore = Directory.GetFiles(sceneDirectory, "*.belm", SearchOption.AllDirectories);
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ElementAddResult result = await adder.AddAsync([
+            new ElementDescription(
+                TimeSpan.Zero,
+                TimeSpan.FromSeconds(5),
+                Layer: 0,
+                Source: new ElementSource.File(path)),
+        ], CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
+            Assert.That(((LockedElementLayerFailure)result.Failure!).Layer, Is.EqualTo(1));
+            Assert.That(result.Elements, Is.Empty);
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(editor.Scene.Groups, Is.Empty);
+            Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
+            Assert.That(
+                Directory.GetFiles(sceneDirectory, "*.belm", SearchOption.AllDirectories),
+                Is.EqualTo(filesBefore));
+        }
     }
 
     private static void RegisterImportDecoder()

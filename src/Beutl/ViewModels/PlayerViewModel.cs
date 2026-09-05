@@ -117,7 +117,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         Next = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() =>
+            .WithSubscribe(async () =>
             {
                 int rate = GetFrameRate();
                 UpdateCurrentFrame(_editorClock.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
@@ -125,7 +125,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         Previous = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() =>
+            .WithSubscribe(async () =>
             {
                 int rate = GetFrameRate();
                 UpdateCurrentFrame(_editorClock.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
@@ -133,7 +133,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() =>
+            .WithSubscribe(async () =>
             {
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
@@ -245,7 +245,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         OpenPreviewSettings = new ReactiveCommand()
-            .WithSubscribe(() =>
+            .WithSubscribe(async () =>
             {
                 if (_editViewModel.FindToolTab<PreviewSettingsTabViewModel>() is { } tab)
                 {
@@ -253,7 +253,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 }
                 else
                 {
-                    _editViewModel.OpenToolTab(new PreviewSettingsTabViewModel(_editViewModel));
+                    await _editViewModel.OpenToolTabAsync(new PreviewSettingsTabViewModel(_editViewModel));
                 }
             })
             .DisposeWith(_disposables);

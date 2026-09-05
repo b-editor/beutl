@@ -34,6 +34,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly object _lifecycleLock = new();
     private bool _stopRequested;
     private WebApplication? _application;
+    private Task? _startupTask;
+    private Task? _stopTask;
 
     public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
         : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
@@ -125,19 +127,31 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public Uri? EndpointUri { get; private set; }
 
-    public bool IsRunning => _application is not null;
+    public bool IsRunning
+    {
+        get
+        {
+            lock (_lifecycleLock)
+                return _application is not null;
+        }
+    }
 
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public Task StartAsync(CancellationToken cancellationToken = default)
     {
         lock (_lifecycleLock)
         {
-            // A stop requested before (or during) startup must win: never start after RequestStop.
-            if (_application is not null || _stopRequested)
-            {
-                return;
-            }
-        }
+            // This endpoint is a one-shot application-lifetime resource. Sharing the startup task
+            // makes concurrent callers observe the same result and gives StopAsync something
+            // concrete to join before project services are torn down.
+            if (_stopRequested)
+                return Task.CompletedTask;
 
+            return _startupTask ??= StartCoreAsync(cancellationToken);
+        }
+    }
+
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
+    {
         int port = _preferredPort;
         while (true)
         {
@@ -197,45 +211,82 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
     }
 
-    // Fire-and-forget entry point for the app shell: StartAsync failures would otherwise be
-    // unobserved on a discarded task, leaving the live MCP endpoint silently down.
     public void StartInBackground()
     {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await StartAsync().ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogError(ex, "The agent host endpoint failed to start; the live MCP endpoint is unavailable.");
-            }
-        });
+        _ = ObserveBackgroundStartAsync(StartAsync());
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    private static async Task ObserveBackgroundStartAsync(Task startup)
     {
-        WebApplication? app = TakeApplication();
-
-        if (app is not null)
+        try
         {
-            await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
+            await startup.ConfigureAwait(false);
         }
+        catch (Exception ex)
+        {
+            s_logger.LogError(
+                ex,
+                "The agent host endpoint failed to start; the live MCP endpoint is unavailable.");
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        Task stop;
+        lock (_lifecycleLock)
+        {
+            _stopRequested = true;
+            EndpointUri = null;
+            stop = _stopTask ??= StopCoreAsync();
+        }
+
+        return cancellationToken.CanBeCanceled
+            ? stop.WaitAsync(cancellationToken)
+            : stop;
     }
 
     public void RequestStop()
     {
-        WebApplication? app = TakeApplication();
-        if (app is not null)
-        {
-            _ = StopAndDisposeWithTimeoutAsync(app);
-        }
+        _ = StopAsync();
     }
 
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
+    }
+
+    private async Task StopCoreAsync()
+    {
+        Task? startup;
+        lock (_lifecycleLock)
+            startup = _startupTask;
+
+        if (startup is not null)
+        {
+            try
+            {
+                await startup.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // StartAsync exposes the startup failure to its caller. Shutdown still has to
+                // continue and dispose any partially-created host.
+                s_logger.LogWarning(ex, "The agent host startup failed before shutdown completed.");
+            }
+        }
+
+        WebApplication? app;
+        lock (_lifecycleLock)
+        {
+            app = _application;
+            _application = null;
+            EndpointUri = null;
+        }
+
+        if (app is not null)
+        {
+            await StopAndDisposeWithTimeoutAsync(app).ConfigureAwait(false);
+        }
     }
 
     private WebApplication CreateApplication(int port)
@@ -288,23 +339,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         return app;
     }
 
-    // Latch _stopRequested and take the app in the same critical section StartAsync uses to publish
-    // it, so a stop during an in-flight startup is never dropped (StartAsync re-checks the latch
-    // before publishing and stops the host itself if it lost the race).
-    private WebApplication? TakeApplication()
-    {
-        WebApplication? app;
-        lock (_lifecycleLock)
-        {
-            _stopRequested = true;
-            app = _application;
-            _application = null;
-        }
-
-        EndpointUri = null;
-        return app;
-    }
-
     private static async Task StopAndDisposeWithTimeoutAsync(WebApplication app)
     {
         using var cts = new CancellationTokenSource(s_shutdownTimeout);
@@ -321,7 +355,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _ = ex;
+            s_logger.LogWarning(ex, "The agent host endpoint failed to stop cleanly.");
         }
     }
 

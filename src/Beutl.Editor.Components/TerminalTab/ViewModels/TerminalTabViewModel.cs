@@ -123,7 +123,7 @@ public sealed class TerminalTabViewModel : IToolContext
         return null;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         Disposed?.Invoke(this, EventArgs.Empty);
         Disposed = null;
@@ -132,7 +132,9 @@ public sealed class TerminalTabViewModel : IToolContext
         ExitCode.Dispose();
         _header.Dispose();
         TerminalTitle.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     private string BuildHeader(string? reportedTitle)
     {

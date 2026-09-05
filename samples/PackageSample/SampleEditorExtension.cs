@@ -14,13 +14,20 @@ namespace PackageSample;
 
 public sealed class TextEditorContext : IEditorContext
 {
-    public TextEditorContext(CoreObject obj, SampleEditorExtension extension)
+    private int _disposed;
+    public TextEditorContext(
+        CoreObject obj,
+        SampleEditorExtension extension,
+        IEditorContextCloseService closeService)
     {
         Extension = extension;
         Object = obj;
+        CloseService = new BoundCloseService(this, closeService);
         Text.Value = File.ReadAllText(obj.Uri!.LocalPath);
         Commands = new CommandsImpl(this);
     }
+
+    public IEditorContextCloseService CloseService { get; }
 
     public EditorExtension Extension { get; }
 
@@ -32,12 +39,19 @@ public sealed class TextEditorContext : IEditorContext
 
     public IReactiveProperty<bool> IsEnabled { get; } = new ReactiveProperty<bool>(true);
 
-    public void CloseToolTab(IToolContext item)
+    public ValueTask CloseToolTabAsync(IToolContext item)
     {
+        return ValueTask.CompletedTask;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            Text.Dispose();
+            IsEnabled.Dispose();
+        }
+        return ValueTask.CompletedTask;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
@@ -55,8 +69,9 @@ public sealed class TextEditorContext : IEditorContext
         return null;
     }
 
-    public bool OpenToolTab(IToolContext item)
+    public async ValueTask<bool> OpenToolTabAsync(IToolContext item)
     {
+        await item.DisposeAsync();
         return false;
     }
 
@@ -73,6 +88,22 @@ public sealed class TextEditorContext : IEditorContext
             {
                 return false;
             }
+        }
+    }
+
+    private sealed class BoundCloseService(
+        TextEditorContext owner,
+        IEditorContextCloseService closeService) : IEditorContextCloseService
+    {
+        public EditorContextHostToken HostToken => closeService.HostToken;
+
+        public EditorContextCloseRequest RequestClose(IEditorContext context)
+        {
+            return ReferenceEquals(context, owner)
+                ? closeService.RequestClose(owner)
+                : new EditorContextCloseRequest(
+                    EditorContextCloseRequestStatus.NotOwned,
+                    Task.CompletedTask);
         }
     }
 }
@@ -120,7 +151,7 @@ public sealed class SampleEditorExtension : EditorExtension
         context = null;
         if (obj is Scene)
         {
-            context = new TextEditorContext(obj, this);
+            context = new TextEditorContext(obj, this, services.CloseService);
             return true;
         }
         else

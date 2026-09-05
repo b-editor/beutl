@@ -113,7 +113,11 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
 
-    public void Dispose() => _disposables.Dispose();
+    public ValueTask DisposeAsync()
+    {
+        _disposables.Dispose();
+        return ValueTask.CompletedTask;
+    }
 
     public void ReadFromJson(JsonObject json) { }
     public void WriteToJson(JsonObject json) { }
@@ -124,7 +128,7 @@ public sealed class MyToolTabViewModel : IToolContext
 ```
 
 > `IToolContext` itself only requires `Extension`, `IsSelected`, and `Header`
-> (plus `IDisposable` / `IJsonSerializable` / `IServiceProvider`). Docking
+> (plus `IAsyncDisposable` / `IJsonSerializable` / `IServiceProvider`). Docking
 > placement is declared on the **Extension** via `DefaultAnchor` /
 > `DefaultOrder` / `OpenByDefault`, not on the ViewModel.
 >
@@ -238,7 +242,11 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
 
-    public void Dispose() => _disposables.Dispose();
+    public ValueTask DisposeAsync()
+    {
+        _disposables.Dispose();
+        return ValueTask.CompletedTask;
+    }
 
     public void ReadFromJson(JsonObject json) { }
     public void WriteToJson(JsonObject json) { }

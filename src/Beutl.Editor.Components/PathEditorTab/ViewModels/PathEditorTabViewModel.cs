@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
-public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IToolContext
+public sealed class PathEditorTabViewModel : IPathEditorContext, IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorClock _clock;
@@ -127,12 +127,13 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         if (PathFigure.Value is IHierarchical h)
             h.DetachedFromHierarchy -= OnPathFigureDetached;
         _disposables.Dispose();
         FigureContext.Dispose();
+        return ValueTask.CompletedTask;
     }
 
     private void OnPathFigureDetached(object? sender, HierarchyAttachmentEventArgs e)

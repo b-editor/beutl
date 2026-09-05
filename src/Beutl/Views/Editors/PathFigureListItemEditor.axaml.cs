@@ -39,7 +39,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
         }
     }
 
-    private void EditInTabClicked(object? sender, RoutedEventArgs e)
+    private async void EditInTabClicked(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
@@ -60,7 +60,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
                 context.StartOrFinishEdit(viewModel);
             }
 
-            editViewModel.OpenToolTab(context);
+            await editViewModel.OpenToolTabAsync(context);
         }
     }
 

@@ -417,6 +417,8 @@ public class TimelineTabViewModelShortcutTests
 
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext
     {
+        public IEditorContextCloseService CloseService => TestEditorContextCloseService.Instance;
+
         private readonly Dictionary<Type, object> _services = [];
 
         public CoreObject Object { get; } = obj;
@@ -450,13 +452,16 @@ public class TimelineTabViewModelShortcutTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item)
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item)
         {
-            return false;
+            return new ValueTask<bool>(false);
         }
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

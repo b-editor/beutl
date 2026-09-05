@@ -4,7 +4,9 @@ namespace Beutl.Editor.Services;
 
 public interface IElementAdder
 {
-    void AddElement(ElementDescription desc);
+    IElementSourceHandlerRegistry SourceHandlers { get; }
 
-    void AddElementFromTemplate(ObjectTemplateItem template, TimeSpan start, int layer);
+    ValueTask<ElementAddResult> AddAsync(
+        IReadOnlyList<ElementDescription> descriptions,
+        CancellationToken cancellationToken);
 }

@@ -57,13 +57,14 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         EqualizerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
+        AiWorkspaceTabExtension.Instance,
         HistoryTabExtension.Instance,
         DockLayoutTabExtension.Instance,
         TerminalTabExtension.Instance,
         DarkBorderThemeExtension.Instance
     ];
 
-    public LoadPrimitiveExtensionTask(PackageManager manager, ExtensionProvider provider,
+    public LoadPrimitiveExtensionTask(PackageManager manager, IExtensionRegistry provider,
         EditorService editorService, ProjectService projectService)
     {
         _manager = manager;

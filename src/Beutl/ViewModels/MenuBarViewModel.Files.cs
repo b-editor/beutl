@@ -18,8 +18,8 @@ public partial class MenuBarViewModel
         CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
             .WithSubscribe(OnCloseFileCore);
 
-        CloseProject = new ReactiveCommandSlim(IsProjectOpened)
-            .WithSubscribe(_projectService.CloseProject);
+        CloseProject = new AsyncReactiveCommand(IsProjectOpened)
+            .WithSubscribe(_projectService.CloseProjectAsync);
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSave);
@@ -81,7 +81,7 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim CloseFile { get; private set; }
 
-    public ReactiveCommandSlim CloseProject { get; private set; }
+    public AsyncReactiveCommand CloseProject { get; private set; }
 
     public AsyncReactiveCommand Save { get; private set; }
 

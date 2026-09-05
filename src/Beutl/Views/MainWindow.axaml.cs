@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Platform;
 
 using Beutl.Configuration;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Windowing;
@@ -64,6 +65,8 @@ public sealed partial class MainWindow : AppWindow
 
     private bool _captureStopped;
     private Task? _captureStopTask;
+    private bool _viewModelDisposed;
+    private Task? _viewModelDisposeTask;
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -85,22 +88,51 @@ public sealed partial class MainWindow : AppWindow
             }
         }
 
+        if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
+        {
+            e.Cancel = true;
+            if (_viewModelDisposeTask is null)
+            {
+                viewModel.Dispose();
+                _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
+            }
+            return;
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
+    }
 
-        if (DataContext is MainViewModel viewModel)
+    private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
+    {
+        try
         {
-            viewModel.Dispose();
+            await viewModel.WaitForDisposalAsync();
+        }
+        finally
+        {
+            _viewModelDisposed = true;
+            Close();
         }
     }
 
     private async Task StopCaptureAndCloseAsync(MainView mv)
     {
-        await mv.EnsureCaptureStoppedAsync();
-        _captureStopped = true;
-        Close();
+        try
+        {
+            await mv.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+        finally
+        {
+            _captureStopped = true;
+            Close();
+        }
     }
 }

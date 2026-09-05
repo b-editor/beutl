@@ -1,0 +1,4502 @@
+﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Globalization;
+using System.Reactive.Disposables;
+using System.Text;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Beutl.Api.Services;
+using Beutl.Editor.Models;
+using Beutl.Editor.Services;
+using Beutl.Editor.Services.Captions;
+using Beutl.Graphics.Shapes;
+using Beutl.Language;
+using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.Services.AI;
+using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
+
+namespace Beutl.ViewModels.Dialogs;
+
+public sealed partial class AiSubtitleDialogViewModel
+{
+    // Long enough to keep the number of paid requests down, short enough that a
+    // chunk stays inside what one upload may carry: 16 kHz mono 16-bit PCM runs
+    // at 32 kB a second, so the endpoint's 25 MiB stops a little under fourteen
+    // minutes.
+    private static readonly TimeSpan s_sceneMixChunkDuration = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_sceneMixComposeSlice = TimeSpan.FromSeconds(5);
+    private const int TranscribePageIndex = 0;
+    private const int EditPageIndex = 1;
+    private const int TranslatePageIndex = 2;
+    private readonly CompositeDisposable _captionDisposables = [];
+    private readonly object _templatePreviewGate = new();
+    private int _templatePreviewAttachments;
+    private CancellationTokenSource? _templatePreviewCts;
+    private readonly ObservableCollection<EditableCaptionCueViewModel> _editableCues = [];
+    private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
+    private readonly ReactivePropertySlim<long> _translationEstimateRevision = new();
+    private readonly ReactivePropertySlim<bool> _canDeleteCue = new();
+    private readonly ReactivePropertySlim<bool> _canSplitCue = new();
+    private readonly ReactivePropertySlim<bool> _canMergeCue = new();
+    private string? _lastCaptionLanguage;
+    private TimeSpan _sceneMixChunkDuration = s_sceneMixChunkDuration;
+    private long _captionDocumentRevision;
+    private long _sceneAudioRevision;
+    private RecoverableCaptionResult? _partialResult;
+    private TranslationOperation? _pendingTranslation;
+    private SceneTranscriptionOperation? _pendingSceneTranscription;
+    private SourceTranscriptionOperation? _pendingSourceTranscription;
+    private readonly List<CaptionDraftEntry> _retainedCaptionRecoveries = [];
+    // Which model a restored run was named for, until the pickers have loaded
+    // and can be put back on it.
+    private AiModelId? _restoredTranscriptionModel;
+    private AiModelId? _restoredTranslationModel;
+    private AiCaptionHistoryResult? _pendingHistoryResult;
+    private ICaptionDraftSession? _captionDraftSession;
+    // Another tab owns this scene's draft, so this tab cannot write it. A paid request created
+    // without durable storage would lose its name when the session ends.
+    private bool _captionDraftScopeIsHeldElsewhere;
+    // This scene's draft was unreadable, which is not the same as absent, so do not overwrite it.
+    private bool _captionDraftIsUnreadable;
+    private CaptionDraftScope? _captionDraftBaseScope;
+    private string? _captionDraftJobId;
+    private long _captionDraftScopeRevision;
+    private bool _captionDraftScopeInitialized;
+    private AiOperationAvailabilityTracker _transcriptionAvailability = null!;
+    private AiOperationAvailabilityTracker _translationAvailability = null!;
+
+    internal void LoadHistoryResult(AiCaptionHistoryResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        // The tool tab is reusable, so a history import can arrive while the user still has
+        // unsaved captions or a paid partial result in this tab. Ask before discarding them.
+        if (HasUnsavedCaptionWork())
+        {
+            _pendingHistoryResult = result;
+            HistoryOverwriteMessage.Value = Strings.AiSubtitle_HistoryOverwritePrompt;
+            HasPendingHistoryResult.Value = true;
+            return;
+        }
+
+        ApplyHistoryResult(result);
+    }
+
+    internal void ConfirmPendingHistoryResult()
+    {
+        if (_pendingHistoryResult is not { } result)
+            return;
+
+        DiscardPendingHistoryResult();
+        ApplyHistoryResult(result);
+    }
+
+    internal void DiscardPendingHistoryResult()
+    {
+        _pendingHistoryResult = null;
+        HasPendingHistoryResult.Value = false;
+        HistoryOverwriteMessage.Value = null;
+    }
+
+    // Whether replacement requires confirmation. Visible state is insufficient: a run whose first
+    // chunk received no response looks empty but may still hold a paid request name that silent
+    // replacement would erase.
+    private bool HasUnsavedCaptionWork()
+        => HasPartialResult.Value
+            || _editableCues.Count > 0
+            || HasOutstandingTranscriptionRequest.Value
+            || HasOutstandingTranslationRequest.Value
+            || _retainedCaptionRecoveries.Any(entry => HoldsPaidWork(entry.Draft));
+
+    private void ApplyHistoryResult(AiCaptionHistoryResult result)
+    {
+        ChangeCaptionDraftJob(result.JobId.Value, deleteCurrent: true);
+        _pendingTranslation = null;
+        _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
+        // Held names are gone now. Notify dependents so model loading resumes and balance checks
+        // stop treating the request as recovery work.
+        UpdateOutstandingCaptionRequest();
+        _partialResult = null;
+        HasPartialResult.Value = false;
+        PartialResultMessage.Value = null;
+        _lastCaptionLanguage = result.Language;
+        DetectedLanguageText.Value = CreateDetectedLanguageText(result.Language);
+        ResultSegments.Value = CloneSegments(result.Segments);
+        Error.Value = null;
+    }
+
+    internal TimeSpan SceneMixChunkDuration
+    {
+        get => _sceneMixChunkDuration;
+        set
+        {
+            if (value <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(value));
+
+            _sceneMixChunkDuration = value;
+        }
+    }
+
+    /// <summary>
+    /// How much of the scene one composition call asks for. An upload chunk is
+    /// minutes long, and composing that in one call materializes every sample in
+    /// it as float — hundreds of megabytes — while the compose thread, and the
+    /// editor waiting on it, can do nothing else.
+    /// </summary>
+    internal static TimeSpan SceneMixComposeSlice => s_sceneMixComposeSlice;
+
+    internal Func<TimeSpan, TimeSpan, CancellationToken, Task<AudioFrameSnapshot?>>?
+        SceneMixAudioComposer
+    { get; set; }
+
+    internal long SceneAudioRevision => Interlocked.Read(ref _sceneAudioRevision);
+
+    public ReadOnlyObservableCollection<EditableCaptionCueViewModel> Cues { get; private set; } = null!;
+
+    public ReactivePropertySlim<EditableCaptionCueViewModel?> SelectedCue { get; private set; } = null!;
+
+    /// <summary>
+    /// Whether there is anything to show in place of the cue list's empty state.
+    /// </summary>
+    public ReactivePropertySlim<bool> HasCues { get; private set; } = null!;
+
+    internal ReadOnlyReactivePropertySlim<bool> CanTranscribeInput { get; private set; } = null!;
+
+    internal ReactivePropertySlim<bool> HasValidCues { get; private set; } = null!;
+
+    private ReactivePropertySlim<bool> HasTimingValidCues { get; set; } = null!;
+
+    public ReactivePropertySlim<int> MaximumLineLength { get; private set; } = null!;
+
+    public ReactivePropertySlim<int> MaximumLineCount { get; private set; } = null!;
+
+    public ReactivePropertySlim<string?> CaptionValidationMessage { get; private set; } = null!;
+
+    public ReactivePropertySlim<string> TemplatePreviewText { get; private set; } = null!;
+
+    public ReactivePropertySlim<double> TemplatePreviewFontSize { get; private set; } = null!;
+
+    internal ReactivePropertySlim<int> SelectedSubtitlePageIndex { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsTranscribePage { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsEditPage { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsTranslatePage { get; private set; } = null!;
+    internal ReadOnlyReactivePropertySlim<bool> IsSubtitleOperationActive { get; private set; } = null!;
+
+    /// <summary>
+    /// The rendered output of the selected caption template. Keeping this as a bitmap makes the
+    /// preview use the same Beutl renderer as the element that will be added to the scene instead
+    /// of approximating a template with an Avalonia text block.
+    /// </summary>
+    internal ReactivePropertySlim<Ref<Beutl.Media.Bitmap>?> TemplatePreviewImage { get; private set; } = null!;
+
+    internal Action? BeforeTemplatePreviewAdmission { get; set; }
+
+    internal Func<
+        IReadOnlyList<Element>,
+        Beutl.Media.PixelSize,
+        CancellationToken,
+        Task<byte[]?>> TemplatePreviewRenderer
+    { get; set; }
+        = static (elements, frameSize, cancellationToken) =>
+            CaptionTemplatePreviewRenderer.RenderPngAsync(
+                elements,
+                frameSize,
+                cancellationToken).AsTask();
+
+    public IReadOnlyList<CaptionLanguageOption> SourceLanguages { get; private set; } = null!;
+
+    public IReadOnlyList<CaptionLanguageOption> TargetLanguages { get; private set; } = null!;
+
+    public ReactivePropertySlim<CaptionLanguageOption> SelectedSourceLanguage { get; private set; } = null!;
+
+    public ReactivePropertySlim<CaptionLanguageOption> SelectedTargetLanguage { get; private set; } = null!;
+
+    public ReactivePropertySlim<string?> DetectedLanguageText { get; private set; } = null!;
+
+    public ReactivePropertySlim<bool> IsTranslating { get; private set; } = null!;
+
+    /// <summary>The line most recently translated, while a run is going on.</summary>
+    public ReactivePropertySlim<string?> TranslationPreview { get; private set; } = null!;
+
+    /// <summary>How many lines have come back so far in the run going on.</summary>
+    public ReactivePropertySlim<int> TranslatedLineCount { get; private set; } = null!;
+
+    public ReactivePropertySlim<string?> PartialResultMessage { get; } = new();
+
+    public ReactivePropertySlim<bool> HasPartialResult { get; } = new();
+
+    /// <summary>
+    /// Whether a caption run has named a piece the server has not been seen to
+    /// settle. Not the same as having a partial result: the very first piece of
+    /// a run may have been charged and lost before anything came back.
+    /// </summary>
+    /// <summary>
+    /// Whether a transcription run holds a name the server may answer from a
+    /// job it has already been paid for.
+    /// </summary>
+    /// <remarks>
+    /// Transcribing and translating are separate operations, charged
+    /// separately. A name held by one says nothing about the other, so they are
+    /// reported apart: shared, a transcription waiting to be collected would
+    /// open the translation button past a balance that cannot pay for it.
+    /// </remarks>
+    public ReactivePropertySlim<bool> HasOutstandingTranscriptionRequest { get; } = new();
+
+    /// <summary>
+    /// Whether a translation run holds a name the server may answer from a job
+    /// it has already been paid for.
+    /// </summary>
+    public ReactivePropertySlim<bool> HasOutstandingTranslationRequest { get; } = new();
+
+    public ReactivePropertySlim<bool> HasPendingHistoryResult { get; } = new();
+
+    public ReactivePropertySlim<string?> HistoryOverwriteMessage { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> CanTranslate { get; private set; } = null!;
+
+    public AsyncReactiveCommand Translate { get; private set; } = null!;
+
+    public ReactiveCommand ApplyPartialResult { get; private set; } = null!;
+
+    public ReactiveCommand DiscardPartialResult { get; private set; } = null!;
+
+    public AsyncReactiveCommand ImportCaptions { get; private set; } = null!;
+
+    public AsyncReactiveCommand ExportCaptions { get; private set; } = null!;
+
+    public ReactiveCommand AddCue { get; private set; } = null!;
+
+    public ReactiveCommand DeleteCue { get; private set; } = null!;
+
+    public ReactiveCommand SplitCue { get; private set; } = null!;
+
+    public ReactiveCommand MergeCue { get; private set; } = null!;
+
+    public ReactiveCommand WrapCues { get; private set; } = null!;
+
+    internal AiUsageEstimateViewModel TranscriptionEstimate { get; private set; } = null!;
+
+    internal AiUsageEstimateViewModel TranslationEstimate { get; private set; } = null!;
+
+    private void InitializeCaptionEditing()
+    {
+        Cues = new ReadOnlyObservableCollection<EditableCaptionCueViewModel>(_editableCues);
+        SelectedCue = new ReactivePropertySlim<EditableCaptionCueViewModel?>()
+            .DisposeWith(_captionDisposables);
+        MaximumLineLength = new ReactivePropertySlim<int>(42).DisposeWith(_captionDisposables);
+        MaximumLineCount = new ReactivePropertySlim<int>(2).DisposeWith(_captionDisposables);
+        CaptionValidationMessage = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
+        TemplatePreviewText = new ReactivePropertySlim<string>(Strings.AiSubtitle_PreviewSample)
+            .DisposeWith(_captionDisposables);
+        TemplatePreviewFontSize = new ReactivePropertySlim<double>(24).DisposeWith(_captionDisposables);
+        SelectedSubtitlePageIndex = new ReactivePropertySlim<int>(TranscribePageIndex)
+            .DisposeWith(_captionDisposables);
+        IsTranscribePage = SelectedSubtitlePageIndex.Select(value => value == TranscribePageIndex)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
+        IsEditPage = SelectedSubtitlePageIndex.Select(value => value == EditPageIndex)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
+        IsTranslatePage = SelectedSubtitlePageIndex.Select(value => value == TranslatePageIndex)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
+        TemplatePreviewImage = new ReactivePropertySlim<Ref<Beutl.Media.Bitmap>?>()
+            .DisposeWith(_captionDisposables);
+        DetectedLanguageText = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
+        HasCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        _editableCues.CollectionChanged += OnEditableCuesChanged;
+        HasValidCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        HasTimingValidCues = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        IsTranslating = new ReactivePropertySlim<bool>(false).DisposeWith(_captionDisposables);
+        IsSubtitleOperationActive = IsTranscribing.CombineLatest(
+                IsTranslating,
+                (transcribing, translating) => transcribing || translating)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_captionDisposables);
+        TranslationPreview = new ReactivePropertySlim<string?>().DisposeWith(_captionDisposables);
+        TranslatedLineCount = new ReactivePropertySlim<int>().DisposeWith(_captionDisposables);
+
+        SourceLanguages = CreateLanguageOptions(includeAuto: true);
+        TargetLanguages = CreateLanguageOptions(includeAuto: false);
+        SelectedSourceLanguage = new ReactivePropertySlim<CaptionLanguageOption>(SourceLanguages[0])
+            .DisposeWith(_captionDisposables);
+        SelectedTargetLanguage = new ReactivePropertySlim<CaptionLanguageOption>(
+                GetDefaultTargetLanguage())
+            .DisposeWith(_captionDisposables);
+
+        // The scene mix is transcribed over the scene's own range, so retiming the
+        // scene has to reach the estimate without the account re-picking anything.
+        IObservable<TimeSpan> sceneRange = CreateSceneRangeObservable();
+        CanTranscribeInput = SelectedAudioSource
+            .CombineLatest(
+                sceneRange,
+                (source, duration) => source is not null
+                    && (!source.IsSceneMix || duration > TimeSpan.Zero))
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_captionDisposables);
+
+        _transcriptionAvailability = new AiOperationAvailabilityTracker(
+            _availability,
+            _lifetimeCts.Token);
+        _translationAvailability = new AiOperationAvailabilityTracker(
+            _availability,
+            _lifetimeCts.Token);
+        IObservable<(AudioSourceItem? Source, TimeSpan Duration, long Revision)>
+            transcriptionInputs = SelectedAudioSource.CombineLatest(
+                sceneRange,
+                _transcriptionEstimateRevision,
+                (source, duration, revision) => (source, duration, revision));
+        transcriptionInputs.Subscribe(input =>
+                _transcriptionAvailability.Check(
+                    CreateTranscriptionAvailabilityRequest(input.Source)))
+            .DisposeWith(_captionDisposables);
+        _translationEstimateRevision.Subscribe(_ => RefreshTranslationAvailability())
+            .DisposeWith(_captionDisposables);
+        TranscriptionEstimate = new AiUsageEstimateViewModel(
+                Usage,
+                _transcriptionAvailability.State)
+            .DisposeWith(_captionDisposables);
+        TranslationEstimate = new AiUsageEstimateViewModel(
+                Usage,
+                _translationAvailability.State)
+            .DisposeWith(_captionDisposables);
+
+        CanTranslate = HasTimingValidCues
+            .CombineLatest(
+                IsTranslating,
+                IsTranscribing,
+                TranslationEstimate.CanAfford,
+                HasOutstandingTranslationRequest,
+                // Or a run that has already named pieces: the server answers a
+                // repeat with the job that name made before it looks at the
+                // balance, so a run whose last piece spent the balance has to
+                // stay collectable.
+                (hasCues, translating, transcribing, canAfford, outstanding) =>
+                    hasCues && !translating && !transcribing
+                    && (canAfford || outstanding))
+            .CombineLatest(
+                TranslationModelPicker.OffersNothingUsable,
+                HasOutstandingTranslationRequest,
+                // Every model the operation registered was ruled out, so a new
+                // request would be refused however it is shaped — but a run
+                // already holding a name is answered from the job it made.
+                (can, nothingUsable, outstanding) =>
+                    can && (!nothingUsable || outstanding))
+            // Until the list has been asked for, a request would name no model
+            // and run on the server's default, which may cost more than what
+            // this screen was about to offer.
+            .CombineLatest(
+                TranslationModelPicker.IsLoaded,
+                (can, loaded) => can && loaded)
+            .ToReadOnlyReactivePropertySlim(false)
+            .DisposeWith(_captionDisposables);
+        Translate = new AsyncReactiveCommand(CanTranslate)
+            .WithSubscribe(TranslateCore)
+            .DisposeWith(_captionDisposables);
+        ApplyPartialResult = new ReactiveCommand(HasPartialResult)
+            .DisposeWith(_captionDisposables);
+        ApplyPartialResult.Subscribe(ApplyPartialResultCore).DisposeWith(_captionDisposables);
+        DiscardPartialResult = new ReactiveCommand(HasPartialResult)
+            .DisposeWith(_captionDisposables);
+        DiscardPartialResult.Subscribe(ClearPartialResult).DisposeWith(_captionDisposables);
+        ImportCaptions = new AsyncReactiveCommand()
+            .WithSubscribe(ImportCaptionsCore)
+            .DisposeWith(_captionDisposables);
+        ExportCaptions = new AsyncReactiveCommand(HasValidCues)
+            .WithSubscribe(ExportCaptionsCore)
+            .DisposeWith(_captionDisposables);
+        AddCue = new ReactiveCommand().DisposeWith(_captionDisposables);
+        AddCue.Subscribe(AddCueCore).DisposeWith(_captionDisposables);
+        DeleteCue = new ReactiveCommand(_canDeleteCue, initialValue: false)
+            .DisposeWith(_captionDisposables);
+        DeleteCue.Subscribe(DeleteCueCore).DisposeWith(_captionDisposables);
+        SplitCue = new ReactiveCommand(_canSplitCue, initialValue: false)
+            .DisposeWith(_captionDisposables);
+        SplitCue.Subscribe(SplitCueCore).DisposeWith(_captionDisposables);
+        MergeCue = new ReactiveCommand(_canMergeCue, initialValue: false)
+            .DisposeWith(_captionDisposables);
+        MergeCue.Subscribe(MergeCueCore).DisposeWith(_captionDisposables);
+        WrapCues = new ReactiveCommand().DisposeWith(_captionDisposables);
+        WrapCues.Subscribe(WrapCuesCore).DisposeWith(_captionDisposables);
+
+        ResultSegments.Subscribe(ApplyTranscriptionSegments).DisposeWith(_captionDisposables);
+        MaximumLineLength.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
+        MaximumLineCount.Subscribe(_ => RefreshCaptionState()).DisposeWith(_captionDisposables);
+        SelectedCaptionTemplate.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
+        SelectedSubtitlePageIndex.Subscribe(_ => RefreshTemplatePreview()).DisposeWith(_captionDisposables);
+        SelectedCue.Subscribe(_ =>
+        {
+            RefreshCueCommandStates();
+            RefreshTemplatePreview();
+        }).DisposeWith(_captionDisposables);
+        SelectedSourceLanguage.Subscribe(_ => InvalidatePartialResultResume()).DisposeWith(_captionDisposables);
+        SelectedTargetLanguage.Subscribe(_ => RefreshTranslationEstimate()).DisposeWith(_captionDisposables);
+        _captionDraftScopes
+            .DistinctUntilChanged()
+            .Subscribe(HandleCaptionDraftScopeChanged)
+            .DisposeWith(_captionDisposables);
+        if (_editViewModel is { } editViewModel)
+        {
+            editViewModel.Scene.GetObservable(Scene.FrameSizeProperty)
+                .DistinctUntilChanged()
+                .Skip(1)
+                .Subscribe(_ => RefreshTemplatePreview())
+                .DisposeWith(_captionDisposables);
+            editViewModel.Scene.Edited += OnCaptionSceneEdited;
+            Disposable.Create(() => editViewModel.Scene.Edited -= OnCaptionSceneEdited)
+                .DisposeWith(_captionDisposables);
+        }
+    }
+
+    private void OnEditableCuesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        => HasCues.Value = _editableCues.Count > 0;
+
+    private void DisposeCaptionEditing()
+    {
+        _editableCues.CollectionChanged -= OnEditableCuesChanged;
+        foreach (EditableCaptionCueViewModel cue in _editableCues)
+        {
+            cue.PropertyChanged -= OnCuePropertyChanged;
+        }
+        _editableCues.Clear();
+        _captionDraftSession?.Dispose();
+        _captionDraftSession = null;
+        StopTemplatePreviewAdmission();
+        ReplaceTemplatePreviewImage(null);
+        _captionDisposables.Dispose();
+        _transcriptionEstimateRevision.Dispose();
+        _translationEstimateRevision.Dispose();
+        _transcriptionAvailability.Dispose();
+        _translationAvailability.Dispose();
+        _canDeleteCue.Dispose();
+        _canSplitCue.Dispose();
+        _canMergeCue.Dispose();
+    }
+
+    private void OnCaptionSceneEdited(object? sender, EventArgs e)
+    {
+        Interlocked.Increment(ref _sceneAudioRevision);
+    }
+
+    private async Task TranscribeSelectedSourceAsync(
+        AudioSourceItem source,
+        AsyncOperationLifetime.Operation operationLifetime)
+    {
+        long captionRevision = Interlocked.Read(ref _captionDocumentRevision);
+        long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
+        string? language = SelectedSourceLanguage.Value.Code;
+        if (source.IsSceneMix)
+        {
+            await TranscribeSceneMixAsync(source, language, draftScopeRevision, operationLifetime);
+            return;
+        }
+
+        if (source.FilePath is not { } filePath)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        await TranscribeSourceFileAsync(
+            source,
+            filePath,
+            language,
+            captionRevision,
+            draftScopeRevision,
+            operationLifetime);
+    }
+
+    private async Task TranscribeSourceFileAsync(
+        AudioSourceItem source,
+        string filePath,
+        string? language,
+        long captionRevision,
+        long draftScopeRevision,
+        AsyncOperationLifetime.Operation operationLifetime)
+    {
+        SourceAudioFingerprint fingerprint = GetSourceAudioFingerprint(filePath);
+        // Opening and decoding are the editor's own work, not the server's, and
+        // both run for as long as the audio is: off the UI thread, or the window
+        // stops answering for the length of the file.
+        using MediaReader reader = await Task.Run(
+            () => MediaReader.Open(
+                filePath,
+                new MediaOptions(MediaMode.Audio) { PreferProxy = false }),
+            RequestToken);
+        if (!reader.HasAudio)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        int sampleRate = reader.AudioInfo.SampleRate;
+        if (sampleRate <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        long sourceStartSamples = checked((long)Math.Max(
+            0,
+            Math.Floor(source.SourceOffset.TotalSeconds * sampleRate)));
+        double selectedDurationSeconds = source.GetSourceElapsedSeconds();
+        if (!double.IsFinite(selectedDurationSeconds) || selectedDurationSeconds <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+        long selectedSamples = GetSourceSampleCount(
+            reader.AudioInfo,
+            TimeSpan.FromSeconds(selectedDurationSeconds));
+        double sourceSampleCount = reader.AudioInfo.NumSamples.ToDouble();
+        long availableSamples = double.IsFinite(sourceSampleCount) && sourceSampleCount > 0
+            ? checked((long)Math.Floor(sourceSampleCount)) - sourceStartSamples
+            : selectedSamples;
+        if (availableSamples <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+        long totalSamples = Math.Min(selectedSamples, availableSamples);
+        int chunkSamples = checked((int)Math.Ceiling(
+            SceneMixChunkDuration.TotalSeconds * sampleRate));
+        if (totalSamples <= 0 || chunkSamples <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        int chunkCount = checked((int)Math.Ceiling(totalSamples / (double)chunkSamples));
+        bool canResume = CanResumeSourceTranscription(
+            source,
+            filePath,
+            language,
+            sampleRate,
+            totalSamples,
+            chunkSamples,
+            chunkCount,
+            fingerprint,
+            draftScopeRevision);
+        SourceTranscriptionOperation operation;
+        if (canResume)
+        {
+            operation = _pendingSourceTranscription!;
+            operation.ExpectedCaptionRevision = captionRevision;
+        }
+        else
+        {
+            CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
+                CanUseSourceTranscriptionDraft(
+                    entry.Draft,
+                    source,
+                    filePath,
+                    language,
+                    sampleRate,
+                    totalSamples,
+                    chunkSamples,
+                    chunkCount,
+                    fingerprint));
+            if (!TryParkCurrentCaptionRecovery())
+                throw new SubtitleInputException(Strings.AiSubtitle_RunCannotBeRecorded);
+
+            if (retained is not null)
+            {
+                _retainedCaptionRecoveries.Remove(retained);
+                operation = RestoreSourceTranscriptionOperation(
+                    retained.Draft,
+                    source,
+                    captionRevision,
+                    draftScopeRevision);
+                _captionDraftJobId = retained.JobId;
+            }
+            else
+            {
+                ChangeCaptionDraftJob(null, deleteCurrent: false);
+                operation = new SourceTranscriptionOperation(
+                    source,
+                    filePath,
+                    source.ElementId,
+                    fingerprint.FileLength,
+                    fingerprint.LastWriteTimeUtcTicks,
+                    language,
+                    sampleRate,
+                    totalSamples,
+                    chunkSamples,
+                    chunkCount,
+                    captionRevision,
+                    draftScopeRevision);
+            }
+        }
+        operation.Source = source;
+        _pendingSourceTranscription = operation;
+        _pendingSceneTranscription = null;
+        UpdateOutstandingCaptionRequest();
+        // Read once for the whole run, and taken from the run itself once it has
+        // named anything. Every piece is named partly by the model, so a picker
+        // that moved between naming a piece and sending it would put one model
+        // in the name and another in the body — which the server refuses — and
+        // one that moved between pieces, or fell back because the run's model
+        // was withdrawn, would rename the rest of the run and buy it again.
+        AiModelId? runModel = ModelOfRun(
+            operation.CompletedChunkCount > 0
+                || operation.RequestKey.HasOutstandingName.Value,
+            operation.RequestKeyModel,
+            TranscriptionModelPicker.SelectedModel);
+
+        for (int chunkIndex = operation.CompletedChunkCount;
+            chunkIndex < operation.ChunkCount;
+            chunkIndex++)
+        {
+            RequestToken.ThrowIfCancellationRequested();
+            long chunkOffset = checked((long)chunkIndex * operation.ChunkSamples);
+            int requestedSamples = checked((int)Math.Min(
+                operation.ChunkSamples,
+                operation.TotalSamples - chunkOffset));
+            (string path, FileStream stream) = AiTemporaryFileStore.Create(
+                "audio",
+                "source",
+                ".wav");
+            try
+            {
+                SpeechWaveChunkResult chunk;
+                using (stream)
+                {
+                    chunk = await Task.Run(
+                        () => WriteSpeechWave(
+                            reader,
+                            checked((int)(sourceStartSamples + chunkOffset)),
+                            requestedSamples,
+                            stream,
+                            RequestToken),
+                        RequestToken);
+                }
+                if (chunk.SourceSampleCount <= 0)
+                    throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+                if (chunk.SourceSampleCount < requestedSamples)
+                {
+                    operation.TotalSamples = chunkOffset + chunk.SourceSampleCount;
+                    operation.ChunkCount = chunkIndex + 1;
+                }
+
+                AiRequestName name = operation.RequestNameFor(chunkIndex, runModel);
+                UpdateOutstandingCaptionRequest();
+                // Anything that ends here ends before the request went out, so
+                // the name reached nothing — a refusal, a run stopped while the
+                // check was in the air, any of it.
+                try
+                {
+                    // Not for a repeat: the server looks up the job this name
+                    // already made before it looks at the balance, so refusing
+                    // here would refuse to collect a piece already paid for.
+                    if (!name.IsRepeat)
+                    {
+                        await EnsureAvailableAsync(
+                            new AiOperationAvailabilityRequest.Transcription(
+                                chunk.Duration.TotalSeconds,
+                                runModel));
+                    }
+
+                    // Written before the chunk goes out, not after it comes
+                    // back. The first chunk is the one most likely to be charged
+                    // and lost, and without this the name that charged it would
+                    // die with the session: the next run would name the same
+                    // chunk differently and buy it again. A run that cannot be
+                    // written down is not started at all — sending it would be
+                    // paying for something no later session could ask for.
+                    switch (PublishSourceTranscriptionPartial(operation))
+                    {
+                        case CaptionDraftOutcome.Superseded:
+                            return;
+                        case CaptionDraftOutcome.NotRecorded:
+                            throw new SubtitleInputException(
+                                Strings.AiSubtitle_RunCannotBeRecorded);
+                    }
+                }
+                catch
+                {
+                    WithdrawSourceTranscriptionName(operation, name);
+                    throw;
+                }
+
+                AiTranscriptionResponse response;
+                try
+                {
+                    response = await _aiService.TranscribeAsync(
+                        new AiTranscriptionRequest(
+                            AiUploadSource.FromFile(
+                                path,
+                                FormatChunkFileName("source", chunkIndex)),
+                            language,
+                            runModel,
+                            name.Key),
+                        RequestToken);
+                }
+                catch (AiProviderErrorException)
+                {
+                    // The server settled this chunk as failed and refunded it.
+                    // Its key would keep answering with that failure, so the
+                    // rest of the run takes new ones — and the resume state is
+                    // rewritten with them, or a resumed run would ask under the
+                    // spent key again.
+                    if (operation.RequestKey.Retire())
+                    {
+                        UpdateOutstandingCaptionRequest();
+                        PublishSourceTranscriptionPartial(operation);
+                    }
+                    throw;
+                }
+                catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+                {
+                    WithdrawSourceTranscriptionName(operation, name);
+                    throw;
+                }
+                ValidateTranscriptionSegments(response.Segments);
+                // Settle the durable key before publishing any local progress.
+                // A failed CAS means another owner replaced the recovery row;
+                // leave this operation untouched so it can still be resumed.
+                if (!operation.RequestKey.Retire(name))
+                    return;
+                operation.DetectedLanguage ??= response.Language;
+                double offsetSeconds = (sourceStartSamples + chunkOffset)
+                    / (double)operation.SampleRate;
+                foreach (AiTranscriptionSegment segment in response.Segments)
+                {
+                    operation.SourceSegments.Add(new AiTranscriptionSegment
+                    {
+                        Start = offsetSeconds + segment.Start,
+                        End = offsetSeconds + segment.End,
+                        Text = segment.Text,
+                    });
+                }
+                RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
+                operation.CompletedChunkCount++;
+                // This chunk is settled; the rest of the run keeps its own
+                // names, and so does anything else still outstanding.
+                UpdateOutstandingCaptionRequest();
+                switch (PublishSourceTranscriptionPartial(operation))
+                {
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        // The response may already have been charged.  Stop
+                        // before the final ClearPartialResult can delete the
+                        // previous durable seed; the next attempt can persist
+                        // this in-memory progress and resume by idempotency key.
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
+                }
+            }
+            finally
+            {
+                DeleteTemporaryAudio(path);
+            }
+        }
+
+        string? resultLanguage = operation.DetectedLanguage ?? language;
+        AiTranscriptionSegment[] mappedSegments = source.MapSegmentsToScene(
+            operation.SourceSegments);
+        if (_disposed
+            || !ReferenceEquals(SelectedAudioSource.Value, source)
+            || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
+            || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
+            || !string.Equals(
+                SelectedSourceLanguage.Value.Code,
+                operation.Language,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        operationLifetime.TryPublish(() =>
+        {
+            _lastCaptionLanguage = resultLanguage;
+            DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
+            ResultSegments.Value = mappedSegments;
+            _pendingSourceTranscription = null;
+            ClearPartialResult();
+        });
+    }
+
+    private async Task TranscribeSceneMixAsync(
+        AudioSourceItem source,
+        string? language,
+        long draftScopeRevision,
+        AsyncOperationLifetime.Operation operationLifetime)
+    {
+        if (_disposed
+            || _editViewModel is null
+            || !TryGetSceneRange(out TimeSpan rangeStart, out TimeSpan duration))
+        {
+            throw new SubtitleInputException(Strings.AiSubtitle_InvalidRange);
+        }
+
+        int chunkCount = (int)Math.Ceiling(duration.TotalSeconds / SceneMixChunkDuration.TotalSeconds);
+        bool canResume = CanResumeSceneTranscription(
+            source,
+            language,
+            rangeStart,
+            duration,
+            chunkCount);
+        SceneTranscriptionOperation operation;
+        if (canResume)
+        {
+            operation = _pendingSceneTranscription!;
+            operation.ExpectedCaptionRevision = Interlocked.Read(ref _captionDocumentRevision);
+            if (operation.CompletedChunkCount == operation.ChunkCount)
+            {
+                operation.ExpectedSceneAudioRevision = Interlocked.Read(ref _sceneAudioRevision);
+            }
+        }
+        else
+        {
+            CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
+                CanUseSceneTranscriptionDraft(
+                    entry.Draft,
+                    _editViewModel.Scene.Id,
+                    language,
+                    rangeStart,
+                    duration,
+                    SceneMixChunkDuration,
+                    chunkCount));
+            if (!TryParkCurrentCaptionRecovery())
+                throw new SubtitleInputException(Strings.AiSubtitle_RunCannotBeRecorded);
+
+            if (retained is not null)
+            {
+                _retainedCaptionRecoveries.Remove(retained);
+                operation = RestoreSceneTranscriptionOperation(
+                    retained.Draft,
+                    source,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    Interlocked.Read(ref _sceneAudioRevision));
+                _captionDraftJobId = retained.JobId;
+            }
+            else
+            {
+                ChangeCaptionDraftJob(null, deleteCurrent: false);
+                operation = new SceneTranscriptionOperation(
+                    source,
+                    language,
+                    rangeStart,
+                    duration,
+                    SceneMixChunkDuration,
+                    chunkCount,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    Interlocked.Read(ref _sceneAudioRevision),
+                    _editViewModel.Scene.Id);
+            }
+        }
+        operation.Source = source;
+        _pendingSceneTranscription = operation;
+        _pendingSourceTranscription = null;
+        UpdateOutstandingCaptionRequest();
+        // Read once for the whole run, and taken from the run itself once it has
+        // named anything. Every piece is named partly by the model, so a picker
+        // that moved between naming a piece and sending it would put one model
+        // in the name and another in the body — which the server refuses — and
+        // one that moved between pieces, or fell back because the run's model
+        // was withdrawn, would rename the rest of the run and buy it again.
+        AiModelId? runModel = ModelOfRun(
+            operation.CompletedChunkCount > 0
+                || operation.RequestKey.HasOutstandingName.Value,
+            operation.RequestKeyModel,
+            TranscriptionModelPicker.SelectedModel);
+
+        for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
+        {
+            RequestToken.ThrowIfCancellationRequested();
+            TimeSpan chunkOffset = TimeSpan.FromTicks(
+                Math.Min(duration.Ticks, index * operation.ChunkDuration.Ticks));
+            TimeSpan chunkDuration = TimeSpan.FromTicks(
+                Math.Min(operation.ChunkDuration.Ticks, duration.Ticks - chunkOffset.Ticks));
+            AiRequestName name = operation.RequestNameFor(index, runModel);
+            UpdateOutstandingCaptionRequest();
+            // Before the scene is composed: mixing a chunk of audio the account
+            // cannot pay for is work thrown away. Anything that ends here ends
+            // before the request went out, so the name reached nothing — a
+            // refusal, a run stopped while the check was in the air, any of it.
+            try
+            {
+                // Not for a repeat: the server looks up the job this name
+                // already made before it looks at the balance, so refusing here
+                // would refuse to collect a piece already paid for.
+                if (!name.IsRepeat)
+                {
+                    await EnsureAvailableAsync(
+                        new AiOperationAvailabilityRequest.Transcription(
+                            chunkDuration.TotalSeconds,
+                            runModel));
+                }
+
+                // Written before the chunk goes out. Scene audio is composed
+                // rather than read from a file, so nothing written down proves
+                // it is still the same audio — the server's own fingerprint
+                // does, and answers a chunk asked for again only when it
+                // matches.
+                switch (PublishSceneTranscriptionPartial(operation))
+                {
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
+                }
+            }
+            catch
+            {
+                WithdrawSceneTranscriptionName(operation, name);
+                throw;
+            }
+
+            (string path, FileStream stream) = AiTemporaryFileStore.Create(
+                "audio",
+                "scene-mix",
+                ".wav");
+            try
+            {
+                try
+                {
+                    using (stream)
+                    {
+                        await WriteSceneMixWaveAsync(
+                            stream,
+                            rangeStart + chunkOffset,
+                            chunkDuration,
+                            RequestToken);
+                    }
+                }
+                catch
+                {
+                    WithdrawSceneTranscriptionName(operation, name);
+                    throw;
+                }
+                AiTranscriptionResponse response;
+                try
+                {
+                    response = await _aiService.TranscribeAsync(
+                        new AiTranscriptionRequest(
+                            AiUploadSource.FromFile(
+                                path,
+                                FormatChunkFileName("scene-mix", index)),
+                            language,
+                            runModel,
+                            name.Key),
+                        RequestToken);
+                }
+                catch (AiProviderErrorException)
+                {
+                    // The server settled this chunk as failed and refunded it.
+                    // Its key would keep answering with that failure, so the
+                    // rest of the run takes new ones — written down as well, or
+                    // a run picked up later asks under the spent key again and
+                    // gets the same failure every time.
+                    if (operation.RequestKey.Retire())
+                    {
+                        UpdateOutstandingCaptionRequest();
+                        PublishSceneTranscriptionPartial(operation);
+                    }
+                    throw;
+                }
+                catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+                {
+                    WithdrawSceneTranscriptionName(operation, name);
+                    throw;
+                }
+                ValidateTranscriptionSegments(response.Segments);
+                if (!operation.RequestKey.Retire(name))
+                    return;
+                operation.DetectedLanguage ??= response.Language;
+                foreach (AiTranscriptionSegment segment in response.Segments)
+                {
+                    operation.Segments.Add(new AiTranscriptionSegment
+                    {
+                        Start = (rangeStart + chunkOffset).TotalSeconds + segment.Start,
+                        End = (rangeStart + chunkOffset).TotalSeconds + segment.End,
+                        Text = segment.Text,
+                    });
+                }
+                RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
+                operation.CompletedChunkCount++;
+                UpdateOutstandingCaptionRequest();
+                switch (PublishSceneTranscriptionPartial(operation))
+                {
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        // The response may already have been charged.  Stop
+                        // before the final ClearPartialResult can delete the
+                        // previous durable seed; the next attempt can persist
+                        // this in-memory progress and resume by idempotency key.
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
+                }
+            }
+            finally
+            {
+                DeleteTemporaryAudio(path);
+            }
+        }
+
+        if (!ReferenceEquals(SelectedAudioSource.Value, source)
+            || !TryGetSceneRange(out TimeSpan currentRangeStart, out TimeSpan currentDuration)
+            || currentRangeStart != operation.RangeStart
+            || currentDuration != operation.Duration
+            || !string.Equals(
+                SelectedSourceLanguage.Value.Code,
+                operation.Language,
+                StringComparison.Ordinal)
+            || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
+            || operation.ExpectedSceneAudioRevision != Interlocked.Read(ref _sceneAudioRevision)
+            || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+        {
+            return;
+        }
+
+        operationLifetime.TryPublish(() =>
+        {
+            _lastCaptionLanguage = operation.DetectedLanguage ?? language;
+            DetectedLanguageText.Value = CreateDetectedLanguageText(_lastCaptionLanguage);
+            ResultSegments.Value = CloneSegments(operation.Segments);
+            ClearPartialResult();
+        });
+    }
+
+    private async Task WriteSceneMixWaveAsync(
+        Stream stream,
+        TimeSpan start,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        var writer = new SpeechWaveWriter(stream);
+        for (TimeSpan offset = TimeSpan.Zero; offset < duration; offset += SceneMixComposeSlice)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TimeSpan sliceDuration = TimeSpan.FromTicks(
+                Math.Min(SceneMixComposeSlice.Ticks, (duration - offset).Ticks));
+            AudioFrameSnapshot? snapshot = SceneMixAudioComposer is { } composer
+                ? await composer(start + offset, sliceDuration, cancellationToken)
+                : await ((IPreviewPlayer)_editViewModel!.Player)
+                    .ComposeAudioAsync(start + offset, sliceDuration, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (snapshot is null || snapshot.SampleCount == 0)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+            writer.Append(snapshot, cancellationToken);
+        }
+
+        writer.Complete();
+    }
+
+    private async Task TranslateCore()
+    {
+        using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
+        if (operationLifetime is null)
+            return;
+        long captionRevision = Interlocked.Read(ref _captionDocumentRevision);
+        long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
+        if (!TryBuildCaptionDocumentCore(out CaptionDocument? document, out _) || document is null)
+            return;
+        if (captionRevision != Interlocked.Read(ref _captionDocumentRevision))
+            return;
+
+        Error.Value = null;
+        IsTranslating.Value = true;
+        TranslationPreview.Value = null;
+        TranslatedLineCount.Value = 0;
+        using CancellationTokenSource requestCts =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                operationLifetime.CancellationToken,
+                _lifetimeCts.Token);
+        _requestCts = requestCts;
+        try
+        {
+            string targetLanguage = SelectedTargetLanguage.Value.Code!;
+            string? selectedSourceLanguage = SelectedSourceLanguage.Value.Code;
+            string? sourceLanguage = selectedSourceLanguage ?? _lastCaptionLanguage;
+            TranslationOperation operation;
+            if (_pendingTranslation is { } current
+                && CanUseTranslationOperation(
+                    current,
+                    document,
+                    targetLanguage,
+                    selectedSourceLanguage,
+                    draftScopeRevision))
+            {
+                operation = current;
+                operation.ExpectedCaptionRevision = captionRevision;
+            }
+            else
+            {
+                CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
+                    CanUseTranslationDraft(
+                        entry.Draft,
+                        document,
+                        targetLanguage,
+                        selectedSourceLanguage));
+                if (!TryParkCurrentCaptionRecovery())
+                {
+                    throw new SubtitleInputException(Strings.AiSubtitle_RunCannotBeRecorded);
+                }
+
+                if (retained is not null)
+                {
+                    _retainedCaptionRecoveries.Remove(retained);
+                    operation = RestoreTranslationOperation(
+                        retained.Draft,
+                        captionRevision,
+                        draftScopeRevision);
+                    _captionDraftJobId = retained.JobId;
+                }
+                else
+                {
+                    ChangeCaptionDraftJob(null, deleteCurrent: false);
+                    operation = CreateTranslationOperation(
+                        document,
+                        captionRevision,
+                        sourceLanguage,
+                        selectedSourceLanguage,
+                        targetLanguage,
+                        draftScopeRevision);
+                }
+            }
+            _pendingTranslation = operation;
+            UpdateOutstandingCaptionRequest();
+            // Read once for the whole run, and taken from the run itself once
+            // it has named anything — see ModelOfRun.
+            AiModelId? runModel = ModelOfRun(
+                operation.CompletedBatchCount > 0
+                    || operation.RequestKey.HasOutstandingName.Value,
+                operation.RequestKeyModel,
+                TranslationModelPicker.SelectedModel);
+            if (operation.Batches.Count == 0)
+            {
+                _pendingTranslation = null;
+                return;
+            }
+
+            for (int index = operation.CompletedBatchCount; index < operation.Batches.Count; index++)
+            {
+                TranslationBatch batch = operation.Batches[index];
+                AiRequestName name = operation.RequestNameFor(index, runModel);
+                AiCaptionTranslationLimits requestLimits = operation.Limits;
+                UpdateOutstandingCaptionRequest();
+                // Anything that ends here ends before the request went out, so
+                // the name reached nothing — a refusal, a run stopped while the
+                // check was in the air, any of it.
+                try
+                {
+                    if (!name.IsRepeat)
+                    {
+                        await EnsureAvailableAsync(
+                            CreateTranslationAvailabilityRequest(
+                                batch,
+                                runModel,
+                                requestLimits));
+                    }
+
+                    // Written before the batch goes out, not after it comes
+                    // back. The first batch is the one most likely to be charged
+                    // and lost, and without this the name that charged it would
+                    // die with the session: the next run would name the same
+                    // batch differently and buy it again. A run that cannot be
+                    // written down is not started at all — sending it would be
+                    // paying for something no later session could ask for.
+                    switch (PublishTranslationPartial(operation))
+                    {
+                        case CaptionDraftOutcome.Superseded:
+                            return;
+                        case CaptionDraftOutcome.NotRecorded:
+                            throw new SubtitleInputException(
+                                Strings.AiSubtitle_RunCannotBeRecorded);
+                    }
+                }
+                catch
+                {
+                    WithdrawTranslationName(operation, name);
+                    throw;
+                }
+
+                AiCaptionTranslationResponse response;
+                try
+                {
+                    response = await _aiService.TranslateAsync(
+                        new AiCaptionTranslationRequest(
+                            batch.Pieces.Select(piece => new AiCaptionTranslationSegment
+                            {
+                                Id = piece.Id,
+                                Text = piece.Text,
+                                Context = new AiCaptionTranslationSegmentContext(
+                                    piece.GroupId,
+                                    piece.ContextPartIndex,
+                                    piece.Start,
+                                    piece.End),
+                            }).ToArray(),
+                            operation.TargetLanguage,
+                            operation.SourceLanguage,
+                            model: runModel,
+                            idempotencyKey: name.Key,
+                            limits: requestLimits),
+                        new Progress<AiCaptionTranslationSegment>(segment =>
+                            operationLifetime.TryPublish(() => ShowTranslatedLine(segment))),
+                        RequestToken);
+                }
+                catch (AiProviderErrorException)
+                {
+                    // The server settled this batch as failed and refunded it.
+                    // Its key would keep answering with that failure, so what is
+                    // left of the run goes out under new ones — and the resume
+                    // state is rewritten with them, or a run resumed after a
+                    // restart would ask under the spent key again.
+                    if (operation.RequestKey.Retire())
+                    {
+                        UpdateOutstandingCaptionRequest();
+                        PublishTranslationPartial(operation);
+                    }
+                    throw;
+                }
+                catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+                {
+                    WithdrawTranslationName(operation, name);
+                    throw;
+                }
+                Dictionary<string, string> translatedBatch = ValidateTranslatedBatch(
+                    batch,
+                    response);
+                if (!operation.RequestKey.Retire(name))
+                    return;
+                AddTranslatedBatch(operation, translatedBatch);
+                RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
+                operation.CompletedBatchCount++;
+                UpdateOutstandingCaptionRequest();
+                switch (PublishTranslationPartial(operation))
+                {
+                    case CaptionDraftOutcome.Superseded:
+                        return;
+                    case CaptionDraftOutcome.NotRecorded:
+                        // The response may already have been charged.  Stop
+                        // before the final ClearPartialResult can delete the
+                        // previous durable seed; the next attempt can persist
+                        // this in-memory progress and resume by idempotency key.
+                        throw new SubtitleInputException(
+                            Strings.AiSubtitle_RunCannotBeRecorded);
+                }
+                RefreshTranslationEstimate();
+            }
+
+            if (_disposed
+                || operation.ExpectedCaptionRevision != Interlocked.Read(ref _captionDocumentRevision)
+                || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
+                || !string.Equals(
+                    SelectedTargetLanguage.Value.Code,
+                    targetLanguage,
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    SelectedSourceLanguage.Value.Code,
+                    selectedSourceLanguage,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            operationLifetime.TryPublish(() =>
+            {
+                _lastCaptionLanguage = targetLanguage;
+                DetectedLanguageText.Value = CreateDetectedLanguageText(targetLanguage);
+                ReplaceCues(BuildTranslationDocument(operation, includeUntranslatedParts: false));
+                ClearPartialResult();
+            });
+        }
+        catch (AuthenticationRequiredException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiAuthenticationRequired));
+        }
+        catch (AiPlanRequiredException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProRequired));
+        }
+        catch (AiUsageLimitExceededException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUsageLimitExceeded));
+        }
+        catch (AiProviderErrorException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiProviderError));
+        }
+        // Reachable because a batch keeps its name across attempts. None of
+        // these is a settlement, so the run keeps its names and can be resumed:
+        // saying "an unexpected error" instead sent the user back to a button
+        // that looked like it would start over.
+        catch (AiResultUnavailableException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiResultUnavailable));
+        }
+        catch (AiRequestInProgressException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress));
+        }
+        // This run's name belongs to another request, so name the remainder anew.
+        catch (AiRequestChangedException)
+        {
+            if (_pendingTranslation?.RequestKey.Retire() == true)
+            {
+                UpdateOutstandingCaptionRequest();
+                if (_pendingTranslation is { } changed)
+                    PublishTranslationPartial(changed);
+            }
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestChanged));
+        }
+        catch (AiRequestWasDeletedException)
+        {
+            // The job those names made is gone, so the rest of the run needs
+            // new ones; the partial that has been paid for is still good.
+            if (_pendingTranslation?.RequestKey.Retire() == true)
+            {
+                UpdateOutstandingCaptionRequest();
+                if (_pendingTranslation is { } deleted)
+                    PublishTranslationPartial(deleted);
+            }
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestWasDeleted));
+        }
+        catch (AiModelDoesNotSupportRequestException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(
+                draftScopeRevision,
+                Strings.AiModelDoesNotSupportRequest));
+        }
+        catch (AiModelUnavailableException)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiModelUnavailable));
+        }
+        catch (SubtitleInputException ex)
+        {
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, ex.Message));
+        }
+        catch (OperationCanceledException) when (IsRequestCanceled)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to translate subtitles.");
+            operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiUnexpectedError));
+        }
+        finally
+        {
+            _requestCts = null;
+            operationLifetime.TryPublish(() =>
+            {
+                if (IsCurrentCaptionDraftScope(draftScopeRevision))
+                {
+                    IsTranslating.Value = false;
+                    TranslationPreview.Value = null;
+                }
+            });
+        }
+    }
+
+    // A run is worth picking up as soon as it has named a piece, not only once a
+    // piece has come back. The first piece is the one most likely to have been
+    // charged and lost: starting a new run instead would name it differently and
+    // buy it again.
+    private bool CanUseTranslationOperation(
+        TranslationOperation operation,
+        CaptionDocument document,
+        string targetLanguage,
+        string? selectedSourceLanguage,
+        long draftScopeRevision)
+        => (operation.CompletedBatchCount > 0
+                || operation.RequestKey.HasOutstandingName.Value)
+            && operation.CompletedBatchCount <= operation.Batches.Count
+            && operation.ExpectedDraftScopeRevision == draftScopeRevision
+            && (CaptionDocumentsEqual(operation.SourceDocument, document)
+                || CaptionDocumentsEqual(
+                    BuildTranslationDocument(operation, includeUntranslatedParts: true),
+                    document))
+            && string.Equals(operation.TargetLanguage, targetLanguage, StringComparison.Ordinal)
+            && string.Equals(
+                operation.SelectedSourceLanguage,
+                selectedSourceLanguage,
+                StringComparison.Ordinal);
+
+    private static bool CanUseTranslationDraft(
+        CaptionDraft draft,
+        CaptionDocument document,
+        string targetLanguage,
+        string? selectedSourceLanguage)
+        => draft.TranslationResume is { } resume
+            && HoldsPaidWork(draft)
+            && string.Equals(resume.TargetLanguage, targetLanguage, StringComparison.Ordinal)
+            && string.Equals(
+                resume.SelectedSourceLanguage,
+                selectedSourceLanguage,
+                StringComparison.Ordinal)
+            && (StoredCuesEqual(resume.SourceCues, document.Cues)
+                || StoredCuesEqual(draft.Cues, document.Cues));
+
+    private TranslationOperation CreateTranslationOperation(
+        CaptionDocument document,
+        long captionRevision,
+        string? sourceLanguage,
+        string? selectedSourceLanguage,
+        string targetLanguage,
+        long draftScopeRevision)
+    {
+        var sourceDocument = new CaptionDocument(document.Cues.Select(cue => cue with { }));
+        AiCaptionTranslationLimits limits = TranslationModelPicker.CaptionTranslationLimits;
+        AiModelId? model = TranslationModelPicker.SelectedModel;
+        return new TranslationOperation(
+            sourceDocument,
+            captionRevision,
+            sourceLanguage,
+            selectedSourceLanguage,
+            targetLanguage,
+            draftScopeRevision,
+            limits,
+            CreateTranslationBatches(
+                sourceDocument,
+                sourceLanguage,
+                targetLanguage,
+                model,
+                limits));
+    }
+
+    private static TranslationOperation RestoreTranslationOperation(
+        CaptionDraft draft,
+        long captionRevision,
+        long draftScopeRevision)
+    {
+        CaptionTranslationResume resume = draft.TranslationResume
+            ?? throw new InvalidDataException("The retained translation has no resume state.");
+        var sourceDocument = new CaptionDocument(RestoreCues(resume.SourceCues));
+        AiCaptionTranslationLimits limits = TranslationLimitsOf(resume);
+        AiModelId? model = string.IsNullOrEmpty(resume.RequestKeyModel)
+            ? null
+            : new AiModelId(resume.RequestKeyModel);
+        List<TranslationBatch> batches = CreateTranslationBatches(
+            sourceDocument,
+            resume.SourceLanguage,
+            resume.TargetLanguage,
+            model,
+            limits);
+        if (resume.CompletedBatchCount < 0 || resume.CompletedBatchCount > batches.Count)
+            throw new InvalidDataException("The retained translation progress is invalid.");
+
+        var operation = new TranslationOperation(
+            sourceDocument,
+            captionRevision,
+            resume.SourceLanguage,
+            resume.SelectedSourceLanguage,
+            resume.TargetLanguage,
+            draftScopeRevision,
+            limits,
+            batches,
+            string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
+            resume.RequestKeyNamePending)
+        {
+            CompletedBatchCount = resume.CompletedBatchCount,
+            RequestKeyModel = resume.RequestKeyModel,
+        };
+        HashSet<string> completedIds = batches
+            .Take(operation.CompletedBatchCount)
+            .SelectMany(batch => batch.Pieces)
+            .Select(piece => piece.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        if (resume.TranslatedPieces.Count != completedIds.Count
+            || resume.TranslatedPieces.Keys.Any(id => !completedIds.Contains(id)))
+        {
+            throw new InvalidDataException("The retained translated segments are invalid.");
+        }
+        foreach ((string id, string text) in resume.TranslatedPieces)
+        {
+            operation.TranslatedPieces.Add(id, text);
+        }
+        return operation;
+    }
+
+    private static AiCaptionTranslationLimits TranslationLimitsOf(
+        CaptionTranslationResume resume)
+        => resume.MaxSegments > 0
+            && resume.MaxCharacters > 0
+            && resume.MaxRequestBytes > 0
+                ? new AiCaptionTranslationLimits(
+                    resume.MaxSegments,
+                    resume.MaxCharacters,
+                    resume.MaxRequestBytes)
+                : AiCaptionTranslationLimits.Default;
+
+    private static bool CaptionDocumentsEqual(CaptionDocument left, CaptionDocument right)
+        => StoredCuesEqual(StoreCues(left.Cues), right.Cues);
+
+    private static bool StoredCuesEqual(
+        IReadOnlyList<StoredCaptionCue> stored,
+        IReadOnlyList<CaptionCue> current)
+    {
+        if (stored.Count != current.Count)
+            return false;
+
+        for (int index = 0; index < stored.Count; index++)
+        {
+            StoredCaptionCue expected = stored[index];
+            CaptionCue actual = current[index];
+            if (expected.StartTicks != actual.Start.Ticks
+                || expected.EndTicks != actual.End.Ticks
+                || expected.Text != actual.Text
+                || expected.Speaker != actual.Speaker
+                || expected.Language != actual.Language
+                || expected.Metadata.Count != actual.Metadata.Count
+                || expected.Metadata.Any(pair =>
+                    !actual.Metadata.TryGetValue(pair.Key, out string? value)
+                    || value != pair.Value))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void AddTranslatedBatch(
+        TranslationOperation operation,
+        IReadOnlyDictionary<string, string> translatedBatch)
+    {
+        foreach ((string id, string text) in translatedBatch)
+        {
+            operation.TranslatedPieces.Add(id, text);
+        }
+    }
+
+    private static Dictionary<string, string> ValidateTranslatedBatch(
+        TranslationBatch batch,
+        AiCaptionTranslationResponse response)
+    {
+        var expectedIds = batch.Pieces
+            .Select(piece => piece.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        var responseById = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (AiCaptionTranslationSegment segment in response.Segments)
+        {
+            if (!expectedIds.Contains(segment.Id)
+                || string.IsNullOrWhiteSpace(segment.Text)
+                || !responseById.TryAdd(segment.Id, segment.Text))
+            {
+                throw new AiProviderErrorException(new InvalidDataException(
+                    "The translation provider returned an invalid segment set."));
+            }
+        }
+
+        if (responseById.Count != expectedIds.Count)
+        {
+            throw new AiProviderErrorException(new InvalidDataException(
+                "The translation provider omitted one or more requested segments."));
+        }
+
+        return responseById;
+    }
+
+    private static void ValidateTranscriptionSegments(
+        IReadOnlyList<AiTranscriptionSegment> segments)
+    {
+        double previousEnd = 0;
+        foreach (AiTranscriptionSegment segment in segments)
+        {
+            if (!double.IsFinite(segment.Start)
+                || !double.IsFinite(segment.End)
+                || segment.Start < previousEnd
+                || segment.End <= segment.Start
+                || !IsTimeSpanRepresentable(segment.Start)
+                || !IsTimeSpanRepresentable(segment.End)
+                || string.IsNullOrWhiteSpace(segment.Text))
+            {
+                throw new AiProviderErrorException(new InvalidDataException(
+                    "The transcription provider returned an invalid segment set."));
+            }
+
+            previousEnd = segment.End;
+        }
+    }
+
+    private static bool IsTimeSpanRepresentable(double seconds)
+    {
+        try
+        {
+            _ = TimeSpan.FromSeconds(seconds);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+    }
+
+    private CaptionDocument BuildTranslationDocument(
+        TranslationOperation operation,
+        bool includeUntranslatedParts)
+    {
+        TranslationPiece[] pieces = operation.Batches
+            .SelectMany(batch => batch.Pieces)
+            .ToArray();
+        var translatedCues = new List<CaptionCue>(operation.SourceDocument.Count);
+        for (int cueIndex = 0; cueIndex < operation.SourceDocument.Count; cueIndex++)
+        {
+            CaptionCue cue = operation.SourceDocument[cueIndex];
+            TranslationPiece[] cuePieces = pieces
+                .Where(piece => piece.CueIndex == cueIndex)
+                .OrderBy(piece => piece.PartIndex)
+                .ToArray();
+            if (cuePieces.Length == 0)
+            {
+                translatedCues.Add(cue);
+                continue;
+            }
+
+            bool fullyTranslated = cuePieces.All(piece =>
+                operation.TranslatedPieces.ContainsKey(piece.Id));
+            if (!fullyTranslated && !includeUntranslatedParts)
+            {
+                throw new InvalidOperationException("The translation result is incomplete.");
+            }
+
+            // Translation providers are not required to honor the editor's
+            // display limits. Normalize each completed cue here so importing
+            // a translation does not immediately surface a line warning.
+            string translatedText = string.Concat(cuePieces.Select(piece =>
+                operation.TranslatedPieces.TryGetValue(piece.Id, out string? translated)
+                    ? translated
+                    : piece.Text));
+            if (!fullyTranslated)
+            {
+                translatedCues.Add(cue with { Text = translatedText });
+                continue;
+            }
+
+            CaptionTextConstraints constraints = CreateTextConstraints();
+            string wrappedText = CaptionTextWrapper.Wrap(translatedText, constraints);
+            string[] lines = wrappedText.Split('\n');
+            if (lines.Length > constraints.MaximumLineCount
+                && (translatedText.Contains('\n') || translatedText.Contains('\r')))
+            {
+                // A provider may emit presentation line breaks of its own.
+                // Collapse those only when they would exceed the editor's
+                // line-count limit; the wrapper then lays the text out using
+                // the user's configured limits.
+                string flattened = translatedText
+                    .Replace("\r\n", "\n", StringComparison.Ordinal)
+                    .Replace('\r', '\n')
+                    .Replace('\n', ' ');
+                wrappedText = CaptionTextWrapper.Wrap(flattened, constraints);
+                lines = wrappedText.Split('\n');
+            }
+            int cueCount = (lines.Length + constraints.MaximumLineCount - 1)
+                / constraints.MaximumLineCount;
+            long durationTicks = (cue.End - cue.Start).Ticks;
+            // A valid cue normally has enough duration for every split. Keep
+            // the original cue as a last resort when the interval is shorter
+            // than the number of split cues rather than creating invalid
+            // timing or losing text.
+            if (cueCount <= 1 || durationTicks < cueCount)
+            {
+                translatedCues.Add(cue with
+                {
+                    Text = wrappedText,
+                    Language = operation.TargetLanguage,
+                });
+                continue;
+            }
+
+            long baseDuration = durationTicks / cueCount;
+            long remainder = durationTicks % cueCount;
+            long elapsed = 0;
+            for (int splitIndex = 0; splitIndex < cueCount; splitIndex++)
+            {
+                int firstLine = splitIndex * constraints.MaximumLineCount;
+                int lineCount = Math.Min(constraints.MaximumLineCount, lines.Length - firstLine);
+                long splitDuration = baseDuration + (splitIndex < remainder ? 1 : 0);
+                TimeSpan splitStart = cue.Start + TimeSpan.FromTicks(elapsed);
+                elapsed += splitDuration;
+                TimeSpan splitEnd = cue.Start + TimeSpan.FromTicks(elapsed);
+                translatedCues.Add(cue with
+                {
+                    Start = splitStart,
+                    End = splitEnd,
+                    Text = string.Join('\n', lines, firstLine, lineCount),
+                    Language = operation.TargetLanguage,
+                });
+            }
+        }
+
+        return new CaptionDocument(translatedCues);
+    }
+
+    private CaptionDraftOutcome PublishTranslationPartial(TranslationOperation operation)
+    {
+        if (_disposed || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+            return CaptionDraftOutcome.Superseded;
+
+        _pendingTranslation = operation;
+        if (SetPartialResult(new RecoverableCaptionResult(
+            BuildTranslationDocument(operation, includeUntranslatedParts: true),
+            operation.TargetLanguage,
+            null,
+            PartialResultKind.Translation,
+            operation.CompletedBatchCount,
+            operation.Batches.Count,
+            operation.ExpectedDraftScopeRevision)) is var outcome
+            and not CaptionDraftOutcome.Recorded)
+        {
+            return outcome;
+        }
+        PartialResultMessage.Value = operation.CompletedBatchCount <= 0
+            ? null
+            : string.Format(
+                operation.CompletedBatchCount == operation.Batches.Count
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : Strings.AiSubtitle_PartialTranslationAvailable,
+                operation.CompletedBatchCount,
+                operation.Batches.Count);
+        RefreshTranslationEstimate();
+        return CaptionDraftOutcome.Recorded;
+    }
+
+    // A run is worth picking up as soon as it has named a piece, not only once a
+    // piece has come back. The first piece is the one most likely to have been
+    // charged and lost: starting a new run instead would name it differently and
+    // buy it again.
+    private bool CanResumeSceneTranscription(
+        AudioSourceItem source,
+        string? language,
+        TimeSpan rangeStart,
+        TimeSpan duration,
+        int chunkCount)
+        => _pendingSceneTranscription is { } operation
+            && (operation.CompletedChunkCount > 0
+                || operation.RequestKey.HasOutstandingName.Value)
+            && operation.CompletedChunkCount <= operation.ChunkCount
+            && source.IsSceneMix
+            && (operation.Source is null || operation.Source.IsSceneMix)
+            && operation.Language == language
+            && operation.RangeStart == rangeStart
+            && operation.Duration == duration
+            && operation.ChunkDuration == SceneMixChunkDuration
+            && operation.ChunkCount == chunkCount
+            && IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
+            && (operation.CompletedChunkCount == operation.ChunkCount
+                || operation.ExpectedSceneAudioRevision == Interlocked.Read(ref _sceneAudioRevision))
+            && operation.SceneId == _editViewModel?.Scene.Id;
+
+    private static bool CanUseSceneTranscriptionDraft(
+        CaptionDraft draft,
+        Guid sceneId,
+        string? language,
+        TimeSpan rangeStart,
+        TimeSpan duration,
+        TimeSpan chunkDuration,
+        int chunkCount)
+        => draft.SceneTranscriptionResume is { } resume
+            && HoldsPaidWork(draft)
+            && resume.SceneId == sceneId
+            && resume.Language == language
+            && resume.RangeStart == rangeStart
+            && resume.Duration == duration
+            && resume.ChunkDuration == chunkDuration
+            && resume.ChunkCount == chunkCount;
+
+    private static SceneTranscriptionOperation RestoreSceneTranscriptionOperation(
+        CaptionDraft draft,
+        AudioSourceItem source,
+        long captionRevision,
+        long draftScopeRevision,
+        long sceneAudioRevision)
+    {
+        CaptionSceneTranscriptionResume resume = draft.SceneTranscriptionResume
+            ?? throw new InvalidDataException("The retained scene transcription has no resume state.");
+        var operation = new SceneTranscriptionOperation(
+            source,
+            resume.Language,
+            resume.RangeStart,
+            resume.Duration,
+            resume.ChunkDuration,
+            resume.ChunkCount,
+            captionRevision,
+            draftScopeRevision,
+            sceneAudioRevision,
+            resume.SceneId,
+            string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
+            resume.RequestKeyNamePending)
+        {
+            CompletedChunkCount = resume.CompletedChunkCount,
+            DetectedLanguage = resume.DetectedLanguage,
+            RequestKeyModel = resume.RequestKeyModel,
+        };
+        operation.Segments.AddRange(CloneSegments(resume.Segments));
+        return operation;
+    }
+
+    private CaptionDraftOutcome PublishSceneTranscriptionPartial(SceneTranscriptionOperation operation)
+    {
+        if (_disposed || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+            return CaptionDraftOutcome.Superseded;
+
+        _pendingSceneTranscription = operation;
+        string? detectedLanguage = operation.DetectedLanguage ?? operation.Language;
+        AiTranscriptionSegment[] segments = CloneSegments(operation.Segments);
+        if (SetPartialResult(new RecoverableCaptionResult(
+            CreateCaptionDocument(segments, detectedLanguage),
+            detectedLanguage,
+            segments,
+            PartialResultKind.Transcription,
+            operation.CompletedChunkCount,
+            operation.ChunkCount,
+            operation.ExpectedDraftScopeRevision)) is var outcome
+            and not CaptionDraftOutcome.Recorded)
+        {
+            return outcome;
+        }
+        PartialResultMessage.Value = operation.CompletedChunkCount <= 0
+            ? null
+            : string.Format(
+                operation.CompletedChunkCount == operation.ChunkCount
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : Strings.AiSubtitle_PartialTranscriptionAvailable,
+                operation.CompletedChunkCount,
+                operation.ChunkCount);
+        _transcriptionEstimateRevision.Value++;
+        return CaptionDraftOutcome.Recorded;
+    }
+
+    private bool CanResumeSourceTranscription(
+        AudioSourceItem source,
+        string filePath,
+        string? language,
+        int sampleRate,
+        long totalSamples,
+        int chunkSamples,
+        int chunkCount,
+        SourceAudioFingerprint fingerprint,
+        long draftScopeRevision)
+        => _pendingSourceTranscription is { } operation
+            && (operation.CompletedChunkCount > 0
+                || operation.RequestKey.HasOutstandingName.Value)
+            && operation.CompletedChunkCount <= operation.ChunkCount
+            && (operation.Source is null || AudioSourceItem.CanResume(source, operation.Source))
+            && AudioSourceItem.FilePathsEqual(operation.FilePath, filePath)
+            && operation.ElementId == source.ElementId
+            && operation.Language == language
+            && operation.SampleRate == sampleRate
+            && operation.TotalSamples == totalSamples
+            && operation.ChunkSamples == chunkSamples
+            && operation.ChunkCount == chunkCount
+            && operation.FileLength == fingerprint.FileLength
+            && operation.LastWriteTimeUtcTicks == fingerprint.LastWriteTimeUtcTicks
+            && operation.ExpectedDraftScopeRevision == draftScopeRevision
+            && IsCurrentCaptionDraftScope(draftScopeRevision);
+
+    private static bool CanUseSourceTranscriptionDraft(
+        CaptionDraft draft,
+        AudioSourceItem source,
+        string filePath,
+        string? language,
+        int sampleRate,
+        long totalSamples,
+        int chunkSamples,
+        int chunkCount,
+        SourceAudioFingerprint fingerprint)
+        => draft.SourceTranscriptionResume is { } resume
+            && HoldsPaidWork(draft)
+            && AudioSourceItem.FilePathsEqual(resume.FilePath, filePath)
+            && resume.ElementId == source.ElementId
+            && resume.Language == language
+            && resume.SampleRate == sampleRate
+            && resume.TotalSamples == totalSamples
+            && resume.ChunkSamples == chunkSamples
+            && resume.ChunkCount == chunkCount
+            && resume.FileLength == fingerprint.FileLength
+            && resume.LastWriteTimeUtcTicks == fingerprint.LastWriteTimeUtcTicks;
+
+    private static SourceTranscriptionOperation RestoreSourceTranscriptionOperation(
+        CaptionDraft draft,
+        AudioSourceItem source,
+        long captionRevision,
+        long draftScopeRevision)
+    {
+        CaptionSourceTranscriptionResume resume = draft.SourceTranscriptionResume
+            ?? throw new InvalidDataException("The retained source transcription has no resume state.");
+        var operation = new SourceTranscriptionOperation(
+            source,
+            resume.FilePath,
+            resume.ElementId,
+            resume.FileLength,
+            resume.LastWriteTimeUtcTicks,
+            resume.Language,
+            resume.SampleRate,
+            resume.TotalSamples,
+            resume.ChunkSamples,
+            resume.ChunkCount,
+            captionRevision,
+            draftScopeRevision,
+            string.IsNullOrEmpty(resume.RequestKeySeed) ? null : resume.RequestKeySeed,
+            resume.RequestKeyNamePending)
+        {
+            CompletedChunkCount = resume.CompletedChunkCount,
+            DetectedLanguage = resume.DetectedLanguage,
+            RequestKeyModel = resume.RequestKeyModel,
+        };
+        operation.SourceSegments.AddRange(CloneSegments(resume.Segments));
+        return operation;
+    }
+
+    private CaptionDraftOutcome PublishSourceTranscriptionPartial(SourceTranscriptionOperation operation)
+    {
+        if (_disposed || !IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision))
+            return CaptionDraftOutcome.Superseded;
+
+        _pendingSourceTranscription = operation;
+        if (operation.Source is not { } source)
+            return CaptionDraftOutcome.Superseded;
+
+        string? detectedLanguage = operation.DetectedLanguage ?? operation.Language;
+        AiTranscriptionSegment[] mappedSegments = source.MapSegmentsToScene(
+            operation.SourceSegments);
+        if (SetPartialResult(new RecoverableCaptionResult(
+                CreateCaptionDocument(mappedSegments, detectedLanguage),
+                detectedLanguage,
+                mappedSegments,
+                PartialResultKind.Transcription,
+                operation.CompletedChunkCount,
+                operation.ChunkCount,
+                operation.ExpectedDraftScopeRevision)) is var outcome
+            and not CaptionDraftOutcome.Recorded)
+        {
+            return outcome;
+        }
+        PartialResultMessage.Value = operation.CompletedChunkCount <= 0
+            ? null
+            : string.Format(
+                operation.CompletedChunkCount == operation.ChunkCount
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : Strings.AiSubtitle_PartialTranscriptionAvailable,
+                operation.CompletedChunkCount,
+                operation.ChunkCount);
+        _transcriptionEstimateRevision.Value++;
+        return CaptionDraftOutcome.Recorded;
+    }
+
+    private static long GetSourceSampleCount(AudioStreamInfo audioInfo, TimeSpan fallbackDuration)
+    {
+        if (audioInfo.SampleRate <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        double samples = audioInfo.NumSamples.ToDouble();
+        if (!double.IsFinite(samples) || samples <= 0)
+            samples = fallbackDuration.TotalSeconds * audioInfo.SampleRate;
+        if (!double.IsFinite(samples) || samples <= 0 || samples > int.MaxValue)
+            throw new SubtitleInputException("The source audio duration is unsupported.");
+        return Math.Max(1, checked((long)Math.Ceiling(samples)));
+    }
+
+    private static SourceAudioFingerprint GetSourceAudioFingerprint(string filePath)
+    {
+        var info = new FileInfo(filePath);
+        if (!info.Exists || info.Length <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        return new SourceAudioFingerprint(info.Length, info.LastWriteTimeUtc.Ticks);
+    }
+
+    internal static bool HasMatchingSourceAudioFingerprint(
+        string filePath,
+        SourceAudioFingerprint expected)
+        => GetSourceAudioFingerprint(filePath) == expected;
+
+    private void DeleteTemporaryAudio(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to remove temporary audio {Path}.", path);
+        }
+    }
+
+    private static CaptionDocument CreateCaptionDocument(
+        IEnumerable<AiTranscriptionSegment> segments,
+        string? language)
+        => new(segments.Select(segment => new CaptionCue(
+            TimeSpan.FromSeconds(segment.Start),
+            TimeSpan.FromSeconds(segment.End),
+            segment.Text,
+            language: language)));
+
+    private static AiTranscriptionSegment[] CloneSegments(
+        IEnumerable<AiTranscriptionSegment> segments)
+        => segments.Select(segment => new AiTranscriptionSegment
+        {
+            Start = segment.Start,
+            End = segment.End,
+            Text = segment.Text,
+        }).ToArray();
+
+    /// <summary>What became of an attempt to write a run down.</summary>
+    private enum CaptionDraftOutcome
+    {
+        /// <summary>
+        /// Written down, or there was nothing to write it to — no signed-in
+        /// user, no project, no scene. Either way the run may go ahead.
+        /// </summary>
+        Recorded,
+
+        /// <summary>
+        /// Nowhere, though it should have been. Another tab holds this scene's
+        /// draft, or the write failed. A request sent now would take its name
+        /// with it when the session ends.
+        /// </summary>
+        NotRecorded,
+
+        /// <summary>The run this belongs to is no longer the one on screen.</summary>
+        Superseded,
+    }
+
+    private CaptionDraftOutcome SetPartialResult(RecoverableCaptionResult result)
+    {
+        if (!IsCurrentCaptionDraftScope(result.DraftScopeRevision))
+            return CaptionDraftOutcome.Superseded;
+
+        // Another tab previously owned this scene's draft. Retry now in case it released the
+        // draft; giving up after one failure would permanently block paid operations in this tab.
+        if (_captionDraftSession is null && _captionDraftScopeIsHeldElsewhere)
+            TakeOverReleasedCaptionDraft();
+
+        _partialResult = result;
+        // A run that has only named its first piece has nothing to apply yet.
+        // It is still written down — the name is what makes that piece
+        // collectable — but the button that imports a partial stays closed.
+        HasPartialResult.Value = result.CompletedSteps > 0;
+        if (_captionDraftIsUnreadable && !CanWriteOverUnreadableDraft())
+            return CaptionDraftOutcome.NotRecorded;
+
+        if (_captionDraftSession is null)
+        {
+            return _captionDraftScopeIsHeldElsewhere
+                ? CaptionDraftOutcome.NotRecorded
+                : CaptionDraftOutcome.Recorded;
+        }
+
+        CaptionDraft draft = CreateCaptionDraft(result);
+        if (!HoldsPaidWork(draft) && _retainedCaptionRecoveries.Count > 0)
+        {
+            ResetCurrentCaptionRecovery();
+            PersistRetainedCaptionRecoveries();
+            return CaptionDraftOutcome.Recorded;
+        }
+
+        try
+        {
+            _captionDraftSession.Save(new CaptionDraftEntry(
+                _captionDraftJobId,
+                draft,
+                _retainedCaptionRecoveries.ToArray()));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist a recoverable paid caption result.");
+            // The failed write leaves the previous draft on disk. Do not delete it: it may be the
+            // only record of paid chunks and their name. Replaying that older name is safe because
+            // it identifies paid work, settled work, or nothing; deleting it can force a repurchase.
+            return CaptionDraftOutcome.NotRecorded;
+        }
+        return CaptionDraftOutcome.Recorded;
+    }
+
+    private CaptionDraft CreateCaptionDraft(RecoverableCaptionResult result)
+    {
+        CaptionTranslationResume? translationResume = null;
+        if (result.Kind == PartialResultKind.Translation
+            && _pendingTranslation is { } translation)
+        {
+            translationResume = new CaptionTranslationResume(
+                StoreCues(translation.SourceDocument.Cues),
+                translation.SourceLanguage,
+                translation.SelectedSourceLanguage,
+                translation.TargetLanguage,
+                new Dictionary<string, string>(translation.TranslatedPieces, StringComparer.Ordinal),
+                translation.CompletedBatchCount,
+                translation.RequestKeySeed,
+                translation.RequestKeyModel,
+                translation.RequestKey.HasOutstandingName.Value,
+                translation.Limits.MaxSegments,
+                translation.Limits.MaxCharacters,
+                translation.Limits.MaxRequestBytes);
+        }
+
+        CaptionSceneTranscriptionResume? sceneResume = null;
+        if (result.Kind == PartialResultKind.Transcription
+            && result.Segments is { } resultSegments
+            && _pendingSceneTranscription is { } scene
+            && scene.CompletedChunkCount == result.CompletedSteps
+            && scene.ChunkCount == result.TotalSteps
+            && SegmentsEqual(scene.Segments, resultSegments))
+        {
+            sceneResume = new CaptionSceneTranscriptionResume(
+                scene.SceneId,
+                scene.Language,
+                scene.RangeStart,
+                scene.Duration,
+                scene.ChunkDuration,
+                scene.ChunkCount,
+                CloneSegments(scene.Segments),
+                scene.DetectedLanguage,
+                scene.CompletedChunkCount,
+                scene.RequestKeySeed,
+                scene.RequestKeyModel,
+                scene.RequestKey.HasOutstandingName.Value);
+        }
+
+        CaptionSourceTranscriptionResume? sourceResume = null;
+        if (result.Kind == PartialResultKind.Transcription
+            && result.Segments is { } sourceResultSegments
+            && _pendingSourceTranscription is { } sourceTranscription
+            && sourceTranscription.CompletedChunkCount == result.CompletedSteps
+            && sourceTranscription.ChunkCount == result.TotalSteps
+            && (sourceTranscription.Source is null
+                || SegmentsEqual(
+                    sourceTranscription.Source.MapSegmentsToScene(
+                        sourceTranscription.SourceSegments),
+                    sourceResultSegments)))
+        {
+            sourceResume = new CaptionSourceTranscriptionResume(
+                sourceTranscription.FilePath,
+                sourceTranscription.ElementId,
+                sourceTranscription.FileLength,
+                sourceTranscription.LastWriteTimeUtcTicks,
+                sourceTranscription.Language,
+                sourceTranscription.SampleRate,
+                sourceTranscription.TotalSamples,
+                sourceTranscription.ChunkSamples,
+                sourceTranscription.ChunkCount,
+                CloneSegments(sourceTranscription.SourceSegments),
+                sourceTranscription.DetectedLanguage,
+                sourceTranscription.CompletedChunkCount,
+                sourceTranscription.RequestKeySeed,
+                sourceTranscription.RequestKeyModel,
+                sourceTranscription.RequestKey.HasOutstandingName.Value);
+        }
+
+        return new CaptionDraft(
+            FileCaptionDraftStore.CurrentVersion,
+            StoreCues(result.Document.Cues),
+            result.Language,
+            result.Segments is null ? null : CloneSegments(result.Segments),
+            result.Kind == PartialResultKind.Translation
+                ? CaptionDraftKind.Translation
+                : CaptionDraftKind.Transcription,
+            result.CompletedSteps,
+            result.TotalSteps,
+            translationResume,
+            sceneResume,
+            sourceResume);
+    }
+
+    private bool TryParkCurrentCaptionRecovery()
+    {
+        if (_partialResult is { } result)
+        {
+            var entry = new CaptionDraftEntry(_captionDraftJobId, CreateCaptionDraft(result));
+            if (HoldsPaidWork(entry.Draft))
+            {
+                string identity = GetRecoveryIdentity(entry);
+                int duplicate = _retainedCaptionRecoveries.FindIndex(candidate =>
+                    string.Equals(GetRecoveryIdentity(candidate), identity, StringComparison.Ordinal));
+                if (duplicate >= 0)
+                {
+                    _retainedCaptionRecoveries[duplicate] = entry;
+                }
+                else
+                {
+                    if (_retainedCaptionRecoveries.Count
+                        >= FileCaptionDraftStore.MaximumRetainedRecoveries)
+                        return false;
+                    _retainedCaptionRecoveries.Add(entry);
+                }
+            }
+        }
+
+        ResetCurrentCaptionRecovery();
+        return true;
+    }
+
+    private void ResetCurrentCaptionRecovery()
+    {
+        _partialResult = null;
+        _pendingTranslation = null;
+        _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
+        _captionDraftJobId = null;
+        HasPartialResult.Value = false;
+        PartialResultMessage.Value = null;
+        ClearRestoredModelPreference();
+        UpdateOutstandingCaptionRequest();
+    }
+
+    private static string GetRecoveryIdentity(CaptionDraftEntry entry)
+    {
+        CaptionDraft draft = entry.Draft;
+        string seed = draft.TranslationResume?.RequestKeySeed
+            ?? draft.SourceTranscriptionResume?.RequestKeySeed
+            ?? draft.SceneTranscriptionResume?.RequestKeySeed
+            ?? string.Empty;
+        return $"{draft.Kind}:{seed}:{entry.JobId}";
+    }
+
+    private void PersistRetainedCaptionRecoveries()
+    {
+        if (_captionDraftSession is null || _retainedCaptionRecoveries.Count == 0)
+            return;
+
+        CaptionDraftEntry root = _retainedCaptionRecoveries[^1];
+        CaptionDraftEntry[] additional = _retainedCaptionRecoveries
+            .Take(_retainedCaptionRecoveries.Count - 1)
+            .ToArray();
+        try
+        {
+            _captionDraftSession.Save(new CaptionDraftEntry(
+                root.JobId,
+                root.Draft,
+                additional));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist retained paid caption recoveries.");
+        }
+    }
+
+    private void RestoreCaptionDraft()
+    {
+        if (_captionDraftSession is null)
+            return;
+
+        CaptionDraftReadResult read;
+        try
+        {
+            read = _captionDraftSession.Read();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to restore the recoverable paid caption result.");
+            read = CaptionDraftReadResult.Unreadable;
+        }
+
+        // Unreadable is not absent. The draft may contain an already-paid request name, so do not
+        // write this scene or begin paid work until it becomes readable.
+        _captionDraftIsUnreadable = read.Outcome == CaptionDraftReadOutcome.Unreadable;
+        CaptionDraftEntry? entry = read.Entry;
+        if (entry is null)
+            return;
+
+        try
+        {
+            _retainedCaptionRecoveries.Clear();
+            _retainedCaptionRecoveries.AddRange(entry.Recoveries);
+            _captionDraftJobId = entry.JobId;
+            CaptionDraft draft = entry.Draft;
+            long draftScopeRevision = Interlocked.Read(ref _captionDraftScopeRevision);
+            var document = new CaptionDocument(RestoreCues(draft.Cues));
+            PartialResultKind kind = draft.Kind == CaptionDraftKind.Translation
+                ? PartialResultKind.Translation
+                : PartialResultKind.Transcription;
+            _partialResult = new RecoverableCaptionResult(
+                document,
+                draft.Language,
+                draft.Segments is null ? null : CloneSegments(draft.Segments),
+                kind,
+                draft.CompletedSteps,
+                draft.TotalSteps,
+                draftScopeRevision);
+
+            if (draft.TranslationResume is { } translation)
+            {
+                try
+                {
+                    TranslationOperation operation = RestoreTranslationOperation(
+                        draft,
+                        Interlocked.Read(ref _captionDocumentRevision),
+                        draftScopeRevision);
+                    // The unfinished batches are named partly by the model the
+                    // run used. Landing on another one would name them
+                    // differently and buy them again.
+                    _restoredTranslationModel =
+                        string.IsNullOrEmpty(translation.RequestKeyModel)
+                            ? null
+                            : new AiModelId(translation.RequestKeyModel);
+                    PreferRestoredModel(
+                        TranslationModelPicker,
+                        _restoredTranslationModel);
+                    _pendingTranslation = operation;
+                    CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
+                        string.Equals(
+                            option.Code,
+                            translation.SelectedSourceLanguage,
+                            StringComparison.Ordinal));
+                    CaptionLanguageOption? targetOption = TargetLanguages.FirstOrDefault(option =>
+                        string.Equals(
+                            option.Code,
+                            translation.TargetLanguage,
+                            StringComparison.Ordinal));
+                    if (sourceOption is not null)
+                        SelectedSourceLanguage.Value = sourceOption;
+                    if (targetOption is not null)
+                        SelectedTargetLanguage.Value = targetOption;
+                    if (draft.CompletedSteps == 0
+                        && translation.RequestKeyNamePending
+                        && _editableCues.Count == 0)
+                    {
+                        ReplaceCues(new CaptionDocument(
+                            operation.SourceDocument.Cues.Select(cue => cue with { })));
+                        operation.ExpectedCaptionRevision = Interlocked.Read(
+                            ref _captionDocumentRevision);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Restored a paid caption draft without resumable translation state.");
+                }
+            }
+
+            if (draft.SceneTranscriptionResume is { } scene
+                && scene.SceneId == _editViewModel?.Scene.Id)
+            {
+                // Scene audio is composed rather than read from a file, so
+                // nothing written down proves the scene still sounds the same.
+                // The server's own fingerprint does: a chunk asked for again is
+                // answered from the job it made when the audio matches, and
+                // refused as a different request when it does not — which is
+                // where the run starts over. Without this, the chunk that was
+                // charged for just before the session ended is bought again.
+                _pendingSceneTranscription = new SceneTranscriptionOperation(
+                    null,
+                    scene.Language,
+                    scene.RangeStart,
+                    scene.Duration,
+                    scene.ChunkDuration,
+                    scene.ChunkCount,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    Interlocked.Read(ref _sceneAudioRevision),
+                    scene.SceneId,
+                    string.IsNullOrEmpty(scene.RequestKeySeed) ? null : scene.RequestKeySeed,
+                    scene.RequestKeyNamePending)
+                {
+                    CompletedChunkCount = scene.CompletedChunkCount,
+                    DetectedLanguage = scene.DetectedLanguage,
+                    RequestKeyModel = scene.RequestKeyModel,
+                };
+                _pendingSceneTranscription.Segments.AddRange(CloneSegments(scene.Segments));
+                _restoredTranscriptionModel =
+                    string.IsNullOrEmpty(scene.RequestKeyModel)
+                        ? null
+                        : new AiModelId(scene.RequestKeyModel);
+                PreferRestoredModel(
+                    TranscriptionModelPicker,
+                    _restoredTranscriptionModel);
+                CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
+                    string.Equals(option.Code, scene.Language, StringComparison.Ordinal));
+                if (sourceOption is not null)
+                    SelectedSourceLanguage.Value = sourceOption;
+            }
+
+            if (draft.SourceTranscriptionResume is { } source)
+            {
+                _pendingSourceTranscription = new SourceTranscriptionOperation(
+                    null,
+                    source.FilePath,
+                    source.ElementId,
+                    source.FileLength,
+                    source.LastWriteTimeUtcTicks,
+                    source.Language,
+                    source.SampleRate,
+                    source.TotalSamples,
+                    source.ChunkSamples,
+                    source.ChunkCount,
+                    Interlocked.Read(ref _captionDocumentRevision),
+                    draftScopeRevision,
+                    string.IsNullOrEmpty(source.RequestKeySeed) ? null : source.RequestKeySeed,
+                    source.RequestKeyNamePending)
+                {
+                    CompletedChunkCount = source.CompletedChunkCount,
+                    DetectedLanguage = source.DetectedLanguage,
+                    RequestKeyModel = source.RequestKeyModel,
+                };
+                _restoredTranscriptionModel =
+                    string.IsNullOrEmpty(source.RequestKeyModel)
+                        ? null
+                        : new AiModelId(source.RequestKeyModel);
+                PreferRestoredModel(
+                    TranscriptionModelPicker,
+                    _restoredTranscriptionModel);
+                _pendingSourceTranscription.SourceSegments.AddRange(CloneSegments(source.Segments));
+                CaptionLanguageOption? sourceOption = SourceLanguages.FirstOrDefault(option =>
+                    string.Equals(option.Code, source.Language, StringComparison.Ordinal));
+                if (sourceOption is not null)
+                    SelectedSourceLanguage.Value = sourceOption;
+            }
+
+            // A draft written the moment its first piece was named holds the
+            // way back to that piece and nothing to apply yet.
+            HasPartialResult.Value = draft.CompletedSteps > 0;
+            PartialResultMessage.Value = draft.CompletedSteps <= 0
+                ? null
+                : draft.CompletedSteps == draft.TotalSteps
+                    ? Strings.AiSubtitle_CompletedResultAvailable
+                    : string.Format(
+                        kind == PartialResultKind.Translation
+                            ? Strings.AiSubtitle_PartialTranslationAvailable
+                            : Strings.AiSubtitle_PartialTranscriptionAvailable,
+                        draft.CompletedSteps,
+                        draft.TotalSteps);
+            // Expose the name held by a restored run to the UI. Otherwise a run that looks empty
+            // because only its first chunk was sent could be overwritten without confirmation.
+            UpdateOutstandingCaptionRequest();
+            _transcriptionEstimateRevision.Value++;
+            RefreshTranslationEstimate();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ignored an invalid recoverable caption draft.");
+            ClearPartialResult();
+        }
+    }
+
+    private static bool SegmentsEqual(
+        IReadOnlyList<AiTranscriptionSegment> first,
+        IReadOnlyList<AiTranscriptionSegment> second)
+    {
+        if (first.Count != second.Count)
+            return false;
+
+        for (int index = 0; index < first.Count; index++)
+        {
+            if (first[index].Start != second[index].Start
+                || first[index].End != second[index].End
+                || first[index].Text != second[index].Text)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static StoredCaptionCue[] StoreCues(IEnumerable<CaptionCue> cues)
+        => cues.Select(cue => new StoredCaptionCue(
+            cue.Start.Ticks,
+            cue.End.Ticks,
+            cue.Text,
+            cue.Speaker,
+            cue.Language,
+            cue.Metadata.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal)))
+            .ToArray();
+
+    private static CaptionCue[] RestoreCues(IEnumerable<StoredCaptionCue> cues)
+        => cues.Select(cue => new CaptionCue(
+            TimeSpan.FromTicks(cue.StartTicks),
+            TimeSpan.FromTicks(cue.EndTicks),
+            cue.Text,
+            cue.Speaker,
+            cue.Language,
+            new CaptionMetadata(cue.Metadata)))
+            .ToArray();
+
+    private void ApplyPartialResultCore()
+    {
+        if (_partialResult is not { } result
+            || !IsCurrentCaptionDraftScope(result.DraftScopeRevision))
+            return;
+
+        _lastCaptionLanguage = result.Language;
+        DetectedLanguageText.Value = CreateDetectedLanguageText(result.Language);
+        if (result.Segments is { } segments)
+        {
+            ResultSegments.Value = CloneSegments(segments);
+        }
+        else
+        {
+            ReplaceCues(new CaptionDocument(result.Document.Cues.Select(cue => cue with { })));
+        }
+
+        if (result.Kind == PartialResultKind.Translation
+            && _pendingTranslation is { } translation)
+        {
+            translation.ExpectedCaptionRevision = Interlocked.Read(ref _captionDocumentRevision);
+        }
+        else if (result.Kind == PartialResultKind.Transcription
+            && _pendingSceneTranscription is { } transcription)
+        {
+            transcription.ExpectedCaptionRevision = Interlocked.Read(ref _captionDocumentRevision);
+        }
+        else if (result.Kind == PartialResultKind.Transcription
+            && _pendingSourceTranscription is { } sourceTranscription)
+        {
+            sourceTranscription.ExpectedCaptionRevision = Interlocked.Read(
+                ref _captionDocumentRevision);
+        }
+        Error.Value = null;
+        if (result.CompletedSteps == result.TotalSteps)
+        {
+            ClearPartialResult();
+        }
+        else
+        {
+            RefreshTranslationEstimate();
+        }
+    }
+
+    private void ClearPartialResult()
+    {
+        ResetCurrentCaptionRecovery();
+        if (_retainedCaptionRecoveries.Count == 0)
+        {
+            try
+            {
+                _captionDraftSession?.Delete();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove the recoverable caption draft.");
+            }
+        }
+        else
+        {
+            PersistRetainedCaptionRecoveries();
+        }
+        _transcriptionEstimateRevision.Value++;
+        RefreshTranslationEstimate();
+    }
+
+    private void InvalidatePartialResultResume()
+    {
+        _transcriptionEstimateRevision.Value++;
+        RefreshTranslationEstimate();
+    }
+
+    private async Task ImportCaptionsCore()
+    {
+        using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
+        if (operationLifetime is null)
+            return;
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage is null)
+            return;
+
+        IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = false,
+            FileTypeFilter = [CreateCaptionFileType(canDecode: true)],
+        });
+        if (files.Count == 0)
+            return;
+
+        try
+        {
+            if (!_captionCodecs.TryGetByFileName(
+                    files[0].Name,
+                    out CaptionCodecInfo? codec)
+                || !codec.CanDecode)
+            {
+                throw new NotSupportedException("No caption codec is registered for this file extension.");
+            }
+            await using Stream stream = await files[0].OpenReadAsync();
+            using var memory = new SizeLimitedMemoryStream(AiCaptionHistoryResultParser.MaximumResultBytes);
+            await stream.CopyToAsync(memory, operationLifetime.CancellationToken);
+            operationLifetime.TryPublish(() => ImportCaptionBytes(memory.ToArray(), codec.Format));
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to import captions.");
+            operationLifetime.TryPublish(() => Error.Value = Strings.AiSubtitle_ImportFailed);
+        }
+    }
+
+    private async Task ExportCaptionsCore()
+    {
+        using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
+        if (operationLifetime is null)
+            return;
+        if (!TryBuildCaptionDocument(out CaptionDocument? document, out _) || document is null)
+            return;
+
+        IStorageProvider? storage = GetStorageProvider();
+        if (storage is null)
+            return;
+
+        IStorageFile? file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            SuggestedFileName = "subtitles.srt",
+            DefaultExtension = "srt",
+            FileTypeChoices = [CreateCaptionFileType(canEncode: true)],
+        });
+        if (file is null)
+            return;
+
+        try
+        {
+            if (!_captionCodecs.TryGetByFileName(
+                    file.Name,
+                    out CaptionCodecInfo? codec)
+                || !codec.CanEncode)
+            {
+                throw new NotSupportedException("No caption codec is registered for this file extension.");
+            }
+            byte[] bytes = ExportCaptionBytes(codec.Format);
+            await WriteCaptionExportAsync(file, bytes, operationLifetime.CancellationToken);
+            operationLifetime.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitle_Exported));
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export captions.");
+            operationLifetime.TryPublish(() => Error.Value = Strings.AiSubtitle_ExportFailed);
+        }
+    }
+
+    private void AddCueCore()
+    {
+        TimeSpan start = _editableCues.LastOrDefault()?.TryCreateCue(out CaptionCue? last) == true
+            ? last!.End
+            : _editViewModel?.Player.CurrentFrame.Value ?? TimeSpan.Zero;
+        var cue = new CaptionCue(start, start + TimeSpan.FromSeconds(2), string.Empty);
+        var item = new EditableCaptionCueViewModel(_editableCues.Count + 1, cue);
+        AttachCue(item);
+        _editableCues.Add(item);
+        MarkCaptionDocumentChanged();
+        SelectedCue.Value = item;
+        RefreshCaptionState();
+    }
+
+    internal bool ImportCaptionBytes(ReadOnlySpan<byte> bytes, CaptionFormatId format)
+    {
+        CaptionImportResult result = _captionSerializer.Import(bytes, format);
+        if (result.Document is null)
+        {
+            Error.Value = result.Diagnostics.FirstOrDefault()?.Message ?? Strings.AiSubtitle_ImportFailed;
+            return false;
+        }
+
+        if (!TryParkCurrentCaptionRecovery())
+        {
+            Error.Value = Strings.AiSubtitle_RunCannotBeRecorded;
+            return false;
+        }
+        if (_retainedCaptionRecoveries.Count == 0)
+            ChangeCaptionDraftJob(null, deleteCurrent: true);
+        else
+            PersistRetainedCaptionRecoveries();
+        _lastCaptionLanguage = null;
+        DetectedLanguageText.Value = null;
+        ReplaceCues(result.Document);
+        Error.Value = result.Diagnostics.FirstOrDefault()?.Message;
+        return true;
+    }
+
+    private void ChangeCaptionDraftJob(string? jobId, bool deleteCurrent)
+    {
+        if (deleteCurrent && _captionDraftSession is not null)
+        {
+            try
+            {
+                _captionDraftSession.Delete();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove the previous recoverable caption draft.");
+            }
+        }
+        if (deleteCurrent)
+            _retainedCaptionRecoveries.Clear();
+        _captionDraftJobId = string.IsNullOrWhiteSpace(jobId) ? null : jobId.Trim();
+    }
+
+    private void HandleCaptionDraftScopeChanged(CaptionDraftScope? scope)
+    {
+        if (_captionDraftScopeInitialized && _captionDraftBaseScope == scope)
+            return;
+
+        bool resetCaptionState = _captionDraftScopeInitialized;
+        _captionDraftScopeInitialized = true;
+        Interlocked.Increment(ref _captionDraftScopeRevision);
+        _captionDraftBaseScope = scope;
+        _captionDraftJobId = null;
+        if (resetCaptionState)
+        {
+            ResetCaptionStateForAccountChange();
+        }
+
+        OpenCaptionDraftSession(scope);
+        RestoreCaptionDraft();
+    }
+
+    // When this run's name can no longer be used because its job vanished or belongs to another
+    // request, retain paid chunks and purchase only the remainder under a new name. Persist that
+    // name so another restoration does not retry the unusable one.
+    private void RetireTranscriptionRunNames()
+    {
+        if (_pendingSourceTranscription is { } source)
+        {
+            if (source.RequestKey.Retire())
+                PublishSourceTranscriptionPartial(source);
+        }
+
+        if (_pendingSceneTranscription is { } scene)
+        {
+            if (scene.RequestKey.Retire())
+                PublishSceneTranscriptionPartial(scene);
+        }
+
+        UpdateOutstandingCaptionRequest();
+    }
+
+    // Whether a caption run has named a piece the server has not been seen to
+    // settle. While it has, asking again may be answered by a job already paid
+    // for, so the button stays live however little is left to spend.
+    // Withdraw a name that ended before dispatch and persist that fact. Leaving it marked as held
+    // would make the next session treat unpaid work as recovery and bypass its balance check.
+    private void WithdrawSourceTranscriptionName(
+        SourceTranscriptionOperation operation,
+        AiRequestName name)
+    {
+        if (!operation.RequestKey.WithdrawAfterNoReservation(name))
+            return;
+        UpdateOutstandingCaptionRequest();
+        PublishSourceTranscriptionPartial(operation);
+    }
+
+    private void WithdrawSceneTranscriptionName(
+        SceneTranscriptionOperation operation,
+        AiRequestName name)
+    {
+        if (!operation.RequestKey.WithdrawAfterNoReservation(name))
+            return;
+        UpdateOutstandingCaptionRequest();
+        PublishSceneTranscriptionPartial(operation);
+    }
+
+    private void WithdrawTranslationName(
+        TranslationOperation operation,
+        AiRequestName name)
+    {
+        if (!operation.RequestKey.WithdrawAfterNoReservation(name))
+            return;
+        UpdateOutstandingCaptionRequest();
+        PublishTranslationPartial(operation);
+    }
+
+    private void UpdateOutstandingCaptionRequest()
+    {
+        if (_disposed)
+            return;
+
+        HasOutstandingTranscriptionRequest.Value =
+            _pendingSourceTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _pendingSourceTranscription is { CompletedChunkCount: > 0 } completedSource
+            && completedSource.CompletedChunkCount == completedSource.ChunkCount
+            || _pendingSceneTranscription is { CompletedChunkCount: > 0 } completedScene
+            && completedScene.CompletedChunkCount == completedScene.ChunkCount;
+        HasOutstandingTranslationRequest.Value =
+            _pendingTranslation?.RequestKey.HasOutstandingName.Value == true
+            || _pendingTranslation is { CompletedBatchCount: > 0 } completedTranslation
+            && completedTranslation.CompletedBatchCount == completedTranslation.Batches.Count
+            || _retainedCaptionRecoveries.Any(entry =>
+                entry.Draft.Kind == CaptionDraftKind.Translation
+                && (entry.Draft.TranslationResume?.RequestKeyNamePending == true
+                    || entry.Draft.CompletedSteps > 0
+                    && entry.Draft.CompletedSteps == entry.Draft.TotalSteps));
+        HasOutstandingTranscriptionRequest.Value |= _retainedCaptionRecoveries.Any(entry =>
+            entry.Draft.Kind == CaptionDraftKind.Transcription
+            && (entry.Draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+                || entry.Draft.SceneTranscriptionResume?.RequestKeyNamePending == true
+                || entry.Draft.CompletedSteps > 0
+                && entry.Draft.CompletedSteps == entry.Draft.TotalSteps));
+    }
+
+    private bool HasPendingTranslationName()
+        => _pendingTranslation?.RequestKey.HasOutstandingName.Value == true
+            || _retainedCaptionRecoveries.Any(entry =>
+                entry.Draft.TranslationResume?.RequestKeyNamePending == true);
+
+    private bool HasPendingTranscriptionName()
+        => _pendingSourceTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _pendingSceneTranscription?.RequestKey.HasOutstandingName.Value == true
+            || _retainedCaptionRecoveries.Any(entry =>
+                entry.Draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+                || entry.Draft.SceneTranscriptionResume?.RequestKeyNamePending == true);
+
+    private IReadOnlyList<AiModelId> OutstandingTranslationModels()
+        => EnumerateOutstandingModels(
+                _pendingTranslation is { } current
+                && (current.RequestKey.HasOutstandingName.Value
+                    || current.CompletedBatchCount > 0
+                    && current.CompletedBatchCount < current.Batches.Count)
+                        ? current.RequestKeyModel
+                        : null,
+                _retainedCaptionRecoveries
+                    .Where(entry => entry.Draft.TranslationResume is { } resume
+                        && (resume.RequestKeyNamePending
+                            || entry.Draft.CompletedSteps > 0
+                            && entry.Draft.CompletedSteps < entry.Draft.TotalSteps))
+                    .Select(entry => entry.Draft.TranslationResume!.RequestKeyModel))
+            .ToArray();
+
+    private IReadOnlyList<AiModelId> OutstandingTranscriptionModels()
+        => EnumerateOutstandingModels(
+                CurrentTranscriptionModel(),
+                _retainedCaptionRecoveries
+                    .Where(entry => entry.Draft.Kind == CaptionDraftKind.Transcription
+                        && (entry.Draft.CompletedSteps > 0
+                            && entry.Draft.CompletedSteps < entry.Draft.TotalSteps
+                            || entry.Draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+                            || entry.Draft.SceneTranscriptionResume?.RequestKeyNamePending == true))
+                    .Select(entry => entry.Draft.SourceTranscriptionResume?.RequestKeyModel
+                        ?? entry.Draft.SceneTranscriptionResume?.RequestKeyModel
+                        ?? string.Empty))
+            .ToArray();
+
+    private string? CurrentTranscriptionModel()
+    {
+        if (_pendingSourceTranscription is { } source
+            && (source.RequestKey.HasOutstandingName.Value
+                || source.CompletedChunkCount > 0
+                && source.CompletedChunkCount < source.ChunkCount))
+        {
+            return source.RequestKeyModel;
+        }
+        if (_pendingSceneTranscription is { } scene
+            && (scene.RequestKey.HasOutstandingName.Value
+                || scene.CompletedChunkCount > 0
+                && scene.CompletedChunkCount < scene.ChunkCount))
+        {
+            return scene.RequestKeyModel;
+        }
+        return null;
+    }
+
+    private static IEnumerable<AiModelId> EnumerateOutstandingModels(
+        string? current,
+        IEnumerable<string> retained)
+        => retained.Prepend(current ?? string.Empty)
+            .Where(model => !string.IsNullOrWhiteSpace(model))
+            .Distinct(StringComparer.Ordinal)
+            .Select(model => new AiModelId(model));
+
+
+
+    private void ClearRestoredModelPreference()
+    {
+        _restoredTranscriptionModel = null;
+        _restoredTranslationModel = null;
+    }
+
+    // A draft can be restored before the pickers have loaded or after, so the
+    // model a run was named for is both remembered for a load still to come and
+    // applied at once to one that has already happened.
+    private static void PreferRestoredModel(
+        AiModelPickerViewModel picker,
+        AiModelId? model)
+    {
+        if (model is not { } wanted)
+            return;
+
+        AiModelPickerOption? option =
+            picker.Options.FirstOrDefault(candidate => candidate.Id == wanted);
+        if (option is not null)
+            picker.Selected.Value = option;
+    }
+
+    private bool IsCurrentCaptionDraftScope(long revision)
+        => revision == Interlocked.Read(ref _captionDraftScopeRevision);
+
+    private void SetCaptionErrorIfCurrent(long revision, string error)
+    {
+        if (!_disposed && IsCurrentCaptionDraftScope(revision))
+        {
+            Error.Value = error;
+        }
+    }
+
+    private void RecordCaptionDraftJob(AiJobId? jobId, long revision)
+    {
+        if (!_disposed
+            && jobId is { } value
+            && value.Value.Length > 0
+            && IsCurrentCaptionDraftScope(revision))
+        {
+            _captionDraftJobId = value.Value;
+        }
+    }
+
+    private void ResetCaptionStateForAccountChange()
+    {
+        _partialResult = null;
+        _pendingTranslation = null;
+        _pendingSceneTranscription = null;
+        _pendingSourceTranscription = null;
+        _retainedCaptionRecoveries.Clear();
+        _pendingHistoryResult = null;
+        _lastCaptionLanguage = null;
+        ClearRestoredModelPreference();
+        UpdateOutstandingCaptionRequest();
+        HasPartialResult.Value = false;
+        HasPendingHistoryResult.Value = false;
+        PartialResultMessage.Value = null;
+        HistoryOverwriteMessage.Value = null;
+        DetectedLanguageText.Value = null;
+        Error.Value = null;
+        IsTranscribing.Value = false;
+        IsTranslating.Value = false;
+        SelectedSubtitlePageIndex.Value = TranscribePageIndex;
+        ResultSegments.Value = null;
+        ReplaceCues(new CaptionDocument());
+        SelectedSourceLanguage.Value = SourceLanguages[0];
+        SelectedTargetLanguage.Value = GetDefaultTargetLanguage();
+        _transcriptionEstimateRevision.Value++;
+        RefreshTranslationEstimate();
+    }
+
+    private CaptionLanguageOption GetDefaultTargetLanguage()
+    {
+        string targetCode = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "en" : "ja";
+        return TargetLanguages.First(option => option.Code == targetCode);
+    }
+
+    // Recheck whether an unreadable draft is now readable. If it contains paid work, writing this
+    // run would overwrite its name and chunks. Claim the scene only after proving the draft empty.
+    private bool CanWriteOverUnreadableDraft()
+    {
+        if (_captionDraftSession is null)
+            return false;
+
+        CaptionDraftReadResult read;
+        try
+        {
+            read = _captionDraftSession.Read();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to re-read a caption draft that could not be read.");
+            return false;
+        }
+
+        if (read.Outcome == CaptionDraftReadOutcome.Unreadable)
+            return false;
+        if (read.Entry is { } entry && HoldsPaidWork(entry))
+            return false;
+
+        _captionDraftIsUnreadable = false;
+        return true;
+    }
+
+    // Take over a released draft only if it contains no paid work. Overwriting another run's name
+    // and chunks mid-execution would make them unreachable and force a repurchase; opening that
+    // scene separately can restore them safely instead.
+    private void TakeOverReleasedCaptionDraft()
+    {
+        OpenCaptionDraftSession(_captionDraftBaseScope);
+        if (_captionDraftSession is null)
+            return;
+
+        CaptionDraftReadResult left;
+        try
+        {
+            left = _captionDraftSession.Read();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read the caption draft left by another tab.");
+            left = CaptionDraftReadResult.Unreadable;
+        }
+
+        // Take over only after proving the draft empty; unreadable is not empty.
+        if (left.Outcome == CaptionDraftReadOutcome.Absent)
+            return;
+        if (left.Entry is { } entry && !HoldsPaidWork(entry))
+            return;
+
+        _captionDraftSession.Dispose();
+        _captionDraftSession = null;
+        _captionDraftScopeIsHeldElsewhere = true;
+    }
+
+    // A draft is protected from overwrite only when it ended with a held name or contains paid
+    // chunks. An unreserved, withdrawn name may leave a seed, but no job, so it need not block takeover.
+    private static bool HoldsPaidWork(CaptionDraft draft)
+        => draft.CompletedSteps > 0
+            || draft.TranslationResume?.RequestKeyNamePending == true
+            || draft.SourceTranscriptionResume?.RequestKeyNamePending == true
+            || draft.SceneTranscriptionResume?.RequestKeyNamePending == true;
+
+    private static bool HoldsPaidWork(CaptionDraftEntry entry)
+        => HoldsPaidWork(entry.Draft)
+            || entry.Recoveries.Any(recovery => HoldsPaidWork(recovery.Draft));
+
+    private void OpenCaptionDraftSession(CaptionDraftScope? scope)
+    {
+        _captionDraftSession?.Dispose();
+        _captionDraftSession = null;
+        // Nothing to write to is not the same as failing to write. Without a
+        // signed-in user, a project and a scene there is no draft at all, and
+        // the screen works the way it did before drafts existed. A scope that
+        // exists and cannot be opened is another tab holding this scene: that
+        // run has somewhere it should be written down and cannot be.
+        _captionDraftScopeIsHeldElsewhere = false;
+        if (scope is null)
+            return;
+
+        if (_captionDraftStore.TryOpen(scope, out ICaptionDraftSession? session))
+        {
+            _captionDraftSession = session;
+        }
+        else
+        {
+            _captionDraftScopeIsHeldElsewhere = true;
+        }
+    }
+
+    internal byte[] ExportCaptionBytes(CaptionFormatId format)
+    {
+        if (!TryBuildCaptionDocument(out CaptionDocument? document, out string? error)
+            || document is null)
+        {
+            throw new CaptionExportException(null, error ?? Strings.AiSubtitle_ExportFailed);
+        }
+        return _captionSerializer.Export(document, format);
+    }
+
+    private void DeleteCueCore()
+    {
+        if (SelectedCue.Value is not { } selected)
+            return;
+
+        int index = _editableCues.IndexOf(selected);
+        if (index < 0)
+            return;
+
+        selected.PropertyChanged -= OnCuePropertyChanged;
+        _editableCues.RemoveAt(index);
+        RenumberCues();
+        MarkCaptionDocumentChanged();
+        SelectedCue.Value = _editableCues.Count == 0
+            ? null
+            : _editableCues[Math.Min(index, _editableCues.Count - 1)];
+        RefreshCaptionState();
+    }
+
+    private void SplitCueCore()
+    {
+        if (SelectedCue.Value is not { } selected
+            || !TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
+            || document is null)
+        {
+            return;
+        }
+
+        int index = _editableCues.IndexOf(selected);
+        if (index < 0)
+            return;
+
+        CaptionCue cue = document[index];
+        int textOffset = selected.CaretIndex;
+        if (!TryGetCueSplitTime(cue, textOffset, out TimeSpan splitTime))
+            return;
+
+        document.SplitCue(index, splitTime, textOffset);
+        ReplaceCues(document);
+        SelectedCue.Value = _editableCues[index + 1];
+    }
+
+    private void MergeCueCore()
+    {
+        if (SelectedCue.Value is not { } selected
+            || !TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
+            || document is null)
+        {
+            return;
+        }
+
+        int index = _editableCues.IndexOf(selected);
+        if (index < 0 || index >= document.Count - 1)
+            return;
+
+        document.MergeWithNext(index);
+        ReplaceCues(document);
+        SelectedCue.Value = _editableCues[index];
+    }
+
+    private void WrapCuesCore()
+    {
+        CaptionTextConstraints constraints = CreateTextConstraints();
+        foreach (EditableCaptionCueViewModel cue in _editableCues)
+        {
+            cue.Text = CaptionTextWrapper.Wrap(cue.Text, constraints);
+        }
+        RefreshCaptionState();
+    }
+
+    private void ApplyTranscriptionSegments(AiTranscriptionSegment[]? segments)
+    {
+        if (_disposed)
+            return;
+
+        if (segments is not { Length: > 0 })
+        {
+            ReplaceCues(new CaptionDocument());
+            return;
+        }
+
+        ReplaceCues(new CaptionDocument(segments.Select(segment => new CaptionCue(
+            TimeSpan.FromSeconds(segment.Start),
+            TimeSpan.FromSeconds(segment.End),
+            segment.Text,
+            language: _lastCaptionLanguage))));
+    }
+
+    private void ReplaceCues(CaptionDocument document)
+    {
+        if (_disposed)
+            return;
+
+        foreach (EditableCaptionCueViewModel cue in _editableCues)
+        {
+            cue.PropertyChanged -= OnCuePropertyChanged;
+        }
+        _editableCues.Clear();
+        for (int index = 0; index < document.Count; index++)
+        {
+            var cue = new EditableCaptionCueViewModel(index + 1, document[index]);
+            AttachCue(cue);
+            _editableCues.Add(cue);
+        }
+        MarkCaptionDocumentChanged();
+        SelectedCue.Value = _editableCues.FirstOrDefault();
+        if (document.Count > 0)
+            SelectedSubtitlePageIndex.Value = EditPageIndex;
+        RefreshCaptionState();
+    }
+
+    private void AttachCue(EditableCaptionCueViewModel cue)
+        => cue.PropertyChanged += OnCuePropertyChanged;
+
+    private void OnCuePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditableCaptionCueViewModel.CaretIndex))
+        {
+            RefreshCueCommandStates();
+            return;
+        }
+
+        if (e.PropertyName != nameof(EditableCaptionCueViewModel.Number))
+        {
+            MarkCaptionDocumentChanged();
+        }
+        RefreshCueCommandStates();
+        RefreshCaptionState();
+    }
+
+    private void MarkCaptionDocumentChanged()
+        => Interlocked.Increment(ref _captionDocumentRevision);
+
+    private void RenumberCues()
+    {
+        for (int index = 0; index < _editableCues.Count; index++)
+        {
+            _editableCues[index].Number = index + 1;
+        }
+    }
+
+    private void RefreshCaptionState()
+    {
+        bool timingValid = TryBuildCaptionDocumentCore(out CaptionDocument? document, out string? parseError);
+        HasTimingValidCues.Value = timingValid && document is { Count: > 0 };
+        if (!timingValid || document is null)
+        {
+            HasValidCues.Value = false;
+            CaptionValidationMessage.Value = parseError;
+        }
+        else
+        {
+            IReadOnlyList<CaptionValidationIssue> issues = CaptionDocumentValidator.Validate(
+                document,
+                CreateTextConstraints());
+            CaptionValidationIssue[] blockingIssues = GetBlockingIssues(issues);
+            HasValidCues.Value = document.Count > 0 && blockingIssues.Length == 0;
+            CaptionValidationMessage.Value = blockingIssues.Length > 0
+                ? string.Format(Strings.AiSubtitle_ValidationIssues, blockingIssues.Length)
+                : issues.Any(issue => issue.Kind == CaptionValidationIssueKind.Overlap)
+                    ? Strings.AiSubtitle_OverlapWarning
+                    : null;
+        }
+
+        RefreshTranslationEstimate();
+        RefreshTemplatePreview();
+    }
+
+    private void RefreshCueCommandStates()
+    {
+        EditableCaptionCueViewModel? selected = SelectedCue.Value;
+        int index = selected is null ? -1 : _editableCues.IndexOf(selected);
+        _canDeleteCue.Value = index >= 0;
+        _canMergeCue.Value = index >= 0
+            && index < _editableCues.Count - 1
+            && TryBuildCaptionDocumentCore(out _, out _);
+        _canSplitCue.Value = index >= 0
+            && TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
+            && document is not null
+            && TryGetCueSplitTime(document[index], selected!.CaretIndex, out _);
+    }
+
+    private static bool TryGetCueSplitTime(
+        CaptionCue cue,
+        int textOffset,
+        out TimeSpan splitTime)
+    {
+        splitTime = default;
+        if (textOffset <= 0 || textOffset >= cue.Text.Length)
+            return false;
+
+        int[] boundaries = StringInfo.ParseCombiningCharacters(cue.Text);
+        int boundaryIndex = Array.BinarySearch(boundaries, textOffset);
+        long durationTicks = (cue.End - cue.Start).Ticks;
+        if (boundaryIndex <= 0 || durationTicks <= 1)
+            return false;
+
+        long offsetTicks = (long)Math.Round(
+            durationTicks * (boundaryIndex / (double)boundaries.Length),
+            MidpointRounding.AwayFromZero);
+        offsetTicks = Math.Clamp(offsetTicks, 1, durationTicks - 1);
+        splitTime = cue.Start + TimeSpan.FromTicks(offsetTicks);
+        return true;
+    }
+
+    private void RefreshTranslationEstimate()
+    {
+        if (_disposed)
+            return;
+
+        _translationEstimateRevision.Value++;
+    }
+
+    private void RefreshTranslationAvailability()
+    {
+        AiOperationAvailabilityRequest? request = null;
+        if (_pendingTranslation is { } operation
+            && operation.CompletedBatchCount < operation.Batches.Count
+            && operation.ExpectedCaptionRevision == Interlocked.Read(ref _captionDocumentRevision)
+            && IsCurrentCaptionDraftScope(operation.ExpectedDraftScopeRevision)
+            && string.Equals(
+                operation.TargetLanguage,
+                SelectedTargetLanguage.Value.Code,
+                StringComparison.Ordinal)
+            && string.Equals(
+                operation.SelectedSourceLanguage,
+                SelectedSourceLanguage.Value.Code,
+                StringComparison.Ordinal))
+        {
+            request = CreateTranslationAvailabilityRequest(
+                operation.Batches[operation.CompletedBatchCount],
+                limits: operation.Limits);
+        }
+        else if (TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
+                 && document is { Count: > 0 }
+                 && SelectedTargetLanguage.Value.Code is { } targetLanguage)
+        {
+            AiCaptionTranslationLimits limits =
+                TranslationModelPicker.CaptionTranslationLimits;
+            request = CreateTranslationBatches(
+                    document,
+                    SelectedSourceLanguage.Value.Code ?? _lastCaptionLanguage,
+                    targetLanguage,
+                    TranslationModelPicker.SelectedModel,
+                    limits)
+                .FirstOrDefault() is { } batch
+                ? CreateTranslationAvailabilityRequest(batch, limits: limits)
+                : null;
+        }
+
+        _translationAvailability.Check(request);
+    }
+
+    private void RefreshTemplatePreview()
+    {
+        if (_disposed)
+            return;
+
+        if (SelectedSubtitlePageIndex.Value != EditPageIndex)
+        {
+            CancellationTokenSource? previewCts;
+            lock (_templatePreviewGate)
+            {
+                previewCts = _templatePreviewCts;
+                _templatePreviewCts = null;
+            }
+            CancelTemplatePreview(previewCts);
+            ReplaceTemplatePreviewImage(null);
+            return;
+        }
+
+        string text = SelectedCue.Value?.Text
+            ?? _editableCues.FirstOrDefault()?.Text
+            ?? Strings.AiSubtitle_PreviewSample;
+        TemplatePreviewText.Value = string.IsNullOrWhiteSpace(text)
+            ? Strings.AiSubtitle_PreviewSample
+            : text;
+        TemplatePreviewFontSize.Value = 24;
+        CaptionCue cue = SelectedCue.Value?.TryCreateCue(out CaptionCue? selectedCue) == true
+            && selectedCue is not null
+            ? string.IsNullOrWhiteSpace(selectedCue.Text)
+                ? selectedCue with { Text = TemplatePreviewText.Value }
+                : selectedCue
+            : new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(2), TemplatePreviewText.Value);
+        if (Volatile.Read(ref _templatePreviewAttachments) > 0)
+            RefreshTemplatePreviewImage(cue);
+    }
+
+    internal void AttachTemplatePreview()
+    {
+        bool refresh;
+        lock (_templatePreviewGate)
+        {
+            if (_disposed)
+                return;
+
+            _templatePreviewAttachments++;
+            refresh = _templatePreviewAttachments == 1;
+        }
+        if (refresh)
+            RefreshTemplatePreview();
+    }
+
+    internal void DetachTemplatePreview()
+    {
+        CancellationTokenSource? previewCts;
+        lock (_templatePreviewGate)
+        {
+            if (_templatePreviewAttachments <= 0)
+                return;
+
+            _templatePreviewAttachments--;
+            if (_templatePreviewAttachments > 0)
+                return;
+
+            previewCts = _templatePreviewCts;
+            _templatePreviewCts = null;
+        }
+
+        CancelTemplatePreview(previewCts);
+        if (!_disposed)
+            ReplaceTemplatePreviewImage(null);
+    }
+
+    private void RefreshTemplatePreviewImage(CaptionCue cue)
+    {
+        BeforeTemplatePreviewAdmission?.Invoke();
+        CancellationTokenSource cts = new();
+        CancellationTokenSource? previous;
+        AsyncOperationLifetime.Operation? operation;
+        lock (_templatePreviewGate)
+        {
+            if (_disposed
+                || _templatePreviewAttachments <= 0
+                || SelectedSubtitlePageIndex.Value != EditPageIndex)
+            {
+                cts.Dispose();
+                return;
+            }
+
+            operation = _operations.TryEnter();
+            if (operation is null)
+            {
+                cts.Dispose();
+                return;
+            }
+
+            previous = _templatePreviewCts;
+            _templatePreviewCts = cts;
+        }
+
+        CancelTemplatePreview(previous);
+        if (!operation.TryPublish(() => ReplaceTemplatePreviewImage(null)))
+        {
+            lock (_templatePreviewGate)
+            {
+                if (ReferenceEquals(_templatePreviewCts, cts))
+                    _templatePreviewCts = null;
+            }
+            operation.Dispose();
+            cts.Dispose();
+            return;
+        }
+        CaptionTemplateId templateId = SelectedCaptionTemplate.Value.Id;
+        Beutl.Media.PixelSize frameSize = _editViewModel is { } editor
+            ? new Beutl.Media.PixelSize(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height)
+            : new Beutl.Media.PixelSize(1920, 1080);
+        _ = RenderTemplatePreviewImageAsync(cue, templateId, frameSize, cts, operation);
+    }
+
+    private async Task RenderTemplatePreviewImageAsync(
+        CaptionCue cue,
+        CaptionTemplateId templateId,
+        Beutl.Media.PixelSize frameSize,
+        CancellationTokenSource cts,
+        AsyncOperationLifetime.Operation operation)
+    {
+        using AsyncOperationLifetime.Operation ownedOperation = operation;
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cts.Token,
+            ownedOperation.CancellationToken);
+        CancellationToken cancellationToken = linkedCts.Token;
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            var elements = new List<Element>();
+            using (CaptionTemplateLease template = _captionTemplates.Acquire(
+                       templateId))
+            {
+                CaptionElementContext context = new(
+                    0,
+                    Strings.AiSubtitle,
+                    new Beutl.Graphics.Point(
+                        0,
+                        frameSize.Height * 0.35f));
+                foreach (ElementDescription description in template.CreateElements(cue, context))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Element element;
+                    switch (description.Source)
+                    {
+                        case ElementSource.EngineObject source:
+                            element = new Element
+                            {
+                                Start = description.Start,
+                                Length = description.Length ?? TimeSpan.FromSeconds(2),
+                                ZIndex = description.Layer,
+                            };
+                            element.AddObject(source.Factory());
+                            break;
+                        case ElementSource.ElementTemplate source:
+                            element = source.Factory()
+                                ?? throw new InvalidOperationException("The element-template factory returned null.");
+                            element.Start = description.Start;
+                            if (description.Length is { } length)
+                                element.Length = length;
+                            element.ZIndex = description.Layer;
+                            break;
+                        default:
+                            return;
+                    }
+
+                    if (description.Position is { } position)
+                    {
+                        foreach (Beutl.Graphics.Drawable drawable in element.Objects.OfType<Beutl.Graphics.Drawable>())
+                        {
+                            Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.CurrentValue;
+                            Beutl.Helpers.AddOrSetHelper.AddOrSet(
+                                ref transform,
+                                new Beutl.Graphics.Transformation.TranslateTransform(position));
+                            drawable.Transform.CurrentValue = transform;
+                        }
+                    }
+
+                    elements.Add(element);
+                }
+                if (elements.Count == 0)
+                    return;
+
+                byte[]? png = await TemplatePreviewRenderer(
+                        elements,
+                        frameSize,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                Ref<Beutl.Media.Bitmap>? image = null;
+                if (png is { Length: > 0 })
+                {
+                    using var stream = new MemoryStream(png, writable: false);
+                    image = Ref<Beutl.Media.Bitmap>.Create(Beutl.Media.Bitmap.FromStream(stream));
+                }
+
+                bool transferred = false;
+                try
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (!cancellationToken.IsCancellationRequested
+                            && SelectedSubtitlePageIndex.Value == EditPageIndex
+                            && ownedOperation.TryPublish(() => ReplaceTemplatePreviewImage(image)))
+                        {
+                            transferred = true;
+                        }
+                    });
+                }
+                finally
+                {
+                    if (!transferred)
+                        image?.Dispose();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to render a subtitle template preview.");
+        }
+        finally
+        {
+            lock (_templatePreviewGate)
+            {
+                if (ReferenceEquals(_templatePreviewCts, cts))
+                    _templatePreviewCts = null;
+            }
+            cts.Dispose();
+        }
+    }
+
+    private void StopTemplatePreviewAdmission()
+        => CancelTemplatePreview(CloseTemplatePreviewAdmission());
+
+    private CancellationTokenSource? CloseTemplatePreviewAdmission()
+    {
+        lock (_templatePreviewGate)
+        {
+            _templatePreviewAttachments = 0;
+            CancellationTokenSource? previewCts = _templatePreviewCts;
+            _templatePreviewCts = null;
+            return previewCts;
+        }
+    }
+
+    private void ReplaceTemplatePreviewImage(Ref<Beutl.Media.Bitmap>? image)
+    {
+        Ref<Beutl.Media.Bitmap>? previous = TemplatePreviewImage.Value;
+        TemplatePreviewImage.Value = image;
+        previous?.Dispose();
+    }
+
+    private void CancelTemplatePreview(CancellationTokenSource? cancellation)
+    {
+        try
+        {
+            cancellation?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to cancel a superseded subtitle template preview.");
+        }
+    }
+
+    internal bool TryBuildCaptionDocument(out CaptionDocument? document, out string? error)
+    {
+        if (!TryBuildCaptionDocumentCore(out document, out error) || document is null)
+            return false;
+
+        IReadOnlyList<CaptionValidationIssue> issues = CaptionDocumentValidator.Validate(
+            document,
+            CreateTextConstraints());
+        CaptionValidationIssue[] blockingIssues = GetBlockingIssues(issues);
+        if (blockingIssues.Length > 0)
+        {
+            error = string.Format(Strings.AiSubtitle_ValidationIssues, blockingIssues.Length);
+            return false;
+        }
+        return document.Count > 0;
+    }
+
+    private bool TryBuildCaptionDocumentCore(out CaptionDocument? document, out string? error)
+    {
+        var cues = new List<CaptionCue>(_editableCues.Count);
+        foreach (EditableCaptionCueViewModel item in _editableCues)
+        {
+            if (!item.TryCreateCue(out CaptionCue? cue) || cue is null)
+            {
+                document = null;
+                error = Strings.AiSubtitle_InvalidTiming;
+                return false;
+            }
+            cues.Add(cue);
+        }
+        document = new CaptionDocument(cues);
+        error = null;
+        return true;
+    }
+
+    private CaptionTextConstraints CreateTextConstraints()
+        => new(Math.Max(MaximumLineLength.Value, 1), Math.Max(MaximumLineCount.Value, 1));
+
+    private static CaptionValidationIssue[] GetBlockingIssues(
+        IReadOnlyList<CaptionValidationIssue> issues)
+        => issues.Where(issue => issue.Kind != CaptionValidationIssueKind.Overlap).ToArray();
+
+    // The line the model has just translated, shown while the rest is still
+    // being worked on. It is a preview: what ends up on the cues is the batch
+    // the server returns, checked as it always was.
+    private void ShowTranslatedLine(AiCaptionTranslationSegment segment)
+    {
+        if (_disposed || string.IsNullOrEmpty(segment.Text))
+            return;
+
+        TranslationPreview.Value = segment.Text;
+        TranslatedLineCount.Value++;
+    }
+
+    // The name the chunk is uploaded under. Part of what the server fingerprints
+    // the request by, so it has to be the same on every attempt at one chunk;
+    // the file it is read from is named for uniqueness on disk instead.
+    private static string FormatChunkFileName(string prefix, int chunkIndex)
+        => $"{prefix}-chunk-{chunkIndex:D4}.wav";
+
+    private static IReadOnlyList<CaptionLanguageOption> CreateLanguageOptions(bool includeAuto)
+    {
+        var result = new List<CaptionLanguageOption>();
+        if (includeAuto)
+        {
+            result.Add(new CaptionLanguageOption(null, Strings.AiLanguageAuto));
+        }
+        result.AddRange(
+        [
+            new CaptionLanguageOption("ja", "日本語 (ja)"),
+            new CaptionLanguageOption("en", "English (en)"),
+            new CaptionLanguageOption("zh", "中文 (zh)"),
+            new CaptionLanguageOption("ko", "한국어 (ko)"),
+            new CaptionLanguageOption("es", "Español (es)"),
+            new CaptionLanguageOption("fr", "Français (fr)"),
+            new CaptionLanguageOption("de", "Deutsch (de)"),
+            new CaptionLanguageOption("pt", "Português (pt)"),
+            new CaptionLanguageOption("it", "Italiano (it)"),
+            new CaptionLanguageOption("ru", "Русский (ru)"),
+            new CaptionLanguageOption("ar", "العربية (ar)"),
+            new CaptionLanguageOption("hi", "हिन्दी (hi)"),
+        ]);
+        return result;
+    }
+
+    private AiOperationAvailabilityRequest? CreateTranscriptionAvailabilityRequest(
+        AudioSourceItem? source)
+    {
+        if (source is null)
+            return null;
+        TimeSpan duration = source.Duration;
+        TimeSpan rangeStart = TimeSpan.Zero;
+        if (source.IsSceneMix
+            && (!TryGetSceneRange(out rangeStart, out duration) || duration <= TimeSpan.Zero))
+        {
+            return null;
+        }
+        if (source.IsSceneMix)
+        {
+            int chunkCount = (int)Math.Ceiling(
+                duration.TotalSeconds / SceneMixChunkDuration.TotalSeconds);
+            int completed = CanResumeSceneTranscription(
+                source,
+                SelectedSourceLanguage.Value.Code,
+                rangeStart,
+                duration,
+                chunkCount)
+                ? _pendingSceneTranscription!.CompletedChunkCount
+                : 0;
+            TimeSpan offset = TimeSpan.FromTicks(Math.Min(
+                duration.Ticks,
+                completed * SceneMixChunkDuration.Ticks));
+            duration = TimeSpan.FromTicks(Math.Min(
+                SceneMixChunkDuration.Ticks,
+                duration.Ticks - offset.Ticks));
+        }
+        else
+        {
+            duration = duration <= TimeSpan.Zero
+                ? duration
+                : TimeSpan.FromTicks(Math.Min(duration.Ticks, SceneMixChunkDuration.Ticks));
+        }
+        return duration > TimeSpan.Zero
+            ? new AiOperationAvailabilityRequest.Transcription(
+                duration.TotalSeconds,
+                TranscriptionModelPicker.SelectedModel)
+            : null;
+    }
+
+    private AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
+        TranslationBatch batch,
+        AiModelId? model = null,
+        AiCaptionTranslationLimits? limits = null)
+        // What the batch will actually be sent to. A run in progress is priced
+        // against the model its names were built from, not against whichever the
+        // picker is showing now.
+        => new(
+            batch.Pieces.Sum(piece => piece.Text.Length),
+            model ?? TranslationModelPicker.SelectedModel,
+            limits ?? TranslationModelPicker.CaptionTranslationLimits);
+
+    // The model a run is named for. The picker's until the run has named
+    // anything, and from then on the run's own — including when the run named
+    // its pieces with no model at all, which is not the same as having named
+    // nothing yet.
+    private static AiModelId? ModelOfRun(
+        bool hasNamedAnything,
+        string recorded,
+        AiModelId? selected)
+        => !hasNamedAnything
+            ? selected
+            : string.IsNullOrEmpty(recorded)
+                ? null
+                : new AiModelId(recorded);
+
+    private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
+    {
+        AiOperationAvailabilityTracker tracker = request is AiOperationAvailabilityRequest.Translation
+            ? _translationAvailability
+            : _transcriptionAvailability;
+        if (!await tracker.CheckNowAsync(request, RequestToken))
+            throw new AiUsageLimitExceededException();
+    }
+
+    // The transcribed range is the scene's own: the tab has nothing to add to
+    // what the timeline already says about where the work starts and ends.
+    private bool TryGetSceneRange(out TimeSpan start, out TimeSpan duration)
+    {
+        start = _editViewModel?.Scene.Start ?? TimeSpan.Zero;
+        duration = _editViewModel?.Scene.Duration ?? TimeSpan.Zero;
+        return _editViewModel is not null && start >= TimeSpan.Zero && duration > TimeSpan.Zero;
+    }
+
+    private IObservable<TimeSpan> CreateSceneRangeObservable()
+        => _editViewModel is { } editor
+            ? editor.Scene.GetObservable(Scene.StartProperty)
+                .CombineLatest(
+                    editor.Scene.GetObservable(Scene.DurationProperty),
+                    (start, duration) => start < TimeSpan.Zero ? TimeSpan.Zero : duration)
+            : Observable.Return(TimeSpan.Zero);
+
+    private static string? CreateDetectedLanguageText(string? language)
+        => string.IsNullOrWhiteSpace(language)
+            ? null
+            : string.Format(Strings.AiSubtitle_DetectedLanguage, language);
+
+    private static List<TranslationBatch> CreateTranslationBatches(
+        CaptionDocument document,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
+    {
+        var pieces = new List<TranslationPiece>();
+        for (int cueIndex = 0; cueIndex < document.Count; cueIndex++)
+        {
+            CaptionCue cue = document[cueIndex];
+            if (string.IsNullOrWhiteSpace(cue.Text))
+                continue;
+
+            int offset = 0;
+            int partIndex = 0;
+            while (offset < cue.Text.Length)
+            {
+                int maximumLength = Math.Min(
+                    limits.MaxCharacters,
+                    cue.Text.Length - offset);
+                int length = LargestTranslationPieceLength(
+                    cue,
+                    cueIndex,
+                    partIndex,
+                    offset,
+                    maximumLength,
+                    sourceLanguage,
+                    targetLanguage,
+                    model,
+                    limits);
+                if (length <= 0)
+                    throw new SubtitleInputException(Strings.AiFileTooLarge);
+
+                pieces.Add(CreateTranslationPiece(
+                    cue,
+                    cueIndex,
+                    partIndex,
+                    cue.Text.Substring(offset, length),
+                    limits));
+                offset += length;
+                partIndex++;
+            }
+        }
+
+        var batches = new List<TranslationBatch>();
+        int start = 0;
+        while (start < pieces.Count)
+        {
+            int candidateCount = 0;
+            int characters = 0;
+            while (start + candidateCount < pieces.Count
+                   && candidateCount < limits.MaxSegments
+                   && characters + pieces[start + candidateCount].Text.Length
+                   <= limits.MaxCharacters)
+            {
+                characters += pieces[start + candidateCount].Text.Length;
+                candidateCount++;
+            }
+
+            int count = LargestTranslationBatchPrefix(
+                pieces,
+                start,
+                candidateCount,
+                sourceLanguage,
+                targetLanguage,
+                model,
+                limits);
+            if (count <= 0)
+                throw new SubtitleInputException(Strings.AiFileTooLarge);
+
+            batches.Add(new TranslationBatch(pieces.GetRange(start, count).ToArray()));
+            start += count;
+        }
+        return batches;
+    }
+
+    private static int LargestTranslationPieceLength(
+        CaptionCue cue,
+        int cueIndex,
+        int partIndex,
+        int offset,
+        int maximumLength,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
+    {
+        int low = 1;
+        int high = maximumLength;
+        int best = 0;
+        while (low <= high)
+        {
+            int midpoint = low + ((high - low) / 2);
+            int length = KeepSurrogatePairTogether(cue.Text, offset, midpoint);
+            if (length <= 0)
+            {
+                low = midpoint + 1;
+                continue;
+            }
+
+            TranslationPiece piece = CreateTranslationPiece(
+                cue,
+                cueIndex,
+                partIndex,
+                cue.Text.Substring(offset, length),
+                limits);
+            if (TranslationBatchFits(
+                    [piece],
+                    sourceLanguage,
+                    targetLanguage,
+                    model,
+                    limits))
+            {
+                best = Math.Max(best, length);
+                low = midpoint + 1;
+            }
+            else
+            {
+                high = midpoint - 1;
+            }
+        }
+        return best;
+    }
+
+    private static int LargestTranslationBatchPrefix(
+        List<TranslationPiece> pieces,
+        int start,
+        int maximumCount,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
+    {
+        int low = 1;
+        int high = maximumCount;
+        int best = 0;
+        while (low <= high)
+        {
+            int count = low + ((high - low) / 2);
+            if (TranslationBatchFits(
+                    pieces.GetRange(start, count),
+                    sourceLanguage,
+                    targetLanguage,
+                    model,
+                    limits))
+            {
+                best = count;
+                low = count + 1;
+            }
+            else
+            {
+                high = count - 1;
+            }
+        }
+        return best;
+    }
+
+    private static bool TranslationBatchFits(
+        IReadOnlyList<TranslationPiece> pieces,
+        string? sourceLanguage,
+        string targetLanguage,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
+    {
+        try
+        {
+            _ = new AiCaptionTranslationRequest(
+                pieces.Select(piece => new AiCaptionTranslationSegment
+                {
+                    Id = piece.Id,
+                    Text = piece.Text,
+                    Context = new AiCaptionTranslationSegmentContext(
+                        piece.GroupId,
+                        piece.ContextPartIndex,
+                        piece.Start,
+                        piece.End),
+                }).ToArray(),
+                targetLanguage,
+                sourceLanguage,
+                model: model,
+                limits: limits);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static TranslationPiece CreateTranslationPiece(
+        CaptionCue cue,
+        int cueIndex,
+        int partIndex,
+        string text,
+        AiCaptionTranslationLimits limits)
+    {
+        int contextGroup = partIndex / limits.MaxSegments;
+        return new TranslationPiece(
+            cueIndex,
+            partIndex,
+            partIndex % limits.MaxSegments,
+            $"c{cueIndex}-p{partIndex}",
+            contextGroup == 0 ? $"c{cueIndex}" : $"c{cueIndex}-g{contextGroup}",
+            cue.Start,
+            cue.End,
+            text);
+    }
+
+    private static int KeepSurrogatePairTogether(string text, int offset, int length)
+        => offset + length < text.Length
+            && char.IsHighSurrogate(text[offset + length - 1])
+            && char.IsLowSurrogate(text[offset + length])
+                ? length - 1
+                : length;
+
+    internal static SpeechWaveChunkResult WriteSpeechWave(
+        MediaReader reader,
+        int startSample,
+        int requestedSamples,
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(stream);
+        if (startSample < 0)
+            throw new ArgumentOutOfRangeException(nameof(startSample));
+        if (requestedSamples <= 0)
+            throw new ArgumentOutOfRangeException(nameof(requestedSamples));
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!stream.CanWrite || !stream.CanSeek)
+        {
+            throw new ArgumentException(
+                "The destination stream must be writable and seekable.",
+                nameof(stream));
+        }
+
+        int sourceRate = reader.AudioInfo.SampleRate;
+        if (sourceRate <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        const int outputRate = 16_000;
+        const int waveHeaderLength = 44;
+        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
+        writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+        writer.Write(0);
+        writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)1);
+        writer.Write(outputRate);
+        writer.Write(outputRate * sizeof(short));
+        writer.Write((short)sizeof(short));
+        writer.Write((short)16);
+        writer.Write(Encoding.ASCII.GetBytes("data"));
+        writer.Write(0);
+
+        int sourceSamplesWritten = 0;
+        int outputSamplesWritten = 0;
+        int decodeBlockSize = Math.Max(1, Math.Min(sourceRate, requestedSamples));
+        double nextOutputSourcePosition = 0;
+        while (sourceSamplesWritten < requestedSamples)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int length = Math.Min(decodeBlockSize, requestedSamples - sourceSamplesWritten);
+            if (!reader.ReadAudio(
+                    checked(startSample + sourceSamplesWritten),
+                    length,
+                    out Ref<IPcm>? audioRef))
+            {
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+            }
+
+            using (audioRef)
+            {
+                if (audioRef.Value is not Pcm<Stereo32BitFloat> pcm)
+                    throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+                int decodedSamples = Math.Min(pcm.NumSamples, length);
+                if (decodedSamples == 0)
+                    break;
+
+                Span<Stereo32BitFloat> source = pcm.DataSpan[..decodedSamples];
+                double blockEnd = sourceSamplesWritten + decodedSamples;
+                while (nextOutputSourcePosition < blockEnd)
+                {
+                    int sourceIndex = Math.Clamp(
+                        (int)Math.Floor(nextOutputSourcePosition - sourceSamplesWritten),
+                        0,
+                        decodedSamples - 1);
+                    Stereo32BitFloat sample = source[sourceIndex];
+                    double mono = (sample.Left + sample.Right) / 2d;
+                    mono = double.IsFinite(mono) ? Math.Clamp(mono, -1, 1) : 0;
+                    writer.Write((short)Math.Round(mono * short.MaxValue));
+                    outputSamplesWritten++;
+                    nextOutputSourcePosition = outputSamplesWritten * (double)sourceRate / outputRate;
+                }
+                sourceSamplesWritten += decodedSamples;
+                if (decodedSamples < length)
+                    break;
+            }
+        }
+
+        if (sourceSamplesWritten == 0 || outputSamplesWritten == 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+        int dataLength = checked(outputSamplesWritten * sizeof(short));
+        stream.Position = 4;
+        writer.Write(checked(waveHeaderLength - 8 + dataLength));
+        stream.Position = 40;
+        writer.Write(dataLength);
+        stream.Position = waveHeaderLength + dataLength;
+        return new SpeechWaveChunkResult(
+            sourceSamplesWritten,
+            outputSamplesWritten,
+            TimeSpan.FromSeconds(sourceSamplesWritten / (double)sourceRate));
+    }
+
+    /// <summary>
+    /// Writes one 16-bit mono PCM wave from as many composed slices as it is
+    /// handed. The slices are separate calls because a whole upload chunk cannot
+    /// be composed at once (see <see cref="SceneMixComposeSlice"/>), and the
+    /// resampling position carries across them so a slice boundary neither drops
+    /// a sample nor shifts the ones after it.
+    /// </summary>
+    internal sealed class SpeechWaveWriter(Stream stream)
+    {
+        private const int WaveHeaderLength = 44;
+        private const int MaximumOutputRate = 16_000;
+        private readonly Stream _stream = stream;
+        private int _sourceRate;
+        private int _outputRate;
+        private long _sourceFramesWritten;
+        private double _nextOutputSourcePosition;
+        private int _outputSampleCount;
+
+        public void Append(AudioFrameSnapshot snapshot, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(snapshot);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (snapshot.SampleRate <= 0 || snapshot.ChannelCount <= 0 || snapshot.SampleCount <= 0)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+            if (_sourceRate == 0)
+            {
+                _sourceRate = snapshot.SampleRate;
+                _outputRate = Math.Min(_sourceRate, MaximumOutputRate);
+                WriteHeader();
+            }
+            else if (snapshot.SampleRate != _sourceRate)
+            {
+                // Resampling assumes one rate for the whole wave; a slice at another
+                // rate would land its samples at the wrong time.
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+            }
+
+            using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
+            long sliceStart = _sourceFramesWritten;
+            long sliceEnd = sliceStart + snapshot.SampleCount;
+            while (_nextOutputSourcePosition < sliceEnd)
+            {
+                if ((_outputSampleCount & 4095) == 0)
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                int frame = (int)Math.Clamp(
+                    (long)Math.Floor(_nextOutputSourcePosition) - sliceStart,
+                    0,
+                    snapshot.SampleCount - 1);
+                double mono = 0;
+                for (int channel = 0; channel < snapshot.ChannelCount; channel++)
+                {
+                    float sample = snapshot.Interleaved[(frame * snapshot.ChannelCount) + channel];
+                    mono += float.IsFinite(sample) ? sample : 0;
+                }
+
+                mono = Math.Clamp(mono / snapshot.ChannelCount, -1, 1);
+                writer.Write((short)Math.Round(mono * short.MaxValue));
+                _outputSampleCount++;
+                _nextOutputSourcePosition = _outputSampleCount * (double)_sourceRate / _outputRate;
+            }
+
+            _sourceFramesWritten = sliceEnd;
+        }
+
+        public void Complete()
+        {
+            if (_outputSampleCount == 0)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+
+            int dataLength = checked(_outputSampleCount * sizeof(short));
+            using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
+            _stream.Position = 4;
+            writer.Write(checked(WaveHeaderLength - 8 + dataLength));
+            _stream.Position = 40;
+            writer.Write(dataLength);
+            _stream.Position = WaveHeaderLength + dataLength;
+        }
+
+        private void WriteHeader()
+        {
+            using var writer = new BinaryWriter(_stream, Encoding.ASCII, leaveOpen: true);
+            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
+            writer.Write(0);
+            writer.Write(Encoding.ASCII.GetBytes("WAVEfmt "));
+            writer.Write(16);
+            writer.Write((short)1);
+            writer.Write((short)1);
+            writer.Write(_outputRate);
+            writer.Write(_outputRate * sizeof(short));
+            writer.Write((short)sizeof(short));
+            writer.Write((short)16);
+            writer.Write(Encoding.ASCII.GetBytes("data"));
+            writer.Write(0);
+        }
+    }
+
+    private static async Task WriteCaptionExportAsync(
+        IStorageFile file,
+        byte[] bytes,
+        CancellationToken cancellationToken)
+    {
+        Uri path = file.Path;
+        if (path.IsFile && !string.IsNullOrWhiteSpace(path.LocalPath))
+        {
+            string destinationPath = path.LocalPath;
+            string temporaryPath = destinationPath + $".{Guid.NewGuid():N}.tmp";
+            try
+            {
+                var options = new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.WriteThrough,
+                };
+                if (!OperatingSystem.IsWindows())
+                    options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+                await using (var stream = new FileStream(temporaryPath, options))
+                {
+                    await stream.WriteAsync(bytes, cancellationToken);
+                    await stream.FlushAsync(cancellationToken);
+                    stream.Flush(flushToDisk: true);
+                }
+
+                File.Move(temporaryPath, destinationPath, overwrite: true);
+            }
+            finally
+            {
+                try { File.Delete(temporaryPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        else
+        {
+            await using Stream stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await stream.WriteAsync(bytes, cancellationToken);
+        }
+    }
+
+    private FilePickerFileType CreateCaptionFileType(
+        bool canDecode = false,
+        bool canEncode = false)
+        => new(Strings.AiSubtitle_CaptionFiles)
+        {
+            Patterns = _captionCodecs.Codecs
+                .Where(codec => (!canDecode || codec.CanDecode)
+                    && (!canEncode || codec.CanEncode))
+                .SelectMany(codec => codec.FileExtensions)
+                .Select(extension => $"*{extension}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(pattern => pattern, StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            MimeTypes = ["text/plain", "application/octet-stream"],
+        };
+
+    private static IStorageProvider? GetStorageProvider()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } window })
+        {
+            return null;
+        }
+        return TopLevel.GetTopLevel(window)?.StorageProvider;
+    }
+
+    private sealed record TranslationPiece(
+        int CueIndex,
+        int PartIndex,
+        int ContextPartIndex,
+        string Id,
+        string GroupId,
+        TimeSpan Start,
+        TimeSpan End,
+        string Text);
+
+    private sealed record TranslationBatch(IReadOnlyList<TranslationPiece> Pieces);
+
+    private sealed class TranslationOperation(
+        CaptionDocument sourceDocument,
+        long expectedCaptionRevision,
+        string? sourceLanguage,
+        string? selectedSourceLanguage,
+        string targetLanguage,
+        long expectedDraftScopeRevision,
+        AiCaptionTranslationLimits limits,
+        IReadOnlyList<TranslationBatch> batches,
+        string? requestKeySeed = null,
+        bool requestKeyNamePending = false)
+    {
+        public CaptionDocument SourceDocument { get; } = sourceDocument;
+
+        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
+
+        public string? SourceLanguage { get; } = sourceLanguage;
+
+        public string? SelectedSourceLanguage { get; } = selectedSourceLanguage;
+
+        public string TargetLanguage { get; } = targetLanguage;
+
+        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
+
+        public AiCaptionTranslationLimits Limits { get; } = limits;
+
+        public IReadOnlyList<TranslationBatch> Batches { get; } = batches;
+
+        /// <summary>
+        /// Names this run's requests, one key per batch. Restored with the rest
+        /// of the resume state so a batch resumed after a restart asks for the
+        /// translation it already paid for instead of buying a second one.
+        /// </summary>
+        public AiRequestKey RequestKey { get; } = new(requestKeySeed, requestKeyNamePending);
+
+        public string RequestKeySeed => RequestKey.Seed;
+
+
+        /// <summary>The model the names handed out so far were built from.</summary>
+        public string RequestKeyModel { get; set; } = string.Empty;
+
+        public AiRequestName RequestNameFor(int batchIndex, AiModelId? model)
+        {
+            RequestKeyModel = model?.Value ?? string.Empty;
+            return RequestKey.NameFor(batchIndex, model?.Value, TargetLanguage, SourceLanguage);
+        }
+
+        public Dictionary<string, string> TranslatedPieces { get; } = new(StringComparer.Ordinal);
+
+        public int CompletedBatchCount { get; set; }
+    }
+
+    private sealed class SceneTranscriptionOperation(
+        AudioSourceItem? source,
+        string? language,
+        TimeSpan rangeStart,
+        TimeSpan duration,
+        TimeSpan chunkDuration,
+        int chunkCount,
+        long expectedCaptionRevision,
+        long expectedDraftScopeRevision,
+        long expectedSceneAudioRevision,
+        Guid sceneId,
+        string? requestKeySeed = null,
+        bool requestKeyNamePending = false)
+    {
+        public AudioSourceItem? Source { get; set; } = source;
+
+        /// <summary>
+        /// Names this run's requests, one key per chunk. Held with the rest of
+        /// the resume state so a retried chunk asks for the transcription it
+        /// already paid for instead of buying a second one.
+        /// </summary>
+        public AiRequestKey RequestKey { get; } = new(requestKeySeed, requestKeyNamePending);
+
+        public string RequestKeySeed => RequestKey.Seed;
+
+
+        /// <summary>The model the names handed out so far were built from.</summary>
+        public string RequestKeyModel { get; set; } = string.Empty;
+
+        // The model belongs in the key because the server refuses a key that
+        // comes back with a different request behind it, and it fingerprints
+        // the model. A chunk sent to another model is another request and takes
+        // another key, which is also what it costs.
+        public AiRequestName RequestNameFor(int chunkIndex, AiModelId? model)
+        {
+            RequestKeyModel = model?.Value ?? string.Empty;
+            return RequestKey.NameFor(chunkIndex, model?.Value);
+        }
+
+        public string? Language { get; } = language;
+
+        public TimeSpan RangeStart { get; } = rangeStart;
+
+        public TimeSpan Duration { get; } = duration;
+
+        public TimeSpan ChunkDuration { get; } = chunkDuration;
+
+        public int ChunkCount { get; } = chunkCount;
+
+        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
+
+        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
+
+        public long ExpectedSceneAudioRevision { get; set; } = expectedSceneAudioRevision;
+
+        public Guid SceneId { get; } = sceneId;
+
+        public List<AiTranscriptionSegment> Segments { get; } = [];
+
+        public string? DetectedLanguage { get; set; }
+
+        public int CompletedChunkCount { get; set; }
+    }
+
+    private sealed class SourceTranscriptionOperation(
+        AudioSourceItem? source,
+        string filePath,
+        Guid elementId,
+        long fileLength,
+        long lastWriteTimeUtcTicks,
+        string? language,
+        int sampleRate,
+        long totalSamples,
+        int chunkSamples,
+        int chunkCount,
+        long expectedCaptionRevision,
+        long expectedDraftScopeRevision,
+        string? requestKeySeed = null,
+        bool requestKeyNamePending = false)
+    {
+        public AudioSourceItem? Source { get; set; } = source;
+
+        /// <summary>
+        /// Names this run's requests, one key per chunk. Restored with the rest
+        /// of the resume state so a chunk resumed after a restart asks for the
+        /// transcription it already paid for instead of buying a second one.
+        /// </summary>
+        public AiRequestKey RequestKey { get; } = new(requestKeySeed, requestKeyNamePending);
+
+        public string RequestKeySeed => RequestKey.Seed;
+
+
+        /// <summary>The model the names handed out so far were built from.</summary>
+        public string RequestKeyModel { get; set; } = string.Empty;
+
+        public AiRequestName RequestNameFor(int chunkIndex, AiModelId? model)
+        {
+            RequestKeyModel = model?.Value ?? string.Empty;
+            return RequestKey.NameFor(chunkIndex, model?.Value);
+        }
+
+        public string FilePath { get; } = filePath;
+
+        public Guid ElementId { get; } = elementId;
+
+        public long FileLength { get; } = fileLength;
+
+        public long LastWriteTimeUtcTicks { get; } = lastWriteTimeUtcTicks;
+
+        public string? Language { get; } = language;
+
+        public int SampleRate { get; } = sampleRate;
+
+        public long TotalSamples { get; set; } = totalSamples;
+
+        public int ChunkSamples { get; } = chunkSamples;
+
+        public int ChunkCount { get; set; } = chunkCount;
+
+        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
+
+        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
+
+        public List<AiTranscriptionSegment> SourceSegments { get; } = [];
+
+        public string? DetectedLanguage { get; set; }
+
+        public int CompletedChunkCount { get; set; }
+    }
+
+    private sealed record RecoverableCaptionResult(
+        CaptionDocument Document,
+        string? Language,
+        AiTranscriptionSegment[]? Segments,
+        PartialResultKind Kind,
+        int CompletedSteps,
+        int TotalSteps,
+        long DraftScopeRevision);
+
+    private enum PartialResultKind
+    {
+        Translation,
+        Transcription,
+    }
+}
+
+internal readonly record struct SpeechWaveChunkResult(
+    int SourceSampleCount,
+    int OutputSampleCount,
+    TimeSpan Duration);
+
+internal readonly record struct SourceAudioFingerprint(
+    long FileLength,
+    long LastWriteTimeUtcTicks);
+
+internal sealed class SubtitleInputException : Exception
+{
+    public SubtitleInputException()
+    {
+    }
+
+    public SubtitleInputException(string message)
+        : base(message)
+    {
+    }
+
+    public SubtitleInputException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}

@@ -193,7 +193,4 @@
   <data name="ApplyTemplate" xml:space="preserve">
     <value>テンプレートを適用</value>
   </data>
-  <data name="AddElementFromTemplate" xml:space="preserve">
-    <value>テンプレートから要素を追加</value>
-  </data>
 </root>

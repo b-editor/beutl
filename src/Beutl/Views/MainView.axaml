@@ -15,6 +15,7 @@
              Padding="0"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:MainViewModel"
              Focusable="True"
              mc:Ignorable="d">
@@ -34,7 +35,7 @@
     <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar"
               Background="Transparent"
-              ColumnDefinitions="Auto,Auto,Auto,*">
+              ColumnDefinitions="Auto,Auto,*,Auto">
             <Image Name="WindowIcon"
                    MaxWidth="24"
                    MaxHeight="24"
@@ -194,8 +195,40 @@
                         <MenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
                     </MenuItem>
                 </MenuItem>
-                <!--  オブジェクト  -->
-                <MenuItem Header="{x:Static lang:Strings.Object}" />
+                <!--  AI  -->
+                <MenuItem Header="{x:Static lang:Strings.Ai}">
+                    <MenuItem Command="{CompiledBinding MenuBar.ShowAiJobs}"
+                              Header="{x:Static lang:Strings.AiJobCenter}">
+                        <MenuItem.Icon>
+                            <icons:FluentIcon Icon="History" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Command="{CompiledBinding MenuBar.GenerateImage}"
+                              Header="{x:Static lang:Strings.AiGenerateImage}">
+                        <MenuItem.Icon>
+                            <icons:FluentIcon Icon="SparkleCircle" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Command="{CompiledBinding MenuBar.GenerateSubtitles}"
+                              Header="{x:Static lang:Strings.AiGenerateSubtitles}">
+                        <MenuItem.Icon>
+                            <icons:FluentIcon Icon="Subtitles" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Command="{CompiledBinding MenuBar.EditImage}"
+                              Header="{x:Static lang:Strings.AiEditImage}">
+                        <MenuItem.Icon>
+                            <icons:FluentIcon Icon="ImageEdit" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Command="{CompiledBinding MenuBar.GenerateVideo}"
+                              Header="{x:Static lang:Strings.AiGenerateVideo}">
+                        <MenuItem.Icon>
+                            <icons:FluentIcon Icon="Video" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
                 <!--  ヘルプ  -->
                 <MenuItem Header="{x:Static lang:Strings.Help}">
                     <MenuItem Click="OpenTutorialsDialog" Header="{x:Static lang:Strings.Tutorials}" />
@@ -221,10 +254,12 @@
 
             <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
                                       Grid.Column="2"
+                                      MinWidth="0"
                                       wnd:AppWindow.AllowInteractionInTitleBar="True"
                                       DataContext="{Binding TitleBreadcrumbBar}" />
 
-            <StackPanel Grid.Column="3"
+            <StackPanel x:Name="TitlebarActions"
+                        Grid.Column="3"
                         Margin="0,0,4,0"
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"

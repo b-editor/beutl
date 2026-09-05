@@ -13,8 +13,10 @@ internal sealed class DirectoryWatcherService : IDisposable
     // Limit consecutive rearm attempts because persistent failures recur immediately.
     private const int MaxErrorRearms = 3;
 
+    private readonly object _debounceGate = new();
     private FileSystemWatcher? _watcher;
     private CancellationTokenSource? _debounceCts;
+    private bool _disposed;
     private int _errorRearmCount;
     private string? _failingPath;
 
@@ -39,9 +41,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         if (_watcher is not null && string.Equals(_watcher.Path, path, StringComparison.Ordinal))
             return;
 
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
-        _debounceCts = null;
+        CancelDebounce();
 
         _watcher?.Dispose();
         _watcher = null;
@@ -148,14 +148,27 @@ internal sealed class DirectoryWatcherService : IDisposable
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
+        => OnFileSystemEvent(e.FullPath);
+
+    // The watcher raises on its own thread and keeps doing so while the service is
+    // torn down, so every touch of the debounce source is serialized and an event
+    // that arrives after disposal is dropped rather than cancelling a dead source.
+    internal void OnFileSystemEvent(string fullPath)
     {
-        if (ShouldExcludePath(e.FullPath))
+        if (ShouldExcludePath(fullPath))
             return;
 
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
-        _debounceCts = new CancellationTokenSource();
-        var token = _debounceCts.Token;
+        CancellationToken token;
+        lock (_debounceGate)
+        {
+            if (_disposed)
+                return;
+
+            _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
+            _debounceCts = new CancellationTokenSource();
+            token = _debounceCts.Token;
+        }
 
         Task.Delay(s_debounceInterval, token).ContinueWith(_ =>
         {
@@ -181,9 +194,23 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     public void Dispose()
     {
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
+        lock (_debounceGate)
+        {
+            _disposed = true;
+        }
+
+        CancelDebounce();
         _watcher?.Dispose();
         _watcher = null;
+    }
+
+    private void CancelDebounce()
+    {
+        lock (_debounceGate)
+        {
+            _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
+            _debounceCts = null;
+        }
     }
 }

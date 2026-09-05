@@ -10,7 +10,7 @@ public sealed class TutorialDefinition
 
     public required IReadOnlyList<TutorialStep> Steps { get; init; }
 
-    public Func<bool>? CanStart { get; init; }
+    public Func<Task<bool>>? CanStart { get; init; }
 
     public Func<Task<bool>>? FulfillPrerequisites { get; init; }
 

@@ -498,6 +498,107 @@ public sealed class PackageInstallerDisposeTests
         Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
     }
 
+    [Test]
+    public async Task WaitUntilIdleAsync_PublishesFallbackBeforeReturningAtTheDeadline()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: false,
+            new InstalledPackageRepository(),
+            app);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int fallbackCount = 0;
+        Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
+            () => release.Task,
+            () => Interlocked.Increment(ref fallbackCount));
+
+        await installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(100));
+        await installer.WaitUntilIdleAsync(TimeSpan.FromMilliseconds(50));
+
+        Assert.That(fallbackCount, Is.EqualTo(1));
+
+        release.TrySetResult();
+        await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        await installer.DisposeAsync();
+    }
+
+    [Test]
+    public async Task FaultedInstallPublishesFallbackBeforeItsTaskCompletes()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: false,
+            new InstalledPackageRepository(),
+            app);
+        int fallbackCount = 0;
+
+        Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
+            () => Task.FromException(new InvalidOperationException("install failed")),
+            () => Interlocked.Increment(ref fallbackCount));
+
+        Assert.ThrowsAsync<InvalidOperationException>(() => operation);
+        Assert.That(fallbackCount, Is.EqualTo(1));
+        await installer.DisposeAsync();
+    }
+
+    [Test]
+    public async Task NormalInstallCancellationDoesNotPublishShutdownFallback()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: false,
+            new InstalledPackageRepository(),
+            app);
+        int fallbackCount = 0;
+
+        Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
+            () => Task.FromCanceled(new CancellationToken(canceled: true)),
+            () => Interlocked.Increment(ref fallbackCount));
+
+        Assert.CatchAsync<OperationCanceledException>(() => operation);
+        Assert.That(fallbackCount, Is.Zero);
+        await installer.DisposeAsync();
+    }
+
+    [Test]
+    public async Task InstallCancellationAfterShutdownStartsButBeforeIdleWaitPublishesFallback()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+
+        using var httpClient = new HttpClient();
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var installer = new PackageInstaller(
+            httpClient,
+            ownsHttpClient: false,
+            new InstalledPackageRepository(),
+            app);
+        var cancellation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int fallbackCount = 0;
+        Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
+            () => cancellation.Task,
+            () => Interlocked.Increment(ref fallbackCount));
+        installer.BeginShutdown();
+
+        cancellation.TrySetCanceled();
+        Assert.CatchAsync<OperationCanceledException>(() => operation);
+        await installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(1));
+
+        Assert.That(fallbackCount, Is.EqualTo(1));
+        await installer.DisposeAsync();
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
         long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;

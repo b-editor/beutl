@@ -48,7 +48,7 @@ public class TerminalTabLifecycleTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     [AvaloniaTest]
@@ -64,7 +64,7 @@ public class TerminalTabLifecycleTests
         EditViewModel editor = await OpenEditorForNewScene("terminal-tab-lifecycle");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var terminalContext = new TerminalTabViewModel(editor);
-        Assert.That(editor.DockHost.OpenToolTab(terminalContext, bottomDock), Is.True);
+        Assert.That(await editor.DockHost.OpenToolTabAsync(terminalContext, bottomDock), Is.True);
 
         var terminalDockable = editor.DockHost.Factory.EnumerateTools()
             .Single(item => ReferenceEquals(item.ToolContext, terminalContext));
@@ -108,7 +108,7 @@ public class TerminalTabLifecycleTests
         }
         finally
         {
-            editor.CloseToolTab(terminalContext);
+            await editor.CloseToolTabAsync(terminalContext);
             window.Close();
             HeadlessTestHelpers.Settle();
         }
@@ -121,7 +121,7 @@ public class TerminalTabLifecycleTests
         EditViewModel editor = await OpenEditorForNewScene("tool-tab-content-lifecycle");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var transientContext = new TransientToolContext();
-        Assert.That(editor.DockHost.OpenToolTab(transientContext, bottomDock), Is.True);
+        Assert.That(await editor.DockHost.OpenToolTabAsync(transientContext, bottomDock), Is.True);
         BeutlToolDockable timelineDockable = editor.DockHost.Factory.EnumerateTools()
             .Single(item => ReferenceEquals(item.ToolContext.Extension, TimelineTabExtension.Instance));
         BeutlToolDockable transientDockable = editor.DockHost.Factory.EnumerateTools()
@@ -150,7 +150,7 @@ public class TerminalTabLifecycleTests
         }
         finally
         {
-            editor.CloseToolTab(transientContext);
+            await editor.CloseToolTabAsync(transientContext);
             window.Close();
             HeadlessTestHelpers.Settle();
         }
@@ -168,7 +168,7 @@ public class TerminalTabLifecycleTests
         EditViewModel editor = await OpenEditorForNewScene("terminal-tab-theme-resources");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var terminalContext = new TerminalTabViewModel(editor);
-        Assert.That(editor.DockHost.OpenToolTab(terminalContext, bottomDock), Is.True);
+        Assert.That(await editor.DockHost.OpenToolTabAsync(terminalContext, bottomDock), Is.True);
         var terminalDockable = editor.DockHost.Factory.EnumerateTools()
             .Single(item => ReferenceEquals(item.ToolContext, terminalContext));
         var view = new EditView { DataContext = editor };
@@ -208,7 +208,7 @@ public class TerminalTabLifecycleTests
         finally
         {
             currentApp.RequestedThemeVariant = originalVariant;
-            editor.CloseToolTab(terminalContext);
+            await editor.CloseToolTabAsync(terminalContext);
             window.Close();
             HeadlessTestHelpers.Settle();
         }
@@ -246,9 +246,10 @@ public class TerminalTabLifecycleTests
 
         public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Transient");
 
-        public void Dispose()
+        public ValueTask DisposeAsync()
         {
             IsSelected.Dispose();
+            return ValueTask.CompletedTask;
         }
 
         public object? GetService(Type serviceType) => null;

@@ -34,15 +34,17 @@ public class SaveRoundTripTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.FromSeconds(1),
             Length: TimeSpan.FromSeconds(3),
             Layer: 2,
-            Name: "RoundTripRect",
-            EngineObjectFactory: () => new RectShape { Width = { CurrentValue = 321 } }));
+            Source: new ElementSource.EngineObject(
+                () => new RectShape { Width = { CurrentValue = 321 } }),
+            Name: "RoundTripRect")],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.Single();
@@ -82,14 +84,15 @@ public class SaveRoundTripTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => new RectShape()));
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.Single();

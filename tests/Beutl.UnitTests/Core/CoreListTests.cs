@@ -40,6 +40,20 @@ public class CoreListTests
     }
 
     [Test]
+    public void AddRangeSpan_PublishesAnExactStableSnapshot()
+    {
+        var list = new CoreList<int>();
+        System.Collections.IList? published = null;
+        list.CollectionChanged += (_, e) => published = e.NewItems;
+        int[] items = [10, 20, 30];
+
+        list.AddRange(items.AsSpan());
+        items.AsSpan().Fill(-1);
+
+        Assert.That(published, Is.EqualTo(new[] { 10, 20, 30 }));
+    }
+
+    [Test]
     public void Indexer_SettingNewValue_FiresReplaceAndDetached()
     {
         var list = new CoreList<int>(new[] { 1, 2, 3 });

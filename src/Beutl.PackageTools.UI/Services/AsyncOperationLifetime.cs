@@ -1,15 +1,19 @@
-﻿namespace Beutl.PackageTools.UI.Services;
+﻿using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.PackageTools.UI.Services;
 
 /// <summary>
 /// Owns asynchronous work that must finish before its backing resources are disposed.
 /// </summary>
 internal sealed class AsyncOperationLifetime : IAsyncDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<AsyncOperationLifetime>();
     private readonly object _gate = new();
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly Action _cancelPendingRequests;
     private readonly Func<ValueTask> _disposeResources;
-    private readonly long _drainDeadlineMilliseconds;
+    private readonly TimeSpan _shutdownDeadline;
     private readonly HashSet<Task> _operations = [];
     private Task? _disposeTask;
     private bool _stopping;
@@ -17,13 +21,15 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     public AsyncOperationLifetime(
         Action cancelPendingRequests,
         Func<ValueTask> disposeResources,
-        long drainDeadlineMilliseconds = 30_000)
+        TimeSpan? shutdownDeadline = null)
     {
         _cancelPendingRequests = cancelPendingRequests
             ?? throw new ArgumentNullException(nameof(cancelPendingRequests));
         _disposeResources = disposeResources
             ?? throw new ArgumentNullException(nameof(disposeResources));
-        _drainDeadlineMilliseconds = drainDeadlineMilliseconds;
+        _shutdownDeadline = shutdownDeadline ?? TimeSpan.FromSeconds(30);
+        if (_shutdownDeadline <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(shutdownDeadline));
     }
 
     public Task RunAsync(
@@ -61,9 +67,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         lock (_gate)
         {
             _stopping = true;
-            // Publish the disposal task before cancellation so re-entrant callbacks
-            // observe the original teardown.
-            if (_disposeTask == null)
+            if (_disposeTask is null)
             {
                 proxy = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _disposeTask = proxy.Task;
@@ -71,20 +75,29 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             disposeTask = _disposeTask;
         }
 
-        if (proxy != null)
+        if (proxy is not null)
         {
-            _ = RunDisposeCoreAsync(proxy);
+            Task teardown = Task.Run(DisposeCoreAsync);
+            _ = CompleteDisposeAsync(proxy, teardown);
         }
 
         return new ValueTask(disposeTask);
     }
 
-    private async Task RunDisposeCoreAsync(TaskCompletionSource proxy)
+    private async Task CompleteDisposeAsync(TaskCompletionSource proxy, Task teardown)
     {
         try
         {
-            await DisposeCoreAsync().ConfigureAwait(false);
+            await teardown.WaitAsync(_shutdownDeadline).ConfigureAwait(false);
             proxy.TrySetResult();
+        }
+        catch (TimeoutException)
+        {
+            s_logger.LogWarning(
+                "Package-tools shutdown exceeded {Deadline}; cleanup will continue after callbacks and operations drain.",
+                _shutdownDeadline);
+            proxy.TrySetResult();
+            _ = ObserveDeferredTeardownAsync(teardown);
         }
         catch (Exception ex)
         {
@@ -97,6 +110,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         Action? completion,
         CancellationTokenSource linkedCancellation)
     {
+        // Ensure the task is registered before a synchronously completing operation can remove it.
         await Task.Yield();
         try
         {
@@ -105,7 +119,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             {
                 lock (_gate)
                 {
-                    if (!_stopping)
+                    if (!_stopping && !linkedCancellation.IsCancellationRequested)
                     {
                         completion();
                     }
@@ -120,11 +134,14 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
-        long deadline = Environment.TickCount64 + _drainDeadlineMilliseconds;
         Exception? cancellationFailure = null;
         try
         {
-            _lifetimeCancellation.Cancel();
+            // Cancel the transport before signaling operation cancellation. The
+            // latter invokes user callbacks synchronously; doing it first lets
+            // an operation observe cancellation and resume before the transport
+            // cancellation hook has run, making shutdown ordering nondeterministic.
+            _cancelPendingRequests();
         }
         catch (Exception ex)
         {
@@ -133,8 +150,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         try
         {
-            // Run independently so a throwing callback cannot skip cancelling pending requests.
-            _cancelPendingRequests();
+            _lifetimeCancellation.Cancel();
         }
         catch (Exception ex)
         {
@@ -143,53 +159,67 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         try
         {
-            while (Environment.TickCount64 < deadline)
-            {
-                Task[] operations;
-                lock (_gate)
-                {
-                    operations = _operations.ToArray();
-                }
-
-                if (operations.Length == 0)
-                    break;
-
-                try
-                {
-                    long remaining = deadline - Environment.TickCount64;
-                    if (remaining <= 0)
-                        break;
-
-                    await Task.WhenAll(operations).WaitAsync(TimeSpan.FromMilliseconds(remaining)).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Awaiting observes operation failures. Each owner reports its own operation error;
-                    // resource teardown must still run after every task has drained.
-                }
-
-                lock (_gate)
-                {
-                    _operations.RemoveWhere(task => task.IsCompleted);
-                }
-            }
+            await DrainOperationsAsync().ConfigureAwait(false);
         }
         finally
         {
-            try
-            {
-                await _disposeResources();
-            }
-            finally
-            {
-                _lifetimeCancellation.Dispose();
-            }
+            await DisposeResourcesAsync().ConfigureAwait(false);
         }
 
-        if (cancellationFailure != null)
-        {
+        if (cancellationFailure is not null)
             throw cancellationFailure;
+    }
+
+    private async Task DrainOperationsAsync()
+    {
+        while (true)
+        {
+            Task[] operations;
+            lock (_gate)
+            {
+                operations = _operations.ToArray();
+            }
+
+            if (operations.Length == 0)
+                return;
+
+            try
+            {
+                await Task.WhenAll(operations).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Owners report operation failures. Disposal only needs to observe them.
+            }
+
+            lock (_gate)
+            {
+                _operations.RemoveWhere(task => task.IsCompleted);
+            }
         }
     }
 
+    private static async Task ObserveDeferredTeardownAsync(Task teardown)
+    {
+        try
+        {
+            await teardown.ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            s_logger.LogWarning(ex, "Deferred package-tools resource cleanup failed.");
+        }
+    }
+
+    private async Task DisposeResourcesAsync()
+    {
+        try
+        {
+            await _disposeResources().ConfigureAwait(false);
+        }
+        finally
+        {
+            _lifetimeCancellation.Dispose();
+        }
+    }
 }

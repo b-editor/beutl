@@ -26,7 +26,7 @@ public partial class DockLayoutView : UserControl
         flyout.ShowAt(anchor);
     }
 
-    private void OnItemDoubleTapped(object? sender, TappedEventArgs e)
+    private async void OnItemDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (ViewModel is not { } viewModel) return;
 
@@ -40,15 +40,15 @@ public partial class DockLayoutView : UserControl
 
         if (ItemFrom(e.Source) is not { } item) return;
 
-        viewModel.Apply(item);
+        await viewModel.ApplyAsync(item);
         e.Handled = true;
     }
 
-    private void OnApplyClick(object? sender, RoutedEventArgs e)
+    private async void OnApplyClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel is { } viewModel && ItemFrom(sender) is { } item)
         {
-            viewModel.Apply(item);
+            await viewModel.ApplyAsync(item);
         }
     }
 
@@ -70,9 +70,10 @@ public partial class DockLayoutView : UserControl
         }
     }
 
-    private void OnResetClick(object? sender, RoutedEventArgs e)
+    private async void OnResetClick(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.ResetLayout();
+        if (ViewModel is { } viewModel)
+            await viewModel.ResetLayoutAsync();
     }
 
     // The acted-on layout comes from the row's DataContext, not the list selection.

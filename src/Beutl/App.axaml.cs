@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
@@ -28,6 +29,13 @@ namespace Beutl;
 
 public sealed class App : Application
 {
+    private static readonly string[] s_bundledEngineFonts =
+    [
+        "NotoSansJP-Regular.ttf",
+        "NotoSansJP-Medium.ttf",
+        "NotoSansJP-SemiBold.ttf",
+        "NotoSansJP-Bold.ttf",
+    ];
     private static readonly ILogger s_logger = Log.CreateLogger<App>();
     private readonly TaskCompletionSource _windowOpenTcs = new();
     private FluentAvaloniaTheme? _theme;
@@ -38,10 +46,6 @@ public sealed class App : Application
 
     public override void Initialize()
     {
-        _startUp = GetMainViewModel().RunStartupTask();
-        _sideloadExtensionTask = _startUp.GetTask<LoadSideloadExtensionTask>();
-        _startUp.WaitAll().ContinueWith(_ => _startUp = null);
-
         using Activity? activity = Telemetry.StartActivity("App.Initialize");
 
         FAUISettings.SetAnimationsEnabledAtAppLevel(true);
@@ -53,6 +57,10 @@ public sealed class App : Application
         GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName);
 
         AvaloniaXamlLoader.Load(this);
+        RegisterBundledEngineFonts();
+        _startUp = GetMainViewModel().RunStartupTask();
+        _sideloadExtensionTask = _startUp.GetTask<LoadSideloadExtensionTask>();
+        _startUp.WaitAll().ContinueWith(_ => _startUp = null);
         Resources["PaletteColors"] = AppHelpers.GetPaletteColors();
         ApplyDockStringOverrides();
 
@@ -66,6 +74,16 @@ public sealed class App : Application
         if (!OperatingSystem.IsWindows())
         {
             _theme.RemoveRange(1, _theme.Count - 1);
+        }
+    }
+
+    internal static void RegisterBundledEngineFonts()
+    {
+        foreach (string fileName in s_bundledEngineFonts)
+        {
+            using Stream stream = AssetLoader.Open(
+                new Uri($"avares://Beutl.Controls/Assets/Fonts/{fileName}"));
+            Media.FontManager.Instance.AddFont(stream);
         }
     }
 

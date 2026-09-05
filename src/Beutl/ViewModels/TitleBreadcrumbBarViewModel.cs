@@ -27,7 +27,7 @@ public class TitleBreadcrumbBarViewModel
 
     // TabItems
     // SelectedTabItem
-    public ICoreList<EditorTabItem> TabItems => _editorService.TabItems;
+    public ICoreReadOnlyList<EditorTabItem> TabItems => _editorService.TabItems;
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 

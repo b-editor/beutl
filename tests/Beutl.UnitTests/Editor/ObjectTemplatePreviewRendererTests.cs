@@ -66,6 +66,36 @@ public class ObjectTemplatePreviewRendererTests
         Assert.That(png, Is.Not.Null);
     }
 
+    [Test]
+    public async Task RenderElementsPngAsync_AllowsHigherDensityOutputForCaptionPreviews()
+    {
+        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+        element.Objects.Add(CreateRedRect());
+
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
+            [element],
+            new PixelSize(1920, 1080),
+            new PixelSize(1024, 576));
+
+        Assert.That(png, Is.Not.Null);
+        using SKBitmap decoded = SKBitmap.Decode(png);
+        Assert.That(decoded.Width, Is.GreaterThan(ObjectTemplatePreviewRenderer.PreviewWidth));
+        Assert.That(decoded.Height, Is.GreaterThan(ObjectTemplatePreviewRenderer.PreviewHeight));
+    }
+
+    [Test]
+    public void RenderElementsPngAsync_RejectsUnboundedOutputSize()
+    {
+        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+
+        Assert.That(
+            async () => await ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
+                [element],
+                new PixelSize(1920, 1080),
+                new PixelSize(4096, 4096)),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+    }
+
     // The saved object is not itself drawable, so the preview must be the drawable that owns it
     // rather than the generic sample shape.
     [Test]

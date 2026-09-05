@@ -205,17 +205,13 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
 
-            menuItem.Click += (s, e) =>
+            menuItem.Click += async (s, e) =>
             {
                 if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
                     && s is MenuItem { DataContext: ToolTabExtension ext }
                     && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    await editorContext.OpenToolTabAsync(toolContext);
                 }
             };
 
@@ -255,13 +251,26 @@ public sealed partial class MainView : UserControl
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
-                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
-                            out IEditorContext? context))
+                    if (selectedTab.Context.Value is not null)
                     {
-                        selectedTab.Context.Value.Dispose();
-                        selectedTab.Context.Value = context;
+                        try
+                        {
+                            EditorContextReplacementStatus replacement =
+                                await viewModel.EditorService.ReplaceContextAsync(selectedTab, editorExtension);
+                            if (replacement != EditorContextReplacementStatus.Succeeded)
+                            {
+                                NotificationService.ShowInformation(
+                                    title: MessageStrings.ContextNotCreated,
+                                    message: MessageStrings.OperationFailed);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to replace the current editor context");
+                            NotificationService.ShowError(
+                                MessageStrings.ContextNotCreated,
+                                MessageStrings.OperationFailed);
+                        }
                     }
                     else
                     {

@@ -39,7 +39,7 @@ public class DockLayoutTabTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     private static DockLayoutPresetService NewService()
@@ -74,15 +74,15 @@ public class DockLayoutTabTests
 
         BeutlToolDockable library = editor.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
-        editor.DockHost.CloseToolTab(library.ToolContext);
+        await editor.DockHost.CloseToolTabAsync(library.ToolContext);
         HeadlessTestHelpers.Settle();
         Assert.That(ToolExtensionNames(editor), Is.Not.EqualTo(saved));
 
-        Assert.That(viewModel.Apply(), Is.True);
+        Assert.That(await viewModel.ApplyAsync(), Is.True);
         HeadlessTestHelpers.Settle();
         Assert.That(ToolExtensionNames(editor), Is.EqualTo(saved));
 
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -104,7 +104,7 @@ public class DockLayoutTabTests
         Assert.That(viewModel.Save(null), Is.Null);
         Assert.That(service.Items, Has.Count.EqualTo(1));
 
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -122,7 +122,7 @@ public class DockLayoutTabTests
         viewModel.Save(first);
         Assert.That(viewModel.SuggestName(), Is.EqualTo($"{Strings.DockLayout} 2"));
 
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -151,7 +151,7 @@ public class DockLayoutTabTests
         // Re-saving under an existing name is how a layout gets refreshed.
         BeutlToolDockable library = editor.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
-        editor.DockHost.CloseToolTab(library.ToolContext);
+        await editor.DockHost.CloseToolTabAsync(library.ToolContext);
         HeadlessTestHelpers.Settle();
 
         Assert.That(viewModel.Save("Rough cut"), Is.Not.Null);
@@ -159,9 +159,9 @@ public class DockLayoutTabTests
         Assert.That(viewModel.SelectedItem.Value?.Name.Value, Is.EqualTo("Rough cut"));
 
         string[] afterClose = ToolExtensionNames(editor);
-        editor.DockHost.ResetLayout();
+        await editor.DockHost.ResetLayoutAsync();
         HeadlessTestHelpers.Settle();
-        Assert.That(viewModel.Apply(), Is.True);
+        Assert.That(await viewModel.ApplyAsync(), Is.True);
         HeadlessTestHelpers.Settle();
         Assert.That(ToolExtensionNames(editor), Is.EqualTo(afterClose));
 
@@ -169,7 +169,7 @@ public class DockLayoutTabTests
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Grading" }));
         Assert.That(viewModel.HasSelection.Value, Is.False, "removing the selected layout clears the selection");
 
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -194,8 +194,8 @@ public class DockLayoutTabTests
         ListBox list = control.GetLogicalDescendants().OfType<ListBox>().Single();
         Assert.That(list.ItemsSource, Is.SameAs(service.Items));
 
-        context.Dispose();
-        viewModel.Dispose();
+        await context.DisposeAsync();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -222,7 +222,7 @@ public class DockLayoutTabTests
             viewModel.HasSelection.Value, Is.True,
             "removing another row must not clear the selection");
 
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -239,7 +239,7 @@ public class DockLayoutTabTests
 
         BeutlToolDockable library = editor.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
-        editor.DockHost.CloseToolTab(library.ToolContext);
+        await editor.DockHost.CloseToolTabAsync(library.ToolContext);
         HeadlessTestHelpers.Settle();
 
         viewModel.Save("No library");
@@ -250,12 +250,12 @@ public class DockLayoutTabTests
         Assert.That(viewModel.SelectedItem.Value?.Name.Value, Is.EqualTo("No library"));
 
         DockLayoutPresetItem fullItem = service.Items.First(i => i.Name.Value == "Full");
-        Assert.That(viewModel.Apply(fullItem), Is.True);
+        Assert.That(await viewModel.ApplyAsync(fullItem), Is.True);
         HeadlessTestHelpers.Settle();
 
         Assert.That(ToolExtensionNames(editor), Is.EqualTo(full));
 
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
     }
 
     [AvaloniaTest]
@@ -289,7 +289,7 @@ public class DockLayoutTabTests
         finally
         {
             Directory.Delete(path, recursive: true);
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
     }
 
@@ -342,7 +342,7 @@ public class DockLayoutTabTests
         finally
         {
             window.Close();
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
     }
 
@@ -375,7 +375,7 @@ public class DockLayoutTabTests
 
         Assert.That(
             DockLayoutTabExtension.Instance.TryCreateContext(editor, out IToolContext? context), Is.True);
-        Assert.That(editor.OpenToolTab(context!), Is.True);
+        Assert.That(await editor.DockHost.OpenToolTabAsync(context!), Is.True);
         HeadlessTestHelpers.Settle();
 
         Assert.That(editor.DockHost.FindToolContext(typeof(DockLayoutTabExtension)), Is.SameAs(context));

@@ -1576,4 +1576,55 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="Materials" xml:space="preserve">
     <value>素材</value>
   </data>
+  <data name="AiPromptRequired" xml:space="preserve">
+    <value>请输入提示词。</value>
+  </data>
+  <data name="AiPromptTooLongFormat" xml:space="preserve">
+    <value>最终组合的提示词不能超过 {0} 个字符。</value>
+  </data>
+  <data name="AiImageGenerationIdle" xml:space="preserve">
+    <value>描述图像并点击“生成”。</value>
+  </data>
+  <data name="AiImageEditIdle" xml:space="preserve">
+    <value>选择图像和任务，然后点击“运行”。</value>
+  </data>
+  <data name="AiEditSourceImage" xml:space="preserve">
+    <value>源图像</value>
+  </data>
+  <data name="AiEditNoSourceSelected" xml:space="preserve">
+    <value>未选择</value>
+  </data>
+  <data name="AiReferenceImageHeader" xml:space="preserve">
+    <value>参考图像（可选）</value>
+  </data>
+  <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
+    <value>帧引导（可选）</value>
+  </data>
+  <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
+    <value>进行转写或导入字幕后，字幕条目会显示在这里。</value>
+  </data>
+  <data name="AiSubtitle_LineWrapping" xml:space="preserve">
+    <value>换行</value>
+  </data>
+  <data name="AiSubtitle_CueEditing" xml:space="preserve">
+    <value>字幕条目</value>
+  </data>
+  <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
+    <value>字幕文件</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
+    <value>要删除“{0}”吗？</value>
+  </data>
+  <data name="TimeAgoJustNow" xml:space="preserve">
+    <value>刚刚</value>
+  </data>
+  <data name="TimeAgoMinutesFormat" xml:space="preserve">
+    <value>{0} 分钟前</value>
+  </data>
+  <data name="TimeAgoHoursFormat" xml:space="preserve">
+    <value>{0} 小时前</value>
+  </data>
+  <data name="TimeAgoDaysFormat" xml:space="preserve">
+    <value>{0} 天前</value>
+  </data>
 </root>

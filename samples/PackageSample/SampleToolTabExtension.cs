@@ -50,8 +50,9 @@ public sealed class SampleToolTabExtension : ToolTabExtension
         public IReadOnlyReactiveProperty<string> Header { get; } =
             new ReactivePropertySlim<string>($"Sample tab {Interlocked.Increment(ref s_lastInstanceNumber)}");
 
-        public void Dispose()
+        public ValueTask DisposeAsync()
         {
+            return ValueTask.CompletedTask;
         }
 
         public object? GetService(Type serviceType)

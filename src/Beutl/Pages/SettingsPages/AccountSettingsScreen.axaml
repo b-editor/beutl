@@ -22,12 +22,12 @@
                     Orientation="Vertical"
                     Spacing="4">
             <Grid Margin="0,32,0,0" ColumnDefinitions="Auto,16,Auto,*">
-                <!--  プロフィール画像  -->
+                <!-- Profile image -->
                 <Border Width="64"
                         Height="64"
                         Background="{DynamicResource ControlSolidFillColorDefaultBrush}"
                         CornerRadius="32"
-                        IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                        IsVisible="{CompiledBinding ProfileImage.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
 
                     <icons:FluentIcon VerticalAlignment="Center"
                                       FontSize="30"
@@ -35,8 +35,8 @@
                 </Border>
                 <asyncImage:AdvancedImage Width="64"
                                           Height="64"
-                                          IsVisible="{Binding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                          Source="{Binding ProfileImage.Value}">
+                                          IsVisible="{CompiledBinding ProfileImage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                          Source="{CompiledBinding ProfileImage.Value}">
                     <asyncImage:AdvancedImage.Clip>
                         <EllipseGeometry Center="32,32"
                                          RadiusX="32"
@@ -46,20 +46,20 @@
                 </asyncImage:AdvancedImage>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <!--  名前表示  -->
-                    <TextBlock Classes="SubtitleTextBlockStyle" Text="{Binding DisplayName.Value}" />
+                    <!-- Display name -->
+                    <TextBlock Classes="SubtitleTextBlockStyle" Text="{CompiledBinding DisplayName.Value}" />
 
-                    <!--  識別可能な名前  -->
+                    <!-- Account name -->
                     <TextBlock Classes="CaptionTextBlockStyle"
                                Opacity="0.8"
-                               Text="{Binding Name.Value}" />
+                               Text="{CompiledBinding Name.Value}" />
                 </StackPanel>
 
                 <Button Grid.Column="3"
                         Padding="8"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
-                        Command="{Binding SignOut}"
+                        Command="{CompiledBinding SignOut}"
                         Theme="{StaticResource TransparentButton}">
                     <Grid ColumnDefinitions="Auto,8,Auto">
                         <icons:FluentIcon FontSize="20" Icon="SignOut" />
@@ -74,12 +74,75 @@
             <ctrls:OptionsDisplayItem Margin="0,24,0,0"
                                       Header="{x:Static lang:SettingsStrings.ChangeAccountSettings}"
                                       Navigates="True"
-                                      NavigationCommand="{Binding OpenAccountSettings}">
+                                      NavigationCommand="{CompiledBinding OpenAccountSettings}">
 
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:FluentIcon Icon="Open" />
                 </ctrls:OptionsDisplayItem.Icon>
             </ctrls:OptionsDisplayItem>
+
+            <ctrls:OptionsDisplayItem Margin="0,24,0,0"
+                                      Clickable="False"
+                                      Description="{x:Static lang:SettingsStrings.AiPlan_Manage_Description}"
+                                      Header="{x:Static lang:SettingsStrings.AiPlan}">
+
+                <ctrls:OptionsDisplayItem.Icon>
+                    <icons:FluentIcon Icon="SparkleCircle" />
+                </ctrls:OptionsDisplayItem.Icon>
+                <ctrls:OptionsDisplayItem.ActionButton>
+                    <Button Command="{CompiledBinding OpenAiPlan}"
+                            Content="{CompiledBinding AiPlanActionText.Value}" />
+                </ctrls:OptionsDisplayItem.ActionButton>
+            </ctrls:OptionsDisplayItem>
+
+            <TextBlock Margin="32,8,0,0"
+                       AutomationProperties.LiveSetting="Polite"
+                       AutomationProperties.Name="{x:Static lang:SettingsStrings.AiPlan_Loading}"
+                       IsVisible="{CompiledBinding IsAiPlanLoading.Value}"
+                       Text="{x:Static lang:SettingsStrings.AiPlan_Loading}" />
+            <TextBlock Margin="32,8,0,0"
+                       AutomationProperties.LiveSetting="Assertive"
+                       AutomationProperties.Name="{CompiledBinding AiPlanError.Value}"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="{CompiledBinding AiPlanError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Text="{CompiledBinding AiPlanError.Value}"
+                       TextWrapping="Wrap" />
+
+            <StackPanel Margin="32,8,0,0"
+                        IsVisible="{CompiledBinding Usage.HasSnapshot.Value}"
+                        Spacing="8">
+                <Grid ColumnDefinitions="Auto,16,*">
+                    <TextBlock Text="{x:Static lang:SettingsStrings.AiPlan_Plan}" />
+                    <TextBlock Grid.Column="2" Text="{CompiledBinding PlanName.Value}" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,16,*"
+                      IsVisible="{CompiledBinding SubscriptionStatus.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="{x:Static lang:SettingsStrings.AiPlan_SubscriptionStatus}" />
+                    <TextBlock Grid.Column="2" Text="{CompiledBinding SubscriptionStatus.Value}" />
+                </Grid>
+                <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           IsVisible="{CompiledBinding HasCancelScheduledNotice.Value}"
+                           Text="{CompiledBinding CancelScheduledNotice.Value}"
+                           TextWrapping="Wrap" />
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{CompiledBinding Usage.MonthlyUsageText.Value}" />
+                    <ProgressBar Maximum="100"
+                                 Minimum="0"
+                                 AutomationProperties.Name="{CompiledBinding Usage.MonthlyUsageText.Value}"
+                                 Value="{CompiledBinding Usage.UsagePercent.Value}" />
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{CompiledBinding Usage.MonthlyRemainingText.Value}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               IsVisible="{CompiledBinding Usage.HasAdditionalCredits.Value}"
+                               Text="{CompiledBinding Usage.AdditionalCreditsText.Value}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               IsVisible="{CompiledBinding Usage.HasAdditionalCreditDebt.Value}"
+                               Text="{CompiledBinding Usage.AdditionalCreditDebtText.Value}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
         </StackPanel>
 
 

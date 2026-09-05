@@ -192,13 +192,15 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             && hasDuration && duration > TimeSpan.Zero;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposable.Dispose();
         _editorContext = null!;
         _scene = null!;
         _optionsProvider = null!;
+        return ValueTask.CompletedTask;
     }
+
 
     public void WriteToJson(JsonObject json)
     {

@@ -623,4 +623,80 @@
     <value>再インストール</value>
     <comment/>
   </data>
+  <data name="AiPlan" xml:space="preserve">
+    <value>AI プラン</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Plan" xml:space="preserve">
+    <value>プラン</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Pro" xml:space="preserve">
+    <value>Pro</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Free" xml:space="preserve">
+    <value>無料</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus" xml:space="preserve">
+    <value>サブスクリプション状態</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Active" xml:space="preserve">
+    <value>有効</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_Canceled" xml:space="preserve">
+    <value>解約済み</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_CancelScheduled" xml:space="preserve">
+    <value>解約予定</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_CancelScheduledNotice" xml:space="preserve">
+    <value>解約を受け付けました。{0}まではProの機能を利用できます。</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_SubscriptionStatus_ActionRequired" xml:space="preserve">
+    <value>お支払いの確認が必要です</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_MonthlyUsage" xml:space="preserve">
+    <value>今月の使用量</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_MonthlyRemaining" xml:space="preserve">
+    <value>今月の残り</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_AdditionalCredits" xml:space="preserve">
+    <value>追加クレジット</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_AdditionalCreditDebt" xml:space="preserve">
+    <value>未精算の使用済みクレジット</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_ManageAndTopUp" xml:space="preserve">
+    <value>管理 / 追加購入</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_JoinPro" xml:space="preserve">
+    <value>Pro に加入</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Manage_Description" xml:space="preserve">
+    <value>今月の AI 使用量を確認し、プランや追加クレジットを管理します。</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_LoadFailed" xml:space="preserve">
+    <value>AI プラン情報の読み込みに失敗しました。</value>
+    <comment/>
+  </data>
+  <data name="AiPlan_Loading" xml:space="preserve">
+    <value>AIプランを読み込んでいます…</value>
+    <comment/>
+  </data>
 </root>

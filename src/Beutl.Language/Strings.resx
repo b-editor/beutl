@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -1573,7 +1573,670 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ClickBrowse" xml:space="preserve">
     <value>Click Browse...</value>
   </data>
+  <data name="Ai" xml:space="preserve">
+    <value>AI</value>
+  </data>
+  <data name="AiGenerateImage" xml:space="preserve">
+    <value>Generate image</value>
+  </data>
+  <data name="AiImageGeneration" xml:space="preserve">
+    <value>AI image generation</value>
+  </data>
+  <data name="AiPrompt" xml:space="preserve">
+    <value>Prompt</value>
+  </data>
+  <data name="AiPrompt_Placeholder" xml:space="preserve">
+    <value>Describe the image you want to generate...</value>
+  </data>
+  <data name="AiAspectRatio" xml:space="preserve">
+    <value>Aspect ratio</value>
+  </data>
+  <data name="AiBackground" xml:space="preserve">
+    <value>Background</value>
+  </data>
+  <data name="AiBackgroundAuto" xml:space="preserve">
+    <value>Leave it to the model</value>
+  </data>
+  <data name="AiBackgroundOpaque" xml:space="preserve">
+    <value>Opaque</value>
+  </data>
+  <data name="AiBackgroundTransparent" xml:space="preserve">
+    <value>Transparent</value>
+  </data>
+  <data name="AiGenerateAudio" xml:space="preserve">
+    <value>Generate audio</value>
+  </data>
+  <data name="AiGenerate" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="AiGenerating" xml:space="preserve">
+    <value>Generating...</value>
+  </data>
+  <data name="AiAddToScene" xml:space="preserve">
+    <value>Add to scene</value>
+  </data>
+  <data name="AiSaveToFile" xml:space="preserve">
+    <value>Save to file</value>
+  </data>
+  <data name="AiMonthlyUsage" xml:space="preserve">
+    <value>Monthly usage: {0}%</value>
+  </data>
+  <data name="AiMonthlyUsageRemaining" xml:space="preserve">
+    <value>{0}% of this month's allowance remaining</value>
+  </data>
+  <data name="AiAdditionalCredits" xml:space="preserve">
+    <value>Purchased credits: {0}</value>
+  </data>
+  <data name="AiAdditionalCreditDebt" xml:space="preserve">
+    <value>A refund or dispute reversed credits you had already spent. Your next credit purchase covers this first.</value>
+  </data>
+  <data name="AiProRequired" xml:space="preserve">
+    <value>An active Pro plan is required to use AI features.</value>
+  </data>
+  <data name="AiJoinPro" xml:space="preserve">
+    <value>Join Pro</value>
+  </data>
+  <data name="AiUsageLimitExceeded" xml:space="preserve">
+    <value>This request exceeds your remaining monthly allowance and additional credits. Top up additional credits to continue.</value>
+  </data>
+  <data name="AiFileTooLarge" xml:space="preserve">
+    <value>The selected file is too large. Choose a smaller file or transcribe a shorter scene range.</value>
+  </data>
+  <data name="AiProviderError" xml:space="preserve">
+    <value>The AI provider could not finish the request. Reserved usage was restored; you can safely retry.</value>
+  </data>
+  <data name="AiAuthenticationRequired" xml:space="preserve">
+    <value>Sign in to use AI features.</value>
+  </data>
+  <data name="AiRequestInProgress" xml:space="preserve">
+    <value>The same request is still running on the server. Wait a moment and run it again — the result it produces will be used rather than paid for twice.</value>
+  </data>
+  <data name="AiRequestChanged" xml:space="preserve">
+    <value>The name this request was sent under belongs to a different request. Put the request back as it was to collect what it already paid for, or send it again as it is to start a new one.</value>
+  </data>
+  <data name="AiRequestWasDeleted" xml:space="preserve">
+    <value>This request was deleted, so its result can no longer be recovered. Discard the partial result and run it again.</value>
+  </data>
+  <data name="AiModelDoesNotSupportRequest" xml:space="preserve">
+    <value>The chosen model does not support this request. Change the model or the options and try again.</value>
+  </data>
+  <data name="AiResultUnavailable" xml:space="preserve">
+    <value>The result could not be read just now. Run it again — the same request is asked for, so what has already been paid for is not paid for twice.</value>
+  </data>
+  <data name="AiResultDownloadFailed" xml:space="preserve">
+    <value>The result was produced and has been charged for, but it could not be downloaded. Open the job history to fetch it.</value>
+  </data>
+  <data name="AiUnexpectedError" xml:space="preserve">
+    <value>Something interrupted the request. Check AI jobs for a completed result before retrying.</value>
+  </data>
+  <data name="AiImageSaved" xml:space="preserve">
+    <value>The image was saved.</value>
+  </data>
+  <data name="AiImageAddedToScene" xml:space="preserve">
+    <value>The image was added to the scene.</value>
+  </data>
+  <data name="AiGenerateSubtitles" xml:space="preserve">
+    <value>Generate subtitles</value>
+  </data>
+  <data name="AiSubtitle" xml:space="preserve">
+    <value>AI subtitles</value>
+  </data>
+  <data name="AiSubtitle_AudioSource" xml:space="preserve">
+    <value>Audio source</value>
+  </data>
+  <data name="AiSubtitle_Template" xml:space="preserve">
+    <value>Text template</value>
+  </data>
+  <data name="AiSubtitle_DefaultTemplate" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="AiSubtitle_TemplateDescription" xml:space="preserve">
+    <value>Saved TextBlock templates appear here. Their formatting, effects, animation, and placement are applied to every subtitle.</value>
+  </data>
+  <data name="AiSubtitle_Transcribe" xml:space="preserve">
+    <value>Transcribe</value>
+  </data>
+  <data name="AiSubtitle_Transcribing" xml:space="preserve">
+    <value>Transcribing…</value>
+  </data>
+  <data name="AiSubtitle_AddToScene" xml:space="preserve">
+    <value>Add subtitles to scene</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwritePrompt" xml:space="preserve">
+    <value>Replace the captions in this tab with the selected history result? The current captions are not saved yet.</value>
+  </data>
+  <data name="AiSubtitle_HistoryOverwriteApply" xml:space="preserve">
+    <value>Replace captions</value>
+  </data>
+  <data name="AiSubtitleAddedToScene" xml:space="preserve">
+    <value>The subtitles were added to the scene.</value>
+  </data>
+  <data name="AiEditImage" xml:space="preserve">
+    <value>Edit image</value>
+  </data>
+  <data name="AiImageEdit" xml:space="preserve">
+    <value>AI image editing</value>
+  </data>
+  <data name="AiEditTask" xml:space="preserve">
+    <value>Task</value>
+  </data>
+  <data name="AiEditRemoveBackground" xml:space="preserve">
+    <value>Remove background</value>
+  </data>
+  <data name="AiEditUpscale" xml:space="preserve">
+    <value>Upscale</value>
+  </data>
+  <data name="AiEditBrowse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="AiEditRun" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="AiEditSelectSource" xml:space="preserve">
+    <value>Select an image file first.</value>
+  </data>
+  <data name="AiGenerateVideo" xml:space="preserve">
+    <value>Generate video</value>
+  </data>
+  <data name="AiVideoGeneration" xml:space="preserve">
+    <value>AI video generation</value>
+  </data>
+  <data name="AiVideoPrompt_Placeholder" xml:space="preserve">
+    <value>Describe the video you want to generate...</value>
+  </data>
+  <data name="AiVideoDuration" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="AiVideoResolution" xml:space="preserve">
+    <value>Resolution</value>
+  </data>
+  <data name="AiVideoSeconds" xml:space="preserve">
+    <value>seconds</value>
+  </data>
+  <data name="AiVideoSubmitting" xml:space="preserve">
+    <value>Submitting the video generation job...</value>
+  </data>
+  <data name="AiVideoIdle" xml:space="preserve">
+    <value>Describe the video and click Generate.</value>
+  </data>
+  <data name="AiVideoProcessing" xml:space="preserve">
+    <value>Generating the video... This may take a few minutes.</value>
+  </data>
+  <data name="AiVideoCompleted" xml:space="preserve">
+    <value>The video has been generated.</value>
+  </data>
+  <data name="AiVideoFailed" xml:space="preserve">
+    <value>The video generation failed.</value>
+  </data>
+  <data name="AiVideoJobLimitReached" xml:space="preserve">
+    <value>A video generation job is already in progress. Please wait for it to complete.</value>
+  </data>
+  <data name="AiVideoAddedToScene" xml:space="preserve">
+    <value>The video was added to the scene.</value>
+  </data>
+  <data name="AiVideoSaved" xml:space="preserve">
+    <value>The video was saved.</value>
+  </data>
+  <data name="AiClearFrame" xml:space="preserve">
+    <value>Clear frame</value>
+  </data>
+  <data name="AiJobCenter" xml:space="preserve">
+    <value>AI jobs</value>
+  </data>
+  <data name="AiJobCenter_Description" xml:space="preserve">
+    <value>Track, reuse, and add generated results without blocking your editing workflow.</value>
+  </data>
+  <data name="AiJobCenter_Empty" xml:space="preserve">
+    <value>No AI jobs yet. Generated images, subtitles, and videos will appear here.</value>
+  </data>
+  <data name="AiJobCenter_LoadFailed" xml:space="preserve">
+    <value>Failed to load AI job history.</value>
+  </data>
+  <data name="AiJobCenter_LoadMore" xml:space="preserve">
+    <value>Load more</value>
+  </data>
+  <data name="AiJobCenter_StatusQueued" xml:space="preserve">
+    <value>Queued</value>
+  </data>
+  <data name="AiJobCenter_StatusRunning" xml:space="preserve">
+    <value>Processing</value>
+  </data>
+  <data name="AiJobCenter_StatusSucceeded" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="AiJobCenter_StatusFailed" xml:space="preserve">
+    <value>Failed · usage restored</value>
+  </data>
+  <data name="AiJobCenter_StatusCanceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="AiJobCenter_NoDescription" xml:space="preserve">
+    <value>No description</value>
+  </data>
+  <data name="AiJobCenter_TranslationSummary" xml:space="preserve">
+    <value>Subtitle translation to {0}</value>
+  </data>
+  <data name="AiJobCenter_UsageFormat" xml:space="preserve">
+    <value>Usage {0}</value>
+  </data>
+  <data name="AiJobCenter_Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="AiJobCenter_RetryTitle" xml:space="preserve">
+    <value>Retry AI job?</value>
+  </data>
+  <data name="AiJobCenter_CheckingRetryCost" xml:space="preserve">
+    <value>Checking the current usage estimate…</value>
+  </data>
+  <data name="AiJobCenter_RetryConfirmation" xml:space="preserve">
+    <value>This creates a new job and uses your allowance again. The original result is preserved.</value>
+  </data>
+  <data name="AiJobCenter_RetryFailed" xml:space="preserve">
+    <value>Failed to retry the AI job. Its original settings are still available.</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitle" xml:space="preserve">
+    <value>Delete this AI history item?</value>
+  </data>
+  <data name="AiJobCenter_DeleteConfirmation" xml:space="preserve">
+    <value>The server copy, prompt, and generated output will be removed. Items already added to the project are kept.</value>
+  </data>
+  <data name="AiJobCenter_DeleteFailed" xml:space="preserve">
+    <value>Failed to delete the AI history item.</value>
+  </data>
+  <data name="AiJobCenter_AddFailed" xml:space="preserve">
+    <value>Failed to add the generated result to the scene.</value>
+  </data>
+  <data name="AiJobCenter_AddedToScene" xml:space="preserve">
+    <value>The generated result was added to the scene.</value>
+  </data>
+  <data name="AiJobCenter_CompletedNotification" xml:space="preserve">
+    <value>{0} is ready. Open AI jobs to review or add the result.</value>
+  </data>
+  <data name="AiJobCenter_FailedNotification" xml:space="preserve">
+    <value>{0} failed. Reserved usage was restored; you can retry from AI jobs.</value>
+  </data>
+  <data name="AiJobCenter_CanceledNotification" xml:space="preserve">
+    <value>{0} was canceled. No result was created.</value>
+  </data>
+  <data name="AiEstimatedUsage" xml:space="preserve">
+    <value>Uses your monthly allowance</value>
+  </data>
+  <data name="AiModel" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="AiModelUnavailable" xml:space="preserve">
+    <value>The model this request used is no longer offered. Start a new request to choose another one.</value>
+  </data>
+  <data name="AiModelCostLow" xml:space="preserve">
+    <value>Uses less of the allowance</value>
+  </data>
+  <data name="AiModelCostMedium" xml:space="preserve">
+    <value>Uses about the usual</value>
+  </data>
+  <data name="AiModelCostHigh" xml:space="preserve">
+    <value>Uses more of the allowance</value>
+  </data>
+  <data name="AiModelUnaffordable" xml:space="preserve">
+    <value>Not enough remaining</value>
+  </data>
+  <data name="AiPricingUnavailable" xml:space="preserve">
+    <value>Authoritative pricing is unavailable. Reconnect before starting this paid operation.</value>
+  </data>
+  <data name="AiEstimatedUsageMonthly" xml:space="preserve">
+    <value>Covered by your monthly allowance.</value>
+  </data>
+  <data name="AiEstimatedUsageTopUp" xml:space="preserve">
+    <value>Your monthly allowance is used up, so purchased credits will be used.</value>
+  </data>
+  <data name="AiEstimatedUsageInsufficient" xml:space="preserve">
+    <value>Not enough allowance or credits remaining. Add credits before starting.</value>
+  </data>
+  <data name="AiSubtitle_SceneMix" xml:space="preserve">
+    <value>Scene mix (selected range)</value>
+  </data>
+  <data name="AiSubtitle_Range" xml:space="preserve">
+    <value>Scene range</value>
+  </data>
+  <data name="AiSubtitle_SourceLanguage" xml:space="preserve">
+    <value>Spoken language</value>
+  </data>
+  <data name="AiSubtitle_TargetLanguage" xml:space="preserve">
+    <value>Translate to</value>
+  </data>
+  <data name="AiLanguageAuto" xml:space="preserve">
+    <value>Detect automatically</value>
+  </data>
+  <data name="AiSubtitle_DetectedLanguage" xml:space="preserve">
+    <value>Detected language: {0}</value>
+  </data>
+  <data name="AiSubtitle_RunCannotBeRecorded" xml:space="preserve">
+    <value>This run cannot be written down, so it cannot be started: a request charged for and then lost with the session could not be asked for again. Close the other subtitle tab for this scene and try again.</value>
+  </data>
+  <data name="AiSubtitle_NoAudioInRange" xml:space="preserve">
+    <value>No audio was found in the selected scene range.</value>
+  </data>
+  <data name="AiSubtitle_InvalidRange" xml:space="preserve">
+    <value>Enter a valid scene range where the end is after the start.</value>
+  </data>
+  <data name="AiSubtitle_Import" xml:space="preserve">
+    <value>Import captions</value>
+  </data>
+  <data name="AiSubtitle_Export" xml:space="preserve">
+    <value>Export captions</value>
+  </data>
+  <data name="AiSubtitle_ImportFailed" xml:space="preserve">
+    <value>The caption file could not be imported.</value>
+  </data>
+  <data name="AiSubtitle_ExportFailed" xml:space="preserve">
+    <value>The caption file could not be exported.</value>
+  </data>
+  <data name="AiSubtitle_Exported" xml:space="preserve">
+    <value>The caption file was exported.</value>
+  </data>
+  <data name="AiSubtitle_CaptionFiles" xml:space="preserve">
+    <value>Caption files (SRT, WebVTT, ASS)</value>
+  </data>
+  <data name="AiSubtitle_AddCue" xml:space="preserve">
+    <value>Add cue</value>
+  </data>
+  <data name="AiSubtitle_DeleteCue" xml:space="preserve">
+    <value>Delete cue</value>
+  </data>
+  <data name="AiSubtitle_SplitCue" xml:space="preserve">
+    <value>Split at playhead</value>
+  </data>
+  <data name="AiSubtitle_MergeCue" xml:space="preserve">
+    <value>Merge next</value>
+  </data>
+  <data name="AiSubtitle_WrapCues" xml:space="preserve">
+    <value>Wrap lines</value>
+  </data>
+  <data name="AiSubtitle_MaxLineLength" xml:space="preserve">
+    <value>Characters per line</value>
+  </data>
+  <data name="AiSubtitle_MaxLineCount" xml:space="preserve">
+    <value>Lines per cue</value>
+  </data>
+  <data name="AiSubtitle_CueStart" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="AiSubtitle_CueEnd" xml:space="preserve">
+    <value>End</value>
+  </data>
+  <data name="AiSubtitle_Speaker" xml:space="preserve">
+    <value>Speaker</value>
+  </data>
+  <data name="AiSubtitle_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="AiSubtitle_Text" xml:space="preserve">
+    <value>Caption text</value>
+  </data>
+  <data name="AiSubtitle_InvalidTiming" xml:space="preserve">
+    <value>One or more cues have invalid start or end times.</value>
+  </data>
+  <data name="AiSubtitle_ValidationIssues" xml:space="preserve">
+    <value>{0} caption issues need attention. Check timing, order, and line limits.</value>
+  </data>
+  <data name="AiSubtitle_OverlapWarning" xml:space="preserve">
+    <value>Some captions overlap. They can still be added, but may appear at the same time.</value>
+  </data>
+  <data name="AiSubtitle_Translate" xml:space="preserve">
+    <value>Translate captions</value>
+  </data>
+  <data name="AiSubtitle_TemplatePreview" xml:space="preserve">
+    <value>Template preview (approximate)</value>
+  </data>
+  <data name="AiSubtitle_PreviewSample" xml:space="preserve">
+    <value>Your subtitle preview</value>
+  </data>
+  <data name="AiPreviewMode" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="AiPreviewResult" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="AiPreviewOriginal" xml:space="preserve">
+    <value>Original</value>
+  </data>
+  <data name="AiPreviewSideBySide" xml:space="preserve">
+    <value>Side by side</value>
+  </data>
+  <data name="AiEditSourcePreviewFailed" xml:space="preserve">
+    <value>The selected image could not be previewed. Choose another supported image.</value>
+  </data>
+  <data name="AiPromptDetails" xml:space="preserve">
+    <value>Prompt details</value>
+  </data>
+  <data name="AiPromptStyle" xml:space="preserve">
+    <value>Style</value>
+  </data>
+  <data name="AiPromptStylePlaceholder" xml:space="preserve">
+    <value>e.g. cinematic, watercolor, photorealistic</value>
+  </data>
+  <data name="AiPromptComposition" xml:space="preserve">
+    <value>Composition and camera</value>
+  </data>
+  <data name="AiPromptCompositionPlaceholder" xml:space="preserve">
+    <value>e.g. close-up, wide angle, soft backlight</value>
+  </data>
+  <data name="AiPromptMotion" xml:space="preserve">
+    <value>Motion</value>
+  </data>
+  <data name="AiPromptMotionPlaceholder" xml:space="preserve">
+    <value>e.g. slow camera push-in, natural subject movement</value>
+  </data>
+  <data name="AiPromptAvoid" xml:space="preserve">
+    <value>Avoid</value>
+  </data>
+  <data name="AiPromptAvoidPlaceholder" xml:space="preserve">
+    <value>e.g. text, logos, flicker, camera shake</value>
+  </data>
+  <data name="AiVideoFrameGuidance" xml:space="preserve">
+    <value>Frame guidance</value>
+  </data>
+  <data name="AiVideoFrameGuidanceDescription" xml:space="preserve">
+    <value>Use a first frame to animate an existing composition, or add a last frame to generate a transition. Images are uploaded only when you generate.</value>
+  </data>
+  <data name="AiVideoUseCurrentFrame" xml:space="preserve">
+    <value>Use current scene frame</value>
+  </data>
+  <data name="AiVideoFirstFrame" xml:space="preserve">
+    <value>First frame</value>
+  </data>
+  <data name="AiVideoLastFrame" xml:space="preserve">
+    <value>Last frame</value>
+  </data>
+  <data name="AiVideoBrowseFirstFrame" xml:space="preserve">
+    <value>Browse for first frame</value>
+  </data>
+  <data name="AiVideoClearFirstFrame" xml:space="preserve">
+    <value>Clear first frame</value>
+  </data>
+  <data name="AiVideoBrowseLastFrame" xml:space="preserve">
+    <value>Browse for last frame</value>
+  </data>
+  <data name="AiVideoClearLastFrame" xml:space="preserve">
+    <value>Clear last frame</value>
+  </data>
+  <data name="AiVideoFrameCaptureFailed" xml:space="preserve">
+    <value>The current scene frame could not be captured. Fix preview errors or choose an image file.</value>
+  </data>
+  <data name="AiVideoOpenPreview" xml:space="preserve">
+    <value>Open preview</value>
+  </data>
+  <data name="AiVideoPreviewOpenFailed" xml:space="preserve">
+    <value>The generated video could not be opened in the default media player.</value>
+  </data>
+  <data name="AiPromptLibraryPrivacy" xml:space="preserve">
+    <value>Recent prompts stay in memory for this session. Only named templates and prompts you pin are saved locally.</value>
+  </data>
+  <data name="AiOptional" xml:space="preserve">
+    <value>Optional</value>
+  </data>
+  <data name="AiPromptHistory" xml:space="preserve">
+    <value>Prompt history</value>
+  </data>
+  <data name="AiPromptHistoryEmpty" xml:space="preserve">
+    <value>No prompts have been run yet.</value>
+  </data>
+  <data name="AiPromptTemplates" xml:space="preserve">
+    <value>Prompt templates</value>
+  </data>
+  <data name="AiPromptTemplatesEmpty" xml:space="preserve">
+    <value>No templates saved yet.</value>
+  </data>
+  <data name="AiPromptSeed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="AiPromptSeedPlaceholder" xml:space="preserve">
+    <value>Random every time</value>
+  </data>
+  <data name="AiReferenceImage" xml:space="preserve">
+    <value>Reference images</value>
+  </data>
+  <data name="AiReferenceImageDescription" xml:space="preserve">
+    <value>Guide the generation with existing pictures. They are uploaded only when you generate.</value>
+  </data>
+  <data name="AiClearReferenceImage" xml:space="preserve">
+    <value>Clear references</value>
+  </data>
+  <data name="AiReferenceImageCount" xml:space="preserve">
+    <value>{0} of {1} used</value>
+  </data>
+  <data name="AiRemoveReferenceImage" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="AiPromptApply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="AiPromptPin" xml:space="preserve">
+    <value>Pin / unpin</value>
+  </data>
+  <data name="AiPromptTemplateName" xml:space="preserve">
+    <value>Template name</value>
+  </data>
+  <data name="AiPromptSaveTemplate" xml:space="preserve">
+    <value>Save template</value>
+  </data>
+  <data name="AiPromptClearRecent" xml:space="preserve">
+    <value>Clear recent prompts</value>
+  </data>
+  <data name="AiPromptTemplateInvalid" xml:space="preserve">
+    <value>Enter both a template name and a prompt before saving.</value>
+  </data>
+  <data name="AiVideoWaitStopped" xml:space="preserve">
+    <value>Local waiting stopped. The server job remains available in AI job history.</value>
+  </data>
+  <data name="AiEditRestyle" xml:space="preserve">
+    <value>Restyle with a reference</value>
+  </data>
+  <data name="AiEditRemoveObject" xml:space="preserve">
+    <value>Remove an object</value>
+  </data>
+  <data name="AiEditOutpaint" xml:space="preserve">
+    <value>Expand canvas (outpaint)</value>
+  </data>
+  <data name="AiEditRestylePrompt" xml:space="preserve">
+    <value>Describe the target style while noting details that must stay unchanged.</value>
+  </data>
+  <data name="AiEditRemoveObjectPrompt" xml:space="preserve">
+    <value>Describe the object to remove and how the cleared area should look.</value>
+  </data>
+  <data name="AiEditOutpaintPrompt" xml:space="preserve">
+    <value>Describe what should continue beyond the original image.</value>
+  </data>
+  <data name="AiEditOutpaintExpansion" xml:space="preserve">
+    <value>Expansion on each edge</value>
+  </data>
+  <data name="AiSubtitle_PartialTranslationAvailable" xml:space="preserve">
+    <value>Translation completed for {0} of {1} batches. You can use the paid partial result now, or run Translate again to continue without processing completed batches again.</value>
+  </data>
+  <data name="AiSubtitle_PartialTranscriptionAvailable" xml:space="preserve">
+    <value>Transcription completed for {0} of {1} audio chunks. You can use the paid partial result now, or run Transcribe again to continue without processing completed chunks again.</value>
+  </data>
+  <data name="AiSubtitle_UsePartialResult" xml:space="preserve">
+    <value>Use partial result</value>
+  </data>
+  <data name="AiSubtitle_DiscardPartialResult" xml:space="preserve">
+    <value>Discard partial result</value>
+  </data>
+  <data name="AiSubtitle_CompletedResultAvailable" xml:space="preserve">
+    <value>The paid AI result is ready, but the source or captions changed while it was running. Review and apply the recoverable result when you are ready.</value>
+  </data>
   <data name="Materials" xml:space="preserve">
     <value>Materials</value>
+  </data>
+  <data name="AiPromptRequired" xml:space="preserve">
+    <value>Enter a prompt.</value>
+  </data>
+  <data name="AiPromptTooLongFormat" xml:space="preserve">
+    <value>The final composed prompt cannot exceed {0} characters.</value>
+  </data>
+  <data name="AiImageGenerationIdle" xml:space="preserve">
+    <value>Describe the image and click Generate.</value>
+  </data>
+  <data name="AiImageEditIdle" xml:space="preserve">
+    <value>Choose an image and a task, then click Run.</value>
+  </data>
+  <data name="AiEditSourceImage" xml:space="preserve">
+    <value>Source image</value>
+  </data>
+  <data name="AiEditNoSourceSelected" xml:space="preserve">
+    <value>Not selected</value>
+  </data>
+  <data name="AiReferenceImageHeader" xml:space="preserve">
+    <value>Reference images (optional)</value>
+  </data>
+  <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
+    <value>Frame guidance (optional)</value>
+  </data>
+  <data name="AiPendingRequest" xml:space="preserve">
+    <value>Pending AI request</value>
+  </data>
+  <data name="AiRecoverRequest" xml:space="preserve">
+    <value>Recover</value>
+  </data>
+  <data name="AiAbandonRequest" xml:space="preserve">
+    <value>Abandon</value>
+  </data>
+  <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
+    <value>Transcribe or import captions, and the cues appear here.</value>
+  </data>
+  <data name="AiSubtitle_LineWrapping" xml:space="preserve">
+    <value>Line wrapping</value>
+  </data>
+  <data name="AiSubtitle_CueEditing" xml:space="preserve">
+    <value>Cues</value>
+  </data>
+  <data name="AiSubtitle_Edit" xml:space="preserve">
+    <value>Edit captions</value>
+  </data>
+  <data name="AiSubtitle_TranscribeDescription" xml:space="preserve">
+    <value>Choose an audio source and create timed captions.</value>
+  </data>
+  <data name="AiSubtitle_EditDescription" xml:space="preserve">
+    <value>Review timing and text, choose an appearance, then add the captions to the scene.</value>
+  </data>
+  <data name="AiSubtitle_TranslateDescription" xml:space="preserve">
+    <value>Translate the current captions into another language.</value>
+  </data>
+  <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
+    <value>Captions file</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
+    <value>Delete “{0}”?</value>
+  </data>
+  <data name="TimeAgoJustNow" xml:space="preserve">
+    <value>Just now</value>
+  </data>
+  <data name="TimeAgoMinutesFormat" xml:space="preserve">
+    <value>{0} min ago</value>
+  </data>
+  <data name="TimeAgoHoursFormat" xml:space="preserve">
+    <value>{0} h ago</value>
+  </data>
+  <data name="TimeAgoDaysFormat" xml:space="preserve">
+    <value>{0} d ago</value>
   </data>
 </root>

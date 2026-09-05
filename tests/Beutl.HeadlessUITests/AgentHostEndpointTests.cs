@@ -173,6 +173,26 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task StopAsync_joins_background_startup_and_leaves_no_published_endpoint()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token");
+
+        endpoint.StartInBackground();
+        await endpoint.StopAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
     public async Task Endpoint_tools_list_includes_live_host_and_design_tools()
     {
         await TestReset.ResetShellAsync();

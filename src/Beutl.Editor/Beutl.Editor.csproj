@@ -7,12 +7,14 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Beutl.UnitTests" />
+        <InternalsVisibleTo Include="Beutl" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
       <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
       <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
+      <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
       <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
       <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
       <ProjectReference Include="..\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />

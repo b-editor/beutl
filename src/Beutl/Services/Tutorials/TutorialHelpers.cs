@@ -17,14 +17,13 @@ public static class TutorialHelpers
         return editorService.SelectedTabItem.Value?.Context.Value as EditViewModel;
     }
 
-    public static bool OpenLibraryTabIfNeeded(EditorService editorService)
+    public static async Task<bool> OpenLibraryTabIfNeeded(EditorService editorService)
     {
         var editVm = GetEditViewModel(editorService);
         if (editVm == null) return false;
 
         var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel(editVm);
-        editVm.OpenToolTab(tab);
-        return true;
+        return await editVm.OpenToolTabAsync(tab);
     }
 
     public static async Task<bool> EnsureProjectAsync(ProjectService projectService, EditorService editorService, string projectName = "Tutorial")
@@ -56,16 +55,20 @@ public static class TutorialHelpers
             }
         }
 
-        Scene? scene = currentProject.Items.OfType<Scene>().FirstOrDefault();
-        if (scene != null)
+        await projectService.WaitForPendingProjectChangesAsync();
+        return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            editorService.ActivateTabItem(scene);
-        }
+            if (!ReferenceEquals(projectService.CurrentProject.Value, currentProject))
+                return false;
 
-        // UIの更新を待つ
-        await Task.Delay(200);
+            Scene? scene = currentProject.Items.OfType<Scene>().FirstOrDefault();
+            if (scene is not null)
+            {
+                editorService.ActivateTabItem(scene);
+            }
 
-        return GetEditViewModel(editorService) != null;
+            return GetEditViewModel(editorService) is not null;
+        });
     }
 
     public static IDisposable? SubscribeToElementSelection(EditViewModel? editVm, Action onSelected)

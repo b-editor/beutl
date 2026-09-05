@@ -167,7 +167,8 @@ public sealed class ElementClipboardService : IElementClipboardService
             Pasted: true,
             NewElements: [],
             ScrollTo: outcome.ScrollToRange,
-            ScrollToZIndex: outcome.ScrollToZIndex);
+            ScrollToZIndex: outcome.ScrollToZIndex,
+            AddFailure: null);
     }
 
     private async Task<ElementPasteOutcome> PasteSingleElementAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -211,7 +212,8 @@ public sealed class ElementClipboardService : IElementClipboardService
             Pasted: true,
             NewElements: [newElement],
             ScrollTo: newElement.Range,
-            ScrollToZIndex: newElement.ZIndex);
+            ScrollToZIndex: newElement.ZIndex,
+            AddFailure: null);
     }
 
     private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -221,13 +223,31 @@ public sealed class ElementClipboardService : IElementClipboardService
         IReadOnlyList<string>? files = await _clipboard.TryGetFilePathsAsync();
         if (files is null || files.Count == 0) return ElementPasteOutcome.Empty;
 
-        foreach (string file in files)
+        ElementAddResult result = await _elementAdder.AddAsync(files
+            .Select(file => new ElementDescription(
+                clickedFrame,
+                TimeSpan.FromSeconds(5),
+                clickedLayer,
+                new ElementSource.File(file)))
+            .ToArray(), CancellationToken.None);
+        if (!result.IsSuccess)
         {
-            _elementAdder.AddElement(new ElementDescription(
-                clickedFrame, TimeSpan.FromSeconds(5), clickedLayer, FileName: file));
+            return new ElementPasteOutcome(
+                Pasted: false,
+                NewElements: [],
+                ScrollTo: default,
+                ScrollToZIndex: 0,
+                AddFailure: result.Failure);
         }
 
-        return new ElementPasteOutcome(true, [], default, 0);
+        IReadOnlyList<Element> newElements = result.Elements;
+        Element scrollTarget = result.Items[^1].PrimaryElement;
+        return new ElementPasteOutcome(
+            Pasted: true,
+            NewElements: newElements,
+            ScrollTo: scrollTarget.Range,
+            ScrollToZIndex: scrollTarget.ZIndex,
+            AddFailure: null);
     }
 
     private async Task<ElementPasteOutcome> PasteBitmapAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -300,6 +320,7 @@ public sealed class ElementClipboardService : IElementClipboardService
             Pasted: true,
             NewElements: [newElement],
             ScrollTo: newElement.Range,
-            ScrollToZIndex: newElement.ZIndex);
+            ScrollToZIndex: newElement.ZIndex,
+            AddFailure: null);
     }
 }
