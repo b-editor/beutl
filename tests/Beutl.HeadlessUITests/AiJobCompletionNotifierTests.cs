@@ -200,6 +200,28 @@ public sealed class AiJobCompletionNotifierTests
         }
     }
 
+    [Test]
+    public async Task ThrowingCompletionHandler_DoesNotEscapeSnapshotObserver()
+    {
+        await using var jobKinds = CreateBuiltInRegistry();
+        await using var resultHandlers = new AiJobResultHandlerRegistry(
+        [
+            new AiJobResultHandlerRegistration(new AiJobResultContribution(
+                AiJobKinds.Video,
+                new ThrowingResultHandler())),
+        ]);
+        using var snapshots = new Subject<AiJobMonitorSnapshot>();
+        using var notifier = new AiJobCompletionNotifier(snapshots, jobKinds, resultHandlers, () => { });
+        AiJob running = CreateJob(AiJobStatuses.Running);
+
+        Assert.DoesNotThrow(() =>
+        {
+            snapshots.OnNext(new AiJobMonitorSnapshot([running], null, false, null));
+            snapshots.OnNext(new AiJobMonitorSnapshot(
+                [running with { Status = AiJobStatuses.Succeeded }], null, false, null));
+        });
+    }
+
     private static AiJobKindRegistry CreateBuiltInRegistry()
         => AiJobKindRegistry.CreateBuiltIn(
             new UnusedImageGenerationService(),
@@ -264,6 +286,23 @@ public sealed class AiJobCompletionNotifierTests
             IAiJobResultContext context,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
+    }
+
+    private sealed class ThrowingResultHandler : IAiJobResultHandler
+    {
+        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
+            => throw new InvalidOperationException("presentation failure");
+
+        public AiJobCompletionPresentation? CreateCompletion(
+            AiJob job,
+            AiJobStatusSemantics status,
+            AiJobPresentation presentation)
+            => throw new InvalidOperationException("completion failure");
+
+        public bool CanHandle(AiJob job, AiJobStatusSemantics status) => true;
+
+        public Task HandleAsync(AiJob job, IAiJobResultContext context, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private sealed class UnusedImageGenerationService : IAiImageGenerationService

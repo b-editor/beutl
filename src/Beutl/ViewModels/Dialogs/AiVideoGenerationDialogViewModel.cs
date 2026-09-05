@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
@@ -49,14 +50,12 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     private readonly EditViewModel? _editViewModel;
     private readonly HashSet<string> _temporaryFiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _temporaryFileLeases = new(StringComparer.Ordinal);
-    // 決着していない名前ごとに、その依頼が名乗ったフレームの一時ファイルを
-    // 抱えておくもの。
+    // Temporary frame files retained for each unsettled request name.
     private readonly Dictionary<string, IDisposable> _framesHeldByName =
         new(StringComparer.Ordinal);
-    // 利用者が選んだもの。画面に出ているものとは別に持つ——モデルを選び直すと
-    // 画面のほうは、そのモデルが取れる範囲へ寄せられてしまう。元のモデルに
-    // 戻したときにここから戻せないと、同じつもりの依頼が別の依頼になり、
-    // 出してある名前が指すものへ届かなくなる。
+    // Preserve the user's choices separately from the displayed values, which are narrowed when
+    // the model changes. Restoring the old model must also restore these values or the same intent
+    // becomes a different request and no longer reaches the result named by the outstanding key.
     private AiVideoDurationOption? _chosenDuration;
     private AiVideoResolutionOption? _chosenResolution;
     private AiVideoAspectRatioOption? _chosenAspectRatio;
@@ -64,8 +63,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
     private int? _chosenSeed;
     private (string? Path, string? ElementId) _chosenFirstFrame;
     private (string? Path, string? ElementId) _chosenLastFrame;
-    // モデルの都合で画面を書き換えている最中。そのあいだの変化は利用者の選択では
-    // ないので、覚えない。
+    // True while model constraints update the UI. Those changes are not user choices and must
+    // not replace the preserved values.
     private bool _applyingCapabilities;
     private readonly HashSet<string> _temporaryFilesPendingDeletion = new(StringComparer.Ordinal);
     private readonly object _lifetimeGate = new();
@@ -722,6 +721,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task DisposeCoreAsync()
     {
+        _identityOperations.Dispose();
         await _operations.DisposeAsync(
             _availabilityLifetimeCts.Cancel,
             async () =>
@@ -772,7 +772,6 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 DeleteTemporaryFile(path);
             }
         });
-        _identityOperations.Dispose();
     }
 
     /// <summary>
@@ -798,6 +797,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
         try
         {
+            await _entitlements.RefreshAsync(operation.CancellationToken);
             await ModelPicker.LoadAsync(
                 AiOperations.VideoGeneration,
                 operation.CancellationToken);
@@ -839,37 +839,64 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private void OnIdentityChanged()
     {
-        string? account = _requestKey.CurrentAccountId;
-        _identityOperations.Switch(() =>
+        if (!Dispatcher.UIThread.CheckAccess())
         {
-            _runningRequest = null;
-            IsGenerating.Value = false;
-            IsWaitingForJob.Value = false;
-            ClearActiveRecovery();
-            _chosenDuration = null;
-            _chosenResolution = null;
-            _chosenAspectRatio = null;
-            _chosenAudio = true;
-            _chosenSeed = null;
-            SetFrameCore(isFirstFrame: true, null, null);
-            SetFrameCore(isFirstFrame: false, null, null);
-            Prompt.Value = string.Empty;
-            Style.Value = string.Empty;
-            Composition.Value = string.Empty;
-            Motion.Value = string.Empty;
-            Exclusions.Value = string.Empty;
-            if (ResultVideoPath.Value is { } resultPath)
-                RequestTemporaryFileDeletion(resultPath);
-            ResultVideoPath.Value = null;
-            _resultSnapshot = null;
-            StatusText.Value = Strings.AiVideoIdle;
-            Error.Value = null;
-            ModelPicker.ReconcileRecoveryModels();
-            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            _recoveryRevision.Value++;
-        });
-        if (account is not null)
+            _identityOperations.SwitchDeferred(
+                action => Dispatcher.UIThread.Post(() => RunDeferredIdentityClear(action)),
+                ClearIdentityState,
+                TryAutoRecoverForCurrentIdentity);
+            return;
+        }
+
+        _identityOperations.Switch(ClearIdentityState);
+        TryAutoRecoverForCurrentIdentity();
+    }
+
+    private void RunDeferredIdentityClear(Action clear)
+    {
+        try
+        {
+            clear();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear video-generation state after an account change.");
+        }
+    }
+
+    private void TryAutoRecoverForCurrentIdentity()
+    {
+        if (_requestKey.CurrentAccountId is not null)
             TryAutoRecoverSingleAttempt();
+    }
+
+    private void ClearIdentityState()
+    {
+        _runningRequest = null;
+        IsGenerating.Value = false;
+        IsWaitingForJob.Value = false;
+        ClearActiveRecovery();
+        _chosenDuration = null;
+        _chosenResolution = null;
+        _chosenAspectRatio = null;
+        _chosenAudio = true;
+        _chosenSeed = null;
+        SetFrameCore(isFirstFrame: true, null, null);
+        SetFrameCore(isFirstFrame: false, null, null);
+        Prompt.Value = string.Empty;
+        Style.Value = string.Empty;
+        Composition.Value = string.Empty;
+        Motion.Value = string.Empty;
+        Exclusions.Value = string.Empty;
+        if (ResultVideoPath.Value is { } resultPath)
+            RequestTemporaryFileDeletion(resultPath);
+        ResultVideoPath.Value = null;
+        _resultSnapshot = null;
+        StatusText.Value = Strings.AiVideoIdle;
+        Error.Value = null;
+        ModelPicker.ReconcileRecoveryModels();
+        ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
+        _recoveryRevision.Value++;
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -1227,9 +1254,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             return;
         }
 
-        // 利用者が選んだフレーム。モデルの都合で外しているだけのときは書き換え
-        // ない——元のモデルへ戻したときに、同じフレームを持つ同じ依頼に戻れる
-        // ようにしておく。
+        // Preserve a user-selected frame when model constraints merely hide it, so restoring the
+        // old model also restores the same request with the same frame.
         if (!_applyingCapabilities)
         {
             if (isFirstFrame)
@@ -1257,8 +1283,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             _lastFrameElementId = sourceElementId;
         }
 
-        // 脇に置いているだけなら、その一時ファイルは捨てない。捨ててしまうと、
-        // 元のモデルへ戻しても同じ依頼を組み立て直せない。
+        // Do not delete a temporary frame that model constraints only hid; it is required to
+        // reconstruct the same request after restoring the old model.
         if (!_applyingCapabilities
             && !string.Equals(previousPath, path, StringComparison.Ordinal))
         {
@@ -1464,7 +1490,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                     throw new AiUsageLimitExceededException();
                 }
             }
-            catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+            catch
             {
                 WithdrawRequestName(name);
                 throw;
@@ -1563,9 +1589,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         }
         // The job that key created is gone, so the key can only ever answer
         // with that. The next attempt has to be a new request.
-        // 送った名前が、別の依頼のものだった。画面の中身を戻せばその依頼として
-        // 送り直せるので、名前は残す——ここで捨てると、支払い済みかもしれない
-        // job へ戻る道が閉じる。
+        // The issued name belongs to a different request. Keep it so restoring the form can
+        // resend that request; discarding it could close the only route to an already-paid job.
         catch (AiRequestChangedException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
@@ -1857,9 +1882,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         return TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
     }
 
-    // 未回収の名前が指しているフレームの一時ファイルを、その名前が決着するまで
-    // 抱えておく。決着していない依頼はそのファイルの姿ごと名前になっているので、
-    // 消えると二度と同じ依頼を出せない——モデルを選び直しただけで消える。
+    // Retain each temporary frame until the unsettled name that includes its exact contents is
+    // settled. Deleting it on a model change would make the same request impossible to resend.
     private void HoldFramesFor(AiRequestName name, string? firstFrame, string? lastFrame)
     {
         if (string.IsNullOrEmpty(name.Key))
@@ -1891,9 +1915,8 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         held.Dispose();
     }
 
-    // 送るものと、名前に使うものを、同じ一度の読み取りから作る。読み直すと、
-    // 名前を付けた中身と実際に送る中身が食い違い、答えは別のものを指す名前で
-    // 記録される。
+    // Build the upload and its name from the same read. Reading twice could make the dispatched
+    // bytes differ from the named bytes and record the result under the wrong request.
     private async Task<(
         AiUploadSource? Frame,
         string Stamp,
@@ -1913,9 +1936,9 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                 path,
                 AiRequestLimits.MaxFrameUploadBytes,
                 cancellationToken);
-        // 名前は数えない。サーバーはフレームを中身と種類だけで見分ける——場面から
-        // 切り出したフレームは、その都度ちがう名前のファイルに落ちるので、名前を
-        // 数えると、同じ一枚で送り直すたびに別の依頼になって買い直しになる。
+        // Exclude the filename: the server identifies a frame by its content and type. Scene
+        // captures get a new temporary filename each time, which must not turn a resend of the
+        // same frame into a newly charged request.
         return (
             AiUploadSource.FromBytes(fileName, bytes),
             AiRequestKey.ContentStamp(bytes),
@@ -2133,15 +2156,40 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
 
         try
         {
-            byte[] bytes = await File.ReadAllBytesAsync(filePath, operation.CancellationToken);
-            await using Stream destinationStream = await destination.OpenWriteAsync(operation.CancellationToken);
-            if (!operation.TryPublish(() =>
+            string sourceExtension = Path.GetExtension(filePath);
+            string destinationExtension = Path.GetExtension(destination.Path);
+            if (!IsSupportedVideoExtension(destinationExtension)
+                || !string.Equals(sourceExtension, destinationExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "The destination must use the generated video's format.");
+            }
+
+            string temporaryPath = destination.Path + $".{Guid.NewGuid():N}.tmp";
+            try
+            {
+                await CopyVideoFileAsync(filePath, temporaryPath, operation.CancellationToken);
+                if (!operation.IsCurrent)
+                    return;
+
+                // The only UI publication is the same-volume rename. The old destination
+                // remains untouched if the copy or cancellation fails beforehand.
+                if (!operation.TryPublish(() => File.Move(temporaryPath, destination.Path, true)))
+                    return;
+            }
+            finally
+            {
+                try
                 {
-                    operation.CancellationToken.ThrowIfCancellationRequested();
-                    destinationStream.SetLength(0);
-                    destinationStream.Write(bytes);
-                }))
-                return;
+                    File.Delete(temporaryPath);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
             operation.TryPublish(() =>
                 NotificationService.ShowSuccess(Strings.AiVideoGeneration, Strings.AiVideoSaved));
         }
@@ -2154,6 +2202,39 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
             operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
         }
     }
+
+    private static async Task CopyVideoFileAsync(
+        string sourcePath,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        await using var source = new FileStream(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 128 * 1024,
+            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using var destination = new FileStream(
+            destinationPath,
+            new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                BufferSize = 128 * 1024,
+                Options = FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.WriteThrough,
+            });
+        await source.CopyToAsync(destination, 128 * 1024, cancellationToken);
+        await destination.FlushAsync(cancellationToken);
+        destination.Flush(true);
+    }
+
+    private static bool IsSupportedVideoExtension(string extension)
+        => extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".webm", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mov", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase);
 
     private string ComposePrompt() => AiPromptComposer.Compose(new AiPromptParts(
         Prompt.Value,

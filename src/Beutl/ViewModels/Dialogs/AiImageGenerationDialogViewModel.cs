@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
@@ -39,18 +40,17 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     private readonly IAuthenticatedContentService _content;
     private readonly AiRequestKey _requestKey;
     private readonly AiRequestRecoveryContext? _requestRecoveryContext;
-    // 利用者が選んだもの。画面に出ているものとは別に持つ——モデルを選び直すと
-    // 画面のほうは、そのモデルが取れる範囲へ寄せられてしまう。元のモデルに
-    // 戻したときにここから戻せないと、同じつもりの依頼が別の依頼になり、
-    // 出してある名前が指すものへ届かなくなる。
+    // Preserve the user's choices separately from the displayed values, which are narrowed when
+    // the model changes. Restoring the old model must also restore these values or the same intent
+    // becomes a different request and no longer reaches the result named by the outstanding key.
     private AiImageAspectRatioOption? _chosenAspectRatio;
     private AiImageBackgroundOption? _chosenBackground;
     private int? _chosenSeed;
     private readonly List<string> _chosenReferencePaths = [];
     private AiPendingAttempt? _selectedRecovery;
     private readonly ReactivePropertySlim<int> _recoveryRevision = new();
-    // モデルの都合で画面を書き換えている最中。そのあいだの変化は利用者の選択では
-    // ないので、覚えない。
+    // True while model constraints update the UI. Those changes are not user choices and must
+    // not replace the preserved values.
     private bool _applyingCapabilities;
     private readonly EditViewModel? _editViewModel;
     private Task? _disposeTask;
@@ -624,6 +624,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private async Task DisposeCoreAsync()
     {
+        _identityOperations.Dispose();
         await _operations.DisposeAsync(async () =>
         {
             ResultImage.Value?.Dispose();
@@ -644,7 +645,6 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
             _recoveryRevision.Dispose();
             _disposables.Dispose();
         });
-        _identityOperations.Dispose();
     }
 
     /// <summary>
@@ -670,6 +670,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
         try
         {
+            await _entitlements.RefreshAsync(operation.CancellationToken);
             await ModelPicker.LoadAsync(
                 AiOperations.ImageGeneration,
                 operation.CancellationToken);
@@ -712,32 +713,59 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
     private void OnIdentityChanged()
     {
-        string? account = _requestKey.CurrentAccountId;
-        _identityOperations.Switch(() =>
+        if (!Dispatcher.UIThread.CheckAccess())
         {
-            _runningRequest = null;
-            IsGenerating.Value = false;
-            ClearActiveRecovery();
-            _chosenAspectRatio = null;
-            _chosenBackground = null;
-            _chosenSeed = null;
-            ClearReferenceImagesCore();
-            Prompt.Value = string.Empty;
-            Style.Value = string.Empty;
-            Composition.Value = string.Empty;
-            Exclusions.Value = string.Empty;
-            ResultImage.Value?.Dispose();
-            ResultImage.Value = null;
-            PreviewImage.Value?.Dispose();
-            PreviewImage.Value = null;
-            Error.Value = null;
-            ModelPicker.ReconcileRecoveryModels();
-            ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
-            UpdateReferenceImageState();
-            _recoveryRevision.Value++;
-        });
-        if (account is not null)
+            _identityOperations.SwitchDeferred(
+                action => Dispatcher.UIThread.Post(() => RunDeferredIdentityClear(action)),
+                ClearIdentityState,
+                TryAutoRecoverForCurrentIdentity);
+            return;
+        }
+
+        _identityOperations.Switch(ClearIdentityState);
+        TryAutoRecoverForCurrentIdentity();
+    }
+
+    private void RunDeferredIdentityClear(Action clear)
+    {
+        try
+        {
+            clear();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear image-generation state after an account change.");
+        }
+    }
+
+    private void TryAutoRecoverForCurrentIdentity()
+    {
+        if (_requestKey.CurrentAccountId is not null)
             TryAutoRecoverSingleAttempt();
+    }
+
+    private void ClearIdentityState()
+    {
+        _runningRequest = null;
+        IsGenerating.Value = false;
+        ClearActiveRecovery();
+        _chosenAspectRatio = null;
+        _chosenBackground = null;
+        _chosenSeed = null;
+        ClearReferenceImagesCore();
+        Prompt.Value = string.Empty;
+        Style.Value = string.Empty;
+        Composition.Value = string.Empty;
+        Exclusions.Value = string.Empty;
+        ResultImage.Value?.Dispose();
+        ResultImage.Value = null;
+        PreviewImage.Value?.Dispose();
+        PreviewImage.Value = null;
+        Error.Value = null;
+        ModelPicker.ReconcileRecoveryModels();
+        ApplyModelCapabilities(ModelPicker.Selected.Value?.Model);
+        UpdateReferenceImageState();
+        _recoveryRevision.Value++;
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -932,9 +960,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     // waiting to be collected.
     private void TrimReferenceImagesToLimit()
     {
-        // 脇に置いてあるぶんも含めて切る。表示されているものだけを数えると、
-        // 上限が下がったあとに広いモデルへ戻したとき、上限を超えた組が戻って
-        // くる。
+        // Trim preserved references as well as visible ones. Otherwise switching back to a less
+        // restrictive model after the limit shrinks would restore an over-limit set.
         string[] within = WithinTotalLimit(_chosenReferencePaths);
         if (within.Length == _chosenReferencePaths.Count)
             return;
@@ -1117,7 +1144,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
                     throw new AiUsageLimitExceededException();
                 }
             }
-            catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+            catch
             {
                 WithdrawRequestName(name);
                 throw;
@@ -1148,7 +1175,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
 
             // Past here the picture has been paid for. Whatever goes wrong
             // while it is fetched, the name stays: it is the way back to it.
-            using var stream = new MemoryStream();
+            using var stream = new SizeLimitedMemoryStream(
+                checked((int)AiRequestLimits.MaxImageUploadBytes));
             await _content.CopyToAsync(response.ContentUri, stream, operation.CancellationToken);
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
@@ -1212,9 +1240,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         }
         // The job that key created is gone, so the key can only ever answer
         // with that. The next attempt has to be a new request.
-        // 送った名前が、別の依頼のものだった。画面の中身を戻せばその依頼として
-        // 送り直せるので、名前は残す——ここで捨てると、支払い済みかもしれない
-        // job へ戻る道が閉じる。
+        // The issued name belongs to a different request. Keep it so restoring the form can
+        // resend that request; discarding it could close the only route to an already-paid job.
         catch (AiRequestChangedException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
@@ -1369,7 +1396,7 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
                 { MainWindow: { } window }
                 || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
                 return;
-            FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+            FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
             options.SuggestedFileName = $"AI Image {DateTime.Now:yyyy-MM-dd HHmmss}";
             options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
             options.DefaultExtension = "png";
@@ -1469,9 +1496,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         UpdateReferenceImageState();
     }
 
-    // 送るものと、名前に使うものを、同じ一度の読み取りから作る。読み直すと、
-    // 名前を付けた中身と実際に送る中身が食い違い、答えは別のものを指す名前で
-    // 記録される。
+    // Build the upload and its name from the same read. Reading twice could make the dispatched
+    // bytes differ from the named bytes and record the result under the wrong request.
     private async Task<(
         AiUploadSource[] References,
         string[] Stamps,
@@ -1485,9 +1511,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         var sources = new AiUploadSource[paths.Length];
         var stamps = new string[paths.Length];
         var recoverySources = new AiRequestRecoverySource[paths.Length];
-        // どの一枚も上限があるが、まとめて送れる量にも上限がある。一枚ずつしか
-        // 見ないと、全部読み終えて写しまで作ってから断ることになる——残りの分
-        // だけを読めば、断るときにはもう抱えていない。
+        // Each image and the combined set have limits. Read only the remaining allowance so an
+        // over-limit set is rejected before every image has been copied into memory.
         long remaining = totalLimit;
         for (int index = 0; index < paths.Length; index++)
         {

@@ -1,8 +1,10 @@
 ﻿using System.Collections.Immutable;
+using System.Net;
 using System.Reactive;
 using System.Reactive.Disposables;
 using Beutl.Api.Objects;
 using Reactive.Bindings;
+using Refit;
 
 namespace Beutl.Api.Services;
 
@@ -21,6 +23,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly BeutlApiApplication _application;
     private readonly TimeSpan _pollInterval;
+    private readonly Func<TimeSpan, CancellationToken, Task> _retryDelay;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly object _pollingGate = new();
     private readonly object _stateGate = new();
@@ -32,6 +35,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     private CancellationTokenSource? _pollingCts;
     private long _authenticationVersion;
     private int _pollingLeases;
+    private readonly HashSet<long> _scheduledRetryVersions = [];
     private volatile bool _disposed;
 
     public AiJobMonitor(BeutlApiApplication application)
@@ -49,7 +53,8 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         IAiJobClient client,
         IAiJobKindRegistry jobKinds,
         IObservable<Unit> jobChanges,
-        TimeSpan pollInterval)
+        TimeSpan pollInterval,
+        Func<TimeSpan, CancellationToken, Task>? retryDelay = null)
     {
         ArgumentNullException.ThrowIfNull(application);
         ArgumentNullException.ThrowIfNull(client);
@@ -62,6 +67,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         _client = client;
         _jobKinds = jobKinds;
         _pollInterval = pollInterval;
+        _retryDelay = retryDelay ?? Task.Delay;
         _readOnlySnapshot = _snapshot.ToReadOnlyReactivePropertySlim(AiJobMonitorSnapshot.Empty);
         _subscriptions.Add(jobChanges.Subscribe(HandleJobsChanged));
         _subscriptions.Add(application.AuthenticatedUser.Subscribe(HandleAuthenticatedUserChanged));
@@ -92,6 +98,9 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     public Task LoadNextPageAsync(CancellationToken cancellationToken)
         => RefreshCoreAsync(append: true, cancellationToken);
 
+    internal Task RefreshPollingAsync(CancellationToken cancellationToken)
+        => RefreshCoreAsync(append: false, cancellationToken, preserveLoadedTail: true);
+
     public void Dispose()
     {
         CancellationTokenSource? authenticationCts;
@@ -119,7 +128,10 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         authenticationCts?.Dispose();
     }
 
-    private async Task RefreshCoreAsync(bool append, CancellationToken cancellationToken)
+    private async Task RefreshCoreAsync(
+        bool append,
+        CancellationToken cancellationToken,
+        bool preserveLoadedTail = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!TryGetAuthenticationContext(
@@ -161,7 +173,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             {
                 AiJobPage page = await _client.GetPageAsync(new AiJobPageRequest(cursor), token);
                 ImmutableArray<AiJob> jobs = MergeJobs(
-                    append ? previous.Jobs : [],
+                    append || preserveLoadedTail ? previous.Jobs : [],
                     page.Jobs);
 
                 lock (_stateGate)
@@ -199,6 +211,8 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
                         _snapshot.Value = previous with { IsLoading = false, Error = ex };
                     }
                 }
+                if (!append && previous.Jobs.IsEmpty && IsTransientRefreshFailure(ex))
+                    ScheduleRetry(expectedOwner!, expectedVersion, authenticationToken);
             }
 
             EnsurePolling();
@@ -215,6 +229,63 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             }
         }
     }
+
+    private void ScheduleRetry(
+        AuthenticatedUser owner,
+        long authenticationVersion,
+        CancellationToken authenticationToken)
+    {
+        lock (_stateGate)
+        {
+            if (_disposed || !_scheduledRetryVersions.Add(authenticationVersion))
+                return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            bool releasedSchedule = false;
+            try
+            {
+                await _retryDelay(_pollInterval, authenticationToken);
+                lock (_stateGate)
+                {
+                    _scheduledRetryVersions.Remove(authenticationVersion);
+                }
+                releasedSchedule = true;
+                if (IsCurrentAuthentication(owner, authenticationVersion))
+                    await RefreshCoreAsync(false, authenticationToken);
+            }
+            catch (OperationCanceledException) when (authenticationToken.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                if (!releasedSchedule)
+                {
+                    lock (_stateGate)
+                    {
+                        _scheduledRetryVersions.Remove(authenticationVersion);
+                    }
+                }
+            }
+        }, CancellationToken.None);
+    }
+
+    private static bool IsTransientRefreshFailure(Exception exception)
+        => exception switch
+        {
+            TaskCanceledException => true,
+            TimeoutException => true,
+            HttpRequestException { StatusCode: null } => true,
+            HttpRequestException { StatusCode: { } status } => IsRetryableStatus(status),
+            ApiException apiException => IsRetryableStatus(apiException.StatusCode),
+            _ => false,
+        };
+
+    private static bool IsRetryableStatus(HttpStatusCode status)
+        => status is HttpStatusCode.RequestTimeout
+            or HttpStatusCode.TooManyRequests
+            || (int)status >= 500;
 
     private static ImmutableArray<AiJob> MergeJobs(
         IEnumerable<AiJob> existing,
@@ -238,7 +309,17 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
         return result.ToImmutableArray();
     }
 
-    private bool ShouldPoll(AiJob job) => _jobKinds.GetStatus(job).ShouldPoll;
+    private bool ShouldPoll(AiJob job)
+    {
+        try
+        {
+            return _jobKinds.GetStatus(job).ShouldPoll;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private AiJobMonitorSnapshot GetSnapshot()
     {
@@ -451,8 +532,17 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
                 using (kindLease)
                 {
                     AiJobKindDescriptor descriptor = kindLease.Descriptor;
-                    if (!descriptor.StatusResolver.Resolve(job.Status).ShouldPoll
-                        || descriptor.RefreshHandler is not { } handler)
+                    AiJobStatusSemantics status;
+                    try
+                    {
+                        status = descriptor.StatusResolver.Resolve(job.Status);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (!status.ShouldPoll || descriptor.RefreshHandler is not { } handler)
                     {
                         continue;
                     }
@@ -478,7 +568,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             if (pollingJobs.Length > 0
                 || snapshot.Error is not null and not AuthenticationRequiredException)
             {
-                await RefreshAsync(cancellationToken);
+                await RefreshPollingAsync(cancellationToken);
             }
         }
     }

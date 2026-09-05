@@ -123,7 +123,9 @@
                                                  AutomationProperties.Name="{CompiledBinding Summary}"
                                                  BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                                  BorderThickness="1"
-                                                 CornerRadius="7">
+                                                 CornerRadius="7"
+                                                 Loaded="OnJobCardLoaded"
+                                                 Unloaded="OnJobCardUnloaded">
                                     <StackPanel Spacing="7">
                                         <Border Height="96"
                                                 Background="{DynamicResource ControlFillColorDefaultBrush}"

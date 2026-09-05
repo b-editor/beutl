@@ -14,9 +14,8 @@ namespace Beutl.Services.AI;
 /// </remarks>
 internal sealed class AiOutstandingRequests
 {
-    // 送った順のまま持つ。task ごとに 1 つとは限らず、同じ task の依頼が 2 つ
-    // 未回収で残ることがある——そのとき「どれか 1 つ」では、戻ってきた画面が
-    // 名乗るモデルが呼び出しごとに変わる。
+    // Keep requests in dispatch order. A task can have more than one uncollected request; choosing
+    // an arbitrary one in that case would make the model shown after reopening vary by call.
     private readonly List<(string Key, string?[] Request)> _held = [];
 
     public void Remember(AiRequestName name, string?[] request)

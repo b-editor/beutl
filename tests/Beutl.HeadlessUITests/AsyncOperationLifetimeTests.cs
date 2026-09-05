@@ -46,6 +46,47 @@ public sealed class AsyncOperationLifetimeTests
     }
 
     [Test]
+    public async Task DeferredIdentitySwitchFencesOldWorkBeforeUiClearRuns()
+    {
+        await using var lifetime = new AsyncOperationLifetime();
+        using var identity = new IdentityOperationLifetime();
+        using IdentityOperationLifetime.Operation oldOperation = identity.TryEnter(lifetime)!;
+        Action? scheduledClear = null;
+        bool cleared = false;
+
+        identity.SwitchDeferred(action => scheduledClear = action, () => cleared = true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(oldOperation.TryPublish(static () => { }), Is.False);
+            Assert.That(identity.TryEnter(lifetime), Is.Null);
+            Assert.That(cleared, Is.False);
+        }
+
+        scheduledClear!();
+        using IdentityOperationLifetime.Operation? newOperation = identity.TryEnter(lifetime);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(cleared, Is.True);
+            Assert.That(newOperation, Is.Not.Null);
+        }
+    }
+
+    [Test]
+    public void DeferredIdentitySwitchSkipsQueuedUiClearAfterDisposal()
+    {
+        var identity = new IdentityOperationLifetime();
+        Action? scheduledClear = null;
+        bool cleared = false;
+        identity.SwitchDeferred(action => scheduledClear = action, () => cleared = true);
+
+        identity.Dispose();
+
+        Assert.DoesNotThrow(() => scheduledClear!());
+        Assert.That(cleared, Is.False);
+    }
+
+    [Test]
     public async Task IdentitySwitchWaitsForPublicationAdmittedBeforeTheSwitch()
     {
         await using var lifetime = new AsyncOperationLifetime();

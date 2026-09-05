@@ -234,7 +234,8 @@ internal sealed class ImageAiJobResultHandler : BuiltInAiJobResultHandler
         IAiJobResultContext context,
         CancellationToken cancellationToken)
     {
-        using var content = new MemoryStream();
+        using var content = new SizeLimitedMemoryStream(
+            checked((int)AiRequestLimits.MaxImageUploadBytes));
         await context.CopyContentToAsync(job.ContentUri!, content, cancellationToken);
         content.Position = 0;
         using Bitmap bitmap = Bitmap.FromStream(content);

@@ -12,6 +12,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     // would create reusable entries that can never pass final request validation.
     internal const int MaxPromptLength = Beutl.Api.Services.AiRequestLimits.MaxPromptLength;
     internal const int MaxTemplateNameLength = 128;
+    private const int WriteLockTimeoutMilliseconds = 2_000;
 
     private static readonly JsonSerializerOptions s_jsonOptions = CreateJsonOptions();
 
@@ -19,6 +20,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     private readonly PromptLibraryOptions _options;
     private readonly Action<string, string> _replaceFile;
     private readonly TimeProvider _timeProvider;
+    private readonly string _lockPath;
     private List<PromptHistoryEntry> _history = [];
     private List<PromptTemplate> _templates = [];
 
@@ -42,6 +44,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
         _options = options ?? new PromptLibraryOptions();
         ValidateOptions(_options);
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _lockPath = StoragePath + ".lock";
         _replaceFile = replaceFile ?? ReplaceFile;
 
         if (File.Exists(StoragePath))
@@ -85,6 +88,8 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
 
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             List<PromptHistoryEntry> history = [.. _history];
             DateTimeOffset now = _timeProvider.GetUtcNow().ToUniversalTime();
             int index = history.FindIndex(item =>
@@ -115,7 +120,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
 
             history.Insert(0, entry);
             TrimRecentHistory(history);
-            Commit(history, [.. _templates]);
+            Commit(history, [.. _templates], writeLock);
             return entry;
         }
     }
@@ -128,6 +133,8 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
 
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             List<PromptTemplate> templates = [.. _templates];
             DateTimeOffset now = _timeProvider.GetUtcNow().ToUniversalTime();
             int index = templates.FindIndex(item =>
@@ -159,7 +166,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             }
 
             templates.Insert(0, template);
-            Commit([.. _history], templates);
+            Commit([.. _history], templates, writeLock);
             return template;
         }
     }
@@ -168,6 +175,8 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             List<PromptHistoryEntry> history = [.. _history];
             int index = history.FindIndex(item => item.Id == id);
             if (index < 0 || history[index].IsPinned == isPinned)
@@ -177,7 +186,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
 
             history[index] = history[index] with { IsPinned = isPinned };
             TrimRecentHistory(history);
-            Commit(history, [.. _templates]);
+            Commit(history, [.. _templates], writeLock);
             return true;
         }
     }
@@ -186,6 +195,8 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             List<PromptTemplate> templates = [.. _templates];
             int index = templates.FindIndex(item => item.Id == id);
             if (index < 0 || templates[index].IsPinned == isPinned)
@@ -194,7 +205,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             }
 
             templates[index] = templates[index] with { IsPinned = isPinned };
-            Commit([.. _history], templates);
+            Commit([.. _history], templates, writeLock);
             return true;
         }
     }
@@ -203,6 +214,8 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             List<PromptHistoryEntry> history = [.. _history];
             int index = history.FindIndex(item => item.Id == id);
             if (index < 0)
@@ -211,7 +224,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             }
 
             history.RemoveAt(index);
-            Commit(history, [.. _templates]);
+            Commit(history, [.. _templates], writeLock);
             return true;
         }
     }
@@ -220,6 +233,8 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             List<PromptTemplate> templates = [.. _templates];
             int index = templates.FindIndex(item => item.Id == id);
             if (index < 0)
@@ -228,7 +243,7 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
             }
 
             templates.RemoveAt(index);
-            Commit([.. _history], templates);
+            Commit([.. _history], templates, writeLock);
             return true;
         }
     }
@@ -237,9 +252,11 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             if (_history.Count > 0)
             {
-                Commit([], [.. _templates]);
+                Commit([], [.. _templates], writeLock);
             }
         }
     }
@@ -248,9 +265,11 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             if (_templates.Count > 0)
             {
-                Commit([.. _history], []);
+                Commit([.. _history], [], writeLock);
             }
         }
     }
@@ -259,9 +278,11 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
     {
         lock (_gate)
         {
+            using FileStream writeLock = BeginWrite();
+            ReloadForWrite();
             if (_history.Count > 0 || _templates.Count > 0)
             {
-                Commit([], []);
+                Commit([], [], writeLock);
             }
         }
     }
@@ -624,17 +645,96 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary
         }
     }
 
-    private void Commit(List<PromptHistoryEntry> history, List<PromptTemplate> templates)
+    private FileStream BeginWrite()
     {
-        WriteDocument(history, templates);
+        Directory.CreateDirectory(Path.GetDirectoryName(StoragePath)!);
+        long deadline = Environment.TickCount64 + WriteLockTimeoutMilliseconds;
+        while (true)
+        {
+            try
+            {
+                return new FileStream(
+                    _lockPath,
+                    new FileStreamOptions
+                    {
+                        Mode = FileMode.OpenOrCreate,
+                        Access = FileAccess.ReadWrite,
+                        Share = FileShare.None,
+                        BufferSize = 1,
+                        Options = FileOptions.WriteThrough,
+                    });
+            }
+            catch (IOException) when (Environment.TickCount64 < deadline)
+            {
+                Thread.Sleep(10);
+            }
+        }
+    }
+
+    // The process lock protects the read-modify-write window. Reload while it is held so a
+    // second library instance does not commit a stale in-memory snapshot over a newer change.
+    private void ReloadForWrite()
+    {
+        PromptHistoryEntry[] localTransientHistory = _options.RetainRecentPromptText
+            ? []
+            : _history.Where(item => !item.IsPinned).ToArray();
+        if (!File.Exists(StoragePath))
+        {
+            _history = localTransientHistory.ToList();
+            _templates = [];
+            return;
+        }
+
+        using FileStream stream = File.OpenRead(StoragePath);
+        StorageDocument document = JsonSerializer.Deserialize<StorageDocument>(stream, s_jsonOptions)
+            ?? throw new InvalidDataException("The prompt library document is empty.");
+        if (document.Version is < 1 or > CurrentStorageVersion
+            || document.History is null
+            || document.Templates is null)
+        {
+            throw new InvalidDataException("The prompt library document is invalid.");
+        }
+
+        var ids = new HashSet<Guid>();
+        List<PromptHistoryEntry> history = LoadHistory(
+            document.History,
+            ids,
+            document.Version == 1,
+            out _);
+        List<PromptTemplate> templates = LoadTemplates(
+            document.Templates,
+            ids,
+            document.Version == 1,
+            out _);
+        if (!_options.RetainRecentPromptText)
+        {
+            history.RemoveAll(item => !item.IsPinned);
+            var persistedIds = history.Select(item => item.Id).ToHashSet();
+            history.InsertRange(
+                0,
+                localTransientHistory.Where(item => !persistedIds.Contains(item.Id)));
+        }
+        TrimRecentHistory(history);
+        _history = history;
+        _templates = templates;
+    }
+
+    private void Commit(
+        List<PromptHistoryEntry> history,
+        List<PromptTemplate> templates,
+        FileStream writeLock)
+    {
+        WriteDocument(history, templates, writeLock);
         _history = history;
         _templates = templates;
     }
 
     private void WriteDocument(
         IReadOnlyCollection<PromptHistoryEntry> history,
-        IReadOnlyCollection<PromptTemplate> templates)
+        IReadOnlyCollection<PromptTemplate> templates,
+        FileStream? writeLock = null)
     {
+        using FileStream? ownedLock = writeLock is null ? BeginWrite() : null;
         var document = new StorageDocument
         {
             Version = CurrentStorageVersion,

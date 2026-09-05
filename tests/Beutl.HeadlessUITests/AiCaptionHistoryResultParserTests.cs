@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Beutl.Api.Services;
 using Beutl.Services.AI;
+using Beutl.ViewModels.Dialogs;
 
 namespace Beutl.HeadlessUITests;
 
@@ -38,6 +39,27 @@ public sealed class AiCaptionHistoryResultParserTests
             Assert.That(result.Segments[0].Start, Is.EqualTo(0.5));
             Assert.That(result.Segments[1].End, Is.EqualTo(3.5));
         }
+    }
+
+    [TestCase("1e20", "1e20")]
+    [TestCase("1", "1e20")]
+    public void TryParse_RejectsTimestampsOutsideTimeSpanRange(string start, string end)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes($$"""
+            {
+              "version": 1,
+              "kind": "stt",
+              "segments": [
+                { "start": {{start}}, "end": {{end}}, "text": "Invalid" }
+              ]
+            }
+            """);
+
+        Assert.That(AiCaptionHistoryResultParser.TryParse(
+            bytes,
+            "stt",
+            new AiJobId("job-overflow"),
+            out _), Is.False);
     }
 
     [Test]
@@ -185,5 +207,31 @@ public sealed class AiCaptionHistoryResultParserTests
 
         Assert.Throws<InvalidDataException>(() => stream.WriteByte(5));
         Assert.That(stream.ToArray(), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+    }
+
+    [Test]
+    public void AudioSourceItem_MapsOnlyTheSelectedSourceWindow()
+    {
+        var source = new AudioSourceItem(
+            "source",
+            "source.wav",
+            TimeSpan.FromSeconds(60),
+            elementStart: TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(5),
+            sourceOffset: TimeSpan.FromSeconds(10));
+
+        AiTranscriptionSegment[] mapped = source.MapSegmentsToScene(
+        [
+            new AiTranscriptionSegment { Start = 10, End = 12, Text = "inside" },
+            new AiTranscriptionSegment { Start = 5, End = 9, Text = "outside" },
+        ]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(mapped, Has.Length.EqualTo(1));
+            Assert.That(mapped[0].Start, Is.EqualTo(2).Within(1e-9));
+            Assert.That(mapped[0].End, Is.EqualTo(4).Within(1e-9));
+            Assert.That(mapped[0].Text, Is.EqualTo("inside"));
+        }
     }
 }

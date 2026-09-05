@@ -1,6 +1,8 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Language;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.AI;
 
@@ -10,6 +12,7 @@ internal sealed class AiJobCompletionNotifier : IDisposable
     private readonly IAiJobKindRegistry _jobKinds;
     private readonly AiJobResultHandlerRegistry _resultHandlers;
     private readonly IDisposable _subscription;
+    private readonly ILogger _logger = Log.CreateLogger<AiJobCompletionNotifier>();
     private Dictionary<AiJobId, AiJobStatusSemantics> _knownStatuses = [];
     private bool _hasBaseline;
 
@@ -43,8 +46,19 @@ internal sealed class AiJobCompletionNotifier : IDisposable
         if (snapshot.IsLoading || snapshot.Error is not null)
             return;
 
-        Dictionary<AiJobId, AiJobStatusSemantics> currentStatuses = snapshot.Jobs
-            .ToDictionary(job => job.Id, _jobKinds.GetStatus);
+        var currentStatuses = new Dictionary<AiJobId, AiJobStatusSemantics>();
+        foreach (AiJob job in snapshot.Jobs)
+        {
+            try
+            {
+                currentStatuses[job.Id] = _jobKinds.GetStatus(job);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve AI job status for {JobId}.", job.Id);
+                currentStatuses[job.Id] = AiJobStatusSemantics.Unknown;
+            }
+        }
 
         if (!_hasBaseline)
         {
@@ -75,21 +89,28 @@ internal sealed class AiJobCompletionNotifier : IDisposable
 
         using (lease)
         {
-            IAiJobResultHandler handler = lease.Handler;
-            AiJobPresentation presentation = handler.Present(job, status);
-            AiJobCompletionPresentation? completion = handler.CreateCompletion(
-                job,
-                status,
-                presentation);
-            if (completion is null)
-                return;
+            try
+            {
+                IAiJobResultHandler handler = lease.Handler;
+                AiJobPresentation presentation = handler.Present(job, status);
+                AiJobCompletionPresentation? completion = handler.CreateCompletion(
+                    job,
+                    status,
+                    presentation);
+                if (completion is null)
+                    return;
 
-            NotificationService.Show(
-                completion.Title,
-                completion.Message,
-                ToNotificationType(completion.Notification),
-                completion.Expiration,
-                actions: [new NotificationAction(Strings.AiJobCenter, _openJobCenter)]);
+                NotificationService.Show(
+                    completion.Title,
+                    completion.Message,
+                    ToNotificationType(completion.Notification),
+                    completion.Expiration,
+                    actions: [new NotificationAction(Strings.AiJobCenter, _openJobCenter)]);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AI job completion handler failed for {JobId}.", job.Id);
+            }
         }
     }
 

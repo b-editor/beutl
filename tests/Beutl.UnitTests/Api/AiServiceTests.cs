@@ -484,6 +484,41 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public void EventStream_RejectsAnOversizedLineBeforeBuildingAnEvent()
+    {
+        string body = "data: " + new string('x', 32 * 1024 * 1024 + 1);
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(body));
+
+        Assert.ThrowsAsync<AiException>(async () =>
+        {
+            await foreach (AiServerSentEvent _ in AiEventStream.ReadAsync(
+                               stream,
+                               CancellationToken.None))
+            {
+            }
+        });
+    }
+
+    [TestCase("\r")]
+    [TestCase("\r\n")]
+    public async Task EventStream_AcceptsAllSseLineEndingsAcrossReadBoundaries(string newline)
+    {
+        byte[] body = Encoding.UTF8.GetBytes(
+            $"event: result{newline}data: {{}}{newline}{newline}");
+        await using var stream = new OneByteAtATimeStream(body);
+
+        var events = new List<AiServerSentEvent>();
+        await foreach (AiServerSentEvent item in AiEventStream.ReadAsync(
+                           stream,
+                           CancellationToken.None))
+        {
+            events.Add(item);
+        }
+
+        Assert.That(events, Is.EqualTo(new[] { new AiServerSentEvent("result", "{}") }));
+    }
+
+    [Test]
     public async Task Translation_TakesAOnePieceAnswerFromAServerThatDoesNotStream()
     {
         // Asking to be shown the work is not a requirement: a server that
@@ -1011,6 +1046,35 @@ public sealed class AiCapabilityServiceTests
     }
 
     [Test]
+    public async Task ModelCatalog_DoesNotPublishAResponseAfterTheAccountChanges()
+    {
+        int fetches = 0;
+        using var handler = new RecordingHandler(_ =>
+        {
+            fetches++;
+            return JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        using var catalog = new AiModelCatalogService(app, new StepTimeProvider());
+        catalog.BeforeCachePublication = () =>
+        {
+            catalog.BeforeCachePublication = null;
+            SetAuthenticatedUser(app);
+        };
+
+        AiModelCatalog stale = await catalog.GetAsync(CancellationToken.None);
+        await catalog.GetAsync(CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(stale, Is.SameAs(AiModelCatalog.Empty));
+            Assert.That(fetches, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
     public async Task ModelCatalog_ReadsWhichFramesAndSizesEachModelTakes()
     {
         using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
@@ -1255,6 +1319,10 @@ public sealed class AiCapabilityServiceTests
             Assert.That(completed.ContentMetadata?.FileName, Is.EqualTo("generated-video.webm"));
             Assert.That(completed.ContentMetadata?.ContentType, Is.EqualTo("video/webm"));
             Assert.That(completed.ContentMetadata?.GetFileExtension(".mp4", "video"), Is.EqualTo(".webm"));
+            Assert.That(
+                new AiContentMetadata("generated-video", "video/mp4")
+                    .GetFileExtension(".webm", "video"),
+                Is.EqualTo(".mp4"));
             Assert.Throws<AiException>(() =>
                 new AiContentMetadata("payload.png", "image/png")
                     .GetFileExtension(".mp4", "video"));
@@ -1347,7 +1415,7 @@ public sealed class AiCapabilityServiceTests
             content.Headers.ContentType = new("video/webm");
             content.Headers.ContentDisposition = new("attachment")
             {
-                FileNameStar = "generated-video.webm",
+                FileNameStar = "UTF-8''generated-video.webm",
             };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
         });
@@ -1564,5 +1632,13 @@ public sealed class AiCapabilityServiceTests
             IsDisposed = true;
             base.Dispose(disposing);
         }
+    }
+
+    private sealed class OneByteAtATimeStream(byte[] buffer) : MemoryStream(buffer)
+    {
+        public override ValueTask<int> ReadAsync(
+            Memory<byte> destination,
+            CancellationToken cancellationToken = default)
+            => base.ReadAsync(destination[..Math.Min(destination.Length, 1)], cancellationToken);
     }
 }

@@ -286,10 +286,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
         }
         finally
         {
-            // 頼んだ operation の一覧が実際に手元にあるときだけ「読み込んだ」と
-            // 言う。失敗しても言ってしまうと、その task のモデルを 1 つも持たない
-            // まま送れてしまい、画面にあるものとは別の——サーバーの既定の——
-            // モデルで課金される。
+            // Report the operation as loaded only when its catalog is actually present. Marking a
+            // failed load complete would allow a task with no listed model to be sent and charged
+            // against the server default instead of the model shown by the UI.
             if (Volatile.Read(ref _disposed) == 0
                 && generation == Volatile.Read(ref _loadGeneration))
                 IsLoaded.Value = Operation == operation;
@@ -393,7 +392,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
             : (keep is { } wanted
                 ? Options.FirstOrDefault(option => option.Id == wanted)
                 : null)
+              ?? Options.FirstOrDefault(option => option.IsAvailable && option.Model.IsDefault)
               ?? Options.FirstOrDefault(option => option.IsAvailable)
+              ?? Options.FirstOrDefault(option => option.Model.IsDefault)
               ?? Options.FirstOrDefault();
     }
 

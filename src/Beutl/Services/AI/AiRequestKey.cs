@@ -69,13 +69,13 @@ internal static class AiRequestOutcome
 internal sealed class AiRequestKey : IDisposable
 {
     private readonly Lock _gate = new();
-    // 出した名前と、それが何の依頼のものか。決着していないものだけが入っている。
+    // The names issued and the requests they represent. Only unsettled requests remain here.
     private readonly Dictionary<string, string> _outstanding = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _outstandingAccounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _outstandingOperations = new(StringComparer.Ordinal);
     private readonly Dictionary<string, AiRequestRecoveryLease> _claims = new(StringComparer.Ordinal);
-    // 決着した依頼は、その名前ではもう何も頼めない。同じ依頼をもう一度出すときは
-    // 次の世代の名前で出す——ここに何も無ければ第 0 世代で、名前の形は変わらない。
+    // A settled request cannot be sent again under the same name. A repeated request uses the
+    // next generation name; when no generation exists, generation 0 keeps the original shape.
     private readonly Dictionary<string, int> _generations = new(StringComparer.Ordinal);
     private readonly ReactivePropertySlim<bool> _hasOutstandingName = new(false);
     private readonly AiRequestRecoveryContext? _recoveryContext;
@@ -92,9 +92,9 @@ internal sealed class AiRequestKey : IDisposable
         _recoveryContext = recoveryContext;
         _operation = operation;
         _seed = string.IsNullOrEmpty(seed) ? NewSeed() : seed;
-        // 控えから拾い直した実行のうち、送った直後に終わったものだけが名前を
-        // 抱えている。抱えていたかどうかは控えに書いてあり、seed があることでは
-        // 分からない——予約されなかった依頼や、返金済みの依頼の seed も残る。
+        // Among executions restored from recovery, only those that ended immediately after
+        // dispatch still hold a name. The recovery record tells us whether that happened; a
+        // seed alone is not enough because unreserved and refunded requests also retain seeds.
         bool resumedSeed = !string.IsNullOrEmpty(seed) && namePending;
         bool hasDurableRecovery = false;
         if (_recoveryContext?.TryGetIdentity() is { } identity
@@ -115,8 +115,8 @@ internal sealed class AiRequestKey : IDisposable
         // command reachability here; NameFor marks repeat only after the exact
         // fingerprint is found, so an unrelated input cannot skip preflight.
         _hasOutstandingName.Value = resumedSeed || hasDurableRecovery;
-        // 拾い直した実行は名前を持っていても「どれを送ったか」は持っていないので、
-        // 最初に配り直す名前を一度だけ再送として扱う。
+        // A restored execution knows its name but not which request was sent, so treat only the
+        // first name handed out again as a repeat dispatch.
         _resumedAttemptPending = resumedSeed;
         if (_recoveryContext is not null)
             _recoveryContext.IdentityChanged += RefreshIdentity;
@@ -867,9 +867,8 @@ internal sealed class AiRequestKey : IDisposable
                     generation,
                     _recoveryContext.Store.GetGeneration(account!, operation, request));
             }
-            // 第 0 世代の名前の形は、世代という考えが無かった頃と同じ。控えに
-            // 残っている seed と、サーバーに残っている名前の両方が、そのまま
-            // 通じる。
+            // Generation 0 keeps the shape used before generations existed. Both the seed in
+            // recovery and the name retained by the server continue to work unchanged.
             string keyBase = _recoveryContext is null
                 ? $"{_seed}-{request}"
                 : $"{_seed}-{request}-{ScopeFingerprint(account!, operation)}";

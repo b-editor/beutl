@@ -135,6 +135,23 @@ public static class SharedFilePickerOptions
         };
     }
 
+    public static FilePickerSaveOptions SavePngImage()
+    {
+        return new()
+        {
+            DefaultExtension = "png",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("PNG Image")
+                {
+                    Patterns = ["*.png"],
+                    AppleUniformTypeIdentifiers = ["public.png"],
+                    MimeTypes = ["image/png"]
+                }
+            ]
+        };
+    }
+
     public static FilePickerSaveOptions SaveVideo()
     {
         return new()

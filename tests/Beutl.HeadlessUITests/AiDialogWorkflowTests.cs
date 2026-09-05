@@ -8,6 +8,7 @@ using System.Text.Json;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Platform.Storage;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
@@ -38,6 +39,33 @@ public sealed class AiDialogWorkflowTests
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
     [AvaloniaTest]
+    public async Task DisposedDialogsIgnoreIdentityClearsAlreadyQueuedToTheUiThread()
+    {
+        await TestReset.ResetShellAsync();
+        string account = "account-a";
+        using var context = CreateIdentityContext(() => account);
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        var generation = CreateImageGenerationDialog(clients, context: context);
+        var edit = CreateImageEditDialog(clients, context: context);
+        var video = CreateVideoGenerationDialog(clients, context: context);
+
+        account = "account-b";
+        Task.Run(context.RefreshIdentity).GetAwaiter().GetResult();
+        await generation.DisposeAsync();
+        await edit.DisposeAsync();
+        await video.DisposeAsync();
+
+        Assert.DoesNotThrow(() => HeadlessTestHelpers.Settle());
+    }
+
+    [AvaloniaTest]
     public async Task ImageEdit_SourcePickerResultFromPreviousIdentityIsIgnored()
     {
         await TestReset.ResetShellAsync();
@@ -59,7 +87,8 @@ public sealed class AiDialogWorkflowTests
         Task command = viewModel.SelectSourceFileCommand.ExecuteAsync();
         await Task.Yield();
         account = "account-b";
-        context.RefreshIdentity();
+        await Task.Run(context.RefreshIdentity);
+        HeadlessTestHelpers.Settle();
         picker.SetResult(Path.Combine(Path.GetTempPath(), "stale-edit-source.png"));
         await command;
 
@@ -88,7 +117,8 @@ public sealed class AiDialogWorkflowTests
         Task command = viewModel.SelectReferenceImage.ExecuteAsync();
         await Task.Yield();
         account = "account-b";
-        context.RefreshIdentity();
+        await Task.Run(context.RefreshIdentity);
+        HeadlessTestHelpers.Settle();
         picker.SetResult([Path.Combine(Path.GetTempPath(), "stale-reference.png")]);
         await command;
 
@@ -117,7 +147,8 @@ public sealed class AiDialogWorkflowTests
         Task command = viewModel.SelectFirstFrame.ExecuteAsync();
         await Task.Yield();
         account = "account-b";
-        context.RefreshIdentity();
+        await Task.Run(context.RefreshIdentity);
+        HeadlessTestHelpers.Settle();
         picker.SetResult(Path.Combine(Path.GetTempPath(), "stale-frame.png"));
         await command;
 
@@ -139,6 +170,50 @@ public sealed class AiDialogWorkflowTests
         using var output = new MemoryStream();
         Assert.DoesNotThrow(() => saveLease!.Value.Save(output, EncodedImageFormat.Png));
         Assert.That(output.Length, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void AiImageSavePicker_OffersOnlyPng()
+    {
+        FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
+        FilePickerFileType type = options.FileTypeChoices!.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(options.DefaultExtension, Is.EqualTo("png"));
+            Assert.That(type.Patterns, Is.EqualTo(new[] { "*.png" }));
+            Assert.That(type.MimeTypes, Is.EqualTo(new[] { "image/png" }));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task ImageGeneration_ModelRefreshRetriesInitialEntitlementFailure()
+    {
+        await TestReset.ResetShellAsync();
+        int entitlementRequests = 0;
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => ++entitlementRequests == 1
+                ? JsonResponse(HttpStatusCode.ServiceUnavailable, "{}")
+                : JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/capabilities" => JsonResponse(
+                HttpStatusCode.OK,
+                ImageCapabilitiesJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => Volatile.Read(ref entitlementRequests) == 1);
+
+        Assert.That(viewModel.Usage.HasSnapshot.Value, Is.False);
+
+        viewModel.RefreshModels();
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.ModelPicker.Options.Count > 0);
+
+        Assert.That(entitlementRequests, Is.EqualTo(2));
     }
 
     [AvaloniaTest]
@@ -175,19 +250,21 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task ImageGeneration_ARefusalBeforeAnythingIsReservedFreesTheModelAgain()
+    public async Task ImageGeneration_PreDispatchFailuresFreeTheModelAgain()
     {
-        // 名前はリクエストを出す前に配られる。残高が足りずに送る前で止まった実行が
-        // その名前を抱えたままだと、モデルを選び直しても最初に名乗ったモデルで
-        // 送られる——画面の表示と、課金される中身が食い違う。
+        // A name is issued before dispatch. If a request rejected by preflight retains it,
+        // changing the model still sends the first named model, so the UI and charge disagree.
         await TestReset.ResetShellAsync();
         bool affordable = false;
+        bool failAvailability = false;
         var sentModels = new List<string?>();
         using var handler = new StubHandler(async (request, token) =>
         {
             switch (request.RequestUri?.AbsolutePath)
             {
                 case "/api/v3/user/ai-availability":
+                    if (failAvailability)
+                        throw new HttpRequestException("Availability is temporarily unavailable.");
                     return JsonResponse(
                         HttpStatusCode.OK,
                         affordable ? "{ \"available\": true }" : "{ \"available\": false }");
@@ -233,22 +310,29 @@ public sealed class AiDialogWorkflowTests
         });
 
         affordable = true;
+        failAvailability = true;
         viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
             .First(option => option.Id.Value == "openai/gpt-image-2");
         await viewModel.Generate.ExecuteAsync();
 
+        Assert.That(sentModels, Is.Empty, "A transient preflight failure dispatches nothing.");
+
+        failAvailability = false;
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "qwen/qwen-image-3-pro");
+        await viewModel.Generate.ExecuteAsync();
+
         Assert.That(
             sentModels,
-            Is.EqualTo(new[] { "openai/gpt-image-2" }),
+            Is.EqualTo(new[] { "qwen/qwen-image-3-pro" }),
             "The model on screen is the model that is charged for.");
     }
 
     [AvaloniaTest]
     public async Task ImageGeneration_AFailureAfterTheChargeKeepsTheName()
     {
-        // 課金されたあとに失敗するのは、結果を取りに行くところ。そこでの認証
-        // 切れを「予約されなかった」と読んで名前を捨てると、支払い済みの絵へ
-        // 戻る道が閉じる。
+        // Authentication can fail while fetching an already-paid result. Treating that as an
+        // unreserved request and discarding the name would lose the route back to the image.
         await TestReset.ResetShellAsync();
         var sentKeys = new List<string?>();
         bool contentIsReachable = false;
@@ -302,9 +386,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageGeneration_FinishingAnotherRequestLeavesTheFirstNameAlone()
     {
-        // A が課金されたまま応答を落とし、入力を変えた B が成功する。B の決着で
-        // 実行ごと名前を捨てると、A に戻ったとき新しい名前になり、支払い済みの
-        // ものをもう一度買うことになる。
+        // A loses its response after being charged, then B succeeds with changed input. Settling
+        // B must not discard every name or returning to A would purchase it again under a new key.
         await TestReset.ResetShellAsync();
         var sentKeys = new List<(string prompt, string? key)>();
         using var handler = new StubHandler(async (request, token) =>
@@ -364,9 +447,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageGeneration_NamesARequestByTheModelOnScreen()
     {
-        // モデルもその依頼の一部。X で出した A に戻るには、prompt だけでなく
-        // モデルも X に戻す——戻せば同じ名前になり、支払い済みの A を取りに
-        // 行ける。Y のまま出せば、それは Y への依頼として新しく課金される。
+        // The model is part of the request. Recovering A made with X requires restoring both its
+        // prompt and X; leaving Y selected correctly creates a newly charged request for Y.
         await TestReset.ResetShellAsync();
         var sent = new List<(string Prompt, string? Model, string? Key)>();
         using var handler = new StubHandler(async (request, token) =>
@@ -422,11 +504,11 @@ public sealed class AiDialogWorkflowTests
         viewModel.Prompt.Value = "the second picture";
         await viewModel.Generate.ExecuteAsync();
 
-        // prompt だけ戻してモデルは Y のまま——これは Y への新しい依頼。
+        // Restoring only the prompt while leaving Y selected is a new request for Y.
         viewModel.Prompt.Value = "the first picture";
         await viewModel.Generate.ExecuteAsync();
 
-        // モデルも X に戻す。ここで初めて A と同じ依頼になる。
+        // Restoring X as well finally reconstructs request A.
         viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
             .First(option => option.Id.Value == "openai/gpt-image-1");
         await viewModel.Generate.ExecuteAsync();
@@ -451,9 +533,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageGeneration_LookingAtAnotherModelDoesNotRewriteTheRequest()
     {
-        // モデルを見比べるあいだ、画面はそのモデルが取れる範囲へ寄せられる。
-        // 寄せた先を利用者の選択として覚えてしまうと、元のモデルへ戻したときに
-        // 別の依頼になり、出してある名前が指す支払い済みのものへ届かない。
+        // Comparing models narrows displayed values to each model's limits. Those automatic
+        // values must not replace the user's choices or restoring the old model changes the request.
         await TestReset.ResetShellAsync();
         using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
@@ -508,9 +589,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageEdit_NamesARequestByTheModelOnScreen()
     {
-        // モデルもその依頼の一部。画面が X を見せているなら、送るのも課金される
-        // のも X——未回収の依頼に合わせて黙って別のものを名乗ると、画面にある
-        // ものとは違うモデルで課金される。
+        // The model is part of the request. When the UI shows X, dispatch and billing must also
+        // use X rather than silently substituting a model from an uncollected request.
         await TestReset.ResetShellAsync();
         string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.png");
         await File.WriteAllBytesAsync(sourcePath, s_png);
@@ -528,8 +608,7 @@ public sealed class AiDialogWorkflowTests
                     case "/api/v3/ai/images/edit":
                         string body = await request.Content!.ReadAsStringAsync(cancellationToken);
                         sent.Add((ModelOfMultipart(body), IdempotencyKeyOf(request)));
-                        // 最初の 1 回は答えが返らない。名前は残り、その依頼は
-                        // 未回収のまま次の送信を迎える。
+                        // The first response is lost, leaving its name uncollected for the next send.
                         return sent.Count == 1
                             ? throw new HttpRequestException("The connection was reset.")
                             : JsonResponse(
@@ -581,9 +660,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task ImageEdit_ComingBackToAnUncollectedTaskCanStillSendIt()
     {
-        // 未回収の依頼を抱えたまま別の task を見て戻ってくる。戻り先の一覧を
-        // 取りに行けないと、画面は何も選べないまま送信も閉じ、支払い済みの依頼が
-        // 取り残される。
+        // Return to a task while another request remains uncollected. Failing to reload that
+        // task's models would leave no selectable model and strand the already-paid request.
         await TestReset.ResetShellAsync();
         string sourcePath = Path.Combine(Path.GetTempPath(), $"source-{Guid.NewGuid():N}.png");
         await File.WriteAllBytesAsync(sourcePath, s_png);
@@ -639,9 +717,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task Transcription_AnUncollectedRunIsNotOverwrittenWithoutAsking()
     {
-        // 最初のひと切れを送ったきり何も返ってきていない実行は、見た目には何も
-        // 無い——部分結果も cue も無い。それでも支払い済みかもしれない名前を
-        // 抱えているので、履歴からの取り込みで断りなく消してはいけない。
+        // A run whose first chunk received no response has no visible partial result or cue, but
+        // its name may still represent paid work and history import must not discard it silently.
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-subtitle-history-guard");
         using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
@@ -1088,10 +1165,8 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task VideoGeneration_AsksUnderOneNameForTheSameFrameUnderAnotherFileName()
     {
-        // 場面から切り出したフレームは、その都度ちがう名前のファイルに落ちる。
-        // サーバーはフレームを中身と種類だけで見分けるので、名前まで数えると、
-        // 途切れた実行を同じ一枚で送り直しただけで別の依頼になり、支払い済みの
-        // ものへ戻れないまま二度課金される。
+        // Scene captures get a different temporary filename each time, while the server identifies
+        // frames by content and type. Including the name would turn the same-frame retry into a new charge.
         await TestReset.ResetShellAsync();
         string firstPath = Path.Combine(Path.GetTempPath(), $"frame-{Guid.NewGuid():N}.png");
         string secondPath = Path.Combine(Path.GetTempPath(), $"frame-{Guid.NewGuid():N}.png");
@@ -1112,8 +1187,7 @@ public sealed class AiDialogWorkflowTests
                         if (cutFirstAttempt)
                         {
                             cutFirstAttempt = false;
-                            // 答えが返らない。作られて課金されたのかどうか、この
-                            // 側からは分からない。
+                            // The response is lost, so the client cannot know whether work was created and charged.
                             throw new HttpRequestException("The connection was reset.");
                         }
 
@@ -1151,7 +1225,7 @@ public sealed class AiDialogWorkflowTests
             viewModel.FirstFramePath.Value = firstPath;
             await viewModel.Generate.ExecuteAsync();
 
-            // 同じ一枚を、切り出し直したぶんだけ別の名前で。
+            // Recapture the same frame under a different temporary filename.
             viewModel.FirstFramePath.Value = secondPath;
             await viewModel.Generate.ExecuteAsync();
 
@@ -1403,6 +1477,77 @@ public sealed class AiDialogWorkflowTests
 
         await viewModel.DisposeAsync();
         Assert.That(File.Exists(resultPath), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task VideoGeneration_SaveRejectsMismatchedDestinationFormatWithoutReplacingFile()
+    {
+        await TestReset.ResetShellAsync();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, "{\"jobId\":\"video-save-job\",\"status\":\"queued\"}"),
+            "/api/v3/ai/videos/video-save-job" => JsonResponse(HttpStatusCode.OK, """
+                {
+                  "jobId": "video-save-job",
+                  "status": "succeeded",
+                  "fileId": "video-save-file",
+                  "url": "https://beutl.beditor.net/api/contents/video-save-file",
+                  "fileName": "generated.mp4",
+                  "contentType": "video/mp4"
+                }
+                """),
+            "/api/contents/video-save-file" => ByteResponse([1, 2, 3, 4], "video/mp4"),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        await using var viewModel = CreateVideoGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
+            && viewModel.EstimatedUsage.State.Value == AiOperationAvailabilityState.Available);
+        viewModel.Prompt.Value = "Save format validation";
+        await viewModel.Generate.ExecuteAsync();
+
+        string destinationPath = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "existing.webm");
+        byte[] original = [9, 8, 7];
+        await File.WriteAllBytesAsync(destinationPath, original);
+        viewModel.SaveFilePicker = _ => Task.FromResult<AiSaveFileDestination?>(
+            new(destinationPath, _ => Task.FromResult<Stream>(File.OpenWrite(destinationPath))));
+
+        await viewModel.SaveToFile.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(destinationPath), Is.EqualTo(original));
+            Assert.That(viewModel.Error.Value, Is.Not.Null);
+        });
+
+        // A failure while staging the replacement must also leave an existing destination intact
+        // and remove any temporary sibling created before the failure.
+        string sourcePath = viewModel.ResultVideoPath.Value!;
+        File.Delete(sourcePath);
+        string validDestinationPath = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "existing.mp4");
+        byte[] validOriginal = [6, 5, 4];
+        await File.WriteAllBytesAsync(validDestinationPath, validOriginal);
+        viewModel.SaveFilePicker = _ => Task.FromResult<AiSaveFileDestination?>(
+            new(validDestinationPath, _ => Task.FromResult<Stream>(File.OpenWrite(validDestinationPath))));
+
+        await viewModel.SaveToFile.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(validDestinationPath), Is.EqualTo(validOriginal));
+            Assert.That(
+                Directory.EnumerateFiles(
+                    Path.GetDirectoryName(validDestinationPath)!,
+                    "existing.mp4.*.tmp"),
+                Is.Empty);
+        });
     }
 
     [AvaloniaTest]
@@ -3502,15 +3647,15 @@ public sealed class AiDialogWorkflowTests
     [AvaloniaTest]
     public async Task Transcription_HoldingAName_DoesNotOpenTheTranslationButton()
     {
-        // 文字起こしと翻訳は別々に課金される。名前を 1 つにまとめていると、
-        // 回収待ちの文字起こしが翻訳側の残高・モデルの判定まで開けてしまい、
-        // 支払えない依頼が新規に出ていく。
+        // Transcription and translation are charged separately. Sharing one name would let a
+        // pending transcription bypass translation's balance and model checks and dispatch new
+        // work the account cannot afford.
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("ai-subtitle-outstanding-scope");
         using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-            // 走り切っている最中。決着ではないので、その名前は残る。
+            // The request is still running, not settled, so its name remains held.
             "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.Conflict, """
                 {
                   "error_code": "aiRequestInProgress",
@@ -4323,8 +4468,8 @@ public sealed class AiDialogWorkflowTests
         });
     }
 
-    // 拡大に 2 つのモデル。画面が見せているモデルがそのまま送られることを
-    // 確かめるために、既定でないほうを選べる形にしてある。
+    // Offer two upscale models so the test can select the non-default one and verify that the
+    // model shown on screen is the one dispatched.
     private static string ImageEditCapabilitiesJson() => """
         {
           "operations": {

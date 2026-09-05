@@ -42,7 +42,7 @@ internal class PackageOperationHandler
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
-        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        await _packageInstaller.TrackInstallOperationWithShutdownFallbackAsync(async () =>
         {
             PackageInstallContext context = await _packageInstaller.PrepareForInstall(
                 release,
@@ -60,14 +60,14 @@ internal class PackageOperationHandler
                 _installedPackageRepository.UpgradePackages(packageId);
                 ActivateInstalledPackage(packageId);
             });
-        }).ConfigureAwait(false);
+        }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }
 
     public async Task DownloadAndLoadPackage(
         PackageIdentity packageId,
         CancellationToken cancellationToken)
     {
-        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        await _packageInstaller.TrackInstallOperationWithShutdownFallbackAsync(async () =>
         {
             PackageInstallContext context = _packageInstaller.PrepareForInstall(
                 packageId.Id,
@@ -86,7 +86,7 @@ internal class PackageOperationHandler
                 _installedPackageRepository.UpgradePackages(packageId);
                 ActivateInstalledPackage(packageId);
             });
-        }).ConfigureAwait(false);
+        }, () => _queue.InstallQueue(packageId)).ConfigureAwait(false);
     }
 
     private void ActivateInstalledPackage(PackageIdentity packageId)

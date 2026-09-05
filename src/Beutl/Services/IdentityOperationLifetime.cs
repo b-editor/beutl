@@ -31,6 +31,11 @@ internal sealed class IdentityOperationLifetime : IDisposable
                 operation.Dispose();
                 return null;
             }
+            if (_current.ClearPending)
+            {
+                operation.Dispose();
+                return null;
+            }
 
             Generation generation = _current;
             generation.Active++;
@@ -48,6 +53,8 @@ internal sealed class IdentityOperationLifetime : IDisposable
         lock (_gate)
         {
             if (_disposed)
+                return null;
+            if (_current.ClearPending)
                 return null;
 
             AsyncOperationLifetime.Operation? operation = lifetime.TryEnter();
@@ -93,6 +100,67 @@ internal sealed class IdentityOperationLifetime : IDisposable
         {
             if (previous is not null)
                 StartCancellation(previous);
+        }
+    }
+
+    /// <summary>
+    /// Advances the identity fence immediately, then clears UI-owned state on
+    /// the supplied scheduler before admitting work for the new identity.
+    /// </summary>
+    public void SwitchDeferred(
+        Action<Action> scheduleClear,
+        Action clearAccountState,
+        Action? afterClear = null)
+    {
+        ArgumentNullException.ThrowIfNull(scheduleClear);
+        ArgumentNullException.ThrowIfNull(clearAccountState);
+
+        Generation previous;
+        Generation next;
+        lock (_gate)
+        {
+            if (_disposed)
+                return;
+
+            previous = _current;
+            previous.Retired = true;
+            previous.Cancelling = true;
+            _revision = checked(_revision + 1);
+            next = new Generation(_revision) { ClearPending = true };
+            _current = next;
+            _generations.Add(_revision, next);
+        }
+
+        try
+        {
+            scheduleClear(() =>
+            {
+                bool cleared = false;
+                lock (_gate)
+                {
+                    if (!_disposed
+                        && ReferenceEquals(_current, next)
+                        && next.ClearPending)
+                    {
+                        try
+                        {
+                            clearAccountState();
+                            cleared = true;
+                        }
+                        finally
+                        {
+                            next.ClearPending = false;
+                        }
+                    }
+                }
+
+                if (cleared)
+                    afterClear?.Invoke();
+            });
+        }
+        finally
+        {
+            StartCancellation(previous);
         }
     }
 
@@ -215,6 +283,7 @@ internal sealed class IdentityOperationLifetime : IDisposable
         public bool Retired;
         public bool Cancelling;
         public Task? CancellationTask;
+        public bool ClearPending;
     }
 
     internal sealed class Operation : IDisposable

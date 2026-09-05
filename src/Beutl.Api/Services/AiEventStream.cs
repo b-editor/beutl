@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Beutl.Api.Services;
@@ -41,43 +42,94 @@ internal static class AiEventStream
         using var reader = new StreamReader(stream, Encoding.UTF8);
         string? name = null;
         var data = new StringBuilder();
-
-        while (true)
+        char[] buffer = ArrayPool<char>.Shared.Rent(4096);
+        int bufferOffset = 0;
+        int buffered = 0;
+        bool swallowLineFeed = false;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            string? line = await reader.ReadLineAsync(cancellationToken);
-            if (line is null)
-                break;
-
-            // A blank line ends an event. One with no name or no data is a
-            // keep-alive comment or a field this client does not use.
-            if (line.Length == 0)
+            while (true)
             {
-                if (name is not null && data.Length > 0)
-                    yield return new AiServerSentEvent(name, data.ToString());
-                name = null;
-                data.Clear();
-                continue;
+                cancellationToken.ThrowIfCancellationRequested();
+                string? line = await ReadLineBoundedAsync();
+                if (line is null)
+                    break;
+
+                // A blank line ends an event. One with no name or no data is a
+                // keep-alive comment or a field this client does not use.
+                if (line.Length == 0)
+                {
+                    if (name is not null && data.Length > 0)
+                        yield return new AiServerSentEvent(name, data.ToString());
+                    name = null;
+                    data.Clear();
+                    continue;
+                }
+
+                if (line.StartsWith(':'))
+                    continue;
+                if (line.StartsWith("event:", StringComparison.Ordinal))
+                {
+                    name = line["event:".Length..].Trim();
+                    continue;
+                }
+
+                if (!line.StartsWith("data:", StringComparison.Ordinal))
+                    continue;
+                if (data.Length > 0)
+                    data.Append('\n');
+                data.Append(line["data:".Length..].TrimStart());
+                if (data.Length > MaximumEventLength)
+                    throw new AiException("An AI event stream sent an oversized event.");
             }
 
-            if (line.StartsWith(':'))
-                continue;
-            if (line.StartsWith("event:", StringComparison.Ordinal))
-            {
-                name = line["event:".Length..].Trim();
-                continue;
-            }
-
-            if (!line.StartsWith("data:", StringComparison.Ordinal))
-                continue;
-            if (data.Length > 0)
-                data.Append('\n');
-            data.Append(line["data:".Length..].TrimStart());
-            if (data.Length > MaximumEventLength)
-                throw new AiException("An AI event stream sent an oversized event.");
+            if (name is not null && data.Length > 0)
+                yield return new AiServerSentEvent(name, data.ToString());
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
         }
 
-        if (name is not null && data.Length > 0)
-            yield return new AiServerSentEvent(name, data.ToString());
+        async ValueTask<string?> ReadLineBoundedAsync()
+        {
+            var line = new StringBuilder();
+            while (true)
+            {
+                if (bufferOffset >= buffered)
+                {
+                    buffered = await reader.ReadAsync(buffer.AsMemory(), cancellationToken);
+                    bufferOffset = 0;
+                    if (buffered == 0)
+                    {
+                        if (line.Length == 0)
+                            return null;
+                        if (line[^1] == '\r')
+                            line.Length--;
+                        return line.ToString();
+                    }
+                }
+
+                char next = buffer[bufferOffset++];
+                if (swallowLineFeed)
+                {
+                    swallowLineFeed = false;
+                    if (next == '\n')
+                        continue;
+                }
+
+                if (next == '\r')
+                {
+                    swallowLineFeed = true;
+                    return line.ToString();
+                }
+                if (next == '\n')
+                    return line.ToString();
+
+                line.Append(next);
+                if (line.Length > MaximumEventLength)
+                    throw new AiException("An AI event stream sent an oversized line.");
+            }
+        }
     }
 }

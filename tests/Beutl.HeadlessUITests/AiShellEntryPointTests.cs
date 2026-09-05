@@ -273,7 +273,7 @@ public sealed class AiShellEntryPointTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(mainViewModel.MenuBar.ShowAiJobs.CanExecute(), Is.True);
+            Assert.That(mainViewModel.MenuBar.ShowAiJobs.CanExecute(), Is.False);
             Assert.That(mainViewModel.MenuBar.GenerateImage.CanExecute(), Is.False);
             Assert.That(mainViewModel.MenuBar.EditImage.CanExecute(), Is.False);
             Assert.That(mainViewModel.MenuBar.GenerateSubtitles.CanExecute(), Is.False);

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
@@ -40,13 +41,13 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
     // The model the outstanding name was built from. A refresh that withdraws
     // that model would otherwise rebuild the name around whatever the picker
     // fell back to, and the job the first attempt paid for would be left behind.
-    // 決着していない名前ごとに、その依頼が何を名乗ったか。1 件だけ覚えていると、
-    // 別の依頼を出した時点で前の依頼のモデルを忘れ、戻ってきたときに買い直す。
+    // The request details associated with every unsettled name. Remembering only one would
+    // forget an earlier request's model after another request and charge again when returning.
     private readonly AiOutstandingRequests _outstanding = new();
     private AiPendingAttempt? _selectedRecovery;
     private readonly ReactivePropertySlim<int> _recoveryRevision = new();
-    // 抱えている名前が変わったことを画面へ伝えるためだけの数。どの task に
-    // 名前が残っているかは _outstanding が知っている。
+    // A revision used only to notify the UI when held names change. _outstanding tracks which
+    // tasks still have names.
     private readonly ReactivePropertySlim<int> _outstandingRevision = new();
     private readonly EditViewModel? _editViewModel;
     private string? _sourceElementId;
@@ -142,8 +143,8 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         // here yet has to be fetched even while its own request is waiting to be
         // collected — without it the screen has no model to send and the paid
         // request is stranded.
-        // 未回収の依頼が名乗ったモデルは、カタログから消えても一覧に残す。同じ
-        // task に二つ残っていることもあるので、全部を渡す。
+        // Keep every model named by an uncollected request even after it leaves the catalog.
+        // A task can have more than one such request, so return all of them.
         ModelPicker.KeepOffered = requested => ModelsOfOutstandingRequestsFor(requested);
         ModelPicker.CanReload = requested =>
             ModelPicker.Operation != requested
@@ -451,6 +452,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private async Task DisposeCoreAsync()
     {
+        _identityOperations.Dispose();
         await _operations.DisposeAsync(async () =>
         {
             ResultImage.Value?.Dispose();
@@ -467,7 +469,6 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
             _outstandingRevision.Dispose();
             _disposables.Dispose();
         });
-        _identityOperations.Dispose();
     }
 
     internal static string? GetSelectedImageSourcePath(CoreObject? selectedObject)
@@ -510,25 +511,52 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
     private void OnIdentityChanged()
     {
-        string? account = _requestKey.CurrentAccountId;
-        _identityOperations.Switch(() =>
+        if (!Dispatcher.UIThread.CheckAccess())
         {
-            _runningRequest = null;
-            IsEditing.Value = false;
-            ClearActiveRecovery();
-            SourceFilePath.Value = null;
-            Prompt.Value = string.Empty;
-            _sourceElementId = null;
-            OriginalImage.Value?.Dispose();
-            OriginalImage.Value = null;
-            ResultImage.Value?.Dispose();
-            ResultImage.Value = null;
-            Error.Value = null;
-            ModelPicker.ReconcileRecoveryModels();
-            _recoveryRevision.Value++;
-        });
-        if (account is not null)
+            _identityOperations.SwitchDeferred(
+                action => Dispatcher.UIThread.Post(() => RunDeferredIdentityClear(action)),
+                ClearIdentityState,
+                TryAutoRecoverForCurrentIdentity);
+            return;
+        }
+
+        _identityOperations.Switch(ClearIdentityState);
+        TryAutoRecoverForCurrentIdentity();
+    }
+
+    private void RunDeferredIdentityClear(Action clear)
+    {
+        try
+        {
+            clear();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clear image-edit state after an account change.");
+        }
+    }
+
+    private void TryAutoRecoverForCurrentIdentity()
+    {
+        if (_requestKey.CurrentAccountId is not null)
             TryAutoRecoverSingleAttempt();
+    }
+
+    private void ClearIdentityState()
+    {
+        _runningRequest = null;
+        IsEditing.Value = false;
+        ClearActiveRecovery();
+        SourceFilePath.Value = null;
+        Prompt.Value = string.Empty;
+        _sourceElementId = null;
+        OriginalImage.Value?.Dispose();
+        OriginalImage.Value = null;
+        ResultImage.Value?.Dispose();
+        ResultImage.Value = null;
+        Error.Value = null;
+        ModelPicker.ReconcileRecoveryModels();
+        _recoveryRevision.Value++;
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -813,11 +841,12 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         _modelsRequiredBackground = RequiredBackground(task.Value);
         try
         {
+            await _entitlements.RefreshAsync(operation.CancellationToken);
             await ModelPicker.LoadAsync(
                 AiOperations.ImageEdit(new AiImageEditTaskId(task.Value)),
-                // 未回収の依頼がある task に戻ってきたら、その依頼が名乗った
-                // モデルに合わせる。今この口座で払えるモデルに落ち着かせると、
-                // 送り直したものが別の依頼になり、支払い済みのものへ届かない。
+                // Returning to a task with an uncollected request must restore the model that
+                // request named. Choosing one affordable now would create a different request
+                // and fail to reach the already-paid result.
                 ModelOfOutstandingRequestFor(task.Value),
                 _requestKey.HasExplicitNullPersistedModel(
                     AiOperations.ImageEdit(new AiImageEditTaskId(task.Value))),
@@ -973,10 +1002,9 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                 null,
                 AiRequestKey.FileStamp(uploadName, uploadBytes),
             ];
-            // 画面が言っているモデルをそのまま名乗る。未回収の依頼に合わせて
-            // 黙って別のものを名乗ると、画面が見せているのとは違うもので課金
-            // される——一覧が空だった頃に出した依頼は、いまの画面では言い表せ
-            // ないので、履歴から回収する。
+            // Name the model shown on screen. Silently substituting one from an uncollected
+            // request would charge for something different from the UI. Requests created when
+            // the list was empty cannot be represented here and must be recovered from history.
             AiModelId? model =
                 ModelPicker.Operation == editOperation ? ModelForRequest(ModelPicker.SelectedModel) : null;
             requestParts[ModelPartIndex] = model?.Value;
@@ -1032,7 +1060,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                     throw new AiUsageLimitExceededException();
                 }
             }
-            catch (Exception ex) when (AiRequestOutcome.ReservedNothing(ex))
+            catch
             {
                 WithdrawRequestName(name);
                 throw;
@@ -1059,7 +1087,8 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
 
             // Past here the picture has been paid for. Whatever goes wrong
             // while it is fetched, the name stays: it is the way back to it.
-            using var stream = new MemoryStream();
+            using var stream = new SizeLimitedMemoryStream(
+                checked((int)AiRequestLimits.MaxImageUploadBytes));
             await _content.CopyToAsync(response.ContentUri, stream, operation.CancellationToken);
             operation.CancellationToken.ThrowIfCancellationRequested();
             stream.Position = 0;
@@ -1140,9 +1169,8 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
         }
         // The job that key created is gone, so the key can only ever answer
         // with that. The next attempt has to be a new request.
-        // 送った名前が、別の依頼のものだった。画面の中身を戻せばその依頼として
-        // 送り直せるので、名前は残す——ここで捨てると、支払い済みかもしれない
-        // job へ戻る道が閉じる。
+        // The issued name belongs to a different request. Keep it so restoring the form can
+        // resend that request; discarding it could close the only route to an already-paid job.
         catch (AiRequestChangedException)
         {
             operation.TryPublish(() => Error.Value = Strings.AiRequestChanged);
@@ -1303,7 +1331,7 @@ internal sealed class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable
                 { MainWindow: { } window }
                 || TopLevel.GetTopLevel(window)?.StorageProvider is not { } storage)
                 return;
-            FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+            FilePickerSaveOptions options = SharedFilePickerOptions.SavePngImage();
             options.SuggestedFileName = $"AI Edit {DateTime.Now:yyyy-MM-dd HHmmss}";
             options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
             options.DefaultExtension = "png";

@@ -37,10 +37,9 @@ internal sealed record CaptionTranslationResume(
     // would name its unfinished batches differently and buy them again, so the
     // picker is put back on this one.
     string RequestKeyModel = "",
-    // 送ったきり決着していない名前を抱えたまま終わったか。seed があることでは
-    // 分からない——予約されなかった依頼や、返金されて捨てられた依頼の seed も
-    // 残る。これを取り違えると、誰も払っていない依頼が「支払い済みの回収」と
-    // して復活する。
+    // Whether the draft ended while holding a dispatched but unsettled name. A seed alone cannot
+    // answer this because unreserved and refunded requests also retain seeds. Confusing them would
+    // restore unpaid work as an already-paid recovery.
     bool RequestKeyNamePending = false,
     int MaxSegments = 0,
     int MaxCharacters = 0,
@@ -88,9 +87,8 @@ internal sealed record CaptionSourceTranscriptionResume(
     // would name its unfinished chunks differently and buy them again, so the
     // picker is put back on this one.
     string RequestKeyModel = "",
-    // 送ったきり決着していない名前を抱えたまま終わったか。seed があることでは
-    // 分からない——予約されなかった依頼や、返金されて捨てられた依頼の seed も
-    // 残る。
+    // Whether the draft ended while holding a dispatched but unsettled name. A seed alone cannot
+    // answer this because unreserved and refunded requests also retain seeds.
     bool RequestKeyNamePending = false);
 
 internal sealed record CaptionDraft(
@@ -209,8 +207,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
     // comes back; version 3 records whether one of those names was outstanding;
     // version 4 retains more than one paid recovery for a scene.
     internal const int CurrentVersion = 5;
-    // 古い控えも読む。曖昧なのはそのときどきの名前まわりだけなので、そこだけを
-    // 直して読み込む——支払い済みの結果まで捨てる理由は無い。
+    // Read old drafts too. Only their request-name fields are ambiguous, so normalize those fields
+    // rather than discarding already-paid results.
     internal const int OldestSupportedVersion = 1;
     internal const int MaximumStorageBytes = 8 * 1024 * 1024;
     internal const int MaximumRetainedRecoveries = 63;
@@ -246,10 +244,9 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 return false;
             }
 
-            // 同じ人の同じ場面を、もう 1 つの Beutl が開いていることがある。
-            // どちらも書けてしまうと、片方が書いた「支払い済みの名前」をもう
-            // 片方が上書きし、次の起動でそれを買い直すことになる。ファイルを
-            // 共有無しで開いたまま持ち、開けたほうだけが書く。
+            // Another Beutl process may open the same scene for the same account. If both write,
+            // one can overwrite the other's paid request name and force a repurchase on restart.
+            // Keep the file open without sharing so only the process that acquired it may write.
             FileStream? lockFile = TryTakeLockFile(scope);
             if (lockFile is null)
             {
@@ -279,7 +276,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         }
         catch (IOException)
         {
-            // 他のプロセスが握っている。
+            // Another process owns the draft.
             return null;
         }
         catch (UnauthorizedAccessException)
@@ -319,8 +316,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // 読めなかっただけで、無いとは限らない。消しても上書きもしない
-                // ——そこに支払い済みの名前が書いてあるかもしれない。
+                // Unreadable is not absent. Do not delete or overwrite a draft that may contain
+                // an already-paid request name.
                 return CaptionDraftReadResult.Unreadable;
             }
 
@@ -329,9 +326,8 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 CaptionDraftEnvelope? envelope = JsonSerializer.Deserialize<CaptionDraftEnvelope>(
                     bytes,
                     s_jsonOptions);
-                // 新しい版で書かれた控え。読めないだけで、壊れてはいない
-                // ——古い版へ戻したときに消してしまうと、新しい版に戻っても
-                // 支払い済みの名前は返ってこない。
+                // A newer version wrote this draft. It is unreadable, not corrupt; deleting it
+                // after downgrading would lose paid request names even after upgrading again.
                 if (envelope is not null && envelope.Version > CurrentVersion)
                     return CaptionDraftReadResult.Unreadable;
 
@@ -362,7 +358,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                 or NotSupportedException
                 or ArgumentException)
             {
-                // 読めたが、中身が控えとして成り立っていない。これは消してよい。
+                // The document was readable but is not a valid draft, so it may be removed.
                 DeleteInvalidFile(storagePath);
                 return CaptionDraftReadResult.Absent;
             }
@@ -390,12 +386,29 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             if (bytes.Length > MaximumStorageBytes)
                 throw new InvalidOperationException("The caption draft exceeds the storage limit.");
 
-            Directory.CreateDirectory(StorageDirectory);
+            if (OperatingSystem.IsWindows())
+                Directory.CreateDirectory(StorageDirectory);
+            else
+                Directory.CreateDirectory(
+                    StorageDirectory,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             string temporaryPath = storagePath + $".{Guid.NewGuid():N}.tmp";
             try
             {
-                File.WriteAllBytes(temporaryPath, bytes);
-                RestrictFileAccess(temporaryPath);
+                var options = new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.WriteThrough,
+                };
+                if (!OperatingSystem.IsWindows())
+                    options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                using (FileStream stream = new(temporaryPath, options))
+                {
+                    stream.Write(bytes);
+                    stream.Flush(flushToDisk: true);
+                }
                 File.Move(temporaryPath, storagePath, overwrite: true);
                 RestrictFileAccess(storagePath);
             }
@@ -452,15 +465,14 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         return options;
     }
 
-    // 版 1 の控えには、seed を書いたあとモデルを書く前の時期のものが混じって
-    // いる。seed だけがある状態は「モデルを指定しなかった実行」と見分けがつかず、
-    // 取り違えると、支払い済みの切れ端に別の名前を付けて買い直すことになる。
+    // Version 1 spans the period after seeds were stored but before models were stored. A seed
+    // without a model is indistinguishable from a request that intentionally omitted the model;
+    // guessing wrong would rename and repurchase already-paid chunks.
     //
-    // 曖昧なのは名前だけなので、名前だけを落とす。支払い済みの結果はそのまま
-    // 残り、まだ送っていない残りの切れ端が新しい実行として値付けされる。
-    // その控えが「名前を抱えたまま終わったか」を実際に書いているか。版 2 には
-    // それを書く前のものと書くようになったあとのものが混じっていて、書いてある
-    // false と、書かれていないための false は、読んだだけでは同じに見える。
+    // Only the name is ambiguous, so drop the name while preserving paid results; unsent chunks
+    // are then priced as new work. This flag records whether the draft actually stored its
+    // pending-name state. Version 2 contains documents from before and after that field was added,
+    // and a stored false is otherwise indistinguishable from a missing false.
     private static bool RecordsNamePending(byte[] bytes, int version)
     {
         if (version != 2)
@@ -498,17 +510,15 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
         if (version >= 3)
             return draft with { Version = CurrentVersion };
 
-        // 書いてあるなら、そのとおりに読む。書いていないのは、その項目より前の
-        // 版 2——seed があるなら抱えていたということ。
+        // Honor an explicitly stored value. A missing value came from version 2 before the field
+        // existed, where a seed means the draft held a name.
         if (version == 2 && recordsNamePending)
             return draft with { Version = CurrentVersion };
 
-        // 版 2 には「名前を抱えたまま終わったか」が無い。読み落とすと false に
-        // なり、まだ返ってきていない最初の切れ端を持つ実行が拾い直せなくなって
-        // 買い直しになる。版 2 は切れ端が返るたびに名前を決着させていなかった
-        // ので、seed があるなら抱えていたということ——そう読む。取り違えて
-        // true にしても、サーバーがその名前で何も見つけなければ普通に課金される
-        // だけで、失うものは無い。
+        // Version 2 did not store whether a name remained pending. Reading that as false would
+        // make a run with an unanswered first chunk unrecoverable and charge again. Version 2 also
+        // did not settle names after each returned chunk, so a seed is treated as a held name. If
+        // that guess is too cautious and the server finds nothing, it simply handles a normal new charge.
         if (version == 2)
         {
             return draft with

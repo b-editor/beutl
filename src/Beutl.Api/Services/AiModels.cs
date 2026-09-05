@@ -1384,7 +1384,9 @@ public sealed record AiContentMetadata
 
         string? fileNameExtension = string.IsNullOrWhiteSpace(FileName)
             ? null
-            : NormalizeExtension(Path.GetExtension(FileName));
+            : Path.GetExtension(FileName) is { Length: > 0 } extension
+                ? NormalizeExtension(extension)
+                : null;
 
         if (contentTypeExtension is not null
             && fileNameExtension is not null
@@ -1697,11 +1699,30 @@ internal static class AiModelMapper
         AiVideoModelCapabilities model,
         AiOperationCapabilityResponse capability)
     {
-        AiCapabilityDimension<int> durations = !model.DurationsSeconds.IsSpecified
-            ? model.DurationsSeconds
-            : AiCapabilityDimension<int>.Supported(model.DurationsSeconds.Values.Where(seconds =>
-                seconds >= (capability.MinDurationSeconds ?? int.MinValue)
-                && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue)));
+        AiCapabilityDimension<int> durations;
+        if (!model.DurationsSeconds.IsSpecified
+            && (capability.MinDurationSeconds is not null
+                || capability.MaxDurationSeconds is not null))
+        {
+            int minimum = Math.Max(
+                capability.MinDurationSeconds ?? AiRequestLimits.MinVideoDurationSeconds,
+                AiRequestLimits.MinVideoDurationSeconds);
+            int maximum = Math.Min(
+                capability.MaxDurationSeconds ?? AiRequestLimits.MaxVideoDurationSeconds,
+                AiRequestLimits.MaxVideoDurationSeconds);
+            durations = minimum <= maximum
+                ? AiCapabilityDimension<int>.Supported(
+                    Enumerable.Range(minimum, maximum - minimum + 1))
+                : AiCapabilityDimension<int>.Unsupported;
+        }
+        else
+        {
+            durations = !model.DurationsSeconds.IsSpecified
+                ? model.DurationsSeconds
+                : AiCapabilityDimension<int>.Supported(model.DurationsSeconds.Values.Where(seconds =>
+                    seconds >= (capability.MinDurationSeconds ?? int.MinValue)
+                    && seconds <= (capability.MaxDurationSeconds ?? int.MaxValue)));
+        }
         return model with
         {
             DurationsSeconds = durations,

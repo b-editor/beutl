@@ -13,6 +13,24 @@ public partial class AiJobCenterView : UserControl
         InitializeComponent();
     }
 
+    private void OnJobCardLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiJobCenterViewModel viewModel
+            && sender is AiJobCard { DataContext: AiJobItemViewModel item })
+        {
+            viewModel.SetPreviewVisibility(item, true);
+        }
+    }
+
+    private void OnJobCardUnloaded(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiJobCenterViewModel viewModel
+            && sender is AiJobCard { DataContext: AiJobItemViewModel item })
+        {
+            viewModel.SetPreviewVisibility(item, false);
+        }
+    }
+
     private async void OnAddToSceneClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is AiJobCenterViewModel viewModel

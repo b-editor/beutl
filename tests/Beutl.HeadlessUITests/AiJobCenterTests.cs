@@ -28,6 +28,7 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using Reactive.Bindings;
+using SkiaSharp;
 
 namespace Beutl.HeadlessUITests;
 
@@ -90,6 +91,27 @@ public sealed class AiJobCenterTests
             Assert.That(item.CanDelete, Is.True);
             Assert.That(item.CanAddToScene, Is.False);
         }
+    }
+
+    [Test]
+    public async Task Item_ThrowingResultHandlerFallsBackToGenericPresentation()
+    {
+        var descriptor = new AiJobKindDescriptor(
+            new AiJobKindId("vendor.throwing"),
+            new AiJobStatusMap([]));
+        await using IAiJobKindRegistration kindRegistration = _jobKinds.Register(descriptor);
+        await using IAiJobResultHandlerRegistration handlerRegistration = _resultHandlers.Register(
+            new AiJobResultHandlerRegistration(new AiJobResultContribution(
+                descriptor.Kind,
+                new ThrowingResultHandler())));
+
+        using var item = new AiJobItemViewModel(
+            CreateJob("vendor.throwing", "unknown", ParseInput("{ \"prompt\": \"safe\" }")),
+            _jobKinds,
+            _resultHandlers);
+
+        Assert.That(item.Summary, Is.EqualTo("safe"));
+        Assert.That(item.CanAddToScene, Is.False);
     }
 
     [Test]
@@ -1081,6 +1103,174 @@ public sealed class AiJobCenterTests
             RetryHandler = retryHandler,
         };
 
+    [Test]
+    public void DecodePreview_DownsamplesWithinTheBoundedDecodeSurface()
+    {
+        using var source = new SKBitmap(2_048, 1_024, SKColorType.Rgba8888, SKAlphaType.Premul);
+        source.Erase(SKColors.CornflowerBlue);
+        using SKImage image = SKImage.FromBitmap(source);
+        using SKData encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var encodedStream = new MemoryStream();
+        encoded.SaveTo(encodedStream);
+        encodedStream.Position = 0;
+
+        using Bitmap preview = AiJobCenterViewModel.DecodePreview(encodedStream);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(preview.Width, Is.EqualTo(512));
+            Assert.That(preview.Height, Is.EqualTo(256));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task VisiblePreviewDownloadsUseBoundedConcurrency()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-preview-concurrency");
+        var releaseDownloads = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fourDownloadsStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        object concurrencyGate = new();
+        int activeDownloads = 0;
+        int maximumDownloads = 0;
+        int contentRequests = 0;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/jobs")
+                return JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}");
+            if (request.RequestUri?.AbsolutePath.StartsWith("/api/contents/preview-", StringComparison.Ordinal) == true)
+            {
+                lock (concurrencyGate)
+                {
+                    contentRequests++;
+                    activeDownloads++;
+                    maximumDownloads = Math.Max(maximumDownloads, activeDownloads);
+                    if (activeDownloads == 4)
+                        fourDownloadsStarted.TrySetResult();
+                }
+                try
+                {
+                    await releaseDownloads.Task.WaitAsync(cancellationToken);
+                    return ByteResponse(s_png, "image/png");
+                }
+                finally
+                {
+                    lock (concurrencyGate)
+                        activeDownloads--;
+                }
+            }
+
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        AiJob[] jobs = Enumerable.Range(0, 10)
+            .Select(index => CreateJob(
+                "image",
+                "succeeded",
+                ParseInput($"{{\"prompt\":\"preview {index}\"}}"),
+                $"https://beutl.beditor.net/api/contents/preview-{index}") with
+            {
+                Id = new AiJobId($"preview-{index}"),
+                FileId = new AiContentId($"preview-{index}"),
+            })
+            .ToArray();
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot([.. jobs], null, false, null));
+        foreach (AiJobItemViewModel item in viewModel.Jobs)
+            viewModel.SetPreviewVisibility(item, true);
+
+        await fourDownloadsStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Task.Delay(50);
+        foreach (AiJobItemViewModel item in viewModel.Jobs.Skip(4))
+            viewModel.SetPreviewVisibility(item, false);
+        lock (concurrencyGate)
+        {
+            Assert.That(activeDownloads, Is.EqualTo(4));
+            Assert.That(maximumDownloads, Is.EqualTo(4));
+        }
+
+        releaseDownloads.TrySetResult();
+        await WaitUntilAsync(() => viewModel.Jobs.Take(4).All(item => item.Preview is not null));
+        await Task.Delay(50);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(maximumDownloads, Is.EqualTo(4));
+            Assert.That(contentRequests, Is.EqualTo(4));
+            Assert.That(viewModel.Jobs.Skip(4).All(item => item.Preview is null), Is.True);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ViewRequestsPreviewsOnlyForRealizedRowsAndLoadsMoreAfterScrolling()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-preview-viewport");
+        int contentRequests = 0;
+        int pageRequests = 0;
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/jobs")
+            {
+                Interlocked.Increment(ref pageRequests);
+                return JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}");
+            }
+            if (request.RequestUri?.AbsolutePath.StartsWith("/api/contents/viewport-", StringComparison.Ordinal) == true)
+            {
+                Interlocked.Increment(ref contentRequests);
+                return ByteResponse(s_png, "image/png");
+            }
+
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        await WaitUntilAsync(() => Volatile.Read(ref pageRequests) > 0 && !viewModel.IsLoading.Value);
+        AiJob[] jobs = Enumerable.Range(0, 50)
+            .Select(index => CreateJob(
+                "image",
+                "succeeded",
+                ParseInput($"{{\"prompt\":\"viewport {index}\"}}"),
+                $"https://beutl.beditor.net/api/contents/viewport-{index}") with
+            {
+                Id = new AiJobId($"viewport-{index}"),
+                FileId = new AiContentId($"viewport-{index}"),
+            })
+            .ToArray();
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot([.. jobs], null, false, null));
+        var view = new AiJobCenterView { DataContext = viewModel };
+        var window = new Window { Content = view, Width = 360, Height = 320 };
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            await WaitUntilAsync(() => Volatile.Read(ref contentRequests) > 0);
+            await Task.Delay(50);
+            HeadlessTestHelpers.Render();
+            int initialRequests = Volatile.Read(ref contentRequests);
+            Assert.That(initialRequests, Is.LessThan(50));
+
+            ItemsControl jobList = view.FindControl<ItemsControl>("JobList")!;
+            ScrollViewer scrollViewer = jobList.FindAncestorOfType<ScrollViewer>()!;
+            scrollViewer.Offset = new Avalonia.Vector(0, scrollViewer.Extent.Height);
+            HeadlessTestHelpers.Render();
+            await WaitUntilAsync(() => Volatile.Read(ref contentRequests) > initialRequests);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
     [AvaloniaTest]
     public async Task ViewModel_ShowsTheGeneratedPictureBesideItsPrompt()
     {
@@ -1105,6 +1295,8 @@ public sealed class AiJobCenterTests
         await WaitUntilAsync(() => viewModel.Jobs.Count == 2);
         AiJobItemViewModel completed = viewModel.Jobs.Single(item => item.Id == "job-success");
         AiJobItemViewModel failed = viewModel.Jobs.Single(item => item.Id == "job-failed");
+        Assert.That(contentRequests, Is.Zero, "Unrealized history rows must not download previews.");
+        viewModel.SetPreviewVisibility(completed, true);
         await WaitUntilAsync(() => completed.Preview is not null);
 
         int afterFirstLoad = contentRequests;
@@ -1120,10 +1312,30 @@ public sealed class AiJobCenterTests
             Assert.That(completed.HasImagePreview, Is.True);
             Assert.That(completed.Preview, Is.Not.Null,
                 "A history of prompts is far slower to search than a history of pictures.");
+            Assert.That(completed.Preview!.Value.Width, Is.LessThanOrEqualTo(512));
+            Assert.That(completed.Preview!.Value.Height, Is.LessThanOrEqualTo(512));
             Assert.That(failed.Preview, Is.Null, "A job that failed produced nothing to show.");
             Assert.That(contentRequests, Is.EqualTo(afterFirstLoad),
                 "Polling must not fetch the same picture again.");
         }
+    }
+
+    [AvaloniaTest]
+    public async Task ViewModel_DiscardsOutOfOrderSnapshots()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-snapshot-order");
+        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        AiJob job = CreateJob("video", "succeeded");
+
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot([job], null, false, null), sequence: 100);
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot([], null, false, null), sequence: 99);
+
+        Assert.That(viewModel.Jobs.Select(item => item.Id).ToArray(), Is.EqualTo(new[] { "job-1" }));
     }
 
     [AvaloniaTest]
@@ -1150,8 +1362,10 @@ public sealed class AiJobCenterTests
         using var viewModel = CreateJobCenter(editor, clients);
 
         await WaitUntilAsync(() => viewModel.Jobs.Count == 2);
-        await WaitUntilAsync(() => contentRequests > 0);
         AiJobItemViewModel completed = viewModel.Jobs.Single(item => item.Id == "job-success");
+        viewModel.SetPreviewVisibility(completed, true);
+        await WaitUntilAsync(() => contentRequests > 0);
+        await WaitUntilAsync(() => !completed.IsPreviewLoadRequested);
         // A subsequent authoritative snapshot may retry a transiently failed
         // preview because the failed load released its claim.
         viewModel.ApplySnapshot(new AiJobMonitorSnapshot(
@@ -1403,16 +1617,22 @@ public sealed class AiJobCenterTests
             },
         };
 
-    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    private sealed class StubHandler(
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(
+        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+            : this((request, _) => Task.FromResult(responder(request)))
+        {
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            HttpResponseMessage response = responder(request);
+            HttpResponseMessage response = await responder(request, cancellationToken);
             response.RequestMessage = request;
-            return Task.FromResult(response);
+            return response;
         }
     }
 
@@ -1586,6 +1806,23 @@ public sealed class AiJobCenterTests
             Started.TrySetResult();
             await Release.Task;
         }
+    }
+
+    private sealed class ThrowingResultHandler : IAiJobResultHandler
+    {
+        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
+            => throw new InvalidOperationException("presentation failure");
+
+        public AiJobCompletionPresentation? CreateCompletion(
+            AiJob job,
+            AiJobStatusSemantics status,
+            AiJobPresentation presentation)
+            => throw new InvalidOperationException("completion failure");
+
+        public bool CanHandle(AiJob job, AiJobStatusSemantics status) => true;
+
+        public Task HandleAsync(AiJob job, IAiJobResultContext context, CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private sealed class CustomResultHandler(EditViewModel expectedEditor) : IAiJobResultHandler

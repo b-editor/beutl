@@ -127,6 +127,49 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
+    public async Task CallerCancellationDoesNotReleasePreparationBeforePaidFlightDrains()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        var started = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        images
+            .Setup(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                started.TrySetResult();
+                await release.Task;
+                return null!;
+            });
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(),
+            RetryContext());
+        AiJob job = Job("image", "{\"prompt\":\"slow\",\"aspectRatio\":\"1:1\"}");
+
+        AiJobRetryPreparationResult prepared = await handler.PrepareAsync(
+            job,
+            CancellationToken.None);
+        IAiJobRetryPreparation preparation = prepared.TakePreparation();
+        using var cancellation = new CancellationTokenSource();
+        Task execution = preparation.ExecuteAsync(cancellation.Token);
+        await started.Task;
+
+        cancellation.Cancel();
+        Assert.That(execution.IsCompleted, Is.False);
+
+        release.TrySetResult();
+        Assert.CatchAsync<OperationCanceledException>(() => execution);
+        await preparation.DisposeAsync();
+        await prepared.DisposeAsync();
+    }
+
+    [Test]
     public async Task PreparedRetryRejectsSecondExecuteThroughPublicContract()
     {
         var images = new Mock<IAiImageGenerationService>();

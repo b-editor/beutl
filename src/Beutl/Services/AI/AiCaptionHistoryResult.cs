@@ -246,10 +246,25 @@ internal static class AiCaptionHistoryResultParser
             && startElement.TryGetDouble(out start)
             && double.IsFinite(start)
             && start >= 0
+            && IsTimeSpanRepresentable(start)
             && element.TryGetProperty("end", out JsonElement endElement)
             && endElement.TryGetDouble(out end)
             && double.IsFinite(end)
+            && IsTimeSpanRepresentable(end)
             && end > start;
+    }
+
+    private static bool IsTimeSpanRepresentable(double seconds)
+    {
+        try
+        {
+            _ = TimeSpan.FromSeconds(seconds);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
     }
 
     private static bool TryGetInt32(JsonElement element, string name, out int value)
@@ -330,6 +345,6 @@ internal sealed class SizeLimitedMemoryStream(int maximumBytes) : MemoryStream
         if (maximumBytes <= 0)
             throw new ArgumentOutOfRangeException(nameof(maximumBytes));
         if (additionalBytes < 0 || Position > maximumBytes - additionalBytes)
-            throw new InvalidDataException("The AI caption result exceeds the supported size.");
+            throw new InvalidDataException("The AI result exceeds the supported size.");
     }
 }

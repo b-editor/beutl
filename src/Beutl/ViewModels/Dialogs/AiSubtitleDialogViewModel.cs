@@ -474,9 +474,9 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         {
             SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress);
         }
-        // この実行の名前は、別の依頼のものになっている。シーン合成の音声は
-        // 作り直すたびに変わり得るので、拾い直した実行がここに来る。支払い済みの
-        // 切れ端はそのまま残し、残りは新しい名前で買い直す。
+        // This execution's name belongs to another request. Scene-mixed audio can change whenever
+        // it is recomposed, so a restored execution can arrive here. Keep paid chunks as-is and
+        // purchase the remainder under new names.
         catch (AiRequestChangedException)
         {
             RetireTranscriptionRunNames();
@@ -649,6 +649,26 @@ public sealed class AudioSourceItem
     public TimeSpan SceneStart { get; }
 
     internal Guid ElementId => _elementId;
+
+    internal TimeSpan ElementLength => _elementLength;
+
+    internal TimeSpan SourceOffset => _sourceOffset;
+
+    internal float Speed => _speed;
+
+    internal double GetSourceElapsedSeconds()
+    {
+        if (_speedAnimation is null)
+            return Math.Max(_elementLength.TotalSeconds * (_speed / 100d), 0);
+
+        using var integrator = new SpeedIntegrator(AnimationSampleRate);
+        integrator.EnsureCache(_speedAnimation);
+        TimeSpan elapsed = _speedAnimation.UseGlobalClock
+            ? integrator.Integrate(_elementStart + _elementLength, _speedAnimation)
+              - integrator.Integrate(_elementStart, _speedAnimation)
+            : integrator.Integrate(_elementLength, _speedAnimation);
+        return Math.Max(elapsed.TotalSeconds, 0);
+    }
 
     internal static AudioSourceItem CreateSceneMix(string name, TimeSpan sceneStart, TimeSpan duration)
         => new(name, sceneStart, duration);

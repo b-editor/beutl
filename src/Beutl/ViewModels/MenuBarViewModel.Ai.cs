@@ -13,7 +13,7 @@ public partial class MenuBarViewModel
         nameof(GenerateVideo))]
     private void InitializeAiCommands(IObservable<bool> isSceneOpened)
     {
-        ShowAiJobs = new ReactiveCommandSlim();
+        ShowAiJobs = new ReactiveCommandSlim(isSceneOpened);
         GenerateImage = new ReactiveCommandSlim(isSceneOpened);
         GenerateSubtitles = new ReactiveCommandSlim(isSceneOpened);
         EditImage = new ReactiveCommandSlim(isSceneOpened);

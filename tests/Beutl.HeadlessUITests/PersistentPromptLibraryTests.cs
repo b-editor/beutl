@@ -145,6 +145,45 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
+    public void SeparateInstancesReloadBeforeWritingSoMutationsAreMerged()
+    {
+        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
+        var first = new PersistentPromptLibrary(_storagePath, options);
+        var second = new PersistentPromptLibrary(_storagePath, options);
+
+        first.Record(PromptTaskKind.Image, "first process");
+        second.Record(PromptTaskKind.Video, "second process");
+
+        var reloaded = new PersistentPromptLibrary(_storagePath, options);
+        Assert.That(
+            reloaded.History.Select(item => item.Prompt),
+            Is.EquivalentTo(new[] { "first process", "second process" }));
+    }
+
+    [Test]
+    public async Task SeparateInstanceWaitsForTheCrossProcessWriteLock()
+    {
+        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
+        var library = new PersistentPromptLibrary(_storagePath, options);
+        Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
+        using var heldLock = new FileStream(
+            _storagePath + ".lock",
+            FileMode.OpenOrCreate,
+            FileAccess.ReadWrite,
+            FileShare.None);
+
+        Task<PromptHistoryEntry> write = Task.Run(() =>
+            library.Record(PromptTaskKind.Image, "wait for the other process"));
+        await Task.Delay(50);
+        Assert.That(write.IsCompleted, Is.False);
+
+        heldLock.Dispose();
+        PromptHistoryEntry entry = await write.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.That(entry.Prompt, Is.EqualTo("wait for the other process"));
+    }
+
+    [Test]
     public void DeleteAndClearOperationsPersistTheResult()
     {
         var options = new PromptLibraryOptions { RetainRecentPromptText = true };

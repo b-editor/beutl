@@ -34,9 +34,11 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
     private readonly object _gate = new();
     private readonly HashSet<Task> _operations = [];
+    private readonly Dictionary<Task, Action> _shutdownFallbacks = [];
     private Task? _disposeTask;
     private bool _disposed;
     private bool _drained;
+    private volatile bool _shutdownFallbackPublicationEnabled;
     private static readonly AsyncLocal<PackageInstaller?> s_transactionOwner = new();
 
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
@@ -115,6 +117,16 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
+    internal void BeginShutdown()
+    {
+        lock (_gate)
+        {
+            _disposed = true;
+            _shutdownFallbackPublicationEnabled = true;
+        }
+    }
+
+
     protected virtual async Task DisposeCoreAsync()
     {
         long deadline = Environment.TickCount64 + DrainDeadlineMilliseconds;
@@ -124,7 +136,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             Task[] operations;
             lock (_gate)
             {
-                _operations.RemoveWhere(task => task.IsCompleted);
+                RemoveCompletedOperations_NoLock();
                 if (_operations.Count == 0)
                 {
                     drained = true;
@@ -149,7 +161,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
 
             lock (_gate)
             {
-                _operations.RemoveWhere(task => task.IsCompleted);
+                RemoveCompletedOperations_NoLock();
             }
         }
 
@@ -183,7 +195,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 Task[] operations;
                 lock (_gate)
                 {
-                    _operations.RemoveWhere(task => task.IsCompleted);
+                    RemoveCompletedOperations_NoLock();
                     operations = _operations.ToArray();
                 }
 
@@ -224,12 +236,14 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     // tracked operation never completes, so shutdown cannot hang behind it.
     internal async Task WaitUntilIdleAsync(TimeSpan timeout)
     {
+        _shutdownFallbackPublicationEnabled = true;
         long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
         while (true)
         {
             long remaining = deadline - Environment.TickCount64;
             if (remaining <= 0)
             {
+                PublishShutdownFallbacks();
                 _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
                 return;
             }
@@ -237,7 +251,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             Task[] operations;
             lock (_gate)
             {
-                _operations.RemoveWhere(task => task.IsCompleted);
+                RemoveCompletedOperations_NoLock();
                 operations = _operations.ToArray();
             }
 
@@ -256,6 +270,39 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
+    private void PublishShutdownFallbacks()
+    {
+        Action[] fallbacks;
+        lock (_gate)
+        {
+            RemoveCompletedOperations_NoLock();
+            fallbacks = _shutdownFallbacks
+                .Select(pair => pair.Value)
+                .ToArray();
+        }
+
+        foreach (Action fallback in fallbacks)
+        {
+            try
+            {
+                fallback();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish a package shutdown fallback.");
+            }
+        }
+    }
+
+    private void RemoveCompletedOperations_NoLock()
+    {
+        foreach (Task operation in _operations.Where(task => task.IsCompleted).ToArray())
+        {
+            _operations.Remove(operation);
+            _shutdownFallbacks.Remove(operation);
+        }
+    }
+
     // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
     protected virtual long DrainDeadlineMilliseconds => 30_000;
 
@@ -266,24 +313,52 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         => TrackAsyncCore(operation);
 
     public Task TrackInstallOperationAsync(Func<Task> operation)
+        => TrackInstallOperationWithShutdownFallbackAsync(operation, null);
+
+    internal Task TrackInstallOperationWithShutdownFallbackAsync(
+        Func<Task> operation,
+        Action? ensureShutdownFallback)
     {
         ArgumentNullException.ThrowIfNull(operation);
         TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Task task = proxy.Task;
+        Action? shutdownFallback = ensureShutdownFallback is null
+            ? null
+            : CreateOneShotFallback(ensureShutdownFallback);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _operations.RemoveWhere(task => task.IsCompleted);
+            RemoveCompletedOperations_NoLock();
             // Register before invoking so a re-entrant DisposeAsync drains this transaction.
             _operations.Add(task);
+            if (shutdownFallback is not null)
+                _shutdownFallbacks.Add(task, shutdownFallback);
         }
 
         // Invoke outside the lock: a delegate that blocks before its first incomplete await
         // must not hold the gate, or a concurrent DisposeAsync could not even start its
         // drain deadline. The operation's awaits use ConfigureAwait(false) so shutdown can
         // block without deadlocking.
-        _ = RunTransactionAsync(operation, proxy);
+        _ = RunTransactionAsync(operation, proxy, shutdownFallback);
         return task;
+    }
+
+    private Action CreateOneShotFallback(Action fallback)
+    {
+        int invoked = 0;
+        return () =>
+        {
+            if (Interlocked.Exchange(ref invoked, 1) != 0)
+                return;
+            try
+            {
+                fallback();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish a package shutdown fallback.");
+            }
+        };
     }
 
     internal void TrackSyncOperation(Action operation)
@@ -335,7 +410,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    private async Task RunTransactionAsync(Func<Task> operation, TaskCompletionSource proxy)
+    private async Task RunTransactionAsync(
+        Func<Task> operation,
+        TaskCompletionSource proxy,
+        Action? shutdownFallback)
     {
         PackageInstaller? previous = s_transactionOwner.Value;
         s_transactionOwner.Value = this;
@@ -346,11 +424,14 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
         catch (OperationCanceledException ex)
         {
+            if (_shutdownFallbackPublicationEnabled)
+                shutdownFallback?.Invoke();
             proxy.TrySetCanceled(ex.CancellationToken);
         }
         catch (Exception ex)
         {
             // Propagate the failure so the caller reports it and queues fallback.
+            shutdownFallback?.Invoke();
             proxy.TrySetException(ex);
         }
         finally
@@ -369,7 +450,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
-            _operations.RemoveWhere(task => task.IsCompleted);
+            RemoveCompletedOperations_NoLock();
             // Register before invoking so a concurrent DisposeAsync drains this phase.
             _operations.Add(proxy.Task);
         }
@@ -388,7 +469,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             {
                 throw new ObjectDisposedException(nameof(PackageInstaller));
             }
-            _operations.RemoveWhere(task => task.IsCompleted);
+            RemoveCompletedOperations_NoLock();
             // Register before invoking so a concurrent DisposeAsync drains this phase.
             _operations.Add(proxy.Task);
         }

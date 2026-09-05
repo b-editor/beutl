@@ -63,10 +63,10 @@ public sealed partial class AiSubtitleDialogViewModel
     private AiModelId? _restoredTranslationModel;
     private AiCaptionHistoryResult? _pendingHistoryResult;
     private ICaptionDraftSession? _captionDraftSession;
-    // この場面の控えを別のタブが握っていて、こちらからは書けない。書けないまま
-    // 課金された依頼は、セッションが終わればその名前ごと失われる。
+    // Another tab owns this scene's draft, so this tab cannot write it. A paid request created
+    // without durable storage would lose its name when the session ends.
     private bool _captionDraftScopeIsHeldElsewhere;
-    // この場面の控えが読めなかった。無いのとは違うので、書き込まない。
+    // This scene's draft was unreadable, which is not the same as absent, so do not overwrite it.
     private bool _captionDraftIsUnreadable;
     private CaptionDraftScope? _captionDraftBaseScope;
     private string? _captionDraftJobId;
@@ -107,9 +107,9 @@ public sealed partial class AiSubtitleDialogViewModel
         HistoryOverwriteMessage.Value = null;
     }
 
-    // 上書きする前に断るかどうか。画面に出ているものだけでは足りない——最初の
-    // ひと切れを送ったきり何も返ってきていない実行は、見た目には何も無いのに
-    // 支払い済みかもしれない名前を抱えている。黙って消すと、それごと消える。
+    // Whether replacement requires confirmation. Visible state is insufficient: a run whose first
+    // chunk received no response looks empty but may still hold a paid request name that silent
+    // replacement would erase.
     private bool HasUnsavedCaptionWork()
         => HasPartialResult.Value
             || _editableCues.Count > 0
@@ -123,8 +123,8 @@ public sealed partial class AiSubtitleDialogViewModel
         _pendingTranslation = null;
         _pendingSceneTranscription = null;
         _pendingSourceTranscription = null;
-        // 抱えていた名前もここで無くなる。伝えないと、モデル一覧は止まったまま、
-        // 残高の判定も回収中のつもりのまま残る。
+        // Held names are gone now. Notify dependents so model loading resumes and balance checks
+        // stop treating the request as recovery work.
         UpdateOutstandingCaptionRequest();
         _partialResult = null;
         HasPartialResult.Value = false;
@@ -533,7 +533,22 @@ public sealed partial class AiSubtitleDialogViewModel
         if (sampleRate <= 0)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
-        long totalSamples = GetSourceSampleCount(reader.AudioInfo, source.Duration);
+        long sourceStartSamples = checked((long)Math.Max(
+            0,
+            Math.Floor(source.SourceOffset.TotalSeconds * sampleRate)));
+        double selectedDurationSeconds = source.GetSourceElapsedSeconds();
+        if (!double.IsFinite(selectedDurationSeconds) || selectedDurationSeconds <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+        long selectedSamples = GetSourceSampleCount(
+            reader.AudioInfo,
+            TimeSpan.FromSeconds(selectedDurationSeconds));
+        double sourceSampleCount = reader.AudioInfo.NumSamples.ToDouble();
+        long availableSamples = double.IsFinite(sourceSampleCount) && sourceSampleCount > 0
+            ? checked((long)Math.Floor(sourceSampleCount)) - sourceStartSamples
+            : selectedSamples;
+        if (availableSamples <= 0)
+            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+        long totalSamples = Math.Min(selectedSamples, availableSamples);
         int chunkSamples = checked((int)Math.Ceiling(
             SceneMixChunkDuration.TotalSeconds * sampleRate));
         if (totalSamples <= 0 || chunkSamples <= 0)
@@ -637,7 +652,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     chunk = await Task.Run(
                         () => WriteSpeechWave(
                             reader,
-                            checked((int)chunkOffset),
+                            checked((int)(sourceStartSamples + chunkOffset)),
                             requestedSamples,
                             stream,
                             RequestToken),
@@ -724,13 +739,15 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSourceTranscriptionName(operation, name);
                     throw;
                 }
+                ValidateTranscriptionSegments(response.Segments);
                 // Settle the durable key before publishing any local progress.
                 // A failed CAS means another owner replaced the recovery row;
                 // leave this operation untouched so it can still be resumed.
                 if (!operation.RequestKey.Retire(name))
                     return;
                 operation.DetectedLanguage ??= response.Language;
-                double offsetSeconds = chunkOffset / (double)operation.SampleRate;
+                double offsetSeconds = (sourceStartSamples + chunkOffset)
+                    / (double)operation.SampleRate;
                 foreach (AiTranscriptionSegment segment in response.Segments)
                 {
                     operation.SourceSegments.Add(new AiTranscriptionSegment
@@ -928,13 +945,21 @@ public sealed partial class AiSubtitleDialogViewModel
                 ".wav");
             try
             {
-                using (stream)
+                try
                 {
-                    await WriteSceneMixWaveAsync(
-                        stream,
-                        rangeStart + chunkOffset,
-                        chunkDuration,
-                        RequestToken);
+                    using (stream)
+                    {
+                        await WriteSceneMixWaveAsync(
+                            stream,
+                            rangeStart + chunkOffset,
+                            chunkDuration,
+                            RequestToken);
+                    }
+                }
+                catch
+                {
+                    WithdrawSceneTranscriptionName(operation, name);
+                    throw;
                 }
                 AiTranscriptionResponse response;
                 try
@@ -968,6 +993,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSceneTranscriptionName(operation, name);
                     throw;
                 }
+                ValidateTranscriptionSegments(response.Segments);
                 if (!operation.RequestKey.Retire(name))
                     return;
                 operation.DetectedLanguage ??= response.Language;
@@ -1224,9 +1250,12 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawTranslationName(operation, name);
                     throw;
                 }
+                Dictionary<string, string> translatedBatch = ValidateTranslatedBatch(
+                    batch,
+                    response);
                 if (!operation.RequestKey.Retire(name))
                     return;
-                AddTranslatedBatch(operation, batch, response);
+                AddTranslatedBatch(operation, translatedBatch);
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedBatchCount++;
                 UpdateOutstandingCaptionRequest();
@@ -1296,7 +1325,7 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             operationLifetime.TryPublish(() => SetCaptionErrorIfCurrent(draftScopeRevision, Strings.AiRequestInProgress));
         }
-        // この実行の名前が、別の依頼のものになっている。残りは新しい名前で。
+        // This run's name belongs to another request, so name the remainder anew.
         catch (AiRequestChangedException)
         {
             if (_pendingTranslation?.RequestKey.Retire() == true)
@@ -1517,6 +1546,15 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private static void AddTranslatedBatch(
         TranslationOperation operation,
+        IReadOnlyDictionary<string, string> translatedBatch)
+    {
+        foreach ((string id, string text) in translatedBatch)
+        {
+            operation.TranslatedPieces.Add(id, text);
+        }
+    }
+
+    private static Dictionary<string, string> ValidateTranslatedBatch(
         TranslationBatch batch,
         AiCaptionTranslationResponse response)
     {
@@ -1541,9 +1579,41 @@ public sealed partial class AiSubtitleDialogViewModel
                 "The translation provider omitted one or more requested segments."));
         }
 
-        foreach ((string id, string text) in responseById)
+        return responseById;
+    }
+
+    private static void ValidateTranscriptionSegments(
+        IReadOnlyList<AiTranscriptionSegment> segments)
+    {
+        double previousEnd = 0;
+        foreach (AiTranscriptionSegment segment in segments)
         {
-            operation.TranslatedPieces.Add(id, text);
+            if (!double.IsFinite(segment.Start)
+                || !double.IsFinite(segment.End)
+                || segment.Start < previousEnd
+                || segment.End <= segment.Start
+                || !IsTimeSpanRepresentable(segment.Start)
+                || !IsTimeSpanRepresentable(segment.End)
+                || string.IsNullOrWhiteSpace(segment.Text))
+            {
+                throw new AiProviderErrorException(new InvalidDataException(
+                    "The transcription provider returned an invalid segment set."));
+            }
+
+            previousEnd = segment.End;
+        }
+    }
+
+    private static bool IsTimeSpanRepresentable(double seconds)
+    {
+        try
+        {
+            _ = TimeSpan.FromSeconds(seconds);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            return false;
         }
     }
 
@@ -1981,9 +2051,8 @@ public sealed partial class AiSubtitleDialogViewModel
         if (!IsCurrentCaptionDraftScope(result.DraftScopeRevision))
             return CaptionDraftOutcome.Superseded;
 
-        // この場面の控えを別のタブが握っていた。向こうが手を放していれば、ここで
-        // 取れる——一度取れなかったきり諦めると、そのタブは以後ずっと課金つきの
-        // 実行を始められない。
+        // Another tab previously owned this scene's draft. Retry now in case it released the
+        // draft; giving up after one failure would permanently block paid operations in this tab.
         if (_captionDraftSession is null && _captionDraftScopeIsHeldElsewhere)
             TakeOverReleasedCaptionDraft();
 
@@ -2020,11 +2089,9 @@ public sealed partial class AiSubtitleDialogViewModel
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to persist a recoverable paid caption result.");
-            // 書けなかったので、ディスクに残るのは 1 つ前の姿。消してはいけない
-            // ——それは支払い済みの切れ端と、その名前を持っている唯一の控えかも
-            // しれない。古いままでも損はしない: そこに書かれた名前が指すのは
-            // 支払い済みか、決着済みか、どこにも無いかのどれかで、どれを尋ねても
-            // 二重には課金されない。消せば、支払い済みのぶんを買い直す。
+            // The failed write leaves the previous draft on disk. Do not delete it: it may be the
+            // only record of paid chunks and their name. Replaying that older name is safe because
+            // it identifies paid work, settled work, or nothing; deleting it can force a repurchase.
             return CaptionDraftOutcome.NotRecorded;
         }
         return CaptionDraftOutcome.Recorded;
@@ -2208,9 +2275,8 @@ public sealed partial class AiSubtitleDialogViewModel
             read = CaptionDraftReadResult.Unreadable;
         }
 
-        // 読めなかった。何も無いのとは違う——そこに支払い済みの名前が書いて
-        // あるかもしれないので、この場面には書き込まない。課金つきの実行は、
-        // 読めるようになるまで始めない。
+        // Unreadable is not absent. The draft may contain an already-paid request name, so do not
+        // write this scene or begin paid work until it becomes readable.
         _captionDraftIsUnreadable = read.Outcome == CaptionDraftReadOutcome.Unreadable;
         CaptionDraftEntry? entry = read.Entry;
         if (entry is null)
@@ -2378,9 +2444,8 @@ public sealed partial class AiSubtitleDialogViewModel
                             : Strings.AiSubtitle_PartialTranscriptionAvailable,
                         draft.CompletedSteps,
                         draft.TotalSteps);
-            // 拾い直した実行が抱えている名前を、画面にも伝える。伝えないと、
-            // 見た目には何も無い実行——最初のひと切れを送ったきりのもの——が、
-            // 断りなく上書きされて消える。
+            // Expose the name held by a restored run to the UI. Otherwise a run that looks empty
+            // because only its first chunk was sent could be overwritten without confirmation.
             UpdateOutstandingCaptionRequest();
             _transcriptionEstimateRevision.Value++;
             RefreshTranslationEstimate();
@@ -2515,7 +2580,7 @@ public sealed partial class AiSubtitleDialogViewModel
         IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             AllowMultiple = false,
-            FileTypeFilter = [CreateCaptionFileType()],
+            FileTypeFilter = [CreateCaptionFileType(canDecode: true)],
         });
         if (files.Count == 0)
             return;
@@ -2530,7 +2595,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 throw new NotSupportedException("No caption codec is registered for this file extension.");
             }
             await using Stream stream = await files[0].OpenReadAsync();
-            using var memory = new MemoryStream();
+            using var memory = new SizeLimitedMemoryStream(AiCaptionHistoryResultParser.MaximumResultBytes);
             await stream.CopyToAsync(memory, operationLifetime.CancellationToken);
             operationLifetime.TryPublish(() => ImportCaptionBytes(memory.ToArray(), codec.Format));
         }
@@ -2560,7 +2625,7 @@ public sealed partial class AiSubtitleDialogViewModel
         {
             SuggestedFileName = "subtitles.srt",
             DefaultExtension = "srt",
-            FileTypeChoices = [CreateCaptionFileType()],
+            FileTypeChoices = [CreateCaptionFileType(canEncode: true)],
         });
         if (file is null)
             return;
@@ -2575,9 +2640,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 throw new NotSupportedException("No caption codec is registered for this file extension.");
             }
             byte[] bytes = ExportCaptionBytes(codec.Format);
-            await using Stream stream = await file.OpenWriteAsync();
-            stream.SetLength(0);
-            await stream.WriteAsync(bytes, operationLifetime.CancellationToken);
+            await WriteCaptionExportAsync(file, bytes, operationLifetime.CancellationToken);
             operationLifetime.TryPublish(() => NotificationService.ShowSuccess(Strings.AiSubtitle, Strings.AiSubtitle_Exported));
         }
         catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
@@ -2666,10 +2729,9 @@ public sealed partial class AiSubtitleDialogViewModel
         RestoreCaptionDraft();
     }
 
-    // この実行の名前ではもう何も頼めなくなったとき——指していた job が消えたか、
-    // 別の依頼のものになったか。支払い済みの切れ端はそのままに、残りを新しい
-    // 名前で買い直す。控えにも書き戻す。そうしないと、拾い直した実行がまた
-    // 使えない名前で尋ねに行く。
+    // When this run's name can no longer be used because its job vanished or belongs to another
+    // request, retain paid chunks and purchase only the remainder under a new name. Persist that
+    // name so another restoration does not retry the unusable one.
     private void RetireTranscriptionRunNames()
     {
         if (_pendingSourceTranscription is { } source)
@@ -2690,9 +2752,8 @@ public sealed partial class AiSubtitleDialogViewModel
     // Whether a caption run has named a piece the server has not been seen to
     // settle. While it has, asking again may be answered by a job already paid
     // for, so the button stays live however little is left to spend.
-    // 送る前に終わった名前を取り消して、控えにも書き戻す。控えに「まだ抱えて
-    // いる」と書いたまま終わると、次の起動は、誰も払っていない依頼を支払い済みの
-    // 回収として扱い、自分の残高確認をすり抜ける。
+    // Withdraw a name that ended before dispatch and persist that fact. Leaving it marked as held
+    // would make the next session treat unpaid work as recovery and bypass its balance check.
     private void WithdrawSourceTranscriptionName(
         SourceTranscriptionOperation operation,
         AiRequestName name)
@@ -2901,9 +2962,8 @@ public sealed partial class AiSubtitleDialogViewModel
         return TargetLanguages.First(option => option.Code == targetCode);
     }
 
-    // 読めなかった控えが、いま読めるか。読めて、そこに支払い済みのものがあれば、
-    // 書いてはいけない——この実行を書き込めば、その名前と切れ端を上から潰す。
-    // 何も無いと読めたときだけ、この場面を自分のものとして書き始める。
+    // Recheck whether an unreadable draft is now readable. If it contains paid work, writing this
+    // run would overwrite its name and chunks. Claim the scene only after proving the draft empty.
     private bool CanWriteOverUnreadableDraft()
     {
         if (_captionDraftSession is null)
@@ -2929,10 +2989,9 @@ public sealed partial class AiSubtitleDialogViewModel
         return true;
     }
 
-    // 手放された控えを引き継ぐ。ただし、そこに支払い済みのものが書いてあるなら
-    // 引き継がない——ここは実行の途中で、書けば相手の名前と切れ端を上から潰す。
-    // 潰されたものは誰も取りに行けず、買い直しになる。その場面を新しく開けば
-    // そのまま復元されるので、失われはしない。
+    // Take over a released draft only if it contains no paid work. Overwriting another run's name
+    // and chunks mid-execution would make them unreachable and force a repurchase; opening that
+    // scene separately can restore them safely instead.
     private void TakeOverReleasedCaptionDraft()
     {
         OpenCaptionDraftSession(_captionDraftBaseScope);
@@ -2950,7 +3009,7 @@ public sealed partial class AiSubtitleDialogViewModel
             left = CaptionDraftReadResult.Unreadable;
         }
 
-        // 何も無いと分かったときだけ引き継ぐ。読めなかったのは、無いのとは違う。
+        // Take over only after proving the draft empty; unreadable is not empty.
         if (left.Outcome == CaptionDraftReadOutcome.Absent)
             return;
         if (left.Entry is { } entry && !HoldsPaidWork(entry))
@@ -2961,9 +3020,8 @@ public sealed partial class AiSubtitleDialogViewModel
         _captionDraftScopeIsHeldElsewhere = true;
     }
 
-    // 上書きしてはいけない控えか。名前を抱えたまま終わったか、支払い済みの
-    // 切れ端があるものだけ——予約されずに取り下げられた名前の seed は残るが、
-    // それが指す job は無いので、引き継ぎを断る理由にはならない。
+    // A draft is protected from overwrite only when it ended with a held name or contains paid
+    // chunks. An unreserved, withdrawn name may leave a seed, but no job, so it need not block takeover.
     private static bool HoldsPaidWork(CaptionDraft draft)
         => draft.CompletedSteps > 0
             || draft.TranslationResume?.RequestKeyNamePending == true
@@ -4135,10 +4193,60 @@ public sealed partial class AiSubtitleDialogViewModel
         }
     }
 
-    private FilePickerFileType CreateCaptionFileType()
+    private static async Task WriteCaptionExportAsync(
+        IStorageFile file,
+        byte[] bytes,
+        CancellationToken cancellationToken)
+    {
+        Uri path = file.Path;
+        if (path.IsFile && !string.IsNullOrWhiteSpace(path.LocalPath))
+        {
+            string destinationPath = path.LocalPath;
+            string temporaryPath = destinationPath + $".{Guid.NewGuid():N}.tmp";
+            try
+            {
+                var options = new FileStreamOptions
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.WriteThrough,
+                };
+                if (!OperatingSystem.IsWindows())
+                    options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+                await using (var stream = new FileStream(temporaryPath, options))
+                {
+                    await stream.WriteAsync(bytes, cancellationToken);
+                    await stream.FlushAsync(cancellationToken);
+                    stream.Flush(flushToDisk: true);
+                }
+
+                File.Move(temporaryPath, destinationPath, overwrite: true);
+            }
+            finally
+            {
+                try { File.Delete(temporaryPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        else
+        {
+            await using Stream stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await stream.WriteAsync(bytes, cancellationToken);
+        }
+    }
+
+    private FilePickerFileType CreateCaptionFileType(
+        bool canDecode = false,
+        bool canEncode = false)
         => new(Strings.AiSubtitle_CaptionFiles)
         {
             Patterns = _captionCodecs.Codecs
+                .Where(codec => (!canDecode || codec.CanDecode)
+                    && (!canEncode || codec.CanEncode))
                 .SelectMany(codec => codec.FileExtensions)
                 .Select(extension => $"*{extension}")
                 .Distinct(StringComparer.OrdinalIgnoreCase)

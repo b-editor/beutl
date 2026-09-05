@@ -11,6 +11,67 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class MainViewModelShutdownTests
 {
+    [Test]
+    public async Task CloseEditorSessionAsync_DisposesTheHostWhenProjectCloseFails()
+    {
+        bool hostDisposed = false;
+        var failures = new List<Exception>();
+
+        await MainViewModel.CloseEditorSessionAsync(
+            () => Task.FromException(new InvalidOperationException("close failed")),
+            () =>
+            {
+                hostDisposed = true;
+                return ValueTask.CompletedTask;
+            },
+            (exception, _) => failures.Add(exception));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(hostDisposed, Is.True);
+            Assert.That(failures, Has.Count.EqualTo(1));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ClosingRealShell_WaitsForPackageInstallerBeforeHandoff()
+    {
+        await TestReset.ResetShellAsync();
+        var releaseInstaller = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var installerWaitStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool handedOff = false;
+        var viewModel = new MainViewModel(
+            _ => handedOff = true,
+            _ =>
+            {
+                installerWaitStarted.TrySetResult();
+                return releaseInstaller.Task;
+            });
+
+        viewModel.Dispose();
+        await installerWaitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(handedOff, Is.False);
+
+        releaseInstaller.TrySetResult();
+        await viewModel.WaitForDisposalAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(handedOff, Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task PackageWaitFailureDoesNotSkipShutdownHandoff()
+    {
+        await TestReset.ResetShellAsync();
+        bool handedOff = false;
+        var viewModel = new MainViewModel(
+            _ => handedOff = true,
+            _ => Task.FromException(new InvalidOperationException("wait failed")));
+        viewModel.Dispose();
+        await viewModel.WaitForDisposalAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(handedOff, Is.True);
+    }
+
     [AvaloniaTest]
     public async Task ClosingRealShell_HandsOffPackageQueueAndDisposesClientsIdempotently()
     {

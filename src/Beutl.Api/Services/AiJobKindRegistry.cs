@@ -323,6 +323,10 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
             ExtensionRegistrationLifetimes.Retire(extension, registration.DisposeAsync);
         }
 
+        var candidates = new List<(
+            AiJobKindExtension Extension,
+            AiJobKindDescriptor Descriptor,
+            AiJobKindRegistrationMode Mode)>();
         foreach (AiJobKindExtension extension in currentExtensions)
         {
             if (_extensionRegistrations.ContainsKey(extension))
@@ -330,9 +334,25 @@ public sealed class AiJobKindRegistry : IAiJobKindRegistry, IAsyncDisposable
 
             try
             {
-                var registration = (Registration)Register(
-                    extension.Descriptor,
-                    extension.RegistrationMode);
+                candidates.Add((extension, extension.Descriptor, extension.RegistrationMode));
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(
+                    ex,
+                    "Could not evaluate AI job kind contribution from {ExtensionType}.",
+                    extension.GetType().FullName);
+            }
+        }
+
+        // Additions establish every base first. Replacements then compose in the
+        // provider's original order, even when one was enumerated before its base.
+        foreach ((AiJobKindExtension extension, AiJobKindDescriptor descriptor, AiJobKindRegistrationMode mode)
+                 in candidates.OrderBy(candidate => candidate.Mode == AiJobKindRegistrationMode.Add ? 0 : 1))
+        {
+            try
+            {
+                var registration = (Registration)Register(descriptor, mode);
                 _extensionRegistrations.Add(extension, registration);
             }
             catch (Exception ex)

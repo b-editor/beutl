@@ -1,4 +1,5 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Collections.Immutable;
+using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.ViewModels;
 using Reactive.Bindings;
@@ -28,6 +29,25 @@ public sealed class AiModelPickerLifetimeTests
         });
     }
 
+    [AvaloniaTest]
+    public async Task Load_SelectsTheServerDefaultBeforeAnEarlierModel()
+    {
+        var catalog = new AiModelCatalog(
+        [
+            KeyValuePair.Create(
+                AiOperations.ImageGeneration,
+                ImmutableArray.Create(
+                    new AiModelOption(new AiModelId("first"), "First", null, false),
+                    new AiModelOption(new AiModelId("default"), "Default", null, true))),
+        ]);
+        using var entitlements = new StubEntitlements();
+        using var picker = new AiModelPickerViewModel(new FixedCatalog(catalog), entitlements);
+
+        await picker.LoadAsync(AiOperations.ImageGeneration, CancellationToken.None);
+
+        Assert.That(picker.SelectedModel, Is.EqualTo(new AiModelId("default")));
+    }
+
     private sealed class BlockingCatalog : IAiModelCatalogService
     {
         public TaskCompletionSource Started { get; } = new(
@@ -41,6 +61,16 @@ public sealed class AiModelPickerLifetimeTests
             Started.TrySetResult();
             return await Release.Task;
         }
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    private sealed class FixedCatalog(AiModelCatalog catalog) : IAiModelCatalogService
+    {
+        public Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken)
+            => Task.FromResult(catalog);
 
         public void Invalidate()
         {

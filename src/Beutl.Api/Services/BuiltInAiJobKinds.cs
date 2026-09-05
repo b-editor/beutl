@@ -152,6 +152,23 @@ internal abstract class MeteredAiJobRetryHandler(
             // deliberately executed with CancellationToken.None.
             await selected.Value.WaitAsync(cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller may stop waiting, but the single-flight operation still owns
+            // the paid request and extension resources. Keep this task alive until it
+            // drains so the preparation lease cannot be released underneath it.
+            try
+            {
+                await selected.Value.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Preserve the caller's cancellation outcome after the underlying
+                // operation has been observed and allowed to release its resources.
+            }
+
+            throw;
+        }
         finally
         {
             if (selected.IsValueCreated && selected.Value.IsCompleted)

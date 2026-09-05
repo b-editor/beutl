@@ -40,6 +40,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
     private readonly AiJobCompletionNotifier _aiJobCompletionNotifier;
     private readonly Action<BeutlApiApplication> _shutdownHandoff;
+    private readonly Func<TimeSpan, Task>? _waitForPackageInstallerIdle;
+    private PackageInstaller? _packageInstallerForShutdown;
     private readonly object _disposeGate = new();
     private readonly object _apiClientDisposeGate = new();
     private int _shutdownCompleted;
@@ -51,7 +53,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
     }
 
-    internal MainViewModel(Action<BeutlApiApplication>? shutdownHandoff)
+    internal MainViewModel(
+        Action<BeutlApiApplication>? shutdownHandoff,
+        Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
     {
         _shutdownHandoff = shutdownHandoff ?? PerformShutdownHandoff;
         _authHttpClient = new HttpClient();
@@ -80,6 +84,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 failure.ExtensionType));
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
+        _waitForPackageInstallerIdle = waitForPackageInstallerIdle;
         _aiRequestRecoveryContext = new AiRequestRecoveryContext(
             new FileAiRequestRecoveryStore(Path.Combine(
                 BeutlEnvironment.GetHomeDirectoryPath(),
@@ -293,6 +298,16 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         try
         {
+            PackageInstaller packageInstaller = _beutlClients.GetResource<PackageInstaller>();
+            _packageInstallerForShutdown = packageInstaller;
+            packageInstaller.BeginShutdown();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to begin package installer shutdown.");
+        }
+        try
+        {
             // The host uses project/editor services, so join its complete lifecycle before
             // closing either service.
             await _agentHostEndpoint.StopAsync();
@@ -311,15 +326,10 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _logger.LogError(ex, "Failed to dispose shell notification services during shutdown.");
         }
 
-        try
-        {
-            await _projectService.CloseProjectAsync();
-            await EditorHost.DisposeAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to close the active project during shutdown.");
-        }
+        await CloseEditorSessionAsync(
+            _projectService.CloseProjectAsync,
+            EditorHost.DisposeAsync,
+            (exception, message) => _logger.LogError(exception, message));
 
         // Recovery source publication markers belong to the editor operations
         // above. Release their cross-process locks only after every tab has
@@ -502,6 +512,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
         try
         {
+            if (_waitForPackageInstallerIdle is not null)
+                await _waitForPackageInstallerIdle(TimeSpan.FromSeconds(5));
+            else if (_packageInstallerForShutdown is not null)
+                await _packageInstallerForShutdown.WaitUntilIdleAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to wait for package operations during shutdown.");
+        }
+
+        try
+        {
             _shutdownHandoff(_beutlClients);
         }
         catch (Exception ex)
@@ -511,6 +533,34 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         finally
         {
             await DisposeApiClientsAsync();
+        }
+    }
+
+    internal static async Task CloseEditorSessionAsync(
+        Func<Task> closeProject,
+        Func<ValueTask> disposeEditorHost,
+        Action<Exception, string> logError)
+    {
+        ArgumentNullException.ThrowIfNull(closeProject);
+        ArgumentNullException.ThrowIfNull(disposeEditorHost);
+        ArgumentNullException.ThrowIfNull(logError);
+
+        try
+        {
+            await closeProject();
+        }
+        catch (Exception ex)
+        {
+            logError(ex, "Failed to close the active project during shutdown.");
+        }
+
+        try
+        {
+            await disposeEditorHost();
+        }
+        catch (Exception ex)
+        {
+            logError(ex, "Failed to dispose the editor host during shutdown.");
         }
     }
 

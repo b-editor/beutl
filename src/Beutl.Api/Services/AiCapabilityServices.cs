@@ -70,7 +70,10 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
     private readonly IDisposable _authenticationSubscription;
     private readonly object _cacheGate = new();
     private AiModelCatalog? _catalog;
+    private AuthenticatedUser? _catalogOwner;
     private long _fetchedAt;
+
+    internal Action? BeforeCachePublication { get; set; }
 
     public AiModelCatalogService(BeutlApiApplication application, TimeProvider? timeProvider = null)
     {
@@ -99,7 +102,8 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
             using Activity? activity = _application.ActivitySource.StartActivity(
                 "AiModelCatalogService.Get",
                 ActivityKind.Client);
-            if (_application.AuthenticatedUser.Value is null)
+            AuthenticatedUser? authenticatedUser = _application.AuthenticatedUser.Value;
+            if (authenticatedUser is null)
                 return AiModelCatalog.Empty;
 
             try
@@ -109,11 +113,16 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
                         (authorization, requestToken) =>
                             _application.Ai.GetCapabilities(authorization, requestToken),
                         token,
-                        _application.AuthenticatedUser.Value);
+                        authenticatedUser);
                 AiModelCatalog catalog = AiModelMapper.ToModel(response.Value);
+                BeforeCachePublication?.Invoke();
                 lock (_cacheGate)
                 {
+                    if (!ReferenceEquals(_application.AuthenticatedUser.Value, response.User))
+                        return AiModelCatalog.Empty;
+
                     _catalog = catalog;
+                    _catalogOwner = response.User;
                     _fetchedAt = _timeProvider.GetTimestamp();
                 }
 
@@ -138,7 +147,10 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
     public void Invalidate()
     {
         lock (_cacheGate)
+        {
             _catalog = null;
+            _catalogOwner = null;
+        }
     }
 
     public void Dispose()
@@ -153,6 +165,7 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
         {
             catalog = _catalog;
             return catalog is not null
+                   && ReferenceEquals(_catalogOwner, _application.AuthenticatedUser.Value)
                    && _timeProvider.GetElapsedTime(_fetchedAt) < s_freshness;
         }
     }
@@ -738,7 +751,22 @@ internal sealed class AuthenticatedContentService(BeutlApiApplication applicatio
         {
             try
             {
-                encoded = Uri.UnescapeDataString(encoded);
+                string value = encoded.Trim().Trim('"');
+                int charsetEnd = value.IndexOf('\'');
+                int languageEnd = charsetEnd < 0 ? -1 : value.IndexOf('\'', charsetEnd + 1);
+                if (charsetEnd > 0 && languageEnd > charsetEnd)
+                {
+                    string charset = value[..charsetEnd];
+                    if (!charset.Equals("UTF-8", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new AiException(
+                            "The AI response filename uses an unsupported character encoding.");
+                    }
+
+                    value = value[(languageEnd + 1)..];
+                }
+
+                encoded = Uri.UnescapeDataString(value);
             }
             catch (UriFormatException ex)
             {

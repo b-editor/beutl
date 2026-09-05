@@ -333,7 +333,7 @@ public class AiModelCatalogTests
     }
 
     [Test]
-    public void Catalog_LeavesAnOmittedDurationListUnrestricted()
+    public void Catalog_UsesOperationBoundsWhenDurationListIsOmitted()
     {
         AiModelDescriptionResponse model = VideoModel(
             "omitted/durations",
@@ -357,7 +357,8 @@ public class AiModelCatalogTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(video.DurationsSeconds.IsSpecified, Is.False);
+            Assert.That(video.DurationsSeconds.Values, Is.EqualTo(new[] { 4, 5, 6, 7, 8 }));
+            Assert.That(video.DurationsSeconds.IsSpecified, Is.True);
             Assert.That(video.CanServeAnything(), Is.True);
         }
     }
@@ -602,6 +603,29 @@ public class AiModelCatalogTests
             Assert.That(omitted.ModelsFor(AiOperations.ImageGeneration)[0].Image!.Backgrounds.IsSpecified,
                 Is.False);
         }
+    }
+
+    [Test]
+    public void Catalog_AppliesVideoOperationDurationBoundsWhenModelDurationsAreUnspecified()
+    {
+        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        {
+            Operations = new Dictionary<string, AiOperationCapabilityResponse>
+            {
+                [AiOperations.VideoGeneration.Value] = new()
+                {
+                    Models = [Model("bounded/video", null, "low", true)],
+                    MinDurationSeconds = 10,
+                    MaxDurationSeconds = 12,
+                },
+            }.ToImmutableDictionary(),
+        });
+
+        AiCapabilityDimension<int> durations = catalog
+            .ModelsFor(AiOperations.VideoGeneration)
+            .Single().Video!.DurationsSeconds;
+
+        Assert.That(durations.Values, Is.EqualTo(new[] { 10, 11, 12 }));
     }
 
     [Test]

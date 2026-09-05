@@ -218,6 +218,154 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
+    public async Task InitialHistoryFailure_IsRetriedWithoutAnOpenJobCenter()
+    {
+        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var client = new RecordingJobClient();
+        client.PageProvider = _ =>
+        {
+            if (Volatile.Read(ref client.PageRequests) <= 2)
+                throw new HttpRequestException("transient");
+            return new AiJobPage([], null);
+        };
+        await using var jobKinds = new AiJobKindRegistry();
+        using var changes = new Subject<Unit>();
+        using var service = new AiJobMonitor(app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
+
+        SetAuthenticatedUser(app, httpClient);
+        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) >= 3, TimeSpan.FromSeconds(5));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(client.PageRequests, Is.GreaterThanOrEqualTo(3));
+            Assert.That(service.Snapshot.Value.Error, Is.Null);
+        }
+    }
+
+    [Test]
+    public async Task PermanentInitialHistoryFailureIsNotRetriedInTheBackground()
+    {
+        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var client = new RecordingJobClient
+        {
+            PageProvider = _ => throw new InvalidDataException("invalid job contract"),
+        };
+        await using var jobKinds = new AiJobKindRegistry();
+        using var changes = new Subject<Unit>();
+        using var service = new AiJobMonitor(
+            app,
+            client,
+            jobKinds,
+            changes,
+            TimeSpan.FromMilliseconds(10));
+
+        SetAuthenticatedUser(app, httpClient);
+        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
+        await Task.Delay(100);
+
+        Assert.That(client.PageRequests, Is.EqualTo(1));
+        Assert.That(service.Snapshot.Value.Error, Is.TypeOf<InvalidDataException>());
+    }
+
+    [Test]
+    public async Task RetryForANewAccountIsNotBlockedByThePreviousAccountsDelay()
+    {
+        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var client = new RecordingJobClient();
+        client.PageProvider = _ => Volatile.Read(ref client.PageRequests) <= 2
+            ? throw new HttpRequestException("transient")
+            : new AiJobPage([], null);
+        var firstDelayStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondDelayStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSecondDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int delayCount = 0;
+        Task RetryDelay(TimeSpan _, CancellationToken cancellationToken)
+        {
+            int current = Interlocked.Increment(ref delayCount);
+            if (current == 1)
+            {
+                firstDelayStarted.TrySetResult();
+                return releaseFirstDelay.Task;
+            }
+
+            secondDelayStarted.TrySetResult();
+            return releaseSecondDelay.Task;
+        }
+        await using var jobKinds = new AiJobKindRegistry();
+        using var changes = new Subject<Unit>();
+        using var service = new AiJobMonitor(
+            app,
+            client,
+            jobKinds,
+            changes,
+            TimeSpan.FromSeconds(1),
+            RetryDelay);
+
+        SetAuthenticatedUser(app, httpClient, "account-a");
+        await firstDelayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        SetAuthenticatedUser(app, httpClient, "account-b");
+        await secondDelayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        releaseSecondDelay.TrySetResult();
+        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) >= 3, TimeSpan.FromSeconds(5));
+        releaseFirstDelay.TrySetResult();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(delayCount, Is.EqualTo(2));
+            Assert.That(service.Snapshot.Value.Error, Is.Null);
+        }
+    }
+
+    [Test]
+    public async Task PollingRefresh_PreservesPreviouslyLoadedHistoryTail()
+    {
+        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        var client = new RecordingJobClient();
+        bool pollingRefresh = false;
+        client.PageProvider = request => request.Cursor == "tail"
+            ? new AiJobPage([
+                Job("active", AiJobStatuses.Running),
+                Job("tail", AiJobStatuses.Succeeded),
+            ], null)
+            : new AiJobPage([
+                Job("active", pollingRefresh ? AiJobStatuses.Succeeded : AiJobStatuses.Running),
+            ], pollingRefresh ? null : "tail");
+        await using var jobKinds = new AiJobKindRegistry();
+        await using IAiJobKindRegistration registration = jobKinds.Register(
+            new AiJobKindDescriptor(
+                new AiJobKindId("video"),
+                new AiJobStatusMap([
+                    KeyValuePair.Create(AiJobStatuses.Running, new AiJobStatusSemantics(false, true)),
+                    KeyValuePair.Create(AiJobStatuses.Succeeded, new AiJobStatusSemantics(true, false)),
+                ])));
+        using var changes = new Subject<Unit>();
+        using var service = new AiJobMonitor(app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
+
+        SetAuthenticatedUser(app, httpClient);
+        await WaitUntilAsync(() => client.PageRequests >= 1, TimeSpan.FromSeconds(5));
+        await service.LoadNextPageAsync(CancellationToken.None);
+        Assert.That(service.Snapshot.Value.Jobs.Select(job => job.Id.Value), Is.EqualTo(new[] { "active", "tail" }));
+
+        pollingRefresh = true;
+        await service.RefreshPollingAsync(CancellationToken.None);
+        Assert.That(service.Snapshot.Value.Jobs.Select(job => job.Id.Value), Is.EqualTo(new[] { "active", "tail" }));
+
+        static AiJob Job(string id, AiJobStatusId status)
+            => new(new AiJobId(id), new AiJobKindId("video"), status,
+                null, null, null, null, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+    }
+
+    [Test]
     public async Task RefreshAsync_WhenUserSignsOutDuringRequest_DoesNotRestoreStaleJobs()
     {
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -433,6 +581,39 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
+    public async Task ThrowingStatusResolver_DoesNotAbortMonitorPollingPredicates()
+    {
+        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var httpClient = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(app, httpClient);
+        var client = new RecordingJobClient
+        {
+            Page = new AiJobPage([
+                new AiJob(
+                    new AiJobId("throwing"),
+                    new AiJobKindId("vendor.throwing"),
+                    new AiJobStatusId("pending"),
+                    null, null, null, null, false,
+                    DateTimeOffset.UtcNow, DateTimeOffset.UtcNow),
+            ], null),
+        };
+        await using var jobKinds = new AiJobKindRegistry();
+        await using IAiJobKindRegistration registration = jobKinds.Register(
+            new AiJobKindDescriptor(
+                new AiJobKindId("vendor.throwing"),
+                new ThrowingStatusResolver()));
+        using var changes = new Subject<Unit>();
+        using var service = new AiJobMonitor(
+            app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
+
+        await service.RefreshAsync(CancellationToken.None);
+        using var polling = service.AcquirePolling();
+        await Task.Delay(50);
+        Assert.That(client.PageRequests, Is.GreaterThanOrEqualTo(1));
+    }
+
+    [Test]
     public async Task KindRegistry_RequiresExplicitReplacementAndRestoresPreviousRegistration()
     {
         await using var registry = new AiJobKindRegistry();
@@ -604,6 +785,41 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
+    public async Task PackageExtensions_ComposeReplacementAfterItsBaseInOneChange()
+    {
+        var extensions = new ExtensionProvider();
+        await using var registry = new AiJobKindRegistry(extensions);
+        AiJobKindDescriptor baseDescriptor = CreateDescriptor("vendor.fixed-point", "Base");
+        AiJobKindDescriptor replacementDescriptor = CreateDescriptor(
+            "vendor.fixed-point",
+            "Replacement");
+        var replacement = new TestAiJobKindExtension(
+            replacementDescriptor,
+            AiJobKindRegistrationMode.Replace);
+        var @base = new TestAiJobKindExtension(
+            baseDescriptor,
+            AiJobKindRegistrationMode.Add);
+
+        // Deliberately enumerate the replacement before the base it replaces.
+        extensions.AddExtensions(104, [replacement, @base]);
+
+        Assert.That(registry.TryAcquire(baseDescriptor.Kind, out IAiJobKindLease? lease), Is.True);
+        using (lease)
+        {
+            Assert.That(lease!.Descriptor, Is.SameAs(replacementDescriptor));
+        }
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(replacement.DescriptorReadCount, Is.EqualTo(1));
+            Assert.That(replacement.RegistrationModeReadCount, Is.EqualTo(1));
+            Assert.That(@base.DescriptorReadCount, Is.EqualTo(1));
+            Assert.That(@base.RegistrationModeReadCount, Is.EqualTo(1));
+        }
+
+        await extensions.RemoveExtensions(104).DrainAsync();
+    }
+
+    [Test]
     public void StatusSemantics_KeepTerminalityPollingAndOpenOutcomeIndependent()
     {
         var resolver = new AiJobStatusMap(
@@ -747,11 +963,14 @@ public sealed class AiJobMonitorTests
         }
     }
 
-    private static void SetAuthenticatedUser(BeutlApiApplication app, HttpClient httpClient)
+    private static void SetAuthenticatedUser(
+        BeutlApiApplication app,
+        HttpClient httpClient,
+        string id = "test-user")
     {
         var profileResponse = new ProfileResponse
         {
-            Id = "test-user",
+            Id = id,
             Name = "test",
             DisplayName = "Test User",
             Bio = null,
@@ -829,13 +1048,14 @@ public sealed class AiJobMonitorTests
         public int PageRequests;
 
         public AiJobPage Page { get; init; } = new([], null);
+        public Func<AiJobPageRequest, AiJobPage>? PageProvider { get; set; }
 
         public Task<AiJobPage> GetPageAsync(
             AiJobPageRequest request,
             CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref PageRequests);
-            return Task.FromResult(Page);
+            return Task.FromResult(PageProvider?.Invoke(request) ?? Page);
         }
 
         public Task DeleteAsync(AiJobId jobId, CancellationToken cancellationToken)
@@ -893,15 +1113,39 @@ public sealed class AiJobMonitorTests
             => AiJobStatusSemantics.Unknown;
     }
 
+    private sealed class ThrowingStatusResolver : IAiJobStatusResolver
+    {
+        public AiJobStatusSemantics Resolve(AiJobStatusId status)
+            => throw new InvalidOperationException("status resolver failure");
+    }
+
     private sealed class TestAiJobKindExtension(
         AiJobKindDescriptor descriptor,
         AiJobKindRegistrationMode registrationMode) : AiJobKindExtension
     {
         public int UnloadCount { get; private set; }
 
-        public override AiJobKindDescriptor Descriptor { get; } = descriptor;
+        public int DescriptorReadCount { get; private set; }
 
-        public override AiJobKindRegistrationMode RegistrationMode { get; } = registrationMode;
+        public int RegistrationModeReadCount { get; private set; }
+
+        public override AiJobKindDescriptor Descriptor
+        {
+            get
+            {
+                DescriptorReadCount++;
+                return descriptor;
+            }
+        }
+
+        public override AiJobKindRegistrationMode RegistrationMode
+        {
+            get
+            {
+                RegistrationModeReadCount++;
+                return registrationMode;
+            }
+        }
 
         public override void Unload()
         {
