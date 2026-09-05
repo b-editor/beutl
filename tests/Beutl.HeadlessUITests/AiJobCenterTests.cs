@@ -1553,6 +1553,10 @@ public sealed class AiJobCenterTests
             catch (OperationCanceledException)
             {
                 CancellationObserved = true;
+                // Stay in-flight until the test releases the handler. This models a provider
+                // callback that observes cancellation but must still drain before its extension
+                // descriptor can be unloaded.
+                await Release.Task;
                 throw;
             }
 
