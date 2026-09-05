@@ -3033,7 +3033,7 @@ public sealed class AiDialogWorkflowTests
             });
         }
 
-        using var restoredDialog = CreateSubtitleDialog(
+        await using var restoredDialog = CreateSubtitleDialog(
             clients,
             draftStore: draftStore,
             draftScopes: scopes);
@@ -3089,7 +3089,7 @@ public sealed class AiDialogWorkflowTests
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
 
-        using (var firstDialog = CreateSubtitleDialog(
+        await using (var firstDialog = CreateSubtitleDialog(
                    clients,
                    draftStore: draftStore,
                    draftScopes: scopes))
@@ -3116,13 +3116,14 @@ public sealed class AiDialogWorkflowTests
             }
         }
 
-        using var restoredDialog = CreateSubtitleDialog(
+        await using var restoredDialog = CreateSubtitleDialog(
             clients,
             draftStore: draftStore,
             draftScopes: scopes);
         await WaitUntilAsync(() => restoredDialog.Usage.HasSnapshot.Value
             && restoredDialog.Cues.Count == 1
-            && restoredDialog.TranslationModelPicker.IsLoaded.Value);
+            && restoredDialog.TranslationModelPicker.IsLoaded.Value
+            && restoredDialog.HasOutstandingTranslationRequest.Value);
         restoredDialog.RefreshAvailability();
         await WaitUntilAsync(() => restoredDialog.CanTranslate.Value);
         Assert.That(restoredDialog.Cues.Single().Text, Is.EqualTo("paid A"));
@@ -3372,7 +3373,7 @@ public sealed class AiDialogWorkflowTests
         }
 
         editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
-        using var restoredDialog = CreateSubtitleDialog(
+        await using var restoredDialog = CreateSubtitleDialog(
             clients,
             editor,
             draftStore,
