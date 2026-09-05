@@ -380,7 +380,10 @@ public sealed class RenderNodeContext
         RenderRectValidation.ThrowIfInvalidInput(brushBounds, nameof(brushBounds));
         NodeRecordingTransaction transaction = GetTransaction();
         RenderFragmentReference reference = transaction.GetReference(input);
-        RenderDescriptionValidation.ThrowIfUndeclarable(mask, nameof(mask));
+        ValidateDeclaredResource(
+            mask,
+            transaction.Request.Options.Owner.ResourceRegistry,
+            nameof(mask));
         return transaction.CreateFragment(
             RenderFragmentKind.OpacityMask,
             reference.Bounds,
@@ -1693,16 +1696,24 @@ public sealed class RenderNodeContext
         string parameterName)
     {
         NodeRecordingTransaction transaction = GetTransaction();
+        RenderRequestResourceRegistry registry = transaction.Request.Options.Owner.ResourceRegistry;
         for (int index = 0; index < declared.Count; index++)
         {
-            RenderResource resource = selectResource(declared[index]);
-            if (!ReferenceEquals(resource.Registry, transaction.Request.Options.Owner.ResourceRegistry)
-                || resource.RegistrationState == RenderResourceRegistrationState.Released)
-            {
-                throw new ArgumentException(
-                    "Every declared render resource must belong to the active request family.",
-                    parameterName);
-            }
+            ValidateDeclaredResource(selectResource(declared[index]), registry, parameterName);
+        }
+    }
+
+    private static void ValidateDeclaredResource(
+        RenderResource resource,
+        RenderRequestResourceRegistry registry,
+        string parameterName)
+    {
+        if (!ReferenceEquals(resource.Registry, registry)
+            || resource.RegistrationState == RenderResourceRegistrationState.Released)
+        {
+            throw new ArgumentException(
+                "Every declared render resource must belong to the active request family.",
+                parameterName);
         }
     }
 

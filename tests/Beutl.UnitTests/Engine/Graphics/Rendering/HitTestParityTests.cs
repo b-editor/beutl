@@ -83,6 +83,22 @@ public class HitTestParityTests
         });
     }
 
+    [TestCase(
+        "half4 apply(half4 color) { return half4(1.0); }",
+        TestName = "CurrentPixelScript_HitsTransparentEllipseCorner")]
+    [TestCase(
+        "half4 main(float2 fragCoord) { return half4(1.0); }",
+        TestName = "WholeSourceScript_HitsTransparentEllipseCorner")]
+    public void AlphaSynthesizingScript_HitsTransparentEllipseCorner(string script)
+    {
+        var effect = new SKSLScriptEffect
+        {
+            Script = { CurrentValue = script },
+        };
+
+        Assert.That(HitFilteredEllipse(effect, new Point(2, 2)), Is.True);
+    }
+
     private static bool HitFilteredEllipse(FilterEffect effect, Point point)
     {
         using var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));

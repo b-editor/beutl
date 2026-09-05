@@ -765,6 +765,105 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     [Test]
+    public void AnExternallyWritableAutoPropertyOnAnAbstractBase_DerivedProcessReads_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShapeRenderNode : RenderNode
+            {
+                public Rect Bounds { get; set; }
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode
+            {
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "the abstract base has no Process body from which to learn that its public setter matters, "
+            + "so the derived node that reads it must report the source declaration");
+    }
+
+    [Test]
+    public void AnExternallyWritableAutoPropertyOnAGenericBaseReadThroughItsHelper_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal abstract class ShapeRenderNode<T> : RenderNode
+            {
+                public Rect Bounds { get; set; }
+
+                protected void PublishBounds(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode<int>
+            {
+                public override void Process(RenderNodeContext context)
+                {
+                    PublishBounds(context);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG005"),
+            "a helper body on Base<T> binds to the original property definition, while the derived "
+            + "node inherits a constructed member; both symbols still name the same source declaration");
+    }
+
+    [Test]
+    public void AnExternallyWritableAutoPropertyOnAGenericBaseWithItsOwnProcess_IsReportedOnce()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal class ShapeRenderNode<T> : RenderNode
+            {
+                public Rect Bounds { get; set; }
+
+                protected void PublishBounds(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+
+                public override void Process(RenderNodeContext context)
+                {
+                    PublishBounds(context);
+                }
+            }
+
+            internal sealed class BoxRenderNode : ShapeRenderNode<int>
+            {
+                public override void Process(RenderNodeContext context)
+                {
+                    context.Publish(Bounds);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Where(static d => d.Id == "BESG005"),
+            Has.Exactly(1).Items,
+            "the base analysis owns the source declaration even when its Process reads the original "
+            + "generic member and the derived Process reads the constructed member");
+    }
+
+    [Test]
     [TestCase("public event System.Action Invalidated;")]
     [TestCase("protected event System.Action Invalidated;")]
     [TestCase("internal event System.Action Invalidated;")]

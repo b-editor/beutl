@@ -48,11 +48,30 @@ public static class PairedBenchmarkAnalyzer
         IReadOnlyDictionary<string, double[]> feature = request.Feature.Samples;
         IReadOnlyDictionary<string, double[]> baselineB = request.BaselineB.Samples;
 
-        string[] cases = request.Cases.Count > 0
-            ? [.. request.Cases]
-            : [.. baselineA.Keys.Intersect(feature.Keys, StringComparer.Ordinal)
-                .Intersect(baselineB.Keys, StringComparer.Ordinal)
-                .Order(StringComparer.Ordinal)];
+        string[] cases;
+        if (request.Cases.Count > 0)
+        {
+            cases = [.. request.Cases];
+        }
+        else
+        {
+            if (baselineA.Count != feature.Count || baselineA.Count != baselineB.Count)
+            {
+                throw new InvalidOperationException(
+                    "The three runs must contain exactly the same benchmark cases when no subset is requested.");
+            }
+
+            foreach (string caseName in baselineA.Keys)
+            {
+                if (!feature.ContainsKey(caseName) || !baselineB.ContainsKey(caseName))
+                {
+                    throw new InvalidOperationException(
+                        "The three runs must contain exactly the same benchmark cases when no subset is requested.");
+                }
+            }
+
+            cases = [.. baselineA.Keys.Order(StringComparer.Ordinal)];
+        }
 
         if (cases.Length == 0)
             throw new InvalidOperationException("The three runs share no benchmark case.");

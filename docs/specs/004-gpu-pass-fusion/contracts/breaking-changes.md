@@ -901,8 +901,8 @@ if the same callback answers differently on a later frame, the plan is reused fo
 describes, and nothing at runtime notices.
 
 - **BESG003** — a metadata callback may read the `RenderNode` that declares it and must reach nothing else.
-  It reports a lambda closing over a local, over a parameter, or over an enclosing instance that is not a
-  `RenderNode`; a callback that arrives as a parameter or a local; one behind a cast, parentheses, `as`, a
+  It reports a lambda closing over a non-constant local, over a parameter, or over an enclosing instance that
+  is not a `RenderNode`; a callback that arrives as a parameter or a local; one behind a cast, parentheses, `as`, a
   null-suppression or `checked`; a method group bound to an instance the author holds somewhere else,
   value-typed or not; a local function not declared `static`, whose captures it does not read; and any
   callback expression it cannot classify. A callback reading nothing but the node it is written inside is
@@ -976,10 +976,11 @@ describes, and nothing at runtime notices.
   readonly` of an immutable type that carries no subscriber list, or pass it as call state; declare a method
   group's method where the rule can read it, or write the callback as a `static` lambda at the call site.
 - **BESG005** — a `RenderNode` must call `MarkChanged()` when it mutates what its `Process` reads. It reports
-  two shapes: an assignment written inside the node's own type with no reachable `MarkChanged()` — a
-  deconstruction's targets counting as the assignments they are, so `(_bounds, _opacity) = (bounds, opacity)`
-  is reported where `_bounds = bounds;` is — and a member
-  the node declares that code outside it can write — an auto-property whose setter is neither `private` nor
+  two shapes: an assignment written inside the node's source type chain below `RenderNode` with no reachable
+  `MarkChanged()` — a deconstruction's targets counting as the assignments they are, so
+  `(_bounds, _opacity) = (bounds, opacity)`
+  is reported where `_bounds = bounds;` is — and a member the node or a source base type in the same
+  compilation declares that code outside it can write — an auto-property whose setter is neither `private` nor
   `init`, a field-like event that is not `private`, or a field that is neither `private` nor `readonly`. A
   public field whose value `Process` reads, and a public field-like event it reads, are reported on the same
   footing as a public auto-property: none of the three has a body for the first shape to read and none is
@@ -988,9 +989,10 @@ describes, and nothing at runtime notices.
   and calls `MarkChanged()`; give the event `add` and `remove` accessors that subscribe and call
   `MarkChanged()`; replace the field with a property whose setter marks. Or narrow the member instead — to
   `private` or `init` for the setter, `private` for the event, `private` or `readonly` for the field — so that
-  only the node's own code, which the first shape does read, can write it. This is the static half of the
-  recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is Debug-only and
-  compares a replayed recording against a live one.
+  only the node's own code, which the first shape does read, can write it. Base declarations available only
+  as metadata remain invisible because their source shape cannot be distinguished reliably. This is the
+  static half of the recording cache's contract; the runtime half is `RenderRecordingCrossCheck`, which is
+  Debug-only and compares a replayed recording against a live one.
 
 Each rule states in its own diagnostic what it cannot see. None of them claims to prove purity: what a
 callee with no source in the compilation reads stays invisible to all of them, and so does what an instance

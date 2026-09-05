@@ -65,7 +65,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return;
 
         ReportUnmarkedMutators(context, analysis, type, renderNodeType, processClosure, readState);
-        ReportExternallyWritableState(context, type, readState);
+        ReportExternallyWritableState(context, analysis, type, renderNodeType, readState);
     }
 
     /// <summary>Reports the writes to <paramref name="readState"/> made by the methods this node runs.</summary>
@@ -285,23 +285,64 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
 
     private static void ReportExternallyWritableState(
         SymbolAnalysisContext context,
+        TypeAnalysis analysis,
         INamedTypeSymbol type,
+        INamedTypeSymbol renderNodeType,
         ImmutableHashSet<ISymbol> readState)
     {
-        foreach (ISymbol member in type.GetMembers())
+        // A body declared on Base<T> binds to the original member while a derived type sees the constructed
+        // Base<int> member. Both name one declaration, which is the unit this rule reports.
+        var unreportedDeclarations = new HashSet<ISymbol>(
+            readState.Select(static state => state.OriginalDefinition),
+            SymbolEqualityComparer.Default);
+
+        // A source base whose own Process reads a declaration already reports it when that type is analyzed.
+        // Leave that diagnostic there instead of repeating it once for every derived node that reads it.
+        for (INamedTypeSymbol? declaring = type.BaseType;
+             declaring is not null
+             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
+             declaring = declaring.BaseType)
         {
-            if (!readState.Contains(member) || GetExternalWrite(member) is not { } write)
+            if (IsDeclaredInCompilation(context.Compilation, declaring))
+            {
+                foreach (ISymbol state in analysis.ReadStateOfProcessFor(declaring, renderNodeType))
+                    unreportedDeclarations.Remove(state.OriginalDefinition);
+            }
+        }
+
+        for (INamedTypeSymbol? declaring = type;
+             declaring is not null
+             && !SymbolEqualityComparer.Default.Equals(declaring.OriginalDefinition, renderNodeType);
+             declaring = declaring.BaseType)
+        {
+            // Metadata exposes accessibility but not whether a property or event is compiler-backed, so
+            // only declarations whose source this compilation owns participate in this rule.
+            if (!IsDeclaredInCompilation(context.Compilation, declaring))
                 continue;
 
-            context.ReportDiagnostic(Diagnostic.Create(
-                DiagnosticDescriptors.UnmarkedRenderNodeMutation,
-                write.Location,
-                type.Name,
-                write.Writer,
-                member.Name,
-                write.Fix));
+            foreach (ISymbol member in declaring.GetMembers())
+            {
+                ISymbol declaration = member.OriginalDefinition;
+                if (!unreportedDeclarations.Contains(declaration)
+                    || GetExternalWrite(declaration) is not { } write)
+                {
+                    continue;
+                }
+
+                context.ReportDiagnostic(Diagnostic.Create(
+                    DiagnosticDescriptors.UnmarkedRenderNodeMutation,
+                    write.Location,
+                    type.Name,
+                    write.Writer,
+                    declaration.Name,
+                    write.Fix));
+            }
         }
     }
+
+    private static bool IsDeclaredInCompilation(Compilation compilation, INamedTypeSymbol type)
+        => type.DeclaringSyntaxReferences.Any(
+            reference => compilation.ContainsSyntaxTree(reference.SyntaxTree));
 
     private readonly record struct ExternalWrite(string Writer, string Fix, Location Location);
 

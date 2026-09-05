@@ -386,7 +386,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         {
             switch (node)
             {
-                case ILocalReferenceOperation local when IsDeclaredOutside(local.Local, lambda):
+                case ILocalReferenceOperation local
+                    when !local.Local.HasConstantValue && IsDeclaredOutside(local.Local, lambda):
                     return $"the lambda closes over the local '{local.Local.Name}', which can be assigned "
                         + "after this call, so one plan compiles for the first answer and is replayed for "
                         + "the second";
@@ -722,7 +723,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
     {
         // An indexer is spelled as brackets around an argument, so the name loop never sees it, and the
         // accessor it runs is a body like any other.
-        if (node is ElementAccessExpressionSyntax element)
+        if (node is ExpressionSyntax element
+            && element is ElementAccessExpressionSyntax or ImplicitElementAccessSyntax)
         {
             if (model.GetSymbolInfo(element, context.CancellationToken).Symbol
                 is IPropertySymbol { IsStatic: false } indexer)
@@ -944,6 +946,12 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ITypeSymbol type,
         bool asynchronous)
     {
+        if (type is INamedTypeSymbol named
+            && named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
+        {
+            type = named.TypeArguments[0];
+        }
+
         string name = asynchronous
             ? WellKnownMemberNames.DisposeAsyncMethodName
             : WellKnownMemberNames.DisposeMethodName;
@@ -1507,6 +1515,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             Parent: SubpatternSyntax subpattern,
         }
             => GetMatchedExpression(subpattern),
+        ImplicitElementAccessSyntax element when element.Parent is AssignmentExpressionSyntax
+        {
+            Parent: InitializerExpressionSyntax { Parent: BaseObjectCreationExpressionSyntax made },
+        } assignment && assignment.Left == element
+            => made,
         ElementAccessExpressionSyntax element => element.Expression,
         _ => null,
     };

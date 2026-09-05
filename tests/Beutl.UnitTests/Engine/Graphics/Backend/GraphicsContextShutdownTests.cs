@@ -266,6 +266,68 @@ public sealed class GraphicsContextShutdownTests
     }
 
     [Test]
+    public void AFailingContextRelease_ClearsTheInstalledStateAndRethrowsTheFailure()
+    {
+        var releaseFailure = new InvalidOperationException("The graphics context could not be released.");
+        var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        context.Setup(value => value.Dispose()).Throws(releaseFailure);
+
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            InstalledGraphics live = GraphicsContextFactory.ExchangeInstalledGraphics(
+                new InstalledGraphics(context.Object, null, null, FailedToInitialize: false));
+            try
+            {
+                Assert.That(
+                    GraphicsContextFactory.Shutdown,
+                    Throws.Exception.SameAs(releaseFailure));
+                Assert.That(GraphicsContextFactory.SharedContext, Is.Null);
+            }
+            finally
+            {
+                InstalledGraphics discarded = GraphicsContextFactory.ExchangeInstalledGraphics(live);
+                discarded.SharedContext?.Dispose();
+                discarded.VulkanInstance?.Dispose();
+            }
+        });
+    }
+
+    [Test]
+    public void AFailingDischargeAndContextRelease_ReportBothFailures()
+    {
+        var dischargeFailure = new InvalidOperationException("The reclaim queue could not be discharged.");
+        var releaseFailure = new InvalidOperationException("The graphics context could not be released.");
+        var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        context.Setup(value => value.Dispose()).Throws(releaseFailure);
+
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            InstalledGraphics live = GraphicsContextFactory.ExchangeInstalledGraphics(
+                new InstalledGraphics(context.Object, null, null, FailedToInitialize: false));
+            Action previousDischarge = GraphicsContextFactory.ExchangeReclaimQueueDischarge(
+                () => throw dischargeFailure);
+            try
+            {
+                Assert.That(
+                    GraphicsContextFactory.Shutdown,
+                    Throws.TypeOf<AggregateException>()
+                        .With.Property(nameof(AggregateException.InnerExceptions))
+                        .EqualTo(new[] { dischargeFailure, releaseFailure }));
+                Assert.That(GraphicsContextFactory.SharedContext, Is.Null);
+            }
+            finally
+            {
+                GraphicsContextFactory.ExchangeReclaimQueueDischarge(previousDischarge);
+                InstalledGraphics discarded = GraphicsContextFactory.ExchangeInstalledGraphics(live);
+                discarded.SharedContext?.Dispose();
+                discarded.VulkanInstance?.Dispose();
+            }
+        });
+    }
+
+    [Test]
     public void AShutdown_RetiresAPooledTargetWhileTheDeviceItNamesIsStillInstalled()
     {
         var order = new List<string>();

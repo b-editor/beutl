@@ -67,6 +67,34 @@ public sealed class RenderPassTransferScopeTests
         }
         """;
 
+    private const string DepthProbeVertexShader = """
+        #version 450
+
+        layout(push_constant) uniform PushConstants {
+            vec4 color;
+            float depth;
+        } pc;
+
+        void main() {
+            vec2 positions[3] = vec2[](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+            gl_Position = vec4(positions[gl_VertexIndex], pc.depth, 1.0);
+        }
+        """;
+
+    private const string DepthProbeFragmentShader = """
+        #version 450
+
+        layout(location = 0) out vec4 outColor;
+        layout(push_constant) uniform PushConstants {
+            vec4 color;
+            float depth;
+        } pc;
+
+        void main() {
+            outColor = pc.color;
+        }
+        """;
+
     /// <summary>Declares binding 0 as a uniform buffer, where <see cref="PassthroughFragmentShader"/>
     /// declares it as a combined image sampler, so the two descriptor set layouts differ.</summary>
     private const string UniformTintFragmentShader = """
@@ -95,6 +123,16 @@ public sealed class RenderPassTransferScopeTests
         public float Green;
         public float Blue;
         public float Alpha;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DepthProbePushConstants
+    {
+        public float Red;
+        public float Green;
+        public float Blue;
+        public float Alpha;
+        public float Depth;
     }
 
     [Test]
@@ -384,6 +422,88 @@ public sealed class RenderPassTransferScopeTests
                     Is.EqualTo(255).Within(2),
                     "the quad must actually be drawn, which needs the vertex and index buffers and the "
                     + "descriptor set to be bound on the command buffer the pass resumed onto");
+            }
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    public void AResumedPass_LoadsColorAndDepthWrittenBeforeTheSplit()
+    {
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            using IDisposable? compilerLifetime = compiler as IDisposable;
+            byte[] vertexSpirv = compiler.CompileToSpirv(DepthProbeVertexShader, ShaderStage.Vertex);
+            byte[] fragmentSpirv = compiler.CompileToSpirv(DepthProbeFragmentShader, ShaderStage.Fragment);
+
+            using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
+            using ITexture2D depth = context.CreateTexture2D(Width, Height, TextureFormat.Depth32Float);
+            using IRenderPass3D renderPass = context.CreateRenderPass3D(
+                [TextureFormat.RGBA8Unorm],
+                TextureFormat.Depth32Float);
+            using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], depth);
+            using IBuffer source = context.CreateBuffer(
+                sizeof(uint),
+                BufferUsage.TransferSource,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            using IBuffer destination = context.CreateBuffer(
+                sizeof(uint),
+                BufferUsage.TransferDestination,
+                MemoryProperty.DeviceLocal);
+            source.Upload<uint>([0x11223344u]);
+
+            PipelineOptions options = PipelineOptions.Fullscreen;
+            options.DepthTestEnabled = true;
+            options.DepthWriteEnabled = true;
+            using IPipeline3D pipeline = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                fragmentSpirv,
+                [],
+                VertexInputDescription.Empty,
+                options);
+
+            renderPass.Begin(framebuffer, [Colors.Transparent]);
+            renderPass.BindPipeline(pipeline);
+            renderPass.SetPushConstants(new DepthProbePushConstants
+            {
+                Red = 1,
+                Alpha = 1,
+                Depth = 0.25f,
+            });
+            renderPass.Draw(3);
+
+            // A transfer cannot be recorded inside a render pass instance, so this ends the first instance
+            // and begins the LOAD-op instance whose dependency must expose the writes above.
+            context.CopyBuffer(source, destination, sizeof(uint));
+
+            renderPass.SetPushConstants(new DepthProbePushConstants
+            {
+                Blue = 1,
+                Alpha = 1,
+                Depth = 0.75f,
+            });
+            renderPass.Draw(3);
+            renderPass.End();
+            context.WaitIdle();
+
+            byte[] drawn = color.DownloadPixels();
+            int center = (((Height / 2) * Width) + (Width / 2)) * 4;
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(
+                    drawn[center],
+                    Is.EqualTo(255).Within(2),
+                    "the resumed pass must load the red color written before the split");
+                Assert.That(
+                    drawn[center + 2],
+                    Is.EqualTo(0).Within(2),
+                    "the resumed pass must load the nearer depth written before the split, so the later "
+                    + "blue draw remains occluded");
+                Assert.That(drawn[center + 3], Is.EqualTo(255).Within(2));
             }
         });
     }

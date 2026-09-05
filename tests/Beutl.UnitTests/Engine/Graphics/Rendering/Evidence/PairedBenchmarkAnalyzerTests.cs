@@ -253,6 +253,47 @@ public sealed class PairedBenchmarkAnalyzerTests
     }
 
     [Test]
+    public void Analyze_RequiresMatchingImplicitCaseSetsButAllowsAnExplicitSubset()
+    {
+        double[] baseline = Samples(1_000_000, 15);
+        double[] feature = Samples(500_000, 15);
+        var request = new PairedBenchmarkAnalysisRequest
+        {
+            BaselineA = Run("baseline-a", new()
+            {
+                ["ShaderOpacityShader"] = baseline,
+                ["BaselineOnly"] = baseline,
+            }),
+            Feature = Run("feature", new()
+            {
+                ["ShaderOpacityShader"] = feature,
+                ["FeatureOnly"] = feature,
+            }),
+            BaselineB = Run("baseline-b", new()
+            {
+                ["ShaderOpacityShader"] = baseline,
+                ["RepeatOnly"] = baseline,
+            }),
+            PrimaryCase = "ShaderOpacityShader",
+            ComparisonMode = "unit-test",
+            BootstrapIterations = FastIterations,
+        };
+
+        Assert.That(
+            () => PairedBenchmarkAnalyzer.Analyze(request),
+            Throws.InstanceOf<InvalidOperationException>()
+                .With.Message.Contains("exactly the same benchmark cases"));
+        PairedBenchmarkManifest manifest = PairedBenchmarkAnalyzer.Analyze(
+            request with { Cases = ["ShaderOpacityShader"] });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manifest.Cases.Keys, Is.EqualTo(new[] { "ShaderOpacityShader" }));
+            Assert.That(manifest.OverallAcceptancePassed, Is.True);
+        });
+    }
+
+    [Test]
     public void Analyze_RejectsARunThatDidNotSupplyFifteenSamples()
     {
         Assert.That(

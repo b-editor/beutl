@@ -3,6 +3,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -124,6 +125,65 @@ public sealed class NodeRecordingTransactionTests
                 descriptions[0],
                 Is.SameAs(OpacityRenderNode.CreateFusionDescription(0.375f)));
         });
+    }
+
+    [Test]
+    public void OpacityMask_RejectsAMaskFromAnotherRequestFamily()
+    {
+        using var maskOwner = new RenderRequestOwner();
+        using var maskRequest = CreateRequest(maskOwner);
+        var maskTransaction = new NodeRecordingTransaction(
+            new RecordingHost(maskRequest),
+            new object(),
+            []);
+        var maskContext = new RenderNodeContext(maskTransaction);
+        RenderResource<Brush.Resource> mask = maskContext.Borrow<Brush.Resource>(Brushes.Resource.White);
+
+        using var renderOwner = new RenderRequestOwner();
+        using var renderRequest = CreateRequest(renderOwner);
+        var renderTransaction = new NodeRecordingTransaction(
+            new RecordingHost(renderRequest),
+            new object(),
+            []);
+        var renderContext = new RenderNodeContext(renderTransaction);
+        var bounds = new Rect(0, 0, 10, 10);
+        RenderFragmentHandle source = CreateSource(renderTransaction, bounds);
+
+        ArgumentException? exception = Assert.Throws<ArgumentException>(
+            () => renderContext.OpacityMask(source, mask, bounds));
+
+        Assert.That(exception!.ParamName, Is.EqualTo("mask"));
+        maskTransaction.Commit();
+        renderTransaction.Publish(source);
+        renderTransaction.Commit();
+    }
+
+    [Test]
+    public void OpacityMask_AllowsAPendingMaskFromTheSameRequestFamily()
+    {
+        using var owner = new RenderRequestOwner();
+        using var maskRequest = CreateRequest(owner);
+        var maskTransaction = new NodeRecordingTransaction(
+            new RecordingHost(maskRequest),
+            new object(),
+            []);
+        var maskContext = new RenderNodeContext(maskTransaction);
+        RenderResource<Brush.Resource> mask = maskContext.Borrow<Brush.Resource>(Brushes.Resource.White);
+
+        using var renderRequest = CreateRequest(owner);
+        var renderTransaction = new NodeRecordingTransaction(
+            new RecordingHost(renderRequest),
+            new object(),
+            []);
+        var renderContext = new RenderNodeContext(renderTransaction);
+        var bounds = new Rect(0, 0, 10, 10);
+        RenderFragmentHandle source = CreateSource(renderTransaction, bounds);
+
+        RenderFragmentHandle masked = renderContext.OpacityMask(source, mask, bounds);
+
+        maskTransaction.Commit();
+        renderTransaction.Publish(masked);
+        Assert.That(() => renderTransaction.Commit(), Throws.Nothing);
     }
 
     [Test]

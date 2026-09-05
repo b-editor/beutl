@@ -41,7 +41,7 @@ carrying its SSIM, minimum-window SSIM, linear-RGB MAE, alpha MAE, output scale,
 a workload that declares an antialiased crop — its edge-band mean error and per-channel maxima. Metrics are
 recorded **before** the assertions run, so a workload that missed a threshold appears in the manifest as a
 failure instead of vanishing from it. The script exits non-zero when the manifest carries no fingerprint, when
-nothing was compared, or when any case failed.
+its cases are not exactly the three harness workloads, or when any case failed.
 
 The comparison is the **same-process fusion-disabled versus fusion-enabled A/B** in
 `GpuPassFusionSameProcessParityHarness`, recorded as `comparisonMode: same-process-fusion-disabled-vs-enabled`.
@@ -71,8 +71,9 @@ passed, 2 means it was written and the acceptance failed, 1 means the run could 
 The runner executes **baseline A → feature → baseline B** on one machine and hands the three BenchmarkDotNet
 full reports to `PairedBenchmarkAnalyzer`, which implements the SC-008 method without deviation:
 
-1. Each run must supply exactly **15** finite positive `Statistics.OriginalValues` samples per case — the raw
-   values, not BenchmarkDotNet's outlier-classified summary, and with no outlier removal, clipping, or
+1. Unless an explicit case subset is requested, all three reports must contain the same case-name set. Each
+   analyzed run must supply exactly **15** finite positive `Statistics.OriginalValues` samples per case — the
+   raw values, not BenchmarkDotNet's outlier-classified summary, and with no outlier removal, clipping, or
    winsorization of the analyzer's own.
 2. Per case, `median(B) / median(A)` is bootstrapped **100,000** times from the two 15-sample runs. Its
    linearly interpolated 95% interval must contain 1.0 and its symmetric factor
@@ -108,7 +109,7 @@ already on disk without re-measuring:
 ```bash
 dotnet run -c Release --project tests/Beutl.Benchmarks -- analyze-paired \
     --baseline-a <dir> --feature <dir> --baseline-b <dir> --output <manifest.json> \
-    [--primary-case <name>] [--control-case <name>]... [--comparison-mode <text>]
+    [--primary-case <name>] [--control-case <name>]... [--case <name>]... [--comparison-mode <text>]
 ```
 
 Each run directory must hold exactly one `*-report-full.json` and, to prove the runs are comparable, a

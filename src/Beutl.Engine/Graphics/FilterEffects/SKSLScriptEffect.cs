@@ -304,10 +304,12 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
                     source,
                     RenderBoundsContract.FullInput,
                     builder => BindUniforms(builder, source, state, isWholeSource: true),
-                    SKShaderTileMode.Clamp)
+                    SKShaderTileMode.Clamp,
+                    hitTest: RenderHitTestContract.OutputBounds)
                 : ShaderDescription.CurrentPixel(
                     source,
-                    builder => BindUniforms(builder, source, state, isWholeSource: false));
+                    builder => BindUniforms(builder, source, state, isWholeSource: false),
+                    hitTest: RenderHitTestContract.OutputBounds);
 
         private static void BindUniforms(
             ShaderBindingBuilder builder,

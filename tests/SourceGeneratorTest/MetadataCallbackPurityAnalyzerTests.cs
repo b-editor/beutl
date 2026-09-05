@@ -255,6 +255,31 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void ALambdaReadingAConstLocal_IsNotReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal sealed class ShiftedNode : RenderNode
+            {
+                public RenderBoundsContract Build()
+                {
+                    const float Offset = 4f;
+                    return RenderBoundsContract.Create(
+                        value => new Rect(value.X + Offset, value.Y, value.Width, value.Height),
+                        static value => value);
+                }
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Is.Empty,
+            "a const local is substituted into the lambda and cannot change after the contract is built");
+    }
+
+    [Test]
     public void ALambdaClosingOverAParameter_InsideANode_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
@@ -4884,6 +4909,48 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     }
 
     [Test]
+    public void AStaticLambdaWhoseObjectIndexInitialiserSetterReadsAMutableStatic_IsReported()
+    {
+        ImmutableArray<Diagnostic> diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+
+            internal static class Settings
+            {
+                public static float Offset;
+            }
+
+            internal sealed class BoundsState
+            {
+                public float Width { get; private set; }
+
+                public float this[int index]
+                {
+                    set => Width = value + Settings.Offset;
+                }
+            }
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            BoundsState state = new BoundsState { [0] = value.Width };
+
+                            return new Rect(value.X, value.Y, state.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "an index initializer runs the setter on the object being constructed");
+    }
+
+    [Test]
     public void AStaticLambdaWhoseNestedObjectInitialiserGetterReadsAMutableStatic_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
@@ -5783,6 +5850,39 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             Does.Contain("BESG004"),
             "the scope's Dispose runs at the closing brace and is as much of what the callback runs as the "
             + "block it closes");
+    }
+
+    [Test]
+    public void ANullableValueTypeUsingWhoseDisposeReadsAMutableStatic_IsReported()
+    {
+        string stubs = DisposalStubs.Replace(
+            "internal sealed class Scope : IDisposable",
+            "internal struct Scope : IDisposable");
+        ImmutableArray<Diagnostic> diagnostics = Analyze($$"""
+            {{stubs}}
+
+            internal static class Author
+            {
+                public static RenderBoundsContract Build()
+                    => RenderBoundsContract.Create(
+                        static value =>
+                        {
+                            var box = new Box();
+                            using (Scope? scope = new Scope(box))
+                            {
+                            }
+
+                            return new Rect(value.X + box.Value, value.Y, value.Width, value.Height);
+                        },
+                        static value => value);
+            }
+            """);
+
+        Assert.That(
+            diagnostics.Select(static d => d.Id),
+            Does.Contain("BESG004"),
+            "the compiler conditionally disposes the struct stored in Nullable<T>, so the callback still "
+            + "runs that Dispose body");
     }
 
     [Test]

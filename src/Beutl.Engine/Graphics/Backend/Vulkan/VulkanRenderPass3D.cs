@@ -152,21 +152,26 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         };
 
         PipelineStageFlags attachmentStages = PipelineStageFlags.ColorAttachmentOutputBit;
+        AccessFlags attachmentReads = AccessFlags.ColorAttachmentReadBit;
         AccessFlags attachmentWrites = AccessFlags.ColorAttachmentWriteBit;
         if (depthFormat.HasValue)
         {
-            attachmentStages |= PipelineStageFlags.EarlyFragmentTestsBit;
+            attachmentStages |= PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit;
+            attachmentReads |= AccessFlags.DepthStencilAttachmentReadBit;
             attachmentWrites |= AccessFlags.DepthStencilAttachmentWriteBit;
         }
 
+        // Keep this dependency identical for the initial and LOAD-op variants so they remain compatible,
+        // while making attachment writes visible when a suspended pass resumes and reads them.
         var dependency = new SubpassDependency
         {
             SrcSubpass = Vk.SubpassExternal,
             DstSubpass = 0,
             SrcStageMask = attachmentStages,
-            SrcAccessMask = 0,
+            SrcAccessMask = attachmentWrites,
             DstStageMask = attachmentStages,
-            DstAccessMask = attachmentWrites
+            DstAccessMask = attachmentReads | attachmentWrites,
+            DependencyFlags = DependencyFlags.ByRegionBit
         };
 
         var renderPassInfo = new RenderPassCreateInfo
