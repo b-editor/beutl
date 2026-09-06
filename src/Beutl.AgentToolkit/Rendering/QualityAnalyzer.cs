@@ -73,9 +73,7 @@ public sealed record StructureMetrics(
     int ElementCount,
     int MultiObjectElementCount,
     int NonFlowMultiObjectElementCount,
-    int FlowMultiObjectElementCount,
-    int UnclearForegroundShapeCount,
-    int AnimatedShapeWithoutMotionIntentCount);
+    int FlowMultiObjectElementCount);
 
 public sealed record TempoMetrics(
     bool HighTempoProfile,
@@ -187,8 +185,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
 
     // Gate policy: only unreadable text (typographyReadTime, rendered typographyContrast)
     // and malformed Element/Object structure (elementStructure) block. Density, motion,
-    // palette, background, tempo, and shape vocabulary are measured and reported but never
-    // blocked — sparse, still, monochrome, and unconventional are authorial choices.
+    // palette balance, tempo, audio sync, and text fit are measured but never blocked.
+    // Background richness and shape clarity are left to rendered visual review.
     private static string IntentSeverity(bool intentPresent) => intentPresent ? Advisory : Major;
 
     public async ValueTask<QualityReviewResponse> AnalyzeAsync(
@@ -238,7 +236,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             objects,
             styleProfile,
             allowDenseText,
-            gateProfile.SuppressCaptionRoleHierarchy,
             issues);
         TempoMetrics tempo = AnalyzeTempo(scene, objects, tempoStyleProfile, relaxAesthetics, issues);
         AnalyzeAudioSync(scene, beatTimesSeconds, issues);
@@ -318,7 +315,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 hasBlockingIssue
                     ? "Critical/major issues are limited to unreadable text and malformed Element structure; these are usually accidents worth fixing before export."
                     : "No critical or major deterministic quality issues were found.",
-                "Advisory issues describe what the scene measures, not what it should be. Density, motion, palette, background, tempo, and shape findings never block export; act on the ones that contradict your intent and ignore the rest.",
+                "Advisory issues describe what the scene measures, not what it should be. Density, motion, palette balance, tempo, audio sync, and text-fit findings never block export; act on the ones that contradict your intent and ignore the rest. Background richness and shape clarity require rendered visual review.",
                 "This review uses deterministic document, color, geometry, and rendered-motion heuristics; it does not use OCR or generative image judging."
             ];
 
@@ -407,16 +404,10 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         IReadOnlyList<SceneObjectInfo> objects,
         string? styleProfile,
         bool allowDenseText,
-        bool suppressCaptionRoleHierarchy,
         List<QualityIssue> issues)
     {
         bool highTempoProfile = IsHighTempoProfile(styleProfile);
         SceneObjectInfo[] textObjects = objects.Where(item => item.Object is TextBlock).ToArray();
-        SceneObjectInfo[] dominantTextObjects = textObjects
-            .Where(item => item.Object is TextBlock textBlock && textBlock.Size.CurrentValue >= 88)
-            .ToArray();
-
-        SceneObjectInfo[] concurrentDominantTextObjects = FindMaxConcurrentDominantText(dominantTextObjects);
 
         foreach (SceneObjectInfo info in textObjects)
         {
@@ -446,11 +437,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             }
         }
 
-        SceneObjectInfo[] effectHeavyObjects = objects
-            .Where(item => !IsBackgroundObject(scene, item))
-            .Where(item => item.Object is Drawable drawable
-                           && FlattenEffects(drawable.FilterEffect.CurrentValue).Count() >= 3)
-            .ToArray();
     }
 
     private static Rect? GetGeometryLocalBounds(GeometryShape shape)
@@ -540,27 +526,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 offsetGeometryShapes.Select(item => item.Info.Object.Id.ToString()).ToArray()));
         }
 
-        SceneObjectInfo[] unclearShapes = objects
-            .Where(item => item.Object is Shape)
-            .Where(item => !IsBackgroundObject(scene, item))
-            .Where(item => !HasShapeIntent(item))
-            .Where(item => IsLargeForegroundShape(scene, item) || CountAnimatedProperties(item.Object) > 0)
-            .ToArray();
-
-        SceneObjectInfo[] animatedShapesWithoutMotionIntent = objects
-            .Where(item => item.Object is Shape)
-            .Where(item => !IsBackgroundObject(scene, item))
-            .Where(item => CountAnimatedProperties(item.Object) > 0)
-            .Where(item => !HasMotionIntent(item))
-            .ToArray();
-
         return new StructureMetrics(
             scene.Children.Count,
             multiObjectElements.Length,
             nonFlowMultiObjectElements.Length,
-            flowMultiObjectElements.Length,
-            unclearShapes.Length,
-            animatedShapesWithoutMotionIntent.Length);
+            flowMultiObjectElements.Length);
     }
 
     private static void AddElementStructureIssue(
@@ -737,8 +707,9 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => !HasRole(item, "surface", "card", "panel", "container"))
             .ToArray();
 
-        var platesById = plates.ToDictionary(item => item.Object.Id);
-        var textsByPlate = new Dictionary<Guid, List<SceneObjectInfo>>();
+        var textsByPlate = new Dictionary<
+            EngineObject,
+            (SceneObjectInfo Plate, List<SceneObjectInfo> Texts)>(ReferenceEqualityComparer.Instance);
         foreach (SceneObjectInfo textInfo in objects.Where(item => item.Object is TextBlock))
         {
             ObjectBounds textBounds = GetBounds(scene, textInfo);
@@ -757,19 +728,20 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 continue;
             }
 
-            Guid plateId = plateCandidates[0].Info.Object.Id;
-            if (!textsByPlate.TryGetValue(plateId, out List<SceneObjectInfo>? texts))
+            SceneObjectInfo plate = plateCandidates[0].Info;
+            if (!textsByPlate.TryGetValue(
+                    plate.Object,
+                    out (SceneObjectInfo Plate, List<SceneObjectInfo> Texts) group))
             {
-                texts = [];
-                textsByPlate[plateId] = texts;
+                group = (plate, []);
+                textsByPlate.Add(plate.Object, group);
             }
 
-            texts.Add(textInfo);
+            group.Texts.Add(textInfo);
         }
 
-        foreach ((Guid plateId, List<SceneObjectInfo> textInfos) in textsByPlate)
+        foreach ((SceneObjectInfo backingPlate, List<SceneObjectInfo> textInfos) in textsByPlate.Values)
         {
-            SceneObjectInfo backingPlate = platesById[plateId];
             ObjectBounds[] bounds = textInfos.Select(item => GetBounds(scene, item)).ToArray();
             double textLeft = bounds.Min(item => item.CenterX - (item.Width / 2));
             double textTop = bounds.Min(item => item.CenterY - (item.Height / 2));
@@ -2808,31 +2780,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return DepthBand.Midground;
     }
 
-    private static bool HasShapeIntent(SceneObjectInfo info)
-    {
-        return HasRole(
-                   info,
-                   "background",
-                   "surface",
-                   "backdrop",
-                   "field",
-                   "text-backing",
-                   "decorative",
-                   "accent",
-                   "texture",
-                   "transition",
-                   "rhythm")
-               || ContainsIntentToken(info.Element.Name)
-               || ContainsIntentToken(info.Object.Name);
-    }
-
-    private static bool HasMotionIntent(SceneObjectInfo info)
-    {
-        return HasRole(info, "motion", "decorative", "transition", "rhythm", "accent", "texture")
-               || ContainsMotionToken(info.Element.Name)
-               || ContainsMotionToken(info.Object.Name);
-    }
-
     private static bool AnyStillnessIntent(IReadOnlyList<SceneObjectInfo> objects)
         => objects.Any(HasStillnessIntent);
 
@@ -2867,96 +2814,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return HasRole(info, "monochrome", "monochromatic", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
                || ContainsAny(info.Element.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
                || ContainsAny(info.Object.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone");
-    }
-
-    private static bool ContainsIntentToken(string? value)
-    {
-        return ContainsAny(
-            value,
-            "background",
-            "backdrop",
-            "surface",
-            "field",
-            "plate",
-            "backing",
-            "accent",
-            "rhythm",
-            "beat",
-            "mark",
-            "tick",
-            "stroke",
-            "line",
-            "slash",
-            "glint",
-            "light",
-            "scan",
-            "texture",
-            "grain",
-            "noise",
-            "particle",
-            "node",
-            "grid",
-            "frame",
-            "border",
-            "mask",
-            "matte",
-            "glass",
-            "reflection",
-            "refract",
-            "shadow",
-            "wipe",
-            "transition",
-            "burst",
-            "trail",
-            "flow",
-            "guide",
-            "crop",
-            "focus",
-            "divider",
-            "separator",
-            "underline",
-            "cursor",
-            "highlight");
-    }
-
-    private static bool ContainsMotionToken(string? value)
-    {
-        return ContainsAny(
-            value,
-            "motion",
-            "animate",
-            "animation",
-            "beat",
-            "rhythm",
-            "slide",
-            "drift",
-            "sweep",
-            "scan",
-            "pulse",
-            "reveal",
-            "wipe",
-            "transition",
-            "burst",
-            "impact",
-            "snap",
-            "lock",
-            "flicker",
-            "strobe",
-            "tick",
-            "shutter",
-            "parallax",
-            "flow",
-            "trail",
-            "glitch",
-            "type-on",
-            "resolve");
-    }
-
-    private static bool IsLargeForegroundShape(Scene scene, SceneObjectInfo info)
-    {
-        ObjectBounds bounds = GetBounds(scene, info);
-        double sceneArea = Math.Max(1, scene.FrameSize.Width * scene.FrameSize.Height);
-        return (bounds.Width * bounds.Height) >= sceneArea * 0.045;
     }
 
     private static bool IsTempoForegroundElement(Scene scene, Element element)
@@ -3166,33 +3023,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
 
         return (longGapCount, longestGapSeconds);
-    }
-
-    private static SceneObjectInfo[] FindMaxConcurrentDominantText(SceneObjectInfo[] dominantTextObjects)
-    {
-        if (dominantTextObjects.Length <= 1)
-        {
-            return dominantTextObjects;
-        }
-
-        TimeSpan[] sampleTimes = dominantTextObjects
-            .SelectMany(item => new[] { item.Element.Start, item.Element.Start + item.Element.Length })
-            .Distinct()
-            .Order()
-            .ToArray();
-        SceneObjectInfo[] max = [];
-        foreach (TimeSpan time in sampleTimes)
-        {
-            SceneObjectInfo[] active = dominantTextObjects
-                .Where(item => item.Element.Start <= time && time < item.Element.Start + item.Element.Length)
-                .ToArray();
-            if (active.Length > max.Length)
-            {
-                max = active;
-            }
-        }
-
-        return max;
     }
 
     private static bool IsTextBackingPlate(SceneObjectInfo info)

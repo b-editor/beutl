@@ -412,7 +412,26 @@ internal sealed class DeclarativeDocumentApplier
                 return;
             }
 
-            ApplyCoreObject(currentObject, animationJson);
+            if (currentObject is KeyFrameAnimation currentKeyFrameAnimation)
+            {
+                // Existing keyframes already carry the owning validator, but their public setter
+                // can only supply a default context. Populate the requested fields first, then run
+                // the validator once below with the actual owner-property context.
+                var validator = currentKeyFrameAnimation.Validator;
+                currentKeyFrameAnimation.Validator = null;
+                try
+                {
+                    ApplyCoreObject(currentObject, animationJson);
+                }
+                finally
+                {
+                    currentKeyFrameAnimation.Validator = validator;
+                }
+            }
+            else
+            {
+                ApplyCoreObject(currentObject, animationJson);
+            }
         }
         else
         {
@@ -454,7 +473,8 @@ internal sealed class DeclarativeDocumentApplier
             ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
                 property,
                 value,
-                options);
+                options,
+                out object? acceptedValue);
             if (outcome.Status == ValidationStatus.Rejected)
             {
                 throw new ReconcileException(new ToolError(
@@ -465,8 +485,29 @@ internal sealed class DeclarativeDocumentApplier
             }
 
             // A newly deserialized animation receives the owning property's validator only when it
-            // is attached. Reassign after attachment so range coercion also covers its existing keys.
+            // is attached. Evaluate once with that property's context, then store the accepted value
+            // without invoking KeyFrame<T>'s contextless validator path a second time.
+            AssignAcceptedKeyFrameValue(keyFrame, acceptedValue);
+        }
+    }
+
+    private static void AssignAcceptedKeyFrameValue(IKeyFrame keyFrame, object? value)
+    {
+        if (keyFrame is not KeyFrame concreteKeyFrame)
+        {
             keyFrame.Value = value;
+            return;
+        }
+
+        var validator = concreteKeyFrame.Validator;
+        concreteKeyFrame.Validator = null;
+        try
+        {
+            keyFrame.Value = value;
+        }
+        finally
+        {
+            concreteKeyFrame.Validator = validator;
         }
     }
 

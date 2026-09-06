@@ -52,4 +52,34 @@ public sealed class VideoTypeCatalogTests
 
         Assert.That(profile.WorkflowSteps, Has.Some.Contains("beutl-agent-asset-sourcing"));
     }
+
+    [Test]
+    public void Lyric_caption_profile_does_not_expose_a_retired_hierarchy_switch()
+    {
+        VideoTypeProfile profile = VideoTypeCatalog.Resolve("lyric-captions");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                typeof(VideoTypeGateProfile).GetProperties().Select(property => property.Name),
+                Is.EquivalentTo(new[]
+                {
+                    "ImpliedAllowStillness",
+                    "ImpliedAllowMinimalDensity",
+                    "ForceMotionGraphicsIntentOff",
+                    "SuppressTempoAnalysis",
+                    "SuppressTempoUnlessExplicitHighTempo",
+                    "SuppressPaletteBalance",
+                    "SuppressLayerDensityPlanGate",
+                    "SuppressCutRhythm",
+                    "RewordCutRhythmForTransitions",
+                    "RunTransitionVocabulary",
+                    "RunTimelineCoverage",
+                    "None"
+                }));
+            Assert.That(
+                profile.GateProfile.DescribeAdjustments(),
+                Has.None.Contains("caption-role hierarchy"));
+        });
+    }
 }

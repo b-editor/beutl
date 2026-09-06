@@ -29,7 +29,6 @@ public sealed record VideoTypeGateProfile(
     bool SuppressTempoUnlessExplicitHighTempo = false,
     bool SuppressPaletteBalance = false,
     bool SuppressLayerDensityPlanGate = false,
-    bool SuppressCaptionRoleHierarchy = false,
     bool SuppressCutRhythm = false,
     bool RewordCutRhythmForTransitions = false,
     bool RunTransitionVocabulary = false,
@@ -72,11 +71,6 @@ public sealed record VideoTypeGateProfile(
         if (SuppressLayerDensityPlanGate)
         {
             adjustments.Add("motion-graphics layer-density plan gate skipped");
-        }
-
-        if (SuppressCaptionRoleHierarchy)
-        {
-            adjustments.Add("caption-role hierarchy overload advisories skipped");
         }
 
         if (SuppressCutRhythm)
@@ -213,8 +207,7 @@ public static class VideoTypeCatalog
             new VideoTypeGateProfile(
                 ImpliedAllowMinimalDensity: true,
                 ForceMotionGraphicsIntentOff: true,
-                SuppressTempoAnalysis: true,
-                SuppressCaptionRoleHierarchy: true)),
+                SuppressTempoAnalysis: true)),
         new(
             "logo-intro",
             "Short single-shot logo, stinger, or intro animation.",

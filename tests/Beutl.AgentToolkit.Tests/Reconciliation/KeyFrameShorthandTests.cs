@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
@@ -170,6 +171,44 @@ public sealed class KeyFrameShorthandTests
             Assert.That(apply.IsSuccess, Is.False);
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(apply.Error.Message, Does.Contain("Keyframe 0"));
+        });
+    }
+
+    [Test]
+    public void Maximum_timespan_string_is_preserved_without_double_rounding()
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(
+                new JsonArray(TimeSpan.MaxValue.ToString("c", CultureInfo.InvariantCulture), 100))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(
+                ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
+                Is.EqualTo(TimeSpan.MaxValue));
+        });
+    }
+
+    [Test]
+    public void Maximum_numeric_time_is_preserved_without_overflow()
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(
+                new JsonArray(TimeSpan.MaxValue.TotalSeconds, 100))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(
+                ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
+                Is.EqualTo(TimeSpan.MaxValue));
         });
     }
 

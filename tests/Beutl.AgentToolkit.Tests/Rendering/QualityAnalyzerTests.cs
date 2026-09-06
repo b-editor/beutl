@@ -122,6 +122,51 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Duplicate_backing_plate_ids_do_not_abort_text_fit_analysis()
+    {
+        Scene scene = CreateScene();
+        Element firstPlate = AddRoundedRect(
+            scene,
+            "[role:text-backing] first",
+            zIndex: 8,
+            width: 560,
+            height: 150,
+            x: -240);
+        Element secondPlate = AddRoundedRect(
+            scene,
+            "[role:text-backing] second",
+            zIndex: 9,
+            width: 560,
+            height: 150,
+            x: 240);
+        Guid duplicateId = firstPlate.Objects.Single().Id;
+        secondPlate.Objects.Single().Id = duplicateId;
+        AddText(scene, "Launch notes", zIndex: 10, x: -120);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Issues.Count(issue => issue.Category == "textBackgroundFit"), Is.EqualTo(1));
+            Assert.That(result.Metrics.Typography.TextPlateMismatchCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Structure_metrics_do_not_expose_name_inferred_shape_opinions()
+    {
+        Assert.That(
+            typeof(StructureMetrics).GetProperties().Select(property => property.Name),
+            Is.EquivalentTo(new[]
+            {
+                "ElementCount",
+                "MultiObjectElementCount",
+                "NonFlowMultiObjectElementCount",
+                "FlowMultiObjectElementCount"
+            }));
+    }
+
+    [Test]
     public async Task Decorative_rect_without_backing_role_is_not_treated_as_text_plate()
     {
         Scene scene = CreateScene();

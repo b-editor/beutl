@@ -100,10 +100,20 @@ public static class ValidationEvaluator
         object? value,
         CoreSerializerOptions? options)
     {
+        return EvaluateAnimationValue(property, value, options, out _);
+    }
+
+    internal static ValidationOutcome EvaluateAnimationValue(
+        IProperty property,
+        object? value,
+        CoreSerializerOptions? options,
+        out object? acceptedValue)
+    {
         ArgumentNullException.ThrowIfNull(property);
 
         if (!IsAssignableValue(property.ValueType, value))
         {
+            acceptedValue = value;
             return ValidationOutcome.Rejected(
                 value,
                 $"Value is not assignable to {property.ValueType.FullName}.",
@@ -111,7 +121,12 @@ public static class ValidationEvaluator
                 CreateValueHint(property.ValueType));
         }
 
-        return EvaluateValidator(property.GetValidator(), new ValidationContext(property, null), value, options);
+        return EvaluateValidator(
+            property.GetValidator(),
+            new ValidationContext(property, null),
+            value,
+            options,
+            out acceptedValue);
     }
 
     // A FontFamily that is not registered renders as a fallback rather than the requested face,
@@ -133,11 +148,23 @@ public static class ValidationEvaluator
     private static ValidationOutcome EvaluateValidator(
         IValidator? validator, ValidationContext context, object? value, CoreSerializerOptions? options)
     {
+        return EvaluateValidator(validator, context, value, options, out _);
+    }
+
+    private static ValidationOutcome EvaluateValidator(
+        IValidator? validator,
+        ValidationContext context,
+        object? value,
+        CoreSerializerOptions? options,
+        out object? acceptedValue)
+    {
+        acceptedValue = value;
         if (validator is not null)
         {
             object? coerced = value;
             if (validator.TryCoerce(context, ref coerced))
             {
+                acceptedValue = coerced;
                 if (!Equals(value, coerced))
                 {
                     return ValidationOutcome.Coerced(value, coerced, options);
