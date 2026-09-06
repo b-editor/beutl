@@ -82,4 +82,15 @@ public sealed class VideoTypeCatalogTests
                 Has.None.Contains("caption-role hierarchy"));
         });
     }
+
+    [Test]
+    public void Lyric_caption_workflow_routes_contrast_to_the_rendered_quality_pass()
+    {
+        VideoTypeProfile profile = VideoTypeCatalog.Resolve("lyric-captions");
+
+        Assert.That(
+            profile.WorkflowSteps,
+            Has.Some.EqualTo(
+                "Verify per-line read time with evaluate_edit_quality(staticLayout:true) during layout, then use regular evaluate_edit_quality for rendered contrast before export."));
+    }
 }

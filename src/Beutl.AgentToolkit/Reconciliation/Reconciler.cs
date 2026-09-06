@@ -687,7 +687,10 @@ public sealed class Reconciler
         {
             if (CollectionReconciler.TryGetId(obj, out Guid id))
             {
-                objects[id] = obj;
+                // IdentityHelper.FindById and the collection reconciler resolve a tolerated
+                // pre-existing duplicate to its first occurrence. Keep validation on the same
+                // object instead of comparing the first live object with last-wins JSON.
+                objects.TryAdd(id, obj);
             }
 
             foreach ((_, JsonNode? child) in obj)

@@ -101,11 +101,18 @@ public sealed class DesignToolsTests
     }
 
     [Test]
-    public void Background_grammar_exposes_required_depth_bands_and_parametric_slots()
+    public void Background_grammar_exposes_advisory_depth_bands_and_parametric_slots()
     {
         var tools = new DesignTools(new AgentSessionManager());
 
         BackgroundGrammarResponse response = tools.GetBackgroundGrammar("calm product reveal").Value!;
+        string slotLanguage = string.Join(
+            " ",
+            response.DepthLayers
+                .Prepend(response.BaseLayer)
+                .SelectMany(layer => new[] { layer.TypicalCount, layer.DerivationHint })
+                .Concat(new[] { response.Motion.TypicalCount, response.Motion.DerivationHint }))
+            .ToLowerInvariant();
 
         Assert.Multiple(() =>
         {
@@ -120,6 +127,9 @@ public sealed class DesignToolsTests
             Assert.That(response.DerivationNotes, Has.Some.Contains("derive_palette"));
             Assert.That(response.DeviationNotes, Has.Some.Contains("deliberate restraint"));
             Assert.That(response.UsageHint, Does.Contain("not JSON to paste into apply_edit"));
+            Assert.That(slotLanguage, Does.Not.Contain("required"));
+            Assert.That(slotLanguage, Does.Not.Contain("must"));
+            Assert.That(slotLanguage, Does.Not.Contain("exactly"));
         });
     }
 

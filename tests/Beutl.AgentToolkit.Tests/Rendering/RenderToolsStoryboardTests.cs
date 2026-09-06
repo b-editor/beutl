@@ -1123,6 +1123,31 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public async Task Final_preflight_includes_non_blocking_quality_issues_in_advisories()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        RenderTools tools = CreateTools(workspace, session);
+
+        ToolResult<FinalPreflightResponse> result = await tools.FinalPreflight(
+            outputPrefix: "preflight/quality-advisories",
+            sampleCount: 2,
+            staticLayout: true,
+            styleProfile: "motion-graphics",
+            plannedForegroundElementsPerShot: 10,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Quality.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
+            Assert.That(result.Value.Advisories, Has.Some.Contains("[layerDensity]"));
+            Assert.That(result.Value.Blockers, Has.None.Contains("layerDensity"));
+        });
+    }
+
+    [Test]
     public async Task Final_preflight_default_output_prefix_includes_session_id_to_avoid_collisions()
     {
         string workspace = CreateWorkspace();

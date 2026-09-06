@@ -666,6 +666,10 @@ public sealed class RenderTools(
                 blockers.Add("evaluate_edit_quality reported critical or major issues (unreadable text or malformed Element structure).");
             }
 
+            advisories.AddRange(quality.Issues
+                .Where(issue => string.Equals(issue.Severity, "minor", StringComparison.OrdinalIgnoreCase))
+                .Select(issue => $"[{issue.Category}] {issue.Message}"));
+
             // The caller opted into this check by passing requireAnimatedProperties, so it
             // blocks on their own terms rather than the toolkit's.
             if (!staticLayout && requireAnimatedProperties && quality.Metrics.MotionContinuity.AnimatedPropertyCount == 0)

@@ -200,7 +200,7 @@ public static class VideoTypeCatalog
                 "Call get_schema for TextBlock, backing shapes, brushes, and any needed text animation properties before authoring.",
                 "Use apply_edit to create one Element per lyric or caption line with Start/Length matching the sync table.",
                 "Use measure_object_bounds on representative lines and backing plates before relying on render_still readability.",
-                "Verify per-line read time and contrast with evaluate_edit_quality(staticLayout:true) or evaluate_edit_quality before adding extra motion.",
+                "Verify per-line read time with evaluate_edit_quality(staticLayout:true) during layout, then use regular evaluate_edit_quality for rendered contrast before export.",
                 "A background that outcompetes the timed text costs readability, so a consistent loop is the usual choice; AudioSpectrumDrawable or AudioWaveformDrawable render a genuinely music-reactive backdrop from the music bed.",
                 "Call evaluate_edit_quality(staticLayout:true) while the layout is still static, then suggest_quality_fixes, evaluate_edit_quality, and final_preflight with videoType:\"lyric-captions\"."
             ],

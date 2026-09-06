@@ -130,7 +130,7 @@ public sealed class DesignTools(AgentSessionManager sessions) : ToolBase
             ],
             new BackgroundLayerSlot(
                 "base layer",
-                "exactly one",
+                "typically one",
                 [
                     new BackgroundGrammarOption(
                         "multi-stop gradient",
@@ -157,7 +157,7 @@ public sealed class DesignTools(AgentSessionManager sessions) : ToolBase
             [
                 new BackgroundLayerSlot(
                     "depth layer A",
-                    "one required",
+                    "typically one",
                     [
                         new BackgroundGrammarOption(
                             "particles",
@@ -189,7 +189,7 @@ public sealed class DesignTools(AgentSessionManager sessions) : ToolBase
                                 new BackgroundParameterRange("colorRole", "enum", "bg-base|shadow|accent-muted", "Keep it inside derived palette roles.")
                             ])
                     ],
-                    "Depth layer A must make the midground visible; it cannot be only a second flat full-frame plate."),
+                    "When used, depth layer A reads as midground when it differs from a second flat full-frame plate."),
                 new BackgroundLayerSlot(
                     "depth layer B",
                     "zero or one",
@@ -223,7 +223,7 @@ public sealed class DesignTools(AgentSessionManager sessions) : ToolBase
             ],
             new BackgroundMotionSlot(
                 "motion",
-                "one required for motion graphics unless the brief explicitly calls for a static poster",
+                "typically one for motion-led pieces; zero for an intentionally static piece",
                 [
                     new BackgroundGrammarOption(
                         "drift",

@@ -331,6 +331,40 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void Unrelated_edit_uses_first_wins_animation_index_for_duplicate_ids()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        (Element firstElement, RectShape firstRect, KeyFrame<float> firstKeyFrame) =
+            AddAnimatedRect(scene, dir, "first", -25);
+        (_, RectShape secondRect, KeyFrame<float> secondKeyFrame) =
+            AddAnimatedRect(scene, dir, "second", 50);
+        secondRect.Id = firstRect.Id;
+
+        var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: new JsonObject { [nameof(CoreObject.Name)] = "renamed" },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(scene.Name, Is.EqualTo("renamed"));
+            Assert.That(firstElement.Objects.Single(), Is.SameAs(firstRect));
+            Assert.That(firstKeyFrame.Value, Is.EqualTo(-25));
+            Assert.That(secondKeyFrame.Value, Is.EqualTo(50));
+            Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
+            Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
+                outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void Relative_out_of_range_times_warn_for_shorthand_and_long_form(bool shorthand)
@@ -426,6 +460,29 @@ public sealed class KeyFrameShorthandTests
             .OfType<JsonObject>()
             .Select(keyFrame => keyFrame[nameof(KeyFrame<float>.Value)]!.Deserialize<float>())
             .ToArray();
+
+    private static (Element Element, RectShape Rect, KeyFrame<float> KeyFrame) AddAnimatedRect(
+        Scene scene,
+        string directory,
+        string name,
+        float opacity)
+    {
+        var element = new Element
+        {
+            Name = name,
+            Start = TimeSpan.Zero,
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(directory, $"{name}.belm"))
+        };
+        var rect = new RectShape { Name = name };
+        var animation = new KeyFrameAnimation<float>();
+        var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = opacity };
+        animation.KeyFrames.Add(keyFrame, out _);
+        rect.Opacity.Animation = animation;
+        element.AddObject(rect);
+        scene.Children.Add(element);
+        return (element, rect, keyFrame);
+    }
 
     private static (EditTools Tools, Scene Scene, Element Element) CreateSceneWithRect()
     {
