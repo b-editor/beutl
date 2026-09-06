@@ -135,6 +135,52 @@ public sealed class HistoryToolsTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void History_move_reports_the_post_move_snapshot_from_the_same_dispatch(bool redo)
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        using var inner = new AgentToolkitTestSession(scene, EditingSessionSource.LiveEditor);
+        var session = new InterleavingLiveSession(inner);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var edits = new EditTools(manager);
+        var history = new HistoryTools(manager);
+
+        edits.ApplyEdit(
+            patch: StartPatch(element, TimeSpan.FromSeconds(4)),
+            schemaVersion: SchemaVersion.Current);
+        if (redo)
+        {
+            history.Undo();
+        }
+
+        int dispatchesBeforeMove = session.InvokeCount;
+        session.AfterNextInvoke = () => session.History.ExecuteInTransaction(
+            () => element.Length = TimeSpan.FromSeconds(3),
+            "Human edit after history move");
+
+        ToolResult<HistoryStateResponse> move = redo ? history.Redo() : history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(move.IsSuccess, Is.True, move.Error?.Message);
+            Assert.That(move.Value!.Applied, Has.Count.EqualTo(1));
+            Assert.That(move.Value.CanUndo, Is.EqualTo(redo));
+            Assert.That(move.Value.UndoCount, Is.EqualTo(redo ? 1 : 0));
+            Assert.That(move.Value.NextUndo, redo ? Is.Not.Null : Is.Null);
+            Assert.That(move.Value.CanRedo, Is.EqualTo(!redo));
+            Assert.That(move.Value.RedoCount, Is.EqualTo(redo ? 0 : 1));
+            Assert.That(move.Value.NextRedo, redo ? Is.Null : Is.Not.Null);
+            Assert.That(session.InvokeCount - dispatchesBeforeMove, Is.EqualTo(1));
+
+            // The hook proves a later editor transaction really did land after the returned
+            // point-in-time snapshot; it must not leak into the history response.
+            Assert.That(session.History.UndoCount, Is.EqualTo(redo ? 2 : 1));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        });
+    }
+
     private static (AgentToolkitTestSession Session, EditTools Edits, HistoryTools History) CreateTools(Scene scene)
     {
         var session = new AgentToolkitTestSession(scene);
@@ -168,5 +214,35 @@ public sealed class HistoryToolsTests
         };
         scene.Children.Add(element);
         return scene;
+    }
+
+    private sealed class InterleavingLiveSession(AgentToolkitTestSession inner)
+        : IEditingSession, IEditingSessionDispatcher
+    {
+        public Action? AfterNextInvoke { get; set; }
+
+        public int InvokeCount { get; private set; }
+
+        public string SessionId => inner.SessionId;
+
+        public EditingSessionSource Source => EditingSessionSource.LiveEditor;
+
+        public CoreObject Root => inner.Root;
+
+        public Beutl.Editor.HistoryManager History => inner.History;
+
+        public Beutl.AgentToolkit.Documents.DocumentAdapter Documents => inner.Documents;
+
+        public bool IsDirty => inner.IsDirty;
+
+        public void Invoke(Action action)
+        {
+            InvokeCount++;
+            action();
+
+            Action? after = AfterNextInvoke;
+            AfterNextInvoke = null;
+            after?.Invoke();
+        }
     }
 }

@@ -62,6 +62,7 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
         IEditingSession session = sessions.RequireSession();
         int requested = Math.Clamp(steps, 1, MaxSteps);
         List<HistoryEntrySummary> applied = [];
+        HistoryStateResponse? state = null;
 
         session.InvokeOnSession(() =>
         {
@@ -81,6 +82,19 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
 
                 applied.Add(ToSummary(next)!);
             }
+
+            string verb = redo ? "Re-applied" : "Reverted";
+            string message = applied.Count == 0
+                ? redo
+                    ? "Nothing to redo. The redo stack is cleared by any new edit."
+                    : "Nothing to undo. The undo stack is empty for this session."
+                : applied.Count < requested
+                    ? $"{verb} {applied.Count} of {requested} requested transactions; the stack emptied first."
+                    : $"{verb} {applied.Count} transaction(s).";
+
+            // Capture the point-in-time response before leaving the mutation dispatch. A live
+            // editor or another MCP request may change history as soon as this callback returns.
+            state = CreateState(session, applied, message);
         });
 
         if (applied.Count > 0 && session is FileEditingSession fileSession)
@@ -88,16 +102,7 @@ public sealed class HistoryTools(AgentSessionManager sessions) : ToolBase
             fileSession.MarkDirty();
         }
 
-        string verb = redo ? "Re-applied" : "Reverted";
-        string message = applied.Count == 0
-            ? redo
-                ? "Nothing to redo. The redo stack is cleared by any new edit."
-                : "Nothing to undo. The undo stack is empty for this session."
-            : applied.Count < requested
-                ? $"{verb} {applied.Count} of {requested} requested transactions; the stack emptied first."
-                : $"{verb} {applied.Count} transaction(s).";
-
-        return session.ReadOnSession(() => CreateState(session, applied, message));
+        return state!;
     }
 
     private static HistoryStateResponse CreateState(
