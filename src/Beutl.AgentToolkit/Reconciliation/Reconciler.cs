@@ -591,19 +591,29 @@ public sealed class Reconciler
         List<ValidationOutcome> validation)
     {
         var currentById = new Dictionary<Guid, JsonObject>();
+        // A tolerated pre-existing duplicate has no unambiguous GUID-to-occurrence mapping.
+        // Leave every such animation untouched until an edit repairs the identities.
+        HashSet<Guid> ambiguousIds = CollectionReconciler.CollectDuplicatedIds(currentDocument);
         IndexObjectsById(currentDocument, currentById);
-        ValidateChangedAnimationValuesInNode(sandboxRoot, currentById, desiredDocument, validation);
+        ValidateChangedAnimationValuesInNode(
+            sandboxRoot,
+            currentById,
+            ambiguousIds,
+            desiredDocument,
+            validation);
     }
 
     private static void ValidateChangedAnimationValuesInNode(
         CoreObject sandboxRoot,
         IReadOnlyDictionary<Guid, JsonObject> currentById,
+        IReadOnlySet<Guid> ambiguousIds,
         JsonNode? node,
         List<ValidationOutcome> validation)
     {
         if (node is JsonObject obj)
         {
             if (CollectionReconciler.TryGetId(obj, out Guid id)
+                && !ambiguousIds.Contains(id)
                 && IdentityHelper.FindById(sandboxRoot, id) is EngineObject engineObject
                 && obj["Animations"] is JsonObject desiredAnimations)
             {
@@ -669,14 +679,24 @@ public sealed class Reconciler
 
             foreach ((_, JsonNode? child) in obj)
             {
-                ValidateChangedAnimationValuesInNode(sandboxRoot, currentById, child, validation);
+                ValidateChangedAnimationValuesInNode(
+                    sandboxRoot,
+                    currentById,
+                    ambiguousIds,
+                    child,
+                    validation);
             }
         }
         else if (node is JsonArray array)
         {
             foreach (JsonNode? child in array)
             {
-                ValidateChangedAnimationValuesInNode(sandboxRoot, currentById, child, validation);
+                ValidateChangedAnimationValuesInNode(
+                    sandboxRoot,
+                    currentById,
+                    ambiguousIds,
+                    child,
+                    validation);
             }
         }
     }

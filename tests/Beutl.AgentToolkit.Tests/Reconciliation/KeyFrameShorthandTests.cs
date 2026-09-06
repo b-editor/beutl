@@ -331,16 +331,19 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
-    [Test]
-    public void Unrelated_edit_uses_first_wins_animation_index_for_duplicate_ids()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Unrelated_edit_skips_ambiguous_animation_validation_for_duplicate_ids(bool invalidFirst)
     {
         string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        float firstOpacity = invalidFirst ? -25 : 50;
+        float secondOpacity = invalidFirst ? 50 : -25;
         (Element firstElement, RectShape firstRect, KeyFrame<float> firstKeyFrame) =
-            AddAnimatedRect(scene, dir, "first", -25);
+            AddAnimatedRect(scene, dir, "first", firstOpacity);
         (_, RectShape secondRect, KeyFrame<float> secondKeyFrame) =
-            AddAnimatedRect(scene, dir, "second", 50);
+            AddAnimatedRect(scene, dir, "second", secondOpacity);
         secondRect.Id = firstRect.Id;
 
         var session = new AgentToolkitTestSession(scene);
@@ -357,8 +360,8 @@ public sealed class KeyFrameShorthandTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(scene.Name, Is.EqualTo("renamed"));
             Assert.That(firstElement.Objects.Single(), Is.SameAs(firstRect));
-            Assert.That(firstKeyFrame.Value, Is.EqualTo(-25));
-            Assert.That(secondKeyFrame.Value, Is.EqualTo(50));
+            Assert.That(firstKeyFrame.Value, Is.EqualTo(firstOpacity));
+            Assert.That(secondKeyFrame.Value, Is.EqualTo(secondOpacity));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
                 outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
