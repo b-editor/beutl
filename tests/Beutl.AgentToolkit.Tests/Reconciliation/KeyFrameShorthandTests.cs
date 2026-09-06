@@ -184,6 +184,24 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void An_object_without_a_value_is_rejected_with_the_keyframe_index()
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonObject { ["t"] = 1 })),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.False);
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain("Keyframe 0"));
+            Assert.That(apply.Error.Message, Does.Contain("no value"));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void Out_of_range_animation_values_are_reported_and_coerced_by_the_owning_property(bool shorthand)

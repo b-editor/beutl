@@ -91,11 +91,16 @@ internal static class KeyFrameShorthand
                 return (ReadSeconds(tuple[0], index), tuple[1], tuple.Count == 3 ? ReadEasing(tuple[2], index) : null);
             case JsonObject obj:
                 JsonNode? time = obj["t"] ?? obj["keyTime"] ?? obj["KeyTime"];
-                JsonNode? value = obj.TryGetPropertyValue("v", out JsonNode? shortValue)
-                    ? shortValue
-                    : obj.TryGetPropertyValue("value", out JsonNode? longValue)
-                        ? longValue
-                        : obj["Value"];
+                JsonNode? value;
+                if (!obj.TryGetPropertyValue("v", out value)
+                    && !obj.TryGetPropertyValue("value", out value)
+                    && !obj.TryGetPropertyValue("Value", out value))
+                {
+                    throw Rejected(
+                        $"Keyframe {index} in '{PropertyName}' has no value.",
+                        "Give every object entry a v, value, or Value member; use an explicit null only for a nullable animation value type.");
+                }
+
                 JsonNode? easing = obj["easing"] ?? obj["Easing"];
                 return (ReadSeconds(time, index), value, ReadEasing(easing, index));
             default:

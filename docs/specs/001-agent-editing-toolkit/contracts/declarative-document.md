@@ -62,6 +62,28 @@ A node is a JSON object that mirrors `CoreSerializer.SerializeToJsonObject`:
 - Child collections are arrays of nodes; **collection identity is by member `Id`**, not array index. A Scene's elements appear under `"Elements"` (the normalized inline view; on disk this is Include/Exclude globs over `.belm` files); an Element's content appears under `"Objects"`. Nested editable objects use the same shape: brushes can be assigned to properties such as `Fill`, gradient stops live under `GradientStops`, and filter effect chains live under `FilterEffect.Children`.
 - The document is **schema-versioned** (`schemaVersion`) — a mismatch is surfaced, never silently dropped (FR-031).
 
+### Keyframe shorthand
+
+`apply_edit` accepts a compact form wherever an animation would otherwise carry explicit generic animation/keyframe discriminators:
+
+```jsonc
+{
+  "Animations": {
+    "Opacity": {
+      "$kf": [
+        [0, 0, "CubicEaseOut"],
+        [0.4, 100]
+      ],
+      "UseGlobalClock": false
+    }
+  }
+}
+```
+
+Each entry is either `[seconds, value, easing?]` or `{ "t": seconds, "v": value, "easing"?: name }`. Object entries also accept the long aliases `keyTime` / `KeyTime`, `value` / `Value`, and `Easing`. Time is a finite number of seconds or an invariant `TimeSpan` string; value must be present (an explicit `null` remains distinct from omission); easing is a bare type name such as `CubicEaseOut` and defaults to linear when omitted. The toolkit infers `KeyFrameAnimation<T>` and `KeyFrame<T>` from the owning property's value type, sorts the expanded keys by time, and validates/coerces every value with that property's installed validator.
+
+Members beside `$kf`, including animation `Id` and `UseGlobalClock`, still apply. If an id-keyed merge retains an old explicit `KeyFrames` member beside a new `$kf`, the shorthand is authoritative and replaces that old envelope. The explicit long form remains valid and is the form returned by normalized document reads.
+
 ## 2. Merge Patch (RFC 7396, with id-keyed arrays)
 
 A partial document with delete semantics:
