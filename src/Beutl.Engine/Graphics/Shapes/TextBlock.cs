@@ -169,7 +169,7 @@ public partial class TextBlock : Drawable
                 {
                     Rect elementBounds = item.Bounds;
 
-                    foreach (Geometry.Resource geometry in item.ToGeometies())
+                    foreach (Geometry.Resource geometry in item.ToGeometries())
                     {
                         using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
                         {

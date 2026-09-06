@@ -2,6 +2,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -41,7 +42,12 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null);
             activator.Apply(feCtx);
             activator.Flush(false);
 
@@ -79,24 +85,45 @@ public class PixelSortEffectTests
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
-            using var activator = new FilterEffectActivator(targets, builder);
+            using var activator = new FilterEffectActivator(
+                targets,
+                builder,
+                RenderIntent.Delivery,
+                RenderRequestPurpose.Auxiliary,
+                drawableBrushMaterializer: null);
             Assert.DoesNotThrow(() => activator.Apply(feCtx));
             Assert.DoesNotThrow(() => activator.Flush(false));
         });
     }
 
-    [TestCase(float.PositiveInfinity, ExpectedResult = true)]
-    [TestCase(2f, ExpectedResult = false)]
-    [TestCase(1f, ExpectedResult = false)]
-    public bool ShouldRethrowPassFailure_rethrows_shader_failures_only_on_delivery(float maxWorkingScale)
-        => PixelSortEffect.ShouldRethrowPassFailure(new InvalidOperationException("pass failed"), maxWorkingScale);
-
-    [Test]
-    public void ShouldRethrowPassFailure_always_rethrows_cancellation()
+    [TestCase(RenderIntent.Preview, false, true, true)]
+    [TestCase(RenderIntent.Delivery, false, false, false)]
+    [TestCase(RenderIntent.Preview, true, false, false)]
+    public void TrySwallowPassFailure_RecordsOnlyDegradedPreviewFailures(
+        RenderIntent intent,
+        bool cancellation,
+        bool expectedSwallow,
+        bool expectedDrop)
     {
-        Assert.That(
-            PixelSortEffect.ShouldRethrowPassFailure(new OperationCanceledException(), 2f),
-            Is.True);
+        using var pool = new RenderTargetPool(factory: null);
+        using RenderTargetLeaseSession session = pool.BeginSession(intent);
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            intent,
+            RenderRequestPurpose.Auxiliary,
+            renderTargetLeaseSession: session);
+        Exception failure = cancellation
+            ? new OperationCanceledException()
+            : new InvalidOperationException("pass failed");
+
+        bool swallowed = PixelSortEffect.TrySwallowPassFailure(failure, context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(swallowed, Is.EqualTo(expectedSwallow));
+            Assert.That(session.ContentDropObserved, Is.EqualTo(expectedDrop));
+        });
     }
 
     [Test]
@@ -105,10 +132,46 @@ public class PixelSortEffectTests
         Assert.Multiple(() =>
         {
             Assert.Throws<InvalidOperationException>(
-                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(float.PositiveInfinity, 0));
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Delivery, 0));
             Assert.DoesNotThrow(
-                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(2f, 0));
+                () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Preview, 0));
         });
+    }
+
+    [TestCase(RenderIntent.Delivery, float.PositiveInfinity)]
+    [TestCase(RenderIntent.Delivery, 2f)]
+    public void DeliveryIntent_DecidesFailFast_IndependentlyOfTheWorkingScaleCeiling(
+        RenderIntent intent, float maxWorkingScale)
+    {
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            intent,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: 1f,
+            maxWorkingScale: maxWorkingScale);
+
+        Assert.Throws<InvalidOperationException>(
+            () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(context.Intent, 0));
+    }
+
+    [TestCase(RenderIntent.Preview, float.PositiveInfinity)]
+    [TestCase(RenderIntent.Preview, 2f)]
+    public void PreviewIntent_DecidesDegradation_IndependentlyOfTheWorkingScaleCeiling(
+        RenderIntent intent, float maxWorkingScale)
+    {
+        using var targets = new EffectTargets();
+        var context = new CustomFilterEffectContext(
+            targets,
+            intent,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1f,
+            workingScale: 1f,
+            maxWorkingScale: maxWorkingScale);
+
+        Assert.DoesNotThrow(
+            () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(context.Intent, 0));
     }
 
     private static RenderTarget? CreateGradientTarget(int width, int height)
@@ -116,7 +179,7 @@ public class PixelSortEffectTests
         var target = RenderTarget.Create(width, height);
         if (target == null) return null;
 
-        using (var canvas = new ImmediateCanvas(target))
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
         {
             canvas.Clear(Colors.Black);
             // 水平方向に明度勾配

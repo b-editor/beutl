@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Globalization;
+using System.Reflection;
 using System.Text.Json;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
@@ -11,6 +12,7 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -1562,16 +1564,27 @@ public sealed class RenderToolsStoryboardTests
                ?? throw new InvalidOperationException("Tool result JSON could not be deserialized.");
     }
 
+    /// <remarks>
+    /// The limit the rejection names is the one the render thread will resolve, so it moves with the machine:
+    /// a fixed 16384 only holds on a device that attaches at least the engine ceiling. Both the limit and the
+    /// maximum usable scale derived from it are therefore read here rather than written down. The truncated
+    /// three-decimal prefix survives the exact float the validator lands on, which is bit-adjusted to the
+    /// largest scale whose ceil() still fits.
+    /// </remarks>
     private static void AssertRenderScaleLimitError(ToolError? error, string requestedExtent)
     {
+        int limit = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        string maximumScalePrefix = (Math.Truncate(limit / 1920.0 * 1000) / 1000)
+            .ToString("0.000", CultureInfo.InvariantCulture);
+
         Assert.Multiple(() =>
         {
             Assert.That(error, Is.Not.Null);
             Assert.That(error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(error.Target, Is.EqualTo("renderScale"));
-            Assert.That(error.Message, Does.Contain("16384"));
+            Assert.That(error.Message, Does.Contain(limit.ToString(CultureInfo.InvariantCulture)));
             Assert.That(error.Message, Does.Contain(requestedExtent));
-            Assert.That(error.Message, Does.Contain("8.533"));
+            Assert.That(error.Message, Does.Contain(maximumScalePrefix));
         });
     }
 

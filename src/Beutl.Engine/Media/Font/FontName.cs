@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Buffers.Binary;
+using System.Globalization;
 
 namespace Beutl.Media;
 
@@ -64,15 +65,12 @@ internal record FontName(
     string? TypographicSubfamilyName,
     string? SampleText)
 {
-    private static ushort ReadUInt16(BinaryReader reader)
-    {
-        return BitConverter.ToUInt16(reader.ReadBytes(2).Reverse().ToArray(), 0);
-    }
+    // sfnt tables store big-endian integers; BinaryReader reads little-endian on every platform.
+    internal static ushort ReadUInt16(BinaryReader reader)
+        => BinaryPrimitives.ReverseEndianness(reader.ReadUInt16());
 
-    private static uint ReadUInt32(BinaryReader reader)
-    {
-        return BitConverter.ToUInt32(reader.ReadBytes(4).Reverse().ToArray(), 0);
-    }
+    internal static uint ReadUInt32(BinaryReader reader)
+        => BinaryPrimitives.ReverseEndianness(reader.ReadUInt32());
 
     static System.Text.Encoding AsEncoding(EncodingIDs id)
     {

@@ -9,44 +9,6 @@ namespace Beutl.Graphics.Backend.Vulkan;
 
 internal record VulkanMemoryInfo(ulong DeviceLocalMemory, ulong HostVisibleMemory);
 
-internal record VulkanPhysicalDeviceInfo(
-    PhysicalDevice Device,
-    string Name,
-    PhysicalDeviceType Type,
-    uint ApiVersionInt,
-    VulkanMemoryInfo Memory)
-{
-    public bool IsMoltenVK => Name.Contains("Apple");
-
-    public string ApiVersion
-    {
-        get
-        {
-            uint major = ApiVersionInt >> 22;
-            uint minor = (ApiVersionInt >> 12) & 0x3FF;
-            uint patch = ApiVersionInt & 0xFFF;
-            return $"{major}.{minor}.{patch}";
-        }
-    }
-
-    /// <summary>
-    /// Converts this Vulkan-specific device info to a public <see cref="GraphicsDeviceInfo"/>.
-    /// </summary>
-    public GraphicsDeviceInfo ToGraphicsDeviceInfo()
-    {
-        var deviceType = Type switch
-        {
-            PhysicalDeviceType.IntegratedGpu => GraphicsDeviceType.Integrated,
-            PhysicalDeviceType.DiscreteGpu => GraphicsDeviceType.Discrete,
-            PhysicalDeviceType.VirtualGpu => GraphicsDeviceType.Virtual,
-            PhysicalDeviceType.Cpu => GraphicsDeviceType.Cpu,
-            _ => GraphicsDeviceType.Other
-        };
-
-        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024));
-    }
-}
-
 internal sealed unsafe class VulkanInstance : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanInstance>();
@@ -65,9 +27,23 @@ internal sealed unsafe class VulkanInstance : IDisposable
         _enabledExtensions = GetRequiredInstanceExtensions();
         _instance = CreateInstance(_enabledExtensions);
 
-        if (_enableValidation && _vk.TryGetInstanceExtension(_instance, out _debugUtils))
+        if (_enableValidation)
         {
-            _debugMessenger = CreateDebugMessenger();
+            try
+            {
+                if (!_vk.TryGetInstanceExtension(_instance, out _debugUtils))
+                {
+                    throw new InvalidOperationException(
+                        $"Vulkan validation was requested, but {ExtDebugUtils.ExtensionName} could not be loaded.");
+                }
+
+                _debugMessenger = CreateDebugMessenger();
+            }
+            catch
+            {
+                _vk.DestroyInstance(_instance, null);
+                throw;
+            }
         }
     }
 
@@ -221,12 +197,17 @@ internal sealed unsafe class VulkanInstance : IDisposable
             validationLayers = new[] { "VK_LAYER_KHRONOS_validation" };
             if (!CheckValidationLayerSupport(validationLayers))
             {
-                s_logger.LogWarning("Validation layers requested but not available, continuing without them.");
-                validationLayers = Array.Empty<string>();
+                throw new InvalidOperationException(
+                    "Vulkan validation was requested, but VK_LAYER_KHRONOS_validation is not available.");
             }
         }
 
         var availableExtensions = EnumerateInstanceExtensions();
+        if (_enableValidation && !availableExtensions.Contains(ExtDebugUtils.ExtensionName))
+        {
+            throw new InvalidOperationException(
+                $"Vulkan validation was requested, but {ExtDebugUtils.ExtensionName} is not available.");
+        }
         var filteredExtensions = extensions.Where(e => availableExtensions.Contains(e)).ToArray();
 
         var appNamePtr = Marshal.StringToHGlobalAnsi("Beutl");
@@ -379,7 +360,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
         var result = _debugUtils!.CreateDebugUtilsMessenger(_instance, &createInfo, null, &messenger);
         if (result != Result.Success)
         {
-            s_logger.LogError("Failed to create debug messenger: {Result}", result);
+            throw new InvalidOperationException($"Failed to create Vulkan debug messenger: {result}");
         }
 
         return messenger;
@@ -392,6 +373,20 @@ internal sealed unsafe class VulkanInstance : IDisposable
         void* userData)
     {
         var message = Marshal.PtrToStringAnsi((IntPtr)callbackData->PMessage);
+        if ((severity & DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt) != 0
+            && (type & DebugUtilsMessageTypeFlagsEXT.ValidationBitExt) != 0)
+        {
+            try
+            {
+                VulkanValidationErrorLog.Shared.Record(message);
+            }
+            catch
+            {
+                // Never let a managed exception cross the unmanaged Vulkan callback boundary. Losing the
+                // record is better than tearing down the driver's reporting thread.
+            }
+        }
+
         switch (severity)
         {
 #pragma warning disable CA2254, CA1873

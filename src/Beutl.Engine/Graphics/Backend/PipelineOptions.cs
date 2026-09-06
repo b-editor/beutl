@@ -1,10 +1,22 @@
-﻿namespace Beutl.Graphics.Backend;
+﻿using System.Collections.Immutable;
+
+namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Options for creating a graphics pipeline.
 /// </summary>
 public struct PipelineOptions
 {
+    /// <summary>
+    /// Gets or sets the immutable specialization constants applied when the pipeline is created.
+    /// A default or empty array applies no specialization.
+    /// </summary>
+    /// <remarks>
+    /// Specialization constants are part of pipeline identity. Pipeline caches must compare their stage,
+    /// constant ID, scalar size, and value rather than the array instance or insertion order.
+    /// </remarks>
+    public ImmutableArray<SpecializationConstant> SpecializationConstants { get; set; }
+
     /// <summary>
     /// Gets or sets whether depth testing is enabled. Default is true.
     /// </summary>
@@ -65,6 +77,7 @@ public struct PipelineOptions
     /// </summary>
     public static PipelineOptions Default => new()
     {
+        SpecializationConstants = [],
         DepthTestEnabled = true,
         DepthWriteEnabled = true,
         CullMode = CullMode.Back,
@@ -83,6 +96,7 @@ public struct PipelineOptions
     /// </summary>
     public static PipelineOptions Fullscreen => new()
     {
+        SpecializationConstants = [],
         DepthTestEnabled = false,
         DepthWriteEnabled = false,
         CullMode = CullMode.None,
@@ -102,6 +116,7 @@ public struct PipelineOptions
     /// </summary>
     public static PipelineOptions Transparent => new()
     {
+        SpecializationConstants = [],
         DepthTestEnabled = true,
         DepthWriteEnabled = false,
         CullMode = CullMode.Back,
@@ -114,128 +129,4 @@ public struct PipelineOptions
         ColorBlendOp = BlendOp.Add,
         AlphaBlendOp = BlendOp.Add
     };
-}
-
-/// <summary>
-/// Specifies which faces should be culled.
-/// </summary>
-public enum CullMode
-{
-    /// <summary>
-    /// No culling.
-    /// </summary>
-    None = 0,
-
-    /// <summary>
-    /// Cull front-facing triangles.
-    /// </summary>
-    Front = 1,
-
-    /// <summary>
-    /// Cull back-facing triangles.
-    /// </summary>
-    Back = 2
-}
-
-/// <summary>
-/// Specifies the winding order for front-facing triangles.
-/// </summary>
-public enum FrontFace
-{
-    /// <summary>
-    /// Triangles with counter-clockwise winding are front-facing.
-    /// </summary>
-    CounterClockwise = 0,
-
-    /// <summary>
-    /// Triangles with clockwise winding are front-facing.
-    /// </summary>
-    Clockwise = 1
-}
-
-/// <summary>
-/// Specifies blend factors for color blending operations.
-/// </summary>
-public enum BlendFactor
-{
-    /// <summary>
-    /// Factor is (0, 0, 0, 0).
-    /// </summary>
-    Zero = 0,
-
-    /// <summary>
-    /// Factor is (1, 1, 1, 1).
-    /// </summary>
-    One = 1,
-
-    /// <summary>
-    /// Factor is (Rs, Gs, Bs, As) - source color.
-    /// </summary>
-    SrcColor = 2,
-
-    /// <summary>
-    /// Factor is (1-Rs, 1-Gs, 1-Bs, 1-As) - one minus source color.
-    /// </summary>
-    OneMinusSrcColor = 3,
-
-    /// <summary>
-    /// Factor is (Rd, Gd, Bd, Ad) - destination color.
-    /// </summary>
-    DstColor = 4,
-
-    /// <summary>
-    /// Factor is (1-Rd, 1-Gd, 1-Bd, 1-Ad) - one minus destination color.
-    /// </summary>
-    OneMinusDstColor = 5,
-
-    /// <summary>
-    /// Factor is (As, As, As, As) - source alpha.
-    /// </summary>
-    SrcAlpha = 6,
-
-    /// <summary>
-    /// Factor is (1-As, 1-As, 1-As, 1-As) - one minus source alpha.
-    /// </summary>
-    OneMinusSrcAlpha = 7,
-
-    /// <summary>
-    /// Factor is (Ad, Ad, Ad, Ad) - destination alpha.
-    /// </summary>
-    DstAlpha = 8,
-
-    /// <summary>
-    /// Factor is (1-Ad, 1-Ad, 1-Ad, 1-Ad) - one minus destination alpha.
-    /// </summary>
-    OneMinusDstAlpha = 9
-}
-
-/// <summary>
-/// Specifies blend operations.
-/// </summary>
-public enum BlendOp
-{
-    /// <summary>
-    /// Result = Source + Destination.
-    /// </summary>
-    Add = 0,
-
-    /// <summary>
-    /// Result = Source - Destination.
-    /// </summary>
-    Subtract = 1,
-
-    /// <summary>
-    /// Result = Destination - Source.
-    /// </summary>
-    ReverseSubtract = 2,
-
-    /// <summary>
-    /// Result = min(Source, Destination).
-    /// </summary>
-    Min = 3,
-
-    /// <summary>
-    /// Result = max(Source, Destination).
-    /// </summary>
-    Max = 4
 }

@@ -1,0 +1,319 @@
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.NodeGraph.Nodes;
+
+namespace Beutl.NodeGraph;
+
+internal sealed class FilterEffectInputBinding : IDisposable
+{
+    private static readonly AsyncLocal<FilterEffectInputBinding?> s_current = new();
+    private static readonly RenderResourceSlot<Func<Ref<Bitmap>?, Ref<Bitmap>?>> s_previewSinkSlot = new();
+    private static readonly RenderInputReadback[] s_noPreviewReadback = [];
+    private static readonly RenderInputReadback[] s_singlePreviewReadback = [RenderInputReadback.Values([0])];
+    private readonly RenderNodeContext _context;
+    private readonly FilterEffectInputRenderNode _inputFacade;
+    private readonly IReadOnlyList<RenderFragmentHandle> _graphInputs;
+    private readonly FilterEffectInputBinding? _previous;
+    private readonly Dictionary<RenderNode, IReadOnlyList<RenderFragmentHandle>> _recordedSubtrees =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<RenderNode> _activeNodes = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<RenderNode> _consumedNonFanOutSubtrees = new(ReferenceEqualityComparer.Instance);
+    private readonly List<DeferredPreview> _previews = [];
+    private bool _disposed;
+
+    internal FilterEffectInputBinding(
+        FilterEffectInputRenderNode inputFacade,
+        RenderNodeContext context)
+    {
+        _inputFacade = inputFacade;
+        _context = context;
+        _graphInputs = context.Inputs;
+        _previous = s_current.Value;
+        s_current.Value = this;
+    }
+
+    internal static bool TryGetCurrent(out FilterEffectInputBinding binding)
+    {
+        binding = s_current.Value!;
+        return binding is not null && !binding._disposed;
+    }
+
+    internal IReadOnlyList<RenderFragmentHandle> RecordSubtree(RenderNode node)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(node);
+        RenderNode? canonicalNode = GetCanonicalNode(node);
+        if (canonicalNode == null)
+            return [];
+
+        if (_recordedSubtrees.TryGetValue(canonicalNode, out IReadOnlyList<RenderFragmentHandle>? cached))
+            return cached;
+
+        if (!_activeNodes.Add(canonicalNode))
+        {
+            throw new InvalidOperationException(
+                $"A node-graph render cycle was detected at '{canonicalNode.GetType().FullName}'.");
+        }
+
+        try
+        {
+            IReadOnlyList<RenderFragmentHandle> result;
+            if (ReferenceEquals(canonicalNode, _inputFacade))
+            {
+                result = _context.RecordNode(canonicalNode, _graphInputs);
+            }
+            else if (canonicalNode is ContainerRenderNode container)
+            {
+                var inputs = new List<RenderFragmentHandle>();
+                foreach (RenderNode child in container.Children)
+                {
+                    IReadOnlyList<RenderFragmentHandle> childOutputs = RecordSubtree(child);
+                    MarkSubtreeConsumed(child, childOutputs);
+                    inputs.AddRange(childOutputs);
+                }
+
+                result = _context.RecordNode(canonicalNode, inputs);
+            }
+            else
+            {
+                result = _context.RecordNode(canonicalNode, []);
+            }
+
+            _recordedSubtrees.Add(canonicalNode, result);
+            return result;
+        }
+        finally
+        {
+            _activeNodes.Remove(canonicalNode);
+        }
+    }
+
+    internal IReadOnlyList<RenderFragmentHandle> RecordSubtreeForPublication(RenderNode node)
+    {
+        IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
+        MarkSubtreeConsumed(node, outputs);
+        return outputs;
+    }
+
+    internal Rect MeasureSubtree(RenderNode node)
+    {
+        IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
+        return CalculateRecordedQueryBounds(outputs);
+    }
+
+    internal void EnsureFanOutSafe(RenderNode node)
+    {
+        IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
+        if (outputs.All(static output => output.CanBeUsedAsValueInput))
+            return;
+
+        ReplaceWithFiniteLayer(node, outputs);
+    }
+
+    internal void RegisterPreview(
+        RenderNode? node,
+        Func<Ref<Bitmap>?, Ref<Bitmap>?> replace)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(replace);
+        if (node is null)
+        {
+            _previews.Add(new DeferredPreview([], replace));
+            return;
+        }
+
+        IReadOnlyList<RenderFragmentHandle> outputs = RecordSubtree(node);
+        if (outputs.Count == 0 || HasEmptyOutputExtent(outputs))
+        {
+            _previews.Add(new DeferredPreview([], replace));
+            return;
+        }
+
+        if (outputs is [RenderFragmentHandle optional]
+            && optional.CanBeUsedAsValueInput
+            && optional.ValueCardinality.Minimum == 0
+            && optional.ValueCardinality.Maximum != 0)
+        {
+            _previews.Add(new DeferredPreview([optional], replace));
+            return;
+        }
+
+        // Normalization preserves order, creates one readback value, and lets later outputs share consumed raw output.
+        RenderFragmentHandle layer = NormalizeToLayer(outputs);
+        if (outputs.Any(static output => !output.CanBeUsedAsValueInput))
+        {
+            MarkSubtreeConsumed(node, outputs);
+            _recordedSubtrees[GetCanonicalNode(node)!] = [layer];
+        }
+        _previews.Add(new DeferredPreview([layer], replace));
+    }
+
+    internal void PublishDeferredPreviews()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        foreach (DeferredPreview preview in _previews)
+        {
+            Func<Ref<Bitmap>?, Ref<Bitmap>?> replace = preview.Replace;
+            IReadOnlyList<RenderFragmentHandle> inputs = preview.Inputs;
+            RenderResource<Func<Ref<Bitmap>?, Ref<Bitmap>?>> sink = _context.Borrow(replace);
+            RenderInputReadback[] inputReadbacks = inputs.Count switch
+            {
+                0 => s_noPreviewReadback,
+                1 => s_singlePreviewReadback,
+                _ => throw new InvalidOperationException(
+                    "A normalized node-graph preview must have zero or one value input."),
+            };
+            _context.Publish(_context.TargetCommand(
+                inputs,
+                TargetCommandDescription.Create(
+                    default(PreviewCommandState),
+                    static (session, _) => session.UseResource(
+                        s_previewSinkSlot,
+                        sink => ExecutePreview(session, sink)),
+                    TargetRegion.Empty,
+                    Rect.Empty,
+                    RenderHitTestContract.None,
+                    inputReadbacks: inputReadbacks,
+                    resources: [s_previewSinkSlot.Bind(sink)])));
+        }
+
+        _previews.Clear();
+    }
+
+    private IReadOnlyList<RenderFragmentHandle> ReplaceWithFiniteLayer(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentHandle> outputs)
+    {
+        if (outputs.Count == 0 || HasEmptyOutputExtent(outputs))
+        {
+            throw new InvalidOperationException(
+                $"The shared node-graph subtree '{node.GetType().FullName}' cannot be normalized "
+                + "because it has no finite non-empty recording bounds.");
+        }
+
+        MarkSubtreeConsumed(node, outputs);
+        IReadOnlyList<RenderFragmentHandle> normalized = [NormalizeToLayer(outputs)];
+        _recordedSubtrees[GetCanonicalNode(node)!] = normalized;
+        return normalized;
+    }
+
+    private void MarkSubtreeConsumed(
+        RenderNode node,
+        IReadOnlyList<RenderFragmentHandle> outputs)
+    {
+        if (outputs.All(static output => output.CanBeUsedAsValueInput))
+            return;
+
+        RenderNode? canonicalNode = GetCanonicalNode(node);
+        if (canonicalNode == null)
+            return;
+
+        // A non-value fragment cannot fan out. If its identity reappears after one parent has already
+        // consumed it, normalization is no longer safe because the first parent transaction is recorded.
+        // Fail here with the NodeGraph identity rather than later in transaction fan-out validation.
+        if (!_consumedNonFanOutSubtrees.Add(canonicalNode))
+        {
+            throw new InvalidOperationException(
+                $"The non-value node-graph subtree '{canonicalNode.GetType().FullName}' is used by more than one consumer. "
+                + "Wrap the shared subtree in a finite value-producing layer before branching.");
+        }
+    }
+
+    private static RenderNode? GetCanonicalNode(RenderNode node)
+    {
+        RenderNode current = node;
+        RenderNode? slow = node;
+        RenderNode? fast = node;
+        while (current is ReferencesChildRenderNode { Child: { IsDisposed: false } child })
+        {
+            current = child;
+            slow = GetReferenceChild(slow);
+            fast = GetReferenceChild(GetReferenceChild(fast));
+            if (slow != null && ReferenceEquals(slow, fast))
+            {
+                throw new InvalidOperationException(
+                    $"A node-graph render cycle was detected at '{slow.GetType().FullName}'.");
+            }
+        }
+
+        return current is ReferencesChildRenderNode ? null : current;
+    }
+
+    private static RenderNode? GetReferenceChild(RenderNode? node)
+        => node is ReferencesChildRenderNode { Child: { IsDisposed: false } child } ? child : null;
+
+    /// <summary>
+    /// Normalizes <paramref name="outputs"/> into one value-eligible layer.
+    /// </summary>
+    /// <remarks>
+    /// The recording node observes its own local coordinate space, which every enclosing target scope
+    /// separates from the request root. A symbolic subtree therefore defers its domain to graph-wide
+    /// owning-target lowering, which back-maps the root domain through those scopes.
+    /// </remarks>
+    private RenderFragmentHandle NormalizeToLayer(IReadOnlyList<RenderFragmentHandle> outputs)
+        => _context.TryCalculateRecordedOutputExtent(outputs, out Rect bounds)
+            ? _context.Layer(outputs, bounds)
+            : _context.OwningTargetLayer(outputs);
+
+    private bool HasEmptyOutputExtent(IReadOnlyList<RenderFragmentHandle> outputs)
+        => _context.TryCalculateRecordedOutputExtent(outputs, out Rect bounds)
+           && (bounds.Width == 0 || bounds.Height == 0);
+
+    private Rect CalculateRecordedQueryBounds(IReadOnlyList<RenderFragmentHandle> fragments)
+    {
+        Rect result = Rect.Empty;
+        foreach (RenderFragmentHandle fragment in fragments)
+        {
+            result = result.Union(_context.GetRecordedMetadataHint(fragment).Bounds);
+        }
+
+        return result;
+    }
+
+    private static void ExecutePreview(
+        TargetCommandSession session,
+        Func<Ref<Bitmap>?, Ref<Bitmap>?> replace)
+    {
+        Ref<Bitmap>? replacement = null;
+        Ref<Bitmap>? previous = null;
+
+        try
+        {
+            if (session.Inputs.Count == 1)
+            {
+                session.Inputs[0].UseSnapshot(
+                    bitmap => replacement = Ref<Bitmap>.Create(bitmap.Clone()));
+            }
+
+            previous = replace(replacement);
+            replacement = null;
+        }
+        finally
+        {
+            replacement?.Dispose();
+            previous?.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _previews.Clear();
+        _recordedSubtrees.Clear();
+        _activeNodes.Clear();
+        _consumedNonFanOutSubtrees.Clear();
+        if (ReferenceEquals(s_current.Value, this))
+            s_current.Value = _previous;
+    }
+
+    private sealed record DeferredPreview(
+        IReadOnlyList<RenderFragmentHandle> Inputs,
+        Func<Ref<Bitmap>?, Ref<Bitmap>?> Replace);
+
+    private readonly record struct PreviewCommandState;
+}

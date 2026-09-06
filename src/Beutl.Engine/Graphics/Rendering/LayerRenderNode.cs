@@ -1,6 +1,5 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-// TODO: Limitがdefaultの場合、CalculateBoundsを使うようにする
 public class LayerRenderNode(Rect limit) : ContainerRenderNode
 {
     public Rect Limit { get; private set; } = limit;
@@ -10,39 +9,18 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
         if (Limit != limit)
         {
             Limit = limit;
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 
         return false;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        // SaveLayer flatten with no owned buffer; reports Unbounded since it re-rasterizes at any scale.
-        return
-        [
-            RenderNodeOperation.CreateLambda(
-                bounds: context.CalculateBounds(),
-                render: canvas =>
-                {
-                    using (canvas.PushLayer(Limit))
-                    {
-                        foreach (RenderNodeOperation op in context.Input)
-                        {
-                            op.Render(canvas);
-                        }
-                    }
-                },
-                hitTest: p => context.Input.Any(n => n.HitTest(p)),
-                onDispose: () =>
-                {
-                    foreach (RenderNodeOperation op in context.Input)
-                    {
-                        op.Dispose();
-                    }
-                },
-                effectiveScale: EffectiveScale.Unbounded)
-        ];
+        RenderFragmentHandle layer = Limit == default
+            ? context.TargetLayerScope(context.Inputs, TargetRegion.Full)
+            : context.Layer(context.Inputs, Limit);
+        context.Publish(layer);
     }
 }

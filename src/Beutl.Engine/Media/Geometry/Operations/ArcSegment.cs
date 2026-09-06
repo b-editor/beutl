@@ -28,12 +28,6 @@ public sealed partial class ArcSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.ArcSegment_Point), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
-    public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.ArcTo(r.Radius, r.RotationAngle, r.IsLargeArc, r.SweepClockwise, r.Point);
-    }
-
     public override IProperty<Point> GetEndPoint()
     {
         return Point;
@@ -41,6 +35,11 @@ public sealed partial class ArcSegment : PathSegment
 
     public partial class Resource
     {
+        public override void ApplyTo(IGeometryContext context)
+        {
+            context.ArcTo(Radius, RotationAngle, IsLargeArc, SweepClockwise, Point);
+        }
+
         public override Point? GetEndPoint()
         {
             return Point;

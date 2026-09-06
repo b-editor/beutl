@@ -14,8 +14,12 @@ Existing uniforms **keep their device-pixel meaning** = the size of the *scaled*
 |---|---|---|
 | `width`, `height` | target size, device px | `ceil(logicalBounds.W/H × w)` — smaller at reduced preview, larger when oversampled |
 | `iResolution` | `(width, height)` — a 2-component `float2` (bound as an `SKPoint`, `SKSLScriptEffect.cs`); declare it `uniform float2 iResolution`, NOT `float3` | as above |
-| `fragCoord` | device pixel coord | ranges over the scaled target |
+| `fragCoord` | device pixel coord | spans `[0, iResolution]` over the effect's **complete** output, independent of the region the renderer was asked for |
 | **`iScale`** *(new)* | working scale `w` | `w` (default `1.0`) |
+
+A whole-source stage is evaluated over its complete output even when only part of it is required, so
+`fragCoord / iResolution` is a true normalized coordinate and an absolute anchor (a mirror axis, a tile
+grid origin) stays put when the renderer clips the request to the frame.
 
 Author rule: a UV-normalized shader (`fragCoord / iResolution`) auto-corrects across scales; a shader with an absolute pixel literal multiplies it by `iScale`, e.g. `float radius = 10.0 * iScale;`. Per-texel kernels (blur/edge/sharpen) are inherently resolution-sensitive (FR-013): reduced-scale preview is best-effort, full fidelity at export (`w=1`, i.e. `s_out=1.0` over a unit-scale input).
 

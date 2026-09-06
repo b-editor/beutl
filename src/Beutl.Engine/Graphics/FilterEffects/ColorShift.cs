@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -12,43 +12,31 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.ColorShift), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorShift : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform shader src;
+        uniform float2 redOffset;
+        uniform float2 greenOffset;
+        uniform float2 blueOffset;
+        uniform float2 alphaOffset;
 
-    static ColorShift()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float2 redOffset;
-            uniform float2 greenOffset;
-            uniform float2 blueOffset;
-            uniform float2 alphaOffset;
-            uniform float2 minOffset;
+        half4 main(float2 fragCoord) {
+            float2 redCoord   = fragCoord - redOffset;
+            float2 greenCoord = fragCoord - greenOffset;
+            float2 blueCoord  = fragCoord - blueOffset;
+            float2 alphaCoord = fragCoord - alphaOffset;
 
-            half4 main(float2 fragCoord) {
-                // 出力画素座標 fragCoord に対し、各色成分のサンプル位置を計算
-                float2 redCoord   = fragCoord - redOffset   + minOffset;
-                float2 greenCoord = fragCoord - greenOffset + minOffset;
-                float2 blueCoord  = fragCoord - blueOffset  + minOffset;
-                float2 alphaCoord = fragCoord - alphaOffset + minOffset;
+            float red   = src.eval(redCoord).r;
+            float green = src.eval(greenCoord).g;
+            float blue  = src.eval(blueCoord).b;
+            float alpha = src.eval(alphaCoord).a;
 
-                // 各色成分をそれぞれのオフセット位置からサンプル
-                // ※ サンプラーは通常 RGBA 順で色成分を返します
-                float red   = src.eval(redCoord).r;
-                float green = src.eval(greenCoord).g;
-                float blue  = src.eval(blueCoord).b;
-                float alpha = src.eval(alphaCoord).a;
-
-                return half4(red, green, blue, alpha);
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+            return half4(red, green, blue, alpha);
         }
-    }
+        """;
+
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.WholeSource);
 
     public ColorShift()
     {
@@ -70,81 +58,114 @@ public partial class ColorShift : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (s_shader is null)
-        {
-            throw new InvalidOperationException("Failed to compile SKSL.");
-        }
+        var offsets = new ColorShiftOffsets(
+            r.RedOffset,
+            r.GreenOffset,
+            r.BlueOffset,
+            r.AlphaOffset);
+        RenderBoundsContract bounds = RenderBoundsContract.Create(
+            offsets,
+            static (state, bounds) => state.TransformBounds(bounds),
+            static (state, bounds) => state.GetRequiredInputBounds(bounds));
 
-        context.CustomEffect(
-            (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset),
-            OnApply,
-            TransformBoundsCore);
+        context.Shader(ShaderDescription.WholeSource(
+            s_shaderSource,
+            bounds,
+            bindings =>
+            {
+                BindOffset(bindings, "redOffset", r.RedOffset);
+                BindOffset(bindings, "greenOffset", r.GreenOffset);
+                BindOffset(bindings, "blueOffset", r.BlueOffset);
+                BindOffset(bindings, "alphaOffset", r.AlphaOffset);
+            },
+            SKShaderTileMode.Decal,
+            hitTest: offsets.MovesContent
+                ? RenderHitTestContract.Custom(
+                    offsets,
+                    static (state, context, point) => state.HitTest(context, point))
+                : null));
     }
 
-    private static Rect TransformBoundsCore(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
-        Rect bounds)
+    private static void BindOffset(ShaderBindingBuilder bindings, string name, PixelPoint value)
     {
-        return bounds.Translate(data.RedOffset.ToPoint(1))
-            .Union(bounds.Translate(data.GreenOffset.ToPoint(1)))
-            .Union(bounds.Translate(data.BlueOffset.ToPoint(1)))
-            .Union(bounds.Translate(data.AlphaOffset.ToPoint(1)));
+        bindings.Uniform(
+            name,
+            new Vector2(value.X, value.Y),
+            static (writer, offset, execution) => writer.Set(offset * execution.WorkingScale));
     }
 
-    private static void OnApply(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
-        CustomFilterEffectContext context)
+    private readonly record struct ColorShiftOffsets(
+        PixelPoint RedOffset,
+        PixelPoint GreenOffset,
+        PixelPoint BlueOffset,
+        PixelPoint AlphaOffset)
     {
-        if (s_shader is null) return;
-        for (int i = 0; i < context.Targets.Count; i++)
+        /// <remarks>
+        /// Every offset at zero makes the entry point read the pixel it writes, which is what forwarding the
+        /// query to the input already answers - and forwarding answers it through the input's own rule, which
+        /// no contract stated here can be more exact than.
+        /// </remarks>
+        public bool MovesContent
+            => RedOffset != default
+               || GreenOffset != default
+               || BlueOffset != default
+               || AlphaOffset != default;
+
+        /// <remarks>
+        /// <para>
+        /// The entry point evaluates <c>src</c> at <c>fragCoord</c> minus each channel's own offset, so the
+        /// points it reads for one output pixel are exactly those four translations of it and no others.
+        /// Decal sampling makes a translation that misses the input contribute nothing, which is what bounds
+        /// this to the four footprints rather than to the output rectangle. Alpha alone would not answer it:
+        /// alpha comes from <c>alphaOffset</c> only, so a colour offset paints a channel over a transparent
+        /// pixel, and premultiplied compositing adds that colour to whatever is behind it.
+        /// </para>
+        /// <para>
+        /// What the entry point takes from each of those points is one channel, so whether the pixel carries
+        /// anything depends on the input's colour there and not only on whether the input covered it: over an
+        /// input whose green is zero, a green-only shift lands on covered input and still writes nothing. A
+        /// hit test cannot see that. <see cref="RenderHitTestInput"/> answers coverage and never a sample, and
+        /// the same coverage arises from an input that would paint the pixel and one that would not, so no
+        /// test built on it can separate the two. Between claiming a point the stage left clear and missing
+        /// one it painted, this claims: the rule is that a stage must answer for the pixels it produced.
+        /// The over-claim is bounded by the four translated footprints and costs a click landing on the
+        /// element where a zero channel left the result transparent.
+        /// </para>
+        /// </remarks>
+        public bool HitTest(RenderHitTestContext context, Point point)
+            => ReadsCoveredInput(context, point, RedOffset)
+               || ReadsCoveredInput(context, point, GreenOffset)
+               || ReadsCoveredInput(context, point, BlueOffset)
+               || ReadsCoveredInput(context, point, AlphaOffset);
+
+        private static bool ReadsCoveredInput(
+            RenderHitTestContext context,
+            Point point,
+            PixelPoint offset)
         {
-            // Not `using`: the skip paths below keep this target in context.Targets[i], so it must
-            // only be disposed after the slot is replaced with the shifted output.
-            EffectTarget effectTarget = context.Targets[i];
-            RenderTarget? renderTarget = effectTarget.RenderTarget;
-            if (renderTarget is null)
+            // Decal sampling leaves everything outside the input transparent, so an input that misses the
+            // translated point contributes nothing there.
+            Point source = point - offset.ToPoint(1);
+            IReadOnlyList<RenderHitTestInput> inputs = context.Inputs;
+            for (int index = 0; index < inputs.Count; index++)
             {
-                continue;
+                if (inputs[index].HitTest(source))
+                    return true;
             }
 
-            var bounds = TransformBoundsCore(data, effectTarget.Bounds);
-            int minOffsetX = Math.Min(data.RedOffset.X,
-                Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
-            int minOffsetY = Math.Min(data.RedOffset.Y,
-                Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
-
-            using var image = renderTarget.Value.Snapshot();
-            if (image is null)
-            {
-                // Delivery (MaxWorkingScale == +inf) must not silently ship an unshifted layer;
-                // preview keeps the source pixels.
-                if (float.IsPositiveInfinity(context.MaxWorkingScale))
-                {
-                    throw new InvalidOperationException(
-                        $"ColorShift snapshot failed for target {i}; the GPU surface could not be read back.");
-                }
-
-                continue;
-            }
-
-            using var baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = s_shader.CreateBuilder();
-
-            // child shaderとしてテクスチャ用のシェーダーを設定
-            builder.Children["src"] = baseShader;
-            // Scale offsets by working density so they match the device-px buffer.
-            float w = context.ResolveTargetDensity(bounds);
-            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
-            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
-            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);
-            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X * w, data.AlphaOffset.Y * w);
-            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX * w, minOffsetY * w);
-
-            // 新しいターゲットに適用
-            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);
-            effectTarget.Dispose();
+            return false;
         }
+
+        public Rect TransformBounds(Rect bounds)
+            => bounds.Translate(RedOffset.ToPoint(1))
+                .Union(bounds.Translate(GreenOffset.ToPoint(1)))
+                .Union(bounds.Translate(BlueOffset.ToPoint(1)))
+                .Union(bounds.Translate(AlphaOffset.ToPoint(1)));
+
+        public Rect GetRequiredInputBounds(Rect bounds)
+            => bounds.Translate(-RedOffset.ToPoint(1))
+                .Union(bounds.Translate(-GreenOffset.ToPoint(1)))
+                .Union(bounds.Translate(-BlueOffset.ToPoint(1)))
+                .Union(bounds.Translate(-AlphaOffset.ToPoint(1)));
     }
 }

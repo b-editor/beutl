@@ -19,23 +19,25 @@ public sealed partial class RectGeometry : Geometry
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
+    public partial class Resource
     {
-        base.ApplyTo(context, resource);
-        var r = (Resource)resource;
-        float width = r.Width;
-        float height = r.Height;
-        if (float.IsInfinity(width))
-            width = 0;
+        public override void ApplyTo(IGeometryContext context)
+        {
+            base.ApplyTo(context);
+            float width = Width;
+            float height = Height;
+            if (float.IsInfinity(width))
+                width = 0;
 
-        if (float.IsInfinity(height))
-            height = 0;
+            if (float.IsInfinity(height))
+                height = 0;
 
-        context.MoveTo(new Point(0, 0));
-        context.LineTo(new Point(width, 0));
-        context.LineTo(new Point(width, height));
-        context.LineTo(new Point(0, height));
-        context.LineTo(new Point(0, 0));
-        context.Close();
+            context.MoveTo(new Point(0, 0));
+            context.LineTo(new Point(width, 0));
+            context.LineTo(new Point(width, height));
+            context.LineTo(new Point(0, height));
+            context.LineTo(new Point(0, 0));
+            context.Close();
+        }
     }
 }

@@ -31,14 +31,15 @@ public sealed partial class BlockWaveformShape : WaveformShape
 
     public new partial class Resource
     {
-        internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill)
+        protected internal override void Render(in WaveformRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> mins = context.Mins;
+            ReadOnlySpan<float> maxs = context.Maxs;
+            float gain = context.Gain;
+            Brush.Resource fill = context.Fill;
+
             int barCount = mins.Length;
             if (barCount == 0) return;
 
@@ -47,8 +48,7 @@ public sealed partial class BlockWaveformShape : WaveformShape
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
             float slotWidth = width / barCount;
-            float requested = BarWidth;
-            float barWidth = requested > 0f ? MathF.Max(0.5f, requested) : MathF.Max(1f, slotWidth - 0.5f);
+            float barWidth = BarGeometry.ResolveWidth(BarWidth, slotWidth);
             float offsetX = (slotWidth - barWidth) * 0.5f;
             bool mirrored = Mirrored;
 

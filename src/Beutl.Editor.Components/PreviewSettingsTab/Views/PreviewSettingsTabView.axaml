@@ -6,6 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:models="using:Beutl.Models"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.Editor.Components.PreviewSettingsTab.ViewModels"
              d:DesignHeight="600"
              d:DesignWidth="400"
@@ -97,6 +98,12 @@
                               IsChecked="{CompiledBinding IsNodeCacheEnabled.Value}"
                               Theme="{StaticResource CompactToggleSwitchStyle}" />
             </Grid>
+
+            <ui:InfoBar Margin="8,8,8,0"
+                        IsClosable="False"
+                        IsOpen="{CompiledBinding IsNodeCacheEnabled.Value}"
+                        Message="{x:Static lang:SettingsStrings.NodeCacheWarning}"
+                        Severity="Warning" />
 
             <ItemsControl IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}" ItemsSource="{CompiledBinding NodeCacheProperties}">
                 <ItemsControl.ItemTemplate>

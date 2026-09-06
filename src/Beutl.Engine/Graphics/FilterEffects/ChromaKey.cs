@@ -1,100 +1,109 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
+using Beutl.Graphics.Shaders;
 using Beutl.Language;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.ChromaKey), ResourceType = typeof(GraphicsStrings))]
 public partial class ChromaKey : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<ChromaKey>();
-    private static readonly SKSLShader? s_shader;
+    private const string ShaderSource =
+        """
+        uniform float3 keyColor;
+        uniform float3 keyColorLinear;
+        uniform float hueRange;
+        uniform float saturationRange;
+        uniform float boundary;
 
-    static ChromaKey()
-    {
-        string sksl =
-            """
-            uniform shader src;
-            uniform float4 color;
-            uniform float hueRange;
-            uniform float saturationRange;
-            uniform float boundary;
+        // Match in linear light, where the 8-bit quantization error is uniform. Include half-storage error;
+        // premultiplication makes the bound alpha-independent but intentionally dominates at low alpha.
+        const float kLinearQuantum = 0.5 / 255.0;
+        const float kHalfStorageUlp = 1.0 / 2048.0;
 
-            // RGBからHSVへの変換関数
-            half3 rgb2hsv(half3 c) {
-                half r = c.r;
-                half g = c.g;
-                half b = c.b;
-                half maxc = max(r, max(g, b));
-                half minc = min(r, min(g, b));
-                half delta = maxc - minc;
-                half h = 0.0;
+        // Hue divides by the chroma, and that same quantization can manufacture one linear code of chroma, so
+        // a key colour below one code has no dependable hue and full confidence only above two. Only the key
+        // is measured: withholding the hue term is a vote to remove, because the shader removes what no term
+        // claims, and a pixel whose own chroma is low is thereby known not to be a chromatic key.
+        const half kHueChromaFloor = 1.0 / 255.0;
 
-                if (delta > 0.00001) {
-                    if (maxc == r) {
-                        h = mod((g - b) / delta, 6.0);
-                    } else if (maxc == g) {
-                        h = (b - r) / delta + 2.0;
-                    } else {
-                        h = (r - g) / delta + 4.0;
-                    }
-                    h = h / 6.0; // 0～1の範囲に正規化
+        // Slack for content that arrives near, but not on, the key colour, and the narrowest smoothstep
+        // this shader will run: equal edges are undefined in the shading languages, and Boundary 0 is the
+        // natural authoring choice for a hard key.
+        const half kEdgeTolerance = 1.0 / 255.0;
+
+        half3 rgb2hsv(half3 value) {
+            half r = value.r;
+            half g = value.g;
+            half b = value.b;
+            half maxc = max(r, max(g, b));
+            half minc = min(r, min(g, b));
+            half delta = maxc - minc;
+            half h = 0.0;
+
+            if (delta > 0.00001) {
+                if (maxc == r) {
+                    h = mod((g - b) / delta, 6.0);
+                } else if (maxc == g) {
+                    h = (b - r) / delta + 2.0;
+                } else {
+                    h = (r - g) / delta + 4.0;
                 }
-
-                half s = (maxc <= 0.0) ? 0.0 : (delta / maxc);
-                half v = maxc;
-                return half3(h, s, v);
+                h = h / 6.0;
             }
 
-            // リニアsRGB -> sRGBガンマ変換
-            half3 linearToSrgb(half3 c) {
-                half3 lo = c * 12.92;
-                half3 hi = 1.055 * pow(c, half3(1.0/2.4)) - 0.055;
-                return mix(lo, hi, step(half3(0.0031308), c));
-            }
-
-            half4 main(float2 fragCoord) {
-                half4 c = src.eval(fragCoord);
-
-                // プリマルチプライドアルファを解除
-                half alpha = c.a;
-                if (alpha <= 0.0001) return half4(0.0);
-                half3 rgb = c.rgb / alpha;
-
-                // リニアsRGB → sRGBガンマに変換してからHSV比較
-                // （color uniformはsRGBガンマ空間のため、同じ空間で比較する）
-                half3 srgbColor = linearToSrgb(rgb);
-
-                half3 hsv = rgb2hsv(srgbColor);
-                half3 keyHSV = rgb2hsv(color.rgb);
-
-                // 色相の差を計算（周期性を考慮）
-                half hueDiff = abs(hsv.x - keyHSV.x);
-                hueDiff = min(hueDiff, 1.0 - hueDiff);
-
-                // 彩度の差の絶対値
-                half satDiff = abs(hsv.y - keyHSV.y);
-
-                half maskHue = smoothstep(hueRange, hueRange + boundary, hueDiff);
-                half maskSat = smoothstep(saturationRange, saturationRange + boundary, satDiff);
-
-                // 色相と彩度の両条件を満たすかを判定
-                half mask = max(maskHue, maskSat);
-
-                // 元のプリマルチプライド値にマスクを乗算して透過させる
-                return c * mask;
-            }
-            """;
-
-        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
-        {
-            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+            half s = (maxc <= 0.0) ? 0.0 : (delta / maxc);
+            half v = maxc;
+            return half3(h, s, v);
         }
-    }
+
+        half3 linearToSrgb(half3 value) {
+            half3 lo = value * 12.92;
+            half3 hi = 1.055 * pow(value, half3(1.0 / 2.4)) - 0.055;
+            return mix(lo, hi, step(half3(0.0031308), value));
+        }
+
+        half chroma(half3 value) {
+            return max(value.r, max(value.g, value.b)) - min(value.r, min(value.g, value.b));
+        }
+
+        half4 apply(half4 color) {
+            half alpha = color.a;
+            if (alpha <= 0.0001) return half4(0.0);
+            half3 rgb = color.rgb / alpha;
+
+            float3 keyPremul = keyColorLinear * float(alpha);
+            float3 excess = abs(float3(color.rgb) - keyPremul)
+                - (kLinearQuantum + (kHalfStorageUlp * keyPremul));
+            half onKeyColor = max(excess.r, max(excess.g, excess.b)) <= 0.0 ? 1.0 : 0.0;
+
+            half3 hsv = rgb2hsv(linearToSrgb(rgb));
+            half3 keyHSV = rgb2hsv(keyColor);
+
+            half hueDiff = abs(hsv.x - keyHSV.x);
+            hueDiff = min(hueDiff, 1.0 - hueDiff);
+
+            half satDiff = abs(hsv.y - keyHSV.y);
+
+            half width = max(boundary, kEdgeTolerance);
+            half hueEdge0 = hueRange + kEdgeTolerance;
+            half satEdge0 = saturationRange + kEdgeTolerance;
+            half hueSignal = smoothstep(
+                kHueChromaFloor,
+                2.0 * kHueChromaFloor,
+                chroma(half3(keyColorLinear)));
+            half maskHue = smoothstep(hueEdge0, hueEdge0 + width, hueDiff) * hueSignal;
+            half maskSat = smoothstep(satEdge0, satEdge0 + width, satDiff);
+            half mask = max(maskHue, maskSat) * (1.0 - onKeyColor);
+
+            return color * mask;
+        }
+        """;
+
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.CurrentPixel);
 
     public ChromaKey()
     {
@@ -116,32 +125,20 @@ public partial class ChromaKey : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(
-            (color: r.Color, hueRange: r.HueRange, satRange: r.SaturationRange, boundary: r.Boundary),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
-    private static void OnApplyTo((Color color, float hueRange, float satRange, float boundary) data, CustomFilterEffectContext c)
-    {
-        if (s_shader is null) return;
-        for (int i = 0; i < c.Targets.Count; i++)
-        {
-            using EffectTarget effectTarget = c.Targets[i];
-            var renderTarget = effectTarget.RenderTarget!;
-
-            using var image = renderTarget.Value.Snapshot();
-            using var baseShader = image.ToShader();
-
-            var builder = s_shader.CreateBuilder();
-
-            builder.Children["src"] = baseShader;
-            builder.Uniforms["color"] = data.color.ToSKColor();
-            builder.Uniforms["hueRange"] = data.hueRange / 360f;
-            builder.Uniforms["saturationRange"] = data.satRange / 100f;
-            builder.Uniforms["boundary"] = data.boundary / 100f;
-
-            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
-        }
+        context.Shader(ShaderDescription.CurrentPixel(
+            s_shaderSource,
+            bindings =>
+            {
+                bindings.Uniform(
+                    "keyColor",
+                    new Vector3(
+                        r.Color.R / 255f,
+                        r.Color.G / 255f,
+                        r.Color.B / 255f));
+                bindings.Uniform("keyColorLinear", r.Color.ToLinear().AsVector3());
+                bindings.Uniform("hueRange", r.HueRange / 360f);
+                bindings.Uniform("saturationRange", r.SaturationRange / 100f);
+                bindings.Uniform("boundary", r.Boundary / 100f);
+            }));
     }
 }

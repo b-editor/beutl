@@ -10,21 +10,40 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// </summary>
 internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
 {
-    private readonly Shaderc _shaderc;
+    // libshaderc registers process-wide exit callbacks that outlive dlclose on Linux. Keep one API context
+    // loaded for the process; compiler and options handles remain owned by each instance.
+    private static readonly Shaderc s_shaderc = Shaderc.GetApi();
+
     private readonly Compiler* _compiler;
     private readonly CompileOptions* _options;
     private bool _disposed;
 
     public VulkanShaderCompiler()
     {
-        _shaderc = Shaderc.GetApi();
-        _compiler = _shaderc.CompilerInitialize();
-        _options = _shaderc.CompileOptionsInitialize();
+        Compiler* compiler = null;
+        CompileOptions* options = null;
+        try
+        {
+            compiler = s_shaderc.CompilerInitialize();
+            if (compiler == null)
+                throw new InvalidOperationException("Failed to initialize the shaderc compiler.");
 
-        // Set default options
-        _shaderc.CompileOptionsSetOptimizationLevel(_options, OptimizationLevel.Performance);
-        _shaderc.CompileOptionsSetTargetEnv(_options, TargetEnv.Vulkan, (uint)EnvVersion.Vulkan12);
-        _shaderc.CompileOptionsSetTargetSpirv(_options, SpirvVersion.Shaderc15);
+            options = s_shaderc.CompileOptionsInitialize();
+            if (options == null)
+                throw new InvalidOperationException("Failed to initialize shaderc compile options.");
+
+            s_shaderc.CompileOptionsSetOptimizationLevel(options, OptimizationLevel.Performance);
+            s_shaderc.CompileOptionsSetTargetEnv(options, TargetEnv.Vulkan, (uint)EnvVersion.Vulkan12);
+            s_shaderc.CompileOptionsSetTargetSpirv(options, SpirvVersion.Shaderc15);
+
+            _compiler = compiler;
+            _options = options;
+        }
+        catch
+        {
+            Release(compiler, options);
+            throw;
+        }
     }
 
     public byte[] CompileToSpirv(string source, ShaderStage stage, string entryPoint = "main")
@@ -39,7 +58,7 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
         fixed (byte* fileNamePtr = fileNameBytes)
         fixed (byte* entryPointPtr = entryPointBytes)
         {
-            var result = _shaderc.CompileIntoSpv(
+            var result = s_shaderc.CompileIntoSpv(
                 _compiler,
                 sourcePtr,
                 (nuint)sourceBytes.Length,
@@ -50,18 +69,18 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
 
             try
             {
-                var status = _shaderc.ResultGetCompilationStatus(result);
+                var status = s_shaderc.ResultGetCompilationStatus(result);
                 if (status != CompilationStatus.Success)
                 {
-                    var errorMessagePtr = _shaderc.ResultGetErrorMessage(result);
+                    var errorMessagePtr = s_shaderc.ResultGetErrorMessage(result);
                     var errorMessage = errorMessagePtr != null
                         ? Marshal.PtrToStringUTF8((IntPtr)errorMessagePtr) ?? "Unknown error"
                         : "Unknown error";
                     throw new InvalidOperationException($"Shader compilation failed: {errorMessage}");
                 }
 
-                var length = _shaderc.ResultGetLength(result);
-                var bytesPtr = _shaderc.ResultGetBytes(result);
+                var length = s_shaderc.ResultGetLength(result);
+                var bytesPtr = s_shaderc.ResultGetBytes(result);
 
                 var spirv = new byte[length];
                 Marshal.Copy((IntPtr)bytesPtr, spirv, 0, (int)length);
@@ -69,7 +88,7 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
             }
             finally
             {
-                _shaderc.ResultRelease(result);
+                s_shaderc.ResultRelease(result);
             }
         }
     }
@@ -101,14 +120,24 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        if (_options != null)
-        {
-            _shaderc.CompileOptionsRelease(_options);
-        }
+        Release(_compiler, _options);
+    }
 
-        if (_compiler != null)
+    private static void Release(Compiler* compiler, CompileOptions* options)
+    {
+        try
         {
-            _shaderc.CompilerRelease(_compiler);
+            if (options != null)
+            {
+                s_shaderc.CompileOptionsRelease(options);
+            }
+        }
+        finally
+        {
+            if (compiler != null)
+            {
+                s_shaderc.CompilerRelease(compiler);
+            }
         }
     }
 }

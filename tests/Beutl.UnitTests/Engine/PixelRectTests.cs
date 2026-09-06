@@ -5,6 +5,15 @@ namespace Beutl.UnitTests.Engine;
 
 public class PixelRectTests
 {
+    private static readonly Rect[] s_fractionalRects =
+    [
+        new(0.25f, 0.25f, 4, 4),
+        new(-0.25f, -0.25f, 4, 4),
+        new(-0.02f, -0.02f, 4, 4),
+        new(-1.5f, -1.5f, 3, 3),
+        new(-3.5f, -3.5f, 0.25f, 0.25f),
+    ];
+
     [Test]
     public void Parse()
     {
@@ -178,6 +187,127 @@ public class PixelRectTests
             Is.EqualTo(new PixelRect(0, 0, 2, 3)));
         Assert.That(PixelRect.FromRect(r, new Vector(2, 4)),
             Is.EqualTo(new PixelRect(0, 0, 3, 10)));
+    }
+
+    [Test]
+    public void FromRect_CoversEveryLogicalCorner([ValueSource(nameof(s_fractionalRects))] Rect rect)
+    {
+        Assert.Multiple(() =>
+        {
+            AssertCovers(PixelRect.FromRect(rect), rect, new Vector(1, 1));
+            AssertCovers(PixelRect.FromRect(rect, 2f), rect, new Vector(2, 2));
+            AssertCovers(PixelRect.FromRect(rect, new Vector(2, 4)), rect, new Vector(2, 4));
+        });
+    }
+
+    [Test]
+    public void FromRect_FloorsTheTopLeftAtNegativeOrigins()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PixelRect.FromRect(new Rect(-0.25f, -0.25f, 4, 4)),
+                Is.EqualTo(new PixelRect(-1, -1, 5, 5)));
+            Assert.That(PixelRect.FromRect(new Rect(-1.5f, -1.5f, 3, 3)),
+                Is.EqualTo(new PixelRect(-2, -2, 4, 4)));
+            Assert.That(PixelRect.FromRect(new Rect(-0.25f, -0.25f, 4, 4), 2f),
+                Is.EqualTo(new PixelRect(-1, -1, 9, 9)));
+        });
+    }
+
+    [TestCase(100_000f)]
+    [TestCase(1_000_000f)]
+    [TestCase(10_000_000f)]
+    public void FromRect_CoverOfLargeCoordinateSuperset_ContainsSubsetCover(float coordinate)
+    {
+        var subset = new Rect(coordinate, coordinate, 0.001f, 0.001f);
+        var superset = new Rect(coordinate - 5f, coordinate - 5f, 5.001f, 5.001f);
+
+        PixelRect subsetCover = PixelRect.FromRect(subset, 1f);
+        PixelRect supersetCover = PixelRect.FromRect(superset, 1f);
+
+        Assert.That(
+            supersetCover.Contains(subsetCover),
+            Is.True,
+            $"The cover of {superset} ({supersetCover}) did not contain the cover of {subset} ({subsetCover}).");
+    }
+
+    [Test]
+    public void FromRect_CoverMapping_IsMonotoneForRandomContainedRects()
+    {
+        var random = new Random(0x50495845);
+        int verified = 0;
+
+        for (int attempt = 0; attempt < 20_000 && verified < 5_000; attempt++)
+        {
+            float outerX = RandomCoordinate(random);
+            float outerY = RandomCoordinate(random);
+            float outerWidth = RandomExtent(random);
+            float outerHeight = RandomExtent(random);
+            var outer = new Rect(outerX, outerY, outerWidth, outerHeight);
+
+            float innerX = (float)((double)outerX + outerWidth * random.NextDouble());
+            float innerY = (float)((double)outerY + outerHeight * random.NextDouble());
+            double remainingWidth = (double)outerX + outerWidth - innerX;
+            double remainingHeight = (double)outerY + outerHeight - innerY;
+            if (remainingWidth <= 0 || remainingHeight <= 0)
+                continue;
+
+            float innerWidth = (float)(remainingWidth * random.NextDouble());
+            float innerHeight = (float)(remainingHeight * random.NextDouble());
+            if (innerWidth <= 0 || innerHeight <= 0)
+                continue;
+
+            var inner = new Rect(innerX, innerY, innerWidth, innerHeight);
+            if (!ContainsInDouble(outer, inner))
+                continue;
+
+            float scale = 0.1f + (float)(random.NextDouble() * 3.9);
+            PixelRect outerCover = PixelRect.FromRect(outer, scale);
+            PixelRect innerCover = PixelRect.FromRect(inner, scale);
+
+            Assert.That(
+                outerCover.Contains(innerCover),
+                Is.True,
+                $"Scale {scale}: cover of {outer} ({outerCover}) did not contain cover of {inner} ({innerCover}).");
+            verified++;
+        }
+
+        Assert.That(verified, Is.EqualTo(5_000), "The seeded sweep did not generate enough valid contained rectangles.");
+    }
+
+    private static float RandomCoordinate(Random random)
+    {
+        double magnitude = Math.Pow(10, 2 + random.NextDouble() * 5);
+        return (float)((random.Next(2) == 0 ? -1 : 1) * magnitude);
+    }
+
+    private static float RandomExtent(Random random)
+    {
+        return (float)Math.Pow(10, -3 + random.NextDouble() * 5);
+    }
+
+    private static bool ContainsInDouble(Rect outer, Rect inner)
+    {
+        return (double)inner.X >= outer.X
+               && (double)inner.Y >= outer.Y
+               && (double)inner.X + inner.Width <= (double)outer.X + outer.Width
+               && (double)inner.Y + inner.Height <= (double)outer.Y + outer.Height;
+    }
+
+    private static void AssertCovers(PixelRect actual, Rect logical, Vector scale)
+    {
+        var device = new Rect(
+            logical.X * scale.X,
+            logical.Y * scale.Y,
+            logical.Width * scale.X,
+            logical.Height * scale.Y);
+
+        Assert.That(actual.X, Is.LessThanOrEqualTo(device.X), $"{actual} misses the left of {device}");
+        Assert.That(actual.Y, Is.LessThanOrEqualTo(device.Y), $"{actual} misses the top of {device}");
+        Assert.That(actual.Right, Is.GreaterThanOrEqualTo(device.Right), $"{actual} misses the right of {device}");
+        Assert.That(actual.Bottom, Is.GreaterThanOrEqualTo(device.Bottom), $"{actual} misses the bottom of {device}");
+        Assert.That(actual.Width, Is.GreaterThan(0), $"{actual} has no width for {device}");
+        Assert.That(actual.Height, Is.GreaterThan(0), $"{actual} has no height for {device}");
     }
 
     [Test]

@@ -1,0 +1,283 @@
+﻿using System.Numerics;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
+using SkiaSharp;
+
+namespace Beutl.Graphics.Shaders;
+
+/// <summary>Declares uniform and child-shader bindings while a <see cref="ShaderDescription"/> is created.</summary>
+/// <remarks>
+/// The description invokes its builder callback synchronously and takes ownership of the declared bindings when the
+/// callback returns; the builder is closed at that point and every later declaration throws. Registered execution
+/// binders run later. Their writers, contexts, and callback-provided raw resources must not be retained, and binders
+/// must not dispose raw resources. Disposal ownership continues to follow each resource's owned or borrowed
+/// registration. Every binding name must be a unique SkSL identifier matching a declaration in the source.
+/// </remarks>
+public sealed class ShaderBindingBuilder
+{
+    private List<ShaderUniformBinding>? _uniforms;
+    private List<ShaderResourceBinding>? _resources;
+    private bool _closed;
+
+    internal ShaderBindingBuilder()
+    {
+    }
+
+    /// <summary>Declares a direct uniform whose canonical value is written without an execution callback.</summary>
+    /// <typeparam name="T">An unmanaged type in the supported canonical scalar, vector, or matrix allowlist.</typeparam>
+    /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
+    /// <param name="value">The value copied into the immutable description for execution.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or <typeparamref name="T"/> is not a supported canonical
+    /// uniform type.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
+    public void Uniform<T>(string name, T value)
+        where T : unmanaged
+    {
+        BeginBinding(name);
+        ShaderUniformValue canonical = ShaderUniformValue.Create(value);
+        CompleteBinding(new ShaderUniformBinding(
+            name,
+            typeof(T),
+            canonical));
+    }
+
+    /// <summary>Declares a direct floating-point uniform from a sequence copied during description creation.</summary>
+    /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
+    /// <param name="values">A non-empty sequence whose contents are copied immediately and are never retained.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or <paramref name="values"/> is empty.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
+    public void Uniform(string name, ReadOnlySpan<float> values)
+    {
+        BeginBinding(name);
+        if (values.IsEmpty)
+            throw new ArgumentException("A direct uniform span cannot be empty.", nameof(values));
+        float[] copy = values.ToArray();
+        CompleteBinding(new ShaderUniformBinding(
+            name,
+            typeof(float[]),
+            new ShaderUniformValue(copy, null, false)));
+    }
+
+    /// <summary>Declares a uniform whose value is produced by an execution-time binder.</summary>
+    /// <typeparam name="T">An unmanaged type in the supported canonical scalar, vector, or matrix allowlist.</typeparam>
+    /// <param name="name">The unique non-null SkSL uniform declaration name.</param>
+    /// <param name="value">
+    /// The author value passed to <paramref name="bind"/> during execution.
+    /// </param>
+    /// <param name="bind">
+    /// The non-null execution callback. It must call <see cref="ShaderUniformWriter.Set{T}(T)"/> or
+    /// <see cref="ShaderUniformWriter.Set(ReadOnlySpan{float})"/> exactly once and must not retain the writer or
+    /// context. The unmanaged <paramref name="value"/> is passed by value.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="name"/> or <paramref name="bind"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, an identity is invalid, or <typeparamref name="T"/> is not
+    /// a supported canonical uniform type.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">An unsigned value cannot be represented by its SkSL type.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
+    public void Uniform<T>(
+        string name,
+        T value,
+        Action<ShaderUniformWriter, T, ShaderExecutionContext> bind)
+        where T : unmanaged
+    {
+        BeginBinding(name);
+        ArgumentNullException.ThrowIfNull(bind);
+        CompleteBinding(new ShaderUniformBinding(
+            name,
+            new CustomUniformStructuralKey(
+                typeof(T),
+                RenderDescriptionValidation.StructuralIdentityOfExecution(bind)),
+            (writer, context) => bind(writer, value, context)));
+    }
+
+    /// <summary>Declares a child-shader resource produced by an execution-time binder.</summary>
+    /// <typeparam name="T">The raw request-scoped resource type.</typeparam>
+    /// <param name="name">The unique non-null SkSL child-shader declaration name.</param>
+    /// <param name="resource">A non-null resource token registered with the request family.</param>
+    /// <param name="coordinateSpace">How the returned child shader interprets coordinates passed to its <c>eval</c>.</param>
+    /// <param name="bind">
+    /// The non-null execution callback. It must call <see cref="ShaderResourceWriter.Set"/> exactly once with a newly
+    /// created shader. It must not retain the writer, context, or callback-provided resource and must not dispose the
+    /// resource. A borrowed resource remains caller-owned and its pixel-affecting state must remain read-only
+    /// throughout the executing request; an owned resource remains request-owned.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="name"/>, <paramref name="resource"/>, or <paramref name="bind"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or an identity is invalid.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="coordinateSpace"/> is not a defined <see cref="ShaderResourceCoordinateSpace"/> value.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
+    public void Resource<T>(
+        string name,
+        RenderResource<T> resource,
+        ShaderResourceCoordinateSpace coordinateSpace,
+        Action<ShaderResourceWriter, T, ShaderExecutionContext> bind)
+        where T : class
+    {
+        BeginBinding(name);
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(bind);
+        ThrowIfCoordinateSpaceUndefined(coordinateSpace);
+        CompleteBinding(new ShaderResourceBinding(
+            name,
+            resource,
+            coordinateSpace,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(bind),
+            (writer, value, context) => bind(writer, (T)value, context)));
+    }
+
+    /// <summary>Declares a child-shader resource whose binder also receives an author value.</summary>
+    /// <typeparam name="T">The raw request-scoped resource type.</typeparam>
+    /// <typeparam name="TValue">The author value type passed to <paramref name="bind"/>.</typeparam>
+    /// <param name="name">The unique non-null SkSL child-shader declaration name.</param>
+    /// <param name="resource">A non-null resource token registered with the request family.</param>
+    /// <param name="coordinateSpace">How the returned child shader interprets coordinates passed to its <c>eval</c>.</param>
+    /// <param name="value">The author value passed to <paramref name="bind"/> during execution.</param>
+    /// <param name="bind">
+    /// The non-null execution callback, under the same rules as
+    /// <see cref="Resource{T}(string, RenderResource{T}, ShaderResourceCoordinateSpace, Action{ShaderResourceWriter, T, ShaderExecutionContext})"/>.
+    /// </param>
+    /// <remarks>
+    /// <paramref name="value"/> is not part of the binding's structural identity, so a plan compiled for one value
+    /// is replayed for another. The declaring caller is what keys the plan, exactly as it is for a custom uniform.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="name"/>, <paramref name="resource"/>, or <paramref name="bind"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="name"/> is invalid or duplicated, or an identity is invalid.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="coordinateSpace"/> is not a defined <see cref="ShaderResourceCoordinateSpace"/> value.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The <see cref="ShaderDescription"/> that owns this builder was already created.
+    /// </exception>
+    public void Resource<T, TValue>(
+        string name,
+        RenderResource<T> resource,
+        ShaderResourceCoordinateSpace coordinateSpace,
+        TValue value,
+        Action<ShaderResourceWriter, T, TValue, ShaderExecutionContext> bind)
+        where T : class
+    {
+        BeginBinding(name);
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(bind);
+        ThrowIfCoordinateSpaceUndefined(coordinateSpace);
+        CompleteBinding(new ShaderResourceBinding(
+            name,
+            resource,
+            coordinateSpace,
+            RenderDescriptionValidation.StructuralIdentityOfExecution(bind),
+            (writer, raw, context) => bind(writer, (T)raw, value, context)));
+    }
+
+    private static void ThrowIfCoordinateSpaceUndefined(ShaderResourceCoordinateSpace coordinateSpace)
+    {
+        if (!Enum.IsDefined(coordinateSpace))
+            throw new ArgumentOutOfRangeException(nameof(coordinateSpace), coordinateSpace, "The coordinate space is invalid.");
+    }
+
+    /// <remarks>
+    /// The list itself, handed to the description that closed this builder. Nothing can append to it afterwards,
+    /// so the description keeps it rather than copying it.
+    /// </remarks>
+    internal IReadOnlyList<ShaderUniformBinding> Uniforms
+        => _uniforms is { } uniforms ? uniforms : Array.Empty<ShaderUniformBinding>();
+
+    /// <inheritdoc cref="Uniforms"/>
+    internal IReadOnlyList<ShaderResourceBinding> Resources
+        => _resources is { } resources ? resources : Array.Empty<ShaderResourceBinding>();
+
+    /// <summary>Closes the builder so that the description taking its lists can rely on them never growing.</summary>
+    internal void Close() => _closed = true;
+
+    private void CompleteBinding(ShaderUniformBinding binding)
+    {
+        (_uniforms ??= []).Add(binding);
+    }
+
+    private void CompleteBinding(ShaderResourceBinding binding)
+    {
+        (_resources ??= []).Add(binding);
+    }
+
+    private void BeginBinding(string name)
+    {
+        if (_closed)
+        {
+            throw new InvalidOperationException(
+                $"Cannot declare shader binding '{name}': the ShaderDescription that owns this builder has already "
+                + "been created. A binding callback must declare every binding before it returns and must not "
+                + "retain the builder.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (!IsIdentifier(name))
+            throw new ArgumentException("A shader binding name must be a valid identifier.", nameof(name));
+        if (ContainsName(name))
+            throw new ArgumentException($"Duplicate shader binding name '{name}'.", nameof(name));
+    }
+
+    internal bool ContainsName(string name)
+    {
+        if (_uniforms is { } uniforms)
+        {
+            for (int index = 0; index < uniforms.Count; index++)
+            {
+                if (string.Equals(uniforms[index].Name, name, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        if (_resources is { } resources)
+        {
+            for (int index = 0; index < resources.Count; index++)
+            {
+                if (string.Equals(resources[index].Name, name, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsIdentifier(string name)
+    {
+        if (!(char.IsLetter(name[0]) || name[0] == '_'))
+            return false;
+        for (int i = 1; i < name.Length; i++)
+        {
+            if (!(char.IsLetterOrDigit(name[i]) || name[i] == '_'))
+                return false;
+        }
+        return true;
+    }
+
+}
+
+internal sealed record CustomUniformStructuralKey(Type Type, object Binder);

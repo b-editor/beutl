@@ -66,7 +66,10 @@ public static class ResourceClassEmitter
 
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ValueType);
-            sb.Append(innerIndent).AppendLine($"private {resourceType} {fieldName} = default!;");
+            string fieldType = resourceType.EndsWith("?", StringComparison.Ordinal)
+                ? resourceType
+                : resourceType + "?";
+            sb.Append(innerIndent).AppendLine($"private {fieldType} {fieldName};");
             sb.AppendLine();
         }
 
@@ -112,9 +115,22 @@ public static class ResourceClassEmitter
 
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ValueType);
+            bool isNullable = property.ValueType.NullableAnnotation == NullableAnnotation.Annotated;
             sb.Append(innerIndent).AppendLine($"public {resourceType} {property.Name}");
             sb.Append(innerIndent).AppendLine("{");
-            sb.Append(innerIndent).AppendLine($"    get => {fieldName};");
+            if (isNullable)
+            {
+                sb.Append(innerIndent).AppendLine($"    get => {fieldName};");
+            }
+            else
+            {
+                sb.Append(innerIndent)
+                    .Append("    get => ")
+                    .Append(fieldName)
+                    .Append(" ?? throw new global::System.InvalidOperationException(\"")
+                    .Append(property.Name)
+                    .AppendLine(" did not contain an owned resource.\");");
+            }
             sb.Append(innerIndent).AppendLine($"    set => {fieldName} = value;");
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
@@ -149,9 +165,9 @@ public static class ResourceClassEmitter
 
     private static void EmitGetOriginal(StringBuilder sb, string innerIndent, string currentTypeDisplay)
     {
-        sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay} GetOriginal()");
+        sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay}? GetOriginal()");
         sb.Append(innerIndent).AppendLine("{");
-        sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay})base.GetOriginal();");
+        sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay}?)base.GetOriginal();");
         sb.Append(innerIndent).AppendLine("}");
     }
 
@@ -163,7 +179,7 @@ public static class ResourceClassEmitter
             sb.Append(innerIndent).AppendLine("public override void BindNodePortValues()");
             sb.Append(innerIndent).AppendLine("{");
             sb.Append(innerIndent).AppendLine("    base.BindNodePortValues();");
-            sb.Append(innerIndent).AppendLine("    var node = GetOriginal();");
+            sb.Append(innerIndent).AppendLine("    var node = GetOriginal()!;");
 
             for (int i = 0; i < info.NodePortProperties.Length; i++)
             {

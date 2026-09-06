@@ -149,7 +149,7 @@ public class ContextCommandManagerTests
     }
 
     [Test]
-    public void Restore_LegacyStringEntry_AppliesToFirstSlotOnly()
+    public void Restore_EffectItemStringEntry_AppliesToFirstSlotOnly()
     {
         // Entries written before multi-gesture support persist a plain string per platform.
         var json = new JsonObject { ["Windows"] = new JsonObject { [CommandFullName] = "F1" } };

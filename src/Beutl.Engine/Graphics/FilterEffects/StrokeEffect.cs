@@ -78,7 +78,7 @@ public partial class StrokeEffect : FilterEffect
             {
                 EffectTarget target = context.Targets[i];
                 RenderTarget srcRenderTarget = target.RenderTarget!;
-                using var src = srcRenderTarget.Snapshot();
+                using Bitmap src = srcRenderTarget.SnapshotAlpha();
 
                 // The contour path is device px; map to logical (/ w) for logical pen width/offset.
                 float w = context.WorkingScale;
@@ -91,6 +91,12 @@ public partial class StrokeEffect : FilterEffect
                     target.Bounds.Y - transformedBounds.Y);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
+                if (newTarget.IsEmpty)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
+
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushTransform(origin))
                 {

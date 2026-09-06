@@ -268,6 +268,10 @@
     <value>최소 픽셀</value>
     <comment />
   </data>
+  <data name="NodeCacheWarning" xml:space="preserve">
+    <value>노드 캐시를 사용하면 미리 보기의 렌더링 결과가 달라질 수 있습니다. 애니메이션 중에는 거의 효과가 없고 오히려 렌더링이 느려질 수 있습니다. 내보내기는 항상 캐시 없이 렌더링하므로 미리 보기와 내보내기 결과가 일치하지 않을 수 있습니다.</value>
+    <comment />
+  </data>
   <data name="SwapTimelineScrollDirection" xml:space="preserve">
     <value>타임라인 스크롤 방향 바꾸기</value>
     <comment />

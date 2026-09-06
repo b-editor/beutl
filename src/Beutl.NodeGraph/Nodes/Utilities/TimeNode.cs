@@ -24,7 +24,7 @@ public partial class TimeNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = GetOriginal()!;
             float duration = (float)node.TimeRange.Duration.TotalSeconds;
             float start = (float)node.TimeRange.Start.TotalSeconds;
             float time = (float)context.Time.TotalSeconds - start;

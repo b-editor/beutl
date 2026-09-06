@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Testing.Headless;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests;
 
@@ -17,5 +18,15 @@ public sealed class AssemblySetUp
     }
 
     [OneTimeTearDown]
-    public void TearDown() => BeutlHomeIsolation.End();
+    public void TearDown()
+    {
+        try
+        {
+            BeutlHomeIsolation.End();
+        }
+        finally
+        {
+            VulkanTestEnvironment.AssertNoUnattributedValidationErrors();
+        }
+    }
 }

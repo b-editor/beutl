@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// <summary>
 /// Vulkan implementation of <see cref="ITexture2D"/>.
 /// </summary>
-internal unsafe class VulkanTexture2D : ITexture2D
+internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture, IVulkanContextResource
 {
     protected readonly VulkanContext _context;
     protected readonly Silk.NET.Vulkan.Image _image;
@@ -18,7 +18,11 @@ internal unsafe class VulkanTexture2D : ITexture2D
     protected readonly int _height;
     protected readonly TextureFormat _format;
     protected readonly ulong _allocationSize;
+
+    public VulkanContext OwnerContext => _context;
     protected ImageLayout _currentLayout = ImageLayout.Undefined;
+    private TextureAccessDomain _accessDomain;
+    private bool _hasTransparentContents;
     protected bool _disposed;
 
     public VulkanTexture2D(
@@ -73,61 +77,14 @@ internal unsafe class VulkanTexture2D : ITexture2D
 
         _image = image;
 
-        // Get memory requirements
-        MemoryRequirements memReqs;
-        vk.GetImageMemoryRequirements(device, _image, &memReqs);
-        _allocationSize = memReqs.Size;
+        _memory = context.AllocateAndBindImageMemory(_image, "image", out ulong allocationSize);
+        _allocationSize = allocationSize;
 
-        // Allocate memory
-        var allocInfo = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
-        };
-
-        DeviceMemory memory;
-        result = vk.AllocateMemory(device, &allocInfo, null, &memory);
+        result = context.TryCreateSingleLayerView(_image, format, arrayLayer: 0, out ImageView imageView);
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan image memory: {result}");
-        }
-
-        _memory = memory;
-
-        // Bind memory to image
-        result = vk.BindImageMemory(device, _image, _memory, 0);
-        if (result != Result.Success)
-        {
             vk.FreeMemory(device, _memory, null);
-            vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to bind image memory: {result}");
-        }
-
-        // Create image view
-        var viewInfo = new ImageViewCreateInfo
-        {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = _image,
-            ViewType = ImageViewType.Type2D,
-            Format = format.ToVulkanFormat(),
-            SubresourceRange = new ImageSubresourceRange
-            {
-                AspectMask = format.GetAspectMask(),
-                BaseMipLevel = 0,
-                LevelCount = 1,
-                BaseArrayLayer = 0,
-                LayerCount = 1
-            }
-        };
-
-        ImageView imageView;
-        result = vk.CreateImageView(device, &viewInfo, null, &imageView);
-        if (result != Result.Success)
-        {
-            vk.FreeMemory(device, _memory, null);
-            vk.DestroyImage(device, _image, null);
             throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
         }
 
@@ -152,45 +109,20 @@ internal unsafe class VulkanTexture2D : ITexture2D
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Create staging buffer
-        using var stagingBuffer = new VulkanBuffer(
-            _context,
-            (ulong)data.Length,
-            BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        // Copy data to staging buffer
-        stagingBuffer.Upload(data);
-
         // Transition to transfer destination
         TransitionTo(ImageLayout.TransferDstOptimal);
 
-        // Copy buffer to image
-        _context.SubmitImmediateCommands(cmd =>
-        {
-            var region = new BufferImageCopy
-            {
-                BufferOffset = 0,
-                BufferRowLength = 0,
-                BufferImageHeight = 0,
-                ImageSubresource = new ImageSubresourceLayers
-                {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                },
-                ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
-            };
-
-            // ReSharper disable once AccessToDisposedClosure
-            _context.Vk.CmdCopyBufferToImage(
-                cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
-        });
+        _context.UploadToImageLayer(
+            data,
+            _image,
+            ImageAspectFlags.ColorBit,
+            destinationArrayLayer: 0,
+            (uint)_width,
+            (uint)_height);
 
         // Transition to shader read
         TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        _hasTransparentContents = false;
     }
 
     public byte[] DownloadPixels()
@@ -222,7 +154,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
         // Copy image to buffer
-        _context.SubmitImmediateCommands(cmd =>
+        _context.RecordCommands(cmd =>
         {
             var region = new BufferImageCopy
             {
@@ -245,16 +177,58 @@ internal unsafe class VulkanTexture2D : ITexture2D
                 cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
         });
 
+        // Restore the sampled layout in the same batch, then wait before mapping the staging buffer.
+        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        _context.FlushCommands(waitForCompletion: true);
+
         // Read data from staging buffer
         var srcPtr = stagingBuffer.Map();
         Marshal.Copy(srcPtr, pixelData, 0, (int)bufferSize);
         stagingBuffer.Unmap();
 
-        // Transition back to shader read
-        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
-
         return pixelData;
     }
+
+    /// <summary>
+    /// The layout the wrap declares, and the one <see cref="PrepareForSkiaRendering"/> establishes before
+    /// Skia draws.
+    /// </summary>
+    /// <remarks>
+    /// The wrap describes a moment that has not arrived yet: a render target reaches this layout through
+    /// <see cref="PrepareForSkiaRendering"/>, which also submits whatever the backend recorded before it,
+    /// and a texture wrapped after a backend pass is already here from the blit that filled it. A
+    /// sampling-only hand-off (<see cref="PrepareForSkiaSampling"/>) submits without transitioning, so the
+    /// backend can leave the image elsewhere - that residue is the drift tracked as b-editor/beutl#2263,
+    /// not a licence to narrow what the wrap declares.
+    /// </remarks>
+    internal const ImageLayout SkiaInteropLayout = ImageLayout.ColorAttachmentOptimal;
+
+    /// <summary>
+    /// Builds the description Skia is handed for this image.
+    /// </summary>
+    /// <remarks>
+    /// Skia takes <see cref="GRVkImageInfo.ImageLayout"/> as the starting point for its own tracking and
+    /// emits its first barrier out of it, and a barrier out of Undefined is licensed to discard the image's
+    /// contents outright - which is what turned a freshly cleared target into non-finite pixels on Mesa,
+    /// where the driver takes that licence. Declaring the layout the image happens to be in at the moment
+    /// of the wrap therefore describes the wrong moment: the image is still Undefined then, and the
+    /// allocation clear that follows is submitted before Skia runs. Declare the hand-off layout instead.
+    /// </remarks>
+    internal GRVkImageInfo CreateSkiaImageInfo() => new()
+    {
+        Image = _image.Handle,
+        Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
+        ImageTiling = (uint)ImageTiling.Optimal,
+        ImageLayout = (uint)SkiaInteropLayout,
+        Format = (uint)_format.ToVulkanFormat(),
+        ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+                                 ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
+        SampleCount = 1,
+        LevelCount = 1,
+        CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
+        Protected = false,
+        SharingMode = (uint)SharingMode.Exclusive
+    };
 
     public virtual SKSurface CreateSkiaSurface()
     {
@@ -264,26 +238,11 @@ internal unsafe class VulkanTexture2D : ITexture2D
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
             var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
+            MarkSkiaAccess();
             return SKSurface.Create(info);
         }
 
-        var vkImageInfo = new GRVkImageInfo
-        {
-            Image = _image.Handle,
-            Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
-            ImageTiling = (uint)ImageTiling.Optimal,
-            ImageLayout = (uint)ImageLayout.ColorAttachmentOptimal,
-            Format = (uint)_format.ToVulkanFormat(),
-            ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                                     ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
-            SampleCount = 1,
-            LevelCount = 1,
-            CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
-            Protected = false,
-            SharingMode = (uint)SharingMode.Exclusive
-        };
-
-        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
+        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, CreateSkiaImageInfo());
 
         var grContext = _context.SkiaContext;
         var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
@@ -294,26 +253,112 @@ internal unsafe class VulkanTexture2D : ITexture2D
             throw new InvalidOperationException("Failed to create SkiaSharp surface from Vulkan backend render target");
         }
 
+        MarkSkiaAccess();
         return surface;
     }
 
     public void PrepareForRender()
     {
         TransitionTo(ImageLayout.ColorAttachmentOptimal);
+        _accessDomain = TextureAccessDomain.Vulkan;
+        _hasTransparentContents = false;
     }
 
     public void PrepareForSampling()
     {
         TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+        _accessDomain = TextureAccessDomain.Vulkan;
+    }
+
+    public bool RequiresSkiaFlushForBackendInterop => _accessDomain == TextureAccessDomain.Skia;
+
+    protected bool RequiresVulkanToSkiaHandoff => _accessDomain == TextureAccessDomain.Vulkan;
+
+    public virtual void PrepareForSkiaRendering()
+    {
+        bool requiresSubmission = _currentLayout != SkiaInteropLayout
+            || RequiresVulkanToSkiaHandoff;
+        TransitionTo(SkiaInteropLayout);
+        if (requiresSubmission)
+        {
+            _context.FlushCommands(waitForCompletion: false);
+        }
+        MarkSkiaAccess();
+        _hasTransparentContents = false;
+    }
+
+    public virtual void PrepareForSkiaSampling(bool requireCompletion)
+    {
+        if (RequiresVulkanToSkiaHandoff)
+        {
+            _context.FlushCommands(requireCompletion);
+        }
+        MarkSkiaAccess();
+    }
+
+    protected void MarkSkiaAccess()
+    {
+        _accessDomain = TextureAccessDomain.Skia;
+    }
+
+    bool ITransparentClearableTexture.HasTransparentContents => _hasTransparentContents;
+
+    void ITransparentClearableTexture.ClearToTransparent()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_format.IsDepthFormat())
+        {
+            throw new InvalidOperationException(
+                "A depth texture cannot be initialized with a transparent color clear.");
+        }
+        if (_hasTransparentContents)
+            return;
+
+        TransitionTo(ImageLayout.TransferDstOptimal);
+        _context.RecordCommands(commandBuffer =>
+        {
+            var range = new ImageSubresourceRange
+            {
+                AspectMask = _format.GetAspectMask(),
+                BaseMipLevel = 0,
+                LevelCount = 1,
+                BaseArrayLayer = 0,
+                LayerCount = 1,
+            };
+            var transparent = new ClearColorValue(0, 0, 0, 0);
+            _context.Vk.CmdClearColorImage(
+                commandBuffer,
+                _image,
+                ImageLayout.TransferDstOptimal,
+                &transparent,
+                1,
+                &range);
+        });
+        _accessDomain = TextureAccessDomain.Vulkan;
+        _hasTransparentContents = true;
+    }
+
+    internal void MarkContentsUnknown()
+    {
+        _hasTransparentContents = false;
+    }
+
+    void ITransparentClearableTexture.MarkContentsTransparent()
+    {
+        _hasTransparentContents = true;
     }
 
     public void TransitionTo(ImageLayout layout)
     {
         if (_currentLayout == layout)
+        {
+            _accessDomain = TextureAccessDomain.Vulkan;
             return;
+        }
 
         _context.TransitionImageLayout(_image, _currentLayout, layout, _format.GetAspectMask());
         _currentLayout = layout;
+        _accessDomain = TextureAccessDomain.Vulkan;
     }
 
     public virtual void Dispose()
@@ -321,22 +366,35 @@ internal unsafe class VulkanTexture2D : ITexture2D
         if (_disposed) return;
         _disposed = true;
 
-        var vk = _context.Vk;
-        var device = _context.Device;
-
-        if (_imageView.Handle != 0)
+        ImageView imageView = _imageView;
+        Silk.NET.Vulkan.Image image = _image;
+        DeviceMemory memory = _memory;
+        _context.DeferRelease(() =>
         {
-            vk.DestroyImageView(device, _imageView, null);
-        }
+            var vk = _context.Vk;
+            var device = _context.Device;
 
-        if (_image.Handle != 0)
-        {
-            vk.DestroyImage(device, _image, null);
-        }
+            if (imageView.Handle != 0)
+            {
+                vk.DestroyImageView(device, imageView, null);
+            }
 
-        if (_memory.Handle != 0)
-        {
-            vk.FreeMemory(device, _memory, null);
-        }
+            if (image.Handle != 0)
+            {
+                vk.DestroyImage(device, image, null);
+            }
+
+            if (memory.Handle != 0)
+            {
+                vk.FreeMemory(device, memory, null);
+            }
+        });
     }
+}
+
+internal enum TextureAccessDomain : byte
+{
+    None,
+    Skia,
+    Vulkan,
 }

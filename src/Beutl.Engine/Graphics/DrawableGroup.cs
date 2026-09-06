@@ -30,6 +30,9 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             Size availableSize = context.Size;
             var boundsMemory = context.UseMemory<Rect>();
             var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
+            bool isolatesContent = resource.Opacity != 100f
+                                   || r.BlendMode != Graphics.BlendMode.SrcOver
+                                   || r.Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
 
             using (context.PushBlendMode(r.BlendMode))
             using (context.PushNode(
@@ -41,10 +44,14 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                            b.Transform, b.TransformOrigin, b.availableSize,
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
             using (context.PushOpacity(resource.Opacity / 100f))
+            using (context.PushNode(
+                       isolatesContent,
+                       b => new ContentIsolationRenderNode(b),
+                       (n, b) => n.Update(b)))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             using (context.PushNode(
                        boundsMemory,
-                       b => new BoundsObserveNode(b),
+                       b => new ContentBoundsRenderNode(b),
                        (n, b) => n.Update(b)))
             {
                 OnDraw(context, r);
@@ -74,71 +81,71 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         partial void PreUpdate(DrawableGroup obj, CompositionContext context)
         {
-            // Consume all Drawables from flow
-            using var consumed = new PooledList<Drawable.Resource>();
-            if (context.Flow != null)
-            {
-                for (int i = context.Flow.Count - 1; i >= 0; i--)
-                {
-                    if (context.Flow[i] is Drawable.Resource d)
-                    {
-                        consumed.Insert(0, d);
-                        context.Flow.RemoveAt(i);
-                    }
-                }
-            }
-
-            // Reconcile children from consumed drawables
-            bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: Children,
-                versions: _childrenVersion,
-                changed: ref changed);
-
-            if (changed)
+            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
                 Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < Children.Count; i++)
-            {
-                Children[i].Dispose();
-            }
-
-            Children.Clear();
-            _childrenVersion.Dispose();
+            ResourceReconciler.ReleaseReconciledChildren(Children, _childrenVersion);
         }
     }
 
-    internal sealed class BoundsObserveNode : ContainerRenderNode
+    internal sealed class ContentBoundsRenderNode(MemoryNode<Rect> memoryNode) : ContainerRenderNode
     {
-        public BoundsObserveNode(MemoryNode<Rect> memoryNode)
-        {
-            MemoryNode = memoryNode;
-        }
-
-        public MemoryNode<Rect> MemoryNode { get; private set; }
+        public MemoryNode<Rect> MemoryNode { get; private set; } = memoryNode;
 
         public bool Update(MemoryNode<Rect> memoryNode)
         {
             if (memoryNode != MemoryNode)
             {
                 MemoryNode = memoryNode;
-                HasChanges = true;
+                MarkChanged();
                 return true;
             }
 
             return false;
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
-            MemoryNode.Value = context.CalculateBounds();
-            return context.Input;
+            MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
+            context.PassThrough();
+        }
+    }
+
+    internal sealed class ContentIsolationRenderNode(bool isolatesContent) : ContainerRenderNode
+    {
+        public bool IsolatesContent { get; private set; } = isolatesContent;
+
+        public bool Update(bool isolatesContent)
+        {
+            if (isolatesContent != IsolatesContent)
+            {
+                IsolatesContent = isolatesContent;
+                MarkChanged();
+                return true;
+            }
+
+            return false;
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            if (IsolatesContent)
+            {
+                // A full-target write in the group - a clear, an opaque raw command - has no recorded value
+                // bounds, so scoping by them would make the isolation scope empty and drop the group's whole
+                // contribution instead of compositing it.
+                TargetRegion region = context.HasSymbolicInputTargetWrite()
+                    ? TargetRegion.Full
+                    : TargetRegion.Region(context.CalculateRecordedInputBoundsHint());
+                context.Publish(context.TargetLayerScope(context.Inputs, region));
+            }
+            else
+            {
+                context.PassThrough();
+            }
         }
     }
 
@@ -203,7 +210,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 changed = true;
             }
 
-            HasChanges = changed;
+            if (changed)
+            {
+                MarkChanged();
+            }
+
             return changed;
         }
 
@@ -264,30 +275,84 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             return new Point(x, y);
         }
 
-        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        public override void Process(RenderNodeContext context)
         {
             var bounds = Bounds.Value;
             var transform = GetTransformMatrix(bounds);
-            return context.Input.Select(r =>
-                    RenderNodeOperation.CreateLambda(
-                        r.Bounds.TransformToAABB(transform),
-                        canvas =>
-                        {
-                            using (canvas.PushTransform(transform))
-                            {
-                                r.Render(canvas);
-                            }
-                        },
-                        hitTest: point =>
-                        {
-                            if (transform.HasInverse)
-                                point *= transform.Invert();
-                            return r.HitTest(point);
-                        },
-                        onDispose: r.Dispose,
-                        // Re-scale a bitmap child's supply density through the transform boundary.
-                        effectiveScale: TransformRenderNode.RescaleDensity(r.EffectiveScale, transform)))
-                .ToArray();
+            bool hasInverse = transform.HasInverse;
+            Matrix inverse = hasInverse ? transform.Invert() : Matrix.Identity;
+            var metadataState = new CustomTransformMetadataState(
+                transform,
+                hasInverse,
+                inverse,
+                context.TargetDomain);
+            RenderBoundsContract boundsContract = hasInverse
+                ? RenderBoundsContract.Create(
+                    metadataState,
+                    static (state, value) => state.TransformBounds(value),
+                    static (state, value) => state.GetRequiredInputBounds(value))
+                : RenderBoundsContract.CreateFullInput(
+                    metadataState,
+                    static (state, value) => state.TransformBounds(value));
+            var scaleMapper = new TransformScaleMapper(transform);
+            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+                state: transform,
+                execute: ExecuteTransform,
+                bounds: boundsContract,
+                hitTest: RenderHitTestContract.Custom(
+                    metadataState,
+                    static (state, context, point) => state.HitTest(context, point)),
+                scale: RenderScaleContract.MapInputSupply(
+                    scaleMapper,
+                    static (mapper, supply) => mapper.MapSupply(supply),
+                    static (mapper, demand) => mapper.MapDemand(demand)),
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: transform.IsIdentity
+                    ? RenderDeviceGridMapping.Preserved
+                    : RenderDeviceGridMapping.Remapped,
+                builtInBackdropCapturesBackingTarget: true);
+            context.PublishMappedInputs(
+                description,
+                static (context, input, value) => context.TargetScope(input, value));
+        }
+
+        private static void ExecuteTransform(TargetScopeSession session, Matrix transform)
+        {
+            session.Canvas.Use(canvas =>
+            {
+                using (canvas.PushTransform(transform))
+                {
+                    session.ReplayInput();
+                }
+            });
+        }
+
+        private readonly record struct CustomTransformMetadataState(
+            Matrix Transform,
+            bool HasInverse,
+            Matrix Inverse,
+            Rect? DeliveredTo)
+        {
+            public Rect TransformBounds(Rect inputBounds)
+                => inputBounds.TransformToDeliveredAABB(Transform, DeliveredTo);
+
+            public Rect GetRequiredInputBounds(Rect outputBounds) => outputBounds.TransformToAABB(Inverse);
+
+            public bool HitTest(RenderHitTestContext context, Point point)
+            {
+                if (HasInverse)
+                    point *= Inverse;
+                return context.Inputs[0].HitTest(point);
+            }
+        }
+
+        private readonly record struct TransformScaleMapper(Matrix Transform)
+        {
+            public EffectiveScale MapSupply(EffectiveScale inputSupply)
+                => TransformRenderNode.RescaleDensity(inputSupply, Transform);
+
+            public EffectiveScale MapDemand(EffectiveScale outputDemand)
+                => TransformRenderNode.RescaleDemand(outputDemand, Transform);
         }
     }
 }

@@ -4,6 +4,9 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.ProjectSystem;
 using SkiaSharp;
 
@@ -124,6 +127,68 @@ public class ObjectTemplatePreviewRendererTests
         byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(element);
 
         Assert.That(png, Is.Null);
+    }
+
+    // A SourceBackdrop records a symbolic full-target capture, which a target-less Measure cannot bound.
+    // The measurement must fall back to the authored frame rather than lose the whole preview.
+    [Test]
+    public async Task RenderPngAsync_DrawableWithFullTargetAccess_StillPreviewsItsVisibleContent()
+    {
+        var group = new DrawableGroup();
+        group.Children.Add(CreateRedRect());
+        group.Children.Add(new SourceBackdrop());
+
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(group);
+
+        Assert.That(png, Is.Not.Null);
+    }
+
+    // A MeasureNode over a bounds-unknown CustomEffect resolves its extent from the composition context's
+    // target domain, and it does so inside ToResource - before MeasureBounds' own fallback can catch
+    // anything. Without a domain on the context the whole preview is lost, not just the measurement.
+    [Test]
+    public async Task RenderPngAsync_NodeGraphDrawableWithAMeasureNode_StillPreviewsItsVisibleContent()
+    {
+        byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(BuildMeasureNodeGraphDrawable());
+
+        Assert.That(png, Is.Not.Null);
+    }
+
+    // GeometryShape -> ShakeEffect -> Output, with a MeasureNode reading the same effect output.
+    // ShakeEffect records a CustomEffect with no transformBounds, so the effect segment's extent stays
+    // symbolic and only an owning target domain can resolve it.
+    private static NodeGraphDrawable BuildMeasureNodeGraphDrawable()
+    {
+        var drawable = new NodeGraphDrawable();
+        GraphModel model = drawable.Model.CurrentValue!;
+
+        var geometryNode = new RectGeometryNode();
+        geometryNode.Object.Width.CurrentValue = 100;
+        geometryNode.Object.Height.CurrentValue = 100;
+        var shapeNode = new GeometryShapeNode();
+        SetUnconnectedInput(shapeNode.Fill, new SolidColorBrush(Colors.Red));
+        var shakeNode = new FilterEffectNode<ShakeEffect>();
+        var outputNode = new OutputNode();
+        var measureNode = new MeasureNode();
+        model.Nodes.Add(geometryNode);
+        model.Nodes.Add(shapeNode);
+        model.Nodes.Add(shakeNode);
+        model.Nodes.Add(outputNode);
+        model.Nodes.Add(measureNode);
+
+        // ConfigureNode keeps its render-chain ports unexposed: Items[0] = Output, Items[1] = list Input.
+        var shakeChainInput = (IInputPort)shakeNode.Items[1];
+        var shakeChainOutput = (IOutputPort)shakeNode.Items[0];
+        model.Connect(shapeNode.Geometry, geometryNode.OutputPort);
+        model.Connect(shakeChainInput, shapeNode.Output);
+        model.Connect(outputNode.InputPort, shakeChainOutput);
+        model.Connect(measureNode.Input, shakeChainOutput);
+        return drawable;
+    }
+
+    private static void SetUnconnectedInput<T>(InputPort<T> port, T value)
+    {
+        ((DefaultInputPort<T>)port).GetProperty()!.SetValue(value);
     }
 
     private static RectShape CreateRedRect()

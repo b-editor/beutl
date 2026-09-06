@@ -1,11 +1,12 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
 public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
-    public Rect Rect { get; set; } = rect;
+    public Rect Rect { get; private set; } = rect;
 
     public bool Update(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
@@ -21,34 +22,49 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
             changed = true;
         }
 
+        if (changed)
+        {
+            MarkChanged();
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return
-        [
-            RenderNodeOperation.CreateLambda(PenHelper.GetBounds(Rect, Pen?.Resource),
-                canvas => canvas.DrawRectangle(Rect, Fill?.Resource, Pen?.Resource), HitTest)
-        ];
+        Rect rect = Rect;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
+        Rect bounds = PenHelper.GetBounds(rect, pen);
+        if (bounds.Width == 0 || bounds.Height == 0)
+            return;
+
+        context.Publish(context.PaintedSource(
+            rect,
+            draw: static (canvas, fill, pen, rect) =>
+                canvas.DrawRectangle(rect, fill, pen),
+            fill: fill,
+            pen: pen,
+            outputBounds: bounds,
+            hitTest: RenderHitTestContract.Custom(HitTest),
+            scale: RenderScaleContract.Vector));
     }
 
-    private bool HitTest(Point point)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Inside;
-        float thickness = Pen?.Resource.Thickness ?? 0;
-        thickness = PenHelper.GetRealThickness(alignment, thickness);
+        Rect rect = Rect;
+        Pen.Resource? pen = Pen?.Resource;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
+            pen?.Thickness ?? 0);
 
-        if (Fill != null)
+        if (Fill?.Resource is not null)
         {
-            Rect rect = Rect.Inflate(thickness);
-            return rect.ContainsExclusive(point);
+            return rect.Inflate(realThickness).ContainsExclusive(point);
         }
-        else
-        {
-            Rect borderRect = Rect.Inflate(thickness);
-            Rect emptyRect = Rect.Deflate(thickness);
-            return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
-        }
+
+        Rect borderRect = rect.Inflate(realThickness);
+        Rect emptyRect = rect.Deflate(realThickness);
+        return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
     }
 }

@@ -21,21 +21,46 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
             changed = true;
         }
 
-        HasChanges = true;
+        if (changed)
+        {
+            MarkChanged();
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                using (canvas.PushClip(Clip, Operation))
+        context.PublishMappedInputs(
+            TargetScopeDescription.Create(
+                new RectClipMetadata(Clip, Operation),
+                static (session, state) => session.Canvas.Use(canvas =>
                 {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                    using (canvas.PushClip(state.Clip, state.Operation))
+                    {
+                        session.ReplayInput();
+                    }
+                }),
+                RenderBoundsContract.Create(TransformBounds, GetRequiredInputBounds),
+                RenderHitTestContract.Custom(HitTest),
+                RenderScaleContract.PreserveInputSupply,
+                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved),
+            static (context, input, value) => context.TargetScope(input, value));
     }
+
+    private Rect TransformBounds(Rect value)
+        => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
+
+    private Rect GetRequiredInputBounds(Rect value)
+        => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
+
+    private bool HitTest(RenderHitTestContext context, Point point)
+    {
+        bool insideClip = Clip.Contains(point);
+        bool clipAcceptsPoint = Operation == ClipOperation.Intersect ? insideClip : !insideClip;
+        return clipAcceptsPoint && RenderHitTestContract.AnyInputAccepts(context.Inputs, point);
+    }
+
+    private readonly record struct RectClipMetadata(Rect Clip, ClipOperation Operation);
 }

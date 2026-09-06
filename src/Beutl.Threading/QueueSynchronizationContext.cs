@@ -30,7 +30,14 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     internal void Start()
     {
-        _running = true;
+        lock (this)
+        {
+            // Shutdown() can win the race with this thread reaching Start(). Setting _running back to
+            // true would restart the loop it stopped, and nothing would stop it a second time: the
+            // dispatcher would run forever and never raise ShutdownFinished.
+            if (!HasShutdownStarted)
+                _running = true;
+        }
 
         while (_running)
         {
@@ -44,10 +51,12 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     internal void Shutdown()
     {
-        HasShutdownStarted = true;
-        _running = false;
+        // Under the same lock as Start()'s _running write, so a dispatcher thread still on its way
+        // into the loop observes this shutdown instead of overwriting it.
         lock (this)
         {
+            HasShutdownStarted = true;
+            _running = false;
             _waitToken?.Cancel();
         }
 

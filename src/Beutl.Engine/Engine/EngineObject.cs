@@ -379,15 +379,44 @@ public class EngineObject : Hierarchical, INotifyEdited
             Dispose(false);
         }
 
-        private EngineObject _original = null!;
+        private EngineObject? _original;
 
+        /// <summary>
+        /// The number every cache over this resource keys on.
+        /// </summary>
+        /// <remarks>
+        /// A change to this number invalidates such a cache, and nothing else does. Reconciling against an
+        /// engine object is the one thing that moves it on its own: <see cref="Update"/> and the
+        /// <c>CompareAndUpdate</c> family step it whenever a parameter of this resource or of one it owns
+        /// changed, so an attached resource asks nothing of its caller. No setter moves it. A resource built
+        /// by hand never reconciles, so nothing moves it there at all - assigning a property stores the
+        /// value and stops, and resource lists are handed out as plain <see cref="List{T}"/>, so a caller
+        /// reaches the children the same way. Moving it is then the caller's job: whoever edits a hand-built
+        /// resource - setting one of its properties, or adding to, removing from, reordering, or mutating a
+        /// child of it - bumps its version themselves, or every cache keyed on it goes on serving what it
+        /// built before the edit.
+        /// </remarks>
         public int Version { get; set; }
 
+        /// <summary>
+        /// Whether the engine acts on this resource at all.
+        /// </summary>
+        /// <remarks>
+        /// Assigning this stores the value and does nothing else, as every other setter here does.
+        /// Reconciling moves <see cref="Version"/> when it copies a changed value across; a caller that sets
+        /// this on a hand-built resource moves the version themselves.
+        /// </remarks>
         public bool IsEnabled { get; set; }
 
         public bool IsDisposed { get; private set; }
 
-        public EngineObject GetOriginal() => _original;
+        /// <summary>The object this resource was built from, or <see langword="null"/> when there is none.</summary>
+        /// <remarks>
+        /// A resource constructed directly instead of through <see cref="EngineObject.ToResource"/> - a
+        /// detached resource - never receives a backing object. Engine code that only needs an
+        /// equality-stable key uses <c>EngineResourceIdentity</c> instead, which handles that case.
+        /// </remarks>
+        public EngineObject? GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {

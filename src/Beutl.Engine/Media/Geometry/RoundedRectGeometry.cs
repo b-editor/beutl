@@ -63,7 +63,7 @@ public sealed partial class RoundedRectGeometry : Geometry
         a = 2 * b;
     }
 
-    private void ApplyTopRightCorner(float width, float height,
+    private static void ApplyTopRightCorner(float width, float height,
         float cornerRadius, float smoothing, IGeometryContext context)
     {
         if (cornerRadius != 0)
@@ -96,7 +96,7 @@ public sealed partial class RoundedRectGeometry : Geometry
         }
     }
 
-    private void ApplyBottomRightCorner(float width, float height,
+    private static void ApplyBottomRightCorner(float width, float height,
         float cornerRadius, float smoothing, IGeometryContext context)
     {
         if (cornerRadius != 0)
@@ -128,7 +128,7 @@ public sealed partial class RoundedRectGeometry : Geometry
         }
     }
 
-    private void ApplyBottomLeftCorner(float width, float height,
+    private static void ApplyBottomLeftCorner(float width, float height,
         float cornerRadius, float smoothing, IGeometryContext context)
     {
         if (cornerRadius != 0)
@@ -160,7 +160,7 @@ public sealed partial class RoundedRectGeometry : Geometry
         }
     }
 
-    private void ApplyTopLeftCorner(float width, float height,
+    private static void ApplyTopLeftCorner(float width, float height,
         float cornerRadius, float smoothing, IGeometryContext context)
     {
         if (cornerRadius != 0)
@@ -193,34 +193,36 @@ public sealed partial class RoundedRectGeometry : Geometry
         context.Close();
     }
 
-    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
+    public partial class Resource
     {
-        base.ApplyTo(context, resource);
-        var r = (Resource)resource;
-        float width = r.Width;
-        float height = r.Height;
-        if (float.IsInfinity(width))
-            width = 0;
+        public override void ApplyTo(IGeometryContext context)
+        {
+            base.ApplyTo(context);
+            float width = Width;
+            float height = Height;
+            if (float.IsInfinity(width))
+                width = 0;
 
-        if (float.IsInfinity(height))
-            height = 0;
+            if (float.IsInfinity(height))
+                height = 0;
 
-        (float radiusX, float radiusY) = (width / 2, height / 2);
-        float maxRadius = Math.Max(radiusX, radiusY);
-        CornerRadius cornerRadius = r.CornerRadius;
-        float topLeft = Math.Clamp(cornerRadius.TopLeft, 0, maxRadius);
-        float topRight = Math.Clamp(cornerRadius.TopRight, 0, maxRadius);
-        float bottomRight = Math.Clamp(cornerRadius.BottomRight, 0, maxRadius);
-        float bottomLeft = Math.Clamp(cornerRadius.BottomLeft, 0, maxRadius);
-        float smoothing = r.Smoothing / 100;
+            (float radiusX, float radiusY) = (width / 2, height / 2);
+            float maxRadius = Math.Max(radiusX, radiusY);
+            CornerRadius cornerRadius = CornerRadius;
+            float topLeft = Math.Clamp(cornerRadius.TopLeft, 0, maxRadius);
+            float topRight = Math.Clamp(cornerRadius.TopRight, 0, maxRadius);
+            float bottomRight = Math.Clamp(cornerRadius.BottomRight, 0, maxRadius);
+            float bottomLeft = Math.Clamp(cornerRadius.BottomLeft, 0, maxRadius);
+            float smoothing = Smoothing / 100;
 
-        ApplyTopRightCorner(
-            width, height, topRight, smoothing, context);
-        ApplyBottomRightCorner(
-            width, height, bottomRight, smoothing, context);
-        ApplyBottomLeftCorner(
-            width, height, bottomLeft, smoothing, context);
-        ApplyTopLeftCorner(
-            width, height, topLeft, smoothing, context);
+            ApplyTopRightCorner(
+                width, height, topRight, smoothing, context);
+            ApplyBottomRightCorner(
+                width, height, bottomRight, smoothing, context);
+            ApplyBottomLeftCorner(
+                width, height, bottomLeft, smoothing, context);
+            ApplyTopLeftCorner(
+                width, height, topLeft, smoothing, context);
+        }
     }
 }

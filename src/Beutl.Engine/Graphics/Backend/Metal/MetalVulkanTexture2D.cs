@@ -42,7 +42,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         _metalTexture = ExportMetalTexture();
 
         // Transition to initial layout
-        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+        TransitionTo(SkiaInteropLayout);
     }
 
     private static void* CreateExportInfo()
@@ -70,13 +70,37 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         var textureInfo = new GRMtlTextureInfo(_metalTexture);
         var backendTexture = new GRBackendTexture(_width, _height, false, textureInfo);
 
-        return SKSurface.Create(
+        SKSurface surface = SKSurface.Create(
             _metalContext.SkiaContext,
             backendTexture,
             GRSurfaceOrigin.TopLeft,
             1,
             _format.ToSkiaColorType(),
             SKColorSpace.CreateSrgbLinear());
+        return surface;
+    }
+
+    public override void PrepareForSkiaRendering()
+    {
+        bool requiresWait = RequiresVulkanToSkiaHandoff
+            || _currentLayout != SkiaInteropLayout;
+        base.PrepareForSkiaRendering();
+        if (requiresWait)
+        {
+            // MoltenVK and Skia's Metal queue do not share Beutl's Vulkan submission semaphore.
+            _context.FlushCommands(waitForCompletion: true);
+        }
+    }
+
+    public override void PrepareForSkiaSampling(bool requireCompletion)
+    {
+        bool requiresWait = RequiresVulkanToSkiaHandoff;
+        base.PrepareForSkiaSampling(requireCompletion: false);
+        if (requiresWait)
+        {
+            // CPU completion is the cross-API hand-off until an exported Metal event is available.
+            _context.FlushCommands(waitForCompletion: true);
+        }
     }
 
     private IntPtr ExportMetalTexture()

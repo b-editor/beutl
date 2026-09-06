@@ -190,9 +190,9 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         // Simulate a skill the previous app version installed but the new
         // bundle no longer ships: unmodified → pruned on reinstall.
-        string stalePath = Path.Combine(root, "skills", "beutl-agent-legacy", "SKILL.md");
+        string stalePath = Path.Combine(root, "skills", "beutl-agent-effectItem", "SKILL.md");
         Directory.CreateDirectory(Path.GetDirectoryName(stalePath)!);
-        File.WriteAllText(stalePath, "legacy");
+        File.WriteAllText(stalePath, "effectItem");
         string editedPath = Path.Combine(root, "skills", "beutl-agent-edited", "SKILL.md");
         Directory.CreateDirectory(Path.GetDirectoryName(editedPath)!);
         File.WriteAllText(editedPath, "user edits");
@@ -201,7 +201,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Files =
             [
                 .. manifest.Files,
-                new InstalledFileRecord(stalePath, AgentToolkitInstallManifestStore.ComputeContentHash("legacy")),
+                new InstalledFileRecord(stalePath, AgentToolkitInstallManifestStore.ComputeContentHash("effectItem")),
                 new InstalledFileRecord(editedPath, AgentToolkitInstallManifestStore.ComputeContentHash("shipped")),
             ],
         });

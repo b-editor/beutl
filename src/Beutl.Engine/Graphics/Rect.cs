@@ -28,6 +28,22 @@ public readonly struct Rect
       IDivisionOperators<Rect, Vector, Rect>,
       ITupleConvertible<Rect, float>
 {
+    /// <summary>The default homogeneous clipping divisor used by <see cref="TransformToAABB"/>.</summary>
+    /// <remarks>
+    /// This allocation-safe bound is larger than <see cref="RasterizerNearPlane"/> and may exclude pixels drawn
+    /// close to the camera plane. Use <see cref="TransformToDeliveredAABB"/> when the delivery region is known.
+    /// </remarks>
+    public const float DefaultNearPlane = 0.05f;
+
+    /// <summary>
+    /// The homogeneous divisor the rasterizer itself clips perspective geometry at — Skia's
+    /// <c>SkPathPriv::kW0PlaneDistance</c>, <c>1 / (1 &lt;&lt; 14)</c>, applied by both
+    /// <c>SkPathPriv::PerspectiveClip</c> and Ganesh's <c>GrQuadUtils::ClipToW0</c>. A box clipped here
+    /// contains every pixel that can be drawn; see <see cref="DefaultNearPlane"/> for why that exactness
+    /// is not affordable as the default.
+    /// </summary>
+    public const float RasterizerNearPlane = 1f / 16384f;
+
     /// <summary>
     /// An empty rectangle.
     /// </summary>
@@ -403,11 +419,17 @@ public readonly struct Rect
     }
 
     /// <summary>
-    /// Returns the axis-aligned bounding box of a transformed rectangle.
+    /// The box around the four mapped corners, with no camera-plane handling.
     /// </summary>
-    /// <param name="matrix">The transform.</param>
-    /// <returns>The bounding box</returns>
-    public Rect TransformToAABB(Matrix matrix)
+    /// <remarks>
+    /// A projective map takes lines to lines, so this box is exact — but only while the rectangle stays
+    /// on one side of <paramref name="matrix"/>'s <c>w = 0</c> plane. A rectangle that crosses that
+    /// plane has an unbounded image and its behind-plane corners are point-reflected through the origin,
+    /// so the box lands on the wrong side of the image rather than containing it. That is why this is
+    /// not the public answer: <see cref="TransformToAABB"/> establishes the precondition and then calls
+    /// this.
+    /// </remarks>
+    internal Rect TransformToMappedCornerAABB(Matrix matrix)
     {
         ReadOnlySpan<Point> points =
         [
@@ -424,6 +446,113 @@ public readonly struct Rect
 
         foreach (Point p in points)
         {
+            if (p.X < left) left = p.X;
+            if (p.X > right) right = p.X;
+            if (p.Y < top) top = p.Y;
+            if (p.Y > bottom) bottom = p.Y;
+        }
+
+        return new Rect(new Point(left, top), new Point(right, bottom));
+    }
+
+    /// <summary>
+    /// Maps this rectangle through <paramref name="matrix"/> covering every pixel the rasterizer can draw,
+    /// then keeps whatever of that box either reaches <paramref name="deliveredTo"/> or would have been
+    /// declared at <see cref="DefaultNearPlane"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A perspective-mapped rectangle's exact box runs to millions of pixels as the near edge tips towards
+    /// the eye, and <see cref="RenderScaleUtilities.ClampWorkingScaleToBufferBudget"/> pays for that in
+    /// working density. <see cref="DefaultNearPlane"/> bought the density back by giving up a wedge the
+    /// rasterizer still draws - and, when the wedge falls inside the frame, that wedge is content the viewer
+    /// should have seen.
+    /// </para>
+    /// <para>
+    /// The union is what makes both affordable: inside <paramref name="deliveredTo"/> the box is exact, so
+    /// nothing drawn there is given up, and outside it the box is never larger than
+    /// <see cref="DefaultNearPlane"/> already made it, so the density it costs is unchanged. Without a
+    /// delivery region there is no output clip to be exact against and the pragmatic box is returned.
+    /// </para>
+    /// </remarks>
+    public Rect TransformToDeliveredAABB(Matrix matrix, Rect? deliveredTo)
+    {
+        Rect pragmatic = TransformToAABB(matrix);
+        if (deliveredTo is not { } delivered)
+            return pragmatic;
+
+        return TransformToAABB(matrix, RasterizerNearPlane).Intersect(pragmatic.Union(delivered));
+    }
+
+    /// <summary>
+    /// Returns an axis-aligned bounding box of this rectangle transformed by <paramref name="matrix"/>,
+    /// with the part behind the matrix's camera plane clipped away first.
+    /// </summary>
+    /// <param name="matrix">The transform.</param>
+    /// <param name="nearPlane">The finite positive homogeneous divisor cutoff. Lower values widen the box.</param>
+    /// <returns>
+    /// The bounding box, or <see cref="Empty"/> when nothing reaches the cutoff. The default cutoff may exclude
+    /// content that the rasterizer still draws.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="nearPlane"/> is not finite and positive.
+    /// </exception>
+    public Rect TransformToAABB(Matrix matrix, float nearPlane = DefaultNearPlane)
+    {
+        // A sign test cannot carry this on its own: only some NaNs have the sign bit that
+        // ArgumentOutOfRangeException.ThrowIfNegativeOrZero reads.
+        if (!float.IsFinite(nearPlane) || nearPlane <= 0f)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(nearPlane), nearPlane, "The near plane must be finite and positive.");
+        }
+
+        if (!matrix.ContainsPerspective())
+            return TransformToMappedCornerAABB(matrix);
+
+        ReadOnlySpan<Point> corners = [TopLeft, TopRight, BottomRight, BottomLeft];
+        Span<float> divisors = stackalloc float[4];
+        float min = float.MaxValue;
+        float max = float.MinValue;
+        for (int i = 0; i < corners.Length; i++)
+        {
+            float w = matrix.GetTransformDivisor(corners[i]);
+            divisors[i] = w;
+            if (w < min) min = w;
+            if (w > max) max = w;
+        }
+
+        // The divisor is affine over the rectangle, so a single sign at the corners means the singularity
+        // lies outside it. That alone is not what makes the mapped-corner box exact: a rectangle wholly in
+        // front of the eye can still hold a corner nearer than the cutoff, and mapping that corner is the
+        // unbounded box the cutoff exists to refuse. So the box is taken whole only when every corner reaches
+        // the cutoff, or when the rectangle sits wholly behind the eye and there is no cutoff to reach.
+        if (min >= nearPlane || max < 0)
+            return TransformToMappedCornerAABB(matrix);
+
+        Span<Point> clipped = stackalloc Point[8];
+        int count = 0;
+        for (int i = 0; i < corners.Length; i++)
+        {
+            int next = (i + 1) % corners.Length;
+            float w = divisors[i];
+            float nextW = divisors[next];
+            if (w >= nearPlane)
+                clipped[count++] = corners[i];
+            if ((w < nearPlane) != (nextW < nearPlane))
+                clipped[count++] = corners[i] + ((corners[next] - corners[i]) * ((nearPlane - w) / (nextW - w)));
+        }
+
+        if (count == 0)
+            return Empty;
+
+        float left = float.MaxValue;
+        float right = float.MinValue;
+        float top = float.MaxValue;
+        float bottom = float.MinValue;
+        for (int i = 0; i < count; i++)
+        {
+            Point p = clipped[i].Transform(matrix);
             if (p.X < left) left = p.X;
             if (p.X > right) right = p.X;
             if (p.Y < top) top = p.Y;

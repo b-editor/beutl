@@ -45,7 +45,7 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
                 using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
                 using (context.PushNode(
                            boundsMemory,
-                           b => new DrawableGroup.BoundsObserveNode(b),
+                           b => new DrawableGroup.ContentBoundsRenderNode(b),
                            (n, b) => n.Update(b)))
                 {
                     context.DrawDrawable(child);
@@ -76,41 +76,13 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
 
         partial void PostUpdate(DrawableDecorator obj, CompositionContext context)
         {
-            using var consumed = new PooledList<Drawable.Resource>();
-            if (context.Flow != null)
-            {
-                for (int i = context.Flow.Count - 1; i >= 0; i--)
-                {
-                    if (context.Flow[i] is Drawable.Resource d)
-                    {
-                        consumed.Insert(0, d);
-                        context.Flow.RemoveAt(i);
-                    }
-                }
-            }
-
-            bool changed = false;
-            ResourceReconciler.ReconcileListFromFlow(
-                context: context,
-                property: obj.Children,
-                consumed: consumed,
-                field: _children,
-                versions: _childrenVersion,
-                changed: ref changed);
-
-            if (changed)
+            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, _children, _childrenVersion))
                 Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
-            for (int i = _childrenVersion.Count; i < _children.Count; i++)
-            {
-                _children[i].Dispose();
-            }
-
-            _children.Clear();
-            _childrenVersion.Dispose();
+            ResourceReconciler.ReleaseReconciledChildren(_children, _childrenVersion);
         }
     }
 }

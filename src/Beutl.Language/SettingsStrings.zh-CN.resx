@@ -268,6 +268,10 @@
     <value>最小像素数</value>
     <comment />
   </data>
+  <data name="NodeCacheWarning" xml:space="preserve">
+    <value>启用节点缓存后，预览的渲染结果可能会发生变化。内容处于动画中时几乎没有效果，反而可能使渲染变慢。导出始终不使用缓存，因此预览与导出的结果可能不一致。</value>
+    <comment />
+  </data>
   <data name="SwapTimelineScrollDirection" xml:space="preserve">
     <value>交换时间轴的滚动方向</value>
     <comment />

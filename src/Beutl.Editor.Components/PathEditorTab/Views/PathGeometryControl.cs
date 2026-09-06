@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -23,8 +24,8 @@ public class PathGeometryControl : Control
     public static readonly StyledProperty<Media.PathSegment?> SelectedOperationProperty =
         AvaloniaProperty.Register<PathGeometryControl, Media.PathSegment?>(nameof(SelectedOperation));
 
-    public static readonly StyledProperty<(PathGeometry.Resource Resource, int Version)?> GeometryResourceProperty =
-        AvaloniaProperty.Register<PathGeometryControl, (PathGeometry.Resource Resource, int Version)?>(
+    public static readonly StyledProperty<EngineResourceHandle<PathGeometry.Resource>?> GeometryResourceProperty =
+        AvaloniaProperty.Register<PathGeometryControl, EngineResourceHandle<PathGeometry.Resource>?>(
             nameof(GeometryResource));
 
     public static readonly StyledProperty<AvaMatrix> MatrixProperty =
@@ -50,7 +51,7 @@ public class PathGeometryControl : Control
             SelectedOperationProperty, GeometryResourceProperty);
     }
 
-    public (PathGeometry.Resource Resource, int Version)? GeometryResource
+    public EngineResourceHandle<PathGeometry.Resource>? GeometryResource
     {
         get => GetValue(GeometryResourceProperty);
         set => SetValue(GeometryResourceProperty, value);
@@ -104,10 +105,17 @@ public class PathGeometryControl : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Geometry != null
-            && Figure != null
-            && SelectedOperation != null
-            && GeometryResource is { Resource: { } pathGeometry })
+        if (Geometry == null
+            || Figure == null
+            || SelectedOperation == null
+            || GeometryResource is not { } handle)
+        {
+            return;
+        }
+
+        // Read holds the resource's owner off for the length of this callback, so the figure and segment
+        // lists walked below cannot be replaced midway through.
+        handle.Read(pathGeometry =>
         {
             var figureResource = pathGeometry.Figures.FirstOrDefault(f => f.GetOriginal() == Figure);
             if (figureResource == null) return;
@@ -202,6 +210,6 @@ public class PathGeometryControl : Control
                     DrawLine(figureResource.Segments[nextIndex], nextIndex, true, false);
                 }
             }
-        }
+        });
     }
 }

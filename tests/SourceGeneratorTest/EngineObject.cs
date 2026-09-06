@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 using Beutl.Composition;
@@ -26,11 +26,11 @@ public class EngineObject
 
     public class Resource : IDisposable
     {
-        private EngineObject _original = null!;
+        private EngineObject? _original;
 
         public int Version { get; protected set; }
 
-        public EngineObject GetOriginal() => _original;
+        public EngineObject? GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
@@ -104,13 +104,14 @@ public class EngineObject
                 field.RemoveAt(field.Count - 1);
             }
         }
-        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
+        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop, ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)
             {
                 if (field is not null)
                 {
+                    field.Dispose();
                     field = null;
                     if (!updateOnly)
                     {
@@ -134,14 +135,17 @@ public class EngineObject
                 {
                     if (field.GetOriginal() != value)
                     {
+                        var oldField = field;
                         field = (TResource)value.ToResource(context);
                         Version++;
                         updateOnly = true;
+                        oldField.Dispose();
                     }
                     else
                     {
-                        var oldVersion = value.Version;
-                        field.Update(value, context, ref updateOnly);
+                        var oldVersion = field.Version;
+                        var _ = false;
+                        field.Update(value, context, ref _);
                         if (!updateOnly && oldVersion != field.Version)
                         {
                             Version++;

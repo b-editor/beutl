@@ -53,15 +53,15 @@ public class TypeFormatTests
     }
 
     [Test]
-    public void ToType_LegacyFFmpegEmbeddingNamespaceIsRemapped()
+    public void ToType_EffectItemFFmpegEmbeddingNamespaceIsRemapped()
     {
         // The TypeFormat.ToType replaces "Beutl.Embedding.FFmpeg" with
         // "Beutl.Extensions.FFmpeg" before parsing. We can verify the rewrite
         // path is taken by passing a synthetic assembly name and confirming
         // the logic doesn't throw and falls through to a null result.
-        string legacy = "[Beutl.Embedding.FFmpeg]:NotARealType";
+        string effectItem = "[Beutl.Embedding.FFmpeg]:NotARealType";
 
-        Type? result = TypeFormat.ToType(legacy);
+        Type? result = TypeFormat.ToType(effectItem);
 
         Assert.That(result, Is.Null);
     }
