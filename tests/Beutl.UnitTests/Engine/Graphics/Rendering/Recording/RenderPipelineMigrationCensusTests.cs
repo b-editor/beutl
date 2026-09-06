@@ -254,6 +254,7 @@ public sealed class RenderPipelineMigrationCensusTests
     [Test]
     public void ProcessorPullApis_AreRemoved()
     {
+        string processorType = $"Beutl.Graphics.Rendering.{BuildName("Render", "Node", "Processor")}";
         string[] pullNames =
         [
             BuildName("Pu", "ll"),
@@ -261,7 +262,122 @@ public sealed class RenderPipelineMigrationCensusTests
         ];
 
         AssertNoFindings("Processor pull APIs must be absent.",
-            pullNames.SelectMany(s_corpus.Value.FindWord));
+            s_corpus.Value.FindMembersDeclaredByType(processorType, pullNames));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_OnlyReportsMembersDeclaredByRenderNodeProcessor()
+    {
+        const string processorPath = "src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            (processorPath,
+                """
+                namespace Beutl.Graphics.Rendering;
+
+                public sealed class RenderNodeProcessor
+                {
+                    public void Pull() { }
+
+                    public void PullToRoot() { }
+                }
+                """),
+            ("src/Other/RenderNodeProcessor.cs",
+                """
+                namespace Other;
+
+                public sealed class RenderNodeProcessor
+                {
+                    public void Pull() { }
+                }
+                """),
+            ("src/Beutl.Editor.Components/VersionControlTab/ViewModels/VersionControlPrimaryAction.cs",
+                """
+                namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
+
+                public enum VersionControlPrimaryActionKind
+                {
+                    Pull,
+                }
+
+                public sealed class VersionControlTabViewModel
+                {
+                    public void Pull() { }
+                }
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull", "PullToRoot"])
+            .ToArray();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(findings, Has.Length.EqualTo(2));
+            Assert.That(findings.Select(finding => finding.RelativePath),
+                Is.All.EqualTo(processorPath));
+            Assert.That(findings.Select(finding => finding.Snippet),
+                Is.EquivalentTo(new[] { "public void Pull() { }", "public void PullToRoot() { }" }));
+        }
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_ReportsApplicableExtensionMethods()
+    {
+        const string extensionPath = "src/Compatibility/RenderNodeProcessorExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+
+                public sealed class RenderNodeProcessor
+                {
+                }
+                """),
+            (extensionPath,
+                """
+                using Beutl.Graphics.Rendering;
+
+                namespace Compatibility;
+
+                public static class RenderNodeProcessorExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+
+                    public static void PullToRoot(
+                        this global::Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
+                }
+                """),
+            ("src/Other/OtherExtensions.cs",
+                """
+                namespace Other;
+
+                public sealed class RenderNodeProcessor
+                {
+                }
+
+                public static class OtherExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull", "PullToRoot"])
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(findings, Has.Length.EqualTo(2));
+            Assert.That(findings.Select(finding => finding.RelativePath),
+                Is.All.EqualTo(extensionPath));
+            Assert.That(findings.Select(finding => finding.Snippet),
+                Is.EquivalentTo(new[]
+                {
+                    "public static void Pull(this RenderNodeProcessor processor) { }",
+                    "public static void PullToRoot(",
+                }));
+        });
     }
 
     [Test]
@@ -529,6 +645,23 @@ public sealed class RenderPipelineMigrationCensusTests
             return new SourceCorpus(repositoryRoot, documents);
         }
 
+        public static SourceCorpus Create(params (string RelativePath, string Source)[] sources)
+        {
+            SourceDocument[] documents = sources
+                .Select(source =>
+                {
+                    SourceText text = SourceText.From(source.Source);
+                    var tree = CSharpSyntaxTree.ParseText(
+                        text,
+                        CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse),
+                        source.RelativePath);
+                    return new SourceDocument(source.RelativePath, text, tree.GetCompilationUnitRoot());
+                })
+                .OrderBy(document => document.RelativePath, StringComparer.Ordinal)
+                .ToArray();
+            return new SourceCorpus("synthetic", documents);
+        }
+
         public IReadOnlyList<SourceMethod> FindRenderNodeProcessOverrides()
         {
             return Documents.SelectMany(document => document.Root.DescendantNodes()
@@ -672,15 +805,18 @@ public sealed class RenderPipelineMigrationCensusTests
         }
 
         public IEnumerable<SourceFinding> FindMembersDeclaredByType(
-            string typeName,
+            string qualifiedTypeName,
             IReadOnlyCollection<string> memberNames)
         {
+            int separator = qualifiedTypeName.LastIndexOf('.');
+            string namespaceName = separator >= 0 ? qualifiedTypeName[..separator] : string.Empty;
+            string typeName = separator >= 0 ? qualifiedTypeName[(separator + 1)..] : qualifiedTypeName;
             var memberNameSet = new HashSet<string>(memberNames, StringComparer.Ordinal);
             foreach (SourceDocument document in Documents)
             {
                 foreach (TypeDeclarationSyntax type in document.Root.DescendantNodes()
                              .OfType<TypeDeclarationSyntax>()
-                             .Where(type => type.Identifier.ValueText == typeName))
+                             .Where(type => GetQualifiedTypeName(type) == qualifiedTypeName))
                 {
                     foreach (MemberDeclarationSyntax member in type.Members)
                     {
@@ -692,7 +828,83 @@ public sealed class RenderPipelineMigrationCensusTests
                         }
                     }
                 }
+
+                foreach (MethodDeclarationSyntax method in document.Root.DescendantNodes()
+                             .OfType<MethodDeclarationSyntax>()
+                             .Where(method => memberNameSet.Contains(method.Identifier.ValueText)))
+                {
+                    ParameterSyntax? receiver = method.ParameterList.Parameters.FirstOrDefault();
+                    if (receiver is null
+                        || !receiver.Modifiers.Any(SyntaxKind.ThisKeyword)
+                        || !CouldReferToType(
+                            receiver.Type,
+                            document.Root,
+                            namespaceName,
+                            typeName,
+                            qualifiedTypeName))
+                    {
+                        continue;
+                    }
+
+                    yield return document.ToFinding(
+                        method.Identifier,
+                        $"extension member '{method.Identifier.ValueText}' for '{qualifiedTypeName}'");
+                }
             }
+        }
+
+        private static string GetQualifiedTypeName(TypeDeclarationSyntax type)
+        {
+            IEnumerable<string> namespaces = type.Ancestors()
+                .OfType<BaseNamespaceDeclarationSyntax>()
+                .Reverse()
+                .Select(item => item.Name.ToString());
+            IEnumerable<string> containingTypes = type.Ancestors()
+                .OfType<TypeDeclarationSyntax>()
+                .Reverse()
+                .Select(item => item.Identifier.ValueText);
+            return string.Join('.', namespaces.Concat(containingTypes).Append(type.Identifier.ValueText));
+        }
+
+        private static bool CouldReferToType(
+            TypeSyntax? type,
+            CompilationUnitSyntax root,
+            string namespaceName,
+            string typeName,
+            string qualifiedTypeName)
+        {
+            if (type is null)
+            {
+                return false;
+            }
+
+            string writtenType = type.ToString().Replace("global::", string.Empty, StringComparison.Ordinal);
+            if (writtenType == qualifiedTypeName)
+            {
+                return true;
+            }
+
+            IEnumerable<UsingDirectiveSyntax> usings = root.Usings.Concat(
+                type.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(item => item.Usings));
+            UsingDirectiveSyntax? alias = usings.FirstOrDefault(item =>
+                item.Alias?.Name.Identifier.ValueText == writtenType);
+            if (alias?.Name?.ToString().Replace("global::", string.Empty, StringComparison.Ordinal)
+                == qualifiedTypeName)
+            {
+                return true;
+            }
+
+            if (writtenType != typeName)
+            {
+                return false;
+            }
+
+            string declaredNamespace = string.Join('.', type.Ancestors()
+                .OfType<BaseNamespaceDeclarationSyntax>()
+                .Reverse()
+                .Select(item => item.Name.ToString()));
+            return declaredNamespace == namespaceName
+                   || usings.Any(item => item.Alias is null && item.Name?.ToString() == namespaceName);
         }
 
         private IEnumerable<SourceFinding> FindText(Regex pattern, string detail)
