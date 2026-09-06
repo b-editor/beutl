@@ -199,7 +199,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 "Call attach_active_editor for an open editor scene; if no editor scene is open, call create_project or open_project instead of writing a one-off generator. In the in-app host these open the project in the Beutl editor (single open project, LiveEditor session; a different project cannot be opened while one is open); in the stdio host they create a file-backed session.",
                 "Call read_document_summary to inspect progress without the full document.",
                 "Call measure_object_bounds before positioning text, backing plates, or centered objects; default Drawable alignment is centered, so TranslateTransform(0, 0) means the object's center is at the frame center.",
-                "undo(steps) reverts your own last apply_edit transactions exactly, and read_history names what the next step would revert. Backing out an experiment that way is cheaper and more accurate than authoring a compensating patch. In a LiveEditor session the stack is shared with the editor, so a step can revert a human edit.",
+                "undo(steps) reverts your own last apply_edit transactions exactly, and read_history names what the next step would revert. Backing out an experiment that way is cheaper and more accurate than authoring a compensating patch. In a LiveEditor session the stack is shared with the editor, so call read_history immediately before undo and inspect its nextUndo to avoid reverting a human edit.",
                 "After deriving palette and background grammar, read_document and get_schema only for the drawable/effect types you need, then author a custom declarative patch instead of cloning a starter.",
                 "Call list_effects and list_effect_recipes to discover Beutl's visual effect palette before choosing a repeated look; for organic heat/ink/glass/noise fields, consider an SKSLScriptEffect shader recipe instead of stacking only blurred gradients.",
                 "For SKSL/GLSL/CSharp script effects, read the default script and uniform list from get_schema(type=<effect>), then call validate_shader to compile-check an edited script before apply_edit; for SKSL, a compile error makes the effect a no-op and the source passes through unchanged.",
@@ -507,7 +507,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                             .Distinct()
                             .OrderBy(item => item.Weight)
                             .ThenBy(item => item.Style)
-                            .Select(item => new FontTypefaceSummary(item.Weight.ToString(), item.Style.ToString()))
+                            .Select(item => new FontTypefaceSummary((int)item.Weight, item.Style.ToString()))
                             .ToArray());
                 })
                 .ToArray();
@@ -516,7 +516,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 SchemaVersion.Current,
                 families.Length,
                 families,
-                "Use the family Name verbatim as FontFamily, then choose Weight and Style together from one Typefaces entry and pass their enum names as FontWeight and FontStyle. An unavailable pair resolves to the nearest face rather than failing, so mixing values from different entries can render quietly with the wrong thickness or slant.");
+                "Use the family Name verbatim as FontFamily, then choose Weight and Style together from one Typefaces entry. Pass the Weight integer as FontWeight and the Style name as FontStyle. An unavailable pair resolves to the nearest face rather than failing, so mixing values from different entries can render quietly with the wrong thickness or slant.");
         });
     }
 
@@ -1588,7 +1588,7 @@ public sealed record FontFamilySummary(
     IReadOnlyList<FontTypefaceSummary> Typefaces);
 
 public sealed record FontTypefaceSummary(
-    string Weight,
+    int Weight,
     string Style);
 
 public sealed record FontListResponse(

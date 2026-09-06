@@ -219,8 +219,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             : VideoTypeCatalog.Resolve(videoType);
         VideoTypeGateProfile gateProfile = videoProfile?.GateProfile ?? VideoTypeGateProfile.None;
 
-        // relaxAesthetics only suppresses non-blocking aesthetic/pacing advisories; the
-        // blocking checks (read time, element structure, motion) still run regardless.
+        // relaxAesthetics suppresses only selected non-blocking pacing advisories. Blocking
+        // checks and unrelated advisories (motion, density, audio sync, palette, text fit) remain.
         bool relaxHardCuts = allowHardCuts || relaxAesthetics;
         bool resolvedAllowStillness = allowStillness || gateProfile.ImpliedAllowStillness;
         bool resolvedAllowMinimalDensity = allowMinimalDensity || gateProfile.ImpliedAllowMinimalDensity;

@@ -395,6 +395,23 @@ internal sealed class DeclarativeDocumentApplier
             && IdentityMatches(currentObject, animationJson)
             && TypeMatches(currentObject, animationJson))
         {
+            // A merge-patch produces a full desired document, so animations unrelated to the edit
+            // arrive here structurally equivalent to their current serialization. Do not replay
+            // their setters: attaching a validator does not retroactively change old keyframes, and
+            // reassigning those values here would silently coerce or reject pre-existing project data
+            // that the caller did not edit.
+            JsonObject currentJson = CoreSerializer.SerializeToJsonObject(
+                currentObject,
+                new CoreSerializerOptions
+                {
+                    BaseUri = ResolveBaseUri(currentObject) ?? _documentBaseUri,
+                    Mode = CoreSerializationMode.EmbedReferencedObjects
+                });
+            if (JsonNode.DeepEquals(currentJson, animationJson))
+            {
+                return;
+            }
+
             ApplyCoreObject(currentObject, animationJson);
         }
         else

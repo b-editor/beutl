@@ -44,8 +44,54 @@ public sealed class FontToolsTests
                 Is.EquivalentTo(FontManager.Instance.GetTypefaces(sample)
                     .Distinct()
                     .Select(typeface => new FontTypefaceSummary(
-                        typeface.Weight.ToString(),
+                        (int)typeface.Weight,
                         typeface.Style.ToString()))));
+        });
+    }
+
+    [Test]
+    public void List_fonts_typeface_entry_round_trips_through_apply_edit()
+    {
+        _ = RequireRegisteredFamilies();
+        var queryTools = new QueryTools(new AgentSessionManager());
+        FontFamilySummary? family = queryTools.ListFonts().Value!.Families
+            .FirstOrDefault(item => item.Typefaces.Count > 0);
+        if (family is null)
+        {
+            Assert.Ignore("No registered font family exposes a selectable typeface in this environment.");
+            return;
+        }
+
+        FontTypefaceSummary typeface = family.Typefaces[0];
+        (EditTools editTools, Scene scene, Element element) = CreateSceneWithText();
+
+        ToolResult<ApplyEditResponse> apply = editTools.ApplyEdit(
+            patch: FontPatch(element, family.Name, typeface.Weight, typeface.Style),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            TextBlock text = RequireTextBlock(scene);
+            Assert.That(text.FontFamily.CurrentValue!.Name, Is.EqualTo(family.Name));
+            Assert.That((int)text.FontWeight.CurrentValue, Is.EqualTo(typeface.Weight));
+            Assert.That(text.FontStyle.CurrentValue.ToString(), Is.EqualTo(typeface.Style));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_accepts_an_unnamed_numeric_font_weight()
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithText();
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: FontPatch(element, weight: 1000),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That((int)RequireTextBlock(scene).FontWeight.CurrentValue, Is.EqualTo(1000));
         });
     }
 
@@ -154,17 +200,39 @@ public sealed class FontToolsTests
         => (TextBlock)scene.Children.Single().Objects.Single();
 
     private static JsonObject FontFamilyPatch(Element element, string familyName)
+        => FontPatch(element, familyName);
+
+    private static JsonObject FontPatch(
+        Element element,
+        string? familyName = null,
+        int? weight = null,
+        string? style = null)
     {
+        var objectPatch = new JsonObject
+        {
+            [nameof(CoreObject.Id)] = element.Objects.Single().Id.ToString()
+        };
+        if (familyName is not null)
+        {
+            objectPatch[nameof(TextBlock.FontFamily)] = familyName;
+        }
+
+        if (weight is not null)
+        {
+            objectPatch[nameof(TextBlock.FontWeight)] = weight.Value;
+        }
+
+        if (style is not null)
+        {
+            objectPatch[nameof(TextBlock.FontStyle)] = style;
+        }
+
         return new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
                 [nameof(CoreObject.Id)] = element.Id.ToString(),
-                ["Objects"] = new JsonArray(new JsonObject
-                {
-                    [nameof(CoreObject.Id)] = element.Objects.Single().Id.ToString(),
-                    [nameof(TextBlock.FontFamily)] = familyName
-                })
+                ["Objects"] = new JsonArray(objectPatch)
             })
         };
     }

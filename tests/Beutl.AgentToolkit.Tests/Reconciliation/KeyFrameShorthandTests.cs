@@ -244,6 +244,43 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void Unrelated_edit_does_not_revalidate_an_unchanged_animation()
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+        var rect = (RectShape)element.Objects.Single();
+        var animation = new KeyFrameAnimation<float>();
+        var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
+        animation.KeyFrames.Add(keyFrame, out _);
+        rect.Opacity.Animation = animation;
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    ["Objects"] = new JsonArray(new JsonObject
+                    {
+                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(CoreObject.Name)] = "renamed"
+                    })
+                })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(rect.Name, Is.EqualTo("renamed"));
+            Assert.That(rect.Opacity.Animation, Is.SameAs(animation));
+            Assert.That(keyFrame.Value, Is.EqualTo(-25));
+            Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
+            Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
+                outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void Relative_out_of_range_times_warn_for_shorthand_and_long_form(bool shorthand)
