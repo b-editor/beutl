@@ -10,7 +10,6 @@ jobs:
   build:
     permissions:
       contents: read
-      id-token: write
 
     runs-on: ubuntu-latest
 
@@ -163,6 +162,32 @@ jobs:
         # instead of listing each package once per test assembly.
         run: reportgenerator -reports:"tests/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Cobertura;Html"
 
+      - name: Save
+        uses: actions/upload-artifact@v7
+        with:
+          name: Coverage
+          path: coveragereport
+
+  upload-coverage:
+    needs: build
+    permissions:
+      contents: read
+      id-token: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v8
+        with:
+          name: Coverage
+          path: coveragereport
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
@@ -170,9 +195,3 @@ jobs:
           disable_search: true
           fail_ci_if_error: true
           use_oidc: true
-
-      - name: Save
-        uses: actions/upload-artifact@v7
-        with:
-          name: Coverage
-          path: coveragereport
