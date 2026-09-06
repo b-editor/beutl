@@ -68,7 +68,7 @@ public sealed class OpaqueSourceCoverageTests
         using var node = new DrawableRenderNode(drawable);
         using (var context = new GraphicsContext2D(node, brushSize, density))
         {
-            drawable.GetOriginal()!.Render(context, drawable);
+            drawable.RequireOriginal().Render(context, drawable);
         }
 
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
@@ -96,7 +96,7 @@ public sealed class OpaqueSourceCoverageTests
     {
         var node = new DrawableRenderNode(resource);
         using var context = new GraphicsContext2D(node, s_frame.ToSize(1), density);
-        resource.GetOriginal()!.Render(context, resource);
+        resource.RequireOriginal().Render(context, resource);
         return node;
     }
 

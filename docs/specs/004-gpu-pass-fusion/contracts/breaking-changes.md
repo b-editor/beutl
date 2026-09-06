@@ -813,19 +813,20 @@ that promised it could not. `EngineResourceIdentity` already handled that null, 
 the declaration met a `NullReferenceException` instead of a diagnosable one.
 
 The base accessor and the `GetOriginal()` override the resource source generator emits now return a nullable
-reference. Nothing about the runtime behaviour changed. Under nullable reference types, a caller that only
-ever holds resources produced by `ToResource` states that:
+reference. Resources also expose `IsAttached` for checking that state and `RequireOriginal()` for code that
+cannot operate without a backing object. Nothing about the runtime behaviour of `GetOriginal()` changed.
+Under nullable reference types, a caller that only ever holds resources produced by `ToResource` states that:
 
 ```csharp
 // before
 Drawable drawable = resource.GetOriginal();
 
-// after — the resource came from ToResource, so it is attached
-Drawable drawable = resource.GetOriginal()!;
+// after — the operation requires an attached resource
+Drawable drawable = resource.RequireOriginal();
 ```
 
-A caller that may hold a detached resource handles the null it was already able to receive, or keys on
-`EngineResourceIdentity` when it only needs an equality-stable identity.
+A caller that may hold a detached resource checks `IsAttached` or handles the null from `GetOriginal()`, or
+keys on `EngineResourceIdentity` when it only needs an equality-stable identity.
 
 ## A hand-built resource's version is the author's to move
 

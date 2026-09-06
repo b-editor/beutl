@@ -1370,7 +1370,7 @@ internal sealed partial class MeasureCaptureNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            MeasureCaptureNode node = GetOriginal()!;
+            MeasureCaptureNode node = RequireOriginal();
             node.Value = new Rect(X, Y, Width, Height);
         }
     }
@@ -1392,7 +1392,7 @@ internal sealed partial class FixedRenderNodeGraphNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            Output = GetOriginal()!.Value;
+            Output = RequireOriginal().Value;
         }
     }
 }
@@ -1458,7 +1458,7 @@ internal sealed partial class CountingPassThroughGraphNode : GraphNode
 
         public override void Update(GraphCompositionContext context)
         {
-            CountingPassThroughGraphNode node = GetOriginal()!;
+            CountingPassThroughGraphNode node = RequireOriginal();
             node.EvaluationCount++;
             if (Input is null)
             {
@@ -1536,7 +1536,7 @@ internal sealed partial class MixedPreviewGraphNode : GraphNode
                 return;
             }
 
-            MixedPreviewGraphNode node = GetOriginal()!;
+            MixedPreviewGraphNode node = RequireOriginal();
             _renderNode ??= new NonOwningMixedContainerRenderNode(node);
             _renderNode.SetInput(Input);
             Output = _renderNode;

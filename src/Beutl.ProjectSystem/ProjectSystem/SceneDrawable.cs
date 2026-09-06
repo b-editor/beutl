@@ -229,7 +229,7 @@ public sealed partial class SceneDrawable : Drawable
                     if (item is not Drawable.Resource drawableResource)
                         continue;
 
-                    Drawable drawable = drawableResource.GetOriginal()!;
+                    Drawable drawable = drawableResource.RequireOriginal();
                     DrawableRenderNode? node = childIndex < Children.Count
                         ? Children[childIndex] as DrawableRenderNode
                         : null;

@@ -86,7 +86,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
             [resource],
             TimeRange,
             default,
-            new CompositionEligibility([resource.GetOriginal()!]));
+            new CompositionEligibility([resource.RequireOriginal()]));
 
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
         {
