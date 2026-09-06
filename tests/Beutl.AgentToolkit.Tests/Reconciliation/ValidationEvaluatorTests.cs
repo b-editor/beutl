@@ -2,6 +2,8 @@
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Validation;
+using BeutlValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
@@ -59,6 +61,24 @@ public class ValidationEvaluatorTests
         });
     }
 
+    [Test]
+    public void EvaluateAnimationValue_UsesTheAttachedValidatorInsteadOfRebuildingAttributes()
+    {
+        IProperty<int> property = Property.CreateAnimatable(0, new RejectingValidator());
+
+        ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+            property,
+            new RejectingValidator(),
+            42,
+            options: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Status, Is.EqualTo(ValidationStatus.Rejected));
+            Assert.That(outcome.Message, Is.EqualTo("custom animation rejection"));
+        });
+    }
+
     private sealed class RangedCoreObject : CoreObject
     {
         public static readonly CoreProperty<int> AmountProperty =
@@ -95,5 +115,12 @@ public class ValidationEvaluatorTests
         public IProperty<Color> Color { get; } = Property.Create(Colors.White);
 
         public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    }
+
+    private sealed class RejectingValidator : IValidator<int>
+    {
+        public bool TryCoerce(BeutlValidationContext context, ref int value) => false;
+
+        public string? Validate(BeutlValidationContext context, int value) => "custom animation rejection";
     }
 }

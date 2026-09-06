@@ -40,11 +40,12 @@ public sealed class FontToolsTests
                 Is.EquivalentTo(registered.Select(family => family.Name).Distinct()));
             Assert.That(summary, Is.Not.Null, $"'{sample.Name}' is registered but missing from the response");
             Assert.That(
-                summary!.Weights,
-                Is.EquivalentTo(FontManager.Instance.GetTypefaces(sample).Select(t => t.Weight.ToString()).Distinct()));
-            Assert.That(
-                summary.Styles,
-                Is.EquivalentTo(FontManager.Instance.GetTypefaces(sample).Select(t => t.Style.ToString()).Distinct()));
+                summary!.Typefaces,
+                Is.EquivalentTo(FontManager.Instance.GetTypefaces(sample)
+                    .Distinct()
+                    .Select(typeface => new FontTypefaceSummary(
+                        typeface.Weight.ToString(),
+                        typeface.Style.ToString()))));
         });
     }
 

@@ -99,15 +99,17 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 ? Disposable.Empty
                 : frameProgress.Subscribe(time => onFrameProgress(
                     // The provider derives frame times from integer ticks, so the product lands
-                    // just under the frame number; round rather than truncate, and report the
-                    // count completed (index + 1) so a finished export reaches total.
-                    Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond) + 1, frameProvider.FrameCount),
+                    // just under the frame number; round rather than truncate. RenderFrame emits
+                    // this signal before returning the requested bitmap, so only preceding frames
+                    // are complete at this point.
+                    Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond), frameProvider.FrameCount),
                     frameProvider.FrameCount));
             using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<TimeSpan>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
 
             await controller.Encode(frameProvider, sampleProvider, cancellationToken).ConfigureAwait(false);
+            onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             if (encoder is AVFEncodingExtension
                 && bitrate is int requestedBitrate
                 && CreateAvFoundationBitrateWarning(

@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
@@ -82,11 +83,12 @@ public sealed class Reconciler
             throw new ReconcileException(error);
         }
 
+        var validation = new List<ValidationOutcome>();
         CoreObject sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
         ValidateNoNewFallbackObjects(session, sandboxRoot);
+        ValidateChangedAnimationValues(sandboxRoot, currentDocument, desiredDocument, validation);
 
         var changes = new List<ChangeSetEntry>();
-        var validation = new List<ValidationOutcome>();
         CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
         ValidateInsertedSubtrees(sandboxRoot, changes, validation);
         ValidateChangedElementTimelines(sandboxRoot, changes, validation);
@@ -504,6 +506,120 @@ public sealed class Reconciler
         }
 
         return sandboxRoot;
+    }
+
+    private static void ValidateChangedAnimationValues(
+        CoreObject sandboxRoot,
+        JsonObject currentDocument,
+        JsonObject desiredDocument,
+        List<ValidationOutcome> validation)
+    {
+        var currentById = new Dictionary<Guid, JsonObject>();
+        IndexObjectsById(currentDocument, currentById);
+        ValidateChangedAnimationValuesInNode(sandboxRoot, currentById, desiredDocument, validation);
+    }
+
+    private static void ValidateChangedAnimationValuesInNode(
+        CoreObject sandboxRoot,
+        IReadOnlyDictionary<Guid, JsonObject> currentById,
+        JsonNode? node,
+        List<ValidationOutcome> validation)
+    {
+        if (node is JsonObject obj)
+        {
+            if (CollectionReconciler.TryGetId(obj, out Guid id)
+                && IdentityHelper.FindById(sandboxRoot, id) is EngineObject engineObject
+                && obj["Animations"] is JsonObject desiredAnimations)
+            {
+                currentById.TryGetValue(id, out JsonObject? currentObject);
+                JsonObject? currentAnimations = currentObject?["Animations"] as JsonObject;
+                foreach ((string propertyName, JsonNode? animationNode) in desiredAnimations)
+                {
+                    JsonNode? currentAnimationNode = null;
+                    currentAnimations?.TryGetPropertyValue(propertyName, out currentAnimationNode);
+                    if (JsonEquals(currentAnimationNode, animationNode)
+                        || animationNode is not JsonObject animationJson
+                        || engineObject.Properties.FirstOrDefault(property => property.Name == propertyName) is not { } property)
+                    {
+                        continue;
+                    }
+
+                    JsonObject normalizedAnimation = KeyFrameShorthand.IsShorthand(animationJson)
+                        ? KeyFrameShorthand.Expand(animationJson, property.ValueType)
+                        : animationJson;
+                    if (normalizedAnimation[nameof(KeyFrameAnimation.KeyFrames)] is not JsonArray keyFrames)
+                    {
+                        continue;
+                    }
+
+                    IValidator? validator = (property.Animation as KeyFrameAnimation)?.Validator;
+                    CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
+                        DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandboxRoot.Uri);
+                    foreach (JsonObject keyFrame in keyFrames.OfType<JsonObject>())
+                    {
+                        if (!keyFrame.TryGetPropertyValue(nameof(KeyFrame<float>.Value), out JsonNode? valueNode))
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            object? value = valueNode is null
+                                ? null
+                                : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
+                            validation.Add(ValidationEvaluator.EvaluateAnimationValue(
+                                property,
+                                validator,
+                                value,
+                                options));
+                        }
+                        catch (Exception ex)
+                        {
+                            validation.Add(ValidationOutcome.Rejected(
+                                valueNode,
+                                $"Animation value for property '{property.Name}' is invalid: {ex.Message}",
+                                options,
+                                ValidationEvaluator.CreateValueHint(property.ValueType)));
+                        }
+                    }
+                }
+            }
+
+            foreach ((_, JsonNode? child) in obj)
+            {
+                ValidateChangedAnimationValuesInNode(sandboxRoot, currentById, child, validation);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+            {
+                ValidateChangedAnimationValuesInNode(sandboxRoot, currentById, child, validation);
+            }
+        }
+    }
+
+    private static void IndexObjectsById(JsonNode? node, IDictionary<Guid, JsonObject> objects)
+    {
+        if (node is JsonObject obj)
+        {
+            if (CollectionReconciler.TryGetId(obj, out Guid id))
+            {
+                objects[id] = obj;
+            }
+
+            foreach ((_, JsonNode? child) in obj)
+            {
+                IndexObjectsById(child, objects);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+            {
+                IndexObjectsById(child, objects);
+            }
+        }
     }
 
     // Inserted subtrees never reach CompareObject (CompareArray records the InsertChild and continues),

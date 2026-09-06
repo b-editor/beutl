@@ -5,7 +5,19 @@ namespace Beutl.AgentToolkit.Rendering;
 
 public sealed class EncoderRegistration
 {
-    private readonly Lazy<IReadOnlyList<ControllableEncodingExtension>> _encoders = new(Register);
+    private readonly Lazy<IReadOnlyList<ControllableEncodingExtension>> _encoders;
+
+    public EncoderRegistration()
+    {
+        _encoders = new(Register);
+    }
+
+    internal EncoderRegistration(params ControllableEncodingExtension[] encoders)
+    {
+        ArgumentNullException.ThrowIfNull(encoders);
+        IReadOnlyList<ControllableEncodingExtension> registered = encoders.ToArray();
+        _encoders = new(() => registered);
+    }
 
     public IReadOnlyList<ControllableEncodingExtension> Encoders => _encoders.Value;
 

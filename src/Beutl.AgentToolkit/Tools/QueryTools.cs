@@ -487,7 +487,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "list_fonts")]
-    [Description("Returns the font families this Beutl runtime has actually registered, with the weights and styles each one provides. Font family resolution is by typographic family name: a subfamily such as \"Inter 28pt\" is not a family and will not match, and a family that is present may still lack the weight you asked for. Call this before setting FontFamily/FontWeight rather than guessing from what is installed on the machine.")]
+    [Description("Returns the font families this Beutl runtime has actually registered, with each available weight/style typeface pair. Font family resolution is by typographic family name: a subfamily such as \"Inter 28pt\" is not a family and will not match, and a family that is present may still lack the typeface pair you asked for. Call this before setting FontFamily/FontWeight/FontStyle rather than guessing from what is installed on the machine.")]
     public ToolResult<FontListResponse> ListFonts(
         [Description("Optional case-insensitive substring filter on the family name.")]
         string? nameFilter = null)
@@ -503,8 +503,12 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                     ImmutableArray<Typeface> typefaces = FontManager.Instance.GetTypefaces(family);
                     return new FontFamilySummary(
                         family.Name,
-                        typefaces.Select(item => item.Weight.ToString()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
-                        typefaces.Select(item => item.Style.ToString()).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray());
+                        typefaces
+                            .Distinct()
+                            .OrderBy(item => item.Weight)
+                            .ThenBy(item => item.Style)
+                            .Select(item => new FontTypefaceSummary(item.Weight.ToString(), item.Style.ToString()))
+                            .ToArray());
                 })
                 .ToArray();
 
@@ -512,7 +516,7 @@ public sealed class QueryTools(AgentSessionManager sessions) : ToolBase
                 SchemaVersion.Current,
                 families.Length,
                 families,
-                "Use the family Name verbatim as FontFamily and one of the listed Weights as FontWeight (the enum name, e.g. SemiBold). A weight this list does not show resolves to the nearest available face rather than failing, so a missing weight renders quietly at the wrong thickness.");
+                "Use the family Name verbatim as FontFamily, then choose Weight and Style together from one Typefaces entry and pass their enum names as FontWeight and FontStyle. An unavailable pair resolves to the nearest face rather than failing, so mixing values from different entries can render quietly with the wrong thickness or slant.");
         });
     }
 
@@ -1581,8 +1585,11 @@ public sealed record DocumentSummaryResponse(
 
 public sealed record FontFamilySummary(
     string Name,
-    IReadOnlyList<string> Weights,
-    IReadOnlyList<string> Styles);
+    IReadOnlyList<FontTypefaceSummary> Typefaces);
+
+public sealed record FontTypefaceSummary(
+    string Weight,
+    string Style);
 
 public sealed record FontListResponse(
     string SchemaVersion,

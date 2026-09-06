@@ -8,10 +8,10 @@ This is **declarative editing first** (FR-027): `read_document` + `apply_edit` a
 
 ### `get_started`
 Return a compact guide for agents that only know the MCP endpoint URL.
-- **Input**: `{ "videoType"?: "motion-graphics"|"footage-cut"|"slideshow"|"lyric-captions"|"logo-intro" }`. Omit `videoType` for the classification-first default guide.
-- **Output**: `{ "schemaVersion": string, "recommendedCalls": string[], "recommendedSkills": [ ... ], "categoryAliases": { ... }, "rawHttpNote": string, "videoTypes"?: [ { "name": string, "description": string, "whenToUse": string, "briefSignals": string[] } ], "selectedVideoType"?: { "name": string, "description": string, "whenToUse": string, "briefSignals": string[] } }`.
+- **Input**: `{ "videoType"?: "motion-graphics"|"footage-cut"|"slideshow"|"lyric-captions"|"logo-intro", "includeGuidance"?: bool }`. Omit `videoType` for the classification-first default guide. `includeGuidance` defaults to `false` so first contact returns mechanics without the longer craft notes.
+- **Output**: `{ "schemaVersion": string, "essentials": string[], "guidance": string[], "recommendedSkills": [ ... ], "categoryAliases": { ... }, "rawHttpNote": string, "videoTypes"?: [ { "name": string, "description": string, "whenToUse": string, "briefSignals": string[] } ], "selectedVideoType"?: { "name": string, "description": string, "whenToUse": string, "briefSignals": string[] } }`.
 - **Use when**: a raw or low-context agent needs the first valid calls, category alias hints, and the SSE note without pulling the full schema.
-- **Behavior**: when omitted, the response keeps the motion-graphics default guidance and adds `videoTypes` plus a first workflow item telling the agent to classify the brief and call `get_started(videoType)` again. When provided, `recommendedCalls` is the common core workflow plus the selected type's tool-anchored steps, and `selectedVideoType` records the resolved profile. Unknown values return `validation_rejected` listing the supported values.
+- **Behavior**: when `videoType` is omitted, `essentials` contains the classification-first workflow and `videoTypes` lists the supported profiles. When provided, `essentials` is the common core workflow plus the selected type's tool-anchored steps, and `selectedVideoType` records the resolved profile. `guidance` is empty unless `includeGuidance=true`, in which case it contains the longer palette, typography, density, tempo, and shape craft notes for both default and selected-profile responses. Unknown `videoType` values return `validation_rejected` listing the supported values.
 
 ### `get_schema`
 Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable declarative patch examples.
@@ -92,11 +92,11 @@ Return the project/scene (or a subtree) as the normalized Declarative Document (
 - **Backed by**: `CoreSerializer.SerializeToJsonObject`.
 
 ### `list_fonts`
-Report the font families this runtime has registered, with the weights and styles each provides.
+Report the font families this runtime has registered, with each available weight/style typeface pair.
 - **Input**: `{ "nameFilter"?: string }` — case-insensitive substring match on the family name.
-- **Output**: `{ "schemaVersion": string, "familyCount": number, "families": [ { "name": string, "weights": string[], "styles": string[] } ], "usageHint": string }`.
-- **Use when**: before setting `FontFamily` / `FontWeight`. Resolution is by typographic family name: a subfamily such as `"Inter 28pt"` is not a family and will not match, and a registered family may still lack the weight requested.
-- **Notes**: an unresolvable family renders in the fallback face rather than failing, and `apply_edit` warns by name when one is set. A weight the list does not show resolves to the nearest available face, so a missing weight renders quietly at the wrong thickness.
+- **Output**: `{ "schemaVersion": string, "familyCount": number, "families": [ { "name": string, "typefaces": [ { "weight": string, "style": string } ] } ], "usageHint": string }`.
+- **Use when**: before setting `FontFamily` / `FontWeight` / `FontStyle`. Resolution is by typographic family name: a subfamily such as `"Inter 28pt"` is not a family and will not match, and a registered family may still lack the requested weight/style pair.
+- **Notes**: an unresolvable family renders in the fallback face rather than failing, and `apply_edit` warns by name when one is set. Choose `weight` and `style` together from the same `typefaces` entry; an unavailable pair resolves to the nearest face and can otherwise render quietly with the wrong thickness or slant.
 
 ## Session
 
@@ -257,7 +257,7 @@ Export a range/timeline to a video file (FR-017).
 ### `read_render_job`
 Report the status of a background `render_storyboard`/`export_video` job.
 - **Input**: `{ "jobId": string }`.
-- **Output**: `{ "jobId": string, "kind": "storyboard"|"export", "state": "running"|"completed"|"failed"|"cancelled", "result": <render_storyboard/export_video payload> | null, "error": { "code": string, "message": string, ... } | null, "startedAt": string, "completedAt": string|null }`. `result` is populated only when `state="completed"`; `error` carries the same `ToolError` shape (and code) the synchronous path would have returned when `state="failed"`.
+- **Output**: `{ "jobId": string, "kind": "storyboard"|"export", "state": "running"|"completed"|"failed"|"cancelled", "result": <render_storyboard/export_video payload> | null, "error": { "code": string, "message": string, ... } | null, "startedAt": string, "completedAt": string|null, "progress": { "completed": number, "total": number, "ratio": number|null, "stage": string|null } | null }`. `result` is populated only when `state="completed"`; `error` carries the same `ToolError` shape (and code) the synchronous path would have returned when `state="failed"`. `ratio` is `completed / total` clamped to `0..1`, or `null` while `total` is not yet known. A waiting job reports `0/0` with stage `queued`, then `starting`. Storyboards report completed stills against the planned still count with stage `rendering shots`, then `<total>/<total>` with stage `contact sheet`. Exports report only frames already returned to the encoder with stage `encoding`, and publish `<total>/<total>` only after `EncodingController.Encode` returns successfully.
 - **Use when**: polling after a `background=true` render/export call. Poll until `state` leaves `running`.
 - **Errors**: `stale_handle` (unknown `jobId`).
 - **Backed by**: a process-singleton `RenderJobManager` (registered in both hosts) that serializes background jobs single-flight because all stills share the one `RenderThread`.

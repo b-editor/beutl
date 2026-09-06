@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
@@ -182,6 +184,42 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Out_of_range_animation_values_are_reported_and_coerced_by_the_owning_property(bool shorthand)
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
+        JsonObject animation = shorthand
+            ? new JsonObject
+            {
+                [KeyFrameShorthand.PropertyName] = new JsonArray(
+                    new JsonArray(0, -25),
+                    new JsonArray(1, 125))
+            }
+            : new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>)),
+                [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(
+                    CreateLongFormKeyFrame(0, -25),
+                    CreateLongFormKeyFrame(1, 125))
+            };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityAnimationPatch(element, animation),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        var keyFrames = ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                apply.Value!.Validation!.Count(outcome => outcome.Status == ValidationStatus.Coerced),
+                Is.EqualTo(2));
+            Assert.That(keyFrames.Select(keyFrame => keyFrame.Value), Is.EqualTo(new object[] { 0f, 100f }));
+        });
+    }
+
     private static IAnimation RequireOpacityAnimation(Scene scene)
     {
         var shape = (RectShape)scene.Children.Single().Objects.Single();
@@ -191,6 +229,11 @@ public sealed class KeyFrameShorthandTests
     }
 
     private static JsonObject OpacityPatch(Element element, JsonArray keyframes)
+        => OpacityAnimationPatch(
+            element,
+            new JsonObject { [KeyFrameShorthand.PropertyName] = keyframes });
+
+    private static JsonObject OpacityAnimationPatch(Element element, JsonObject animation)
     {
         return new JsonObject
         {
@@ -202,10 +245,20 @@ public sealed class KeyFrameShorthandTests
                     [nameof(CoreObject.Id)] = element.Objects.Single().Id.ToString(),
                     ["Animations"] = new JsonObject
                     {
-                        ["Opacity"] = new JsonObject { ["$kf"] = keyframes }
+                        ["Opacity"] = animation
                     }
                 })
             })
+        };
+    }
+
+    private static JsonObject CreateLongFormKeyFrame(double seconds, float value)
+    {
+        return new JsonObject
+        {
+            ["$type"] = IdentityHelper.WriteDiscriminator(typeof(KeyFrame<float>)),
+            [nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(seconds).ToString("c"),
+            [nameof(KeyFrame<float>.Value)] = value
         };
     }
 

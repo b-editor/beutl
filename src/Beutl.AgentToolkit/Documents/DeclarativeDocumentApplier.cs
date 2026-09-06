@@ -419,6 +419,39 @@ internal sealed class DeclarativeDocumentApplier
 
             property.Animation = animation;
         }
+
+        RevalidateKeyFrameValues(property);
+    }
+
+    private void RevalidateKeyFrameValues(IProperty property)
+    {
+        if (property.Animation is not KeyFrameAnimation animation)
+        {
+            return;
+        }
+
+        CoreSerializerOptions options = CreateOptions(property.GetOwnerObject());
+        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        {
+            object? value = keyFrame.Value;
+            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+                property,
+                animation.Validator,
+                value,
+                options);
+            if (outcome.Status == ValidationStatus.Rejected)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Animation value for property '{property.Name}' is invalid: {outcome.Message}",
+                    property.Name,
+                    outcome.Hint));
+            }
+
+            // A newly deserialized animation receives the owning property's validator only when it
+            // is attached. Reassign after attachment so range coercion also covers its existing keys.
+            keyFrame.Value = value;
+        }
     }
 
     private static void ApplyExpressions(EngineObject target, JsonObject desired)

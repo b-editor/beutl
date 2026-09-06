@@ -95,6 +95,26 @@ public static class ValidationEvaluator
         return EvaluateValidator(validator, new ValidationContext(property, null), value, options);
     }
 
+    internal static ValidationOutcome EvaluateAnimationValue(
+        IProperty property,
+        IValidator? validator,
+        object? value,
+        CoreSerializerOptions? options)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+
+        if (!IsAssignableValue(property.ValueType, value))
+        {
+            return ValidationOutcome.Rejected(
+                value,
+                $"Value is not assignable to {property.ValueType.FullName}.",
+                options,
+                CreateValueHint(property.ValueType));
+        }
+
+        return EvaluateValidator(validator, new ValidationContext(property, null), value, options);
+    }
+
     // A FontFamily that is not registered renders as a fallback rather than the requested face,
     // and nothing downstream says so — the frame just comes back in the wrong typeface.
     private static ValidationOutcome? EvaluateFontFamily(object? value, CoreSerializerOptions? options)
@@ -108,7 +128,7 @@ public static class ValidationEvaluator
             value,
             $"Font family '{family.Name}' is not installed or is not a typographic family name, so it renders in the fallback face.",
             options,
-            "Call list_fonts for the installed families and the weights each one actually has. A subfamily name such as \"Inter 28pt\" is not a family name; use the typographic family (\"Inter\") and set FontWeight separately.");
+            "Call list_fonts for installed families and their available weight/style typeface pairs. A subfamily name such as \"Inter 28pt\" is not a family name; use the typographic family (\"Inter\") and choose FontWeight and FontStyle from the same returned typeface entry.");
     }
 
     private static ValidationOutcome EvaluateValidator(
