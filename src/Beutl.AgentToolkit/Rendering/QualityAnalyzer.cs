@@ -759,13 +759,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             bool centered = centerDistance <= Math.Max(36, Math.Min(plateBounds.Width, plateBounds.Height) * 0.18);
             bool padded = plateBounds.Width >= textBounds.Width + (requiredPadX * 2)
                           && plateBounds.Height >= textBounds.Height + (requiredPadY * 2);
-            bool sameTime = textInfos.Count == 1
-                ? Math.Abs((textInfos[0].Element.Start - backingPlate.Element.Start).TotalSeconds) <= 0.08
-                  && Math.Abs((textInfos[0].Element.Length - backingPlate.Element.Length).TotalSeconds) <= 0.08
-                : textInfos.All(item =>
-                    backingPlate.Element.Start <= item.Element.Start + TimeSpan.FromMilliseconds(80)
-                    && backingPlate.Element.Start + backingPlate.Element.Length
-                    >= item.Element.Start + item.Element.Length - TimeSpan.FromMilliseconds(80));
+            TimeSpan textStart = textInfos.Min(item => item.Element.Start);
+            TimeSpan textEnd = textInfos.Max(item => item.Element.Start + item.Element.Length);
+            TimeSpan plateEnd = backingPlate.Element.Start + backingPlate.Element.Length;
+            bool sameTime = Math.Abs((textStart - backingPlate.Element.Start).TotalSeconds) <= 0.08
+                            && Math.Abs((textEnd - plateEnd).TotalSeconds) <= 0.08;
             if (centered && padded && sameTime)
             {
                 continue;

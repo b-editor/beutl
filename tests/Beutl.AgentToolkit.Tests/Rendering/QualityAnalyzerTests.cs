@@ -122,6 +122,28 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Shared_text_backing_plate_compares_timing_to_the_text_union()
+    {
+        Scene scene = CreateScene(durationSeconds: 3);
+        AddRoundedRect(scene, "[role:text-backing] caption group", zIndex: 8, width: 620, height: 180);
+        Element first = AddText(scene, "First caption", zIndex: 10);
+        first.Start = TimeSpan.FromSeconds(0.5);
+        first.Length = TimeSpan.FromSeconds(0.5);
+        Element second = AddText(scene, "Second caption", zIndex: 11);
+        second.Start = TimeSpan.FromSeconds(1.5);
+        second.Length = TimeSpan.FromSeconds(0.5);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+        QualityIssue issue = result.Issues.Single(issue => issue.Category == "textBackgroundFit");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Metrics.Typography.TextPlateMismatchCount, Is.EqualTo(1));
+            Assert.That(issue.Evidence, Does.Contain("matching time coverage: False"));
+        });
+    }
+
+    [Test]
     public async Task Duplicate_backing_plate_ids_do_not_abort_text_fit_analysis()
     {
         Scene scene = CreateScene();
