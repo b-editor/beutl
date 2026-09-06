@@ -84,6 +84,41 @@ public sealed class Reconciler
 
         var validation = new List<ValidationOutcome>();
         CoreObject sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
+        if (ExpandAnimationShorthand(sandboxRoot, desiredDocument))
+        {
+            newIds.UnionWith(CollectionReconciler.MintMissingIds(
+                desiredDocument,
+                CollectionReconciler.CollectIds(currentDocument)));
+            if (ValidateNewTypedObjectDiscriminators(desiredDocument, "$") is { } expandedDiscriminatorError)
+            {
+                throw new ReconcileException(expandedDiscriminatorError);
+            }
+
+            if (ValidateEngineObjectProperties(desiredDocument, "$") is { } expandedPropertyError)
+            {
+                throw new ReconcileException(expandedPropertyError);
+            }
+
+            if (CollectionReconciler.ValidateNoDuplicateIdsInIdentityArrays(
+                    desiredDocument,
+                    CollectionReconciler.CollectDuplicatedIds(currentDocument)) is { } expandedDuplicateError)
+            {
+                throw new ReconcileException(expandedDuplicateError);
+            }
+
+            if (CollectionReconciler.ValidateIdentityReferences(
+                    currentDocument,
+                    desiredDocument,
+                    newIds) is { } expandedReferenceError)
+            {
+                throw new ReconcileException(expandedReferenceError);
+            }
+
+            // Use the same expanded, Id-complete document for validation, change reporting, and
+            // eventual live application so plan/apply parity does not depend on synthetic $kf nodes.
+            sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
+        }
+
         ValidateNoNewFallbackObjects(session, sandboxRoot);
         ValidateChangedAnimationValues(sandboxRoot, currentDocument, desiredDocument, validation);
 
@@ -510,6 +545,43 @@ public sealed class Reconciler
         }
 
         return sandboxRoot;
+    }
+
+    private static bool ExpandAnimationShorthand(CoreObject sandboxRoot, JsonNode? node)
+    {
+        bool expanded = false;
+        if (node is JsonObject obj)
+        {
+            if (CollectionReconciler.TryGetId(obj, out Guid id)
+                && IdentityHelper.FindById(sandboxRoot, id) is EngineObject engineObject
+                && obj["Animations"] is JsonObject animations)
+            {
+                foreach ((string propertyName, JsonNode? animationNode) in animations.ToArray())
+                {
+                    if (animationNode is JsonObject animationJson
+                        && KeyFrameShorthand.IsShorthand(animationJson)
+                        && engineObject.Properties.FirstOrDefault(property => property.Name == propertyName) is { } property)
+                    {
+                        animations[propertyName] = KeyFrameShorthand.Expand(animationJson, property.ValueType);
+                        expanded = true;
+                    }
+                }
+            }
+
+            foreach ((_, JsonNode? child) in obj.ToArray())
+            {
+                expanded |= ExpandAnimationShorthand(sandboxRoot, child);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array)
+            {
+                expanded |= ExpandAnimationShorthand(sandboxRoot, child);
+            }
+        }
+
+        return expanded;
     }
 
     private static void ValidateChangedAnimationValues(

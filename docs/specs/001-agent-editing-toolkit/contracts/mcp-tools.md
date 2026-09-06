@@ -22,9 +22,9 @@ Return the Capability/Schema Descriptor (FR-006/FR-022), including reusable decl
 
 ### `list_creative_directions`
 Return inspiration material for original motion graphics without returning a complete scene recipe.
-- **Input**: `{ "brief"?: string }`.
-- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationRules": string[], "originalityConstraints": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "styleGuardrails": string[], "paletteGuidelines": string[], "typographyGuidelines": string[], "motionGuidelines": string[], "selectionHint": string, "selectionTrace": { requestIndex, baseOffset, appliedOffset, seedMaterial, returnedSeedOrder, recordHint } }`.
-- **Use when**: a vague or no-context creative brief needs inspiration before authoring. Agents must synthesize a new pitch from at least two returned seeds, create their own element/object names, and treat the returned names as raw inspiration rather than a completion checklist. `selectionTrace` makes the seeded rotation auditable; agents should record the trace and chosen seed names/categories in their working notes before editing.
+- **Input**: `{ "brief"?: string, "seed"?: string }`. `seed` makes inspiration ordering deterministic for a caller-selected variation.
+- **Output**: `{ "schemaVersion": string, "directionAxes": string[], "inspirationSeeds": [ { name, category, evokes, transformations, usefulTools } ], "combinationNotes": string[], "originalityNotes": string[], "variationPrompts": string[], "overusedMotifs": string[], "workflowHints": string[], "styleNotes": string[], "paletteNotes": string[], "typographyNotes": string[], "motionNotes": string[], "recentDirections": [ { conceptLabel, paletteRoles, motionVerbs, structuralSignature, timestamp } ], "selectionHint": string, "selectionTrace": { requestIndex, baseOffset, appliedOffset, seedMaterial, returnedSeedOrder, recordHint } }`.
+- **Use when**: a vague or no-context creative brief would benefit from optional stimulus, or the caller wants to compare against recent workspace output. Seeds are not a menu or completion checklist; `recentDirections` reports prior fingerprints, and `selectionTrace` makes the seeded ordering auditable.
 
 ### `derive_palette`
 Derive a deterministic role-tagged palette from a brief-derived hue/tone seed and a harmony scheme.
@@ -36,8 +36,8 @@ Derive a deterministic role-tagged palette from a brief-derived hue/tone seed an
 ### `get_background_grammar`
 Return the parametric background recipe grammar for motion graphics.
 - **Input**: `{ "brief"?: string }`.
-- **Output**: `{ "schemaVersion": string, "minimumDepthBands": [ { name, requiredRole, minimumVisibleContribution } ], "baseLayer": { slot, requiredCount, options, derivationHint }, "depthLayers": [ ... ], "motion": { slot, requiredCount, options, derivationHint }, "derivationRules": string[], "deviationRules": string[], "usageHint": string }`.
-- **Use when**: the agent is about to author a background. This is a grammar, not finished JSON: choose exactly one base layer (`multi-stop gradient` or `shader`), one required depth layer, optional second depth layer, and one motion option (`drift` or `parallax`). Concrete parameter values must be derived from the brief, palette roles, frame size, beat grid, and direction notes. The grammar embeds a three-depth-band minimum: background, midground, and foreground. Any missing depth band, skipped palette derivation, static background, or color outside derived roles requires a recorded reason.
+- **Output**: `{ "schemaVersion": string, "depthBands": [ { name, role, typicalContribution } ], "baseLayer": { slot, typicalCount, options, derivationHint }, "depthLayers": [ ... ], "motion": { slot, typicalCount, options, derivationHint }, "derivationNotes": string[], "deviationNotes": string[], "usageHint": string }`.
+- **Use when**: the agent is about to author a background and wants parametric slots, options, and starting ranges rather than finished JSON. The returned depth counts and motion choices describe common contributions; callers may use fewer bands, static treatment, hand-picked colors, or different concrete values when that better fits the brief. Nothing in this grammar is enforced by the toolkit.
 
 ### `list_examples`
 Return compact example metadata without large patch payloads.

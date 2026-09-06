@@ -139,12 +139,18 @@ public sealed class KeyFrameShorthandTests
             schemaVersion: SchemaVersion.Current);
 
         var animation = (KeyFrameAnimation)RequireOpacityAnimation(scene);
+        IReadOnlyList<ChangeSetEntry> changes = second.Value!.Changes!;
+        JsonArray appliedChangeSet = second.Value.AppliedChangeSet!;
 
         Assert.Multiple(() =>
         {
             Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
             Assert.That(animation.KeyFrames[^1].KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+            Assert.That(changes.Select(change => change.Path), Has.Some.Contains("KeyFrames"));
+            Assert.That(changes.Select(change => change.Path), Has.None.Contains(KeyFrameShorthand.PropertyName));
+            Assert.That(appliedChangeSet.ToJsonString(), Does.Contain("KeyFrames"));
+            Assert.That(appliedChangeSet.ToJsonString(), Does.Not.Contain(KeyFrameShorthand.PropertyName));
         });
     }
 
