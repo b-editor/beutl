@@ -56,6 +56,14 @@ public interface IProperty : INotifyEdited
 
     void SetValidator(IValidator validator);
 
+    /// <summary>
+    /// Gets the validator currently attached to this property.
+    /// </summary>
+    /// <remarks>
+    /// This can differ from <see cref="CreateValidator"/> when a library or plugin supplies a custom validator.
+    /// </remarks>
+    IValidator? GetValidator();
+
     void DeserializeExpression(JsonNode expressionNode);
 
     JsonNode? SerializeExpression();

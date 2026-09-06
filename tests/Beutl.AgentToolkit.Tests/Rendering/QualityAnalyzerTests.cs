@@ -100,6 +100,28 @@ public sealed class QualityAnalyzerTests
     }
 
     [Test]
+    public async Task Shared_text_backing_plate_checks_the_combined_text_bounds_once()
+    {
+        Scene scene = CreateScene();
+        AddRoundedRect(scene, "[role:text-backing] title group", zIndex: 8, width: 620, height: 180);
+        AddText(scene, "Launch", zIndex: 10, y: -45);
+        AddText(scene, "Details", zIndex: 11, x: 420, y: 45, size: 36);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, evaluateMotion: false);
+        QualityIssue[] issues = result.Issues
+            .Where(issue => issue.Category == "textBackgroundFit")
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(issues, Has.Length.EqualTo(1));
+            Assert.That(issues[0].Evidence, Does.Contain("across 2 text object(s)"));
+            Assert.That(issues[0].ElementIds, Has.Count.EqualTo(3));
+            Assert.That(issues[0].ObjectIds, Has.Count.EqualTo(3));
+        });
+    }
+
+    [Test]
     public async Task Decorative_rect_without_backing_role_is_not_treated_as_text_plate()
     {
         Scene scene = CreateScene();

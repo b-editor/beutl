@@ -8,7 +8,6 @@ using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Beutl.Validation;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
@@ -210,9 +209,14 @@ public sealed class Reconciler
         string path,
         List<ValidationOutcome> validation)
     {
-        if (!animation.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyFramesNode)
+        // A merge-patched shorthand can retain the previous long-form KeyFrames member beside $kf.
+        // Expand first so the new shorthand envelope wins, matching DeclarativeDocumentApplier.
+        JsonObject normalized = KeyFrameShorthand.IsShorthand(animation)
+            ? KeyFrameShorthand.Expand(animation, typeof(object))
+            : animation;
+        if (!normalized.TryGetPropertyValue(nameof(KeyFrameAnimation.KeyFrames), out JsonNode? keyFramesNode)
             || keyFramesNode is not JsonArray keyFrames
-            || ReadBool(animation, nameof(KeyFrameAnimation.UseGlobalClock)) == true)
+            || ReadBool(normalized, nameof(KeyFrameAnimation.UseGlobalClock)) == true)
         {
             return;
         }
@@ -552,7 +556,6 @@ public sealed class Reconciler
                         continue;
                     }
 
-                    IValidator? validator = (property.Animation as KeyFrameAnimation)?.Validator;
                     CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
                         DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandboxRoot.Uri);
                     foreach (JsonObject keyFrame in keyFrames.OfType<JsonObject>())
@@ -569,7 +572,6 @@ public sealed class Reconciler
                                 : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
                             validation.Add(ValidationEvaluator.EvaluateAnimationValue(
                                 property,
-                                validator,
                                 value,
                                 options));
                         }

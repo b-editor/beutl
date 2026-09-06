@@ -220,6 +220,54 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Relative_out_of_range_times_warn_for_shorthand_and_long_form(bool shorthand)
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+        JsonObject animation = shorthand
+            ? new JsonObject
+            {
+                [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(3, 100))
+            }
+            : new JsonObject
+            {
+                ["$type"] = IdentityHelper.WriteDiscriminator(typeof(KeyFrameAnimation<float>)),
+                [nameof(KeyFrameAnimation.KeyFrames)] = new JsonArray(CreateLongFormKeyFrame(3, 100))
+            };
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityAnimationPatch(element, animation),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(apply.Value!.Validation, Has.One.Matches<ValidationOutcome>(outcome =>
+                outcome.Status == ValidationStatus.Warning
+                && outcome.Message!.Contains("00:00:03", StringComparison.Ordinal)
+                && outcome.Message.Contains("outside Element", StringComparison.Ordinal)));
+        });
+    }
+
+    [Test]
+    public void Replacement_shorthand_range_warning_uses_the_new_envelope()
+    {
+        (EditTools tools, _, Element element) = CreateSceneWithRect();
+        tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonArray(0, 0), new JsonArray(1, 100))),
+            schemaVersion: SchemaVersion.Current);
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(element, new JsonArray(new JsonArray(0, 0), new JsonArray(3, 100))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        Assert.That(apply.Value!.Validation, Has.One.Matches<ValidationOutcome>(outcome =>
+            outcome.Status == ValidationStatus.Warning
+            && outcome.Message!.Contains("00:00:03", StringComparison.Ordinal)));
+    }
+
     private static IAnimation RequireOpacityAnimation(Scene scene)
     {
         var shape = (RectShape)scene.Children.Single().Objects.Single();

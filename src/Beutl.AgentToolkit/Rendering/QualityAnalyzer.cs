@@ -737,10 +737,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             .Where(item => !HasRole(item, "surface", "card", "panel", "container"))
             .ToArray();
 
-        // One plate behind several texts is a container, not a per-text backing plate: checking it
-        // 1:1 against every text it covers turns one card into one finding per line.
-        var platesByText = new Dictionary<Guid, SceneObjectInfo>();
-        var textsByPlate = new Dictionary<Guid, int>();
+        var platesById = plates.ToDictionary(item => item.Object.Id);
+        var textsByPlate = new Dictionary<Guid, List<SceneObjectInfo>>();
         foreach (SceneObjectInfo textInfo in objects.Where(item => item.Object is TextBlock))
         {
             ObjectBounds textBounds = GetBounds(scene, textInfo);
@@ -759,19 +757,29 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 continue;
             }
 
-            platesByText[textInfo.Object.Id] = plateCandidates[0].Info;
-            textsByPlate[plateCandidates[0].Info.Object.Id] = textsByPlate.GetValueOrDefault(plateCandidates[0].Info.Object.Id) + 1;
-        }
-
-        foreach (SceneObjectInfo textInfo in objects.Where(item => item.Object is TextBlock))
-        {
-            if (!platesByText.TryGetValue(textInfo.Object.Id, out SceneObjectInfo backingPlate)
-                || textsByPlate.GetValueOrDefault(backingPlate.Object.Id) > 1)
+            Guid plateId = plateCandidates[0].Info.Object.Id;
+            if (!textsByPlate.TryGetValue(plateId, out List<SceneObjectInfo>? texts))
             {
-                continue;
+                texts = [];
+                textsByPlate[plateId] = texts;
             }
 
-            ObjectBounds textBounds = GetBounds(scene, textInfo);
+            texts.Add(textInfo);
+        }
+
+        foreach ((Guid plateId, List<SceneObjectInfo> textInfos) in textsByPlate)
+        {
+            SceneObjectInfo backingPlate = platesById[plateId];
+            ObjectBounds[] bounds = textInfos.Select(item => GetBounds(scene, item)).ToArray();
+            double textLeft = bounds.Min(item => item.CenterX - (item.Width / 2));
+            double textTop = bounds.Min(item => item.CenterY - (item.Height / 2));
+            double textRight = bounds.Max(item => item.CenterX + (item.Width / 2));
+            double textBottom = bounds.Max(item => item.CenterY + (item.Height / 2));
+            var textBounds = new ObjectBounds(
+                (textLeft + textRight) / 2,
+                (textTop + textBottom) / 2,
+                textRight - textLeft,
+                textBottom - textTop);
             ObjectBounds plateBounds = GetBounds(scene, backingPlate);
             double centerDistance = Distance(plateBounds.CenterX, plateBounds.CenterY, textBounds.CenterX, textBounds.CenterY);
             double requiredPadX = Math.Max(36, textBounds.Width * 0.12);
@@ -779,8 +787,13 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             bool centered = centerDistance <= Math.Max(36, Math.Min(plateBounds.Width, plateBounds.Height) * 0.18);
             bool padded = plateBounds.Width >= textBounds.Width + (requiredPadX * 2)
                           && plateBounds.Height >= textBounds.Height + (requiredPadY * 2);
-            bool sameTime = Math.Abs((textInfo.Element.Start - backingPlate.Element.Start).TotalSeconds) <= 0.08
-                            && Math.Abs((textInfo.Element.Length - backingPlate.Element.Length).TotalSeconds) <= 0.08;
+            bool sameTime = textInfos.Count == 1
+                ? Math.Abs((textInfos[0].Element.Start - backingPlate.Element.Start).TotalSeconds) <= 0.08
+                  && Math.Abs((textInfos[0].Element.Length - backingPlate.Element.Length).TotalSeconds) <= 0.08
+                : textInfos.All(item =>
+                    backingPlate.Element.Start <= item.Element.Start + TimeSpan.FromMilliseconds(80)
+                    && backingPlate.Element.Start + backingPlate.Element.Length
+                    >= item.Element.Start + item.Element.Length - TimeSpan.FromMilliseconds(80));
             if (centered && padded && sameTime)
             {
                 continue;
@@ -790,12 +803,20 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             issues.Add(new QualityIssue(
                 "textBackgroundFit",
                 Advisory,
-                "A background plate behind text is not aligned with the text timing or geometry.",
-                $"Center distance {centerDistance:F1}px, plate {plateBounds.Width:F0}x{plateBounds.Height:F0}, text {textBounds.Width:F0}x{textBounds.Height:F0}, matching time range: {sameTime}.",
-                "Pair text and backing plate by name or [role:text-backing], matching Start/Length, center transform, and at least 12% horizontal plus 18% vertical padding. Mark decorative rectangles [role:decorative] or use non-rectangular accents so they are not treated as backing plates.",
-                (textInfo.Element.Start > scene.Start ? textInfo.Element.Start - scene.Start : TimeSpan.Zero).ToString("c"),
-                [textInfo.Element.Id.ToString(), backingPlate.Element.Id.ToString()],
-                [textInfo.Object.Id.ToString(), backingPlate.Object.Id.ToString()]));
+                "A background plate behind text is not aligned with its text timing or geometry.",
+                $"Center distance {centerDistance:F1}px, plate {plateBounds.Width:F0}x{plateBounds.Height:F0}, combined text bounds {textBounds.Width:F0}x{textBounds.Height:F0} across {textInfos.Count} text object(s), matching time coverage: {sameTime}.",
+                "Pair text and backing plate by name or [role:text-backing], cover the combined text bounds and time ranges, center the group, and leave at least 12% horizontal plus 18% vertical padding. Mark decorative rectangles [role:decorative] or use non-rectangular accents so they are not treated as backing plates.",
+                (textInfos.Min(item => item.Element.Start) > scene.Start
+                    ? textInfos.Min(item => item.Element.Start) - scene.Start
+                    : TimeSpan.Zero).ToString("c"),
+                textInfos.Select(item => item.Element.Id.ToString())
+                    .Append(backingPlate.Element.Id.ToString())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
+                textInfos.Select(item => item.Object.Id.ToString())
+                    .Append(backingPlate.Object.Id.ToString())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray()));
         }
 
         return mismatchCount;

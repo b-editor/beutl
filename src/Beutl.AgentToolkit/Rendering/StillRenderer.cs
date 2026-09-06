@@ -694,23 +694,27 @@ public sealed class StillRenderer
                     r = g = b = row[pixelOffset];
                     return;
                 default:
-                    float red = (float)BitConverter.ToHalf(row.Slice(pixelOffset, 2));
-                    float green = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 2, 2));
-                    float blue = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 4, 2));
-                    if (!Premultiplied)
+                    ushort redBits = BitConverter.ToUInt16(row.Slice(pixelOffset, 2));
+                    ushort greenBits = BitConverter.ToUInt16(row.Slice(pixelOffset + 2, 2));
+                    ushort blueBits = BitConverter.ToUInt16(row.Slice(pixelOffset + 4, 2));
+                    if (Premultiplied)
+                    {
+                        byte[] table = LinearHalfEncodeTable;
+                        r = table[redBits];
+                        g = table[greenBits];
+                        b = table[blueBits];
+                    }
+                    else
                     {
                         // Straight alpha: weight by coverage so a barely-visible pixel does not
                         // register as fully lit. Premultiplied values already carry that weight,
                         // which is what compositing the frame over black produces.
                         float alpha = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 6, 2));
-                        red *= alpha;
-                        green *= alpha;
-                        blue *= alpha;
+                        r = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(redBits) * alpha);
+                        g = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(greenBits) * alpha);
+                        b = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(blueBits) * alpha);
                     }
 
-                    r = LinearToSrgbByte(red);
-                    g = LinearToSrgbByte(green);
-                    b = LinearToSrgbByte(blue);
                     return;
             }
         }
@@ -718,9 +722,31 @@ public sealed class StillRenderer
 
     private static byte LinearToSrgbByte(float linear)
     {
+        if (!float.IsFinite(linear))
+        {
+            return 0;
+        }
+
         double c = Math.Clamp(linear, 0, 1);
         double encoded = c <= 0.0031308 ? c * 12.92 : (1.055 * Math.Pow(c, 1 / 2.4)) - 0.055;
         return (byte)Math.Clamp(Math.Round(encoded * 255), 0, 255);
+    }
+
+    // Normal render snapshots are linear RgbaF16. Cache the transfer function by raw half bits so
+    // each full-frame visibility/focal pass performs table reads instead of millions of Math.Pow calls.
+    private static byte[]? s_linearHalfEncodeTable;
+
+    private static byte[] LinearHalfEncodeTable => s_linearHalfEncodeTable ??= BuildLinearHalfEncodeTable();
+
+    private static byte[] BuildLinearHalfEncodeTable()
+    {
+        var table = new byte[ushort.MaxValue + 1];
+        for (int bits = 0; bits <= ushort.MaxValue; bits++)
+        {
+            table[bits] = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf((ushort)bits));
+        }
+
+        return table;
     }
 
     private static int Rec709Luma(byte r, byte g, byte b)

@@ -68,7 +68,6 @@ public class ValidationEvaluatorTests
 
         ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
             property,
-            new RejectingValidator(),
             42,
             options: null);
 
@@ -76,6 +75,24 @@ public class ValidationEvaluatorTests
         {
             Assert.That(outcome.Status, Is.EqualTo(ValidationStatus.Rejected));
             Assert.That(outcome.Message, Is.EqualTo("custom animation rejection"));
+        });
+    }
+
+    [Test]
+    public void EvaluateEngineProperty_RunsCustomValidatorBeforeMissingFontWarning()
+    {
+        var validator = new RejectingFontValidator();
+        IProperty<FontFamily> property = Property.Create(new FontFamily("default"), validator);
+
+        ValidationOutcome outcome = ValidationEvaluator.Evaluate(
+            property,
+            new FontFamily($"missing-{Guid.NewGuid():N}"),
+            options: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Status, Is.EqualTo(ValidationStatus.Rejected));
+            Assert.That(outcome.Message, Is.EqualTo("custom font rejection"));
         });
     }
 
@@ -122,5 +139,12 @@ public class ValidationEvaluatorTests
         public bool TryCoerce(BeutlValidationContext context, ref int value) => false;
 
         public string? Validate(BeutlValidationContext context, int value) => "custom animation rejection";
+    }
+
+    private sealed class RejectingFontValidator : IValidator<FontFamily>
+    {
+        public bool TryCoerce(BeutlValidationContext context, ref FontFamily? value) => false;
+
+        public string? Validate(BeutlValidationContext context, FontFamily? value) => "custom font rejection";
     }
 }

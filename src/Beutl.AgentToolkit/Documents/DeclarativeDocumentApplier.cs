@@ -436,7 +436,6 @@ internal sealed class DeclarativeDocumentApplier
             object? value = keyFrame.Value;
             ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
                 property,
-                animation.Validator,
                 value,
                 options);
             if (outcome.Status == ValidationStatus.Rejected)
