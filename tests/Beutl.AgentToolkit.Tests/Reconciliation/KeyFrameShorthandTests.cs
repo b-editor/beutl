@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
@@ -234,13 +235,23 @@ public sealed class KeyFrameShorthandTests
 
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
         var keyFrames = ((KeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames;
+        ChangeSetEntry animationChange = apply.Value!.Changes!.Single(change =>
+            change.Path.EndsWith("/Animations/Opacity", StringComparison.Ordinal));
+        JsonArray reportedKeyFrames = (JsonArray)animationChange.NewValue![nameof(KeyFrameAnimation.KeyFrames)]!;
+        JsonObject appliedAnimationChange = apply.Value.AppliedChangeSet!
+            .OfType<JsonObject>()
+            .Single(change => change["path"]!.GetValue<string>()
+                .EndsWith("/Animations/Opacity", StringComparison.Ordinal));
+        JsonArray appliedKeyFrames = (JsonArray)appliedAnimationChange["newValue"]![nameof(KeyFrameAnimation.KeyFrames)]!;
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                apply.Value!.Validation!.Count(outcome => outcome.Status == ValidationStatus.Coerced),
+                apply.Value.Validation!.Count(outcome => outcome.Status == ValidationStatus.Coerced),
                 Is.EqualTo(2));
             Assert.That(keyFrames.Select(keyFrame => keyFrame.Value), Is.EqualTo(new object[] { 0f, 100f }));
+            Assert.That(ReadKeyFrameValues(reportedKeyFrames), Is.EqualTo(new[] { 0f, 100f }));
+            Assert.That(ReadKeyFrameValues(appliedKeyFrames), Is.EqualTo(new[] { 0f, 100f }));
         });
     }
 
@@ -370,6 +381,12 @@ public sealed class KeyFrameShorthandTests
             [nameof(KeyFrame<float>.Value)] = value
         };
     }
+
+    private static float[] ReadKeyFrameValues(JsonArray keyFrames)
+        => keyFrames
+            .OfType<JsonObject>()
+            .Select(keyFrame => keyFrame[nameof(KeyFrame<float>.Value)]!.Deserialize<float>())
+            .ToArray();
 
     private static (EditTools Tools, Scene Scene, Element Element) CreateSceneWithRect()
     {

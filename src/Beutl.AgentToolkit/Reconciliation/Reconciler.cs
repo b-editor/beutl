@@ -642,10 +642,18 @@ public sealed class Reconciler
                             object? value = valueNode is null
                                 ? null
                                 : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
-                            validation.Add(ValidationEvaluator.EvaluateAnimationValue(
+                            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
                                 property,
                                 value,
-                                options));
+                                options);
+                            validation.Add(outcome);
+                            if (outcome.Status == ValidationStatus.Coerced)
+                            {
+                                // CompareObject and the live applier must consume the same accepted
+                                // value. Otherwise the response reports the caller's pre-coercion input
+                                // while the owning property silently installs the coerced value.
+                                keyFrame[nameof(KeyFrame<float>.Value)] = outcome.CoercedValue?.DeepClone();
+                            }
                         }
                         catch (Exception ex)
                         {
