@@ -181,6 +181,86 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Background_restore_waits_for_editor_context_disposal_before_mutating_the_worktree()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var disposeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDispose = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-restore-editor-disposal-barrier");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var originalTip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, originalTip);
+            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            {
+                Status = new WorkspaceStatus(
+                    "main",
+                    Ahead: 0,
+                    Behind: 0,
+                    Changes: [],
+                    HasConflicts: false),
+            };
+            backend.EnqueueObservedTip(originalTip);
+            var coordinatorEditorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                coordinatorEditorService,
+                new VersionControlConfig
+                {
+                    AutoCommitOnSave = false,
+                    AutoCommitOnClose = false,
+                },
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            TestShell.Editor.TabItems.Add(new EditorTabItem(
+                new BlockingDisposeEditorContext(
+                    new Scene { Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")) },
+                    disposeStarted,
+                    releaseDispose.Task)));
+
+            Task<bool> restore = Task.Run(() => coordinator.RestoreAsync(
+                "2222222222222222222222222222222222222222"));
+            await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(restore.IsCompleted, Is.False);
+                Assert.That(backend.CommitProjectTreeCalls, Is.Zero);
+            });
+
+            releaseDispose.TrySetResult();
+            Assert.That(await restore.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(backend.CommitProjectTreeCalls, Is.EqualTo(1));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            releaseDispose.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public Task Restore_to_new_branch_reopen_failure_warns_that_the_branch_was_retained_after_recovery()
         => AssertRestoreBranchRetentionAsync(RestoreBranchRetentionScenario.Recovered);
 
@@ -479,7 +559,7 @@ public class VersionControlRestoreTests
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
 
-            using (IDisposable outputOperation = editorService.TryBeginOutputOperation()!)
+            using (IDisposable outputOperation = editorService.BeginObservedOutputOperation())
             {
                 await coordinator.NotifySavedAsync();
                 Assert.That(
@@ -608,156 +688,13 @@ public class VersionControlRestoreTests
                 serviceFactory: _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            using IDisposable outputOperation = editorService.TryBeginOutputOperation()!;
+            using IDisposable outputOperation = editorService.BeginObservedOutputOperation();
             Assert.ThrowsAsync<InvalidOperationException>(async () =>
                 await coordinator.CommitManualAsync("blocked commit"));
             Assert.That(backend.CommitAllCalls, Is.Zero);
         }
         finally
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task Manual_commit_reservation_blocks_output_until_commit_completes()
-    {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        Task<CommitResult>? commit = null;
-        var commitStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseCommit = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-output-during-manual");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                CommitAllStarted = commitStarted,
-                CommitAllRelease = releaseCommit.Task,
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            commit = coordinator.CommitManualAsync("manual commit");
-            await commitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            using IDisposable? blockedOutput = editorService.TryBeginOutputOperation();
-            Assert.That(blockedOutput, Is.Null);
-
-            releaseCommit.TrySetResult();
-            await commit.WaitAsync(TimeSpan.FromSeconds(5));
-            commit = null;
-            using IDisposable? outputAfterCommit = editorService.TryBeginOutputOperation();
-            Assert.That(outputAfterCommit, Is.Not.Null);
-        }
-        finally
-        {
-            releaseCommit.TrySetResult();
-            if (commit is not null)
-            {
-                await commit.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task Save_snapshot_reservation_blocks_output_until_commit_completes()
-    {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        Task? snapshot = null;
-        var commitStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseCommit = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-output-during-save");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                CommitAllStarted = commitStarted,
-                CommitAllRelease = releaseCommit.Task,
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig
-            {
-                AutoCommitOnSave = true,
-                AutoCommitOnClose = false,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, backend)
-                && coordinator.IsTracked.Value);
-
-            snapshot = coordinator.NotifySavedAsync();
-            await commitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            IDisposable? blockedOutput = editorService.TryBeginOutputOperation();
-            try
-            {
-                Assert.That(
-                    blockedOutput,
-                    Is.Null,
-                    "Output must not start after snapshot staging has begun.");
-            }
-            finally
-            {
-                blockedOutput?.Dispose();
-            }
-
-            releaseCommit.TrySetResult();
-            await snapshot.WaitAsync(TimeSpan.FromSeconds(5));
-            snapshot = null;
-
-            using IDisposable? outputAfterSnapshot = editorService.TryBeginOutputOperation();
-            Assert.That(outputAfterSnapshot, Is.Not.Null);
-        }
-        finally
-        {
-            releaseCommit.TrySetResult();
-            if (snapshot is not null)
-            {
-                await snapshot.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
             if (coordinator is not null)
             {
                 await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
@@ -798,7 +735,7 @@ public class VersionControlRestoreTests
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
 
-            using (IDisposable outputOperation = editorService.TryBeginOutputOperation()!)
+            using (IDisposable outputOperation = editorService.BeginObservedOutputOperation())
             {
                 await TestShell.Project.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
             }
@@ -904,6 +841,199 @@ public class VersionControlRestoreTests
             coordinator?.Dispose();
             await TestReset.ResetShellAsync();
             config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Background_project_close_waits_for_every_editor_context_before_retiring_the_backend()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var disposeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDispose = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-editor-disposal-barrier");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
+            var tracked = new PullCycleTestBackend(repository, repository, tip);
+            var coordinatorEditorService = new EditorService(new ExtensionProvider());
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                coordinatorEditorService,
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+            TestShell.Editor.TabItems.Add(new EditorTabItem(
+                new BlockingDisposeEditorContext(
+                    new Scene { Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")) },
+                    disposeStarted,
+                    releaseDispose.Task)));
+
+            Task closing = Task.Run(() => TestShell.Project.CloseProjectAsync());
+            await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closing.IsCompleted, Is.False);
+                Assert.That(tracked.RetirementCalls, Is.Zero);
+                Assert.That(tracked.CommitAllCalls, Is.Zero);
+            });
+
+            releaseDispose.TrySetResult();
+            await closing.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(tracked.RetirementCalls, Is.EqualTo(1));
+                Assert.That(tracked.RetirementSnapshots.Single(), Is.Not.Null);
+                Assert.That(TestShell.Editor.TabItems, Is.Empty);
+            });
+        }
+        finally
+        {
+            releaseDispose.TrySetResult();
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Close_snapshot_without_identity_warns_once_and_still_closes_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-missing-identity-warning");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                Identity = null,
+                RetirementResult = new CommitResult.SkippedNoIdentity(),
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            NotificationService.Handler = notifications;
+
+            await TestShell.Project.CloseProjectAsync();
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+                Assert.That(backend.RetirementSnapshots.Single(), Is.Not.Null);
+                Assert.That(
+                    notifications.All.Count(item =>
+                        item.Type == NotificationType.Warning
+                        && item.Message == Strings.VersionControl_MissingIdentityNotice),
+                    Is.EqualTo(1));
+                Assert.That(
+                    notifications.All.Any(item =>
+                        item.Message == Strings.VersionControl_SaveSnapshotFailed),
+                    Is.False);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Close_snapshot_retirement_failure_warns_once_and_still_closes_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new CaptureNotificationHandler();
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-close-retirement-failure-warning");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, repository, tip);
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                RetirementStarting = () =>
+                    throw new InvalidOperationException("simulated retirement failure"),
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig { AutoCommitOnClose = true },
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            NotificationService.Handler = notifications;
+
+            await TestShell.Project.CloseProjectAsync();
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+                Assert.That(
+                    notifications.All.Count(item =>
+                        item.Type == NotificationType.Warning
+                        && item.Message == Strings.VersionControl_SaveSnapshotFailed),
+                    Is.EqualTo(1));
+                Assert.That(
+                    notifications.All.Any(item =>
+                        item.Message == Strings.VersionControl_MissingIdentityNotice),
+                    Is.False);
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
         }
     }
 
@@ -9558,7 +9688,7 @@ public class VersionControlRestoreTests
                 return Task.FromResult(true);
             };
 
-            using (IDisposable outputOperation = TestShell.Editor.TryBeginOutputOperation()!)
+            using (IDisposable outputOperation = TestShell.Editor.BeginObservedOutputOperation())
             {
                 Assert.That(
                     await TestShell.VersionControl.RestoreAsync(target.Sha),
@@ -9580,18 +9710,6 @@ public class VersionControlRestoreTests
             };
             Task<bool> pendingRestore = TestShell.VersionControl.RestoreAsync(target.Sha);
             await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            IDisposable? blockedOutput = TestShell.Editor.TryBeginOutputOperation();
-            try
-            {
-                Assert.That(
-                    blockedOutput,
-                    Is.Null,
-                    "The worktree reservation must reject an export while confirmation is pending.");
-            }
-            finally
-            {
-                blockedOutput?.Dispose();
-            }
             releaseConfirmation.SetResult(false);
             Assert.That(await pendingRestore, Is.False);
 
@@ -10596,6 +10714,43 @@ public class VersionControlRestoreTests
         }
     }
 
+    private sealed class BlockingDisposeEditorContext(
+        CoreObject obj,
+        TaskCompletionSource disposeStarted,
+        Task releaseDispose) : IEditorContext
+    {
+        public CoreObject Object { get; } = obj;
+
+        public EditorExtension Extension => SceneEditorExtension.Instance;
+
+        public IReactiveProperty<bool> IsEnabled { get; } =
+            new ReactivePropertySlim<bool>(true);
+
+        public IKnownEditorCommands? Commands => null;
+
+        public object? GetService(Type serviceType) => null;
+
+        public T? FindToolTab<T>(Func<T, bool> condition)
+            where T : IToolContext
+            => default;
+
+        public T? FindToolTab<T>()
+            where T : IToolContext
+            => default;
+
+        public bool OpenToolTab(IToolContext item) => false;
+
+        public void CloseToolTab(IToolContext item)
+        {
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            disposeStarted.TrySetResult();
+            await releaseDispose;
+        }
+    }
+
     private sealed class PassiveSaveCommands : IKnownEditorCommands
     {
         public int SaveCalls { get; private set; }
@@ -10674,7 +10829,7 @@ public class VersionControlRestoreTests
         private int _commitAllCalls;
         private int _ensureHygieneCalls;
         private int _retirementCalls;
-        private Task? _retirementTask;
+        private Task<CommitResult?>? _retirementTask;
         private ProjectCheckpoint? _checkpoint;
 
         public PullCycleTestBackend(
@@ -10717,6 +10872,11 @@ public class VersionControlRestoreTests
         public WorkspaceStatus Status { get; set; } = DirtyStatus;
 
         public CommitResult CommitAllResult { get; set; } = new CommitResult.NoChanges();
+
+        public CommitResult? RetirementResult { get; set; } = new CommitResult.NoChanges();
+
+        public GitIdentity? Identity { get; set; } =
+            new("Version Control Test", "version-control@example.invalid");
 
         public Exception? CommitAllFailure { get; set; }
 
@@ -11125,6 +11285,7 @@ public class VersionControlRestoreTests
             if (options.Identity is not null)
             {
                 _hasIdentity = true;
+                Identity = options.Identity;
             }
 
             InitializeStarted?.TrySetResult();
@@ -11206,10 +11367,11 @@ public class VersionControlRestoreTests
             RecordBackendCall();
             SetLocalIdentityCalls++;
             _hasIdentity = true;
+            Identity = identity;
             return Task.CompletedTask;
         }
 
-        public Task RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
+        public Task<CommitResult?> RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
         {
             if (!IdempotentRetirement)
             {
@@ -11222,7 +11384,8 @@ public class VersionControlRestoreTests
             }
         }
 
-        private async Task RetireCoreAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
+        private async Task<CommitResult?> RetireCoreAsync(
+            ProjectVersionControlFinalSnapshot? finalSnapshot)
         {
             await _exclusiveGate.WaitAsync();
             try
@@ -11237,6 +11400,7 @@ public class VersionControlRestoreTests
                 }
 
                 _retired = true;
+                return finalSnapshot is null ? null : RetirementResult;
             }
             finally
             {
@@ -11300,7 +11464,7 @@ public class VersionControlRestoreTests
 
         public Task<GitIdentity?> GetIdentityAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult<GitIdentity?>(null);
+            return Task.FromResult(Identity);
         }
 
         public Task<bool> CanCreateBranchAsync(

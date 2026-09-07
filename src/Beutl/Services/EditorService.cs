@@ -137,34 +137,35 @@ public sealed class EditorService
         _projectVersionControlService.Value = service;
     }
 
-    internal IDisposable? TryBeginOutputOperation()
+    internal IDisposable BeginObservedOutputOperation(IEditorContext? context = null)
     {
+        WorkspaceOperationLease operation;
         lock (_workspaceOperationSync)
         {
             if (_worktreeMutationActive)
             {
-                return null;
+                throw new InvalidOperationException(
+                    "Output cannot start while the project workspace is being replaced.");
             }
 
             _activeOutputOperations++;
-            return new WorkspaceOperationLease(this, WorkspaceOperationKind.Output);
+            operation = new WorkspaceOperationLease(this, WorkspaceOperationKind.Output);
         }
-    }
 
-    // Legacy output contexts report their lifetime through Started/Finished events. Keep that
-    // existing host contract local to the app while version-control mutations consult the same
-    // counter; the separate output-lifecycle change owns any public extension API redesign.
-    internal void NotifyOutputStarted()
-    {
-        lock (_workspaceOperationSync)
+        if (context is null)
         {
-            _activeOutputOperations++;
+            return operation;
         }
-    }
 
-    internal void NotifyOutputFinished()
-    {
-        EndWorkspaceOperation(WorkspaceOperationKind.Output);
+        try
+        {
+            return new OutputOperationLease(operation, SuspendEditor(context));
+        }
+        catch
+        {
+            operation.Dispose();
+            throw;
+        }
     }
 
     internal IDisposable SuspendEditor(IEditorContext context)
@@ -433,55 +434,6 @@ public sealed class EditorService
         }
     }
 
-    internal async Task SwitchEditorExtensionAsync(EditorExtension extension)
-    {
-        ArgumentNullException.ThrowIfNull(extension);
-        // Callers offer the extension only for the selected tab's file type, so the swap must stay
-        // bound to the tab that was selected when it was offered.
-        EditorTabItem? targetTab = SelectedTabItem.Value;
-        if (targetTab is null)
-        {
-            return;
-        }
-
-        // The lease must end before the swap: the outgoing context's teardown takes its own.
-        using (await BeginProjectFileWriteAsync(CancellationToken.None))
-        {
-            if (targetTab.Commands.Value is { } commands)
-            {
-                await commands.OnSave();
-            }
-        }
-
-        // Waiting for the lease can span a version-control transition that disposes every tab.
-        if (!ReferenceEquals(SelectedTabItem.Value, targetTab)
-            || targetTab.Context.Value is not { } currentContext)
-        {
-            return;
-        }
-
-        if (!extension.TryCreateContext(
-                currentContext.Object,
-                new EditorContextServices(this, _extensionProvider),
-                out IEditorContext? context))
-        {
-            NotificationService.ShowInformation(
-                title: MessageStrings.ContextNotCreated,
-                message: string.Format(
-                    format: MessageStrings.FailedToOpenFileWithExtension,
-                    arg0: extension.DisplayName,
-                    arg1: targetTab.FileName.Value));
-            return;
-        }
-
-        // Installed before the outgoing context is torn down, so a failed teardown cannot leave the
-        // tab bound to a half-disposed editor.
-        targetTab.Context.Value = context;
-        // DisposeAsync, not Dispose: IEditorContext.Dispose has an empty default implementation and
-        // EditViewModel overrides only DisposeAsync, so Dispose would leak the outgoing editor.
-        await currentContext.DisposeAsync();
-    }
-
     private void EndWorkspaceOperation(WorkspaceOperationKind kind)
     {
         TaskCompletionSource? completedWorktreeMutation = null;
@@ -626,6 +578,30 @@ public sealed class EditorService
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
                 owner.EndEditorSuspension(context);
+            }
+        }
+    }
+
+    private sealed class OutputOperationLease(
+        IDisposable operation,
+        IDisposable suspension) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                suspension.Dispose();
+            }
+            finally
+            {
+                operation.Dispose();
             }
         }
     }

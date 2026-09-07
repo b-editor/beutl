@@ -1,8 +1,8 @@
 ﻿namespace Beutl.Editor.Services;
 
-public static class ElementFileNaming
+internal static class ElementFileNaming
 {
-    public static Uri GetUri(Uri sceneUri, Guid elementId)
+    internal static Uri GetUri(Uri sceneUri, Guid elementId)
     {
         ArgumentNullException.ThrowIfNull(sceneUri);
         if (!sceneUri.IsFile)

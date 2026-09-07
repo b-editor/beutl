@@ -15,7 +15,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 
-public sealed class VersionControlTabViewModel : IToolContext
+internal sealed class VersionControlTabViewModel : IToolContext
 {
     internal const int HistoryPageSize = 50;
     private static readonly Uri s_gitDownloadsUri = new("https://git-scm.com/downloads");
@@ -476,15 +476,18 @@ public sealed class VersionControlTabViewModel : IToolContext
 
     public async Task CommitManualAsync()
     {
-        if (_versionControlCoordinator is null || string.IsNullOrWhiteSpace(CommitMessage.Value))
+        string submittedDraft = CommitMessage.Value;
+        if (_versionControlCoordinator is null || string.IsNullOrWhiteSpace(submittedDraft))
         {
             return;
         }
 
+        string submittedMessage = submittedDraft.Trim();
+
         try
         {
             CommitResult result = await _versionControlCoordinator.CommitManualAsync(
-                CommitMessage.Value.Trim(),
+                submittedMessage,
                 CancellationToken.None);
             switch (result)
             {
@@ -492,7 +495,14 @@ public sealed class VersionControlTabViewModel : IToolContext
                     StatusMessage.Value = Strings.VersionControl_NothingToCommit;
                     break;
                 case CommitResult.Committed:
-                    CommitMessage.Value = string.Empty;
+                    if (string.Equals(
+                            CommitMessage.Value,
+                            submittedDraft,
+                            StringComparison.Ordinal))
+                    {
+                        CommitMessage.Value = string.Empty;
+                    }
+
                     StatusMessage.Value = Strings.VersionControl_CommitCreated;
                     break;
             }
@@ -1733,7 +1743,7 @@ public sealed class VersionControlTabViewModel : IToolContext
                     CommitCommand)
                 : _behindCount > 0
                     ? new(
-                        VersionControlPrimaryActionKind.Pull,
+                        VersionControlPrimaryActionKind.PullFromRemote,
                         string.Format(
                             CultureInfo.CurrentCulture,
                             Strings.VersionControl_PullCountFormat,
@@ -2200,7 +2210,7 @@ internal sealed class VersionControlRelativeTimeFormatter
     }
 }
 
-public sealed class VersionControlCommitViewModel : IDisposable
+internal sealed class VersionControlCommitViewModel : IDisposable
 {
     private readonly VersionControlTabViewModel _owner;
 
@@ -2272,7 +2282,7 @@ public sealed class VersionControlCommitViewModel : IDisposable
     }
 }
 
-public sealed class VersionControlFileChangeViewModel
+internal sealed class VersionControlFileChangeViewModel
 {
     public VersionControlFileChangeViewModel(FileChange change)
     {
@@ -2294,7 +2304,7 @@ public sealed class VersionControlFileChangeViewModel
         : $"{Change.OldPath} → {Change.Path}";
 }
 
-public enum VersionControlDiffLineKind
+internal enum VersionControlDiffLineKind
 {
     Context,
     Added,
@@ -2302,7 +2312,7 @@ public enum VersionControlDiffLineKind
     Header,
 }
 
-public sealed record VersionControlDiffLineViewModel(
+internal sealed record VersionControlDiffLineViewModel(
     string Text,
     VersionControlDiffLineKind Kind)
 {

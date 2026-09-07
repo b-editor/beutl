@@ -16,7 +16,12 @@ public sealed partial class MenuBarViewModel
     private readonly IProjectVersionControlSession _versionControlSession;
 
 #pragma warning disable CS8618
-    public MenuBarViewModel(
+    public MenuBarViewModel(ProjectService projectService, EditorService editorService)
+        : this(projectService, editorService, NoProjectVersionControlSession.Instance)
+    {
+    }
+
+    internal MenuBarViewModel(
         ProjectService projectService,
         EditorService editorService,
         IProjectVersionControlSession versionControlSession)
@@ -62,5 +67,27 @@ public sealed partial class MenuBarViewModel
         IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
         if (commands != null)
             await commands.OnRedo();
+    }
+
+    private sealed class NoProjectVersionControlSession : IProjectVersionControlSession
+    {
+        public static NoProjectVersionControlSession Instance { get; } = new();
+
+        private NoProjectVersionControlSession()
+        {
+        }
+
+        public IReadOnlyReactiveProperty<bool> IsGitAvailable { get; }
+            = new ReactivePropertySlim<bool>();
+
+        public IReadOnlyReactiveProperty<bool> IsTracked { get; }
+            = new ReactivePropertySlim<bool>();
+
+        public Task NotifySavedAsync(
+            IProjectFileWriteLease? completedWrite = null,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

@@ -94,14 +94,6 @@ public sealed class Project : Hierarchical
         activity?.SetTag("itemsCount", Items.Count);
     }
 
-    // Project migrations must call this only after they have rewritten persisted content.
-    // A plain load/save keeps the version from disk so a newer Beutl release does not dirty the project.
-    internal void MarkAsMigrated()
-    {
-        AppVersion = BeutlApplication.Version;
-        MinAppVersion = DefaultMinAppVersion;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");

@@ -14,7 +14,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class VersionControlCoordinator :
+internal sealed class VersionControlCoordinator :
     IProjectVersionControlCoordinator,
     IProjectVersionControlInitializer,
     IProjectVersionControlSession,
@@ -34,7 +34,6 @@ public sealed class VersionControlCoordinator :
     private readonly VersionControlConfig _config;
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<RepositoryInfo?, IProjectVersionControlBackend>? _serviceFactory;
-    private readonly IDisposable _projectSubscription;
     private readonly Dispatcher _dispatcher;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly ILogger _logger = Log.CreateLogger<VersionControlCoordinator>();
@@ -152,8 +151,7 @@ public sealed class VersionControlCoordinator :
         _projectService.Opening += InspectProjectOpeningAsync;
         _projectService.ClosingPreparing += PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing += NotifyProjectClosingAsync;
-        _projectSubscription = _projectService.ProjectObservable.Subscribe(
-            change => OnProjectChanged(change.New));
+        _projectService.TransitionCommitted += OnProjectChanged;
         _editorService.ProjectVersionControlCoordinator = this;
         ObserveCurrentProjectSnapshot();
         StartAvailabilityRefresh();
@@ -623,6 +621,7 @@ public sealed class VersionControlCoordinator :
 
     private async Task NotifyClosingCoreAsync(CancellationToken closeCancellation)
     {
+        bool closeSnapshotRequested = false;
         ActivationContext? activation;
         string? projectRoot;
         long activationRevision;
@@ -671,6 +670,7 @@ public sealed class VersionControlCoordinator :
 
             bool snapshotRequiresReservation =
                 finalSnapshotRequested && service.Repository is not null;
+            closeSnapshotRequested = snapshotRequiresReservation;
             using IDisposable? snapshotMutation = snapshotRequiresReservation
                 ? TryBeginWorktreeMutation()
                 : null;
@@ -697,7 +697,8 @@ public sealed class VersionControlCoordinator :
                 }
 
                 finalSnapshot =
-                    finalSnapshotRequested && snapshotReserved
+                    finalSnapshotRequested
+                    && snapshotReserved
                         ? new ProjectVersionControlFinalSnapshot(
                             CloseSnapshotMessage,
                             SnapshotKind.Close)
@@ -719,7 +720,14 @@ public sealed class VersionControlCoordinator :
 
             try
             {
-                await service.RetireAsync(finalSnapshot).ConfigureAwait(false);
+                CommitResult? result = await service.RetireAsync(finalSnapshot).ConfigureAwait(false);
+                if (result is CommitResult.SkippedNoIdentity)
+                {
+                    PublishNotification(() =>
+                        NotificationService.ShowWarning(
+                            Strings.VersionControl,
+                            Strings.VersionControl_MissingIdentityNotice));
+                }
             }
             finally
             {
@@ -733,6 +741,13 @@ public sealed class VersionControlCoordinator :
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retire version control while closing the project.");
+            if (closeSnapshotRequested)
+            {
+                PublishNotification(() =>
+                    NotificationService.ShowWarning(
+                        Strings.VersionControl,
+                        Strings.VersionControl_SaveSnapshotFailed));
+            }
         }
     }
 
@@ -966,7 +981,7 @@ public sealed class VersionControlCoordinator :
         _projectService.Opening -= InspectProjectOpeningAsync;
         _projectService.ClosingPreparing -= PrepareProjectClosingAsync;
         _projectService.ClosingFinalizing -= NotifyProjectClosingAsync;
-        _projectSubscription.Dispose();
+        _projectService.TransitionCommitted -= OnProjectChanged;
         if (ReferenceEquals(_editorService.ProjectVersionControlCoordinator, this))
         {
             _editorService.ProjectVersionControlCoordinator = null;

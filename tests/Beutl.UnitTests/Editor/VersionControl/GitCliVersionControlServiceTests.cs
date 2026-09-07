@@ -2342,6 +2342,36 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Retirement_reports_missing_identity_without_publishing_the_backend_notice()
+    {
+        await RunGitAsync("config", "--unset", "user.name");
+        await RunGitAsync("config", "--unset", "user.email");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            policyNoticeSink: (notice, _) =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            });
+
+        CommitResult? result = await ((IProjectVersionControlBackend)service).RetireAsync(
+            new ProjectVersionControlFinalSnapshot(
+                "beutl: snapshot on close",
+                SnapshotKind.Close));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.SkippedNoIdentity>());
+            Assert.That(notices, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task CommitAllAsync_ignores_Beutl_temporary_resource_artifacts()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
@@ -3847,10 +3877,24 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         await CommitFileAsync("project.bep", "{}\n", "initial");
         string externalRoot = CreateTemporaryDirectory();
-        await File.WriteAllTextAsync(Path.Combine(externalRoot, "linked.scene"), "{}\n");
         string linkedDirectory = Path.Combine(Root, "linked");
         CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
-        using var service = CreateService();
+        var project = new Project();
+        project.Items.Add(new Scene(1920, 1080, "LinkedScene")
+        {
+            Uri = new Uri(Path.Combine(linkedDirectory, "linked.scene")),
+        });
+        string projectFile = Path.Combine(Root, "project.bep");
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        Assert.That(
+            SerializedProjectGraph.GetRelativePaths(projectFile, Root),
+            Does.Contain("linked/linked.scene"));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.CommitAllAsync(
@@ -3859,6 +3903,41 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 CancellationToken.None));
 
         Assert.That(exception!.Message, Does.Contain("symbolic-link directory 'linked'"));
+    }
+
+    [Test]
+    public async Task CommitAllAsync_does_not_traverse_an_unreferenced_directory_symbolic_link()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression requires Unix symbolic-link semantics.");
+        }
+
+        await CommitFileAsync("project.bep", "{}\n", "initial");
+        string externalRoot = CreateTemporaryDirectory();
+        // The nested repository catches the old pre-enqueue probe; the scene catches a
+        // partial fix that moves that probe but still recursively walks the link target.
+        Directory.CreateDirectory(Path.Combine(externalRoot, ".git"));
+        await File.WriteAllTextAsync(
+            Path.Combine(externalRoot, "outside.scene"),
+            "external content\n");
+        for (int index = 0; index < 256; index++)
+        {
+            Directory.CreateDirectory(Path.Combine(externalRoot, $"branch-{index:D3}"));
+        }
+
+        string linkedDirectory = Path.Combine(Root, "unreferenced");
+        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
+        await RunGitAsync("add", "--", "unreferenced");
+        await RunGitAsync("commit", "-m", "track unreferenced link");
+        using var service = CreateService();
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
     }
 
     [Test]

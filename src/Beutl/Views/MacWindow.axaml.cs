@@ -138,10 +138,10 @@ public sealed partial class MacWindow : Window
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
-            viewMenuItem = (NativeMenuItem)rootMenu.Items[3];
+            viewMenuItem = (NativeMenuItem)rootMenu.Items[2];
             editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
             toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
-            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[4]).Menu;
+            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
             // View > ... > "Apply dock layout" (see MacWindow.axaml).
             dockLayoutPresetMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[^2]).Menu;
         }
@@ -434,16 +434,20 @@ public sealed partial class MacWindow : Window
             }
         }
 
+        if (DataContext is MainViewModel viewModel)
+        {
+            if (!viewModel.TryDisposeForWindowClose())
+            {
+                e.Cancel = true;
+                return;
+            }
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
-
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.Dispose();
-        }
     }
 
     private async Task StopCaptureAndCloseAsync(MainView mv)

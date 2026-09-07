@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Editor.VersionControl;
 
-public interface IProjectVersionControlInitializer
+internal interface IProjectVersionControlInitializer
 {
     Task<GitAvailability> GetAvailabilityAsync(CancellationToken cancellationToken);
 

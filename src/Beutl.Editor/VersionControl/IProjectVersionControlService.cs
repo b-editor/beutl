@@ -90,10 +90,10 @@ internal interface IProjectVersionControlBackend :
         Func<IProjectVersionControlTransaction, Task<TResult>> operation,
         CancellationToken cancellationToken);
 
-    Task RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot);
+    Task<CommitResult?> RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot);
 }
 
-public interface IRepositoryLockRecoveryService
+internal interface IRepositoryLockRecoveryService
 {
     RepositoryLockInfo? RecoverableLock { get; }
 

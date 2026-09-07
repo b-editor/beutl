@@ -284,13 +284,25 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         }
 
         string projectRoot = CreateProjectDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        string projectFile = Path.Combine(projectRoot, "project.bep");
         string externalRoot = CreateTemporaryDirectory();
-        await File.WriteAllTextAsync(Path.Combine(externalRoot, "linked.scene"), "{}\n");
         string linkedDirectory = Path.Combine(projectRoot, "linked");
         CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
+        var project = new Project();
+        project.Items.Add(new Scene(1920, 1080, "LinkedScene")
+        {
+            Uri = new Uri(Path.Combine(linkedDirectory, "linked.scene")),
+        });
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        Assert.That(
+            SerializedProjectGraph.GetRelativePaths(projectFile, projectRoot),
+            Does.Contain("linked/linked.scene"));
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
-        using GitCliVersionControlService service = CreateUnassociatedService();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository: null,
+            isWorktreeMutationAllowed: static () => true,
+            projectFile: projectFile);
 
         InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
             async () => await service.InitializeAsync(

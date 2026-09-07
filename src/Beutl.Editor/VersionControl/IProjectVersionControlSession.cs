@@ -2,7 +2,7 @@
 
 namespace Beutl.Editor.VersionControl;
 
-public interface IProjectVersionControlSession
+internal interface IProjectVersionControlSession
 {
     IReadOnlyReactiveProperty<bool> IsGitAvailable { get; }
 

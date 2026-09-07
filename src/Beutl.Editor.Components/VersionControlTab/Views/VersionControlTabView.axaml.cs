@@ -11,7 +11,7 @@ using Beutl.Language;
 
 namespace Beutl.Editor.Components.VersionControlTab.Views;
 
-public sealed partial class VersionControlTabView : UserControl
+internal sealed partial class VersionControlTabView : UserControl
 {
     public static readonly StyledProperty<bool> IsNarrowLayoutProperty =
         AvaloniaProperty.Register<VersionControlTabView, bool>(

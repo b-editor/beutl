@@ -7,8 +7,10 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Beutl" />
+        <InternalsVisibleTo Include="Beutl.Editor.Components" />
         <InternalsVisibleTo Include="Beutl.HeadlessUITests" />
         <InternalsVisibleTo Include="Beutl.UnitTests" />
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
     </ItemGroup>
 
     <ItemGroup>

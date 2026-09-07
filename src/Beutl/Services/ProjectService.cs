@@ -29,7 +29,6 @@ public sealed class ProjectService
     private ProjectTransitionContext? _currentTransition;
     private long _nextOpenAttemptId;
     private long _nextTransitionId;
-    private int _shutdownRequested;
 
     public ProjectService()
     {
@@ -71,6 +70,8 @@ public sealed class ProjectService
     internal event Func<string, Task>? Opening;
 
     internal event Func<Project, Task>? Opened;
+
+    internal event Action<Project?>? TransitionCommitted;
 
     internal ProjectTransitionContext? CurrentTransition
     {
@@ -144,7 +145,6 @@ public sealed class ProjectService
                 transition = await BeginTransitionAsync(
                     ProjectTransitionPurpose.Normal,
                     attempt,
-                    allowDuringShutdown: false,
                     attempt.CancellationToken);
             }
             catch (OperationCanceledException) when (attempt.IsCancellationRequested)
@@ -212,7 +212,6 @@ public sealed class ProjectService
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
             ProjectTransitionPurpose.Normal,
             this,
-            allowDuringShutdown: false,
             cancellationToken);
         await CloseProjectCoreAsync(transition.Context, cancellationToken);
     }
@@ -222,7 +221,6 @@ public sealed class ProjectService
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
             ProjectTransitionPurpose.Normal,
             this,
-            allowDuringShutdown: false,
             CancellationToken.None);
         return await CreateProjectCoreAsync(
             width,
@@ -242,65 +240,21 @@ public sealed class ProjectService
         return BeginTransitionAsync(
             ProjectTransitionPurpose.VersionControlMutation,
             owner,
-            allowDuringShutdown: false,
             cancellationToken);
-    }
-
-    internal ValueTask<ProjectTransitionScope> BeginShutdownTransitionAsync(
-        object owner,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        Interlocked.Exchange(ref _shutdownRequested, 1);
-        return BeginTransitionAsync(
-            ProjectTransitionPurpose.Shutdown,
-            owner,
-            allowDuringShutdown: true,
-            cancellationToken);
-    }
-
-    internal void RequestShutdown()
-    {
-        Interlocked.Exchange(ref _shutdownRequested, 1);
-        CancelPendingOpenAttemptExcept(owner: null);
-    }
-
-    /// <summary>
-    /// Clears the shutdown request. The application never needs this — shutdown is terminal there —
-    /// but the headless suite shares one <see cref="MainViewModel"/> across the whole assembly, so a
-    /// test that exercises shutdown would otherwise reject every later test's project transition.
-    /// </summary>
-    internal void ClearShutdownRequest()
-    {
-        Interlocked.Exchange(ref _shutdownRequested, 0);
     }
 
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
         ProjectTransitionPurpose purpose,
         object owner,
-        bool allowDuringShutdown,
         CancellationToken cancellationToken)
     {
         CancelPendingOpenAttemptExcept(owner);
-        if (!allowDuringShutdown && Volatile.Read(ref _shutdownRequested) != 0)
-        {
-            throw new InvalidOperationException(
-                "Project transitions cannot start after application shutdown has begun.");
-        }
-
         await _transitionGate.WaitAsync(cancellationToken);
         CancelPendingOpenAttemptExcept(owner);
         if (cancellationToken.IsCancellationRequested)
         {
             _transitionGate.Release();
             cancellationToken.ThrowIfCancellationRequested();
-        }
-
-        if (!allowDuringShutdown && Volatile.Read(ref _shutdownRequested) != 0)
-        {
-            _transitionGate.Release();
-            throw new InvalidOperationException(
-                "Project transitions cannot start after application shutdown has begun.");
         }
 
         var context = new ProjectTransitionContext(
@@ -453,6 +407,7 @@ public sealed class ProjectService
             TryAddToRecentProjects(file);
             _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
             PublishProjectChange((New: project, null));
+            PublishTransitionCommitted(project);
         }
         catch (Exception ex)
         {
@@ -493,6 +448,7 @@ public sealed class ProjectService
     {
         if (_app.Project is { } project)
         {
+            PublishProjectChange((New: null, project));
             _app.Project = null;
             try
             {
@@ -503,7 +459,7 @@ public sealed class ProjectService
                 _logger.LogWarning(ex, "Failed to clear the last-opened project setting.");
             }
             _logger.LogInformation("Closed project. Project: {Project}", project.Uri);
-            PublishProjectChange((New: null, project));
+            PublishTransitionCommitted(null);
         }
     }
 
@@ -561,11 +517,12 @@ public sealed class ProjectService
                     }
                 });
 
+            PublishProjectChange((New: project, null));
             await ActivateProjectAsync(project);
 
             TryAddToRecentProjects(project.Uri.LocalPath);
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
-            PublishProjectChange((New: project, null));
+            PublishTransitionCommitted(project);
 
             return project;
         }
@@ -738,6 +695,26 @@ public sealed class ProjectService
             _logger.LogError(
                 ex,
                 "Unable to publish a committed project-state transition.");
+        }
+    }
+
+    private void PublishTransitionCommitted(Project? project)
+    {
+        if (TransitionCommitted is not { } transitionCommitted)
+        {
+            return;
+        }
+
+        foreach (Action<Project?> handler in transitionCommitted.GetInvocationList())
+        {
+            try
+            {
+                handler(project);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "A committed project-transition handler failed.");
+            }
         }
     }
 
@@ -967,7 +944,6 @@ internal enum ProjectTransitionPurpose
 {
     Normal,
     VersionControlMutation,
-    Shutdown,
 }
 
 internal sealed record ProjectTransitionContext(

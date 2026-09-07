@@ -5,7 +5,7 @@ namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 internal enum VersionControlPrimaryActionKind
 {
     Commit,
-    Pull,
+    PullFromRemote,
     Push,
     UpToDate,
     PublishBranch,

@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Editor.VersionControl;
 
-public interface IProjectVersionControlCoordinator
+internal interface IProjectVersionControlCoordinator
 {
     event EventHandler? PendingPullRecoveriesChanged;
 

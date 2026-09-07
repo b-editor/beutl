@@ -22,7 +22,7 @@ public sealed class CreateNewProjectViewModel
     {
     }
 
-    public CreateNewProjectViewModel(
+    internal CreateNewProjectViewModel(
         ProjectService projectService,
         IProjectVersionControlInitializer? versionControlInitializer,
         Func<CancellationToken, Task<GitIdentity?>>? requestIdentityAsync)

@@ -185,12 +185,12 @@ internal sealed class PendingPullRecoveryPreservedException : Exception
     public string RecoveryReference { get; }
 }
 
-public sealed record ProjectRecoveryInfo(
+internal sealed record ProjectRecoveryInfo(
     string Id,
     string ProjectFileName,
     DateTimeOffset CreatedAt);
 
-public abstract record ProjectRecoveryResult
+internal abstract record ProjectRecoveryResult
 {
     private ProjectRecoveryResult()
     {
@@ -258,7 +258,7 @@ public sealed record WorkspaceStatus(
 /// <summary>
 /// Describes whether the revision created by a successful commit could be observed.
 /// </summary>
-public abstract record CommitRevision
+internal abstract record CommitRevision
 {
     private CommitRevision()
     {
@@ -291,7 +291,7 @@ public abstract record CommitRevision
     public sealed record Unavailable : CommitRevision;
 }
 
-public abstract record CommitResult
+internal abstract record CommitResult
 {
     private CommitResult()
     {
@@ -322,7 +322,7 @@ public abstract record CommitResult
     public sealed record SkippedNoIdentity : CommitResult;
 }
 
-public abstract record RemoteOpResult
+internal abstract record RemoteOpResult
 {
     private RemoteOpResult()
     {
@@ -363,7 +363,7 @@ internal abstract record VersionControlPolicyNotice
 }
 
 /// <summary>A specific stale-lock recovery offer whose identity is its object reference.</summary>
-public sealed class RepositoryLockInfo
+internal sealed class RepositoryLockInfo
 {
     public RepositoryLockInfo(string lockPath, DateTimeOffset lastWriteTimeUtc)
     {
@@ -439,7 +439,7 @@ public sealed class GitOperationException : Exception
 
 }
 
-public sealed class GitIdentityRequiredException : InvalidOperationException
+internal sealed class GitIdentityRequiredException : InvalidOperationException
 {
     public GitIdentityRequiredException()
         : base("A Git user name and email address are required to create this commit.")
@@ -447,7 +447,7 @@ public sealed class GitIdentityRequiredException : InvalidOperationException
     }
 }
 
-public sealed class EnclosingRepositoryConsentRequiredException : InvalidOperationException
+internal sealed class EnclosingRepositoryConsentRequiredException : InvalidOperationException
 {
     public EnclosingRepositoryConsentRequiredException(RepositoryInfo repository)
         : base(
@@ -467,7 +467,7 @@ public sealed class EnclosingRepositoryConsentRequiredException : InvalidOperati
     public RepositoryInfo Repository { get; }
 }
 
-public sealed class VersionControlConflictedException : InvalidOperationException
+internal sealed class VersionControlConflictedException : InvalidOperationException
 {
     public VersionControlConflictedException(string guidance)
         : base(guidance)

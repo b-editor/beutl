@@ -100,6 +100,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         "GIT_GRAFT_FILE",
         "GIT_INDEX_FILE",
         "GIT_NO_REPLACE_OBJECTS",
+        "GIT_NAMESPACE",
         "GIT_REPLACE_REF_BASE",
         "GIT_PREFIX",
         "GIT_SHALLOW_FILE",

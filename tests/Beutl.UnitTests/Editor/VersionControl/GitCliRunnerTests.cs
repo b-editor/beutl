@@ -329,6 +329,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             "GIT_GRAFT_FILE",
             "GIT_INDEX_FILE",
             "GIT_NO_REPLACE_OBJECTS",
+            "GIT_NAMESPACE",
             "GIT_REPLACE_REF_BASE",
             "GIT_PREFIX",
             "GIT_SHALLOW_FILE",
@@ -409,6 +410,49 @@ public class GitCliRunnerTests : RealGitTestRepository
                     ])
                     .Where(startInfo.Environment.ContainsKey),
                 Is.Empty);
+        });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task Push_ignores_ambient_namespace_and_updates_the_normal_bare_ref()
+    {
+        await CommitFileAsync("namespace.txt", "normal namespace\n", "initial");
+        string bareRepository = Path.Combine(CreateTemporaryDirectory(), "remote.git");
+        await RunGitAsync("init", "--bare", bareRepository);
+        await RunGitAsync("remote", "add", "namespace-target", bareRepository);
+
+        string? originalNamespace = Environment.GetEnvironmentVariable("GIT_NAMESPACE");
+        try
+        {
+            Environment.SetEnvironmentVariable("GIT_NAMESPACE", "ambient-poison");
+            await RunGitAsync(
+                "push",
+                "namespace-target",
+                "HEAD:refs/heads/main");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GIT_NAMESPACE", originalNamespace);
+        }
+
+        GitCommandResult normalRef = await RunGitAsync(
+            "-C",
+            bareRepository,
+            "rev-parse",
+            "--verify",
+            "refs/heads/main");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(normalRef.Stdout.Trim(), Has.Length.EqualTo(40));
+            Assert.That(
+                Directory.Exists(Path.Combine(
+                    bareRepository,
+                    "refs",
+                    "namespaces",
+                    "ambient-poison")),
+                Is.False);
         });
     }
 

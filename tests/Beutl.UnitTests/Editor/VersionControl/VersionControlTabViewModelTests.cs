@@ -334,7 +334,7 @@ public class VersionControlTabViewModelTests
             Assert.That(viewModel.IsConflicted.Value, Is.True);
             Assert.That(viewModel.HasBlockingGuidance.Value, Is.True);
             Assert.That(
-                viewModel.StaleLockGuidance.Value,
+                viewModel.StatusMessage.Value,
                 Is.EqualTo(Strings.VersionControl_ConflictGuidance));
             Assert.That(viewModel.Commits, Is.Empty);
             Assert.That(viewModel.HasMoreHistory.Value, Is.False);
@@ -627,7 +627,7 @@ public class VersionControlTabViewModelTests
                 true,
                 false,
                 string.Empty,
-                VersionControlPrimaryActionKind.Pull,
+                VersionControlPrimaryActionKind.PullFromRemote,
                 string.Format(Strings.VersionControl_PullCountFormat, 3),
                 true),
             (
@@ -886,7 +886,7 @@ public class VersionControlTabViewModelTests
         {
             Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
             Assert.That(
-                viewModel.StatusMessage.Value,
+                viewModel.StaleLockGuidance.Value,
                 Is.EqualTo(string.Format(
                     CultureInfo.CurrentCulture,
                     Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
@@ -1583,6 +1583,48 @@ public class VersionControlTabViewModelTests
         });
         coordinator.Verify(
             x => x.CommitManualAsync("rough cut", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Test]
+    public async Task Manual_commit_preserves_a_new_draft_entered_while_submission_is_running()
+    {
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        var coordinator = new Mock<IProjectVersionControlCoordinator>();
+        var submissionStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var submissionCompletion = new TaskCompletionSource<CommitResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        coordinator.Setup(x => x.CommitManualAsync(
+                "submitted message",
+                It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                submissionStarted.TrySetResult();
+                return submissionCompletion.Task;
+            });
+        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await viewModel.Initialization;
+        viewModel.CommitMessage.Value = " submitted message ";
+
+        Task submission = viewModel.CommitManualAsync();
+        await submissionStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        viewModel.CommitMessage.Value = "next draft";
+        submissionCompletion.SetResult(
+            new CommitResult.Committed(new CommitRevision.Unavailable()));
+        await submission;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CommitMessage.Value, Is.EqualTo("next draft"));
+            Assert.That(
+                viewModel.StatusMessage.Value,
+                Is.EqualTo(Strings.VersionControl_CommitCreated));
+        });
+        coordinator.Verify(
+            x => x.CommitManualAsync(
+                "submitted message",
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

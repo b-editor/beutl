@@ -1,8 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
-using Avalonia.Controls;
+﻿using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
-using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Editor;
 using Beutl.Editor.VersionControl;
@@ -10,7 +7,6 @@ using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
-using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -81,7 +77,7 @@ public sealed class EditorServiceTests
     public async Task Handing_over_a_project_file_write_releases_it_even_when_the_mutation_cannot_start()
     {
         var editorService = new EditorService(new ExtensionProvider());
-        using IDisposable output = editorService.TryBeginOutputOperation()!;
+        using IDisposable output = editorService.BeginObservedOutputOperation();
         IProjectFileWriteLease fileWrite = await editorService.BeginProjectFileWriteAsync(
             CancellationToken.None);
 
@@ -170,57 +166,6 @@ public sealed class EditorServiceTests
     }
 
     [Test]
-    public async Task SwitchEditorExtensionAsync_disposes_the_outgoing_context_asynchronously()
-    {
-        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var outgoing = new StubEditorContext();
-        var tabItem = new EditorTabItem(outgoing);
-        editorService.TabItems.Add(tabItem);
-        editorService.SelectedTabItem.Value = tabItem;
-        var incoming = new StubEditorContext();
-
-        await editorService.SwitchEditorExtensionAsync(new StubEditorExtension(incoming));
-
-        Assert.Multiple(() =>
-        {
-            // IEditorContext.Dispose() has an empty default implementation, so a Dispose-based swap
-            // would leave the outgoing editor running.
-            Assert.That(outgoing.AsyncDisposeCount, Is.EqualTo(1));
-            Assert.That(tabItem.Context.Value, Is.SameAs(incoming));
-        });
-    }
-
-    [Test]
-    public async Task SwitchEditorExtensionAsync_leaves_the_tab_alone_when_the_selection_moved()
-    {
-        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var outgoing = new StubEditorContext();
-        var tabItem = new EditorTabItem(outgoing);
-        var otherTab = new EditorTabItem(new StubEditorContext());
-        editorService.TabItems.Add(tabItem);
-        editorService.TabItems.Add(otherTab);
-        editorService.SelectedTabItem.Value = tabItem;
-
-        var extension = new StubEditorExtension(new StubEditorContext());
-        // The selection moves while the write lease is held, standing in for a version-control
-        // transition that reopens the project mid-wait.
-        using (IDisposable mutation = editorService.TryBeginWorktreeMutation()!)
-        {
-            Task swap = editorService.SwitchEditorExtensionAsync(extension);
-            editorService.SelectedTabItem.Value = otherTab;
-            mutation.Dispose();
-            await swap;
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(tabItem.Context.Value, Is.SameAs(outgoing));
-            Assert.That(outgoing.AsyncDisposeCount, Is.Zero);
-            Assert.That(extension.CreateContextCalls, Is.Zero);
-        });
-    }
-
-    [Test]
     public void SuspendEditors_keeps_editors_disabled_until_the_outermost_handle_is_disposed()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
@@ -303,8 +248,9 @@ public sealed class EditorServiceTests
         var project = new Project { Uri = new Uri("file:///project.bep") };
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
-        IDisposable outputOperation = editorService.TryBeginOutputOperation()!;
-        IDisposable outputSuspension = editorService.SuspendEditor(context);
+        var outputContext = new StubOutputContext(context.Object);
+        using var output = new OutputProfileItem(outputContext, context, editorService);
+        outputContext.RaiseStarted();
         Task<bool> save = editorService.SaveProjectFilesAsync(project, CancellationToken.None);
 
         try
@@ -312,8 +258,7 @@ public sealed class EditorServiceTests
             await serializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(context.IsEnabled.Value, Is.False);
 
-            outputSuspension.Dispose();
-            outputOperation.Dispose();
+            outputContext.RaiseFinished();
 
             Assert.That(
                 context.IsEnabled.Value,
@@ -326,11 +271,66 @@ public sealed class EditorServiceTests
         }
         finally
         {
-            outputSuspension.Dispose();
-            outputOperation.Dispose();
+            outputContext.RaiseFinished();
             allowSerialization.Set();
             await save.WaitAsync(TimeSpan.FromSeconds(5));
         }
+    }
+
+    [Test]
+    public async Task Output_dispose_racing_with_started_releases_the_workspace_and_editor()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        var context = new StubEditorContext();
+        editorService.TabItems.Add(new EditorTabItem(context));
+        var outputContext = new StubOutputContext(context.Object);
+        var output = new OutputProfileItem(outputContext, context, editorService);
+        var suspensionStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseSuspension = new ManualResetEventSlim();
+        using IDisposable subscription = context.IsEnabled.Subscribe(enabled =>
+        {
+            if (!enabled)
+            {
+                suspensionStarted.TrySetResult();
+                releaseSuspension.Wait();
+            }
+        });
+
+        Task started = Task.Run(outputContext.RaiseStarted);
+        await suspensionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task dispose = Task.Run(output.Dispose);
+        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
+        releaseSuspension.Set();
+        await started.WaitAsync(TimeSpan.FromSeconds(5));
+
+        using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
+        Assert.Multiple(() =>
+        {
+            Assert.That(mutation, Is.Not.Null);
+            Assert.That(context.IsEnabled.Value, Is.True);
+            Assert.That(outputContext.DisposeCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Output_started_during_a_worktree_mutation_is_rejected_without_leaking_a_lease()
+    {
+        var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
+        var context = new StubEditorContext();
+        editorService.TabItems.Add(new EditorTabItem(context));
+        var outputContext = new StubOutputContext(context.Object);
+        using var output = new OutputProfileItem(outputContext, context, editorService);
+
+        using (IDisposable mutation = editorService.TryBeginWorktreeMutation()!)
+        {
+            Assert.Throws<InvalidOperationException>(outputContext.RaiseStarted);
+            outputContext.RaiseFinished();
+            Assert.That(context.IsEnabled.Value, Is.True);
+        }
+
+        using IDisposable? nextMutation = editorService.TryBeginWorktreeMutation();
+        Assert.That(nextMutation, Is.Not.Null);
     }
 
     private sealed class ForeignLease : IProjectFileWriteLease
@@ -338,35 +338,6 @@ public sealed class EditorServiceTests
         public void Dispose()
         {
         }
-    }
-
-    private sealed class StubEditorExtension(IEditorContext context) : EditorExtension
-    {
-        public int CreateContextCalls { get; private set; }
-
-        public override FilePickerFileType GetFilePickerFileType() => throw new NotSupportedException();
-
-        public override IconSource? GetIcon() => null;
-
-        public override bool TryCreateEditor(
-            CoreObject obj,
-            [NotNullWhen(true)] out Control? editor)
-        {
-            editor = null;
-            return false;
-        }
-
-        public override bool TryCreateContext(
-            CoreObject obj,
-            IEditorContextServices services,
-            [NotNullWhen(true)] out IEditorContext? outContext)
-        {
-            CreateContextCalls++;
-            outContext = context;
-            return true;
-        }
-
-        public override bool MatchFileExtension(string ext) => true;
     }
 
     private sealed class StubEditorContext : IEditorContext
@@ -400,6 +371,47 @@ public sealed class EditorServiceTests
         public bool OpenToolTab(IToolContext item) => false;
 
         public void CloseToolTab(IToolContext item)
+        {
+        }
+    }
+
+    private sealed class StubOutputContext(CoreObject obj) : IOutputContext
+    {
+        public int DisposeCalls { get; private set; }
+
+        public OutputExtension Extension => throw new NotSupportedException();
+
+        public CoreObject Object { get; } = obj;
+
+        public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("Output");
+
+        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
+            = new ReactivePropertySlim<bool>();
+
+        public IReadOnlyReactiveProperty<bool> IsEncoding { get; }
+            = new ReactivePropertySlim<bool>();
+
+        public IReadOnlyReactiveProperty<double> Progress { get; }
+            = new ReactivePropertySlim<double>();
+
+        public event EventHandler? Started;
+
+        public event EventHandler? Finished;
+
+        public void RaiseStarted() => Started?.Invoke(this, EventArgs.Empty);
+
+        public void RaiseFinished() => Finished?.Invoke(this, EventArgs.Empty);
+
+        public void Dispose()
+        {
+            DisposeCalls++;
+        }
+
+        public void WriteToJson(System.Text.Json.Nodes.JsonObject json)
+        {
+        }
+
+        public void ReadFromJson(System.Text.Json.Nodes.JsonObject json)
         {
         }
     }

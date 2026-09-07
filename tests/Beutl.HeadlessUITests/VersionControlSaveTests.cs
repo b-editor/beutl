@@ -202,7 +202,7 @@ public class VersionControlSaveTests
             });
 
             await File.WriteAllTextAsync(Path.Combine(projectRoot, "close-marker.txt"), "close\n");
-            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
+            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
             int afterClose = await CountCommitsAsync(gitPath, projectRoot);
             int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
 
@@ -438,7 +438,7 @@ public class VersionControlSaveTests
             string projectFile = project.Uri!.LocalPath;
             string projectRoot = Path.GetDirectoryName(projectFile)!;
             int initialCommitCount = await CountCommitsAsync(gitPath, projectRoot);
-            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
+            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
             File.Delete(Path.Combine(projectRoot, ".gitignore"));
             File.Delete(Path.Combine(projectRoot, ".gitattributes"));
 
@@ -838,7 +838,7 @@ public class VersionControlSaveTests
                 EngineObjectFactory: () => new RectShape()));
             HeadlessTestHelpers.Settle();
 
-            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
+            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
 
             string committedScene = await RunGitAsync(
                 gitPath,
@@ -871,7 +871,7 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
-    public async Task Close_is_refused_when_an_editor_cannot_save_for_the_close_snapshot()
+    public async Task Window_close_is_cancelled_when_an_editor_cannot_save_the_close_snapshot()
     {
         await TestReset.ResetShellAsync();
         using var environment = new IsolatedGitEnvironment();
@@ -914,26 +914,22 @@ public class VersionControlSaveTests
             {
                 Uri = new Uri(Path.Combine(projectRoot, "refuses-to-save.scene")),
             };
-            TestShell.Editor.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(failedItem, failedCommands)));
+            var failedContext = new FailedSaveEditorContext(failedItem, failedCommands);
+            var failedTab = new EditorTabItem(failedContext);
+            TestShell.Editor.TabItems.Add(failedTab);
 
-            Exception? closeFailure = null;
-            try
-            {
-                await TestShell.Project.CloseProjectAsync();
-            }
-            catch (Exception ex)
-            {
-                closeFailure = ex;
-            }
+            bool disposed = TestShell.MainViewModel.TryDisposeForWindowClose();
 
             int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
             int commitsAfterClose = await CountCommitsAsync(gitPath, projectRoot);
             Assert.Multiple(() =>
             {
-                Assert.That(closeFailure, Is.Not.Null);
+                Assert.That(disposed, Is.False);
                 Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(TestShell.Editor.TabItems, Does.Contain(failedTab));
+                Assert.That(failedContext.IsEnabled.Value, Is.True);
+                Assert.That(TestShell.VersionControl.CurrentService, Is.Not.Null);
                 Assert.That(closeSnapshots, Is.Zero);
                 Assert.That(commitsAfterClose, Is.EqualTo(commitsBeforeClose));
             });

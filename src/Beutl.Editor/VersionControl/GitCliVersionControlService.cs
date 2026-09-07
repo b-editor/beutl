@@ -1020,7 +1020,7 @@ internal sealed class GitCliVersionControlService :
     private RepositoryWatcher? _watcher;
     private GitAvailability? _cachedAvailability;
     private IGitCliRunner? _runner;
-    private Task? _retirementTask;
+    private Task<CommitResult?>? _retirementTask;
     private int _configurationRevision;
     private int _lifetimeState;
     private int _resourcesDisposed;
@@ -1656,7 +1656,7 @@ internal sealed class GitCliVersionControlService :
         return ExecuteExclusiveCoreAsync(operation, cancellationToken);
     }
 
-    public Task RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
+    public Task<CommitResult?> RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
     {
         lock (_lifetimeSync)
         {
@@ -1667,7 +1667,7 @@ internal sealed class GitCliVersionControlService :
 
             if ((ServiceLifetimeState)_lifetimeState == ServiceLifetimeState.Retired)
             {
-                return Task.CompletedTask;
+                return Task.FromResult<CommitResult?>(null);
             }
 
             _lifetimeState = (int)ServiceLifetimeState.Retiring;
@@ -1697,7 +1697,8 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private async Task RetireCoreAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
+    private async Task<CommitResult?> RetireCoreAsync(
+        ProjectVersionControlFinalSnapshot? finalSnapshot)
     {
         await Task.Yield();
         await _operationGate.WaitAsync().ConfigureAwait(false);
@@ -1705,12 +1706,15 @@ internal sealed class GitCliVersionControlService :
         {
             if (finalSnapshot is not null && Repository is not null)
             {
-                await CommitAllCoreAsync(
+                return await CommitAllCoreAsync(
                         finalSnapshot.Message,
                         finalSnapshot.Kind,
-                        CancellationToken.None)
+                        CancellationToken.None,
+                        presentMissingIdentityNotice: false)
                     .ConfigureAwait(false);
             }
+
+            return null;
         }
         catch (Exception ex)
         {
@@ -8967,7 +8971,8 @@ internal sealed class GitCliVersionControlService :
     private async Task<CommitResult> CommitAllCoreAsync(
         string message,
         SnapshotKind kind,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool presentMissingIdentityNotice = true)
     {
         RepositoryInfo repository = GetRepository();
         await EnsureNotConflictedCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -9061,11 +9066,15 @@ internal sealed class GitCliVersionControlService :
         {
             if (kind != SnapshotKind.Manual)
             {
-                await RaiseMissingIdentityNoticeIfNeededAsync(
-                        repository,
-                        runner,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                if (presentMissingIdentityNotice)
+                {
+                    await RaiseMissingIdentityNoticeIfNeededAsync(
+                            repository,
+                            runner,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 return new CommitResult.SkippedNoIdentity();
             }
 
@@ -11366,14 +11375,10 @@ internal sealed class GitCliVersionControlService :
         string projectRoot,
         IReadOnlySet<string> serializedPaths)
     {
-        var pending = new Stack<(
-            string Directory,
-            bool IsResourceDirectory,
-            string? SymbolicLinkDirectory)>();
+        var pending = new Stack<(string Directory, bool IsResourceDirectory)>();
         pending.Push((
             projectRoot,
-            IsResourceDirectory: false,
-            SymbolicLinkDirectory: null));
+            IsResourceDirectory: false));
         // Ordinal, not the platform rule: this dedupes directories the walk actually reached, and
         // a case-sensitive volume can hold both Assets/ and assets/ as distinct trees. Folding them
         // together would skip one subtree's symlink and nested-repository validation entirely.
@@ -11407,15 +11412,6 @@ internal sealed class GitCliVersionControlService :
                             $"The required project file symbolic link '{relativeFile}' cannot be snapshotted safely.");
                     }
 
-                    if (item.SymbolicLinkDirectory is not null)
-                    {
-                        string relativeLink = NormalizeGitPath(Path.GetRelativePath(
-                            projectRoot,
-                            item.SymbolicLinkDirectory));
-                        throw new InvalidOperationException(
-                            $"The required project content beneath symbolic-link directory '{relativeLink}' cannot be snapshotted safely.");
-                    }
-
                     yield return file;
                 }
             }
@@ -11432,27 +11428,48 @@ internal sealed class GitCliVersionControlService :
                         ".git",
                         StringComparison.OrdinalIgnoreCase))
                 {
+                    var childInfo = new DirectoryInfo(child);
+                    childInfo.Refresh();
+                    bool isReparsePoint = (childInfo.Attributes & FileAttributes.ReparsePoint) != 0
+                                          || childInfo.LinkTarget is not null;
+                    string relativeDirectory = NormalizeGitPath(Path.GetRelativePath(
+                        projectRoot,
+                        child));
+                    if (isReparsePoint)
+                    {
+                        if (serializedPaths.Any(path =>
+                                IsSameOrDescendantGitPath(path, relativeDirectory)))
+                        {
+                            throw new InvalidOperationException(
+                                $"The required project content beneath symbolic-link directory '{relativeDirectory}' cannot be snapshotted safely.");
+                        }
+
+                        // Never enumerate an unreferenced link target. Besides avoiding an
+                        // unbounded or inaccessible external walk, this keeps unrelated content
+                        // outside the project from influencing snapshot validation.
+                        continue;
+                    }
+
                     if (Directory.Exists(Path.Combine(child, ".git"))
                         || File.Exists(Path.Combine(child, ".git")))
                     {
-                        string relativeRepository = NormalizeGitPath(Path.GetRelativePath(
-                            projectRoot,
-                            child));
                         throw new InvalidOperationException(
-                            $"The nested Git repository '{relativeRepository}' cannot be snapshotted safely.");
+                            $"The nested Git repository '{relativeDirectory}' cannot be snapshotted safely.");
                     }
 
                     pending.Push((
                         child,
                         item.IsResourceDirectory
-                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase),
-                        item.SymbolicLinkDirectory
-                        ?? ((File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0
-                            ? child
-                            : null)));
+                        || string.Equals(name, "resources", StringComparison.OrdinalIgnoreCase)));
                 }
             }
         }
+    }
+
+    private static bool IsSameOrDescendantGitPath(string path, string directory)
+    {
+        return string.Equals(path, directory, StringComparison.Ordinal)
+               || path.StartsWith(directory + "/", StringComparison.Ordinal);
     }
 
     private void ValidateProjectSnapshotLayout(string projectRoot)
@@ -11477,17 +11494,11 @@ internal sealed class GitCliVersionControlService :
         Uri? reservedReference = graph.Objects
             .Select(static obj => obj.Uri)
             .Concat(graph.UnaddressableFileSources)
+            .Concat(graph.AddressableFileSources)
             .FirstOrDefault(uri => uri is not null
                                    && VersionControlSerializationGraph.IsInReservedProjectPath(
                                        uri,
                                        projectDirectory));
-        reservedReference ??= VersionControlSerializationGraph
-            .Collect(graph, projectDirectory, stagedStorageObjects: null)
-            .FileSources
-            .Select(static source => source.OriginalUri)
-            .FirstOrDefault(uri => VersionControlSerializationGraph.IsInReservedProjectPath(
-                uri,
-                projectDirectory));
         if (reservedReference is not null)
         {
             string relativePath = NormalizeGitPath(Path.GetRelativePath(

@@ -1,8 +1,10 @@
 ﻿using System.Reactive.Linq;
+using System.Reflection;
 
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
@@ -10,6 +12,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -23,35 +26,56 @@ public class CreateNewProjectDialogTests
     [Test]
     public void Public_view_model_constructors_preserve_the_standalone_creation_path()
     {
-        Type[][] createProjectParameters = typeof(CreateNewProjectViewModel)
+        Type[][] createProjectPublicParameters = typeof(CreateNewProjectViewModel)
             .GetConstructors()
             .Select(static constructor => constructor
                 .GetParameters()
                 .Select(static parameter => parameter.ParameterType)
                 .ToArray())
             .ToArray();
-        Type[] menuBarParameters = typeof(MenuBarViewModel)
-            .GetConstructors()
-            .Single()
-            .GetParameters()
-            .Select(static parameter => parameter.ParameterType)
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(createProjectParameters, Has.Length.EqualTo(2));
-            Assert.That(createProjectParameters.Any(static parameters =>
-                parameters.SequenceEqual([typeof(ProjectService)])), Is.True);
-            Assert.That(createProjectParameters.Any(static parameters =>
-                parameters.SequenceEqual([
+        ConstructorInfo? createProjectInitializerConstructor = typeof(CreateNewProjectViewModel)
+            .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
+            .SingleOrDefault(static constructor => constructor
+                .GetParameters()
+                .Select(static parameter => parameter.ParameterType)
+                .SequenceEqual([
                     typeof(ProjectService),
                     typeof(IProjectVersionControlInitializer),
                     typeof(Func<CancellationToken, Task<GitIdentity?>>),
-                ])), Is.True);
-            Assert.That(menuBarParameters, Has.Length.EqualTo(3));
+                ]));
+        Type[][] menuBarPublicParameters = typeof(MenuBarViewModel)
+            .GetConstructors()
+            .Select(static constructor => constructor
+                .GetParameters()
+                .Select(static parameter => parameter.ParameterType)
+                .ToArray())
+            .ToArray();
+        ConstructorInfo? menuBarSessionConstructor = typeof(MenuBarViewModel)
+            .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
+            .SingleOrDefault(static constructor => constructor
+                .GetParameters()
+                .Select(static parameter => parameter.ParameterType)
+                .SequenceEqual([
+                    typeof(ProjectService),
+                    typeof(EditorService),
+                    typeof(IProjectVersionControlSession),
+                ]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(createProjectPublicParameters, Has.Length.EqualTo(1));
             Assert.That(
-                menuBarParameters[2],
-                Is.EqualTo(typeof(IProjectVersionControlSession)));
+                createProjectPublicParameters[0],
+                Is.EqualTo(new[] { typeof(ProjectService) }));
+            Assert.That(createProjectInitializerConstructor, Is.Not.Null);
+            Assert.That(menuBarPublicParameters, Has.Length.EqualTo(1));
+            Assert.That(
+                menuBarPublicParameters[0],
+                Is.EqualTo(new[] { typeof(ProjectService), typeof(EditorService) }));
+            Assert.That(menuBarSessionConstructor, Is.Not.Null);
+            Assert.That(
+                typeof(MenuBarViewModel).GetProperty(nameof(MenuBarViewModel.CloseProject))!.PropertyType,
+                Is.EqualTo(typeof(ReactiveCommandSlim)));
         });
 
         var projectService = new ProjectService();
@@ -60,6 +84,7 @@ public class CreateNewProjectDialogTests
             (_, _, _) => Task.FromResult(true));
         Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync =
             _ => Task.FromResult<GitIdentity?>(null);
+        var editorService = new EditorService(new ExtensionProvider());
         Assert.Multiple(() =>
         {
             Assert.Throws<ArgumentNullException>(() =>
@@ -69,6 +94,7 @@ public class CreateNewProjectDialogTests
                 new CreateNewProjectViewModel(projectService, null, requestIdentityAsync));
             Assert.DoesNotThrow(() =>
                 new CreateNewProjectViewModel(projectService, initializer, null));
+            Assert.DoesNotThrow(() => new MenuBarViewModel(projectService, editorService));
         });
     }
 

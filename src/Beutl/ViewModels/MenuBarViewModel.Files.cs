@@ -10,9 +10,6 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    private TaskCompletionSource _closeProjectCompletion =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-
     [MemberNotNull(
         nameof(CloseFile),
         nameof(CloseProject),
@@ -29,8 +26,8 @@ public partial class MenuBarViewModel
         CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
             .WithSubscribe(OnCloseFileCore);
 
-        CloseProject = new AsyncReactiveCommand(IsProjectOpened)
-            .WithSubscribe(CloseProjectAsync);
+        CloseProject = new ReactiveCommandSlim(IsProjectOpened)
+            .WithSubscribe(CloseProjectCore);
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSave);
@@ -98,9 +95,7 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim CloseFile { get; private set; }
 
-    public AsyncReactiveCommand CloseProject { get; private set; }
-
-    internal Task CloseProjectCompletion => _closeProjectCompletion.Task;
+    public ReactiveCommandSlim CloseProject { get; private set; }
 
     public AsyncReactiveCommand Save { get; private set; }
 
@@ -124,32 +119,19 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand ImportProject { get; } = new();
 
-    private async Task CloseProjectAsync()
+    private void CloseProjectCore()
     {
-        TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        _closeProjectCompletion = completion;
-        bool handled = false;
         try
         {
-            await _projectService.CloseProjectAsync();
-            handled = true;
+            _projectService.CloseProject();
         }
         catch (ProjectCloseAbortedException)
         {
-            handled = true;
         }
         catch (Exception ex)
         {
-            handled = true;
             _logger.LogError(ex, "Failed to close the project.");
             NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
-        }
-        finally
-        {
-            if (handled)
-            {
-                completion.TrySetResult();
-            }
         }
     }
 

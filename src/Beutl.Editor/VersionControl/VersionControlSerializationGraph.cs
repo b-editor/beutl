@@ -18,74 +18,9 @@ using Beutl.Serialization;
 
 namespace Beutl.Editor;
 
-/// <summary>
-/// Collects IFileSource references and font references from the project hierarchy.
-/// </summary>
-internal sealed class VersionControlSerializationGraph
+/// <summary>Discovers serialized objects and file references in a project hierarchy.</summary>
+internal static class VersionControlSerializationGraph
 {
-    private readonly HashSet<(Guid Object, string PropertyName, Uri OriginalUri)> _fileSources = [];
-    private readonly HashSet<FontFamily> _fontFamilies = [];
-    private readonly HashSet<Uri> _unaddressableFileSources = [];
-    private readonly HashSet<CoreObject> _relocationOwners = new(ReferenceEqualityComparer.Instance);
-
-    private VersionControlSerializationGraph()
-    {
-    }
-
-    /// <summary>
-    /// The list of collected file sources.
-    /// </summary>
-    public IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> FileSources => _fileSources;
-
-    /// <summary>
-    /// The list of collected font families.
-    /// </summary>
-    public IEnumerable<FontFamily> FontFamilies => _fontFamilies;
-
-    internal IReadOnlySet<Uri> UnaddressableFileSources => _unaddressableFileSources;
-
-    internal IReadOnlySet<CoreObject> RelocationOwners => _relocationOwners;
-
-    /// <summary>
-    /// Collects all resource references within the hierarchy.
-    /// </summary>
-    /// <param name="root">The root hierarchy to start collecting from.</param>
-    /// <param name="projectDirectory">The path of the project directory.</param>
-    /// <returns>The collected resource information.</returns>
-    public static VersionControlSerializationGraph Collect(IHierarchical root, string projectDirectory)
-    {
-        return Collect(root, projectDirectory, stagedStorageObjects: null);
-    }
-
-    internal static VersionControlSerializationGraph Collect(
-        IHierarchical root,
-        string projectDirectory,
-        IReadOnlySet<CoreObject>? stagedStorageObjects)
-    {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(projectDirectory);
-
-        return Collect(DiscoverSerializationGraph(root), projectDirectory, stagedStorageObjects);
-    }
-
-    internal static VersionControlSerializationGraph Collect(
-        SerializationGraph graph,
-        string projectDirectory,
-        IReadOnlySet<CoreObject>? stagedStorageObjects)
-    {
-        VersionControlSerializationGraph collector = new();
-        foreach (CoreObject obj in graph.Objects)
-        {
-            collector.CollectFromObject(obj, projectDirectory, stagedStorageObjects);
-        }
-
-        collector._fontFamilies.UnionWith(graph.FontFamilies);
-        collector._unaddressableFileSources.UnionWith(
-            graph.UnaddressableFileSources.Where(uri => ShouldRelocateFile(uri, projectDirectory)));
-
-        return collector;
-    }
-
     internal static SerializationGraph DiscoverSerializationGraph(IHierarchical root)
     {
         ArgumentNullException.ThrowIfNull(root);
@@ -95,135 +30,7 @@ internal sealed class VersionControlSerializationGraph
         return new SerializationGraph(
             visitor.Objects,
             visitor.UnaddressableFileSources,
-            visitor.AddressableFileSources,
-            visitor.FontFamilies);
-    }
-
-    private void CollectFromObject(
-        CoreObject obj,
-        string projectDirectory,
-        IReadOnlySet<CoreObject>? stagedStorageObjects)
-    {
-        if (obj is EngineObject engineObj)
-        {
-            CollectFromEngineObject(engineObj, projectDirectory);
-        }
-
-        if (obj.Uri != null
-            && stagedStorageObjects?.Contains(obj) != true
-            && ShouldRelocateFile(obj.Uri, projectDirectory))
-        {
-            AddFileSource(obj, "Uri", obj.Uri);
-        }
-
-        var props = PropertyRegistry.GetRegistered(obj.GetType());
-        foreach (var prop in props)
-        {
-            if (prop.PropertyType.IsValueType) continue;
-            object? value = obj.GetValue(prop);
-            switch (value)
-            {
-                case IFileSource fileSource:
-                    if (fileSource.Uri != null && ShouldRelocateFile(fileSource.Uri, projectDirectory))
-                    {
-                        AddFileSource(obj, prop.Name, fileSource.Uri);
-                    }
-
-                    break;
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    break;
-            }
-        }
-    }
-
-    private void CollectFromEngineObject(EngineObject obj, string projectDirectory)
-    {
-        foreach (IProperty property in obj.Properties)
-        {
-            switch (property.CurrentValue)
-            {
-                // Collect IFileSource
-                case IFileSource fileSource when fileSource.Uri != null:
-                    if (ShouldRelocateFile(fileSource.Uri, projectDirectory))
-                    {
-                        AddFileSource(obj, property.Name, fileSource.Uri);
-                    }
-
-                    break;
-                // Collect FontFamily
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    break;
-            }
-        }
-    }
-
-    private void AddFileSource(CoreObject owner, string propertyName, Uri uri)
-    {
-        _fileSources.Add((owner.Id, propertyName, uri));
-        _relocationOwners.Add(owner);
-    }
-
-    /// <summary>
-    /// Determines whether the URI must be copied into the package's resources directory.
-    /// </summary>
-    private static bool ShouldRelocateFile(Uri uri, string projectDirectory)
-    {
-        if (!uri.IsFile)
-            return false;
-
-        string filePath = Path.GetFullPath(uri.LocalPath);
-        string fullProjectPath = Path.GetFullPath(projectDirectory);
-        string relativePath = Path.GetRelativePath(fullProjectPath, filePath);
-
-        // Files outside the project directory are considered external.
-        if (Path.IsPathRooted(relativePath)
-            || relativePath == ".."
-            || relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        if (ContainsReservedPath(relativePath))
-        {
-            return true;
-        }
-
-        // Directory staging deliberately skips links. A referenced file that is itself a link,
-        // or lives below a linked directory, must therefore go through the regular relocation
-        // path so only that referenced target is materialized in resources. Inspect each lexical
-        // component without resolving targets, which also identifies broken links and cycles.
-        string currentPath = fullProjectPath;
-        string[] segments = relativePath.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries);
-        for (int i = 0; i < segments.Length; i++)
-        {
-            currentPath = Path.Combine(currentPath, segments[i]);
-            FileSystemInfo info = i == segments.Length - 1
-                ? new FileInfo(currentPath)
-                : new DirectoryInfo(currentPath);
-
-            try
-            {
-                if (info.LinkTarget is not null)
-                {
-                    return true;
-                }
-            }
-            catch (Exception ex)
-                when (ex is IOException
-                      or UnauthorizedAccessException
-                      or NotSupportedException)
-            {
-                // Conservatively relocate when link inspection is unavailable. The relocation
-                // service will either copy the referenced file or report it as a partial failure.
-                return true;
-            }
-        }
-
-        return false;
+            visitor.AddressableFileSources);
     }
 
     internal static bool IsInReservedProjectPath(Uri uri, string projectDirectory)
@@ -269,7 +76,6 @@ internal sealed class VersionControlSerializationGraph
         private readonly List<CoreObject> _objects = [];
         private readonly HashSet<Uri> _unaddressableFileSources = [];
         private readonly HashSet<Uri> _addressableFileSources = [];
-        private readonly HashSet<FontFamily> _fontFamilies = [];
         private readonly HashSet<object> _visitedCoreObjects = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<object> _visitedCoreCollections = new(ReferenceEqualityComparer.Instance);
         private readonly Dictionary<object, HashSet<Type>> _visitedContracts
@@ -292,8 +98,6 @@ internal sealed class VersionControlSerializationGraph
         public IReadOnlySet<Uri> UnaddressableFileSources => _unaddressableFileSources;
 
         public IReadOnlySet<Uri> AddressableFileSources => _addressableFileSources;
-
-        public IReadOnlySet<FontFamily> FontFamilies => _fontFamilies;
 
         public void Visit(object? value)
         {
@@ -354,11 +158,7 @@ internal sealed class VersionControlSerializationGraph
                 case IFileSource fileSource:
                     RecordFileSource(fileSource, fileSourceIsAddressable);
                     break;
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    break;
-                case Typeface typeface:
-                    _fontFamilies.Add(typeface.FontFamily);
+                case FontFamily or Typeface:
                     break;
                 case ICoreSerializable serializable:
                     VisitCoreSerializable(serializable);
@@ -997,11 +797,7 @@ internal sealed class VersionControlSerializationGraph
                 case IFileSource fileSource:
                     RecordFileSource(fileSource, fileSourceIsAddressable);
                     return;
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    return;
-                case Typeface typeface:
-                    _fontFamilies.Add(typeface.FontFamily);
+                case FontFamily or Typeface:
                     return;
             }
 
@@ -1802,11 +1598,7 @@ internal sealed class VersionControlSerializationGraph
                 case IFileSource fileSource:
                     RecordFileSource(fileSource, fileSourceIsAddressable: false);
                     break;
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    break;
-                case Typeface typeface:
-                    _fontFamilies.Add(typeface.FontFamily);
+                case FontFamily or Typeface:
                     break;
                 case IOptional { HasValue: true } optional:
                     {
@@ -2076,6 +1868,5 @@ internal sealed class VersionControlSerializationGraph
     internal sealed record SerializationGraph(
         IReadOnlyList<CoreObject> Objects,
         IReadOnlySet<Uri> UnaddressableFileSources,
-        IReadOnlySet<Uri> AddressableFileSources,
-        IReadOnlySet<FontFamily> FontFamilies);
+        IReadOnlySet<Uri> AddressableFileSources);
 }

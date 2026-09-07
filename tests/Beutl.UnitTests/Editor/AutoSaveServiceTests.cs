@@ -13,11 +13,6 @@ namespace Beutl.UnitTests.Editor;
 
 public class AutoSaveServiceTests
 {
-    private static AutoSaveService CreateService()
-    {
-        return new AutoSaveService();
-    }
-
     [SetUp]
     public void Setup()
     {
@@ -30,7 +25,7 @@ public class AutoSaveServiceTests
     public void Constructor_ShouldCreateValidInstance()
     {
         // Arrange & Act
-        using var service = CreateService();
+        using var service = new AutoSaveService();
 
         // Assert
         Assert.That(service, Is.Not.Null);
@@ -41,7 +36,7 @@ public class AutoSaveServiceTests
     public void Dispose_ShouldNotThrow()
     {
         // Arrange
-        var service = CreateService();
+        var service = new AutoSaveService();
 
         // Act & Assert
         Assert.DoesNotThrow(() => service.Dispose());
@@ -51,7 +46,7 @@ public class AutoSaveServiceTests
     public void Dispose_CalledMultipleTimes_ShouldNotThrow()
     {
         // Arrange
-        var service = CreateService();
+        var service = new AutoSaveService();
 
         // Act & Assert
         Assert.DoesNotThrow(() =>
@@ -66,7 +61,7 @@ public class AutoSaveServiceTests
     public void AutoSave_AfterDispose_ShouldThrowObjectDisposedException()
     {
         // Arrange
-        var service = CreateService();
+        var service = new AutoSaveService();
         service.Dispose();
 
         // Act & Assert
@@ -77,7 +72,7 @@ public class AutoSaveServiceTests
     public void SaveObjects_AfterDispose_ShouldThrowObjectDisposedException()
     {
         // Arrange
-        var service = CreateService();
+        var service = new AutoSaveService();
         service.Dispose();
 
         // Act & Assert
@@ -471,7 +466,7 @@ public class AutoSaveServiceTests
     public void AutoSave_WithEmptyOperations_ShouldNotThrow()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
 
         // Act & Assert
         Assert.DoesNotThrow(() => service.AutoSave([]));
@@ -482,7 +477,7 @@ public class AutoSaveServiceTests
     {
         // This test verifies that AutoSave processes all operations
         // Since we can't easily mock CoreSerializer, we verify behavior via SaveError
-        using var service = CreateService();
+        using var service = new AutoSaveService();
 
         var obj1 = new TestCoreObjectWithUri();
         obj1.SetUri(new Uri("file:///nonexistent/test1.json"));
@@ -519,7 +514,7 @@ public class AutoSaveServiceTests
     public void SaveObjects_WithEmptyCollection_ShouldNotThrow()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
 
         // Act & Assert
         Assert.DoesNotThrow(() => service.SaveObjects([]));
@@ -529,7 +524,7 @@ public class AutoSaveServiceTests
     public void SaveObjects_WithNonExistentPath_ShouldEmitSaveError()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(new Uri("file:///nonexistent/path/that/does/not/exist/test.json"));
 
@@ -547,7 +542,7 @@ public class AutoSaveServiceTests
     public void SaveObjects_WhenExceptionOccurs_ShouldContinueWithNextObject()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
 
         var obj1 = new TestCoreObjectWithUri();
         obj1.SetUri(new Uri("file:///nonexistent1/test.json"));
@@ -573,7 +568,7 @@ public class AutoSaveServiceTests
     public void SaveError_ShouldBeObservable()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
 
         // Act & Assert
         Assert.That(service.SaveError, Is.Not.Null);
@@ -584,7 +579,7 @@ public class AutoSaveServiceTests
     public void SaveError_Subscription_ShouldReceiveErrors()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(new Uri("file:///this/path/does/not/exist/test.json"));
 
@@ -602,7 +597,7 @@ public class AutoSaveServiceTests
     public void SaveError_MultipleSubscribers_ShouldAllReceiveErrors()
     {
         // Arrange
-        using var service = CreateService();
+        using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(new Uri("file:///nonexistent/test.json"));
 

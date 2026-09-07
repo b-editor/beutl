@@ -4,7 +4,7 @@ using Beutl.Configuration;
 
 namespace Beutl.Editor.VersionControl;
 
-public sealed partial class GitInstallationLocator
+internal sealed partial class GitInstallationLocator
 {
     private static readonly TimeSpan s_defaultDiscoveryTimeout = TimeSpan.FromSeconds(10);
 

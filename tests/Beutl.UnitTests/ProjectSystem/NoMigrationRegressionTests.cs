@@ -96,27 +96,6 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
-    public void Project_marked_as_migrated_advances_app_version()
-    {
-        string path = Path.Combine(_tempDirectory, "project.bep");
-        var source = new Project
-        {
-            Uri = new Uri(path),
-        };
-        JsonObject json = CoreSerializer.SerializeToJsonObject(
-            source,
-            new CoreSerializerOptions { BaseUri = source.Uri });
-        json["appVersion"] = "3.1.4";
-        json.JsonSave(path);
-        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(path));
-
-        restored.MarkAsMigrated();
-        JsonObject migrated = CoreSerializer.SerializeToJsonObject(restored);
-
-        Assert.That((string?)migrated["appVersion"], Is.EqualTo(BeutlApplication.Version));
-    }
-
-    [Test]
     public void JsonSave_always_writes_lf_line_endings()
     {
         string path = Path.Combine(_tempDirectory, "line-endings.json");
