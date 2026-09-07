@@ -26,6 +26,14 @@ Beutl's policy: if there is a clearly better design, we want to adopt it, and ba
 
 The `beutl-design-reviewer` subagent audits public-surface diffs against these rules — it auto-delegates when a change touches public types in the modules above.
 
+## PR review scope
+
+- Freeze the PR's intended behavior, affected modules, and acceptance tests before the first remediation round. Later reviews do not implicitly reopen that boundary.
+- Classify each finding as an original-scope defect, a regression from the latest remediation, a pre-existing or adjacent issue, an optional improvement, or an acceptance gap. Fix only original-scope defects and latest-remediation regressions without a new user decision.
+- "Do not defer work" applies only inside the frozen scope. It does not turn a valid adjacent issue into work for the current PR.
+- Treat a new public-API change, project dependency, or subsystem as scope expansion. Ask explicitly before adding it; no response means leave the branch unchanged and keep the review thread open.
+- When separate work is requested, branch it directly from `main` and keep it independently buildable. Do not make a review-cleanup PR depend on the feature PR it was extracted from.
+
 ## UI / XAML
 
 - **Split out behavior**: when an event handler in a UserControl gets complicated, factor it into an Avalonia `Behavior` class or a `partial` code-behind file. A code-behind file pushing 200 lines is a warning sign.

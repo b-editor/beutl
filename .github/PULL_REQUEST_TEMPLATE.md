@@ -36,4 +36,6 @@ Reminders (see CONTRIBUTING.md / AGENTS.md):
 - Do not defer work: everything this change surfaced is finished here — no `## Follow-ups`
   pile, no leftover `// TODO`. Anything genuinely out of scope or blocked was raised with a
   maintainer, not quietly filed away (AGENTS.md "Do not defer work").
+- "Do not defer" applies only inside this PR's frozen scope. Adjacent findings and new public APIs,
+  dependencies, or subsystems require explicit maintainer approval before entering the branch.
 -->

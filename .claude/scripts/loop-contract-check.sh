@@ -12,6 +12,9 @@
 #   .claude/skills/beutl-resolve-reviews/SKILL.md
 #   .claude/agents/beutl-reviewer.md
 #   .claude/agents/beutl-xaml-binder.md
+#   AGENTS.md
+#   docs/ai-workflow/coding-guidelines-for-ai.md
+#   .github/PULL_REQUEST_TEMPLATE.md
 #   .gitignore
 #
 # Usage: bash .claude/scripts/loop-contract-check.sh
@@ -253,6 +256,18 @@ if grep -q 'check-gpl-mit-boundary-diff.sh' "$PRE_PR" 2>/dev/null; then
   fi
 else
   pass "beutl-pre-pr does not invoke the GPL/MIT script (no allowlist needed)"
+fi
+
+# --- 20. Review remediation is bounded by a frozen PR scope ---------------
+GUIDELINES="docs/ai-workflow/coding-guidelines-for-ai.md"
+PR_TEMPLATE=".github/PULL_REQUEST_TEMPLATE.md"
+if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
+   grep -q 'empty, dismissed, or unanswered response is \*\*not approval\*\*' "$RESOLVER" 2>/dev/null && \
+   grep -q 'Do not defer work.*applies only inside the frozen scope' "$GUIDELINES" 2>/dev/null && \
+   grep -q 'applies only inside this PR.*frozen scope' "$PR_TEMPLATE" 2>/dev/null; then
+  pass "review remediation stays inside a frozen PR scope"
+else
+  fail "review-scope guard drift: AGENTS/resolver/guidelines/PR template disagree"
 fi
 
 # --- Summary ---------------------------------------------------------------

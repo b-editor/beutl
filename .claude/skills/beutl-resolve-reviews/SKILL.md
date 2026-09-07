@@ -94,6 +94,23 @@ thread root's `databaseId`, not a child reply's id).
 
 ## Step 4 — Classify (same taxonomy as handle-pr-reviews)
 
+Before classifying severity, freeze the remediation boundary:
+
+1. Record the PR's intended behavior, affected modules, and acceptance tests from its specification,
+   description, and pre-review diff.
+2. Record the current head as the remediation baseline. On later review rounds, also record the
+   previous remediation commit so a new comment can be tested specifically as a latest-fix
+   regression.
+3. Classify every finding into exactly one scope class: **original-scope defect**,
+   **latest-remediation regression**, **pre-existing/adjacent issue**, **optional improvement**, or
+   **acceptance gap**.
+
+Only original-scope defects and latest-remediation regressions are candidates for changes on the PR.
+The other three classes require an explicit user decision to reopen scope or create independent work.
+The repository's "Do not defer work" rule applies only after a finding is inside this frozen boundary;
+it never widens the boundary. A finding that adds a public-API change, project dependency, or newly
+touched subsystem is scope expansion unless the frozen scope already names it.
+
 | Category | Default action |
 |---|---|
 | **Bug / correctness** ("throws on empty", "race here") | Address |
@@ -169,7 +186,9 @@ fi
 ### Interactive mode
 Ask `AskUserQuestion` per candidate (reviewer, file:line, verbatim body, your read, `html_url`).
 Offer Address / Reply only / Skip / Address differently. One decision per comment; never change code
-without an explicit "Address it".
+without an explicit "Address it". An empty, dismissed, or unanswered response is **not approval**,
+even when the surrounding runtime normally permits a best-judgment default. Leave the code and thread
+unchanged and report the pending decision.
 
 ### `--auto` mode — conservative auto-decision
 - **Bots only.** Auto-address / auto-resolve only feedback from the known bot reviewers. **Any human
@@ -178,7 +197,9 @@ without an explicit "Address it".
   point — a person decides on human feedback.)
 - **Auto-address only the clearly actionable + low-judgment:** bug/correctness, straightforward
   mechanical change-requests, and nits. Make the **smallest** change that resolves the comment; do
-  **not** expand scope because a reviewer mused about a broader refactor.
+  **not** expand scope because a reviewer mused about a broader refactor. The finding must also be an
+  original-scope defect or a latest-remediation regression. Pre-existing/adjacent issues, optional
+  improvements, and acceptance gaps always set `needs_human` and stay open.
 - **Questions:** post a brief factual reply if it is answerable from the code; otherwise escalate.
 - **Clear bot false positives:** when a **known bot's** comment is demonstrably wrong (you can point
   to the exact `path:line` that already handles the concern), post a **neutral, factual** reply that
@@ -292,4 +313,6 @@ handle-pr-reviews). Note that no merge was performed.
 - **Escalate over guess.** In `--auto`, when a comment needs judgment, mark `needs_human` rather than
   applying a speculative fix — fail safe to the human.
 - **Smallest change that resolves the comment.** Do not enlarge scope from a review remark.
+- **Frozen scope wins.** "Do not defer" never authorizes a new public API, project dependency, or
+  subsystem during review cleanup. Missing user input means no scope expansion.
 - **Resolve only what you actually handled.** Escalated/skipped threads stay open.

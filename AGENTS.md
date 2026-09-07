@@ -77,6 +77,8 @@ Conventional Commits, following the existing history:
 
 **Deferring tasks is forbidden.** When the change surfaces something — an edge case, a known TODO, a refactor you scoped out, a test you could not add yet — **finish it in the same change.** Do not split in-scope work off into a "later" pile, and do not treat capturing a follow-up (a PR `## Follow-ups` list, a `// TODO` comment, a Draft on the project board) as a substitute for doing the work. Those capture mechanisms exist to record genuinely separate work, **not** to dodge effort that belongs in the current change.
 
+This rule never authorizes scope expansion. Before addressing PR feedback, freeze the PR's intended behavior, affected modules, and acceptance tests. Classify every finding as an original-scope defect, a regression introduced by the latest remediation, a pre-existing or adjacent issue, an optional improvement, or an acceptance gap. Only the first two may be fixed without reopening scope. A valid but out-of-scope finding stays out of the branch unless the user explicitly widens the PR; unanswered approval questions are not approval. Public-API changes, new project dependencies, and newly touched subsystems are always scope expansion unless the frozen scope already names them.
+
 There are only two legitimate reasons to stop short of completing what the change surfaced, and **both require telling the user — never silently file it away and move on:**
 
 1. **Genuinely out of scope** — a different feature or area that does not belong in this change. Surface it to the user (e.g. via `AskUserQuestion`) and let them decide whether to widen the scope or track it separately.
