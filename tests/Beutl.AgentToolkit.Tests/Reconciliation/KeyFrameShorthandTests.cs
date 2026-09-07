@@ -370,6 +370,42 @@ public sealed class KeyFrameShorthandTests
 
     [TestCase(true)]
     [TestCase(false)]
+    public void Animation_edit_rejects_ambiguous_owner_id_before_coercion(bool targetFirst)
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        (Element firstElement, RectShape firstRect, KeyFrame<float> firstKeyFrame) =
+            AddAnimatedRect(scene, dir, "first", 25);
+        (Element secondElement, RectShape secondRect, KeyFrame<float> secondKeyFrame) =
+            AddAnimatedRect(scene, dir, "second", 75);
+        secondRect.Id = firstRect.Id;
+
+        var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityPatch(
+                targetFirst ? firstElement : secondElement,
+                new JsonArray(new JsonArray(0, -25))),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.False);
+        Assert.That(apply.Error, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(apply.Error.Message, Does.Contain(firstRect.Id.ToString()));
+            Assert.That(apply.Error.Hint, Does.Contain("unique Id"));
+            Assert.That(firstKeyFrame.Value, Is.EqualTo(25));
+            Assert.That(secondKeyFrame.Value, Is.EqualTo(75));
+        });
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
     public void Relative_out_of_range_times_warn_for_shorthand_and_long_form(bool shorthand)
     {
         (EditTools tools, _, Element element) = CreateSceneWithRect();
