@@ -5,10 +5,39 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.ViewModels.Dock;
 
-public class BeutlToolDockable : Tool, IDisposable
+internal static class ToolContextDisposal
+{
+    private static readonly AsyncLocal<IToolContext?> s_current = new();
+
+    public static bool IsCurrent(IToolContext context)
+        => ReferenceEquals(s_current.Value, context);
+
+    public static bool IsActive => s_current.Value is not null;
+
+    public static async ValueTask DisposeAsync(IToolContext context)
+    {
+        if (IsCurrent(context))
+            return;
+
+        IToolContext? previous = s_current.Value;
+        s_current.Value = context;
+        try
+        {
+            await context.DisposeAsync();
+        }
+        finally
+        {
+            s_current.Value = previous;
+        }
+    }
+}
+
+internal class BeutlToolDockable : Tool, IAsyncDisposable
 {
     private readonly IDisposable _isSelectedSubscription;
     private readonly IDisposable _headerSubscription;
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
     private bool _isDisposed;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
@@ -61,15 +90,60 @@ public class BeutlToolDockable : Tool, IDisposable
             ToolContext.IsSelected.Value = IsSelected;
     }
 
-    public void Dispose()
+    /// <summary>Disposes this dockable and its owned tool context exactly once.</summary>
+    /// <remarks>The returned task completes only after the context's asynchronous disposal completes.</remarks>
+    public ValueTask DisposeAsync() => new(GetDisposeTask());
+
+    internal Task GetDisposeTask()
     {
-        if (_isDisposed) return;
-        _isDisposed = true;
+        TaskCompletionSource? completion = null;
+        Task task;
+        lock (_disposeGate)
+        {
+            if (_disposeTask is not null)
+                return _disposeTask;
+
+            _isDisposed = true;
+            completion = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _disposeTask = completion.Task;
+            task = completion.Task;
+        }
+
+        _ = CompleteDisposeAsync(completion);
+        return task;
+    }
+
+    private async Task CompleteDisposeAsync(TaskCompletionSource completion)
+    {
+        try
+        {
+            await DisposeCoreAsync();
+            completion.TrySetResult();
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    internal Task PendingDisposeTask
+    {
+        get
+        {
+            lock (_disposeGate)
+                return _disposeTask ?? Task.CompletedTask;
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
         PropertyChanged -= OnPropertyChanged;
         _headerSubscription.Dispose();
         _isSelectedSubscription.Dispose();
-        ToolContext.Dispose();
         ToolContent = null;
+
+        await ToolContextDisposal.DisposeAsync(ToolContext);
     }
 
     // Resolve empty per-instance/menu headers to a readable display or extension name.

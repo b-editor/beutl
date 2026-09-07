@@ -450,13 +450,16 @@ public class TimelineTabViewModelShortcutTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item)
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item)
         {
-            return false;
+            return new ValueTask<bool>(false);
         }
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

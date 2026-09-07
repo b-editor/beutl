@@ -51,7 +51,7 @@ public partial class NavigateButton : UserControl
 public sealed class NavigateButton<T> : NavigateButton
     where T : ICoreObject
 {
-    protected override void OnNavigate()
+    protected override async void OnNavigate()
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
@@ -61,7 +61,7 @@ public sealed class NavigateButton<T> : NavigateButton
                   ?? new ObjectPropertyTabViewModel(editViewModel);
 
             objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
-            editViewModel.OpenToolTab(objViewModel);
+            await editViewModel.OpenToolTabAsync(objViewModel);
         }
     }
 

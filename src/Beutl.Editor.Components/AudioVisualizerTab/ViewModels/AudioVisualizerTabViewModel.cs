@@ -170,11 +170,13 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
         RingBuffer.Clear();
+        return ValueTask.CompletedTask;
     }
+
 
     internal static string LocalizeMode(AudioVisualizerMode mode) => mode switch
     {

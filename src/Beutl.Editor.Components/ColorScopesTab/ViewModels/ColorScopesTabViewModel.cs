@@ -77,10 +77,12 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     internal static string LocalizeScopeType(ColorScopeType type) => type switch
     {

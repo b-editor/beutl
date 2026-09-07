@@ -120,7 +120,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
     {
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         foreach (IPropertyEditorContext? context in OnionSkinProperties
                      .Concat(FrameCacheProperties)
@@ -135,7 +135,9 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
         _disposables.Dispose();
         _history.Dispose();
         _editorContext = null!;
+        return ValueTask.CompletedTask;
     }
+
 
     public void WriteToJson(JsonObject json)
     {

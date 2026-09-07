@@ -55,7 +55,7 @@ public partial class CoreObjectEditor : UserControl
         }
     }
 
-    private void Navigate_Click(object? sender, RoutedEventArgs e)
+    private async void Navigate_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
@@ -66,7 +66,7 @@ public partial class CoreObjectEditor : UserControl
               ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
-        editViewModel.OpenToolTab(objViewModel);
+        await editViewModel.OpenToolTabAsync(objViewModel);
     }
 
     private async void NewClick(object? sender, RoutedEventArgs e)

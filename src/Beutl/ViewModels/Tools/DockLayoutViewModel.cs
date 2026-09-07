@@ -82,12 +82,12 @@ public sealed class DockLayoutViewModel : IToolContext
     }
 
     /// <summary>Applies <paramref name="item"/>, or the selected layout when null.</summary>
-    public bool Apply(DockLayoutPresetItem? item = null)
+    public async Task<bool> ApplyAsync(DockLayoutPresetItem? item = null)
     {
         DockLayoutPresetItem? target = item ?? SelectedItem.Value;
         if (target is null) return false;
 
-        if (_editViewModel.DockHost.ApplyLayout(target.Layout))
+        if (await _editViewModel.DockHost.ApplyLayoutAsync(target.Layout))
         {
             _logger.LogInformation("Applied dock layout '{Name}'.", target.Name.Value);
             return true;
@@ -129,15 +129,17 @@ public sealed class DockLayoutViewModel : IToolContext
         return false;
     }
 
-    public void ResetLayout()
+    public Task ResetLayoutAsync()
     {
-        _editViewModel.DockHost.ResetLayout();
+        return _editViewModel.DockHost.ResetLayoutAsync();
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public object? GetService(Type serviceType)
     {

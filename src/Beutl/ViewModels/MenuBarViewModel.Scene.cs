@@ -36,7 +36,7 @@ public partial class MenuBarViewModel
         PasteLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnPasteElement);
 
-        ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
+        ShowSceneSettings = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnShowSceneSettings);
     }
 
@@ -65,7 +65,7 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand PasteLayer { get; private set; }
 
-    public ReactiveCommandSlim ShowSceneSettings { get; private set; }
+    public AsyncReactiveCommand ShowSceneSettings { get; private set; }
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
@@ -133,7 +133,7 @@ public partial class MenuBarViewModel
             : Task.CompletedTask;
     }
 
-    private void OnShowSceneSettings()
+    private async Task OnShowSceneSettings()
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
@@ -144,7 +144,7 @@ public partial class MenuBarViewModel
             }
             else
             {
-                viewModel.OpenToolTab(new SceneSettingsTabViewModel(viewModel));
+                await viewModel.OpenToolTabAsync(new SceneSettingsTabViewModel(viewModel));
             }
         }
     }

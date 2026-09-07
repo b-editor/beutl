@@ -436,7 +436,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Timeline);
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing TimelineViewModel.");
         // Dispose は throw しない契約。HistoryManager が先に Dispose されている等で
@@ -484,7 +484,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         LayerHeaders.Clear();
         Elements.Clear();
         _logger.LogInformation("TimelineViewModel disposed successfully.");
+        return ValueTask.CompletedTask;
     }
+
 
     private void DuplicateSelectedElements()
     {

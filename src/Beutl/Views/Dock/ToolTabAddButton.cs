@@ -50,7 +50,7 @@ public sealed class ToolTabAddButton : Button
             IsEnabled = extension.CanMultiple || !factory.IsToolTabOpen(extension),
         };
 
-        item.Click += (_, _) => factory.OpenToolTab(extension, target);
+        item.Click += async (_, _) => await factory.OpenToolTabAsync(extension, target);
         return item;
     }
 }

@@ -206,7 +206,7 @@ public class DockTabAddButtonTests
         EditViewModel editor = await OpenEditorForNewScene("dock-tab-add-null-context");
         IToolDock target = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
 
-        bool opened = editor.DockHost.OpenToolTabFromExtension(new NullContextToolTabExtension(), target);
+        bool opened = await editor.DockHost.OpenToolTabFromExtensionAsync(new NullContextToolTabExtension(), target);
 
         Assert.That(opened, Is.False);
     }

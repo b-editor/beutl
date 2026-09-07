@@ -189,7 +189,7 @@ public sealed partial class BrushEditor : UserControl
         _flyout.ShowAt(this, true);
     }
 
-    private void OnEditDrawableClicked(object? sender, EventArgs e)
+    private async void OnEditDrawableClicked(object? sender, EventArgs e)
     {
         // TODO: DrawablePropertyEditorを開く
         // ObjectPropertyEditorは不要なプロパティも表示されてしまうので
@@ -202,7 +202,7 @@ public sealed partial class BrushEditor : UserControl
               ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(drawable, false, viewModel);
-        editViewModel.OpenToolTab(objViewModel);
+        await editViewModel.OpenToolTabAsync(objViewModel);
     }
 
     private async void OnChangeDrawableClicked(object? sender, Button e)

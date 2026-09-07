@@ -121,7 +121,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         RequestScroll?.Invoke(obj);
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         if (Element.Value != null)
         {
@@ -134,7 +134,9 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         Element.Dispose();
         _editorContext = null!;
         RequestScroll = null;
+        return ValueTask.CompletedTask;
     }
+
 
     private static string ViewStateDirectory(Element element)
     {

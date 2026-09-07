@@ -692,7 +692,7 @@ public sealed partial class TimelineTabView : UserControl
             ViewModel.CalculateClickedLayer()));
     }
 
-    private void ShowSceneSettings(object? sender, RoutedEventArgs e)
+    private async void ShowSceneSettings(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
         IEditorContext editorContext = ViewModel.EditorContext;
@@ -703,7 +703,7 @@ public sealed partial class TimelineTabView : UserControl
         }
         else
         {
-            editorContext.OpenToolTab(new SceneSettingsTabViewModel(editorContext));
+            await editorContext.OpenToolTabAsync(new SceneSettingsTabViewModel(editorContext));
         }
     }
 

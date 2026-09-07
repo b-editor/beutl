@@ -15,7 +15,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;
 
-public sealed class LibraryTabViewModel : IDisposable, IToolContext
+public sealed class LibraryTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _asyncLock = new(1, 1);
@@ -129,7 +129,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
         Easings.Clear();
@@ -137,7 +137,9 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         Nodes.Clear();
         AllItems.Clear();
         SearchResult.Clear();
+        return ValueTask.CompletedTask;
     }
+
 
     public void WriteToJson(JsonObject json)
     {

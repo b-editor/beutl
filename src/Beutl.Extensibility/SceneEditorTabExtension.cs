@@ -5,8 +5,11 @@ using Reactive.Bindings;
 
 namespace Beutl.Extensibility;
 
-public interface IToolContext : IDisposable, IJsonSerializable, IServiceProvider
+public interface IToolContext : IAsyncDisposable, IJsonSerializable, IServiceProvider
 {
+    /// <summary>Asynchronously releases this tool context; completion means ownership has ended.</summary>
+    new ValueTask DisposeAsync();
+
     ToolTabExtension Extension { get; }
 
     IReactiveProperty<bool> IsSelected { get; }

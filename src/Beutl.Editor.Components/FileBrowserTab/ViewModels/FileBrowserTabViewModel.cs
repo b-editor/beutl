@@ -675,7 +675,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         return null;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposed = true;
         DecoderRegistry.DecodersChanged -= OnDecodersChanged;
@@ -688,7 +688,9 @@ public sealed class FileBrowserTabViewModel : IToolContext
         DisposeAndClear(ProjectDirectoryItems);
 
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 }
 
 public static class FileBrowserViewModeConverters

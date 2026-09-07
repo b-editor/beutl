@@ -48,7 +48,7 @@ public class ToolTabHeaderTests
         Assert.That(dockable.Title, Is.EqualTo("second"));
 
         // Keep the source alive so this verifies the dockable's unsubscribe.
-        dockable.Dispose();
+        await dockable.DisposeAsync();
         context.HeaderSource.Value = "after-dispose";
         Assert.Multiple(() =>
         {
@@ -66,7 +66,7 @@ public class ToolTabHeaderTests
         EditViewModel editor = await OpenEditorForNewScene("tooltab-header-blank");
 
         var context = new FakeToolContext(string.Empty);
-        using var dockable = new BeutlToolDockable(context, editor);
+        await using var dockable = new BeutlToolDockable(context, editor);
 
         Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.Header));
 
@@ -84,13 +84,83 @@ public class ToolTabHeaderTests
         EditViewModel editor = await OpenEditorForNewScene("tooltab-header-blank-extension");
 
         var context = new FakeToolContext(string.Empty, BlankHeaderToolExtension.Instance);
-        using var dockable = new BeutlToolDockable(context, editor);
+        await using var dockable = new BeutlToolDockable(context, editor);
 
         Assert.Multiple(() =>
         {
             Assert.That(dockable.Title, Is.EqualTo(BlankHeaderToolExtension.Instance.DisplayName));
             Assert.That(dockable.Title, Is.Not.EqualTo(BlankHeaderToolExtension.Instance.Name));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task ToolDisposalCanReenterCloseWithoutWaitingOnItself()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-reentrant-close");
+        var context = new FakeToolContext("reentrant");
+        Assert.That(await editor.OpenToolTabAsync(context), Is.True);
+        context.OnDispose = () => editor.CloseToolTabAsync(context);
+
+        await editor.CloseToolTabAsync(context).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+    }
+
+    [AvaloniaTest]
+    public async Task LayoutTeardownAllowsOneToolToCloseAnotherWithoutParentCycle()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-reentrant-sibling-close");
+        var first = new FakeToolContext("first");
+        var second = new FakeToolContext("second");
+        Assert.That(await editor.OpenToolTabAsync(first), Is.True);
+        Assert.That(await editor.OpenToolTabAsync(second), Is.True);
+        first.OnDispose = () => editor.CloseToolTabAsync(second);
+
+        await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.DisposeCount, Is.EqualTo(1));
+            Assert.That(second.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task LayoutTeardownAllowsMutualToolCloseWithoutCycle()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-mutual-close");
+        var first = new FakeToolContext("first");
+        var second = new FakeToolContext("second");
+        Assert.That(await editor.OpenToolTabAsync(first), Is.True);
+        Assert.That(await editor.OpenToolTabAsync(second), Is.True);
+        first.OnDispose = () => editor.CloseToolTabAsync(second);
+        second.OnDispose = () => editor.CloseToolTabAsync(first);
+
+        await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.DisposeCount, Is.EqualTo(1));
+            Assert.That(second.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task ToolDisposalCanRequestEditorDisposalWithoutParentSelfWait()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("tooltab-reentrant-editor-dispose");
+        var context = new FakeToolContext("editor dispose");
+        Assert.That(await editor.OpenToolTabAsync(context), Is.True);
+        context.OnDispose = () => editor.DisposeAsync();
+
+        await editor.CloseToolTabAsync(context).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await editor.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
     }
 
     private sealed class FakeToolContext(string header, ToolTabExtension? extension = null) : IToolContext
@@ -103,9 +173,16 @@ public class ToolTabHeaderTests
 
         public IReadOnlyReactiveProperty<string> Header => HeaderSource;
 
+        public Func<ValueTask>? OnDispose { get; set; }
+
+        public int DisposeCount { get; private set; }
+
         // Keep HeaderSource alive to test the dockable's unsubscribe.
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
+            DisposeCount++;
+            if (OnDispose is { } onDispose)
+                await onDispose();
             IsSelected.Dispose();
         }
 

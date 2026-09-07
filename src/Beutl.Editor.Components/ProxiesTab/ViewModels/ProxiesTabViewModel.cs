@@ -24,7 +24,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.ProxiesTab.ViewModels;
 
-public sealed class ProxiesTabViewModel : IDisposable, IToolContext
+public sealed class ProxiesTabViewModel : IToolContext
 {
     private static readonly ProxyPreset[] s_presetOrder =
     [
@@ -386,15 +386,17 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         if (_isDisposed)
-            return;
+            return ValueTask.CompletedTask;
 
         _isDisposed = true;
         ClearClips();
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public void WriteToJson(System.Text.Json.Nodes.JsonObject json)
     {

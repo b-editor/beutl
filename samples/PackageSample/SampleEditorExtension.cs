@@ -14,6 +14,7 @@ namespace PackageSample;
 
 public sealed class TextEditorContext : IEditorContext
 {
+    private int _disposed;
     public TextEditorContext(CoreObject obj, SampleEditorExtension extension)
     {
         Extension = extension;
@@ -32,12 +33,19 @@ public sealed class TextEditorContext : IEditorContext
 
     public IReactiveProperty<bool> IsEnabled { get; } = new ReactiveProperty<bool>(true);
 
-    public void CloseToolTab(IToolContext item)
+    public ValueTask CloseToolTabAsync(IToolContext item)
     {
+        return ValueTask.CompletedTask;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            Text.Dispose();
+            IsEnabled.Dispose();
+        }
+        return ValueTask.CompletedTask;
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
@@ -55,8 +63,9 @@ public sealed class TextEditorContext : IEditorContext
         return null;
     }
 
-    public bool OpenToolTab(IToolContext item)
+    public async ValueTask<bool> OpenToolTabAsync(IToolContext item)
     {
+        await item.DisposeAsync();
         return false;
     }
 

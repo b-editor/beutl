@@ -438,7 +438,7 @@ public class ThemeCaptureTests
 
         FileBrowserTabViewModel? browser = editor.FindToolTab<FileBrowserTabViewModel>();
         Assert.That(browser, Is.Not.Null, "File Browser tab missing from the default layout.");
-        editor.OpenToolTab(browser!);
+        await editor.OpenToolTabAsync(browser!);
         HeadlessTestHelpers.Settle();
 
         Project project = editor.Scene.FindRequiredHierarchicalParent<Project>();

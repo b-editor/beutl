@@ -102,8 +102,7 @@ public class EditorHostViewModel
         {
             try
             {
-                _editorService.SelectedTabItem.Value = null;
-                _editorService.TabItems.Clear();
+                _editorService.ClearTabItems();
 
                 if (old != null)
                 {

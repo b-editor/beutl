@@ -127,10 +127,12 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
         _canBack.Value = _backStack.Count > 0;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public void ReadFromJson(JsonObject json)
     {

@@ -39,7 +39,7 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
             });
     }
 
-    private void OpenTabClick(object? sender, RoutedEventArgs e)
+    private async void OpenTabClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is ColorGradingPropertiesViewModel context &&
             context.GetService<IEditorContext>() is { } editorContext &&
@@ -54,7 +54,7 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
 
             toolTab.Effect.Value = colorGrading;
 
-            editorContext.OpenToolTab(toolTab);
+            await editorContext.OpenToolTabAsync(toolTab);
         }
     }
 

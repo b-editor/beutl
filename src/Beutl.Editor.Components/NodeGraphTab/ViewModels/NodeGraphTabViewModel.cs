@@ -45,6 +45,7 @@ public sealed class NodeGraphNavigationItem : IDisposable, IJsonSerializable
         NodeGraph = null!;
     }
 
+
     public void WriteToJson(JsonObject json)
     {
         ViewModel.WriteToJson(json);
@@ -121,7 +122,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
 
     public CoreList<NodeGraphNavigationItem> Items { get; } = [];
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         Model.Value = null;
 
@@ -136,6 +137,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
         NodeGraph.Value?.Dispose();
         NodeGraph.Value = null;
         _editorContext = null!;
+        return ValueTask.CompletedTask;
     }
 
     public void NavigateTo(int index)

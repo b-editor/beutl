@@ -15,7 +15,7 @@ public partial class CurveMapEditor : UserControl
         InitializeComponent();
     }
 
-    private void OpenCurvesTab_Click(object? sender, RoutedEventArgs e)
+    private async void OpenCurvesTab_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CurveMapEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel
@@ -35,7 +35,7 @@ public partial class CurveMapEditor : UserControl
                 context.SelectCurveByPropertyName(prop.Name);
             }
 
-            editViewModel.OpenToolTab(context);
+            await editViewModel.OpenToolTabAsync(context);
         }
     }
 }

@@ -12,14 +12,14 @@ public partial class MenuBarViewModel
     private void InitializeViewCommands(IObservable<bool> isSceneOpened)
     {
         ResetDockLayout = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(OnResetDockLayout);
+            .WithSubscribe(async () => await OnResetDockLayoutAsync());
 
         ApplyDockLayout = new ReactiveCommandSlim<DockLayoutPresetItem>(isSceneOpened)
-            .WithSubscribe(OnApplyDockLayout);
+            .WithSubscribe(async preset => await OnApplyDockLayoutAsync(preset));
 
         // Saving, renaming and deleting live in the dock layout tool tab.
         OpenDockLayoutTab = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(OnOpenDockLayoutTab);
+            .WithSubscribe(async () => await OnOpenDockLayoutTabAsync());
     }
 
     // View
@@ -34,15 +34,15 @@ public partial class MenuBarViewModel
 
     public ICoreList<DockLayoutPresetItem> DockLayoutPresets => DockLayoutPresetService.Instance.Items;
 
-    private void OnResetDockLayout()
+    private async Task OnResetDockLayoutAsync()
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
-            viewModel.DockHost.ResetLayout();
+            await viewModel.DockHost.ResetLayoutAsync();
         }
     }
 
-    private void OnOpenDockLayoutTab()
+    private async Task OnOpenDockLayoutTabAsync()
     {
         if (!TryGetSelectedEditViewModel(out EditViewModel? viewModel)) return;
 
@@ -53,18 +53,16 @@ public partial class MenuBarViewModel
         }
 
         if (DockLayoutTabExtension.Instance.TryCreateContext(viewModel, out IToolContext? context)
-            && !viewModel.OpenToolTab(context))
-        {
-            context.Dispose();
-        }
+            )
+            await viewModel.DockHost.OpenToolTabAsync(context);
     }
 
-    private void OnApplyDockLayout(DockLayoutPresetItem? preset)
+    private async Task OnApplyDockLayoutAsync(DockLayoutPresetItem? preset)
     {
         if (preset is null) return;
         if (!TryGetSelectedEditViewModel(out EditViewModel? viewModel)) return;
 
-        if (viewModel.DockHost.ApplyLayout(preset.Layout))
+        if (await viewModel.DockHost.ApplyLayoutAsync(preset.Layout))
         {
             _logger.LogInformation("Applied dock layout preset '{Name}'.", preset.Name.Value);
         }

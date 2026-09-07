@@ -21,7 +21,7 @@ namespace Beutl.UnitTests.Editor;
 public sealed class ProxiesTabViewModelTests
 {
     [Test]
-    public void Refresh_BuildsReadySummaryAndClipDisplay()
+    public async Task Refresh_BuildsReadySummaryAndClipDisplay()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
@@ -40,7 +40,7 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
@@ -69,7 +69,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_UsesRunningEvictionCapForStoreCapDisplay()
+    public async Task Refresh_UsesRunningEvictionCapForStoreCapDisplay()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
@@ -77,7 +77,7 @@ public sealed class ProxiesTabViewModelTests
         var context = CreateContext(root, store, sourcePath);
         context.AddService<IProxyStoreCapInfo>(new TestProxyStoreCapInfo(12L * 1024 * 1024 * 1024));
 
-        using var viewModel = new ProxiesTabViewModel(context);
+        await using var viewModel = new ProxiesTabViewModel(context);
 
         Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("12 GB"));
     }
@@ -85,7 +85,7 @@ public sealed class ProxiesTabViewModelTests
     // Changing only the store cap in Settings while the tab is open must refresh StoreCapText; no other
     // signal on the open tab reflects a cap-only change until an unrelated store / job / scene refresh.
     [Test]
-    public void ProxyConfigCapChange_RefreshesStoreCapText()
+    public async Task ProxyConfigCapChange_RefreshesStoreCapText()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
@@ -95,7 +95,7 @@ public sealed class ProxiesTabViewModelTests
         try
         {
             config.MaxTotalBytes = 10L * 1024 * 1024 * 1024;
-            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+            await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
             Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("10 GB"), "sanity: the tab shows the cap it was built with");
 
             config.MaxTotalBytes = 20L * 1024 * 1024 * 1024;
@@ -109,7 +109,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_SeparatesStaleAndMissingClips()
+    public async Task Refresh_SeparatesStaleAndMissingClips()
     {
         string root = CreateRoot();
         string staleSourcePath = CreateSourceFile(root, "stale.mov", 1024);
@@ -130,7 +130,7 @@ public sealed class ProxiesTabViewModelTests
         File.AppendAllBytes(staleSourcePath, [1]);
         File.SetLastWriteTimeUtc(staleSourcePath, DateTime.UtcNow.AddMinutes(1));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, staleSourcePath, missingSourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, staleSourcePath, missingSourcePath));
 
         Assert.Multiple(() =>
         {
@@ -143,7 +143,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_SelectsGeneratedPresetWhenConfiguredDefaultIsMissing()
+    public async Task Refresh_SelectsGeneratedPresetWhenConfiguredDefaultIsMissing()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
@@ -162,7 +162,7 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
@@ -191,13 +191,13 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_IncludesVideoSourceNodeSources()
+    public async Task Refresh_IncludesVideoSourceNodeSources()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "graph.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
 
-        using var viewModel = new ProxiesTabViewModel(CreateGraphContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateGraphContext(root, store, sourcePath));
 
         Assert.Multiple(() =>
         {
@@ -207,7 +207,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_IncludesNestedSceneVideoSources()
+    public async Task Refresh_IncludesNestedSceneVideoSources()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "nested.mov", 1024);
@@ -219,7 +219,7 @@ public sealed class ProxiesTabViewModelTests
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
         AddObject(parentScene, root, sceneDrawable);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(parentScene, store));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(parentScene, store));
 
         Assert.Multiple(() =>
         {
@@ -229,7 +229,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_IncludesOfflineSourceWhenStoreHasExistingEntry()
+    public async Task Refresh_IncludesOfflineSourceWhenStoreHasExistingEntry()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
@@ -250,7 +250,7 @@ public sealed class ProxiesTabViewModelTests
         RegisterProxyEntry(store, entry);
         File.Delete(sourcePath);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
@@ -266,7 +266,7 @@ public sealed class ProxiesTabViewModelTests
     // (ranked like the resolver) rather than an earlier-enumerated Failed/Stale entry, so its state and
     // per-row delete/regenerate target the usable proxy.
     [Test]
-    public void Refresh_OfflineSourceWithMultipleEntries_BindsRowToReadyEntry()
+    public async Task Refresh_OfflineSourceWithMultipleEntries_BindsRowToReadyEntry()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
@@ -288,7 +288,7 @@ public sealed class ProxiesTabViewModelTests
             new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
         File.Delete(sourcePath);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
@@ -302,7 +302,7 @@ public sealed class ProxiesTabViewModelTests
     // the newest version (mirroring ProxyResolver.ResolveByPath), even when an older version's proxy is
     // denser — otherwise delete/regenerate would target a stale proxy the preview no longer decodes.
     [Test]
-    public void Refresh_OfflineSourceWithReadyEntriesFromDifferentVersions_BindsNewest()
+    public async Task Refresh_OfflineSourceWithReadyEntriesFromDifferentVersions_BindsNewest()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
@@ -331,7 +331,7 @@ public sealed class ProxiesTabViewModelTests
             // Default preset Half: the denser old Half is under the cap, so density-only ranking would
             // bind the old version; the newest-version filter must beat that and bind the new Quarter.
             config.DefaultPreset = (int)ProxyPreset.Half;
-            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+            await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
             ProxyClipViewModel clip = viewModel.Clips.Single();
             Assert.That(clip.Source, Is.EqualTo(newFp), "the row must bind to the newest source version, not a denser older proxy");
@@ -346,7 +346,7 @@ public sealed class ProxiesTabViewModelTests
     // proxy lingers, the row must bind to the newest source's state, not the stale older Ready — matching
     // the preview, which serves no proxy for the current source.
     [Test]
-    public void Refresh_OfflineSourceWithNewerFailedVersion_BindsNewestNotOldReady()
+    public async Task Refresh_OfflineSourceWithNewerFailedVersion_BindsNewestNotOldReady()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
@@ -368,7 +368,7 @@ public sealed class ProxiesTabViewModelTests
             new PixelSize(1920, 1080), new PixelSize(480, 270), newTime, newTime, "boom"));
         File.Delete(sourcePath);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
@@ -382,7 +382,7 @@ public sealed class ProxiesTabViewModelTests
     // decoding picks: the densest within the default-preset density cap (mirroring ProxyResolver), not
     // simply the densest overall.
     [Test]
-    public void Refresh_OfflineSourceWithMultipleReadyEntries_BindsWithinDefaultPresetDensityCap()
+    public async Task Refresh_OfflineSourceWithMultipleReadyEntries_BindsWithinDefaultPresetDensityCap()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
@@ -405,7 +405,7 @@ public sealed class ProxiesTabViewModelTests
         {
             // Cap at Quarter (density 0.25): the capped pick is the Quarter proxy, not the denser Half.
             config.DefaultPreset = (int)ProxyPreset.Quarter;
-            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+            await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
             Assert.That(viewModel.Clips.Single().Preset.Value, Is.EqualTo(ProxyPreset.Quarter),
                 "the row must bind to the density-capped Quarter proxy preview would decode, not the densest Half");
@@ -417,7 +417,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_IncludesAnimatedSourceVideoValues()
+    public async Task Refresh_IncludesAnimatedSourceVideoValues()
     {
         string root = CreateRoot();
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
@@ -435,7 +435,7 @@ public sealed class ProxiesTabViewModelTests
         drawable.Source.Animation = animation;
         AddObject(scene, root, drawable);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));
 
         Assert.That(
             viewModel.Clips.Select(static clip => clip.FileName),
@@ -464,7 +464,7 @@ public sealed class ProxiesTabViewModelTests
         RegisterProxyEntry(store, entry);
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
 
         await viewModel.RegenerateAsync(viewModel.Clips.Single());
 
@@ -476,7 +476,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_AttachesPendingQueueJobToMatchingClip()
+    public async Task Refresh_AttachesPendingQueueJobToMatchingClip()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "queued.mov", 4096);
@@ -489,7 +489,7 @@ public sealed class ProxiesTabViewModelTests
         };
         var queue = new TestProxyJobQueue(job);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assert.Multiple(() =>
@@ -507,7 +507,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Refresh_IncludesSourcesFromAllProjectScenes()
+    public async Task Refresh_IncludesSourcesFromAllProjectScenes()
     {
         string root = CreateRoot();
         string path1 = CreateSourceFile(root, "scene1.mov", 1024);
@@ -521,7 +521,7 @@ public sealed class ProxiesTabViewModelTests
         project.Items.Add(scene1);
         project.Items.Add(scene2);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(scene1, store));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(scene1, store));
 
         Assert.That(
             viewModel.Clips.Select(static clip => clip.FileName),
@@ -531,7 +531,7 @@ public sealed class ProxiesTabViewModelTests
     // A clip referencing media through a symlink whose target was moved/deleted must still match its
     // stored entry (keyed on the resolved target) rather than dropping off the tab.
     [Test]
-    public void Refresh_SymlinkedSourceWithMovedTarget_StaysMatchedToStoredEntry()
+    public async Task Refresh_SymlinkedSourceWithMovedTarget_StaysMatchedToStoredEntry()
     {
         string root = CreateRoot();
         string target = CreateSourceFile(root, "target.mov", 1024);
@@ -566,7 +566,7 @@ public sealed class ProxiesTabViewModelTests
         var scene = CreateScene(root, "symlink.scene");
         AddSourceVideo(scene, root, link);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store));
 
         Assert.That(viewModel.Clips.Select(static clip => clip.FileName), Does.Contain("link.mov"));
     }
@@ -574,7 +574,7 @@ public sealed class ProxiesTabViewModelTests
     // Project-wide actions scan every scene, so an edit in a scene other than the tab's own must
     // still refresh the clip list.
     [Test]
-    public void SceneEdited_InAnotherProjectScene_RefreshesClipList()
+    public async Task SceneEdited_InAnotherProjectScene_RefreshesClipList()
     {
         string root = CreateRoot();
         string path1 = CreateSourceFile(root, "scene1.mov", 1024);
@@ -587,7 +587,7 @@ public sealed class ProxiesTabViewModelTests
         project.Items.Add(scene1);
         project.Items.Add(scene2);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(scene1, store))
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(scene1, store))
         {
             RefreshScheduler = static action => action(),
         };
@@ -601,7 +601,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void OnStoreChanged_TouchEvent_PreservesClipSelection()
+    public async Task OnStoreChanged_TouchEvent_PreservesClipSelection()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
@@ -620,7 +620,7 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
         {
             // Run the coalesced rebuild synchronously: with the real (never-pumped) test dispatcher
             // a scheduled rebuild would silently not run and the assertion below would be vacuous.
@@ -640,13 +640,13 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void OnStoreChanged_RegisteredEvent_PreservesClipSelection()
+    public async Task OnStoreChanged_RegisteredEvent_PreservesClipSelection()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
         {
             RefreshScheduler = static action => action(),
         };
@@ -681,7 +681,7 @@ public sealed class ProxiesTabViewModelTests
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
         ProxyJob job = await queue.EnqueueAsync(clip.Source, clip.Preset.Value);
 
@@ -692,7 +692,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void DefaultPresetChanged_UpdatesRowsOnPreviousDefault_KeepsExplicitChoices()
+    public async Task DefaultPresetChanged_UpdatesRowsOnPreviousDefault_KeepsExplicitChoices()
     {
         string root = CreateRoot();
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
@@ -703,7 +703,7 @@ public sealed class ProxiesTabViewModelTests
         try
         {
             config.DefaultPreset = (int)ProxyPreset.Quarter;
-            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
+            await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
             ProxyClipViewModel following = viewModel.Clips[0];
             ProxyClipViewModel explicitChoice = viewModel.Clips[1];
             explicitChoice.Preset.Value = ProxyPreset.Eighth;
@@ -726,7 +726,7 @@ public sealed class ProxiesTabViewModelTests
     // that choice when the default later changes — the old value-equality sweep overwrote it because it
     // could not tell an explicit pick from a row merely showing the default.
     [Test]
-    public void DefaultPresetChanged_KeepsExplicitChoiceEqualToOldDefault()
+    public async Task DefaultPresetChanged_KeepsExplicitChoiceEqualToOldDefault()
     {
         string root = CreateRoot();
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
@@ -737,7 +737,7 @@ public sealed class ProxiesTabViewModelTests
         try
         {
             config.DefaultPreset = (int)ProxyPreset.Quarter;
-            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
+            await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
             ProxyClipViewModel following = viewModel.Clips[0];
             ProxyClipViewModel explicitEqual = viewModel.Clips[1];
             // Change away and back so the row explicitly lands on Quarter (the current default) via a real
@@ -764,7 +764,7 @@ public sealed class ProxiesTabViewModelTests
     // list rebuilds, the now proxy-less row must revert to following the default (it re-derives its state)
     // rather than staying stuck on the old preset when the default later changes.
     [Test]
-    public void DefaultPresetChanged_ProxyPinnedRowRevertsToFollowingAfterProxyDeleted()
+    public async Task DefaultPresetChanged_ProxyPinnedRowRevertsToFollowingAfterProxyDeleted()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
@@ -780,7 +780,7 @@ public sealed class ProxiesTabViewModelTests
                 fingerprint, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
                 new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
 
-            using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
+            await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
             {
                 RefreshScheduler = static action => action(),
             };
@@ -808,7 +808,7 @@ public sealed class ProxiesTabViewModelTests
     // A symlink and its target resolve to the same AbsolutePath but different LocalPaths; after an explicit
     // preset pick on the merged row, dropping the symlink element (leaving the target) must keep the choice.
     [Test]
-    public void Refresh_ExplicitChoiceSurvivesPathSpellingChange_KeyedByAbsolutePath()
+    public async Task Refresh_ExplicitChoiceSurvivesPathSpellingChange_KeyedByAbsolutePath()
     {
         string root = CreateRoot();
         string target = CreateSourceFile(root, "target.mov", 1024);
@@ -831,7 +831,7 @@ public sealed class ProxiesTabViewModelTests
         scene.Children.Add(linkElement);
         scene.Children.Add(targetElement);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
         {
             RefreshScheduler = static action => action(),
         };
@@ -855,7 +855,7 @@ public sealed class ProxiesTabViewModelTests
     // Generate All / Delete act on Clips, so the list must track project edits made while the tab
     // is open — not just proxy store/queue events.
     [Test]
-    public void SceneEdited_AddingAndRemovingVideoElements_RebuildsClipList()
+    public async Task SceneEdited_AddingAndRemovingVideoElements_RebuildsClipList()
     {
         string root = CreateRoot();
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
@@ -867,7 +867,7 @@ public sealed class ProxiesTabViewModelTests
         };
         scene.Children.Add(CreateVideoElement(root, firstPath));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
         {
             RefreshScheduler = static action => action(),
         };
@@ -882,7 +882,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Delete_WhenProxyFileCannotBeDeleted_SurfacesFailureInStatusMessage()
+    public async Task Delete_WhenProxyFileCannotBeDeleted_SurfacesFailureInStatusMessage()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
@@ -901,7 +901,7 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new UndeletableStore(store), sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, new UndeletableStore(store), sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         viewModel.Delete(clip);
@@ -913,7 +913,7 @@ public sealed class ProxiesTabViewModelTests
     // .mp4 (a sharing violation while preview decodes it) is a real failure the UI must surface, even
     // though Delete returned true.
     [Test]
-    public void Delete_WhenProxyFileSurvivesDelete_SurfacesFailureInStatusMessage()
+    public async Task Delete_WhenProxyFileSurvivesDelete_SurfacesFailureInStatusMessage()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
@@ -932,7 +932,7 @@ public sealed class ProxiesTabViewModelTests
             now,
             null));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new OrphanFileStore(inner), sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, new OrphanFileStore(inner), sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         viewModel.Delete(clip);
@@ -941,13 +941,13 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Delete_WhenEntryAlreadyGone_DoesNotReportFailure()
+    public async Task Delete_WhenEntryAlreadyGone_DoesNotReportFailure()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         // No entry is registered, so Delete returns false for "not found" — a benign race,
@@ -958,7 +958,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void Delete_CancelsJobKeyedOnStaleEntrySource()
+    public async Task Delete_CancelsJobKeyedOnStaleEntrySource()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
@@ -987,7 +987,7 @@ public sealed class ProxiesTabViewModelTests
 
         var job = new ProxyJob(stale, ProxyPreset.Quarter);
         var queue = new TestProxyJobQueue(job);
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
         Assume.That(clip.EntrySource, Is.EqualTo(stale));
         Assume.That(clip.Source, Is.Not.EqualTo(stale));
@@ -1000,13 +1000,13 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void ToggleSelection_InvertsClipSelection()
+    public async Task ToggleSelection_InvertsClipSelection()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
         clip.ToggleSelection();
@@ -1049,7 +1049,7 @@ public sealed class ProxiesTabViewModelTests
             null);
         RegisterProxyEntry(store, entry);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
         int? confirmedCount = null;
         viewModel.ConfirmDeleteAllForProjectAsync = count =>
         {
@@ -1079,7 +1079,7 @@ public sealed class ProxiesTabViewModelTests
             new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null);
         RegisterProxyEntry(store, quarter);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         var half = new ProxyEntry(
             fingerprint, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 3072,
@@ -1129,7 +1129,7 @@ public sealed class ProxiesTabViewModelTests
         var currentJob = new ProxyJob(current, ProxyPreset.Quarter);
         var queue = new TestProxyJobQueue(currentJob);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
         viewModel.ConfirmDeleteAllForProjectAsync = _ => Task.FromResult(true);
 
         await viewModel.DeleteAllForProjectCommand.ExecuteAsync();
@@ -1162,7 +1162,7 @@ public sealed class ProxiesTabViewModelTests
             null);
         RegisterProxyEntry(store, entry);
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
         bool confirmationRequested = false;
         viewModel.ConfirmDeleteAllForProjectAsync = _ =>
         {
@@ -1188,7 +1188,7 @@ public sealed class ProxiesTabViewModelTests
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         clip.Preset.Value = ProxyPreset.Quarter;
@@ -1228,7 +1228,7 @@ public sealed class ProxiesTabViewModelTests
             null));
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1260,7 +1260,7 @@ public sealed class ProxiesTabViewModelTests
             null));
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1301,7 +1301,7 @@ public sealed class ProxiesTabViewModelTests
             null));
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, lightPath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, lightPath));
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1340,7 +1340,7 @@ public sealed class ProxiesTabViewModelTests
         ProxyFingerprint foregroundFingerprint = ProxyFingerprint.FromFile(foregroundPath);
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, foregroundPath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, foregroundPath));
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
         ProxyClipViewModel foregroundClip = viewModel.Clips.Single(static c => c.FileName == "foreground.mov");
@@ -1363,7 +1363,7 @@ public sealed class ProxiesTabViewModelTests
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         var queue = new TestProxyJobQueue();
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, firstPath, secondPath));
+        await using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, firstPath, secondPath));
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1642,14 +1642,17 @@ public sealed class ProxiesTabViewModelTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item)
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item)
         {
-            return false;
+            return new ValueTask<bool>(false);
         }
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class TestProxyJobQueue(params ProxyJob[] pendingJobs) : IProxyJobQueue

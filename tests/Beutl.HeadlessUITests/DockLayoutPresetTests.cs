@@ -67,7 +67,7 @@ public class DockLayoutPresetTests
         // Make the layout distinguishable from the default: close the library tab.
         BeutlToolDockable library = source.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
-        source.DockHost.CloseToolTab(library.ToolContext);
+        await source.DockHost.CloseToolTabAsync(library.ToolContext);
         HeadlessTestHelpers.Settle();
 
         string[] expected = ToolExtensionNames(source);
@@ -80,7 +80,7 @@ public class DockLayoutPresetTests
         EditViewModel target = await OpenEditorForNewScene("preset-target");
         Assert.That(ToolExtensionNames(target), Does.Contain(typeof(LibraryTabExtension).FullName));
 
-        Assert.That(target.DockHost.ApplyLayout(preset!.Layout), Is.True);
+        Assert.That(await target.DockHost.ApplyLayoutAsync(preset!.Layout), Is.True);
         HeadlessTestHelpers.Settle();
 
         Assert.That(ToolExtensionNames(target), Is.EqualTo(expected));
@@ -131,10 +131,13 @@ public class DockLayoutPresetTests
         string[] before = ToolExtensionNames(editor);
         IRootDock layoutBefore = editor.DockHost.Layout.Value;
 
-        Assert.That(editor.DockHost.ApplyLayout(new JsonObject()), Is.False);
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(new JsonObject()), Is.False);
         Assert.That(
-            editor.DockHost.ApplyLayout(new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "tool" } }),
+            await editor.DockHost.ApplyLayoutAsync(new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "tool" } }),
             Is.False);
+        JsonObject invalidFieldType = editor.DockHost.CaptureLayout();
+        ((JsonObject)invalidFieldType["DockLayout"]!)["id"] = new JsonObject();
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(invalidFieldType), Is.False);
 
         Assert.That(editor.DockHost.Layout.Value, Is.SameAs(layoutBefore));
         Assert.That(ToolExtensionNames(editor), Is.EqualTo(before));
@@ -160,7 +163,7 @@ public class DockLayoutPresetTests
         // mirroring. Record the current state to prove the survivors were left alone.
         bool[] selectedBefore = liveBefore.Select(t => t.ToolContext.IsSelected.Value).ToArray();
 
-        Assert.That(editor.DockHost.ApplyLayout(broken), Is.False);
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(broken), Is.False);
         Assert.That(editor.DockHost.Layout.Value, Is.SameAs(layoutBefore), "the live layout must survive");
         Assert.That(editor.DockHost.Factory.EnumerateTools(), Is.EquivalentTo(liveBefore));
 
@@ -183,13 +186,13 @@ public class DockLayoutPresetTests
         EditViewModel editor = await OpenEditorForNewScene("preset-version");
 
         JsonObject captured = editor.DockHost.CaptureLayout();
-        Assert.That(editor.DockHost.ApplyLayout(captured), Is.True, "the captured layout should apply as-is");
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(captured), Is.True, "the captured layout should apply as-is");
 
         IRootDock layoutBefore = editor.DockHost.Layout.Value;
         var stale = (JsonObject)captured.DeepClone();
         stale["_dockVersion"] = 1;
 
-        Assert.That(editor.DockHost.ApplyLayout(stale), Is.False);
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(stale), Is.False);
         Assert.That(editor.DockHost.Layout.Value, Is.SameAs(layoutBefore));
     }
 

@@ -31,20 +31,20 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     }
 
     [Test]
-    public void PreviewSourceMode_ReflectsConfigAsInt()
+    public async Task PreviewSourceMode_ReflectsConfigAsInt()
     {
         GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
 
-        using PreviewSettingsTabViewModel vm = CreateViewModel();
+        await using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         Assert.That(vm.PreviewSourceMode.Value, Is.EqualTo((int)PreviewSourceMode.ForceOriginal));
     }
 
     [Test]
-    public void SettingIntValue_UpdatesConfigEnum()
+    public async Task SettingIntValue_UpdatesConfigEnum()
     {
         GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
-        using PreviewSettingsTabViewModel vm = CreateViewModel();
+        await using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         // The ComboBox writes back the selected index as an int; the enum setting must follow.
         vm.PreviewSourceMode.Value = (int)PreviewSourceMode.ForceOriginal;
@@ -56,10 +56,10 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     // A ComboBox with no selection reports SelectedIndex -1; the write-back must not persist an undefined
     // enum (which never equals PreferProxy and would silently disable proxy preview).
     [Test]
-    public void SettingOutOfRangeIndex_LeavesConfigUnchanged()
+    public async Task SettingOutOfRangeIndex_LeavesConfigUnchanged()
     {
         GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
-        using PreviewSettingsTabViewModel vm = CreateViewModel();
+        await using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         vm.PreviewSourceMode.Value = -1;
 

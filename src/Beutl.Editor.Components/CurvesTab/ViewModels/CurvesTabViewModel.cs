@@ -235,11 +235,13 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public ReactivePropertySlim<Curves?> Effect { get; } = new();
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         ClearEditors();
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
+
 
     public void ReadFromJson(JsonObject json)
     {
@@ -352,9 +354,9 @@ public sealed class CurvesTabViewModel : IToolContext
         _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
     }
 
-    private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
+    private async void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        _editorContext.CloseToolTab(this);
+        await _editorContext.CloseToolTabAsync(this);
     }
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)

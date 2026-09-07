@@ -6,8 +6,9 @@ using Dock.Model.Inpc;
 
 namespace Beutl.ViewModels.Dock;
 
-public class BeutlDockFactory(EditViewModel editViewModel) : Factory
+internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
 {
+    internal Action<BeutlToolDockable>? DisposalTracker { get; set; }
     private readonly record struct AnchorDefinition(
         string Id,
         Alignment Alignment,
@@ -259,9 +260,9 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         return EnumerateTools().Any(tool => tool.ToolContext.Extension == extension);
     }
 
-    internal bool OpenToolTab(ToolTabExtension extension, IToolDock target)
+    internal Task<bool> OpenToolTabAsync(ToolTabExtension extension, IToolDock target)
     {
-        return editViewModel.DockHost.OpenToolTabFromExtension(extension, target);
+        return editViewModel.DockHost.OpenToolTabFromExtensionAsync(extension, target);
     }
 
     internal void SetRootDock(IRootDock rootDock)
@@ -318,12 +319,36 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         _anchorCacheDirty = true;
         if (dockable is null) return;
-        base.CloseDockable(dockable);
+        DetachDockable(dockable);
 
         if (dockable is BeutlToolDockable beutlToolDockable)
         {
-            beutlToolDockable.Dispose();
+            TrackDisposal(beutlToolDockable);
         }
+    }
+
+    internal void DetachDockable(IDockable dockable)
+    {
+        _anchorCacheDirty = true;
+        base.CloseDockable(dockable);
+    }
+
+    internal Task DisposeDetachedDockable(IDockable dockable)
+    {
+        if (dockable is not BeutlToolDockable tool)
+            return Task.CompletedTask;
+        Task task = tool.GetDisposeTask();
+        return task;
+    }
+
+    private void TrackDisposal(BeutlToolDockable dockable)
+    {
+        if (DisposalTracker is { } tracker)
+            tracker(dockable);
+        else
+            _ = dockable.GetDisposeTask().ContinueWith(static t => _ = t.Exception, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
     }
 
     public override void RemoveDockable(IDockable dockable, bool collapse)

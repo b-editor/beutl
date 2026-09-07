@@ -16,8 +16,9 @@ public sealed class EditWellKnownSizeTabViewModel(ToolTabExtension extension) : 
 
     public RemoveWellKnownSizeScreenViewModel RemoveScreen { get; } = new RemoveWellKnownSizeScreenViewModel();
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
+        return ValueTask.CompletedTask;
     }
 
     public object? GetService(Type serviceType)

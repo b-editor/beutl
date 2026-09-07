@@ -48,17 +48,17 @@ public sealed class TutorialServiceHandler : ITutorialService
             return;
         }
 
-        // 前提条件の確認と自動満足
-        if (tutorial.CanStart != null && !tutorial.CanStart())
+        try
         {
-            if (!autoFulfillPrerequisites || tutorial.FulfillPrerequisites == null)
+            // 前提条件の確認と自動満足
+            if (tutorial.CanStart != null && !await tutorial.CanStart())
             {
-                _logger.LogInformation("Tutorial cannot start: {TutorialId}", tutorialId);
-                return;
-            }
+                if (!autoFulfillPrerequisites || tutorial.FulfillPrerequisites == null)
+                {
+                    _logger.LogInformation("Tutorial cannot start: {TutorialId}", tutorialId);
+                    return;
+                }
 
-            try
-            {
                 _logger.LogInformation("Fulfilling prerequisites for: {TutorialId}", tutorialId);
                 bool fulfilled = await tutorial.FulfillPrerequisites();
 
@@ -69,17 +69,17 @@ public sealed class TutorialServiceHandler : ITutorialService
                 }
 
                 // 前提条件が満たされたか再確認
-                if (!tutorial.CanStart())
+                if (!await tutorial.CanStart())
                 {
                     _logger.LogWarning("Prerequisites still not met after fulfillment for: {TutorialId}", tutorialId);
                     return;
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Exception during prerequisite fulfillment for: {TutorialId}", tutorialId);
-                return;
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception while checking tutorial prerequisites for: {TutorialId}", tutorialId);
+            return;
         }
 
         await Dispatcher.UIThread.InvokeAsync(async () =>

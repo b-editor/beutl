@@ -58,7 +58,7 @@ public class SceneSettingsTabViewModelTests
         editorContext.AddService<ITimelineOptionsProvider>(timelineOptionsProvider);
         editorContext.AddService<IPreviewPlayer>(previewPlayer);
 
-        using var viewModel = new SceneSettingsTabViewModel(editorContext)
+        await using var viewModel = new SceneSettingsTabViewModel(editorContext)
         {
             Width =
             {
@@ -122,7 +122,7 @@ public class SceneSettingsTabViewModelTests
         editorContext.AddService<ITimelineOptionsProvider>(timelineOptionsProvider);
         editorContext.AddService<IPreviewPlayer>(previewPlayer);
 
-        using var viewModel = new SceneSettingsTabViewModel(editorContext)
+        await using var viewModel = new SceneSettingsTabViewModel(editorContext)
         {
             Width =
             {
@@ -219,14 +219,17 @@ public class SceneSettingsTabViewModelTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item)
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item)
         {
-            return false;
+            return new ValueTask<bool>(false);
         }
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class TestTimelineOptionsProvider(Scene scene) : ITimelineOptionsProvider
