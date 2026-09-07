@@ -65,6 +65,16 @@ public sealed class Project : Hierarchical
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
+        if (context.GetValue<string>("appVersion") is { } appVersion)
+        {
+            AppVersion = appVersion;
+        }
+
+        if (context.GetValue<string>("minAppVersion") is { } minAppVersion)
+        {
+            MinAppVersion = minAppVersion;
+        }
+
         if (context.GetValue<ProjectItem[]>("items") is { } items)
         {
             Items.Replace(items);
@@ -79,22 +89,30 @@ public sealed class Project : Hierarchical
             }
         }
 
-        activity?.SetTag("appVersion", BeutlApplication.Version);
-        activity?.SetTag("minAppVersion", DefaultMinAppVersion);
+        activity?.SetTag("appVersion", AppVersion);
+        activity?.SetTag("minAppVersion", MinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
+    }
+
+    // Project migrations must call this only after they have rewritten persisted content.
+    // A plain load/save keeps the version from disk so a newer Beutl release does not dirty the project.
+    internal void MarkAsMigrated()
+    {
+        AppVersion = BeutlApplication.Version;
+        MinAppVersion = DefaultMinAppVersion;
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
-        activity?.SetTag("appVersion", BeutlApplication.Version);
-        activity?.SetTag("minAppVersion", DefaultMinAppVersion);
+        activity?.SetTag("appVersion", AppVersion);
+        activity?.SetTag("minAppVersion", MinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
 
         base.Serialize(context);
 
-        context.SetValue("appVersion", BeutlApplication.Version);
-        context.SetValue("minAppVersion", DefaultMinAppVersion);
+        context.SetValue("appVersion", AppVersion);
+        context.SetValue("minAppVersion", MinAppVersion);
 
         context.SetValue("items", Items);
 

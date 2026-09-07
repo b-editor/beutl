@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Language;
@@ -56,6 +57,13 @@ public sealed partial class MainView : UserControl
 
             Titlebar.PointerPressed += (s, e) =>
             {
+                if (e.Source is Visual source
+                    && source.FindAncestorOfType<TitleBarBranchView>(
+                        includeSelf: true) is not null)
+                {
+                    return;
+                }
+
                 if (TopLevel.GetTopLevel(this) is Window window && window.WindowState != WindowState.FullScreen)
                 {
                     if (e.ClickCount == 2)
@@ -110,6 +118,7 @@ public sealed partial class MainView : UserControl
 
                 Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
                 AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
+                AppWindow.SetAllowInteractionInTitleBar(TitleBarBranchWidget, true);
                 AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
                 NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }

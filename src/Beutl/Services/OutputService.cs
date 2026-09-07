@@ -13,6 +13,7 @@ public sealed class OutputProfileItem : IDisposable
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
+    private int _isRunning;
 
     public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
     {
@@ -32,6 +33,11 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
+        if (Interlocked.Exchange(ref _isRunning, 1) == 0)
+        {
+            _editorService.NotifyOutputStarted();
+        }
+
         _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
 
         if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
@@ -47,6 +53,7 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnFinished(object? sender, EventArgs e)
     {
+        FinishOutputTracking();
         _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
 
         if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
@@ -62,10 +69,19 @@ public sealed class OutputProfileItem : IDisposable
 
     public void Dispose()
     {
+        FinishOutputTracking();
         _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Context.Started -= OnStarted;
         Context.Finished -= OnFinished;
         Context.Dispose();
+    }
+
+    private void FinishOutputTracking()
+    {
+        if (Interlocked.Exchange(ref _isRunning, 0) == 1)
+        {
+            _editorService.NotifyOutputFinished();
+        }
     }
 
     public static JsonNode ToJson(OutputProfileItem item)

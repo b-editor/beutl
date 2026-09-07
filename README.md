@@ -33,6 +33,9 @@ Create a Beutl account to acquire extensions or publish your own developed exten
 ### 🧰 Rich Effects
 From basic effects like color filters, blurs, shadows, and LUTs, to minor effects like outlines, inner shadows, and long shadows, Beutl offers a wide range of effects. These can be further expanded through extensions.
 
+### 🕘 Version Control
+Track a project's editing history with Git, restore earlier versions, create experimental branches, and back up work to a remote repository from within Beutl.
+
 ## 📥 Installation
 Refer to the [documentation](https://docs.beutl.beditor.net/get-started/install) here.
 

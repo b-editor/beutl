@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -23,6 +24,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly VersionControlCoordinator _versionControlCoordinator;
     private readonly ExtensionProvider _extensionProvider;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
@@ -35,11 +37,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
+        _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
-        MenuBar = new MenuBarViewModel(_projectService, _editorService);
+        MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
 
         IsProjectOpened = _projectService.IsOpened;
         NameOfOpenProject = _projectService.CurrentProject.Select(v =>
@@ -48,6 +51,10 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, _editorService);
+        TitleBarBranch = new TitleBarBranchViewModel(
+            _editorService.ProjectVersionControlService,
+            _versionControlCoordinator.IsGitAvailable,
+            _versionControlCoordinator);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -98,6 +105,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
+    internal TitleBarBranchViewModel TitleBarBranch { get; }
+
     public EditorHostViewModel EditorHost { get; }
 
     // Exposed so views bound to this composition root (MainView, MacWindow) can read the
@@ -105,6 +114,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal ProjectService ProjectService => _projectService;
 
     internal EditorService EditorService => _editorService;
+
+    internal VersionControlCoordinator VersionControlCoordinator => _versionControlCoordinator;
 
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
@@ -149,8 +160,10 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public override void Dispose()
     {
         CommandPalette.Dispose();
+        TitleBarBranch.Dispose();
         _agentHostEndpoint.RequestStop();
         _projectService.CloseProject();
+        _versionControlCoordinator.Dispose();
         BeutlApplication.Current.Items.Clear();
     }
 
