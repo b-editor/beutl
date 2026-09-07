@@ -219,8 +219,9 @@ public sealed partial class MacWindow : Window
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(
-                            selectedTab.Context.Value.Object,
+                    if (selectedTab.Context.Value is { } selectedContext
+                        && editorExtension.TryCreateContext(
+                            selectedContext.Object,
                             new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
                             out IEditorContext? context))
                     {

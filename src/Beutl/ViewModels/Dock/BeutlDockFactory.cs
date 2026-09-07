@@ -8,7 +8,9 @@ namespace Beutl.ViewModels.Dock;
 
 internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
 {
-    internal Action<BeutlToolDockable>? DisposalTracker { get; set; }
+    internal Func<BeutlToolDockable, Task>? DisposalTracker { get; set; }
+    internal Action<BeutlToolDockable>? AfterToolAttach { get; set; }
+    internal Action? LayoutMutated { get; set; }
     private readonly record struct AnchorDefinition(
         string Id,
         Alignment Alignment,
@@ -172,8 +174,8 @@ internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
             {
                 if (!string.IsNullOrEmpty(d.Id))
                 {
-                    var captured = d;
-                    DockableLocator[d.Id] = () => captured;
+                    var weak = new WeakReference<IDockable>(d);
+                    DockableLocator[d.Id] = () => weak.TryGetTarget(out IDockable? target) ? target : null;
                 }
             }
         }
@@ -228,6 +230,7 @@ internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
         var dockable = new BeutlToolDockable(context, editViewModel);
         AddDockable(zone, dockable);
+        AfterToolAttach?.Invoke(dockable);
         if (activate)
         {
             SetActiveDockable(dockable);
@@ -318,19 +321,163 @@ internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
     public override void CloseDockable(IDockable? dockable)
     {
         _anchorCacheDirty = true;
-        if (dockable is null) return;
-        DetachDockable(dockable);
-
-        if (dockable is BeutlToolDockable beutlToolDockable)
-        {
-            TrackDisposal(beutlToolDockable);
-        }
+        if (dockable is not null)
+            TryCloseDockable(dockable);
     }
 
     internal void DetachDockable(IDockable dockable)
     {
         _anchorCacheDirty = true;
-        base.CloseDockable(dockable);
+        try { ForceDetachDockable(dockable); }
+        catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Force-detach failed: {0}", ex.Message); }
+    }
+
+    internal bool TryCloseDockable(IDockable dockable)
+    {
+        if (dockable is null || dockable.Owner is null)
+            return false;
+        IDock owner = (IDock)dockable.Owner;
+        IRootDock? root = FindRoot(dockable, _ => true) ?? _rootDock;
+        try
+        {
+            base.CloseDockable(dockable);
+        }
+        catch
+        {
+        }
+        if (!IsAttached(dockable, owner, root))
+        {
+            CleanupDetachedState(dockable, owner, root);
+            TrackDisposalIfNeeded(dockable);
+            return true;
+        }
+        return false;
+    }
+
+    private void ForceDetachDockable(IDockable dockable)
+    {
+        IDock? owner = dockable.Owner as IDock;
+        IRootDock? root = FindRoot(dockable, _ => true) ?? _rootDock;
+        try
+        {
+            List<IDock> docks = root is null
+                ? []
+                : Traverse(root).OfType<IDock>()
+                    .ToList();
+            if (root is not null && !docks.Any(item => ReferenceEquals(item, root)))
+                docks.Add(root);
+            if (owner is not null && !docks.Any(item => ReferenceEquals(item, owner)))
+                docks.Add(owner);
+
+            if (root is not null)
+            {
+                TryCleanup(() => root.HiddenDockables?.Remove(dockable));
+                TryCleanup(() => root.LeftPinnedDockables?.Remove(dockable));
+                TryCleanup(() => root.RightPinnedDockables?.Remove(dockable));
+                TryCleanup(() => root.TopPinnedDockables?.Remove(dockable));
+                TryCleanup(() => root.BottomPinnedDockables?.Remove(dockable));
+            }
+            foreach (IDock dock in docks)
+            {
+                TryCleanup(() => dock.VisibleDockables?.Remove(dockable));
+                TryCleanup(() =>
+                {
+                    if (ReferenceEquals(dock.ActiveDockable, dockable))
+                    {
+                        dock.ActiveDockable = dock.VisibleDockables?.FirstOrDefault(
+                            static item => item is not ISplitter);
+                    }
+                });
+            }
+        }
+        finally
+        {
+            CleanupDetachedState(dockable, owner, root);
+            CleanupEmptyFloatingWindow(root);
+        }
+    }
+
+    private void CleanupEmptyFloatingWindow(IRootDock? root)
+    {
+        if (root?.Window is not { Owner: IRootDock } window
+            || Traverse(root).Any(static item => item is not IDock && item is not ISplitter))
+        {
+            return;
+        }
+
+        TryCleanup(() => RemoveWindow(window));
+        TryCleanup(() => (window.Owner as IRootDock)?.Windows?.Remove(window));
+        TryCleanup(() => root.Window = null);
+        TryCleanup(() => window.ParentWindow = null);
+        TryCleanup(() => window.Owner = null);
+        TryCleanup(() => window.Factory = null);
+        TryCleanup(() => window.Layout = null);
+    }
+
+    private static bool IsAttached(IDockable dockable, IDock owner, IRootDock? root)
+        => Contains(owner.VisibleDockables, dockable)
+            || Contains(root?.HiddenDockables, dockable)
+            || Contains(root?.LeftPinnedDockables, dockable)
+            || Contains(root?.RightPinnedDockables, dockable)
+            || Contains(root?.TopPinnedDockables, dockable)
+            || Contains(root?.BottomPinnedDockables, dockable);
+
+    private static bool Contains(IList<IDockable>? items, IDockable dockable)
+    {
+        try { return items?.Contains(dockable) == true; }
+        catch { return true; }
+    }
+
+    private void CleanupDetachedState(IDockable dockable, IDock? owner, IRootDock? root)
+    {
+        TryCleanup(() =>
+        {
+            if (owner?.ActiveDockable == dockable)
+                owner.ActiveDockable = owner.VisibleDockables?.FirstOrDefault();
+        });
+        TryCleanup(() =>
+        {
+            if (root?.FocusedDockable == dockable)
+                root.FocusedDockable = owner?.ActiveDockable;
+        });
+        TryCleanup(() =>
+        {
+            if (ReferenceEquals(CurrentDockable, dockable))
+                OnDockableDeactivated(dockable);
+        });
+        TryCleanup(() => ToolControls.Remove(dockable));
+        TryCleanup(() => DocumentControls.Remove(dockable));
+        TryCleanup(() => VisibleDockableControls.Remove(dockable));
+        TryCleanup(() => PinnedDockableControls.Remove(dockable));
+        TryCleanup(() => TabDockableControls.Remove(dockable));
+        TryCleanup(() =>
+        {
+            string? id = dockable.Id;
+            IDictionary<string, Func<IDockable?>>? locatorMap = DockableLocator;
+            if (!string.IsNullOrEmpty(id)
+                && locatorMap?.TryGetValue(id, out Func<IDockable?>? locate) == true
+                && locate is not null
+                && ReferenceEquals(locate(), dockable))
+            {
+                locatorMap.Remove(id);
+            }
+        });
+        TryCleanup(() => dockable.Context = null);
+        TryCleanup(() => dockable.Owner = null);
+        TryCleanup(() => dockable.OriginalOwner = null);
+        TryCleanup(() => dockable.Factory = null);
+    }
+
+    private static void TryCleanup(Action cleanup)
+    {
+        try { cleanup(); }
+        catch (Exception ex) { System.Diagnostics.Trace.TraceWarning("Dockable cleanup failed: {0}", ex.Message); }
+    }
+
+    private void TrackDisposalIfNeeded(IDockable dockable)
+    {
+        if (dockable is BeutlToolDockable tool)
+            TrackDisposal(tool);
     }
 
     internal Task DisposeDetachedDockable(IDockable dockable)
@@ -344,7 +491,9 @@ internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
     private void TrackDisposal(BeutlToolDockable dockable)
     {
         if (DisposalTracker is { } tracker)
-            tracker(dockable);
+        {
+            _ = tracker(dockable);
+        }
         else
             _ = dockable.GetDisposeTask().ContinueWith(static t => _ = t.Exception, CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
@@ -355,5 +504,103 @@ internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         _anchorCacheDirty = true;
         base.RemoveDockable(dockable, collapse);
+    }
+
+    public override void OnDockableAdded(IDockable? dockable)
+    {
+        base.OnDockableAdded(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnActiveDockableChanged(IDockable? dockable)
+    {
+        base.OnActiveDockableChanged(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableRemoved(IDockable? dockable)
+    {
+        base.OnDockableRemoved(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableMoved(IDockable? dockable)
+    {
+        base.OnDockableMoved(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableDocked(IDockable? dockable, DockOperation operation)
+    {
+        base.OnDockableDocked(dockable, operation);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableUndocked(IDockable? dockable, DockOperation operation)
+    {
+        base.OnDockableUndocked(dockable, operation);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableSwapped(IDockable? dockable)
+    {
+        base.OnDockableSwapped(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockablePinned(IDockable? dockable)
+    {
+        base.OnDockablePinned(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableUnpinned(IDockable? dockable)
+    {
+        base.OnDockableUnpinned(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableHidden(IDockable? dockable)
+    {
+        base.OnDockableHidden(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnDockableRestored(IDockable? dockable)
+    {
+        base.OnDockableRestored(dockable);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnWindowAdded(IDockWindow? window)
+    {
+        base.OnWindowAdded(window);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnWindowRemoved(IDockWindow? window)
+    {
+        base.OnWindowRemoved(window);
+        LayoutMutated?.Invoke();
+    }
+
+    public override void OnWindowMoveDragEnd(IDockWindow? window)
+    {
+        base.OnWindowMoveDragEnd(window);
+        LayoutMutated?.Invoke();
+    }
+
+    public override bool OnWindowMoveDragBegin(IDockWindow? window)
+    {
+        bool accepted = base.OnWindowMoveDragBegin(window);
+        if (accepted)
+            LayoutMutated?.Invoke();
+        return accepted;
+    }
+
+    public override void OnWindowMoveDrag(IDockWindow? window)
+    {
+        base.OnWindowMoveDrag(window);
+        LayoutMutated?.Invoke();
     }
 }

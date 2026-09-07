@@ -19,7 +19,7 @@ using Dock.Model.Core;
 
 namespace Beutl.HeadlessUITests;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public class DockLayoutPresetTests
 {
     private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
@@ -40,7 +40,7 @@ public class DockLayoutPresetTests
 
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 
     private static DockLayoutPresetService NewService()
@@ -58,7 +58,7 @@ public class DockLayoutPresetTests
             .ToArray();
     }
 
-    [AvaloniaTest]
+    [AvaloniaTest, NonParallelizable]
     public async Task Saved_layout_can_be_applied_to_another_scene()
     {
         await ResetProjectAsync();
@@ -79,11 +79,17 @@ public class DockLayoutPresetTests
 
         EditViewModel target = await OpenEditorForNewScene("preset-target");
         Assert.That(ToolExtensionNames(target), Does.Contain(typeof(LibraryTabExtension).FullName));
+        int restoredBeforePublication = -1;
+        target.DockHost.BeforeLayoutPublication = root =>
+            restoredBeforePublication = BeutlDockFactory.Traverse(root)
+                .OfType<BeutlToolDockable>()
+                .Count();
 
         Assert.That(await target.DockHost.ApplyLayoutAsync(preset!.Layout), Is.True);
-        HeadlessTestHelpers.Settle();
+        string[] immediatelyAfterApply = ToolExtensionNames(target);
 
-        Assert.That(ToolExtensionNames(target), Is.EqualTo(expected));
+        Assert.That(immediatelyAfterApply, Is.EqualTo(expected),
+            $"restored before publication: {restoredBeforePublication}; immediate: {string.Join(",", immediatelyAfterApply)}");
         Assert.That(target.DockHost.Layout.Value.Id, Is.EqualTo(DockIds.Root));
     }
 
@@ -194,6 +200,43 @@ public class DockLayoutPresetTests
 
         Assert.That(await editor.DockHost.ApplyLayoutAsync(stale), Is.False);
         Assert.That(editor.DockHost.Layout.Value, Is.SameAs(layoutBefore));
+    }
+
+    [AvaloniaTest]
+    public async Task PublicationFailureDisposesRestoredToolsAndReturnsToAStableLayout()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("preset-publication-failure");
+        JsonObject captured = editor.DockHost.CaptureLayout();
+        BeutlToolDockable[]? restoredTools = null;
+        editor.DockHost.BeforeLayoutPublication = root =>
+        {
+            restoredTools = BeutlDockFactory.Traverse(root)
+                .OfType<BeutlToolDockable>()
+                .ToArray();
+            throw new InvalidOperationException("publication failed");
+        };
+
+        Exception? publicationError = null;
+        try
+        {
+            await editor.DockHost.ApplyLayoutAsync(captured).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            publicationError = ex;
+        }
+        Assert.That(publicationError, Is.TypeOf<InvalidOperationException>());
+        editor.DockHost.BeforeLayoutPublication = null;
+
+        Assert.That(restoredTools, Is.Not.Null.And.Not.Empty);
+        foreach (BeutlToolDockable tool in restoredTools!)
+        {
+            Assert.That(tool.Owner, Is.Null);
+            Assert.Throws<ObjectDisposedException>(() => _ = tool.ToolContext);
+        }
+        Assert.DoesNotThrow(() => editor.DockHost.CaptureLayout());
+        await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]

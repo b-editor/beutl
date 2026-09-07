@@ -137,6 +137,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         Exception? cancellationFailure = null;
         try
         {
+            // Cancel the transport before signaling operation cancellation. The
+            // latter invokes user callbacks synchronously; doing it first lets
+            // an operation observe cancellation and resume before the transport
+            // cancellation hook has run, making shutdown ordering nondeterministic.
             _cancelPendingRequests();
         }
         catch (Exception ex)

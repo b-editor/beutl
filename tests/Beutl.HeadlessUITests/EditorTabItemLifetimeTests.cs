@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Collections.Specialized;
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
@@ -9,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public sealed class EditorTabItemLifetimeTests
 {
     [Test]
@@ -48,6 +49,27 @@ public sealed class EditorTabItemLifetimeTests
     }
 
     [Test]
+    public async Task RejectedReplacementDisposalFailureIsReportedAfterCleanup()
+    {
+        var oldContext = new BlockingEditorContext();
+        var replacement = new ThrowingEditorContext();
+        var tab = new EditorTabItem(oldContext);
+
+        Task close = tab.DisposeAsync().AsTask();
+        Task<bool> replace = tab.ReplaceContextAsync(replacement).AsTask();
+
+        Assert.CatchAsync<InvalidOperationException>(async () =>
+            await replace.WaitAsync(TimeSpan.FromSeconds(5)));
+        oldContext.ReleaseDispose();
+        await close.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task ReplacementContextDisposalCanReenterTabCloseWithoutDeadlock()
     {
         var oldContext = new BlockingEditorContext(blockDispose: false);
@@ -65,6 +87,293 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(replaced, Is.False);
             Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
             Assert.That(newContext.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task ContextPropertyPublishesNullOnlyAfterTerminalClose()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var newContext = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        var values = new List<IEditorContext?>();
+        using IDisposable subscription = tab.Context.Subscribe(values.Add);
+
+        Assert.That(await tab.ReplaceContextAsync(newContext).AsTask(), Is.True);
+        await tab.DisposeAsync();
+
+        Assert.That(values, Does.Contain(null));
+    }
+
+    [Test]
+    public async Task FailedReplacementTerminallyRemovesTabAndClearsSelection()
+    {
+        var oldContext = new ThrowingEditorContext();
+        var tab = new EditorTabItem(oldContext);
+        var service = new EditorService(new ExtensionProvider());
+        service.AddTabItem(tab);
+        service.SelectedTabItem.Value = tab;
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var values = new List<IEditorContext?>();
+        using IDisposable subscription = tab.Context.Subscribe(values.Add);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await tab.ReplaceContextAsync(replacement).AsTask());
+        Assert.That(service.TabItems, Is.Empty);
+        Assert.That(service.SelectedTabItem.Value, Is.Null);
+        Assert.That(values, Does.Contain(null));
+        Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+        Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task ConcurrentCloseJoinsThrowingReplacementWithoutDeadlock()
+    {
+        var oldContext = new BlockingEditorContext();
+        var fail = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        oldContext.OnDispose = async () =>
+        {
+            await fail.Task;
+            throw new InvalidOperationException("dispose failed");
+        };
+        var tab = new EditorTabItem(oldContext);
+        var service = new EditorService(new ExtensionProvider());
+        service.AddTabItem(tab);
+        service.SelectedTabItem.Value = tab;
+
+        Task replacement = tab.ReplaceContextAsync(new BlockingEditorContext(blockDispose: false)).AsTask();
+        await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task close = tab.DisposeAsync().AsTask();
+        fail.TrySetResult();
+        oldContext.ReleaseDispose();
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await replacement.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(close.IsCompleted, Is.True,
+            "The public replacement failure must not complete before terminal close cleanup.");
+        await close.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.TabItems, Is.Empty);
+    }
+
+    [Test]
+    public async Task ContextSubscriberCanReenterCloseWhenReplacementPublishesNull()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        Task? reentrantClose = null;
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (value is null)
+                reentrantClose = tab.DisposeAsync().AsTask();
+        });
+
+        bool replaced = await tab.ReplaceContextAsync(new BlockingEditorContext(blockDispose: false))
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replaced, Is.False);
+        if (reentrantClose is not null)
+            await reentrantClose.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task CloseStartedByReplacementPublicationWinsTheResult()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        Task? close = null;
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (ReferenceEquals(value, replacement))
+                close = tab.DisposeAsync().AsTask();
+        });
+
+        bool replaced = await tab.ReplaceContextAsync(replacement)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replaced, Is.False);
+        Assert.That(close, Is.Not.Null);
+        await close!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task ContextSubscriberCannotStartACompetingReplacement()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var nested = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        Task<bool>? nestedReplacement = null;
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (value is null && nestedReplacement is null)
+                nestedReplacement = tab.ReplaceContextAsync(nested).AsTask();
+        });
+
+        bool replaced = await tab.ReplaceContextAsync(replacement)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(replaced, Is.True);
+        Assert.That(nestedReplacement, Is.Not.Null);
+        Assert.That(await nestedReplacement!.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(nested.DisposeCount, Is.EqualTo(1));
+            Assert.That(tab.Context.Value!, Is.SameAs(replacement));
+        });
+        await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task ContextPublicationDoesNotRunRejectedPluginTeardownUnderTheHostGate()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var nested = new BlockingEditorContext(blockDispose: false);
+        var third = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        Task<bool>? nestedReplacement = null;
+        nested.OnDispose = () =>
+        {
+            Task competing = Task.Run(() =>
+                tab.ReplaceContextAsync(third).AsTask().GetAwaiter().GetResult());
+            if (!competing.Wait(TimeSpan.FromSeconds(2)))
+                throw new TimeoutException("The tab lifetime gate was held by Context publication.");
+            return ValueTask.CompletedTask;
+        };
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (value is null && nestedReplacement is null)
+                nestedReplacement = tab.ReplaceContextAsync(nested).AsTask();
+        });
+
+        Assert.That(await tab.ReplaceContextAsync(replacement).AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        Assert.That(await nestedReplacement!.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(nested.DisposeCount, Is.EqualTo(1));
+            Assert.That(third.DisposeCount, Is.EqualTo(1));
+        });
+        await tab.DisposeAsync();
+    }
+
+    [Test]
+    public async Task RejectedReplacementCanReenterCloseWithoutDeadlock()
+    {
+        var oldContext = new BlockingEditorContext();
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        replacement.OnDispose = () => tab.DisposeAsync();
+
+        Task<bool> replace = tab.ReplaceContextAsync(replacement).AsTask();
+        await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task close = tab.DisposeAsync().AsTask();
+        oldContext.ReleaseDispose();
+
+        Assert.That(await replace.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
+        await close.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task ImmediateRejectedReplacementUsesTheOwnedDisposalFence()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var nested = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        Task<bool>? nestedReplacement = null;
+        nested.OnDispose = () => tab.DisposeAsync();
+        oldContext.OnDispose = async () =>
+        {
+            nestedReplacement = tab.ReplaceContextAsync(nested).AsTask();
+            await nestedReplacement;
+        };
+
+        bool replaced = await tab.ReplaceContextAsync(replacement)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(replaced, Is.False);
+            Assert.That(nestedReplacement, Is.Not.Null);
+            Assert.That(nestedReplacement!.Result, Is.False);
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+            Assert.That(nested.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task ThrowingContextSubscriberCannotStrandReplacement()
+    {
+        var oldContext = new BlockingEditorContext(blockDispose: false);
+        var replacement = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(oldContext);
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (value is null)
+                throw new InvalidOperationException("observer failed");
+        });
+
+        Assert.CatchAsync<Exception>(async () =>
+            await tab.ReplaceContextAsync(replacement).AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldContext.DisposeCount, Is.EqualTo(1));
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        });
+        await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public async Task ThrowingContextSubscriberCannotSkipDirectDispose()
+    {
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        using IDisposable subscription = tab.Context.Subscribe(value =>
+        {
+            if (value is null)
+                throw new InvalidOperationException("observer failed");
+        });
+
+        Assert.CatchAsync<Exception>(async () =>
+            await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task ThrowingRemovalObserversCannotSkipTabCleanup()
+    {
+        var context = new BlockingEditorContext(blockDispose: false);
+        var tab = new EditorTabItem(context);
+        var service = new EditorService(new ExtensionProvider());
+        service.AddTabItem(tab);
+        service.SelectedTabItem.Value = tab;
+        ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, _) =>
+            throw new InvalidOperationException("collection observer failed");
+        using IDisposable selected = service.SelectedTabItem.Subscribe(value =>
+        {
+            if (value is null)
+                throw new InvalidOperationException("selection observer failed");
+        });
+
+        Assert.CatchAsync<Exception>(async () =>
+            await service.CloseTabItem(tab).AsTask().WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.TabItems, Is.Empty);
+            Assert.That(service.SelectedTabItem.Value, Is.Null);
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
         });
     }
 
@@ -114,7 +423,7 @@ public sealed class EditorTabItemLifetimeTests
         });
     }
 
-    private sealed class BlockingEditorContext : IEditorContext
+    private class BlockingEditorContext : IEditorContext
     {
         private readonly bool _blockDispose;
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -128,7 +437,7 @@ public sealed class EditorTabItemLifetimeTests
 
         public TaskCompletionSource Disposed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public int DisposeCount { get; private set; }
+        public int DisposeCount { get; protected set; }
 
         public Func<ValueTask>? OnDispose { get; set; }
 
@@ -140,7 +449,7 @@ public sealed class EditorTabItemLifetimeTests
 
         public IKnownEditorCommands? Commands => null;
 
-        public async ValueTask DisposeAsync()
+        public virtual async ValueTask DisposeAsync()
         {
             DisposeCount++;
             DisposeStarted.TrySetResult();
@@ -166,6 +475,25 @@ public sealed class EditorTabItemLifetimeTests
         }
 
         public object? GetService(Type serviceType) => null;
+    }
+
+    private sealed class ThrowingEditorContext : BlockingEditorContext
+    {
+        private bool _throw = true;
+
+        public override async ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            DisposeStarted.TrySetResult();
+            if (!_throw)
+            {
+                Disposed.TrySetResult();
+                return;
+            }
+            _throw = false;
+            await Task.Yield();
+            throw new InvalidOperationException("dispose failed");
+        }
     }
 
     private sealed class TestEditorExtension : EditorExtension
