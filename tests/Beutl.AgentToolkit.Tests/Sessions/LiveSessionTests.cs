@@ -124,6 +124,23 @@ public sealed class LiveSessionTests
             InvokeCount++;
             action();
         }
+
+        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+            Func<HistoryManager, bool> shouldPause,
+            Func<HistoryManager, TResult> operation,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TResult result = default!;
+            Invoke(() =>
+            {
+                HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
+                _ = shouldPause(activeHistory);
+                activeHistory.FlushPendingMutations();
+                result = operation(activeHistory);
+            });
+            return ValueTask.FromResult(result);
+        }
     }
 
     private sealed class MutableFakeLiveBinding : ILiveSessionBinding
@@ -143,6 +160,18 @@ public sealed class LiveSessionTests
         public bool IsAlive => Alive && ActiveScene is not null && ActiveHistory is not null;
 
         public void Invoke(Action action) => action();
+
+        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+            Func<HistoryManager, bool> shouldPause,
+            Func<HistoryManager, TResult> operation,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
+            _ = shouldPause(activeHistory);
+            activeHistory.FlushPendingMutations();
+            return ValueTask.FromResult(operation(activeHistory));
+        }
     }
 
     private sealed class GuardedFakeLiveBinding(Scene? scene, HistoryManager? history) : ILiveSessionBinding
@@ -189,6 +218,23 @@ public sealed class LiveSessionTests
             {
                 _insideInvoke = false;
             }
+        }
+
+        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+            Func<HistoryManager, bool> shouldPause,
+            Func<HistoryManager, TResult> operation,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TResult result = default!;
+            Invoke(() =>
+            {
+                HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
+                _ = shouldPause(activeHistory);
+                activeHistory.FlushPendingMutations();
+                result = operation(activeHistory);
+            });
+            return ValueTask.FromResult(result);
         }
 
         private void EnsureDispatched()

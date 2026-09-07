@@ -171,7 +171,7 @@ Revert the most recent edit transactions on the active session, newest first.
 - **Input**: `{ "steps"?: number }` — clamped to `1..50`; stops early when the undo stack empties.
 - **Output**: `{ "applied": [ { "id": string, "name": string|null } ], "canUndo": bool, "canRedo": bool, "undoCount": number, "redoCount": number, "nextUndo": entry|null, "nextRedo": entry|null, "message": string }`.
 - **Use when**: an experiment should be backed out. Restoring prior state exactly beats authoring a compensating patch, which has to reconstruct it by hand.
-- **Notes**: every `apply_edit` / `duplicate_object` / `group_elements` mutation is one transaction. Pending debounced editor edits are flushed before the stack is inspected, so a transaction in flight is not missed. In a LiveEditor session the stack is the editor's own, so a step can revert a human's edit — call `read_history` immediately before `undo` and inspect that response's `nextUndo` when that matters. The `undo` response's `applied` list names what was reverted; its `nextUndo` is the transaction that remains next. File-backed sessions still need `save_project` to persist the reverted state.
+- **Notes**: every `apply_edit` / `duplicate_object` / `group_elements` mutation is one transaction. Pending debounced editor edits are flushed before the stack is inspected, so a transaction in flight is not missed. In a LiveEditor session the shared editor history guard pauses and fully drains active preview playback before that flush or any undo/redo mutation; every requested step and the returned point-in-time snapshot run inside one guarded batch. An empty stack with no pending work does not stop playback. The stack is the editor's own, so a step can revert a human's edit — call `read_history` immediately before `undo` and inspect that response's `nextUndo` when that matters. The `undo` response's `applied` list names what was reverted; its `nextUndo` is the transaction that remains next. File-backed sessions still need `save_project` to persist the reverted state.
 - **Errors**: `no_active_editor_session`.
 
 ### `redo`
@@ -182,7 +182,7 @@ Re-apply transactions previously reverted by `undo`.
 - **Errors**: `no_active_editor_session`.
 
 ### `read_history`
-Report undo/redo depth and the next transaction in each direction without changing anything.
+Report undo/redo depth and the next transaction in each direction without undoing or redoing; pending editor work is flushed first so the reported stack is current.
 - **Input**: `{}`.
 - **Output**: same shape as `undo`, with `applied` empty.
 - **Use when**: before `undo`, to see what a step would revert.
