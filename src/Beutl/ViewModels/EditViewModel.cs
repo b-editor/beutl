@@ -65,6 +65,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private bool _proxyInvalidationScheduled;
     private volatile bool _disposed;
 
+    internal bool IsDisposingOrDisposed => _disposed;
+
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
         ArgumentNullException.ThrowIfNull(scene);

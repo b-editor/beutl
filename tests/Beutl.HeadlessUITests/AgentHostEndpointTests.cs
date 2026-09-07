@@ -1,13 +1,16 @@
 ﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Reflection;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -15,6 +18,110 @@ namespace Beutl.HeadlessUITests;
 
 public sealed class AgentHostEndpointTests
 {
+    [AvaloniaTest]
+    public async Task Live_session_rejects_mutations_while_the_editor_is_disabled()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "agent-live-disabled-editor");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "live",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var binding = new EditViewModelLiveBinding(editor);
+            var source = new LiveSessionSource();
+            LiveEditingSession session = source.Attach(binding);
+            int invocations = 0;
+
+            Assert.That(session.ProbeIsAlive(), Is.True);
+
+            editor.IsEnabled.Value = false;
+            try
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(binding.IsAlive, Is.False);
+                    Assert.That(source.CurrentSession, Is.Null);
+                    Assert.Throws<SessionUnavailableException>(
+                        () => session.Invoke(() => invocations++));
+                    Assert.That(invocations, Is.Zero);
+                });
+            }
+            finally
+            {
+                editor.IsEnabled.Value = true;
+            }
+
+            session.Invoke(() => invocations++);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(binding.IsAlive, Is.True);
+                Assert.That(source.CurrentSession, Is.SameAs(session));
+                Assert.That(invocations, Is.EqualTo(1));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Live_session_reports_unavailable_as_soon_as_editor_disposal_starts()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "agent-live-disposed-editor-state");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "live",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var binding = new EditViewModelLiveBinding(editor);
+            var source = new LiveSessionSource();
+            LiveEditingSession session = source.Attach(binding);
+
+            FieldInfo disposed = typeof(EditViewModel).GetField(
+                "_disposed",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            disposed.SetValue(editor, true);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Scene, Is.Not.Null);
+                Assert.That(binding.IsAlive, Is.False);
+                Assert.That(source.CurrentSession, Is.Null);
+                Assert.Throws<SessionUnavailableException>(() => session.Invoke(static () => { }));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     [AvaloniaTest]
     public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
     {

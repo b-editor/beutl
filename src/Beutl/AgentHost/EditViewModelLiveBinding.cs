@@ -12,7 +12,31 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel) : ILiv
 
     public HistoryManager? ActiveHistory => editViewModel.HistoryManager;
 
-    public bool IsAlive => editViewModel.Scene is not null;
+    // Host-controlled transitions disable the editor before closing or replacing its scene. An
+    // accepted mutation in that window would only reach stale in-memory state, so the session is
+    // unavailable for exactly as long as the editor is disabled.
+    public bool IsAlive
+    {
+        get
+        {
+            if (editViewModel.Scene is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return editViewModel.IsEnabled.Value
+                       && !editViewModel.IsDisposingOrDisposed;
+            }
+            catch (ObjectDisposedException)
+            {
+                // Disposal tears down reactive properties before clearing Scene. Treat that short
+                // interval as unavailable instead of leaking the implementation exception.
+                return false;
+            }
+        }
+    }
 
     public void Invoke(Action action)
     {
