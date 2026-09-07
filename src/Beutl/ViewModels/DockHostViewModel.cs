@@ -26,6 +26,9 @@ internal class DockHostViewModel : IAsyncDisposable
     private bool _layoutTransitioning;
     private readonly Dictionary<IToolContext, ToolDisposalRegistration> _toolDisposals =
         new(ReferenceEqualityComparer.Instance);
+    private readonly ToolContextHostToken _toolHostToken = new();
+    private readonly Dictionary<IToolContext, ToolContextOwnershipLease> _toolOwnershipLeases =
+        new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<IToolContext> _deferredOwnerCloses =
         new(ReferenceEqualityComparer.Instance);
     private readonly ConditionalWeakTable<IToolContext, object> _disposedToolContexts = new();
@@ -132,17 +135,22 @@ internal class DockHostViewModel : IAsyncDisposable
         {
             if (!ToolContextDisposal.IsCurrent(item) && !alreadyDisposed)
             {
-                Task deferred = hostedOrRegistered
-                    ? CloseToolTabAsync(item)
-                    : DisposeContextOnceAsync(item);
-                _ = deferred.ContinueWith(
-                    t => _logger.LogWarning(
-                        t.Exception,
-                        "Deferred reentrant tool disposal failed ({SceneId})",
-                        _sceneId),
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
+                if (hostedOrRegistered)
+                {
+                    Task deferred = CloseToolTabAsync(item);
+                    _ = deferred.ContinueWith(
+                        t => _logger.LogWarning(
+                            t.Exception,
+                            "Deferred reentrant tool disposal failed ({SceneId})",
+                            _sceneId),
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
+                }
+                else
+                {
+                    await DisposeContextOnceAsync(item);
+                }
             }
             return false;
         }
@@ -163,6 +171,8 @@ internal class DockHostViewModel : IAsyncDisposable
                     || _disposedToolContexts.TryGetValue(item, out _))
                     return false;
             }
+            if (!TryAcquireToolContext(item))
+                return false;
             EnsureDefaultLayout();
 
             var existing = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
@@ -188,6 +198,8 @@ internal class DockHostViewModel : IAsyncDisposable
             try
             {
                 dockable = Factory.AddTool(item, target);
+                if (dockable is not null)
+                    dockable.ContextDisposed = OnUntrackedDockableContextDisposed;
             }
             catch
             {
@@ -284,12 +296,6 @@ internal class DockHostViewModel : IAsyncDisposable
                         disposal = PrepareDockableDisposal(dockable);
                         Factory.DetachDockable(dockable);
                         _layoutEpoch++;
-                    }
-                    else
-                    {
-                        disposal = PrepareContextDisposal(
-                            item,
-                            () => ToolContextDisposal.DisposeAsync(item));
                     }
                 }
                 catch (Exception ex)
@@ -1354,6 +1360,9 @@ internal class DockHostViewModel : IAsyncDisposable
         IToolContext context,
         Func<ValueTask> dispose)
     {
+        if (!TryAcquireToolContext(context))
+            return ToolDisposalRegistration.Completed;
+
         lock (_disposeGate)
         {
             if (_toolDisposals.TryGetValue(context, out ToolDisposalRegistration? existing))
@@ -1394,12 +1403,48 @@ internal class DockHostViewModel : IAsyncDisposable
 
     private void OnDisposalCompleted(IToolContext context, ToolDisposalRegistration registration)
     {
+        ToolContextOwnershipLease? ownershipLease = null;
         lock (_disposeGate)
         {
             if (ReferenceEquals(_toolDisposals.GetValueOrDefault(context), registration))
                 _toolDisposals.Remove(context);
             _disposedToolContexts.GetValue(context, static _ => new object());
             _pendingDockableDisposals.Remove(registration.Completion.Task);
+            if (_toolOwnershipLeases.Remove(context, out ToolContextOwnershipLease? lease))
+                ownershipLease = lease;
+        }
+        ownershipLease?.Dispose();
+    }
+
+    private void OnUntrackedDockableContextDisposed(IToolContext context)
+    {
+        ToolContextOwnershipLease? ownershipLease = null;
+        lock (_disposeGate)
+        {
+            if (_toolDisposals.ContainsKey(context))
+                return;
+
+            _disposedToolContexts.GetValue(context, static _ => new object());
+            if (_toolOwnershipLeases.Remove(context, out ToolContextOwnershipLease? lease))
+                ownershipLease = lease;
+        }
+        ownershipLease?.Dispose();
+    }
+
+    private bool TryAcquireToolContext(IToolContext context)
+    {
+        lock (_disposeGate)
+        {
+            if (_toolOwnershipLeases.ContainsKey(context))
+                return true;
+            if (_disposedToolContexts.TryGetValue(context, out _))
+                return false;
+
+            if (!_toolHostToken.TryAcquireContext(context, out ToolContextOwnershipLease? lease))
+                return false;
+
+            _toolOwnershipLeases.Add(context, lease);
+            return true;
         }
     }
 
@@ -1763,6 +1808,9 @@ internal class DockHostViewModel : IAsyncDisposable
             return null;
         }
 
+        if (!TryAcquireToolContext(ctx))
+            return null;
+
         BeutlToolDockable? dockable = null;
         try
         {
@@ -1789,6 +1837,7 @@ internal class DockHostViewModel : IAsyncDisposable
             }
 
             dockable = new BeutlToolDockable(ctx, _editViewModel);
+            dockable.ContextDisposed = OnUntrackedDockableContextDisposed;
             // Registered before anything that can throw — including the id parse just below — so a
             // failure anywhere after construction can still dispose it.
             _restoredTools?.Add(dockable);

@@ -42,6 +42,7 @@ public sealed class SampleToolTabExtension : ToolTabExtension
     {
         // Number each instance because CanMultiple is enabled.
         private static int s_lastInstanceNumber;
+        private int _disposed;
 
         public ToolTabExtension Extension { get; } = extension;
 
@@ -52,6 +53,11 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
         public ValueTask DisposeAsync()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return ValueTask.CompletedTask;
+
+            IsSelected.Dispose();
+            (Header as IDisposable)?.Dispose();
             return ValueTask.CompletedTask;
         }
 

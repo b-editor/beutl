@@ -29,7 +29,10 @@ public class TitleBreadcrumbBarViewModel
     // SelectedTabItem
     public ICoreReadOnlyList<EditorTabItem> TabItems => _editorService.TabItems;
 
-    public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
+    public IReadOnlyReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
+
+    public bool ActivateTabItem(EditorTabItem item)
+        => _editorService.ActivateTabItem(item);
 
     public AsyncReactiveCommand OpenFile => _viewModel.MenuBar.OpenFile;
 

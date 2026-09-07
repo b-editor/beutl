@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Beutl.Api.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -36,7 +37,7 @@ public class ToolTabHeaderTests
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
@@ -477,6 +478,10 @@ public class ToolTabHeaderTests
         outgoing.OnDispose = async () =>
         {
             Assert.That(await editor.OpenToolTabAsync(fresh), Is.False);
+            Assert.That(
+                fresh.DisposeCount,
+                Is.EqualTo(1),
+                "A rejected fresh context must finish disposal before OpenToolTabAsync returns.");
         };
 
         await editor.DockHost.ResetLayoutAsync().WaitAsync(TimeSpan.FromSeconds(5));
@@ -484,6 +489,36 @@ public class ToolTabHeaderTests
         Assert.That(fresh.DisposeCount, Is.EqualTo(1));
         Assert.That(editor.DockHost.Factory.EnumerateTools(), Does.Not.Contain(
             Has.Property(nameof(BeutlToolDockable.ToolContext)).SameAs(fresh)));
+    }
+
+    [AvaloniaTest]
+    public async Task ToolContextCannotBeOpenedOrClosedByAnotherEditorHost()
+    {
+        await TestReset.ResetShellAsync();
+        var firstService = new EditorService(new ExtensionProvider());
+        var secondService = new EditorService(new ExtensionProvider());
+        var firstScene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "first-tool-host.scene"))
+        };
+        var secondScene = new Scene(16, 16, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(Path.GetTempPath(), "second-tool-host.scene"))
+        };
+        await using var firstEditor = new EditViewModel(firstScene, firstService, firstService);
+        await using var secondEditor = new EditViewModel(secondScene, secondService, secondService);
+        var context = new FakeToolContext("exclusive-tool");
+
+        Assert.That(await firstEditor.OpenToolTabAsync(context), Is.True);
+        Assert.That(await secondEditor.OpenToolTabAsync(context), Is.False);
+        Assert.That(context.DisposeCount, Is.Zero);
+
+        await secondEditor.CloseToolTabAsync(context);
+        Assert.That(context.DisposeCount, Is.Zero);
+        Assert.That(firstEditor.FindToolTab<FakeToolContext>(), Is.SameAs(context));
+
+        await firstEditor.CloseToolTabAsync(context);
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
     }
 
     [AvaloniaTest]
@@ -889,10 +924,10 @@ public class ToolTabHeaderTests
         {
             Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, "replacement-admission.scene"))
         };
-        Assert.That(SceneEditorExtension.Instance.TryCreateContext(
+        IEditorContext? replacementContext = await SceneEditorExtension.Instance.CreateContextAsync(
             replacementScene,
-            new EditorContextServices(TestShell.Editor, owner.ExtensionProvider),
-            out IEditorContext? replacementContext), Is.True);
+            new EditorContextServices(TestShell.Editor, owner.ExtensionProvider));
+        Assert.That(replacementContext, Is.Not.Null);
         var replacement = (EditViewModel)replacementContext!;
         var oldBlocking = new BlockingEditorContext(entered, release, TestShell.Editor);
         var blockingTab = new EditorTabItem(oldBlocking);

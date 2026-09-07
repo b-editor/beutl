@@ -59,4 +59,18 @@ public partial class TitleBreadcrumbBar : UserControl
             flyout.Hide();
         }
     }
+
+    private void OnSelectedTabItemChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ListBox listBox
+            || listBox.SelectedItem is not EditorTabItem item
+            || DataContext is not TitleBreadcrumbBarViewModel viewModel
+            || ReferenceEquals(viewModel.SelectedTabItem.Value, item))
+        {
+            return;
+        }
+
+        if (!viewModel.ActivateTabItem(item))
+            listBox.SelectedItem = viewModel.SelectedTabItem.Value;
+    }
 }

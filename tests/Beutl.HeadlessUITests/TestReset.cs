@@ -34,7 +34,6 @@ internal static class TestReset
     // blocking the UI thread on it would deadlock against playback callbacks posted to the dispatcher.
     private static async Task DisposeOpenEditorTabsAsync()
     {
-        TestShell.Editor.SelectedTabItem.Value = null;
         foreach (EditorTabItem tab in TestShell.Editor.TabItems.ToArray())
         {
             await TestShell.Editor.CloseTabItem(tab);

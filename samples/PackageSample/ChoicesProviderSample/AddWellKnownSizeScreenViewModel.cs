@@ -5,8 +5,10 @@ using Reactive.Bindings;
 
 namespace PackageSample;
 
-public sealed class AddWellKnownSizeScreenViewModel
+public sealed class AddWellKnownSizeScreenViewModel : IDisposable
 {
+    private int _disposed;
+
     public AddWellKnownSizeScreenViewModel()
     {
         Name.SetValidateAttribute(() => Name);
@@ -38,5 +40,16 @@ public sealed class AddWellKnownSizeScreenViewModel
         Name.Value = string.Empty;
         Width.Value = 0;
         Height.Value = 0;
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
+        Add.Dispose();
+        Name.Dispose();
+        Width.Dispose();
+        Height.Dispose();
     }
 }

@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -13,6 +14,54 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class EditorTabItemLifetimeTests
 {
+    [Test]
+    public async Task PublicSelectionSurfaceOnlyActivatesPublishedHostTabs()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        var owned = new EditorTabItem(
+            new BlockingEditorContext(blockDispose: false, closeService: service));
+        var foreign = new EditorTabItem(
+            new BlockingEditorContext(blockDispose: false, closeService: service));
+        IReadOnlyReactiveProperty<EditorTabItem?> selectedTab = service.SelectedTabItem;
+        IReadOnlyReactiveProperty<bool> selectedState = owned.IsSelected;
+        NotifyCollectionChangedEventArgs? collectionChange = null;
+        object? collectionSender = null;
+        service.TabItems.CollectionChanged += (sender, args) =>
+        {
+            collectionSender = sender;
+            collectionChange = args;
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                typeof(EditorTabItem).GetConstructors(),
+                Is.Empty,
+                "Only EditorService may construct and claim editor tabs for publication.");
+            Assert.That(service.TabItems, Is.Not.InstanceOf<ICoreList<EditorTabItem>>());
+            Assert.That(selectedTab, Is.Not.InstanceOf<IReactiveProperty<EditorTabItem?>>());
+            Assert.That(owned.Context, Is.Not.InstanceOf<IReactiveProperty<IEditorContext?>>());
+            Assert.That(selectedState, Is.Not.InstanceOf<IReactiveProperty<bool>>());
+        });
+        Assert.That(service.TryAddTabItem(owned), Is.True);
+        Assert.That(collectionChange?.Action, Is.EqualTo(NotifyCollectionChangedAction.Add));
+        Assert.That(collectionSender, Is.SameAs(service.TabItems));
+        Assert.That(collectionSender, Is.Not.InstanceOf<ICoreList<EditorTabItem>>());
+        Assert.That(service.ActivateTabItem(foreign), Is.False);
+        Assert.That(selectedTab.Value, Is.Null);
+        Assert.That(selectedState.Value, Is.False);
+
+        Assert.That(service.ActivateTabItem(owned), Is.True);
+        Assert.That(selectedTab.Value, Is.SameAs(owned));
+        Assert.That(selectedState.Value, Is.True);
+
+        await service.CloseTabItem(owned).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.ActivateTabItem(owned), Is.False);
+        Assert.That(selectedTab.Value, Is.Null);
+        Assert.That(selectedState.Value, Is.False);
+        await foreign.DisposeAsync();
+    }
+
     [Test]
     public async Task EditorContextOwnershipLeaseIsExclusiveAndGenerationSafe()
     {
@@ -106,7 +155,7 @@ public sealed class EditorTabItemLifetimeTests
         var service = new EditorService(new ExtensionProvider());
         var tab = new EditorTabItem(new BlockingEditorContext(blockDispose: false, closeService: service));
         service.AddTabItem(tab);
-        service.SelectedTabItem.Value = tab;
+        Assert.That(service.ActivateTabItem(tab), Is.True);
         await service.ClearTabItemsAsync();
 
         Assert.That(service.SelectedTabItem.Value, Is.Null);
@@ -182,7 +231,7 @@ public sealed class EditorTabItemLifetimeTests
         var context = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(context);
         service.AddTabItem(tab);
-        service.SelectedTabItem.Value = tab;
+        Assert.That(service.ActivateTabItem(tab), Is.True);
 
         await tab.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -399,7 +448,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-foreign-token.activation"))
         };
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
 
         BlockingEditorContext context = await extension.CreatedContext.Task
             .WaitAsync(TimeSpan.FromSeconds(5));
@@ -442,7 +491,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-immediate-fault.activation"))
         };
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
         Assert.That(context.DisposeStarted.Task.IsCompleted, Is.True);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
@@ -465,7 +514,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-delayed-fault.activation"))
         };
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
         await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Task drain = service.ClearTabItemsAsync().AsTask();
         Assert.That(drain.IsCompleted, Is.False);
@@ -493,7 +542,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-success.activation"))
         };
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
         await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -521,7 +570,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-post-await.activation"))
         };
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
         await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await service.ClearTabItemsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(context.DisposeCount, Is.EqualTo(1));
@@ -1109,7 +1158,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-host-fault.activation"))
         };
 
-        Assert.Throws<InvalidOperationException>(() => service.ActivateTabItem(scene));
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ActivateTabItemAsync(scene));
         await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Exception? failure = null;
@@ -1147,7 +1196,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-throw.activation-fault"))
         };
 
-        Assert.Throws<InvalidOperationException>(() => service.ActivateTabItem(scene));
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ActivateTabItemAsync(scene));
 
         BlockingEditorContext context = await extension.CreatedContext.Task
             .WaitAsync(TimeSpan.FromSeconds(5));
@@ -1185,7 +1234,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-host-token.activation-fault"))
         };
 
-        Assert.Throws<InvalidOperationException>(() => service.ActivateTabItem(scene));
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ActivateTabItemAsync(scene));
 
         BlockingEditorContext context = await extension.CreatedContext.Task
             .WaitAsync(TimeSpan.FromSeconds(5));
@@ -1212,7 +1261,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-reentrant.operation"))
         };
 
-        Task activation = Task.Run(() => service.ActivateTabItem(scene));
+        Task activation = Task.Run(() => service.ActivateTabItemAsync(scene));
         InvalidOperationException? failure = Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await activation.WaitAsync(TimeSpan.FromSeconds(5)));
 
@@ -1244,7 +1293,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-same-owned.activation"))
         };
 
-        service.ActivateTabItem(activationScene);
+        await service.ActivateTabItemAsync(activationScene);
 
         Assert.Multiple(() =>
         {
@@ -1278,7 +1327,7 @@ public sealed class EditorTabItemLifetimeTests
             Uri = new Uri(Path.Combine(Path.GetTempPath(), "activation-foreign-owned.activation"))
         };
 
-        service.ActivateTabItem(activationScene);
+        await service.ActivateTabItemAsync(activationScene);
 
         Assert.Multiple(() =>
         {
@@ -2195,7 +2244,7 @@ public sealed class EditorTabItemLifetimeTests
                 close = service.RequestClose(context);
         });
 
-        await Task.Run(() => service.ActivateTabItem(scene))
+        await Task.Run(() => service.ActivateTabItemAsync(scene))
             .WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(close.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
         await close.Completion.WaitAsync(TimeSpan.FromSeconds(5));
@@ -2224,7 +2273,7 @@ public sealed class EditorTabItemLifetimeTests
                 close = service.RequestClose(context);
         });
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
         Assert.That(close.Status, Is.EqualTo(EditorContextCloseRequestStatus.Accepted));
         await close.Completion.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
@@ -2259,7 +2308,7 @@ public sealed class EditorTabItemLifetimeTests
             }
         });
 
-        service.ActivateTabItem(scene);
+        await service.ActivateTabItemAsync(scene);
         Assert.That(delayedClose, Is.Not.Null);
         releaseChild.TrySetResult();
         await context.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -2294,7 +2343,7 @@ public sealed class EditorTabItemLifetimeTests
             }
         });
 
-        await Task.Run(() => service.ActivateTabItem(scene))
+        await Task.Run(() => service.ActivateTabItemAsync(scene))
             .WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
@@ -2320,7 +2369,7 @@ public sealed class EditorTabItemLifetimeTests
             var context = new GatedEditorContext(scene, service);
             var tab = new EditorTabItem(context);
             service.AddTabItem(tab);
-            service.SelectedTabItem.Value = tab;
+            Assert.That(service.ActivateTabItem(tab), Is.True);
             context.PauseNextPublication();
 
             ((System.Collections.Specialized.INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, args) =>
@@ -2332,7 +2381,7 @@ public sealed class EditorTabItemLifetimeTests
                 }
             };
 
-            Task activate = Task.Run(() => service.ActivateTabItem(scene));
+            Task activate = Task.Run(() => service.ActivateTabItemAsync(scene));
             await context.PublicationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Task<bool> remove = Task.Run(async () => await service.RemoveTabItemAsync(tab));
             context.ReleasePublication();
@@ -2818,7 +2867,7 @@ public sealed class EditorTabItemLifetimeTests
         var oldContext = new ThrowingEditorContext(service);
         var tab = new EditorTabItem(oldContext);
         service.AddTabItem(tab);
-        service.SelectedTabItem.Value = tab;
+        Assert.That(service.ActivateTabItem(tab), Is.True);
         var replacement = new BlockingEditorContext(blockDispose: false, closeService: service);
         var values = new List<IEditorContext?>();
         using IDisposable subscription = tab.Context.Subscribe(values.Add);
@@ -2846,7 +2895,7 @@ public sealed class EditorTabItemLifetimeTests
         };
         var tab = new EditorTabItem(oldContext);
         service.AddTabItem(tab);
-        service.SelectedTabItem.Value = tab;
+        Assert.That(service.ActivateTabItem(tab), Is.True);
 
         Task replacement = tab.ReplaceContextAsync(new BlockingEditorContext(blockDispose: false, closeService: service)).AsTask();
         await oldContext.DisposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -3178,7 +3227,7 @@ public sealed class EditorTabItemLifetimeTests
         var context = new BlockingEditorContext(blockDispose: false, closeService: service);
         var tab = new EditorTabItem(context);
         service.AddTabItem(tab);
-        service.SelectedTabItem.Value = tab;
+        Assert.That(service.ActivateTabItem(tab), Is.True);
         ((INotifyCollectionChanged)service.TabItems).CollectionChanged += (_, _) =>
             throw new InvalidOperationException("collection observer failed");
         using IDisposable selected = service.SelectedTabItem.Subscribe(value =>
@@ -3403,14 +3452,10 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
-        {
-            context = null;
-            return false;
-        }
+            IEditorContextServices services)
+            => ValueTask.FromResult<IEditorContext?>(null);
     }
 
     private sealed class HostMediatedReplacementExtension(bool throwOnHostToken = false) : EditorExtension
@@ -3433,18 +3478,16 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             CreationCount++;
             IEditorContextCloseService closeService = throwOnHostToken
                 ? new ThrowingHostTokenCloseService()
                 : services.CloseService;
             CreatedContext = new BlockingEditorContext(blockDispose: false, obj, closeService);
-            context = CreatedContext;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(CreatedContext);
         }
     }
 
@@ -3464,13 +3507,11 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
-            context = existingContext;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(existingContext);
         }
     }
 
@@ -3493,14 +3534,12 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => true;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             CreationCount++;
-            context = existingContext;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(existingContext);
         }
     }
 
@@ -3521,13 +3560,11 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => true;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
-            context = suppliedContext;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(suppliedContext);
         }
     }
 
@@ -3627,13 +3664,11 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => ext == fileExtension;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? result)
+            IEditorContextServices services)
         {
-            result = context;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(context);
         }
     }
 
@@ -3780,18 +3815,16 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => ext == ".activation-fault";
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             var created = new BlockingEditorContext(
                 blockDispose: false,
                 obj,
                 new ThrowingHostTokenCloseService());
             CreatedContext.TrySetResult(created);
-            context = created;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(created);
         }
     }
 
@@ -3824,10 +3857,9 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             CreatedContext = new BlockingEditorContext(
                 blockDispose: false,
@@ -3835,8 +3867,7 @@ public sealed class EditorTabItemLifetimeTests
                 new ForwardingCloseService(service));
             CreatedTab = new EditorTabItem(CreatedContext);
             service.AddTabItem(CreatedTab);
-            context = CreatedContext;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(CreatedContext);
         }
     }
 
@@ -3872,16 +3903,14 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override async ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             Entered.TrySetResult();
-            Release.Task.GetAwaiter().GetResult();
+            await Release.Task;
             CreatedContext = new BlockingEditorContext(blockDispose: false, obj, services.CloseService);
-            context = CreatedContext;
-            return true;
+            return CreatedContext;
         }
     }
 
@@ -3907,24 +3936,20 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => matchFileExtension;
 
-        public override bool TryCreateContext(
+        public override async ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             CreationCount++;
             if (useWorker)
             {
-                Task.Run(() => service.ClearTabItemsAsync().AsTask())
-                    .GetAwaiter()
-                    .GetResult();
+                await Task.Run(() => service.ClearTabItemsAsync().AsTask());
             }
             else
             {
-                service.ClearTabItemsAsync().AsTask().GetAwaiter().GetResult();
+                await service.ClearTabItemsAsync();
             }
-            context = null;
-            return false;
+            return null;
         }
     }
 
@@ -3950,18 +3975,16 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             Reconciliation = Task.Run(async () =>
             {
                 await Release.Task;
                 await service.ClearTabItemsAsync();
             });
-            context = null;
-            return false;
+            return ValueTask.FromResult<IEditorContext?>(null);
         }
     }
 
@@ -3986,15 +4009,13 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             TaskCompletionSource release = Release;
             Child = Task.Run(async () => await release.Task);
-            context = null;
-            return false;
+            return ValueTask.FromResult<IEditorContext?>(null);
         }
     }
 
@@ -4017,14 +4038,12 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override async ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
-            service.ReplaceContextAsync(tab, nestedExtension).AsTask().GetAwaiter().GetResult();
-            context = null;
-            return false;
+            await service.ReplaceContextAsync(tab, nestedExtension);
+            return null;
         }
     }
 
@@ -4049,15 +4068,13 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => ext == ".activation";
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             var created = new BlockingEditorContext(blockDispose, obj, foreignHost);
             CreatedContext.TrySetResult(created);
-            context = created;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(created);
         }
     }
 
@@ -4082,15 +4099,13 @@ public sealed class EditorTabItemLifetimeTests
 
         public override bool MatchFileExtension(string ext) => ext == ".activation-fault";
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             var created = new BlockingEditorContext(blockDispose, obj, host);
             CreatedContext.TrySetResult(created);
-            context = created;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(created);
         }
     }
 }

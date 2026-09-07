@@ -9,14 +9,23 @@ the public extension contract in `Beutl.Extensibility`.
 `IToolContext` implements `IAsyncDisposable` instead of `IDisposable`. Replace
 `Dispose()` with `ValueTask DisposeAsync()` and put every subscription, native
 resource, and in-flight operation behind that one completion boundary. A host
-call to `OpenToolTabAsync` consumes the supplied context even when it returns
-`false`; an extension must not dispose or reuse it afterward.
+call to `OpenToolTabAsync` consumes a fresh supplied context even when it returns
+`false`; a context already claimed by another host remains with its owner. In either case, the
+caller must not dispose or reuse it afterward.
 
 `CloseToolTabAsync` normally completes after the target tool is disposed. When
 it is called from inside an `IToolContext.DisposeAsync` callback, the host only
 schedules the sibling close and returns to avoid mutual-disposal cycles. The
 enclosing layout/editor teardown still joins all scheduled tool disposals before
 it releases editor resources.
+
+Independent tool hosts must own a stable `ToolContextHostToken`. Call
+`TryAcquireContext` before publishing a tool and retain the returned
+`ToolContextOwnershipLease` until the tool has been unpublished and its asynchronous teardown has
+completed. Claims are process-wide: an open request for a tool already owned by another editor
+returns `false` without disposing the owner's live instance, and a foreign close request is a
+no-op. A rejected fresh context is still consumed and fully disposed before `OpenToolTabAsync`
+returns.
 
 ```csharp
 public ValueTask DisposeAsync()
@@ -39,7 +48,7 @@ synchronous wrapper or blocking with `GetAwaiter().GetResult()`.
 
 Host publication and dispatcher callbacks must not synchronously wait for
 `DisposeAsync` or `EditorService.CloseTabItem`, because both retain terminal
-completion semantics. `TryCreateContext` must retain the close capability supplied
+completion semantics. `EditorExtension.CreateContextAsync` must retain the close capability supplied
 by `IEditorContextServices` and expose it through the required
 `IEditorContext.CloseService` property, either directly or through a
 context-specific wrapper. Request closure instead:
@@ -49,7 +58,12 @@ EditorContextCloseRequest request = CloseService.RequestClose(this);
 // Return from the callback. Observe request.Completion afterward if needed.
 ```
 
-`TryCreateContext`, publication observers, and disposal callbacks must not synchronously start and
+`EditorExtension.TryCreateContext` has been replaced by
+`ValueTask<IEditorContext?> CreateContextAsync(...)`. Return a newly created context to transfer
+ownership, or await cleanup of every partial resource before returning `null`. Opening a core
+object is correspondingly awaitable through `EditorService.ActivateTabItemAsync(CoreObject)`.
+
+`CreateContextAsync`, publication observers, and disposal callbacks must not synchronously start and
 wait for a project or editor lifecycle operation on the same or another thread. Queue the operation
 so it begins only after the callback returns. The host rejects detected causal reentry, but this is
 diagnostic protection rather than the contract: manually suppressing execution context or blocking
@@ -68,10 +82,10 @@ EditorContextCloseRequest request = editorContext.CloseService.RequestClose(edit
 but contexts must not expose a second `IEditorContextCloseService` lookup through
 `GetService`.
 
-A successful `TryCreateContext` transfers a new, non-null context to the host. The
+A non-null `CreateContextAsync` result transfers a new context to the host. The
 host disposes that context exactly once even when a subsequent attachment or
-publication step fails. A failed creation returns `false` with `context == null`
-and the extension is responsible for cleaning up partial state. A successful
+publication step fails. A failed creation returns `null` only after the extension has finished
+asynchronous cleanup of partial state. A successful
 factory result must be a newly created, unowned context; returning a context that
 is already active in a tab violates the ownership contract.
 
@@ -120,11 +134,21 @@ Dock layout application and reset are asynchronous for the same reason. Await
 the operation so outgoing tools finish teardown before replacement tools begin
 using the editor.
 
+`MainViewModel` now implements `IAsyncDisposable`; hosts that own the application composition root
+should await `DisposeAsync`. The inherited synchronous `Dispose` starts the same idempotent terminal
+task for UI lifetime callbacks, but does not provide a completion boundary by itself.
+
 The host-owned editor collections are now read-only to consumers:
 
 - `EditorTabItem.Context` is `IReadOnlyReactiveProperty<IEditorContext?>`; it is `null` while
-  replacement or terminal disposal is in progress, so callers must use a null-safe fallback.
-- `EditorService.TabItems` is `ICoreReadOnlyList<EditorTabItem>`.
+  replacement or terminal disposal is in progress, so callers must use a null-safe fallback. The
+  returned object is a read-only projection and cannot be cast back to `IReactiveProperty`.
+- `EditorTabItem.IsSelected` and `EditorService.SelectedTabItem` are read-only reactive
+  projections. Request selection through `EditorService.ActivateTabItem(EditorTabItem)`, which
+  rejects tabs that are not currently owned and published by that host. The projections cannot be
+  cast back to `IReactiveProperty`.
+- `EditorService.TabItems` is an `ICoreReadOnlyList<EditorTabItem>` facade that forwards collection
+  notifications without exposing the mutable `ICoreList` implementation.
 
 Use `EditorService.ReplaceContextAsync(tab, extension)` to replace an editor
 context. The host creates the context with its own services, validates the tab
@@ -134,4 +158,6 @@ callers never dispose a context returned by this host-mediated overload. A tab
 that is unowned, still being attached, or belongs to another host returns
 `NotOwned` without changing either tab or registry. `EditorTabItem`'s raw
 context overload is host-internal. Add and remove tabs through `EditorService`;
-do not cast the read-only collections back to their concrete mutable implementations.
+the returned collection has no mutable implementation to cast back to.
+`EditorTabItem` construction is also host-internal; external editor hosts should define their
+own tab model and claim each context with `EditorContextHostToken` before publishing it.

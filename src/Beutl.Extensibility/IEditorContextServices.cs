@@ -3,7 +3,7 @@
 namespace Beutl.Extensibility;
 
 /// <summary>
-/// Host services supplied to <see cref="EditorExtension.TryCreateContext"/> so a created
+/// Host services supplied to <see cref="EditorExtension.CreateContextAsync"/> so a created
 /// <see cref="IEditorContext"/> can reach host capabilities. The host owns the instance and
 /// passes it in explicitly. Every successful context creation must retain
 /// <see cref="CloseService"/> and expose it, directly or through a context-specific wrapper,

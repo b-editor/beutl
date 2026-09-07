@@ -47,7 +47,7 @@ public class ShellSmokeTests
         HeadlessTestHelpers.Settle();
         Scene scene = project!.Items.OfType<Scene>().First();
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
 
         Assert.That(TestShell.Editor.TabItems, Is.Not.Empty);

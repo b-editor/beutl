@@ -329,17 +329,16 @@ public class CoreList<T> : ICoreList<T>
     {
         if (items.Length > 0)
         {
-            EnsureCapacity(Inner.Count + items.Length);
+            T[] snapshot = items.ToArray();
+            EnsureCapacity(Inner.Count + snapshot.Length);
 
-            ReadOnlySpan<T>.Enumerator en = items.GetEnumerator();
             int insertIndex = index;
-
-            while (en.MoveNext())
+            foreach (T item in snapshot)
             {
-                Inner.Insert(insertIndex++, en.Current);
+                Inner.Insert(insertIndex++, item);
             }
 
-            NotifyAdd(items, index);
+            NotifyAdd((IList)snapshot, index);
         }
     }
 
@@ -596,24 +595,6 @@ public class CoreList<T> : ICoreList<T>
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
-            CollectionChanged(this, e);
-        }
-
-        NotifyCountChanged();
-    }
-
-    private void NotifyAdd(ReadOnlySpan<T> t, int index)
-    {
-        for (int i = 0; i < t.Length; i++)
-        {
-            Attached?.Invoke(t[i]);
-        }
-
-        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-        if (CollectionChanged != null)
-        {
-            T[] items = t.ToArray();
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, items, index);
             CollectionChanged(this, e);
         }
 

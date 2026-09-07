@@ -17,7 +17,7 @@ public abstract class EditorExtension : ViewExtension
         [NotNullWhen(true)] out Control? editor);
 
     /// <summary>
-    /// Creates the editor context for <paramref name="obj"/>.
+    /// Asynchronously creates the editor context for <paramref name="obj"/>.
     /// </summary>
     /// <param name="obj">The object to open in the editor.</param>
     /// <param name="services">
@@ -29,26 +29,23 @@ public abstract class EditorExtension : ViewExtension
     /// attached to another editor host. The extension provider is available for querying other
     /// extensions.
     /// </param>
-    /// <param name="context">The created editor context, set when this returns <see langword="true"/>.</param>
     /// <returns>
-    /// <see langword="true"/> when a new, non-null context was created and ownership is transferred
-    /// to the host; otherwise <see langword="false"/> with <paramref name="context"/> set to
-    /// <see langword="null"/>.
+    /// A new context whose ownership is transferred to the host, or <see langword="null"/> after
+    /// all partial initialization state has been asynchronously cleaned up.
     /// </returns>
     /// <remarks>
     /// When a ProjectItem is needed here, obtain it from the ProjectItemContainer. Returning a
-    /// context without the supplied close capability violates the host ownership contract. After a
-    /// successful return, the host owns disposal exactly once, including when a later attachment or
+    /// context without the supplied close capability violates the host ownership contract. A
+    /// non-null return transfers disposal to the host exactly once, including when a later attachment or
     /// publication step fails. The returned context must be newly created and unowned; returning a
-    /// context that is already active in a tab violates the ownership contract. On failure, the
-    /// extension must dispose any partially initialized state and must not return a context.
+    /// context that is already active in a tab violates the ownership contract. Before returning
+    /// <see langword="null"/>, the extension must await disposal of any partially initialized state.
     /// Implementations must not synchronously start and wait for a project or editor lifecycle
     /// operation, on this thread or another; enqueue that work to begin after this callback returns.
     /// </remarks>
-    public abstract bool TryCreateContext(
+    public abstract ValueTask<IEditorContext?> CreateContextAsync(
         CoreObject obj,
-        IEditorContextServices services,
-        [NotNullWhen(true)] out IEditorContext? context);
+        IEditorContextServices services);
 
     public virtual bool IsSupported(string? file)
     {

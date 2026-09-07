@@ -391,7 +391,7 @@ public partial class MainView
             {
                 if (file.TryGetLocalPath() is { } path)
                 {
-                    viewModel.MenuBar.OpenFileCore(path);
+                    await viewModel.MenuBar.OpenFileCore(path);
                 }
             }
         }

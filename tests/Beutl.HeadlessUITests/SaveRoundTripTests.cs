@@ -32,7 +32,7 @@ public class SaveRoundTripTests
         string projectFile = project.Uri!.LocalPath;
         Scene scene = project.Items.OfType<Scene>().First();
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 
@@ -82,7 +82,7 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 

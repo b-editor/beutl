@@ -6,7 +6,7 @@ public interface IEditorContext : IAsyncDisposable, IServiceProvider
 {
     /// <summary>Gets the host close capability retained by this editor context.</summary>
     /// <remarks>
-    /// Every context returned from <see cref="EditorExtension.TryCreateContext"/> must expose
+    /// Every context returned from <see cref="EditorExtension.CreateContextAsync"/> must expose
     /// the capability supplied by <see cref="IEditorContextServices"/>, directly or through a
     /// context-specific wrapper. This property is the canonical close-capability access path;
     /// implementations must not duplicate it through <see cref="IServiceProvider.GetService"/>.
@@ -41,9 +41,13 @@ public interface IEditorContext : IAsyncDisposable, IServiceProvider
     /// <summary>Transfers ownership of a tool context to the editor host.</summary>
     /// <returns>
     /// <see langword="true"/> when the tab was opened or activated; otherwise
-    /// <see langword="false"/> after the supplied context has been disposed.
+    /// <see langword="false"/> after a fresh rejected context has been disposed. A context already
+    /// owned by another tool host remains live under that owner and is not consumed.
     /// </returns>
-    /// <remarks>The supplied context is consumed for both return values and must not be reused.</remarks>
+    /// <remarks>
+    /// The caller must not reuse or dispose the supplied context after either return value. On a
+    /// foreign-ownership rejection, the original host retains its existing ownership.
+    /// </remarks>
     ValueTask<bool> OpenToolTabAsync(IToolContext item);
 
     /// <summary>Closes a host-owned tool tab and completes after its asynchronous teardown has finished.</summary>

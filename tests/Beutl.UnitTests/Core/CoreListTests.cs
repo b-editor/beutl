@@ -44,13 +44,25 @@ public class CoreListTests
     {
         var list = new CoreList<int>();
         System.Collections.IList? published = null;
+        var attached = new List<int>();
         list.CollectionChanged += (_, e) => published = e.NewItems;
         int[] items = [10, 20, 30];
+        list.Attached += item =>
+        {
+            attached.Add(item);
+            if (item == 10)
+                items.AsSpan().Fill(-1);
+        };
 
         list.AddRange(items.AsSpan());
-        items.AsSpan().Fill(-1);
 
-        Assert.That(published, Is.EqualTo(new[] { 10, 20, 30 }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(list, Is.EqualTo(new[] { 10, 20, 30 }));
+            Assert.That(attached, Is.EqualTo(new[] { 10, 20, 30 }));
+            Assert.That(published, Is.EqualTo(new[] { 10, 20, 30 }));
+            Assert.That(items, Is.All.EqualTo(-1));
+        });
     }
 
     [Test]

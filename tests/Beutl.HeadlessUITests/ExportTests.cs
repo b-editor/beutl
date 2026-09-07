@@ -158,7 +158,7 @@ public class ExportTests
         Scene scene = project.Items.OfType<Scene>().First();
         scene.Duration = TimeSpan.FromMilliseconds(200);
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
 

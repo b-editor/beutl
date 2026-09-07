@@ -88,7 +88,7 @@ public sealed class CreateNewSceneViewModel
 
             // Activation is not part of persistence, so a failure here must not be reported as a
             // save failure — kept outside the try above.
-            _editorService.ActivateTabItem(scene);
+            await _editorService.ActivateTabItemAsync(scene);
         });
     }
 

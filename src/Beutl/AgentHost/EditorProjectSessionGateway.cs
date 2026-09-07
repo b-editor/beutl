@@ -23,7 +23,7 @@ public sealed class EditorProjectSessionGateway(
             if (projectService.CurrentProject.Value is { } current)
             {
                 RequireSameProject(current, fullPath);
-                return AttachToOpenProject(current);
+                return await AttachToOpenProjectAsync(current);
             }
 
             await projectService.OpenProject(fullPath);
@@ -36,7 +36,7 @@ public sealed class EditorProjectSessionGateway(
                     "Check the editor notification for the failure reason (unreadable file, version mismatch, ...)."));
             }
 
-            return AttachToOpenProject(opened);
+            return await AttachToOpenProjectAsync(opened);
         });
     }
 
@@ -71,7 +71,7 @@ public sealed class EditorProjectSessionGateway(
 
     public async ValueTask<ProjectSceneResult> AddSceneAsync(IEditingSession activeSession, SceneCreateOptions options, CancellationToken cancellationToken = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (activeSession is LiveEditingSession liveSession && !liveSession.ProbeIsAlive())
             {
@@ -114,7 +114,7 @@ public sealed class EditorProjectSessionGateway(
             }
             // add_scene activates the new scene's tab, so rebind the live session to it; otherwise
             // read_document/apply_edit would keep operating on the previously attached EditViewModel.
-            LiveEditingSession session = AttachScene(scene);
+            LiveEditingSession session = await AttachSceneAsync(scene);
             return new ProjectSceneResult(scene, project, session);
         });
     }
@@ -132,7 +132,7 @@ public sealed class EditorProjectSessionGateway(
         }
     }
 
-    private ProjectSessionResult AttachToOpenProject(Project project)
+    private async Task<ProjectSessionResult> AttachToOpenProjectAsync(Project project)
     {
         Scene scene = project.Items.OfType<Scene>().FirstOrDefault()
                       ?? throw new ReconcileException(new ToolError(
@@ -140,12 +140,12 @@ public sealed class EditorProjectSessionGateway(
                           "The project does not contain a scene.",
                           project.Uri?.LocalPath));
 
-        return new ProjectSessionResult(AttachScene(scene), project);
+        return new ProjectSessionResult(await AttachSceneAsync(scene), project);
     }
 
-    private LiveEditingSession AttachScene(Scene scene)
+    private async Task<LiveEditingSession> AttachSceneAsync(Scene scene)
     {
-        editorService.ActivateTabItem(scene);
+        await editorService.ActivateTabItemAsync(scene);
         if (editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editViewModel)
         {
             throw new ReconcileException(new ToolError(

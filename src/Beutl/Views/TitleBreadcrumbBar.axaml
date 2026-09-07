@@ -43,7 +43,8 @@
                                 Theme="{StaticResource CompactFlyoutItemButtonTheme}" />
                         <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
                         <ListBox ItemsSource="{Binding TabItems}"
-                                 SelectedItem="{Binding SelectedTabItem.Value}"
+                                 SelectedItem="{Binding SelectedTabItem.Value, Mode=OneWay}"
+                                 SelectionChanged="OnSelectedTabItemChanged"
                                  Tapped="OnListBoxTapped">
                             <ListBox.Resources>
                                 <x:Double x:Key="ListViewItemMinHeight">36</x:Double>

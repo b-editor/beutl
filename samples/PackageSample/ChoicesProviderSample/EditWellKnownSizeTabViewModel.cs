@@ -6,6 +6,8 @@ namespace PackageSample;
 
 public sealed class EditWellKnownSizeTabViewModel(ToolTabExtension extension) : IToolContext
 {
+    private int _disposed;
+
     public ToolTabExtension Extension { get; } = extension;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
@@ -18,6 +20,13 @@ public sealed class EditWellKnownSizeTabViewModel(ToolTabExtension extension) : 
 
     public ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return ValueTask.CompletedTask;
+
+        AddScreen.Dispose();
+        RemoveScreen.Dispose();
+        IsSelected.Dispose();
+        (Header as IDisposable)?.Dispose();
         return ValueTask.CompletedTask;
     }
 

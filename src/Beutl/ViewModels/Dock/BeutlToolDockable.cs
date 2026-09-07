@@ -44,6 +44,7 @@ internal class BeutlToolDockable : Tool, IAsyncDisposable
     private IToolContext? _toolContext;
     private Task? _disposeTask;
     private bool _isDisposed;
+    private Action<IToolContext>? _contextDisposed;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
     {
@@ -101,6 +102,11 @@ internal class BeutlToolDockable : Tool, IAsyncDisposable
     public EditViewModel EditViewModel { get; }
 
     internal Control? ToolContent { get; set; }
+
+    internal Action<IToolContext>? ContextDisposed
+    {
+        set => _contextDisposed = value;
+    }
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -186,6 +192,11 @@ internal class BeutlToolDockable : Tool, IAsyncDisposable
         {
             lock (_disposeGate)
                 _toolContext = null;
+            if (context is not null)
+            {
+                try { Interlocked.Exchange(ref _contextDisposed, null)?.Invoke(context); }
+                catch (Exception ex) { (errors ??= []).Add(ex); }
+            }
         }
         if (errors is { Count: > 0 })
             throw new AggregateException(errors);

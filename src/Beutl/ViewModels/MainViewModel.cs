@@ -290,23 +290,49 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     }
 
     public override void Dispose()
+        => _ = GetOrStartDisposal();
+
+    /// <summary>Disposes the application composition root and joins editor teardown.</summary>
+    public ValueTask DisposeAsync()
+        => new(GetOrStartDisposal());
+
+    private Task GetOrStartDisposal()
+    {
+        TaskCompletionSource? completion = null;
+        Task task;
+        lock (_disposeGate)
+        {
+            if (_disposeTask is null)
+            {
+                completion = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                _disposeTask = completion.Task;
+            }
+            task = _disposeTask;
+        }
+
+        if (completion is not null)
+            _ = CompleteDisposalAsync(completion);
+        return task;
+    }
+
+    private async Task CompleteDisposalAsync(TaskCompletionSource completion)
     {
         try
         {
-            BeginDisposeOrThrow();
+            await DisposeCoreAsync();
+            completion.TrySetResult();
         }
-        catch (ProjectCloseAbortedException)
+        catch (Exception ex)
         {
+            completion.TrySetException(ex);
         }
     }
 
     private void BeginDisposeOrThrow()
     {
         _projectService.CloseProjectOrThrow();
-        lock (_disposeGate)
-        {
-            _disposeTask ??= DisposeCoreAsync();
-        }
+        _ = GetOrStartDisposal();
     }
 
     internal bool TryDisposeForWindowClose()
@@ -327,6 +353,40 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         lock (_disposeGate)
         {
             return _disposeTask ?? Task.CompletedTask;
+        }
+    }
+
+    internal static async Task DisposeComponentsAsync(
+        Action disposeCommandPalette,
+        Action stopAgentHost,
+        Func<Task> closeProject,
+        Func<ValueTask> disposeEditorHost,
+        Action clearApplicationItems)
+    {
+        List<Exception>? failures = null;
+        Try(disposeCommandPalette);
+        Try(stopAgentHost);
+        await TryAsync(closeProject);
+        await TryAsync(async () => await disposeEditorHost());
+        Try(clearApplicationItems);
+
+        if (failures is not null)
+        {
+            throw failures.Count == 1
+                ? failures[0]
+                : new AggregateException(failures);
+        }
+
+        void Try(Action action)
+        {
+            try { action(); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
+        }
+
+        async Task TryAsync(Func<Task> action)
+        {
+            try { await action(); }
+            catch (Exception ex) { (failures ??= []).Add(ex); }
         }
     }
 

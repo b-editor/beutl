@@ -146,18 +146,15 @@ public sealed class SampleEditorExtension : EditorExtension
         return ext is ".txt" or ".scene";
     }
 
-    public override bool TryCreateContext(CoreObject obj, IEditorContextServices services, [NotNullWhen(true)] out IEditorContext? context)
+    public override ValueTask<IEditorContext?> CreateContextAsync(CoreObject obj, IEditorContextServices services)
     {
-        context = null;
         if (obj is Scene)
         {
-            context = new TextEditorContext(obj, this, services.CloseService);
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(
+                new TextEditorContext(obj, this, services.CloseService));
         }
-        else
-        {
-            return false;
-        }
+
+        return ValueTask.FromResult<IEditorContext?>(null);
     }
 
     public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)

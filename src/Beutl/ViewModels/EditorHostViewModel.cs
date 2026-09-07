@@ -76,7 +76,7 @@ public class EditorHostViewModel : IAsyncDisposable
         }
     }
 
-    public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
+    public IReadOnlyReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 
     private async Task OnProjectChangedAsync(Project? @new, Project? old)
     {
@@ -181,7 +181,7 @@ public class EditorHostViewModel : IAsyncDisposable
             {
                 foreach (ProjectItem item in change.NewItems)
                 {
-                    _editorService.ActivateTabItem(item);
+                    await _editorService.ActivateTabItemAsync(item);
                 }
             }
             else if (change.Action == NotifyCollectionChangedAction.Remove)

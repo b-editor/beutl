@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Collections;
+using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -460,6 +461,73 @@ public sealed class EditorHostProjectQueueTests
     }
 
     [AvaloniaTest]
+    public async Task Project_transition_tail_includes_recent_project_updates()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+        var firstRecentUpdateStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstRecentUpdate = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondPreparationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        projectService.BeforeRecentProjectUpdate = async file =>
+        {
+            if (Path.GetFileNameWithoutExtension(file) == "tail-first")
+            {
+                firstRecentUpdateStarted.TrySetResult();
+                await releaseFirstRecentUpdate.Task;
+            }
+        };
+        projectService.BeforeCreateProjectPreparation = name =>
+        {
+            if (name == "tail-second")
+                secondPreparationStarted.TrySetResult();
+            return Task.CompletedTask;
+        };
+
+        try
+        {
+            Task<Project?> first = projectService.CreateProject(
+                320, 180, 30, 44100, "tail-first", NewWorkspace("tail-first"));
+            await firstRecentUpdateStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Task<Project?> second = projectService.CreateProject(
+                640, 360, 24, 48000, "tail-second", NewWorkspace("tail-second"));
+            Task prematureStart = await Task.WhenAny(
+                secondPreparationStarted.Task,
+                Task.Delay(TimeSpan.FromSeconds(1)));
+
+            Assert.That(
+                prematureStart,
+                Is.Not.SameAs(secondPreparationStarted.Task),
+                "A later transition must not pass the serialized tail while the earlier recent-project update is blocked.");
+
+            releaseFirstRecentUpdate.TrySetResult();
+            Project firstProject = (await first.WaitAsync(TimeSpan.FromSeconds(5)))!;
+            Project secondProject = (await second.WaitAsync(TimeSpan.FromSeconds(5)))!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstProject, Is.Not.SameAs(secondProject));
+                Assert.That(BeutlApplication.Current.Project, Is.SameAs(secondProject));
+                Assert.That(
+                    GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile,
+                    Is.EqualTo(secondProject.Uri!.LocalPath));
+            });
+        }
+        finally
+        {
+            releaseFirstRecentUpdate.TrySetResult();
+            projectService.BeforeRecentProjectUpdate = null;
+            projectService.BeforeCreateProjectPreparation = null;
+            await DisposeCompositionAsync(projectService, editorService, host);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Replacement_rejects_old_context_reactivation_during_teardown()
     {
         await TestReset.ResetShellAsync();
@@ -472,7 +540,7 @@ public sealed class EditorHostProjectQueueTests
             Project first = (await projectService.CreateProject(
                 320, 180, 30, 44100, "queue-reentrant-first", NewWorkspace("reentrant-first")))!;
             ProjectItem oldItem = first.Items.Single();
-            contexts.Contexts.Single().OnDispose = () => editorService.ActivateTabItem(oldItem);
+            contexts.Contexts.Single().OnDispose = () => _ = editorService.ActivateTabItemAsync(oldItem);
 
             Project second = (await projectService.CreateProject(
                 640, 360, 24, 48000, "queue-reentrant-second", NewWorkspace("reentrant-second")))!;
@@ -1040,13 +1108,12 @@ public sealed class EditorHostProjectQueueTests
             return false;
         }
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
-            context = contexts.Create(obj, this, services.CloseService);
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(
+                contexts.Create(obj, this, services.CloseService));
         }
 
         public override bool MatchFileExtension(string ext)
@@ -1072,15 +1139,13 @@ public sealed class EditorHostProjectQueueTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override async ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             CreationCount++;
-            operation().GetAwaiter().GetResult();
-            context = null;
-            return false;
+            await operation();
+            return null;
         }
     }
 
@@ -1104,10 +1169,9 @@ public sealed class EditorHostProjectQueueTests
         public override bool MatchFileExtension(string ext)
             => ext.Equals(".scene", StringComparison.OrdinalIgnoreCase);
 
-        public override bool TryCreateContext(
+        public override ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             var created = new TestContext(
                 obj,
@@ -1115,8 +1179,7 @@ public sealed class EditorHostProjectQueueTests
                 services.CloseService,
                 blockDispose: true);
             CreatedContext.TrySetResult(created);
-            context = created;
-            return true;
+            return ValueTask.FromResult<IEditorContext?>(created);
         }
     }
 
@@ -1143,16 +1206,14 @@ public sealed class EditorHostProjectQueueTests
 
         public override bool MatchFileExtension(string ext) => false;
 
-        public override bool TryCreateContext(
+        public override async ValueTask<IEditorContext?> CreateContextAsync(
             CoreObject obj,
-            IEditorContextServices services,
-            [NotNullWhen(true)] out IEditorContext? context)
+            IEditorContextServices services)
         {
             Entered.TrySetResult();
-            Release.Task.GetAwaiter().GetResult();
-            projectService.CloseProjectAsync().GetAwaiter().GetResult();
-            context = null;
-            return false;
+            await Release.Task;
+            await projectService.CloseProjectAsync();
+            return null;
         }
     }
 

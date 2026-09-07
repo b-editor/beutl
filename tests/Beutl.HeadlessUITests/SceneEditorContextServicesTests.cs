@@ -11,7 +11,7 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// Guards that SceneEditorExtension.TryCreateContext resolves host services by type through
+// Guards that SceneEditorExtension.CreateContextAsync resolves host services by type through
 // IEditorContextServices, so matching implementations (including a test fake) are accepted, not
 // only the host's concrete EditorContextServices. Host-token mismatches are rejected before context
 // construction.
@@ -116,12 +116,10 @@ public class SceneEditorContextServicesTests
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(firstScene, services, out IEditorContext? first),
-            Is.True);
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(secondScene, services, out IEditorContext? second),
-            Is.True);
+        IEditorContext? first = await SceneEditorExtension.Instance.CreateContextAsync(firstScene, services);
+        IEditorContext? second = await SceneEditorExtension.Instance.CreateContextAsync(secondScene, services);
+        Assert.That(first, Is.Not.Null);
+        Assert.That(second, Is.Not.Null);
 
         try
         {
@@ -141,7 +139,7 @@ public class SceneEditorContextServicesTests
     }
 
     [AvaloniaTest]
-    public async Task TryCreateContext_accepts_a_non_concrete_IEditorContextServices()
+    public async Task CreateContextAsync_accepts_a_non_concrete_IEditorContextServices()
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "trycreatecontext");
         Directory.CreateDirectory(workspace);
@@ -154,14 +152,14 @@ public class SceneEditorContextServicesTests
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new FakeEditorContextServices(editorService, extensionProvider);
 
-        bool created = SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
 
         try
         {
             Assert.That(
-                created,
-                Is.True,
-                "TryCreateContext must accept any IEditorContextServices, not only the host's concrete type.");
+                context,
+                Is.Not.Null,
+                "CreateContextAsync must accept any IEditorContextServices, not only the host's concrete type.");
             Assert.That(context, Is.Not.Null);
             Assert.That(context, Is.InstanceOf<EditViewModel>());
         }
@@ -177,7 +175,7 @@ public class SceneEditorContextServicesTests
     }
 
     [AvaloniaTest]
-    public void TryCreateContext_rejects_mismatched_close_service_without_creating_context()
+    public async Task CreateContextAsync_rejects_mismatched_close_service_without_creating_context()
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "mismatched-close-service");
         Directory.CreateDirectory(workspace);
@@ -191,11 +189,10 @@ public class SceneEditorContextServicesTests
         var foreign = new EditorService(extensionProvider);
         IEditorContextServices services = new MismatchedEditorContextServices(owner, extensionProvider, foreign);
 
-        bool created = SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
 
         Assert.Multiple(() =>
         {
-            Assert.That(created, Is.False);
             Assert.That(context, Is.Null);
             Assert.That(owner.TabItems, Is.Empty);
             Assert.That(foreign.TabItems, Is.Empty);
@@ -240,7 +237,7 @@ public class SceneEditorContextServicesTests
     }
 
     [AvaloniaTest]
-    public async Task TryCreateContext_forwards_close_requests_to_supplied_close_service()
+    public async Task CreateContextAsync_forwards_close_requests_to_supplied_close_service()
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "supplied-close-service");
         Directory.CreateDirectory(workspace);
@@ -256,9 +253,8 @@ public class SceneEditorContextServicesTests
             extensionProvider,
             suppliedCloseService);
 
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
-            Is.True);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
+        Assert.That(context, Is.Not.Null);
         var tab = new EditorTabItem(context!);
         editorService.AddTabItem(tab);
 
@@ -294,9 +290,8 @@ public class SceneEditorContextServicesTests
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
-            Is.True);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
+        Assert.That(context, Is.Not.Null);
         var tab = new EditorTabItem(context!);
         await context!.DisposeAsync();
 
@@ -320,9 +315,8 @@ public class SceneEditorContextServicesTests
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
-            Is.True);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
+        Assert.That(context, Is.Not.Null);
         var tab = new EditorTabItem(context!);
         editorService.AddTabItem(tab);
 
@@ -348,9 +342,8 @@ public class SceneEditorContextServicesTests
         var extensionProvider = new ExtensionProvider();
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
-            Is.True);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
+        Assert.That(context, Is.Not.Null);
         var editor = (EditViewModel)context!;
         Assert.That(editor.CloseService.HostToken, Is.SameAs(services.CloseService.HostToken));
         var tab = new EditorTabItem(editor);
@@ -393,9 +386,8 @@ public class SceneEditorContextServicesTests
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
-            Is.True);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
+        Assert.That(context, Is.Not.Null);
         var tab = new EditorTabItem(context!);
         editorService.AddTabItem(tab);
         var gate = (IEditorContextPublicationGate)context!;
@@ -442,9 +434,8 @@ public class SceneEditorContextServicesTests
         var editorService = new EditorService(extensionProvider);
         IEditorContextServices services = new EditorContextServices(editorService, extensionProvider);
 
-        Assert.That(
-            SceneEditorExtension.Instance.TryCreateContext(scene, services, out IEditorContext? context),
-            Is.True);
+        IEditorContext? context = await SceneEditorExtension.Instance.CreateContextAsync(scene, services);
+        Assert.That(context, Is.Not.Null);
         var tab = new EditorTabItem(context!);
         editorService.AddTabItem(tab);
         EditorContextCloseRequest closeRequest = default;
@@ -461,7 +452,7 @@ public class SceneEditorContextServicesTests
 
         Task activation;
         using (ExecutionContext.SuppressFlow())
-            activation = Task.Run(() => editorService.ActivateTabItem(scene));
+            activation = Task.Run(() => editorService.ActivateTabItemAsync(scene));
 
         await activation.WaitAsync(TimeSpan.FromSeconds(5));
         await closeRequest.Completion.WaitAsync(TimeSpan.FromSeconds(5));

@@ -61,7 +61,7 @@ public partial class MenuBarViewModel
             item => RecentProjectItems.Remove(item),
             RecentProjectItems.Clear);
 
-        OpenRecentFile.Subscribe(OpenFileCore);
+        OpenRecentFile.Subscribe(async file => await OpenFileCore(file));
 
         OpenRecentProject.Subscribe(async file =>
         {
@@ -257,7 +257,7 @@ public partial class MenuBarViewModel
             item.FileName.Value);
     }
 
-    internal void OpenFileCore(string file)
+    internal async Task OpenFileCore(string file)
     {
         try
         {
@@ -275,11 +275,11 @@ public partial class MenuBarViewModel
                 ProjectPersistence.AddItemAndPersist(project, projItem);
             }
 
-            _editorService.ActivateTabItem(projItem);
+            await _editorService.ActivateTabItemAsync(projItem);
         }
         catch (Exception ex)
         {
-            _ = ex.Handle();
+            await ex.Handle();
         }
     }
 

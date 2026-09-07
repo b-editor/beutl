@@ -116,11 +116,11 @@ public sealed class SceneEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateContext(
-        CoreObject obj, IEditorContextServices services, [NotNullWhen(true)] out IEditorContext? context)
+    public override async ValueTask<IEditorContext?> CreateContextAsync(
+        CoreObject obj, IEditorContextServices services)
     {
-        // TryCreate* must not throw: when the host does not supply the services EditViewModel needs,
-        // fail (return false) rather than pushing nulls into EditViewModel.
+        // When the host does not supply the services EditViewModel needs, return null rather than
+        // pushing nulls into EditViewModel.
         if (obj is Scene scene
             && services.TryGetService<EditorService>(out EditorService? editorService)
             && services.CloseService is { HostToken: not null } closeService
@@ -129,20 +129,13 @@ public sealed class SceneEditorExtension : EditorExtension
             var editViewModel = new EditViewModel(scene, editorService, closeService);
             if (editViewModel.IsDisposeRequested)
             {
-                context = null;
-                _ = editViewModel.DisposeAsync().AsTask().ContinueWith(
-                    static task => _ = task.Exception,
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
-                return false;
+                await editViewModel.DisposeAsync();
+                return null;
             }
-            context = editViewModel;
-            return true;
+            return editViewModel;
         }
 
-        context = null;
-        return false;
+        return null;
     }
 
     public override IconSource? GetIcon()

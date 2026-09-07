@@ -137,4 +137,49 @@ public sealed class MainViewModelShutdownTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task SynchronousAndAsynchronousDisposalJoinThePublishedTerminalTask()
+    {
+        await TestReset.ResetShellAsync();
+        var viewModel = new MainViewModel();
+
+        viewModel.Dispose();
+        Task first = viewModel.WaitForDisposalAsync();
+        Task second = viewModel.DisposeAsync().AsTask();
+
+        Assert.That(second, Is.SameAs(first));
+        await first.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Test]
+    public void DisposalAttemptsEveryOwnedComponentAndAggregatesFailures()
+    {
+        var attempted = new List<string>();
+
+        AggregateException? failure = Assert.ThrowsAsync<AggregateException>(async () =>
+            await MainViewModel.DisposeComponentsAsync(
+                () =>
+                {
+                    attempted.Add("palette");
+                    throw new InvalidOperationException("palette");
+                },
+                () => attempted.Add("agent"),
+                () =>
+                {
+                    attempted.Add("project");
+                    return Task.FromException(new InvalidOperationException("project"));
+                },
+                () =>
+                {
+                    attempted.Add("editor");
+                    return ValueTask.FromException(new InvalidOperationException("editor"));
+                },
+                () => attempted.Add("items")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attempted, Is.EqualTo(new[] { "palette", "agent", "project", "editor", "items" }));
+            Assert.That(failure!.InnerExceptions, Has.Count.EqualTo(3));
+        });
+    }
 }

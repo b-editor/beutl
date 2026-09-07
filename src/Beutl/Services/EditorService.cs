@@ -70,9 +70,11 @@ public sealed class EditorTabItem : IAsyncDisposable
         new(ReferenceEqualityComparer.Instance);
     private string? _hash;
 
-    public EditorTabItem(IEditorContext context)
+    internal EditorTabItem(IEditorContext context)
     {
         MutableContext = new ReactiveProperty<IEditorContext?>(context);
+        Context = MutableContext.ToReadOnlyReactivePropertySlim();
+        IsSelected = MutableIsSelected.ToReadOnlyReactivePropertySlim();
         FilePath = Context
             .Where(static ctxt => ctxt is not null)
             .Select(static ctxt => ctxt!.Object.Uri?.LocalPath)
@@ -93,7 +95,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     private IReactiveProperty<IEditorContext?> MutableContext { get; }
 
     /// <summary>The active editor context, or <see langword="null"/> while replacement or closure is in progress.</summary>
-    public IReadOnlyReactiveProperty<IEditorContext?> Context => MutableContext;
+    public IReadOnlyReactiveProperty<IEditorContext?> Context { get; }
 
     internal bool TryAttachOwner(
         EditorContextHostToken hostToken,
@@ -400,7 +402,12 @@ public sealed class EditorTabItem : IAsyncDisposable
 
     public IReadOnlyReactiveProperty<IKnownEditorCommands?> Commands { get; }
 
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+    private IReactiveProperty<bool> MutableIsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public IReadOnlyReactiveProperty<bool> IsSelected { get; }
+
+    internal void SetIsSelected(bool value)
+        => MutableIsSelected.Value = value;
 
     public string GetFileNameHash()
     {
@@ -938,10 +945,12 @@ public sealed class EditorTabItem : IAsyncDisposable
         finally
         {
             DisposeSurface(MutableContext, ref failures);
+            DisposeSurface(Context, ref failures);
             DisposeSurface(FilePath, ref failures);
             DisposeSurface(FileName, ref failures);
             DisposeSurface(Extension, ref failures);
             DisposeSurface(Commands, ref failures);
+            DisposeSurface(MutableIsSelected, ref failures);
             DisposeSurface(IsSelected, ref failures);
             if (failures is null)
                 completion.TrySetResult(null);
@@ -959,8 +968,41 @@ public sealed class EditorTabItem : IAsyncDisposable
 
 public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContextCloseService
 {
+    private sealed class ReadOnlyCoreListView<T> : ICoreReadOnlyList<T>
+    {
+        private readonly ICoreReadOnlyList<T> _source;
+
+        public ReadOnlyCoreListView(ICoreReadOnlyList<T> source)
+        {
+            _source = source;
+            _source.CollectionChanged += OnCollectionChanged;
+            _source.PropertyChanged += OnPropertyChanged;
+        }
+
+        public int Count => _source.Count;
+
+        public T this[int index] => _source[index];
+
+        public event System.Collections.Specialized.NotifyCollectionChangedEventHandler? CollectionChanged;
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public IEnumerator<T> GetEnumerator() => _source.GetEnumerator();
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        private void OnCollectionChanged(
+            object? sender,
+            System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+            => CollectionChanged?.Invoke(this, e);
+
+        private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+            => PropertyChanged?.Invoke(this, e);
+    }
+
     private readonly EditorContextHostToken _hostToken = new();
     private readonly CoreList<EditorTabItem> _tabItems;
+    private readonly ICoreReadOnlyList<EditorTabItem> _tabItemsView;
     private readonly ExtensionProvider _extensionProvider;
     private readonly Action<Project, Uri> _serializeProject;
     private readonly ReactivePropertySlim<IProjectVersionControlService?>
@@ -975,6 +1017,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
     private int _activeOutputOperations;
     private int _activeProjectFileWrites;
     private bool _worktreeMutationActive;
+    private readonly IReactiveProperty<EditorTabItem?> _selectedTabItem = new ReactivePropertySlim<EditorTabItem?>();
     private readonly object _tabAdmissionGate = new();
     private readonly SemaphoreSlim _tabReconciliationGate = new(1, 1);
     private static readonly AsyncLocal<TabAdmissionOperation?> s_tabAdmissionOperation = new();
@@ -1027,6 +1070,8 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
         ProjectVersionControlService = _projectVersionControlService
             .ToReadOnlyReactivePropertySlim();
+        _tabItemsView = new ReadOnlyCoreListView<EditorTabItem>(_tabItems);
+        SelectedTabItem = _selectedTabItem.ToReadOnlyReactivePropertySlim();
     }
 
     /// <summary>Gets the opaque identity retained by contexts created for this host.</summary>
@@ -1034,7 +1079,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
 
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
-    public ICoreReadOnlyList<EditorTabItem> TabItems => _tabItems;
+    public ICoreReadOnlyList<EditorTabItem> TabItems => _tabItemsView;
 
     internal async ValueTask ClearTabItemsAsync()
         => await ReconcileTabItemsAsync([]);
@@ -1077,7 +1122,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
 
             foreach (CoreObject item in items)
             {
-                try { ActivateTabItemCore(item); }
+                try { await ActivateTabItemCoreAsync(item); }
                 catch (Exception ex) { (failures ??= []).Add(ex); }
             }
             foreach (Exception ex in await DrainActiveLifecycleTeardownsAsync())
@@ -1197,11 +1242,10 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                 return EditorContextReplacementStatus.NotOwned;
             }
 
-            if (!extension.TryCreateContext(
-                    current.Object,
-                    new EditorContextServices(this, _extensionProvider),
-                    out IEditorContext? replacement)
-                || replacement is null)
+            IEditorContext? replacement = await extension.CreateContextAsync(
+                current.Object,
+                new EditorContextServices(this, _extensionProvider));
+            if (replacement is null)
             {
                 return EditorContextReplacementStatus.CreationFailed;
             }
@@ -1451,14 +1495,14 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                             return;
                         }
 
-                        item.IsSelected.Value = true;
+                        item.SetIsSelected(true);
                         if (!CanContinuePublication(item))
                         {
                             RollbackSelection(item);
                             return;
                         }
 
-                        SelectedTabItem.Value = item;
+                        _selectedTabItem.Value = item;
                         if (!CanContinuePublication(item)
                             || !ReferenceEquals(SelectedTabItem.Value, item))
                         {
@@ -1630,10 +1674,10 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         // Otherwise a tab that is no longer live can be re-exposed as the selected item.
         if (ReferenceEquals(SelectedTabItem.Value, item))
         {
-            try { SelectedTabItem.Value = null; }
+            try { _selectedTabItem.Value = null; }
             catch (Exception ex) { (failures ??= []).Add(ex); }
         }
-        try { item.IsSelected.Value = false; }
+        try { item.SetIsSelected(false); }
         catch (Exception ex) { (failures ??= []).Add(ex); }
 
         if (failures is not null)
@@ -2171,7 +2215,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         return null;
     }
 
-    public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
+    public IReadOnlyReactiveProperty<EditorTabItem?> SelectedTabItem { get; }
 
     internal IReadOnlyReactiveProperty<IProjectVersionControlService?>
         ProjectVersionControlService
@@ -2543,7 +2587,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         return result != null;
     }
 
-    public void ActivateTabItem(CoreObject obj)
+    public async Task ActivateTabItemAsync(CoreObject obj)
     {
         if (!TryEnterTabAdmission())
             return;
@@ -2555,7 +2599,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             previousOperation = s_tabAdmissionOperation.Value;
             operation = BeginTabAdmissionOperation();
             s_tabAdmissionOperation.Value = operation;
-            ActivateTabItemCore(obj);
+            await ActivateTabItemCoreAsync(obj);
         }
         finally
         {
@@ -2564,7 +2608,31 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         }
     }
 
-    private void ActivateTabItemCore(CoreObject obj)
+    /// <summary>Activates a tab that is currently owned and published by this editor host.</summary>
+    /// <returns><see langword="true"/> when the tab was selected; otherwise <see langword="false"/>.</returns>
+    public bool ActivateTabItem(EditorTabItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        if (!TryEnterTabAdmission())
+            return false;
+
+        TabAdmissionOperation? operation = null;
+        TabAdmissionOperation? previousOperation = null;
+        try
+        {
+            previousOperation = s_tabAdmissionOperation.Value;
+            operation = BeginTabAdmissionOperation();
+            s_tabAdmissionOperation.Value = operation;
+            return TrySelectTabItem(item);
+        }
+        finally
+        {
+            CompleteTabAdmissionOperation(operation, previousOperation);
+            ExitTabAdmission();
+        }
+    }
+
+    private async Task ActivateTabItemCoreAsync(CoreObject obj)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         string path = Uri.UnescapeDataString(obj.Uri!.LocalPath);
@@ -2578,13 +2646,14 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         {
             EditorExtension? ext = _extensionProvider.MatchEditorExtension(path);
 
-            if (ext is not null
-                && ext.TryCreateContext(
-                    obj,
-                    new EditorContextServices(this, _extensionProvider),
-                    out IEditorContext? context)
-                && context is not null)
+            if (ext is not null)
             {
+                IEditorContext? context = await ext.CreateContextAsync(
+                    obj,
+                    new EditorContextServices(this, _extensionProvider));
+                if (context is null)
+                    return;
+
                 ActivationContextOwnershipResult ownership;
                 try
                 {
@@ -2609,7 +2678,7 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                 {
                     BeforeActivationTabConstruction?.Invoke(context);
                     tabItem2 = new EditorTabItem(context);
-                    tabItem2.IsSelected.Value = true;
+                    tabItem2.SetIsSelected(true);
                     added = TryAddTabItemCore(
                         tabItem2,
                         select: true,
@@ -2664,14 +2733,14 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                     if (!CanContinuePublication(item))
                         return;
 
-                    item.IsSelected.Value = true;
+                    item.SetIsSelected(true);
                     if (!CanContinuePublication(item))
                     {
                         RollbackSelection(item);
                         return;
                     }
 
-                    SelectedTabItem.Value = item;
+                    _selectedTabItem.Value = item;
                     if (!CanContinuePublication(item)
                         || !ReferenceEquals(SelectedTabItem.Value, item))
                     {
@@ -2725,10 +2794,10 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         List<Exception>? failures = null;
         if (ReferenceEquals(SelectedTabItem.Value, item))
         {
-            try { SelectedTabItem.Value = null; }
+            try { _selectedTabItem.Value = null; }
             catch (Exception ex) { (failures ??= []).Add(ex); }
         }
-        try { item.IsSelected.Value = false; }
+        try { item.SetIsSelected(false); }
         catch (Exception ex) { (failures ??= []).Add(ex); }
 
         if (failures is not null)

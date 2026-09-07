@@ -57,7 +57,7 @@ public class VideoFileImportTests
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;

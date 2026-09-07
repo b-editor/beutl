@@ -56,7 +56,7 @@ public static class TutorialHelpers
         }
 
         await projectService.WaitForPendingProjectChangesAsync();
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (!ReferenceEquals(projectService.CurrentProject.Value, currentProject))
                 return false;
@@ -64,7 +64,7 @@ public static class TutorialHelpers
             Scene? scene = currentProject.Items.OfType<Scene>().FirstOrDefault();
             if (scene is not null)
             {
-                editorService.ActivateTabItem(scene);
+                await editorService.ActivateTabItemAsync(scene);
             }
 
             return GetEditViewModel(editorService) is not null;
