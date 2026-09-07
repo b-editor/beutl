@@ -705,18 +705,18 @@ public sealed class Reconciler
                 && (CollectionReconciler.IsIdentityArray(currentArray)
                     || CollectionReconciler.IsIdentityArray(desiredArray)))
             {
-                var currentById = new Dictionary<Guid, Queue<JsonObject>>();
+                var currentById = new Dictionary<Guid, List<JsonObject>>();
                 foreach (JsonObject currentObject in currentArray.OfType<JsonObject>())
                 {
                     if (CollectionReconciler.TryGetId(currentObject, out Guid id))
                     {
-                        if (!currentById.TryGetValue(id, out Queue<JsonObject>? occurrences))
+                        if (!currentById.TryGetValue(id, out List<JsonObject>? occurrences))
                         {
-                            occurrences = new Queue<JsonObject>();
+                            occurrences = [];
                             currentById.Add(id, occurrences);
                         }
 
-                        occurrences.Enqueue(currentObject);
+                        occurrences.Add(currentObject);
                     }
                 }
 
@@ -725,10 +725,9 @@ public sealed class Reconciler
                     JsonNode? currentChild = null;
                     if (desiredChild is JsonObject desiredItem
                         && CollectionReconciler.TryGetId(desiredItem, out Guid desiredId)
-                        && currentById.TryGetValue(desiredId, out Queue<JsonObject>? occurrences)
-                        && occurrences.TryDequeue(out JsonObject? occurrence))
+                        && currentById.TryGetValue(desiredId, out List<JsonObject>? occurrences))
                     {
-                        currentChild = occurrence;
+                        currentChild = TakeMatchingOccurrence(occurrences, desiredItem);
                     }
 
                     ValidateChangedAnimationValuesInNode(
@@ -752,6 +751,61 @@ public sealed class Reconciler
                 }
             }
         }
+    }
+
+    private static JsonObject? TakeMatchingOccurrence(
+        List<JsonObject> currentOccurrences,
+        JsonObject desiredOccurrence)
+    {
+        if (currentOccurrences.Count == 0)
+        {
+            return null;
+        }
+
+        int index = currentOccurrences.FindIndex(candidate => JsonEquals(candidate, desiredOccurrence));
+        if (index < 0)
+        {
+            index = currentOccurrences.FindIndex(candidate =>
+                JsonEqualsExceptAnimations(candidate, desiredOccurrence));
+        }
+
+        if (index < 0)
+        {
+            JsonObject? desiredAnimations = desiredOccurrence["Animations"] as JsonObject;
+            index = currentOccurrences.FindIndex(candidate =>
+                JsonEquals(candidate["Animations"] as JsonObject, desiredAnimations));
+        }
+
+        if (index < 0)
+        {
+            index = 0;
+        }
+
+        JsonObject result = currentOccurrences[index];
+        currentOccurrences.RemoveAt(index);
+        return result;
+    }
+
+    private static bool JsonEqualsExceptAnimations(JsonObject left, JsonObject right)
+    {
+        int leftCount = 0;
+        foreach ((string propertyName, JsonNode? leftValue) in left)
+        {
+            if (propertyName == "Animations")
+            {
+                continue;
+            }
+
+            leftCount++;
+            if (!right.TryGetPropertyValue(propertyName, out JsonNode? rightValue)
+                || !JsonEquals(leftValue, rightValue))
+            {
+                return false;
+            }
+        }
+
+        int rightCount = right.Count(pair => pair.Key != "Animations");
+        return leftCount == rightCount;
     }
 
     // Inserted subtrees never reach CompareObject (CompareArray records the InsertChild and continues),

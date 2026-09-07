@@ -404,6 +404,45 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void Reordering_duplicate_ids_does_not_look_like_an_animation_edit()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        (Element firstElement, RectShape firstRect, _) = AddAnimatedRect(scene, dir, "first", 25);
+        (Element secondElement, RectShape secondRect, _) = AddAnimatedRect(scene, dir, "second", 75);
+        secondRect.Id = firstRect.Id;
+        secondElement.Objects.Remove(secondRect);
+        scene.Children.Remove(secondElement);
+        firstElement.AddObject(secondRect);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
+        JsonNode first = objects[0]!.DeepClone();
+        JsonNode second = objects[1]!.DeepClone();
+        objects.Clear();
+        objects.Add(second);
+        objects.Add(first);
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            desired: desired,
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(firstElement.Objects.Select(item => item.Name), Is.EqualTo(new[] { "second", "first" }));
+            Assert.That(
+                firstElement.Objects.Cast<RectShape>()
+                    .Select(item => ((KeyFrameAnimation<float>)item.Opacity.Animation!).KeyFrames[0].Value),
+                Is.EqualTo(new[] { 75f, 25f }));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void Relative_out_of_range_times_warn_for_shorthand_and_long_form(bool shorthand)
