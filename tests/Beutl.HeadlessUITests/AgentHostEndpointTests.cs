@@ -6,6 +6,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Workspace;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.ProjectSystem;
@@ -76,6 +77,100 @@ public sealed class AgentHostEndpointTests
         {
             await TestReset.ResetShellAsync();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Add_scene_rejects_a_disabled_live_editor_without_mutating_the_project()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "agent-add-scene-disabled-editor");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "live",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var liveSessions = new LiveSessionSource();
+            LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editor));
+            var sessions = new AgentSessionManager();
+            sessions.UseSource(liveSessions);
+            var gateway = new EditorProjectSessionGateway(
+                TestShell.Project,
+                TestShell.Editor,
+                liveSessions,
+                sessions,
+                new WorkspaceGuard(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!));
+            Dictionary<string, string> filesBefore = SnapshotFiles(location);
+
+            editor.IsEnabled.Value = false;
+            try
+            {
+                SessionUnavailableException? rejection = null;
+                try
+                {
+                    await gateway.AddSceneAsync(session, new SceneCreateOptions(
+                        320,
+                        180,
+                        TimeSpan.Zero,
+                        TimeSpan.FromSeconds(2),
+                        "blocked-scene"));
+                    Assert.Fail("Expected a SessionUnavailableException.");
+                }
+                catch (SessionUnavailableException ex)
+                {
+                    rejection = ex;
+                }
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(rejection, Is.Not.Null);
+                    Assert.That(project.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+                    Assert.That(SnapshotFiles(location), Is.EqualTo(filesBefore));
+                });
+            }
+            finally
+            {
+                editor.IsEnabled.Value = true;
+            }
+
+            ProjectSceneResult added = await gateway.AddSceneAsync(session, new SceneCreateOptions(
+                320,
+                180,
+                TimeSpan.Zero,
+                TimeSpan.FromSeconds(2),
+                "added-scene"));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(project.Items.OfType<Scene>().Count(), Is.EqualTo(2));
+                Assert.That(project.Items, Does.Contain(added.Scene));
+                Assert.That(File.Exists(added.Scene.Uri!.LocalPath), Is.True);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    private static Dictionary<string, string> SnapshotFiles(string root)
+    {
+        return Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToDictionary(
+                path => Path.GetRelativePath(root, path),
+                path => Convert.ToBase64String(File.ReadAllBytes(path)),
+                StringComparer.Ordinal);
     }
 
     [AvaloniaTest]
