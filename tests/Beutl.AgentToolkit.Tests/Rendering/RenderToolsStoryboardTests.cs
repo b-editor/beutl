@@ -1594,8 +1594,8 @@ public sealed class RenderToolsStoryboardTests
                 return null;
             }
 
-            Acquired.TrySetResult();
             Lease = new CountingLease(() => Volatile.Write(ref _active, 0));
+            Acquired.TrySetResult();
             return Lease;
         }
     }

@@ -311,13 +311,22 @@ public class ExportTests
     private sealed class RecordingNotificationHandler : INotificationServiceHandler
     {
         private readonly List<string> _errorMessages = [];
+        private readonly List<string> _warningMessages = [];
 
         public IReadOnlyList<string> ErrorMessages => _errorMessages;
+
+        public IReadOnlyList<string> WarningMessages => _warningMessages;
 
         public void Show(Notification notification)
         {
             if (notification.Type == NotificationType.Error)
+            {
                 _errorMessages.Add(notification.Message);
+            }
+            else if (notification.Type == NotificationType.Warning)
+            {
+                _warningMessages.Add(notification.Message);
+            }
         }
     }
 
@@ -370,6 +379,34 @@ public class ExportTests
 
             item.Dispose();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_preflight_cancellation_resets_completion_state()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-preflight-cancel");
+        using var output = new OutputViewModel(editor);
+        using var cancellation = new CancellationTokenSource();
+        output.IsCompleted.Value = true;
+        cancellation.Cancel();
+
+        try
+        {
+            await output.RunAsync(cancellation.Token);
+            Assert.Fail("The cancelled output preflight unexpectedly completed.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.WasCancelled.Value, Is.True);
+            Assert.That(output.IsCompleted.Value, Is.False);
+            Assert.That(output.IsEncoding.Value, Is.False);
+            Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Cancel));
+        });
     }
 
     [AvaloniaTest]
@@ -791,6 +828,9 @@ public class ExportTests
         viewModel.Items.Add(item);
         viewModel.SelectedItem.Value = item;
         Task execution = StartOutput(item);
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new RecordingNotificationHandler();
+        NotificationService.Handler = notifications;
 
         try
         {
@@ -802,6 +842,7 @@ public class ExportTests
                 Assert.That(viewModel.Items, Does.Contain(item));
                 Assert.That(viewModel.SelectedItem.Value, Is.SameAs(item));
                 Assert.That(context.DisposeCount, Is.Zero);
+                Assert.That(notifications.WarningMessages, Does.Contain(Strings.Output_WorkspaceBusy));
             });
             AssertWorkspaceMutationBlocked();
 
@@ -818,6 +859,7 @@ public class ExportTests
         }
         finally
         {
+            NotificationService.Handler = previousHandler;
             context.Finish();
             await execution.WaitAsync(TimeSpan.FromSeconds(5));
             viewModel.Dispose();

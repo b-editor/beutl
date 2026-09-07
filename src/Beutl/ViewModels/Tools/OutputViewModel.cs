@@ -214,7 +214,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            HandlePreflightCancellation();
+            throw;
+        }
 
         // Defensive re-check: reject if supersampled surface cannot be allocated.
         if (SupersampleWarning.Value is { } supersampleWarning)
@@ -232,11 +240,20 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         // Scene.Start), so the preflight must scan the same interval — not [0, Duration).
         IReadOnlySet<string> referencedSources =
             ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
-        IReadOnlyList<string> missingSources =
-            await Task.Run(
+        IReadOnlyList<string> missingSources;
+        try
+        {
+            missingSources = await Task.Run(
                 () => ExportSourceValidator.GetMissingPaths(referencedSources),
                 cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            HandlePreflightCancellation();
+            throw;
+        }
+
         if (missingSources.Count > 0)
         {
             string message = string.Format(
@@ -412,6 +429,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ShowCompletionNotification(completedPath);
             }
         }
+    }
+
+    private void HandlePreflightCancellation()
+    {
+        IsCompleted.Value = false;
+        HandleCancellation();
     }
 
     private void HandleCancellation()

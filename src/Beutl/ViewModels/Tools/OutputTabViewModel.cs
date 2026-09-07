@@ -71,6 +71,7 @@ public class OutputTabViewModel : IToolContext
         {
             _logger.LogWarning("Cannot remove an output profile while it is encoding: {ItemName}",
                 item.Context.Name.Value);
+            NotificationService.ShowWarning(Strings.Output, Strings.Output_WorkspaceBusy);
             return;
         }
 

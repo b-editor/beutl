@@ -82,6 +82,29 @@ public sealed class RenderJobManagerTests
     }
 
     [Test]
+    public async Task Unrelated_operation_cancellation_is_reported_as_a_failure()
+    {
+        using var manager = new RenderJobManager();
+        using var unrelatedCancellation = new CancellationTokenSource();
+        unrelatedCancellation.Cancel();
+
+        string jobId = manager.Enqueue(
+            "test",
+            _ => Task.FromException<JsonNode>(
+                new OperationCanceledException(unrelatedCancellation.Token)),
+            new TestLease());
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Error, Is.Not.Null);
+            Assert.That(snapshot.Error!.Code, Is.EqualTo("internal_error"));
+            Assert.That(snapshot.Error.Message, Does.Contain(nameof(OperationCanceledException)));
+        });
+    }
+
+    [Test]
     public void Cancel_unknown_job_returns_false()
     {
         using var manager = new RenderJobManager();

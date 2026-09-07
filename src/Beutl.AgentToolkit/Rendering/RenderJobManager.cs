@@ -199,7 +199,7 @@ public sealed class RenderJobManager : IDisposable
             result = await work(reporter, record.Cts.Token).ConfigureAwait(false);
             terminalState = RenderJobState.Completed;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (record.Cts.IsCancellationRequested)
         {
             terminalState = RenderJobState.Cancelled;
         }
