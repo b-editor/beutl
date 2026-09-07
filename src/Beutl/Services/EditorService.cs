@@ -120,6 +120,9 @@ public sealed class EditorService
 
     internal IProjectVersionControlCoordinator? ProjectVersionControlCoordinator { get; set; }
 
+    internal IProjectVersionControlSession? ProjectVersionControlSession
+        => ProjectVersionControlCoordinator as IProjectVersionControlSession;
+
     internal bool IsWorktreeMutationActive
     {
         get

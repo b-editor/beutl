@@ -622,6 +622,24 @@ internal sealed class RepositoryWatcher : IDisposable
 
     private void OnGitMetadataChanged(string metadataRoot, FileSystemEventArgs e)
     {
+        try
+        {
+            OnGitMetadataChangedCore(metadataRoot, e);
+        }
+        catch (Exception ex)
+            when (ex is IOException
+                  or UnauthorizedAccessException
+                  or NotSupportedException
+                  or ArgumentException)
+        {
+            // Metadata paths can be replaced between event delivery and canonical comparison.
+            // Uncertainty still means Git state may have changed, so refresh conservatively.
+            ScheduleChanged();
+        }
+    }
+
+    private void OnGitMetadataChangedCore(string metadataRoot, FileSystemEventArgs e)
+    {
         bool metadataSubdirectoryChanged = false;
         string refsDirectory = Path.Combine(metadataRoot, "refs");
         if (PathsEqual(e.FullPath, refsDirectory)

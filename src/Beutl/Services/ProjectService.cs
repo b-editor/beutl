@@ -194,6 +194,24 @@ public sealed class ProjectService
 
     public void CloseProject()
     {
+        TryCloseProject();
+    }
+
+    internal bool TryCloseProject()
+    {
+        try
+        {
+            CloseProjectOrThrow();
+            return true;
+        }
+        catch (ProjectCloseAbortedException)
+        {
+            return false;
+        }
+    }
+
+    internal void CloseProjectOrThrow()
+    {
         Task close = CloseProjectAsync();
         if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
@@ -214,6 +232,31 @@ public sealed class ProjectService
             this,
             cancellationToken);
         await CloseProjectCoreAsync(transition.Context, cancellationToken);
+    }
+
+    internal async Task<bool> TryCloseProjectAsync(
+        Project expectedProject,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(expectedProject);
+        try
+        {
+            await using ProjectTransitionScope transition = await BeginTransitionAsync(
+                ProjectTransitionPurpose.Normal,
+                this,
+                cancellationToken);
+            if (!ReferenceEquals(_app.Project, expectedProject))
+            {
+                return false;
+            }
+
+            await CloseProjectCoreAsync(transition.Context, cancellationToken);
+            return true;
+        }
+        catch (ProjectCloseAbortedException)
+        {
+            return false;
+        }
     }
 
     public async Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)

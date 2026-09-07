@@ -1,6 +1,8 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.ProjectSystem;
@@ -13,9 +15,6 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 [TestFixture]
 public class GitCliVersionControlServiceTests : RealGitTestRepository
 {
-    private const string CanonicalTestLfsOid =
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-
     // Stable union of the existing policy, Engine built-in decoders, optional decoders,
     // and the still-image formats advertised by SharedFilePickerOptions.OpenImage.
     private static readonly string[] s_expectedSupportedMediaExtensions =
@@ -1344,7 +1343,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             watcher: null,
             _ => CreateRunner(),
-            beforeHygieneFileCommit: async (path, cancellationToken) =>
+            beforeFileCommit: async (path, cancellationToken) =>
             {
                 if (path == attributesPath && Interlocked.Exchange(ref edits, 1) == 0)
                 {
@@ -1386,7 +1385,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Repository,
             watcher: null,
             _ => CreateRunner(),
-            beforeHygieneFileCommit: async (path, cancellationToken) =>
+            beforeFileCommit: async (path, cancellationToken) =>
             {
                 if (path == attributesPath && Interlocked.Exchange(ref firstEdits, 1) == 0)
                 {
@@ -1396,7 +1395,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                         cancellationToken);
                 }
             },
-            afterHygieneFileExchange: async (path, cancellationToken) =>
+            afterFileExchange: async (path, cancellationToken) =>
             {
                 if (path == attributesPath && Interlocked.Exchange(ref secondEdits, 1) == 0)
                 {
@@ -2475,6 +2474,26 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(exception!.Message, Does.Contain("plugin-data/item.custom-sidecar"));
     }
 
+    [TestCase(".git:clip.png")]
+    [TestCase(".beutl.")]
+    [TestCase(".git ")]
+    public void Reserved_path_detection_preserves_legal_Unix_filename_characters(
+        string fileName)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("These trailing and stream-like names are reserved on Windows.");
+        }
+
+        var rootUri = new Uri(Path.TrimEndingDirectorySeparator(Root)
+                              + Path.DirectorySeparatorChar);
+        var uri = new Uri(rootUri, Uri.EscapeDataString(fileName));
+
+        Assert.That(
+            VersionControlSerializationGraph.IsInReservedProjectPath(uri, Root),
+            Is.False);
+    }
+
     [TestCase(".beutl", ".beutl")]
     [TestCase(".BeUtL", ".BeUtL")]
     [TestCase(".beutl", ".beutl/child")]
@@ -2609,6 +2628,144 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(actual, Is.EqualTo(expected));
             Assert.That(localName.Stdout.Trim(), Is.EqualTo(expected.Name));
             Assert.That(localEmail.Stdout.Trim(), Is.EqualTo(expected.Email));
+        });
+    }
+
+    [Test]
+    public async Task SetLocalIdentityAsync_preserves_an_ordinary_edit_at_the_commit_boundary()
+    {
+        await RunGitAsync("config", "--local", "user.name", "Original Name");
+        await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
+        string configPath = Path.Combine(Root, ".git", "config");
+        string concurrentConfig = await File.ReadAllTextAsync(configPath)
+                                  + "\n[beutl]\n\tconcurrent = true\n";
+        int edits = 0;
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            beforeFileCommit: async (path, cancellationToken) =>
+            {
+                if (path == configPath && Interlocked.Exchange(ref edits, 1) == 0)
+                {
+                    await File.WriteAllTextAsync(path, concurrentConfig, cancellationToken);
+                }
+            });
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.SetLocalIdentityAsync(
+                new GitIdentity("Replacement Name", "replacement@example.invalid"),
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("external edit was preserved"));
+            Assert.That(edits, Is.EqualTo(1));
+            Assert.That(File.ReadAllText(configPath), Is.EqualTo(concurrentConfig));
+            Assert.That(File.Exists(configPath + ".lock"), Is.False);
+            Assert.That(
+                Directory.GetFiles(Path.GetDirectoryName(configPath)!, ".beutl-config-*"),
+                Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task SetLocalIdentityAsync_reports_a_verified_displaced_config_cleanup_failure()
+    {
+        await RunGitAsync("config", "--local", "user.name", "Original Name");
+        await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
+        string configDirectory = Path.Combine(Root, ".git");
+        int deletionAttempts = 0;
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            deleteOwnedLocalConfigFile: path =>
+            {
+                if (Interlocked.Increment(ref deletionAttempts) == 1)
+                {
+                    return false;
+                }
+
+                File.Delete(path);
+                return !Path.Exists(path);
+            });
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.SetLocalIdentityAsync(
+                new GitIdentity("Replacement Name", "replacement@example.invalid"),
+                CancellationToken.None));
+        string[] retainedConfigs = Directory.GetFiles(configDirectory)
+            .Where(path => string.Equals(
+                               Path.GetFileName(path),
+                               "config.lock",
+                               StringComparison.Ordinal)
+                           || Path.GetFileName(path).StartsWith(
+                               ".config.",
+                               StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("could not be removed"));
+            Assert.That(deletionAttempts, Is.GreaterThanOrEqualTo(1));
+            Assert.That(retainedConfigs, Has.Length.EqualTo(1));
+            Assert.That(File.ReadAllText(retainedConfigs[0]), Does.Contain("Original Name"));
+        });
+    }
+
+    [Test]
+    public async Task SetLocalIdentityAsync_reports_retained_prior_config_after_a_second_edit()
+    {
+        await RunGitAsync("config", "--local", "user.name", "Original Name");
+        await RunGitAsync("config", "--local", "user.email", "original@example.invalid");
+        string configPath = Path.Combine(Root, ".git", "config");
+        string configDirectory = Path.GetDirectoryName(configPath)!;
+        const string LaterConfig = "[beutl]\n\tlater = true\n";
+        int deletionAttempts = 0;
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            Repository,
+            watcher: null,
+            _ => CreateRunner(),
+            afterFileExchange: async (path, cancellationToken) =>
+            {
+                if (path == configPath)
+                {
+                    await File.WriteAllTextAsync(path, LaterConfig, cancellationToken);
+                }
+            },
+            deleteOwnedLocalConfigFile: path =>
+            {
+                if (Interlocked.Increment(ref deletionAttempts) == 1)
+                {
+                    return false;
+                }
+
+                File.Delete(path);
+                return !Path.Exists(path);
+            });
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await service.SetLocalIdentityAsync(
+                new GitIdentity("Replacement Name", "replacement@example.invalid"),
+                CancellationToken.None));
+        string retainedPath = Directory.GetFiles(configDirectory)
+            .Single(path => string.Equals(
+                                Path.GetFileName(path),
+                                "config.lock",
+                                StringComparison.Ordinal)
+                            || Path.GetFileName(path).StartsWith(
+                                ".config.",
+                                StringComparison.Ordinal));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain(retainedPath));
+            Assert.That(File.ReadAllText(configPath), Is.EqualTo(LaterConfig));
+            Assert.That(File.ReadAllText(retainedPath), Does.Contain("Original Name"));
         });
     }
 
@@ -3077,7 +3234,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await service.GetDiffAsync(sha, "project.bep", CancellationToken.None);
 
         IReadOnlyList<IReadOnlyList<string>> parsedCommands = runner.Commands
-            .Where(static command => command.FirstOrDefault() is "log" or "show")
+            .Where(static command => command.Contains("log")
+                                     || command.FirstOrDefault() == "show")
             .ToArray();
         Assert.Multiple(() =>
         {
@@ -3222,6 +3380,18 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         string sha = ((CommitRevision.Known)result.Revision).Sha;
         string message = (await RunGitAsync("show", "-s", "--format=%B", sha)).Stdout;
+        string snapshotTrailer = (await RunGitAsync(
+                "show",
+                "-s",
+                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
+                sha))
+            .Stdout.Trim();
+        string reviewedByTrailer = (await RunGitAsync(
+                "show",
+                "-s",
+                "--format=%(trailers:key=Reviewed-By,valueonly)",
+                sha))
+            .Stdout.Trim();
         string[] post = (await File.ReadAllTextAsync(Path.Combine(Root, "hook-post.txt")))
             .TrimEnd('\r', '\n')
             .Split('|');
@@ -3235,6 +3405,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(message, Does.Contain("Reviewed-By: hook\n"));
             Assert.That(message, Does.Not.Contain("external message"));
             Assert.That(message, Does.Not.Contain("hook  "));
+            Assert.That(snapshotTrailer, Is.EqualTo("manual"));
+            Assert.That(reviewedByTrailer, Is.EqualTo("hook"));
             Assert.That(post, Has.Length.EqualTo(8));
             Assert.That(post[0], Is.EqualTo(":"));
             Assert.That(
@@ -3246,6 +3418,91 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(post[5], Is.EqualTo("main"));
             Assert.That(post[6], Is.EqualTo(sha));
             Assert.That(post[7], Is.Empty);
+            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_repairs_the_snapshot_trailer_without_demoting_hook_trailers()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        await RunGitAsync("config", "trailer.separators", "=");
+        await WriteHookAsync(
+            "prepare-commit-msg",
+            "printf 'hook subject\\n\\nPrepared body\\n' > \"$1\"\n");
+        await WriteHookAsync(
+            "commit-msg",
+            "printf '\\nHook tail\\n\\nReviewed-By=hook\\nBeutl-Snapshot: close\\n' >> \"$1\"\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        var result = (CommitResult.Committed)await service.CommitAllAsync(
+            "automatic snapshot",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string sha = ((CommitRevision.Known)result.Revision).Sha;
+        string message = (await RunGitAsync("show", "-s", "--format=%B", sha)).Stdout;
+        string[] snapshotTrailers = (await RunGitAsync(
+                "-c",
+                "trailer.separators=:=",
+                "show",
+                "-s",
+                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
+                sha))
+            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        string reviewedByTrailer = (await RunGitAsync(
+                "-c",
+                "trailer.separators=:=",
+                "show",
+                "-s",
+                "--format=%(trailers:key=Reviewed-By,valueonly)",
+                sha))
+            .Stdout.Trim();
+        CommitInfo history = (await service.GetHistoryAsync(
+            skip: 0,
+            take: 1,
+            CancellationToken.None)).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(message, Does.StartWith("hook subject\n"));
+            Assert.That(message, Does.Contain("Prepared body\n"));
+            Assert.That(message, Does.Contain("Hook tail\n"));
+            Assert.That(snapshotTrailers, Is.EqualTo(new[] { "save" }));
+            Assert.That(reviewedByTrailer, Is.EqualTo("hook"));
+            Assert.That(history.Kind, Is.EqualTo(SnapshotKind.Save));
+            Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task CommitAllAsync_reconstructs_a_hook_duplicated_snapshot_trailer()
+    {
+        await CommitFileAsync("project.bep", "baseline\n", "baseline");
+        string baseTip = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        await WriteHookAsync(
+            "commit-msg",
+            "printf 'BEUTL-SNAPSHOT: close\\n' >> \"$1\"\n");
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "snapshot\n");
+        using var service = CreateService();
+
+        var result = (CommitResult.Committed)await service.CommitAllAsync(
+            "manual snapshot",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+        string sha = ((CommitRevision.Known)result.Revision).Sha;
+        string[] snapshotTrailers = (await RunGitAsync(
+                "show",
+                "-s",
+                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
+                sha))
+            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sha, Is.Not.EqualTo(baseTip));
+            Assert.That(snapshotTrailers, Is.EqualTo(new[] { "manual" }));
             Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
         });
     }
@@ -3333,13 +3590,24 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         int bodySeparator = bytes.AsSpan().IndexOf("\n\n"u8);
         byte[] messagePrefix = Encoding.UTF8.GetBytes(
             "manual snapshot\n\nBeutl-Snapshot: manual\n");
-        var expectedMessage = new byte[messagePrefix.Length + 1 + (addsTrailingNewline ? 1 : 0)];
+        byte[] reconstructedTrailer = Encoding.UTF8.GetBytes(
+            "\n\nBeutl-Snapshot: manual\n");
+        int hookMessageLength = messagePrefix.Length + 1 + (addsTrailingNewline ? 1 : 0);
+        var expectedMessage = new byte[hookMessageLength + reconstructedTrailer.Length];
         messagePrefix.CopyTo(expectedMessage, 0);
         expectedMessage[messagePrefix.Length] = 0xe9;
         if (addsTrailingNewline)
         {
-            expectedMessage[^1] = (byte)'\n';
+            expectedMessage[messagePrefix.Length + 1] = (byte)'\n';
         }
+
+        reconstructedTrailer.CopyTo(expectedMessage, hookMessageLength);
+        string snapshotTrailer = (await RunGitAsync(
+                "show",
+                "-s",
+                "--format=%(trailers:key=Beutl-Snapshot,valueonly)",
+                sha))
+            .Stdout.Trim();
 
         Assert.Multiple(() =>
         {
@@ -3348,6 +3616,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(
                 bodySeparator < 0 ? [] : bytes[(bodySeparator + 2)..],
                 Is.EqualTo(expectedMessage));
+            Assert.That(snapshotTrailer, Is.EqualTo("manual"));
         });
     }
 
@@ -3515,6 +3784,72 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 Is.EqualTo(baseTip));
             Assert.That(File.Exists(Path.Combine(Root, "hook-post.txt")), Is.False);
             Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CommitAllAsync_validates_a_hook_tree_for_a_directory_symlink_alias(
+        bool intermediateAlias)
+    {
+        string projectRoot = intermediateAlias
+            ? Path.Combine(Root, "nested", "project")
+            : Root;
+        Directory.CreateDirectory(projectRoot);
+        string projectFile = Path.Combine(projectRoot, "project.bep");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "baseline");
+
+        string aliasedProjectFile;
+        if (intermediateAlias)
+        {
+            string linkedNested = Path.Combine(Root, "linked-nested");
+            CreateDirectorySymbolicLinkOrIgnore(linkedNested, Path.Combine(Root, "nested"));
+            aliasedProjectFile = Path.Combine(linkedNested, "project", "project.bep");
+        }
+        else
+        {
+            string aliasRoot = Path.Combine(CreateTemporaryDirectory(), "repository");
+            CreateDirectorySymbolicLinkOrIgnore(aliasRoot, Root);
+            aliasedProjectFile = Path.Combine(aliasRoot, "project.bep");
+        }
+
+        var repository = new RepositoryInfo(Root, projectRoot);
+        string hookFile = repository.Pathspec == "."
+            ? "hook-added.txt"
+            : $"{repository.Pathspec}/hook-added.txt";
+        await WriteHookAsync(
+            "pre-commit",
+            $"printf 'hooked\\n' > \"{hookFile}\"\n"
+            + $"git add -- \"{hookFile}\"\n");
+        await File.WriteAllTextAsync(projectFile, "{ }\n");
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(),
+            repository,
+            watcher: null,
+            _ => CreateRunner(),
+            projectFile: aliasedProjectFile);
+
+        CommitResult result = await service.CommitAllAsync(
+            "beutl: snapshot on save",
+            SnapshotKind.Save,
+            CancellationToken.None);
+
+        string[] committedPaths = (await RunGitAsync(
+                "show",
+                "--format=",
+                "--name-only",
+                "HEAD"))
+            .Stdout.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(committedPaths, Does.Contain(hookFile));
+            Assert.That(committedPaths, Does.Contain(
+                repository.Pathspec == "."
+                    ? "project.bep"
+                    : $"{repository.Pathspec}/project.bep"));
         });
     }
 
@@ -4516,7 +4851,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
-    public void Porcelain_v2_parser_reads_branch_counts_renames_and_conflicts()
+    public void Porcelain_v2_parser_reads_branch_counts_renames_copies_and_conflicts()
     {
         string output = string.Join('\0',
         [
@@ -4526,6 +4861,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             "1 .M N... 100644 100644 100644 aaaaaaa bbbbbbb project file.bep",
             "2 R. N... 100644 100644 100644 aaaaaaa bbbbbbb R100 renamed.scene",
             "old.scene",
+            "2 C. N... 100644 100644 100644 aaaaaaa bbbbbbb C100 copied.scene",
+            "source.scene",
             "u UU N... 100644 100644 100644 100644 aaaaaaa bbbbbbb ccccccc conflict.belm",
             "? added.belm",
             "",
@@ -4539,14 +4876,28 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(status.Ahead, Is.EqualTo(2));
             Assert.That(status.Behind, Is.EqualTo(3));
             Assert.That(status.HasConflicts, Is.True);
-            Assert.That(status.Changes, Has.Count.EqualTo(4));
+            Assert.That(status.Changes, Has.Count.EqualTo(5));
             Assert.That(status.Changes[0],
                 Is.EqualTo(new FileChange("project file.bep", FileChangeStatus.Modified)));
             Assert.That(status.Changes[1],
                 Is.EqualTo(new FileChange("renamed.scene", FileChangeStatus.Renamed, "old.scene")));
-            Assert.That(status.Changes[3],
+            Assert.That(status.Changes[2],
+                Is.EqualTo(new FileChange("copied.scene", FileChangeStatus.Added)));
+            Assert.That(status.Changes[4],
                 Is.EqualTo(new FileChange("added.belm", FileChangeStatus.Added)));
         });
+    }
+
+    [Test]
+    public void Name_status_parser_reports_a_copy_as_an_addition()
+    {
+        string output = string.Join('\0', ["C100", "source.scene", "copied.scene", ""]);
+
+        IReadOnlyList<FileChange> files = GitCliVersionControlService.ParseCommitFiles(output);
+
+        Assert.That(
+            files,
+            Is.EqualTo(new[] { new FileChange("copied.scene", FileChangeStatus.Added) }));
     }
 
     [Test]
@@ -6021,6 +6372,154 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Lfs_prefetch_without_an_installed_filter_rejects_a_target_branch_pointer()
+    {
+        await CommitFileAsync("project.bep", "base\n", "base");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        await RunGitAsync("add", ".gitattributes");
+        await RunGitAsync("commit", "-m", "lfs attributes");
+        await RunGitAsync("switch", "-c", "target-lfs");
+        Directory.CreateDirectory(Path.Combine(Root, "media"));
+        byte[] media = Encoding.UTF8.GetBytes("target media\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, "media", "clip.mp4"),
+            CreateNoncanonicalLfsPointer(media).PadRight(2048));
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "target lfs pointer");
+        await RunGitAsync("switch", "main");
+        await RunGitAsync("config", "diff.lfs.binary", "true");
+        var recording = new ArgumentRecordingRunner(CreateRunner());
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false),
+            Repository,
+            watcher: null,
+            _ => recording);
+
+        InvalidOperationException? exception = Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.PrefetchBranchLfsObjectsAsync(
+                        "target-lfs",
+                        CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("Git LFS is not installed"));
+            Assert.That((RunGitAsync("branch", "--show-current").GetAwaiter().GetResult())
+                .Stdout.Trim(), Is.EqualTo("main"));
+            Assert.That(recording.Commands.Any(static command => command.Contains("lfs")),
+                Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Lfs_prefetch_without_an_installed_filter_honors_the_project_scope()
+    {
+        const string ProjectPathspec = "projects/edit";
+        string projectRoot = Path.Combine(
+            Root,
+            ProjectPathspec.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(projectRoot);
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        byte[] media = Encoding.UTF8.GetBytes("scoped media\n");
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, "outside.mp4"),
+            CreateLfsPointer(media));
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "outside lfs pointer");
+        string outsideOnly = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false),
+            new RepositoryInfo(Root, projectRoot),
+            watcher: null,
+            _ => CreateRunner());
+
+        Assert.DoesNotThrowAsync(() =>
+            ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.PrefetchCommitLfsObjectsAsync(
+                        outsideOnly,
+                        LfsPrefetchScope.ProjectPathspec,
+                        CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
+        Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.PrefetchCommitLfsObjectsAsync(
+                        outsideOnly,
+                        LfsPrefetchScope.RepositoryWide,
+                        CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
+
+        Directory.CreateDirectory(Path.Combine(projectRoot, "media"));
+        await File.WriteAllTextAsync(
+            Path.Combine(projectRoot, "media", "clip.mp4"),
+            CreateLfsPointer(media));
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "project lfs pointer");
+        string projectPointer = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+
+        Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.PrefetchCommitLfsObjectsAsync(
+                        projectPointer,
+                        LfsPrefetchScope.ProjectPathspec,
+                        CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Lfs_prefetch_without_an_installed_filter_ignores_a_malformed_extension()
+    {
+        byte[] contents = Encoding.UTF8.GetBytes("not pointer data\n");
+        string malformed = $"version https://git-lfs.github.com/spec/v1\n"
+                           + $"oid sha256:{ComputeLfsOid(contents)}\n"
+                           + "ext-note documentation\n"
+                           + $"size {contents.Length}\n";
+        await CommitFileAsync(
+            "notes.txt",
+            malformed.PadRight(2048),
+            "pointer documentation");
+        string commit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: false),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        Assert.DoesNotThrowAsync(() =>
+            ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+                async transaction =>
+                {
+                    await transaction.PrefetchCommitLfsObjectsAsync(
+                        commit,
+                        LfsPrefetchScope.RepositoryWide,
+                        CancellationToken.None);
+                    return true;
+                },
+                CancellationToken.None));
+    }
+
+    [Test]
     public async Task Repository_wide_lfs_prefetch_clears_the_repository_lfs_path_filters()
     {
         await File.WriteAllTextAsync(
@@ -6088,7 +6587,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string commit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         await RunGitAsync("remote", "add", "origin", CreateTemporaryDirectory());
         var recording = new ArgumentRecordingRunner(
-            new UnreachableLfsEndpointRunner(CreateRunner(), string.Empty));
+            new UnreachableLfsEndpointRunner(CreateRunner(), LfsObjectListJson()));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             new RepositoryInfo(Root, projectRoot),
@@ -6153,7 +6652,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             .Stdout.Trim();
         await RunGitAsync("remote", "add", "origin", CreateTemporaryDirectory());
         var recording = new ArgumentRecordingRunner(
-            new UnreachableLfsEndpointRunner(CreateRunner(), string.Empty));
+            new UnreachableLfsEndpointRunner(CreateRunner(), LfsObjectListJson()));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             new RepositoryInfo(Root, projectRoot),
@@ -6226,7 +6725,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 cachedContents);
         }
 
-        var runner = new UnreachableLfsEndpointRunner(CreateRunner(), $"{oid} * media/clip.mp4\n");
+        var runner = new UnreachableLfsEndpointRunner(
+            CreateRunner(),
+            LfsObjectListJson((oid, "media/clip.mp4")));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             Repository,
@@ -6267,7 +6768,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Encoding.UTF8.GetBytes("corrupt object!\n"));
         var runner = new UnreachableLfsEndpointRunner(
             CreateRunner(),
-            $"{oid} * media/clip.mp4\n");
+            LfsObjectListJson((oid, "media/clip.mp4")));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             Repository,
@@ -6310,7 +6811,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         var recording = new ArgumentRecordingRunner(
             new UnreachableLfsEndpointRunner(
                 CreateRunner(),
-                $"{oid} * {ProjectPathspec}/media/clip.mp4\n"));
+                LfsObjectListJson((oid, $"{ProjectPathspec}/media/clip.mp4"))));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             new RepositoryInfo(Root, projectRoot),
@@ -6374,7 +6875,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         var recording = new ArgumentRecordingRunner(
             new UnreachableLfsEndpointRunner(
                 CreateRunner(),
-                $"{oid} * media/clip.mp4\n"));
+                LfsObjectListJson((oid, "media/clip.mp4"))));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             Repository,
@@ -6398,10 +6899,12 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Assert.That(fetch, Does.Contain(target));
     }
 
-    [TestCase("abcd * media/clip.mp4\n")]
-    [TestCase("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA * media/clip.mp4\n")]
-    [TestCase(CanonicalTestLfsOid + " x media/clip.mp4\n")]
-    [TestCase(CanonicalTestLfsOid + " * \n")]
+    [TestCase("")]
+    [TestCase("{}")]
+    [TestCase("{\"files\":{}}")]
+    [TestCase("{\"files\":[{}]}")]
+    [TestCase("{\"files\":[{\"oid\":\"abcd\"}]}")]
+    [TestCase("{\"files\":[{\"oid\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}]}")]
     public async Task Failed_lfs_prefetch_rejects_noncanonical_object_listings(string listing)
     {
         string commit = await CommitLfsPrefetchFixtureAsync(addRemote: true);
@@ -6438,7 +6941,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         var recording = new ArgumentRecordingRunner(
             new UnreachableLfsEndpointRunner(
                 CreateRunner(),
-                $"{oid} * media/clip.mp4\n",
+                LfsObjectListJson((oid, "media/clip.mp4")),
                 lsFilesOutputTruncated: true));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
@@ -6489,7 +6992,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             oid,
             cachedContents);
         await RunGitAsync("-C", linkedRoot, "remote", "add", "origin", CreateTemporaryDirectory());
-        var runner = new UnreachableLfsEndpointRunner(CreateRunner(), $"{oid} * clip.mp4\n");
+        var runner = new UnreachableLfsEndpointRunner(
+            CreateRunner(),
+            LfsObjectListJson((oid, "clip.mp4")));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             new RepositoryInfo(linkedRoot, linkedRoot),
@@ -6503,6 +7008,121 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 return true;
             },
             CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Failed_lfs_prefetch_accepts_a_cached_object_with_a_newline_in_its_filename()
+    {
+        string commit = await CommitLfsPrefetchFixtureAsync(addRemote: true);
+        byte[] cachedContents = Encoding.UTF8.GetBytes("cached newline object\n");
+        string oid = ComputeLfsOid(cachedContents);
+        await WriteCachedLfsObjectAsync(
+            Path.Combine(Root, ".git", "lfs", "objects"),
+            oid,
+            cachedContents);
+        var recording = new ArgumentRecordingRunner(
+            new UnreachableLfsEndpointRunner(
+                CreateRunner(),
+                LfsObjectListJson((oid, "media/line\nbreak.mp4"))));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            Repository,
+            watcher: null,
+            _ => recording);
+
+        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchCommitLfsObjectsAsync(
+                    commit,
+                    LfsPrefetchScope.RepositoryWide,
+                    CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None));
+
+        Assert.That(
+            recording.Commands.Single(static arguments => arguments.Contains("ls-files")),
+            Does.Contain("--json"));
+    }
+
+    [Test]
+    public async Task Lfs_prefetch_reads_a_real_json_listing_for_a_newline_filename()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows file names cannot contain line-feed characters.");
+        }
+
+        await File.WriteAllTextAsync(
+            Path.Combine(Root, ".gitattributes"),
+            "*.mp4 filter=lfs diff=lfs merge=lfs -text\n");
+        string mediaDirectory = Path.Combine(Root, "media");
+        Directory.CreateDirectory(mediaDirectory);
+        string mediaPath = Path.Combine(mediaDirectory, "line\nbreak.mp4");
+        await File.WriteAllTextAsync(mediaPath, "real cached newline object\n");
+        await RunGitAsync("add", "-A");
+        await RunGitAsync("commit", "-m", "add newline lfs path");
+        string commit = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            Repository,
+            watcher: null,
+            _ => CreateRunner());
+
+        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchCommitLfsObjectsAsync(
+                    commit,
+                    LfsPrefetchScope.RepositoryWide,
+                    CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None));
+    }
+
+    [Test]
+    public async Task Lfs_prefetch_falls_back_for_a_pre_json_client_with_a_newline_filename()
+    {
+        string commit = await CommitLfsPrefetchFixtureAsync(addRemote: true);
+        byte[] cachedContents = Encoding.UTF8.GetBytes("legacy cached newline object\n");
+        string oid = ComputeLfsOid(cachedContents);
+        await WriteCachedLfsObjectAsync(
+            Path.Combine(Root, ".git", "lfs", "objects"),
+            oid,
+            cachedContents);
+        var recording = new ArgumentRecordingRunner(
+            new UnreachableLfsEndpointRunner(
+                CreateRunner(),
+                $"{oid} * media/line\nbreak.mp4\n",
+                jsonUnsupported: true));
+        using var service = new GitCliVersionControlService(
+            CreateInstalledLocator(lfsInstalled: true),
+            Repository,
+            watcher: null,
+            _ => recording);
+
+        Assert.DoesNotThrowAsync(() => ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+            async transaction =>
+            {
+                await transaction.PrefetchCommitLfsObjectsAsync(
+                    commit,
+                    LfsPrefetchScope.RepositoryWide,
+                    CancellationToken.None);
+                return true;
+            },
+            CancellationToken.None));
+
+        string[][] listings = recording.Commands
+            .Where(static arguments => arguments.Contains("ls-files"))
+            .ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(listings, Has.Length.EqualTo(2));
+            Assert.That(listings[0], Does.Contain("--json"));
+            Assert.That(listings[1], Does.Not.Contain("--json"));
+        });
     }
 
     [TestCase(false)]
@@ -6534,7 +7154,9 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await RunGitAsync("-C", linkedRoot, "config", "lfs.storage", configuredStorage);
         await RunGitAsync("-C", linkedRoot, "remote", "add", "origin", CreateTemporaryDirectory());
 
-        var runner = new UnreachableLfsEndpointRunner(CreateRunner(), $"{oid} * clip.mp4\n");
+        var runner = new UnreachableLfsEndpointRunner(
+            CreateRunner(),
+            LfsObjectListJson((oid, "clip.mp4")));
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true),
             new RepositoryInfo(linkedRoot, linkedRoot),
@@ -6575,6 +7197,35 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     private static string ComputeLfsOid(byte[] contents)
     {
         return Convert.ToHexString(SHA256.HashData(contents)).ToLowerInvariant();
+    }
+
+    private static string CreateLfsPointer(byte[] contents)
+    {
+        return $"version https://git-lfs.github.com/spec/v1\n"
+               + $"oid sha256:{ComputeLfsOid(contents)}\n"
+               + $"size {contents.Length}\n";
+    }
+
+    private static string CreateNoncanonicalLfsPointer(byte[] contents)
+    {
+        string oid = ComputeLfsOid(contents);
+        return $"  ext-1-before sha256:{oid}\n\n"
+               + "version http://git-media.io/v/2\n\n"
+               + $"oid sha256:{oid}\n"
+               + $"ext-0-test sha256:{oid}\n\n"
+               + $"size +{contents.Length}  \n\n";
+    }
+
+    private static string LfsObjectListJson(params (string Oid, string Name)[] files)
+    {
+        return JsonSerializer.Serialize(new
+        {
+            files = files.Select(static file => new
+            {
+                oid = file.Oid,
+                name = file.Name,
+            }),
+        });
     }
 
     private static async Task WriteCachedLfsObjectAsync(
@@ -6724,7 +7375,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     private sealed class UnreachableLfsEndpointRunner(
         IGitCliRunner inner,
         string lsFilesOutput,
-        bool lsFilesOutputTruncated = false) : IGitCliRunner
+        bool lsFilesOutputTruncated = false,
+        bool jsonUnsupported = false) : IGitCliRunner
     {
         public bool HasActiveProcess => inner.HasActiveProcess;
 
@@ -6743,6 +7395,11 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
             if (subcommand == "lfs" && arguments.Contains("ls-files"))
             {
+                if (jsonUnsupported && arguments.Contains("--json"))
+                {
+                    throw new GitOperationException(2, "Error: unknown flag: --json");
+                }
+
                 return Task.FromResult(new GitCommandResult(
                     0,
                     lsFilesOutput,

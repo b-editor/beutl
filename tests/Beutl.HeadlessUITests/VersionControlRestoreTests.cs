@@ -27,6 +27,59 @@ public class VersionControlRestoreTests
     private const string RestoreStateKey = "version-control-restore-state";
 
     [AvaloniaTest]
+    public async Task Project_open_ignores_optional_Git_discovery_for_a_control_character_path()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows paths cannot contain the control character used by this regression.");
+        }
+
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnClose = false;
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-control\npath");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "control-path",
+                location))!;
+            string projectFile = project.Uri!.LocalPath;
+            await TestShell.Project.CloseProjectAsync();
+
+            await TestShell.Project.OpenProject(projectFile);
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+                Assert.That(
+                    TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
+                    Is.EqualTo(projectFile));
+                Assert.That(TestShell.VersionControl.IsTracked.Value, Is.False);
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Manual_commit_requests_repository_identity_and_skips_a_clean_second_commit()
     {
         await TestReset.ResetShellAsync();
@@ -1157,6 +1210,93 @@ public class VersionControlRestoreTests
                 TestShell.Project.ClosingFinalizing -= cancelAfterCommitPoint;
             }
 
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public Task Manual_commit_keeps_editors_suspended_through_commit_publication()
+        => AssertManualCommitEditorSuspensionAsync(requireIdentity: false);
+
+    [AvaloniaTest]
+    public Task Manual_commit_identity_retry_resuspends_through_commit_publication()
+        => AssertManualCommitEditorSuspensionAsync(requireIdentity: true);
+
+    private static async Task AssertManualCommitEditorSuspensionAsync(bool requireIdentity)
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        var commitStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCommit = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                requireIdentity
+                    ? "version-control-manual-identity-suspension"
+                    : "version-control-manual-suspension");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                CommitAllResult = new CommitResult.NoChanges(),
+                CommitAllStarted = commitStarted,
+                CommitAllRelease = releaseCommit.Task,
+                RequireIdentityForCommit = requireIdentity,
+            };
+            var commands = new PassiveSaveCommands();
+            var context = new PassiveEditorContext(project, commands);
+            var editorService = new EditorService(new ExtensionProvider());
+            editorService.TabItems.Add(new EditorTabItem(context));
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                editorService,
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool? identityCallbackSawEditorEnabled = null;
+            coordinator.RequestIdentityAsync = _ =>
+            {
+                identityCallbackSawEditorEnabled = context.IsEnabled.Value;
+                return Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Manual Commit Test", "manual@example.invalid"));
+            };
+
+            Task<CommitResult> commit = coordinator.CommitManualAsync("suspended commit");
+            await commitStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(commit.IsCompleted, Is.False);
+                Assert.That(context.IsEnabled.Value, Is.False);
+                Assert.That(commands.SaveCalls, Is.EqualTo(requireIdentity ? 2 : 1));
+                Assert.That(backend.CommitAllCalls, Is.EqualTo(requireIdentity ? 2 : 1));
+                Assert.That(
+                    identityCallbackSawEditorEnabled,
+                    Is.EqualTo(requireIdentity ? true : null));
+            });
+
+            releaseCommit.TrySetResult();
+            Assert.That(
+                await commit.WaitAsync(TimeSpan.FromSeconds(5)),
+                Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(context.IsEnabled.Value, Is.True);
+        }
+        finally
+        {
+            releaseCommit.TrySetResult();
             if (coordinator is not null)
             {
                 await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
@@ -8474,8 +8614,13 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Failed_opened_handler_retains_prepared_pull_recovery_refs()
+    public async Task Failed_opened_handler_and_unsupported_rediscovery_retain_pull_recovery_refs()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows paths cannot contain the control character used by this regression.");
+        }
+
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
@@ -8486,7 +8631,7 @@ public class VersionControlRestoreTests
         {
             config.AutoCommitOnClose = false;
             Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-opened-handler-recovery");
+                "version-control-opened-handler\nrecovery");
             string projectFile = project.Uri!.LocalPath;
             string projectRoot = Path.GetDirectoryName(projectFile)!;
             await TestShell.Project.CloseProjectAsync();
@@ -8517,15 +8662,28 @@ public class VersionControlRestoreTests
 
             await TestShell.Project.OpenProject(projectFile);
             HeadlessTestHelpers.Settle();
+            TestShell.Project.Opened -= throwingOpened;
+            throwingOpened = null;
 
-            IReadOnlyList<PendingPullRecovery> retained =
+            IReadOnlyList<PendingPullRecovery> retainedAfterFailedOpen =
+                await tracked.GetPendingPullRecoveriesAsync(CancellationToken.None);
+            discovery.DiscoverRepositoryOverride = _ =>
+                throw new ArgumentException("unsupported control path", "projectRoot");
+            await TestShell.Project.OpenProject(projectFile);
+            HeadlessTestHelpers.Settle();
+            IReadOnlyList<PendingPullRecovery> retainedAfterRediscovery =
                 await tracked.GetPendingPullRecoveriesAsync(CancellationToken.None);
             Assert.Multiple(() =>
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(tracked.RecoverPendingPullCalls, Is.EqualTo(1));
                 Assert.That(tracked.CompletePendingPullCalls, Is.Zero);
-                Assert.That(retained.Select(item => item.Id), Does.Contain(pending.Id));
+                Assert.That(
+                    retainedAfterFailedOpen.Select(item => item.Id),
+                    Does.Contain(pending.Id));
+                Assert.That(
+                    retainedAfterRediscovery.Select(item => item.Id),
+                    Does.Contain(pending.Id));
                 Assert.That(tracked.IsCheckpointRetained, Is.True);
             });
         }
@@ -10905,7 +11063,7 @@ public class VersionControlRestoreTests
 
         public Func<CancellationToken, Task<GitAvailability>>? AvailabilityOverride { get; init; }
 
-        public Func<string, RepositoryInfo?>? DiscoverRepositoryOverride { get; init; }
+        public Func<string, RepositoryInfo?>? DiscoverRepositoryOverride { get; set; }
 
         public Func<PendingPullRecovery, Task>? RecoverPendingPullOverride { get; init; }
 
@@ -10942,6 +11100,8 @@ public class VersionControlRestoreTests
         public Task? CommitAllRelease { get; init; }
 
         public bool RequireIdentityForInitialization { get; init; }
+
+        public bool RequireIdentityForCommit { get; init; }
 
         public int InitializeCalls { get; private set; }
 
@@ -11307,6 +11467,11 @@ public class VersionControlRestoreTests
             lock (_commitKinds)
             {
                 _commitKinds.Add(kind);
+            }
+
+            if (RequireIdentityForCommit && !_hasIdentity)
+            {
+                throw new GitIdentityRequiredException();
             }
 
             CommitAllObserver?.Invoke(kind);

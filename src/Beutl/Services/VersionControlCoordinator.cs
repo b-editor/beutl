@@ -786,18 +786,13 @@ internal sealed class VersionControlCoordinator :
 
         CancellationToken operationCancellation = operation.CancellationToken;
         IProjectVersionControlBackend service = GetTrackedBackend();
-        // A manual version has to record what the user sees, so in-memory edits reach disk first.
-        if (_projectService.CurrentProject.Value is { } project
-            && !await TrySaveOpenProjectAsync(project, operationCancellation))
-        {
-            throw new InvalidOperationException(MessageStrings.OperationFailed);
-        }
+        string trimmedMessage = message.Trim();
 
         try
         {
-            return await service.CommitAllAsync(
-                message.Trim(),
-                SnapshotKind.Manual,
+            return await SaveAndCommitManualWithEditorSuspensionAsync(
+                service,
+                trimmedMessage,
                 operationCancellation);
         }
         catch (GitIdentityRequiredException)
@@ -810,19 +805,40 @@ internal sealed class VersionControlCoordinator :
 
             operationCancellation.ThrowIfCancellationRequested();
             await service.SetLocalIdentityAsync(identity, operationCancellation);
-            // The editor stays live while the identity prompt is open, so the save above can be
-            // stale by now; without a second one the retry reports a manual version as created
-            // without the edits the user made while typing their name and email.
-            if (_projectService.CurrentProject.Value is { } identifiedProject
-                && !await TrySaveOpenProjectAsync(identifiedProject, operationCancellation))
+            return await SaveAndCommitManualWithEditorSuspensionAsync(
+                service,
+                trimmedMessage,
+                operationCancellation);
+        }
+    }
+
+    private async Task<CommitResult> SaveAndCommitManualWithEditorSuspensionAsync(
+        IProjectVersionControlBackend service,
+        string message,
+        CancellationToken cancellationToken)
+    {
+        IDisposable? editorSuspension = null;
+        try
+        {
+            editorSuspension = await SuspendEditorsAsync(cancellationToken);
+            // A manual version has to record what the user sees. Keep the editor frozen after the
+            // save until Git and its message hooks publish the commit, so visible edits cannot land
+            // after the captured tree. An identity prompt runs between helper calls with editors
+            // enabled; the retry therefore acquires a fresh suspension and saves again.
+            if (_projectService.CurrentProject.Value is { } project
+                && !await TrySaveOpenProjectAsync(project, cancellationToken))
             {
                 throw new InvalidOperationException(MessageStrings.OperationFailed);
             }
 
             return await service.CommitAllAsync(
-                message.Trim(),
+                message,
                 SnapshotKind.Manual,
-                operationCancellation);
+                cancellationToken);
+        }
+        finally
+        {
+            await ReleaseEditorSuspensionAsync(editorSuspension);
         }
     }
 
@@ -3868,10 +3884,29 @@ internal sealed class VersionControlCoordinator :
             string projectRoot = Path.GetDirectoryName(projectFile)
                                  ?? throw new InvalidOperationException(
                                      "The project file has no parent directory.");
-            RepositoryInfo? repository = await discoveryService.DiscoverRepositoryAsync(
-                    projectRoot,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            RepositoryInfo? repository;
+            try
+            {
+                repository = await discoveryService.DiscoverRepositoryAsync(
+                        projectRoot,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (ArgumentException ex)
+                when (requiredRecoveryId is null
+                      && cleanupCandidate is null
+                      && projectRoot.Any(char.IsControl))
+            {
+                // Git commands cannot safely carry control-character repository paths through the
+                // line-oriented discovery protocol. Version control is optional for a normal open,
+                // so degrade to an untracked project unless a known recovery still needs guarding.
+                _logger.LogInformation(
+                    ex,
+                    "Opening {ProjectFile} without version control because its path is unsupported by repository discovery.",
+                    projectFile);
+                return null;
+            }
+
             if (repository is null)
             {
                 return null;

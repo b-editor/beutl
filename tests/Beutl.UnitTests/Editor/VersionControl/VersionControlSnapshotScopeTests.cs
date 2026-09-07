@@ -241,7 +241,7 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Enclosing_repository_snapshot_removes_a_dereferenced_required_temporary_sidecar()
+    public async Task Enclosing_repository_snapshot_through_an_alias_removes_a_dereferenced_temporary_sidecar()
     {
         string projectRoot = Path.Combine(Root, "nested", "project");
         Directory.CreateDirectory(projectRoot);
@@ -262,13 +262,15 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await File.WriteAllTextAsync(
             elementFile,
             elementJson.Replace("state.tmp", "next.tmp", StringComparison.Ordinal));
+        string aliasedProjectRoot = Path.Combine(CreateTemporaryDirectory(), "project");
+        CreateDirectorySymbolicLinkOrIgnore(aliasedProjectRoot, projectRoot);
         var nestedRepository = new RepositoryInfo(Root, projectRoot);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             nestedRepository,
             watcher: null,
             _ => CreateRunner(TimeSpan.FromSeconds(30)),
-            projectFile: projectFile);
+            projectFile: Path.Combine(aliasedProjectRoot, Path.GetFileName(projectFile)));
 
         var revision = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
             "beutl: nested snapshot",
@@ -939,6 +941,19 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
                 | UnixFileMode.GroupExecute
                 | UnixFileMode.OtherRead
                 | UnixFileMode.OtherExecute);
+        }
+    }
+
+    private static void CreateDirectorySymbolicLinkOrIgnore(string linkPath, string targetPath)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(linkPath, targetPath);
+        }
+        catch (Exception ex)
+            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
         }
     }
 

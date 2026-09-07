@@ -6,6 +6,7 @@ namespace Beutl.Editor.VersionControl;
 internal static partial class AtomicFileExchange
 {
     private const int AtCurrentWorkingDirectory = -100;
+    private const int ErrorUnableToMoveReplacement2 = 1177;
     private const uint RenameExchange = 0x00000002;
     private const uint ReplaceFileIgnoreMergeErrors = 0x00000002;
 
@@ -44,7 +45,11 @@ internal static partial class AtomicFileExchange
                     0,
                     0) == 0)
             {
-                ThrowExchangeFailure(target, replacement);
+                HandleWindowsExchangeFailure(
+                    target,
+                    replacement,
+                    displacedPath,
+                    Marshal.GetLastPInvokeError());
             }
 
             return displacedPath;
@@ -72,7 +77,7 @@ internal static partial class AtomicFileExchange
 
         if (result != 0)
         {
-            ThrowExchangeFailure(target, replacement);
+            ThrowExchangeFailure(target, replacement, Marshal.GetLastPInvokeError());
         }
 
         // renameat2(RENAME_EXCHANGE) and renamex_np(RENAME_SWAP) leave the displaced target at
@@ -80,9 +85,34 @@ internal static partial class AtomicFileExchange
         return replacement;
     }
 
-    private static void ThrowExchangeFailure(string target, string replacement)
+    internal static void HandleWindowsExchangeFailure(
+        string target,
+        string replacement,
+        string displacedPath,
+        int error)
     {
-        int error = Marshal.GetLastPInvokeError();
+        if (error == ErrorUnableToMoveReplacement2)
+        {
+            try
+            {
+                File.Move(displacedPath, target, overwrite: false);
+            }
+            catch (Exception recoveryFailure)
+                when (recoveryFailure is IOException or UnauthorizedAccessException)
+            {
+                throw new AtomicFileExchangeException(
+                    $"Could not restore '{target}' after a partial atomic exchange. The displaced target was retained at '{displacedPath}'.",
+                    error,
+                    displacedPath,
+                    recoveryFailure);
+            }
+        }
+
+        ThrowExchangeFailure(target, replacement, error);
+    }
+
+    private static void ThrowExchangeFailure(string target, string replacement, int error)
+    {
         throw new IOException(
             $"Could not atomically exchange '{target}' with '{replacement}': "
             + new Win32Exception(error).Message);
@@ -119,4 +149,15 @@ internal static partial class AtomicFileExchange
         uint replaceFlags,
         nint exclude,
         nint reserved);
+}
+
+internal sealed class AtomicFileExchangeException(
+    string message,
+    int nativeError,
+    string displacedPath,
+    Exception innerException) : IOException(message, innerException)
+{
+    internal int NativeError { get; } = nativeError;
+
+    internal string DisplacedPath { get; } = displacedPath;
 }

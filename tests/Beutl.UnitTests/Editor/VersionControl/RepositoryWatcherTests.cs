@@ -319,6 +319,108 @@ public class RepositoryWatcherTests
     }
 
     [Test]
+    public async Task Git_metadata_path_cycle_is_contained_and_the_subdirectory_watcher_recovers()
+    {
+        string projectRoot = Path.Combine(_tempDirectory, "project");
+        string metadataRoot = Path.Combine(_tempDirectory, ".git");
+        string refsDirectory = Path.Combine(metadataRoot, "refs");
+        Directory.CreateDirectory(projectRoot);
+        Directory.CreateDirectory(refsDirectory);
+        Directory.CreateDirectory(Path.Combine(metadataRoot, "info"));
+        var timeProvider = new FakeTimeProvider();
+        var createdWatchers = new List<TrackingFileSystemWatcher>();
+        using var watcher = new RepositoryWatcher(
+            new RepositoryInfo(_tempDirectory, projectRoot),
+            timeProvider,
+            startWatching: true,
+            watcherFactory: path =>
+            {
+                var created = new TrackingFileSystemWatcher(path);
+                createdWatchers.Add(created);
+                return created;
+            },
+            watcherEnabler: static _ => { });
+        TrackingFileSystemWatcher metadataWatcher = createdWatchers.Single(created =>
+            !created.IncludeSubdirectories
+            && PathsEqual(created.Path, metadataRoot));
+        TrackingFileSystemWatcher originalRefsWatcher = createdWatchers.Single(created =>
+            created.IncludeSubdirectories
+            && PathsEqual(created.Path, refsDirectory));
+        TaskCompletionSource[] changes =
+        [
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+            new(TaskCreationOptions.RunContinuationsAsynchronously),
+        ];
+        int raised = 0;
+        watcher.Changed += (_, _) =>
+        {
+            int index = Interlocked.Increment(ref raised) - 1;
+            if ((uint)index < (uint)changes.Length)
+            {
+                changes[index].TrySetResult();
+            }
+        };
+
+        Directory.Delete(refsDirectory, recursive: true);
+        try
+        {
+            try
+            {
+                Directory.CreateSymbolicLink(refsDirectory, refsDirectory);
+            }
+            catch (Exception ex)
+                when (ex is UnauthorizedAccessException
+                      or IOException
+                      or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
+            }
+
+            Assert.DoesNotThrow(() => metadataWatcher.RaiseChanged("refs"));
+            timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+            await changes[0].Task.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            var refsInfo = new DirectoryInfo(refsDirectory);
+            refsInfo.Refresh();
+            if (refsInfo.LinkTarget is not null)
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    Directory.Delete(refsDirectory);
+                }
+                else
+                {
+                    File.Delete(refsDirectory);
+                }
+            }
+        }
+
+        Directory.CreateDirectory(refsDirectory);
+        metadataWatcher.RaiseCreated("refs");
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        await changes[1].Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        TrackingFileSystemWatcher replacementRefsWatcher = createdWatchers
+            .Where(created => !ReferenceEquals(created, originalRefsWatcher))
+            .Single(created =>
+                created.IncludeSubdirectories
+                && PathsEqual(created.Path, refsDirectory));
+        replacementRefsWatcher.RaiseChanged("heads/main");
+        timeProvider.Advance(RepositoryWatcher.DebounceInterval);
+        await changes[2].Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(originalRefsWatcher.IsDisposed, Is.True);
+            Assert.That(replacementRefsWatcher.IsDisposed, Is.False);
+            Assert.That(Volatile.Read(ref raised), Is.EqualTo(3));
+        });
+    }
+
+    [Test]
     public void Git_metadata_directories_resolve_linked_worktree_admin_and_common_directories()
     {
         string commonDirectory = Path.Combine(_tempDirectory, "main", ".git");

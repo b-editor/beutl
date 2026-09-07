@@ -63,9 +63,14 @@ internal static class VersionControlSerializationGraph
             StringSplitOptions.RemoveEmptyEntries);
         return segments.Any(static segment =>
         {
-            int streamSeparator = segment.IndexOf(':');
-            string portableName = (streamSeparator >= 0 ? segment[..streamSeparator] : segment)
-                .TrimEnd(' ', '.');
+            string portableName = segment;
+            if (OperatingSystem.IsWindows())
+            {
+                int streamSeparator = segment.IndexOf(':');
+                portableName = (streamSeparator >= 0 ? segment[..streamSeparator] : segment)
+                    .TrimEnd(' ', '.');
+            }
+
             return string.Equals(portableName, ".git", StringComparison.OrdinalIgnoreCase)
                    || string.Equals(portableName, ".beutl", StringComparison.OrdinalIgnoreCase);
         });

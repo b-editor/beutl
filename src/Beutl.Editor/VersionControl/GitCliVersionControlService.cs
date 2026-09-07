@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Formats.Tar;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -268,6 +269,8 @@ internal sealed class GitCliVersionControlService :
     private const int MaxLfsAttributeOutputBytes = 256 * 1024;
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
+    private const int MaxLfsPointerBytes = 1024;
+    private const int MaxLfsPointerCandidates = 256;
     private const int MaxSnapshotTreeInspectionBytes = 4 * 1024 * 1024;
     private const int MaxCommitMessageBytes = 1024 * 1024;
 
@@ -518,6 +521,18 @@ internal sealed class GitCliVersionControlService :
         return $":(top,literal){prefix}{projectRelativePath}";
     }
 
+    private static string GetRepositoryRelativeProjectFilePath(
+        RepositoryInfo repository,
+        string projectFile)
+    {
+        string projectRelativePath = NormalizeGitPath(Path.GetRelativePath(
+            RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot),
+            RepositoryPathComparer.ResolveCanonicalPath(projectFile)));
+        return repository.Pathspec == "."
+            ? projectRelativePath
+            : repository.Pathspec + "/" + projectRelativePath;
+    }
+
     private static bool AreSameProjectRelativePath(
         string projectRoot,
         string left,
@@ -567,8 +582,9 @@ internal sealed class GitCliVersionControlService :
         try
         {
             Directory.CreateDirectory(materializedRepositoryRoot);
-            string projectFileRepositoryPath = NormalizeGitPath(
-                Path.GetRelativePath(repository.RepoRoot, _projectFile));
+            string projectFileRepositoryPath = GetRepositoryRelativeProjectFilePath(
+                repository,
+                _projectFile);
             Dictionary<string, long> graphFiles = await ListHistoricalGraphFilesAsync(
                     repository,
                     runner,
@@ -1004,9 +1020,10 @@ internal sealed class GitCliVersionControlService :
         new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<VersionControlPolicyNotice, CancellationToken, Task>? _policyNoticeSink;
     private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileReplace;
-    private readonly Func<string, CancellationToken, Task>? _beforeHygieneFileCommit;
-    private readonly Func<string, CancellationToken, Task>? _afterHygieneFileExchange;
+    private readonly Func<string, CancellationToken, Task>? _beforeFileCommit;
+    private readonly Func<string, CancellationToken, Task>? _afterFileExchange;
     private readonly Func<string, bool> _deleteVerifiedHygieneFile;
+    private readonly Func<string, bool> _deleteOwnedLocalConfigFile;
     private readonly Action<Action> _statusNotificationScheduler;
     private readonly Action<Action> _lockNotificationScheduler;
     private readonly ILogger _logger;
@@ -1039,9 +1056,10 @@ internal sealed class GitCliVersionControlService :
             projectFile: null,
             policyNoticeSink: null,
             beforeHygieneFileReplace: null,
-            beforeHygieneFileCommit: null,
-            afterHygieneFileExchange: null,
+            beforeFileCommit: null,
+            afterFileExchange: null,
             deleteVerifiedHygieneFile: null,
+            deleteOwnedLocalConfigFile: null,
             statusNotificationScheduler: null,
             lockNotificationScheduler: null,
             logger: null)
@@ -1064,9 +1082,10 @@ internal sealed class GitCliVersionControlService :
             projectFile: projectFile,
             policyNoticeSink: policyNoticeSink,
             beforeHygieneFileReplace: null,
-            beforeHygieneFileCommit: null,
-            afterHygieneFileExchange: null,
+            beforeFileCommit: null,
+            afterFileExchange: null,
             deleteVerifiedHygieneFile: null,
+            deleteOwnedLocalConfigFile: null,
             statusNotificationScheduler: null,
             lockNotificationScheduler: null,
             logger: null)
@@ -1080,9 +1099,10 @@ internal sealed class GitCliVersionControlService :
         Func<string, IGitCliRunner> runnerFactory,
         ILogger? logger = null,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace = null,
-        Func<string, CancellationToken, Task>? beforeHygieneFileCommit = null,
-        Func<string, CancellationToken, Task>? afterHygieneFileExchange = null,
+        Func<string, CancellationToken, Task>? beforeFileCommit = null,
+        Func<string, CancellationToken, Task>? afterFileExchange = null,
         Func<string, bool>? deleteVerifiedHygieneFile = null,
+        Func<string, bool>? deleteOwnedLocalConfigFile = null,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
@@ -1097,9 +1117,10 @@ internal sealed class GitCliVersionControlService :
             projectFile: projectFile,
             policyNoticeSink,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
-            beforeHygieneFileCommit: beforeHygieneFileCommit,
-            afterHygieneFileExchange: afterHygieneFileExchange,
+            beforeFileCommit: beforeFileCommit,
+            afterFileExchange: afterFileExchange,
             deleteVerifiedHygieneFile: deleteVerifiedHygieneFile,
+            deleteOwnedLocalConfigFile: deleteOwnedLocalConfigFile,
             statusNotificationScheduler: statusNotificationScheduler,
             lockNotificationScheduler: lockNotificationScheduler,
             logger: logger)
@@ -1116,9 +1137,10 @@ internal sealed class GitCliVersionControlService :
         string? projectFile,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
-        Func<string, CancellationToken, Task>? beforeHygieneFileCommit,
-        Func<string, CancellationToken, Task>? afterHygieneFileExchange,
+        Func<string, CancellationToken, Task>? beforeFileCommit,
+        Func<string, CancellationToken, Task>? afterFileExchange,
         Func<string, bool>? deleteVerifiedHygieneFile,
+        Func<string, bool>? deleteOwnedLocalConfigFile,
         Action<Action>? statusNotificationScheduler,
         Action<Action>? lockNotificationScheduler,
         ILogger? logger)
@@ -1141,10 +1163,12 @@ internal sealed class GitCliVersionControlService :
         _projectFile = projectFile is null ? null : Path.GetFullPath(projectFile);
         _policyNoticeSink = policyNoticeSink;
         _beforeHygieneFileReplace = beforeHygieneFileReplace;
-        _beforeHygieneFileCommit = beforeHygieneFileCommit;
-        _afterHygieneFileExchange = afterHygieneFileExchange;
+        _beforeFileCommit = beforeFileCommit;
+        _afterFileExchange = afterFileExchange;
         _deleteVerifiedHygieneFile = deleteVerifiedHygieneFile
                                      ?? TryDeleteVerifiedHygieneFile;
+        _deleteOwnedLocalConfigFile = deleteOwnedLocalConfigFile
+                                      ?? DeleteOwnedLocalConfigFile;
         _statusNotificationScheduler = statusNotificationScheduler ?? ScheduleStatusNotificationDrain;
         _lockNotificationScheduler = lockNotificationScheduler ?? ScheduleLockNotification;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
@@ -1812,9 +1836,12 @@ internal sealed class GitCliVersionControlService :
             else if (record.StartsWith("2 ", StringComparison.Ordinal))
             {
                 string statusCode = GetField(record, 1);
+                string renameOrCopy = GetField(record, 8);
                 string path = GetTailAfterSpaces(record, 9);
                 string? oldPath = ++index < records.Count ? records[index] : null;
-                changes.Add(new FileChange(path, FileChangeStatus.Renamed, oldPath));
+                changes.Add(renameOrCopy.StartsWith('C')
+                    ? new FileChange(path, FileChangeStatus.Added)
+                    : new FileChange(path, FileChangeStatus.Renamed, oldPath));
                 hasConflicts |= statusCode.Contains('U');
             }
             else if (record.StartsWith("u ", StringComparison.Ordinal))
@@ -1887,7 +1914,9 @@ internal sealed class GitCliVersionControlService :
 
                 string oldPath = fields[index++];
                 string path = fields[index++];
-                changes.Add(new FileChange(path, FileChangeStatus.Renamed, oldPath));
+                changes.Add(statusCode == 'C'
+                    ? new FileChange(path, FileChangeStatus.Added)
+                    : new FileChange(path, FileChangeStatus.Renamed, oldPath));
             }
             else
             {
@@ -1945,9 +1974,14 @@ internal sealed class GitCliVersionControlService :
 
     private static FileChangeStatus MapStatus(string statusCode)
     {
-        if (statusCode.Contains('R') || statusCode.Contains('C'))
+        if (statusCode.Contains('R'))
         {
             return FileChangeStatus.Renamed;
+        }
+
+        if (statusCode.Contains('C'))
+        {
+            return FileChangeStatus.Added;
         }
 
         if (statusCode.Contains('D'))
@@ -4201,6 +4235,15 @@ internal sealed class GitCliVersionControlService :
                     "The snapshot commit message was empty after commit hooks ran.");
             }
 
+            finalMessage = await EnsureSnapshotTrailerAsync(
+                    repository,
+                    runner,
+                    finalMessage,
+                    kind,
+                    hookOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             await WriteCommitMessageAsync(
                     messagePath,
                     finalMessage,
@@ -4427,6 +4470,165 @@ internal sealed class GitCliVersionControlService :
         return stripped.StdoutBytes
                ?? throw new InvalidOperationException(
                    "Git did not return the cleaned snapshot commit message bytes.");
+    }
+
+    private static async Task<byte[]> EnsureSnapshotTrailerAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        byte[] message,
+        SnapshotKind kind,
+        GitCommandOptions options,
+        CancellationToken cancellationToken)
+    {
+        string expectedValue = kind.ToString().ToLowerInvariant();
+        (int count, bool matchesExpectedValue, byte[] otherTrailers)
+            = await ParseSnapshotTrailersAsync(
+                repository,
+                runner,
+                message,
+                expectedValue,
+                options,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (count == 1 && matchesExpectedValue)
+        {
+            return message;
+        }
+
+        byte[] canonicalTrailer = Encoding.UTF8.GetBytes(
+            $"Beutl-Snapshot: {expectedValue}\n");
+        int interTrailerNewline = otherTrailers.Length > 0
+                                 && otherTrailers[^1] != (byte)'\n'
+            ? 1
+            : 0;
+        int appendedLength = 2
+                             + otherTrailers.Length
+                             + interTrailerNewline
+                             + canonicalTrailer.Length;
+        if (message.Length > MaxCommitMessageBytes - appendedLength)
+        {
+            throw new InvalidOperationException(
+                "The snapshot commit message exceeded its safety limit.");
+        }
+
+        var reconstructed = new byte[message.Length + appendedLength];
+        int offset = 0;
+        message.CopyTo(reconstructed, offset);
+        offset += message.Length;
+        reconstructed[offset++] = (byte)'\n';
+        reconstructed[offset++] = (byte)'\n';
+        otherTrailers.CopyTo(reconstructed, offset);
+        offset += otherTrailers.Length;
+        if (interTrailerNewline != 0)
+        {
+            reconstructed[offset++] = (byte)'\n';
+        }
+
+        canonicalTrailer.CopyTo(reconstructed, offset);
+        (int reconstructedCount, bool reconstructedMatches, byte[] reconstructedOtherTrailers)
+            = await ParseSnapshotTrailersAsync(
+                repository,
+                runner,
+                reconstructed,
+                expectedValue,
+                options,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (reconstructedCount != 1
+            || !reconstructedMatches
+            || !reconstructedOtherTrailers.AsSpan().SequenceEqual(otherTrailers))
+        {
+            throw new InvalidOperationException(
+                "The snapshot commit message did not retain its required trailer after commit hooks ran.");
+        }
+
+        return reconstructed;
+    }
+
+    private static async Task<(int Count, bool MatchesExpectedValue, byte[] OtherTrailers)>
+        ParseSnapshotTrailersAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        byte[] message,
+        string expectedValue,
+        GitCommandOptions options,
+        CancellationToken cancellationToken)
+    {
+        GitCommandResult parsed = await runner.RunAsync(
+                repository,
+                [
+                    "-c",
+                    "trailer.separators=:=",
+                    "interpret-trailers",
+                    "--parse",
+                    "--no-divider",
+                ],
+                options with
+                {
+                    MaxStdoutBytes = MaxCommitMessageBytes,
+                    StandardInputBytes = message,
+                    CaptureStdoutBytes = true,
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (parsed.StdoutTruncated)
+        {
+            throw new InvalidOperationException(
+                "The snapshot commit message exceeded its safety limit.");
+        }
+
+        return ParseSnapshotTrailerBytes(
+            parsed.StdoutBytes
+            ?? throw new InvalidOperationException(
+                "Git did not return the parsed snapshot commit trailers."),
+            expectedValue);
+    }
+
+    private static (int Count, bool MatchesExpectedValue, byte[] OtherTrailers)
+        ParseSnapshotTrailerBytes(byte[] trailers, string expectedValue)
+    {
+        const string SnapshotTrailerToken = "Beutl-Snapshot";
+        int snapshotCount = 0;
+        bool matchesExpectedValue = false;
+        using var otherTrailers = new MemoryStream(trailers.Length);
+        int offset = 0;
+        while (offset < trailers.Length)
+        {
+            int newline = Array.IndexOf(trailers, (byte)'\n', offset);
+            int recordEnd = newline >= 0 ? newline + 1 : trailers.Length;
+            int contentLength = (newline >= 0 ? newline : trailers.Length) - offset;
+            if (contentLength > 0 && trailers[offset + contentLength - 1] == (byte)'\r')
+            {
+                contentLength--;
+            }
+
+            string line = Encoding.UTF8.GetString(trailers, offset, contentLength);
+            int separator = line.IndexOf(':');
+            bool isSnapshotTrailer = separator >= 0
+                                     && string.Equals(
+                                         line[..separator].Trim(),
+                                         SnapshotTrailerToken,
+                                         StringComparison.OrdinalIgnoreCase);
+            if (isSnapshotTrailer)
+            {
+                snapshotCount++;
+                matchesExpectedValue = string.Equals(
+                    line[(separator + 1)..].Trim(),
+                    expectedValue,
+                    StringComparison.Ordinal);
+            }
+            else
+            {
+                otherTrailers.Write(trailers, offset, recordEnd - offset);
+            }
+
+            offset = recordEnd;
+        }
+
+        return (
+            snapshotCount,
+            snapshotCount == 1 && matchesExpectedValue,
+            otherTrailers.ToArray());
     }
 
     private static bool IsEmptyCommitMessage(byte[] message)
@@ -4799,8 +5001,9 @@ internal sealed class GitCliVersionControlService :
             return;
         }
 
-        string projectFileRepositoryPath = NormalizeGitPath(
-            Path.GetRelativePath(repository.RepoRoot, _projectFile));
+        string projectFileRepositoryPath = GetRepositoryRelativeProjectFilePath(
+            repository,
+            _projectFile);
         if (!finalModes.TryGetValue(projectFileRepositoryPath, out string? projectMode)
             || projectMode is not ("100644" or "100755"))
         {
@@ -6377,6 +6580,8 @@ internal sealed class GitCliVersionControlService :
         GitCommandResult result = await runner.RunAsync(
             repository,
             [
+                "-c",
+                "trailer.separators=:=",
                 "log",
                 "--no-show-signature",
                 "--format=%H%x00%h%x00%an%x00%aI%x00%s%x00%(trailers:key=Beutl-Snapshot,valueonly)%x00",
@@ -7219,6 +7424,18 @@ internal sealed class GitCliVersionControlService :
 
         if (!availability.LfsInstalled)
         {
+            if (await TargetContainsLfsPointerAsync(
+                    repository,
+                    runner,
+                    reference,
+                    scope,
+                    cancellationToken)
+                .ConfigureAwait(false))
+            {
+                throw new InvalidOperationException(
+                    "The target revision contains Git LFS files, but Git LFS is not installed. Install Git LFS before switching or restoring this revision.");
+            }
+
             return;
         }
 
@@ -7294,6 +7511,303 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
+    private static async Task<bool> TargetContainsLfsPointerAsync(
+        RepositoryInfo repository,
+        IGitCliRunner runner,
+        string reference,
+        LfsPrefetchScope scope,
+        CancellationToken cancellationToken)
+    {
+        var grepArguments = new List<string>
+        {
+            "grep",
+            "-l",
+            "-z",
+            "--full-name",
+            "--no-textconv",
+            "--no-ext-grep",
+            "-F",
+            "-e",
+            "version https://git-lfs.github.com/spec/v1",
+            "-e",
+            "version http://git-media.io/v/2",
+            "-e",
+            "version https://hawser.github.com/spec/v1",
+            reference,
+        };
+        if (scope == LfsPrefetchScope.ProjectPathspec && repository.Pathspec != ".")
+        {
+            grepArguments.Add("--");
+            grepArguments.Add(repository.Pathspec);
+        }
+        else if (scope != LfsPrefetchScope.RepositoryWide
+                 && scope != LfsPrefetchScope.ProjectPathspec)
+        {
+            throw new ArgumentOutOfRangeException(nameof(scope));
+        }
+
+        GitCommandResult candidates;
+        try
+        {
+            candidates = await runner.RunAsync(
+                    repository,
+                    grepArguments,
+                    GitCommandOptions.Local with
+                    {
+                        MaxStdoutBytes = MaxLfsObjectListOutputBytes,
+                        CaptureStdoutBytes = true,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (GitOperationException ex) when (ex.ExitCode == 1)
+        {
+            return false;
+        }
+
+        if (candidates.StdoutTruncated)
+        {
+            throw new InvalidOperationException(
+                "The target revision contains too many possible Git LFS pointer files to inspect safely.");
+        }
+
+        string candidateOutput;
+        try
+        {
+            candidateOutput = new UTF8Encoding(false, true).GetString(
+                candidates.StdoutBytes
+                ?? throw new InvalidOperationException(
+                    "Git did not return the Git LFS pointer candidate paths."));
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new InvalidOperationException(
+                "Git returned a non-UTF-8 Git LFS pointer candidate path.",
+                ex);
+        }
+
+        IReadOnlyList<string> records = GitCliRunner.SplitNullSeparated(candidateOutput);
+        if (records.Count > MaxLfsPointerCandidates)
+        {
+            throw new InvalidOperationException(
+                "The target revision contains too many possible Git LFS pointer files to inspect safely.");
+        }
+
+        string expectedPrefix = reference + ":";
+        foreach (string record in records)
+        {
+            if (!record.StartsWith(expectedPrefix, StringComparison.Ordinal)
+                || record.Length == expectedPrefix.Length)
+            {
+                throw new InvalidOperationException(
+                    "Git returned an invalid Git LFS pointer candidate path.");
+            }
+
+            string objectExpression = reference + ":" + record[expectedPrefix.Length..];
+            GitCommandResult blob = await runner.RunAsync(
+                    repository,
+                    ["cat-file", "blob", objectExpression],
+                    GitCommandOptions.Local with
+                    {
+                        MaxStdoutBytes = MaxLfsPointerBytes,
+                        CaptureStdoutBytes = true,
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (IsLfsPointer(blob.StdoutBytes
+                                      ?? throw new InvalidOperationException(
+                                          "Git did not return the Git LFS pointer candidate bytes.")))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsLfsPointer(byte[] contents)
+    {
+        if (contents.Length == 0 || contents.Length > MaxLfsPointerBytes)
+        {
+            return false;
+        }
+
+        // Git LFS's non-strict decoder operates on bytes and can accept a malformed UTF-8
+        // extension name. Replacement decoding retains the ASCII core/extension prefix, so this
+        // safety check does not miss a pointer that the unavailable smudge filter would consume.
+        string pointer = Encoding.UTF8.GetString(contents).Trim();
+
+        string[] lines = pointer.Split('\n');
+        int lineCount = lines.Length;
+        if (lineCount > 0 && lines[^1].Length == 0)
+        {
+            lineCount--;
+        }
+
+        for (int i = 0; i < lineCount; i++)
+        {
+            if (lines[i].EndsWith('\r'))
+            {
+                lines[i] = lines[i][..^1];
+            }
+        }
+
+        int index = 0;
+        var extensionPriorities = new Dictionary<int, string>();
+        if (!SkipLfsPointerExtensions(
+                lines,
+                lineCount,
+                ref index,
+                extensionPriorities))
+        {
+            return false;
+        }
+
+        if (index >= lineCount
+            || !IsSupportedLfsPointerVersion(lines[index]))
+        {
+            return false;
+        }
+
+        index++;
+        if (!SkipLfsPointerExtensions(
+                lines,
+                lineCount,
+                ref index,
+                extensionPriorities))
+        {
+            return false;
+        }
+
+        const string OidPrefix = "oid sha256:";
+        if (index >= lineCount
+            || !lines[index].StartsWith(OidPrefix, StringComparison.Ordinal)
+            || lines[index].Length != OidPrefix.Length + 64
+            || !IsCanonicalLfsOid(lines[index].AsSpan(OidPrefix.Length)))
+        {
+            return false;
+        }
+
+        index++;
+        if (!SkipLfsPointerExtensions(
+                lines,
+                lineCount,
+                ref index,
+                extensionPriorities))
+        {
+            return false;
+        }
+
+        const string SizePrefix = "size ";
+        if (index >= lineCount
+            || !lines[index].StartsWith(SizePrefix, StringComparison.Ordinal)
+            || !IsNonNegativeLfsSize(lines[index].AsSpan(SizePrefix.Length)))
+        {
+            return false;
+        }
+
+        index++;
+        while (index < lineCount && lines[index].Length == 0)
+        {
+            index++;
+        }
+
+        return index == lineCount;
+    }
+
+    private static bool IsSupportedLfsPointerVersion(string line)
+    {
+        return line is "version https://git-lfs.github.com/spec/v1"
+            or "version http://git-media.io/v/2"
+            or "version https://hawser.github.com/spec/v1";
+    }
+
+    private static bool SkipLfsPointerExtensions(
+        string[] lines,
+        int lineCount,
+        ref int index,
+        Dictionary<int, string> priorities)
+    {
+        while (index < lineCount)
+        {
+            string line = lines[index];
+            if (line.Length == 0)
+            {
+                index++;
+                continue;
+            }
+
+            if (!TryParseLfsPointerExtension(line, out int priority, out string key))
+            {
+                break;
+            }
+
+            if (priorities.TryGetValue(priority, out string? existingKey)
+                && !string.Equals(existingKey, key, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            priorities[priority] = key;
+            index++;
+        }
+
+        return true;
+    }
+
+    private static bool TryParseLfsPointerExtension(
+        string line,
+        out int priority,
+        out string key)
+    {
+        priority = 0;
+        key = string.Empty;
+        int separator = line.IndexOf(' ');
+        if (separator < 7 || separator >= line.Length - 1)
+        {
+            return false;
+        }
+
+        key = line[..separator];
+        if (!key.StartsWith("ext-", StringComparison.Ordinal)
+            || key[4] is not (>= '0' and <= '9')
+            || key[5] != '-'
+            || !IsAsciiWordCharacter(key[6]))
+        {
+            return false;
+        }
+
+        const string OidPrefix = "sha256:";
+        ReadOnlySpan<char> value = line.AsSpan(separator + 1);
+        if (!value.StartsWith(OidPrefix, StringComparison.Ordinal)
+            || value.Length != OidPrefix.Length + 64
+            || !IsCanonicalLfsOid(value[OidPrefix.Length..]))
+        {
+            return false;
+        }
+
+        priority = key[4] - '0';
+        return true;
+    }
+
+    private static bool IsAsciiWordCharacter(char value)
+    {
+        return value is >= 'a' and <= 'z'
+            or >= 'A' and <= 'Z'
+            or >= '0' and <= '9'
+            or '_';
+    }
+
+    private static bool IsNonNegativeLfsSize(ReadOnlySpan<char> value)
+    {
+        return long.TryParse(
+            value,
+            NumberStyles.AllowLeadingSign,
+            CultureInfo.InvariantCulture,
+            out long size)
+               && size >= 0;
+    }
+
     // Fails safe: anything that stops this from proving the objects are present - an unreadable
     // listing, an unknown storage layout, an unparsable line - counts as uncached, so the caller
     // aborts while it still can instead of closing the project first.
@@ -7305,11 +7819,23 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         string storage;
-        GitCommandResult listed;
         try
         {
             storage = await GetLfsObjectStorageAsync(repository, runner, cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (GitOperationException ex)
+        {
+            LogWarningBestEffort(
+                ex,
+                "Could not locate the Git LFS object storage required by a transition target.");
+            return true;
+        }
+
+        GitCommandResult listed;
+        IReadOnlyList<string> requiredObjects;
+        try
+        {
             listed = await runner.RunAsync(
                 repository,
                 [
@@ -7317,6 +7843,7 @@ internal sealed class GitCliVersionControlService :
                     "lfs",
                     "ls-files",
                     "--long",
+                    "--json",
                     .. lfsPathArguments,
                     reference,
                 ],
@@ -7325,28 +7852,54 @@ internal sealed class GitCliVersionControlService :
                     MaxStdoutBytes = MaxLfsObjectListOutputBytes,
                 },
                 cancellationToken).ConfigureAwait(false);
-        }
-        catch (GitOperationException ex)
-        {
-            LogWarningBestEffort(
-                ex,
-                "Could not list the Git LFS objects required by a transition target.");
-            return true;
-        }
 
-        if (listed.StdoutTruncated)
-        {
-            return true;
-        }
-
-        var verifiedObjects = new HashSet<string>(StringComparer.Ordinal);
-        foreach (string line in listed.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (!TryParseCanonicalLfsObjectLine(line, out string oid))
+            if (listed.StdoutTruncated
+                || !TryParseCanonicalLfsObjectList(listed.Stdout, out requiredObjects))
             {
                 return true;
             }
+        }
+        catch (GitOperationException jsonFailure)
+        {
+            // --json was added in Git LFS 3.2. Older clients can still prove their cache from the
+            // legacy listing: only the OID prefix is a record boundary, so embedded filename
+            // newlines are continuations rather than malformed records.
+            try
+            {
+                listed = await runner.RunAsync(
+                    repository,
+                    [
+                        .. s_lfsPathFilterOverrides,
+                        "lfs",
+                        "ls-files",
+                        "--long",
+                        .. lfsPathArguments,
+                        reference,
+                    ],
+                    GitCommandOptions.Local with
+                    {
+                        MaxStdoutBytes = MaxLfsObjectListOutputBytes,
+                    },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (GitOperationException legacyFailure)
+            {
+                LogWarningBestEffort(
+                    new AggregateException(jsonFailure, legacyFailure),
+                    "Could not list the Git LFS objects required by a transition target.");
+                return true;
+            }
 
+            if (listed.StdoutTruncated
+                || !TryParseCanonicalLfsObjectLines(listed.Stdout, out requiredObjects))
+            {
+                return true;
+            }
+        }
+
+        var verifiedObjects = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string oid in requiredObjects)
+        {
             if (verifiedObjects.Add(oid)
                 && !await IsCachedLfsObjectValidAsync(
                         storage,
@@ -7361,27 +7914,91 @@ internal sealed class GitCliVersionControlService :
         return false;
     }
 
-    private static bool TryParseCanonicalLfsObjectLine(string line, out string oid)
+    private static bool TryParseCanonicalLfsObjectList(
+        string json,
+        out IReadOnlyList<string> oids)
     {
-        if (line.EndsWith('\r'))
+        try
         {
-            line = line[..^1];
-        }
+            using JsonDocument document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("files", out JsonElement files))
+            {
+                oids = [];
+                return false;
+            }
 
-        const int OidLength = 64;
-        const int PathOffset = OidLength + 3;
-        if (line.Length <= PathOffset
-            || line[OidLength] != ' '
-            || line[OidLength + 1] is not ('*' or '-')
-            || line[OidLength + 2] != ' '
-            || !IsCanonicalLfsOid(line.AsSpan(0, OidLength)))
+            if (files.ValueKind == JsonValueKind.Null)
+            {
+                oids = [];
+                return true;
+            }
+
+            if (files.ValueKind != JsonValueKind.Array)
+            {
+                oids = [];
+                return false;
+            }
+
+            var parsed = new List<string>(files.GetArrayLength());
+            foreach (JsonElement file in files.EnumerateArray())
+            {
+                if (file.ValueKind != JsonValueKind.Object
+                    || !file.TryGetProperty("oid", out JsonElement oidElement)
+                    || oidElement.ValueKind != JsonValueKind.String
+                    || oidElement.GetString() is not { } oid
+                    || oid.Length != 64
+                    || !IsCanonicalLfsOid(oid))
+                {
+                    oids = [];
+                    return false;
+                }
+
+                parsed.Add(oid);
+            }
+
+            oids = parsed;
+            return true;
+        }
+        catch (JsonException)
         {
-            oid = string.Empty;
+            oids = [];
             return false;
         }
+    }
 
-        oid = line[..OidLength];
-        return true;
+    private static bool TryParseCanonicalLfsObjectLines(
+        string output,
+        out IReadOnlyList<string> oids)
+    {
+        if (output.Length == 0)
+        {
+            oids = [];
+            return true;
+        }
+
+        var parsed = new List<string>();
+        foreach (string rawLine in output.Split('\n'))
+        {
+            string line = rawLine.EndsWith('\r') ? rawLine[..^1] : rawLine;
+            const int OidLength = 64;
+            if (line.Length >= OidLength + 3
+                && line[OidLength] == ' '
+                && line[OidLength + 1] is '*' or '-'
+                && line[OidLength + 2] == ' '
+                && IsCanonicalLfsOid(line.AsSpan(0, OidLength)))
+            {
+                parsed.Add(line[..OidLength]);
+            }
+            else if (parsed.Count == 0 && line.Length != 0)
+            {
+                oids = [];
+                return false;
+            }
+        }
+
+        oids = parsed;
+        return parsed.Count > 0;
     }
 
     private static bool IsCanonicalLfsOid(ReadOnlySpan<char> value)
@@ -9474,6 +10091,7 @@ internal sealed class GitCliVersionControlService :
         }
 
         bool committed = false;
+        bool lockPathOwned = true;
         try
         {
             byte[] originalConfig;
@@ -9545,14 +10163,36 @@ internal sealed class GitCliVersionControlService :
                     $"The local Git configuration changed before the staged {operationName} was committed.");
             }
 
-            File.Move(lockPath, configPath, overwrite: true);
+            if (_beforeFileCommit is not null)
+            {
+                await _beforeFileCommit(configPath, cancellationToken).ConfigureAwait(false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            string displacedPath = AtomicFileExchange.ReplacePreservingTarget(
+                configPath,
+                lockPath);
+            lockPathOwned = false;
+            if (_afterFileExchange is not null)
+            {
+                await _afterFileExchange(configPath, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+
+            await VerifyLocalConfigExchangeAsync(
+                    configPath,
+                    displacedPath,
+                    originalConfig,
+                    stagedConfig,
+                    operationName)
+                .ConfigureAwait(false);
             committed = true;
         }
         finally
         {
             TryDeleteOwnedLocalConfigFile(stagingPath + ".lock");
             TryDeleteOwnedLocalConfigFile(stagingPath);
-            if (!committed)
+            if (!committed && lockPathOwned)
             {
                 try
                 {
@@ -9568,18 +10208,111 @@ internal sealed class GitCliVersionControlService :
         }
     }
 
-    private void TryDeleteOwnedLocalConfigFile(string path)
+    private async Task VerifyLocalConfigExchangeAsync(
+        string configPath,
+        string displacedPath,
+        byte[] expectedConfig,
+        byte[] stagedConfig,
+        string operationName)
+    {
+        byte[] displacedConfig;
+        try
+        {
+            displacedConfig = await ReadRegularLocalConfigAsync(displacedPath)
+                .ConfigureAwait(false);
+        }
+        catch (Exception inspectionFailure)
+        {
+            throw new InvalidOperationException(
+                $"The local Git configuration changed while the staged {operationName} was committed; the displaced entry was retained at '{displacedPath}'.",
+                inspectionFailure);
+        }
+
+        if (expectedConfig.AsSpan().SequenceEqual(displacedConfig))
+        {
+            byte[] committedConfig = await ReadRegularLocalConfigAsync(configPath)
+                .ConfigureAwait(false);
+            if (!stagedConfig.AsSpan().SequenceEqual(committedConfig))
+            {
+                if (!TryDeleteOwnedLocalConfigFile(displacedPath))
+                {
+                    throw new InvalidOperationException(
+                        $"The local Git configuration changed while the staged {operationName} was committed; the later edit was preserved and the verified prior contents were retained at '{displacedPath}' because cleanup failed.");
+                }
+
+                throw new InvalidOperationException(
+                    $"The local Git configuration changed while the staged {operationName} was committed; the later edit was preserved.");
+            }
+
+            if (!TryDeleteOwnedLocalConfigFile(displacedPath))
+            {
+                throw new InvalidOperationException(
+                    $"The local Git configuration was updated, but its verified prior contents could not be removed from '{displacedPath}'.");
+            }
+
+            return;
+        }
+
+        string recoveredCandidatePath;
+        try
+        {
+            recoveredCandidatePath = AtomicFileExchange.ReplacePreservingTarget(
+                configPath,
+                displacedPath);
+        }
+        catch (Exception rollbackFailure)
+        {
+            throw new InvalidOperationException(
+                $"The local Git configuration changed while the staged {operationName} was committed; the external edit was retained at '{displacedPath}' because it could not be restored safely.",
+                rollbackFailure);
+        }
+
+        byte[] recoveredCandidate = await ReadRegularLocalConfigAsync(recoveredCandidatePath)
+            .ConfigureAwait(false);
+        if (!stagedConfig.AsSpan().SequenceEqual(recoveredCandidate))
+        {
+            throw new InvalidOperationException(
+                $"The local Git configuration changed more than once during the staged {operationName}. The earlier external edit was restored and the later contents were retained at '{recoveredCandidatePath}'.");
+        }
+
+        if (!TryDeleteOwnedLocalConfigFile(recoveredCandidatePath))
+        {
+            throw new InvalidOperationException(
+                $"The external local Git configuration edit was restored, but the displaced replacement could not be removed from '{recoveredCandidatePath}'.");
+        }
+
+        throw new InvalidOperationException(
+            $"The local Git configuration changed while the staged {operationName} was committed; the external edit was preserved.");
+    }
+
+    private static async Task<byte[]> ReadRegularLocalConfigAsync(string path)
+    {
+        EnsureLocalConfigPathIsRegular(path);
+        byte[] contents = await File.ReadAllBytesAsync(path, CancellationToken.None)
+            .ConfigureAwait(false);
+        EnsureLocalConfigPathIsRegular(path);
+        return contents;
+    }
+
+    private bool TryDeleteOwnedLocalConfigFile(string path)
     {
         try
         {
-            File.Delete(path);
+            return _deleteOwnedLocalConfigFile(path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             LogWarningBestEffort(
                 ex,
                 "Failed to remove an owned temporary Git configuration file.");
+            return false;
         }
+    }
+
+    private static bool DeleteOwnedLocalConfigFile(string path)
+    {
+        File.Delete(path);
+        return !Path.Exists(path);
     }
 
     private static void EnsureLocalConfigPathIsRegular(string path)
@@ -10596,9 +11329,9 @@ internal sealed class GitCliVersionControlService :
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                if (_beforeHygieneFileCommit is not null)
+                if (_beforeFileCommit is not null)
                 {
-                    await _beforeHygieneFileCommit(path, cancellationToken).ConfigureAwait(false);
+                    await _beforeFileCommit(path, cancellationToken).ConfigureAwait(false);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -10667,9 +11400,9 @@ internal sealed class GitCliVersionControlService :
         HygieneFileSnapshot? displacedSnapshot = null;
         try
         {
-            if (_afterHygieneFileExchange is not null)
+            if (_afterFileExchange is not null)
             {
-                await _afterHygieneFileExchange(path, CancellationToken.None)
+                await _afterFileExchange(path, CancellationToken.None)
                     .ConfigureAwait(false);
             }
 

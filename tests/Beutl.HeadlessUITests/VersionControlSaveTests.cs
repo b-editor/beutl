@@ -15,7 +15,9 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Beutl.ViewModels.ExtensionsPages;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
@@ -871,6 +873,162 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Expected_project_close_does_not_close_a_queued_replacement_project()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+
+        try
+        {
+            config.AutoCommitOnClose = false;
+            string replacementLocation = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-expected-close-replacement");
+            string expectedLocation = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-expected-close-current");
+            Directory.CreateDirectory(replacementLocation);
+            Directory.CreateDirectory(expectedLocation);
+            Project replacement = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "replacement",
+                replacementLocation))!;
+            string replacementFile = replacement.Uri!.LocalPath;
+            Project expected = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "expected",
+                expectedLocation))!;
+
+            ProjectService.ProjectTransitionScope transition
+                = await TestShell.Project.BeginVersionControlTransitionAsync(
+                    TestShell.VersionControl,
+                    CancellationToken.None);
+            Task<bool> queuedClose = TestShell.Project.TryCloseProjectAsync(expected);
+            try
+            {
+                await transition.CloseProjectAsync();
+                await transition.OpenProjectAsync(replacementFile);
+                Assert.That(queuedClose.IsCompleted, Is.False);
+            }
+            finally
+            {
+                await transition.DisposeAsync();
+            }
+
+            bool closed = await queuedClose.WaitAsync(TimeSpan.FromSeconds(5));
+            var packageHandler = new PackageOperationHandler(
+                TestShell.MainViewModel._beutlClients,
+                TestShell.Editor,
+                TestShell.Project);
+            bool primaryClosed = await packageHandler.HandleProjectCloseChoice(
+                ContentDialogResult.Primary,
+                expected);
+            bool secondaryClosed = await packageHandler.HandleProjectCloseChoice(
+                ContentDialogResult.Secondary,
+                expected);
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.False);
+                Assert.That(primaryClosed, Is.False);
+                Assert.That(secondaryClosed, Is.False);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+                Assert.That(
+                    TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
+                    Is.EqualTo(replacementFile));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Package_save_and_close_notifies_version_control_before_retirement()
+    {
+        await TestReset.ResetShellAsync();
+        using var environment = new IsolatedGitEnvironment();
+        string gitPath = ProbeGitOrIgnore();
+        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
+        string? oldGitPath = config.GitExecutablePath;
+        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldUseLfs = config.UseLfsWhenAvailable;
+
+        try
+        {
+            config.GitExecutablePath = gitPath;
+            config.AutoCommitOnSave = true;
+            config.AutoCommitOnClose = false;
+            config.UseLfsWhenAvailable = false;
+
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "version-control-package-save-close");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "package-save-close",
+                location))!;
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
+                    "Beutl Headless Test",
+                    "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            int commitsBefore = await CountCommitsAsync(gitPath, projectRoot);
+            project.Variables["package-save"] = "persisted before close";
+            var packageHandler = new PackageOperationHandler(
+                TestShell.MainViewModel._beutlClients,
+                TestShell.Editor,
+                TestShell.Project);
+
+            bool closed = await packageHandler.HandleProjectCloseChoice(
+                ContentDialogResult.Secondary,
+                project);
+
+            int commitsAfter = await CountCommitsAsync(gitPath, projectRoot);
+            int saveSnapshots = await CountSaveSnapshotsAsync(gitPath, projectRoot);
+            int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
+            string committedProject = await RunGitAsync(
+                gitPath,
+                projectRoot,
+                "show",
+                $"HEAD:{Path.GetFileName(project.Uri.LocalPath)}");
+            Assert.Multiple(() =>
+            {
+                Assert.That(closed, Is.True);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+                Assert.That(commitsAfter, Is.EqualTo(commitsBefore + 1));
+                Assert.That(saveSnapshots, Is.EqualTo(1));
+                Assert.That(closeSnapshots, Is.Zero);
+                Assert.That(committedProject, Does.Contain("package-save"));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            config.GitExecutablePath = oldGitPath;
+            config.AutoCommitOnSave = oldAutoCommitOnSave;
+            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.UseLfsWhenAvailable = oldUseLfs;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Window_close_is_cancelled_when_an_editor_cannot_save_the_close_snapshot()
     {
         await TestReset.ResetShellAsync();
@@ -932,6 +1090,33 @@ public class VersionControlSaveTests
                 Assert.That(TestShell.VersionControl.CurrentService, Is.Not.Null);
                 Assert.That(closeSnapshots, Is.Zero);
                 Assert.That(commitsAfterClose, Is.EqualTo(commitsBeforeClose));
+            });
+
+            var packageHandler = new PackageOperationHandler(
+                TestShell.MainViewModel._beutlClients,
+                TestShell.Editor,
+                TestShell.Project);
+            Assert.That(
+                await packageHandler.HandleProjectCloseChoice(
+                    ContentDialogResult.Primary,
+                    project),
+                Is.False);
+            config.AutoCommitOnClose = false;
+            Assert.That(
+                await packageHandler.HandleProjectCloseChoice(
+                    ContentDialogResult.Secondary,
+                    project),
+                Is.False);
+            int commitsAfterFailedPackageSave = await CountCommitsAsync(gitPath, projectRoot);
+            config.AutoCommitOnClose = true;
+            Assert.DoesNotThrow(TestShell.Project.CloseProject);
+            Assert.DoesNotThrow(TestShell.MainViewModel.Dispose);
+            Assert.Multiple(() =>
+            {
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(5));
+                Assert.That(commitsAfterFailedPackageSave, Is.EqualTo(commitsBeforeClose));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(TestShell.Editor.TabItems, Does.Contain(failedTab));
             });
         }
         finally

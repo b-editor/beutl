@@ -159,7 +159,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
-        _projectService.CloseProject();
+        try
+        {
+            DisposeOrThrow();
+        }
+        catch (ProjectCloseAbortedException)
+        {
+        }
+    }
+
+    private void DisposeOrThrow()
+    {
+        _projectService.CloseProjectOrThrow();
         CommandPalette.Dispose();
         TitleBarBranch.Dispose();
         _agentHostEndpoint.RequestStop();
@@ -171,7 +182,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         try
         {
-            Dispose();
+            DisposeOrThrow();
             return true;
         }
         catch (ProjectCloseAbortedException)
