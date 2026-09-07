@@ -769,9 +769,6 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         // Tool contexts can own asynchronous operations that still publish through the editor.
         // Cancel and drain them before retiring element handlers and the player.
         await TryAsync(async () => await DockHost.DisposeAsync());
-        // Retire and cancel UI-initiated element operations before waiting for handler leases.
-        // Awaiting yields the UI thread so cancellation continuations can release those leases.
-        await TryAsync(async () => await _elementAdder.DisposeAsync());
         await TryAsync(async () => await Player.DisposeAsync());
         Try(() => _elementNudgeService?.Dispose());
         Try(() => _historyMutationPlaybackGuard.Dispose());
@@ -780,9 +777,6 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         Player = null!;
         BufferStatus = null!;
 
-        // History can retain an undone unsaved element across a save. Once the editor closes and
-        // history is about to be discarded, no live or redoable item may still own this directory.
-        Try(() => UnsavedSceneStorage.Cleanup(scene.Id));
         Scene = null!;
         Commands = null!;
         Try(HistoryManager.Clear);
