@@ -380,6 +380,50 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task ConcurrentStartCallersCancelOnlyTheirOwnWaits()
+    {
+        await TestReset.ResetShellAsync();
+        var startupEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async token =>
+            {
+                startupEntered.TrySetResult();
+                await releaseStartup.Task.WaitAsync(token);
+            });
+        using var firstCancellation = new CancellationTokenSource();
+        using var laterCancellation = new CancellationTokenSource();
+        Task first = endpoint.StartAsync(firstCancellation.Token);
+        await startupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task shared = endpoint.StartAsync();
+        Task later = endpoint.StartAsync(laterCancellation.Token);
+
+        firstCancellation.Cancel();
+        laterCancellation.Cancel();
+        Assert.CatchAsync<OperationCanceledException>(async () => await first);
+        Assert.CatchAsync<OperationCanceledException>(async () => await later);
+        Assert.That(shared.IsCompleted, Is.False);
+
+        try
+        {
+            releaseStartup.TrySetResult();
+            await shared.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(endpoint.IsRunning, Is.True);
+        }
+        finally
+        {
+            releaseStartup.TrySetResult();
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task RequestStop_before_start_keeps_the_endpoint_stopped()
     {
         await TestReset.ResetShellAsync();
@@ -414,6 +458,26 @@ public sealed class AgentHostEndpointTests
         });
 
         await endpoint.StopAsync();
+    }
+
+    [AvaloniaTest]
+    public async Task StopAsync_joins_background_startup_and_leaves_no_published_endpoint()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token");
+
+        endpoint.StartInBackground();
+        await endpoint.StopAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
     }
 
     [AvaloniaTest]
