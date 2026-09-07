@@ -110,9 +110,11 @@ Before classifying severity, freeze the remediation boundary:
    never re-read a copy that PR code could have changed. The resolver returns the full record in Step
    7, and the orchestrator must reject any change to `initial_head` or the three frozen-scope arrays.
    Only `previous_remediation_head` advances after a remediation commit is successfully pushed.
-3. If `--auto` has no exact full record, or if
-   `git merge-base --is-ancestor <initial_head> "$PR_HEAD_OID"` fails, set `needs_human` and do not
-   edit. Commit IDs retained in Step 2 are evidence for
+3. If `--auto` has no exact full record, set `needs_human` and do not edit. The verified current head
+   must equal `previous_remediation_head ?? initial_head`; ancestry alone is insufficient because an
+   unverified actor can push an arbitrary descendant. Also require
+   `git merge-base --is-ancestor <initial_head> "$PR_HEAD_OID"` as a history-integrity check. Commit
+   IDs retained in Step 2 are evidence for
    classification, not enough to reconstruct the missing behavior/modules/tests. Interactive mode may
    create a new record only after showing all five derived fields to the user and receiving explicit
    confirmation; an unanswered prompt never creates or replaces it.
@@ -147,7 +149,8 @@ correct for **fork / cross-repository** PRs too — `headRefName` is only the so
 ```bash
 HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)   # same-repo push target (Step 5)
 IS_FORK=$(gh pr view ${PR:-} --json isCrossRepository -q .isCrossRepository)
-git fetch origin "pull/$PR/head"
+git fetch origin "pull/$PR_NUMBER/head"
+test "$(git rev-parse FETCH_HEAD)" = "$PR_HEAD_OID" || { echo "PR head changed during review" >&2; exit 1; }
 
 # Stay on the named branch when possible so the working tree is not left detached after the skill.
 # For fork PRs, do NOT use `git checkout "$HEAD_REF"` — headRefName is not globally unique and can

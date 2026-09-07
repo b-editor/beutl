@@ -61,12 +61,12 @@ for field in frozen_fields:
         print(f"review scope changed frozen field: {field}", file=sys.stderr)
         raise SystemExit(1)
 
-expected_previous = authoritative.get("previous_remediation_head")
 returned_previous = returned.get("previous_remediation_head")
-permitted = {expected_previous}
 if allowed_previous:
-    permitted.add(allowed_previous)
-if returned_previous not in permitted:
+    expected_previous = allowed_previous
+else:
+    expected_previous = authoritative.get("previous_remediation_head")
+if returned_previous != expected_previous:
     print("review scope advanced to an unverified remediation head", file=sys.stderr)
     raise SystemExit(1)
 PY
