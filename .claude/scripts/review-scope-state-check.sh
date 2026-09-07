@@ -9,6 +9,7 @@ fi
 
 python3 - "$1" "$2" "${3:-}" <<'PY'
 import json
+import re
 import sys
 
 authoritative_path, returned_path, allowed_previous = sys.argv[1:]
@@ -23,6 +24,38 @@ frozen_fields = (
     "affected_modules",
     "acceptance_tests",
 )
+
+def validate(record, label):
+    required = (*frozen_fields, "previous_remediation_head")
+    missing = [field for field in required if field not in record]
+    if missing:
+        print(f"{label} review scope is missing: {', '.join(missing)}", file=sys.stderr)
+        raise SystemExit(1)
+
+    if not isinstance(record["initial_head"], str) or not re.fullmatch(
+        r"[0-9a-f]{40}", record["initial_head"]
+    ):
+        print(f"{label} review scope has an invalid initial_head", file=sys.stderr)
+        raise SystemExit(1)
+
+    previous = record["previous_remediation_head"]
+    if previous is not None and (
+        not isinstance(previous, str) or not re.fullmatch(r"[0-9a-f]{40}", previous)
+    ):
+        print(f"{label} review scope has an invalid previous_remediation_head", file=sys.stderr)
+        raise SystemExit(1)
+
+    for field in ("intended_behavior", "affected_modules", "acceptance_tests"):
+        value = record[field]
+        if not isinstance(value, list) or not value or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            print(f"{label} review scope has an invalid {field}", file=sys.stderr)
+            raise SystemExit(1)
+
+validate(authoritative, "authoritative")
+validate(returned, "returned")
+
 for field in frozen_fields:
     if returned.get(field) != authoritative.get(field):
         print(f"review scope changed frozen field: {field}", file=sys.stderr)

@@ -290,6 +290,7 @@ scope_h1="1111111111111111111111111111111111111111"
 printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/authoritative.json"
 printf '%s\n' '{"initial_head":"'"$scope_h1"'","previous_remediation_head":"'"$scope_h1"'","intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/rebased.json"
 printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":"'"$scope_h1"'","intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/advanced.json"
+printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["editor"]}' > "$scope_tmp/incomplete.json"
 if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/rebased.json" "$scope_h1" >/dev/null 2>&1; then
   fail "review scope fixture accepted H0 -> H1 re-baselining"
 else
@@ -299,6 +300,11 @@ if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/advanced.json" "$s
   pass "review scope fixture accepts verified previous-head advancement"
 else
   fail "review scope fixture rejected verified previous-head advancement"
+fi
+if "$SCOPE_CHECK" "$scope_tmp/incomplete.json" "$scope_tmp/incomplete.json" >/dev/null 2>&1; then
+  fail "review scope fixture accepted an incomplete frozen record"
+else
+  pass "review scope fixture rejects incomplete frozen records"
 fi
 rm -rf "$scope_tmp"
 
