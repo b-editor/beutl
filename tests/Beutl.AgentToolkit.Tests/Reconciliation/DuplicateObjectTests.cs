@@ -354,7 +354,6 @@ public sealed class DuplicateObjectTests
             allowStillness: false,
             allowDenseText: false,
             allowMultiObjectElements: false,
-            allowMonochrome: false,
             allowMinimalDensity: false,
             plannedForegroundElementsPerShot: 0,
             evaluateMotion: false,

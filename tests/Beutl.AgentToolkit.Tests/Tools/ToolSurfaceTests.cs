@@ -1,4 +1,6 @@
 ﻿using System.Reflection;
+using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using ModelContextProtocol.Server;
 
@@ -86,6 +88,34 @@ public sealed class ToolSurfaceTests
         {
             Assert.That(internalElementNames, Does.Contain("add_element"));
             Assert.That(publicNames.Intersect(internalElementNames), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Quality_surfaces_expose_only_active_intent_flags()
+    {
+        MethodBase[] methods =
+        [
+            typeof(RenderTools).GetMethod(nameof(RenderTools.EvaluateEditQuality))!,
+            typeof(RenderTools).GetMethod(nameof(RenderTools.SuggestQualityFixes))!,
+            typeof(RenderTools).GetMethod(nameof(RenderTools.FinalPreflight))!,
+            typeof(QualityAnalyzer).GetMethod(nameof(QualityAnalyzer.AnalyzeAsync))!,
+            typeof(QualityAnalysisOptions).GetConstructors().Single()
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach (MethodBase method in methods)
+            {
+                string[] parameterNames = method.GetParameters().Select(parameter => parameter.Name!).ToArray();
+                int multiObjectIndex = Array.FindIndex(parameterNames, name =>
+                    string.Equals(name, "allowMultiObjectElements", StringComparison.OrdinalIgnoreCase));
+                Assert.That(multiObjectIndex, Is.GreaterThanOrEqualTo(0), method.Name);
+                Assert.That(
+                    parameterNames[multiObjectIndex + 1],
+                    Is.EqualTo("allowMinimalDensity").IgnoreCase,
+                    method.Name);
+            }
         });
     }
 

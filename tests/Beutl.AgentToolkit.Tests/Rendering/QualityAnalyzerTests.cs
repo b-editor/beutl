@@ -1256,6 +1256,23 @@ public sealed class QualityAnalyzerTests
         });
     }
 
+    [Test]
+    public async Task Monochrome_role_does_not_downgrade_required_text_contrast()
+    {
+        Scene scene = CreateScene(width: 320, height: 180, durationSeconds: 2);
+        AddRect(scene, "[role:background] white field", zIndex: 0, width: 320, height: 180, color: Colors.White);
+        AddText(scene, "[role:monochrome] Required copy", zIndex: 10, size: 42, fill: Colors.White);
+
+        QualityReviewResponse result = await AnalyzeAsync(scene, allowStillness: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.PassesQualityGate, Is.False);
+            Assert.That(result.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "typographyContrast" && issue.Severity == "major"));
+        });
+    }
+
     private static ValueTask<QualityReviewResponse> AnalyzeAsync(
         Scene scene,
         bool evaluateMotion = true,
@@ -1265,7 +1282,6 @@ public sealed class QualityAnalyzerTests
         bool allowStillness = false,
         bool allowDenseText = false,
         bool allowMultiObjectElements = false,
-        bool allowMonochrome = false,
         bool allowMinimalDensity = false,
         double plannedForegroundElementsPerShot = 0,
         string? videoType = null,
@@ -1285,7 +1301,6 @@ public sealed class QualityAnalyzerTests
             allowStillness: allowStillness,
             allowDenseText: allowDenseText,
             allowMultiObjectElements: allowMultiObjectElements,
-            allowMonochrome: allowMonochrome,
             allowMinimalDensity: allowMinimalDensity,
             plannedForegroundElementsPerShot: plannedForegroundElementsPerShot,
             evaluateMotion: evaluateMotion,

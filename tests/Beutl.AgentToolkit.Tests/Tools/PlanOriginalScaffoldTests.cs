@@ -81,7 +81,6 @@ public sealed class PlanOriginalScaffoldTests
                 allowStillness: false,
                 allowDenseText: false,
                 allowMultiObjectElements: false,
-                allowMonochrome: false,
                 allowMinimalDensity: false,
                 plannedForegroundElementsPerShot: 0,
                 evaluateMotion: false,

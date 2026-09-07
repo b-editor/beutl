@@ -352,7 +352,6 @@ public sealed record QualityAnalysisOptions(
     bool AllowStillness,
     bool AllowDenseText,
     bool AllowMultiObjectElements,
-    bool AllowMonochrome,
     bool AllowMinimalDensity,
     double PlannedForegroundElementsPerShot,
     IReadOnlyList<double>? BeatTimesSeconds,

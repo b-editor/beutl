@@ -201,7 +201,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         bool allowStillness,
         bool allowDenseText,
         bool allowMultiObjectElements,
-        bool allowMonochrome,
         bool allowMinimalDensity,
         double plannedForegroundElementsPerShot,
         bool evaluateMotion,
@@ -230,7 +229,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         StructureMetrics structure = AnalyzeStructure(scene, objects, allowMultiObjectElements, issues);
         int textPlateMismatchCount = AnalyzeTextBackgroundFit(scene, objects, issues);
         typography = typography with { TextPlateMismatchCount = textPlateMismatchCount };
-        PaletteMetrics palette = AnalyzePalette(scene, objects, allowMonochrome, issues);
+        PaletteMetrics palette = AnalyzePalette(objects);
         AnalyzeDesignStructure(
             scene,
             objects,
@@ -273,7 +272,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                     scene,
                     objects,
                     renderedFrames,
-                    allowMonochrome,
                     issues);
                 typography = typography with
                 {
@@ -792,11 +790,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         return mismatchCount;
     }
 
-    private static PaletteMetrics AnalyzePalette(
-        Scene scene,
-        IReadOnlyList<SceneObjectInfo> objects,
-        bool allowMonochrome,
-        List<QualityIssue> issues)
+    private static PaletteMetrics AnalyzePalette(IReadOnlyList<SceneObjectInfo> objects)
     {
         Color[] colors = objects
             .SelectMany(item => ExtractColors(item.Object))
@@ -810,24 +804,11 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         }
 
         Hsv[] hsv = colors.Select(color => color.ToHsv()).ToArray();
-        PaletteHarmonyEvaluation harmony = ColorHarmonyEngine.EvaluatePalette(colors.Select(ToHexArgb));
         double averageSaturation = hsv.Average(item => item.S);
         double maxSaturation = hsv.Max(item => item.S);
         double minLuma = colors.Min(RelativeLuma);
         double maxLuma = colors.Max(RelativeLuma);
         double lumaRange = maxLuma - minLuma;
-        bool hasDarkTeal = colors.Any(color => RelativeLuma(color) < 0.16 && HueIn(color, 160, 230));
-        bool hasCyan = colors.Any(color => color.ToHsv() is { S: >= 55, V: >= 55 } && HueIn(color, 175, 210));
-        bool hasMagenta = colors.Any(color => color.ToHsv() is { S: >= 55, V: >= 50 } && HueIn(color, 285, 335));
-        bool darkTealCyanMagenta = hasDarkTeal && hasCyan && hasMagenta;
-        bool oversaturated = colors.Length >= 3 && averageSaturation >= 68 && maxSaturation >= 88;
-        bool lowContrast = colors.Length >= 2 && lumaRange < 0.18;
-
-
-        bool monochromeIntent = allowMonochrome || AnyMonochromeIntent(objects);
-
-        bool lowHarmony = !harmony.IsHarmonious && !monochromeIntent;
-
         return new PaletteMetrics(
             colors.Length,
             averageSaturation,
@@ -2163,7 +2144,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         Scene scene,
         IReadOnlyList<SceneObjectInfo> objects,
         IReadOnlyList<RenderedFrameAnalysis> frames,
-        bool allowMonochrome,
         List<QualityIssue> issues)
     {
         var objectInfo = objects
@@ -2217,7 +2197,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             }
 
             TypographyContrastSample worst = samples.MinBy(sample => sample.ContrastRatio)!;
-            bool decorativeIntent = allowMonochrome || HasRole(info, "decorative");
+            bool decorativeIntent = HasRole(info, "decorative");
             var metric = new TypographyContrastMetric(
                 info.Element.Id.ToString(),
                 textBlock.Id.ToString(),
@@ -2239,7 +2219,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                 "Rendered text contrast falls below the 3.0:1 large-text floor.",
                 $"Text '{metric.Text}' measured worst contrast {worst.ContrastRatio:F2}:1 at {worst.Time}.",
                 decorativeIntent
-                    ? "Decorative or monochrome text contrast is allowed; confirm the text is not carrying required information."
+                    ? "Decorative text contrast is allowed; confirm the text is not carrying required information."
                     : "Increase text/background luma separation, add or align a named [role:text-backing] plate, or move the text away from the low-contrast background region.",
                 info,
                 worst.Time));
@@ -2804,16 +2784,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
                || ContainsAny(element.Name, "composite element", "layered stack", "grouped layers");
     }
 
-    private static bool AnyMonochromeIntent(IReadOnlyList<SceneObjectInfo> objects)
-        => objects.Any(HasMonochromeIntent);
-
-    private static bool HasMonochromeIntent(SceneObjectInfo info)
-    {
-        return HasRole(info, "monochrome", "monochromatic", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
-               || ContainsAny(info.Element.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone")
-               || ContainsAny(info.Object.Name, "monochrome", "monochromatic", "low contrast", "low-contrast", "grayscale", "greyscale", "tonal", "duotone");
-    }
-
     private static bool IsTempoForegroundElement(Scene scene, Element element)
     {
         return element.Objects.Any(obj => IsTempoForegroundObject(scene, new SceneObjectInfo(element, obj)));
@@ -3373,19 +3343,8 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
     private static string FormatSeconds(double seconds)
         => TimeSpan.FromSeconds(Math.Max(0, seconds)).ToString("c");
 
-    private static bool HueIn(Color color, double start, double end)
-    {
-        double hue = color.ToHsv().H;
-        return start <= end
-            ? hue >= start && hue <= end
-            : hue >= start || hue <= end;
-    }
-
     private static double RelativeLuma(Color color)
         => ((0.2126 * color.R) + (0.7152 * color.G) + (0.0722 * color.B)) / 255d;
-
-    private static string ToHexArgb(Color color)
-        => FormattableString.Invariant($"#{color.A:x2}{color.R:x2}{color.G:x2}{color.B:x2}");
 
     private static string Shorten(string text)
     {

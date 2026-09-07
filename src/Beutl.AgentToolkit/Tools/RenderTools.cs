@@ -70,8 +70,6 @@ public sealed class RenderTools(
         "When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.";
     private const string AllowMultiObjectElementsDescription =
         "When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.";
-    private const string AllowMonochromeDescription =
-        "When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.";
     private const string AllowMinimalDensityDescription =
         "When true, records that minimal / sparse / negative-space density is deliberate, so the density findings read as expected rather than as omissions. Density never fails the gate either way. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.";
     private const string PlannedForegroundElementsPerShotDescription =
@@ -361,7 +359,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Measures the current scene and reports what it finds: all-caps typography, text read time, rendered text contrast, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, cut rhythm, audio beat sync, text backing alignment, rendered palette balance, easing variety, motion clusters, motion continuity, and timeline coverage. Pass staticLayout:true for the document-only pass (no rendering, no motion checks) — that is the cheap early check while authoring. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else is advisory: it describes the scene, it does not prescribe one. Judgments about palette harmony, background richness, shape clarity, gradient falloff, and motion arc are deliberately not made here — read a render_still and decide those yourself. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
+    [Description("Measures the current scene and reports what it finds: all-caps typography, text read time, rendered text contrast, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, cut rhythm, audio beat sync, text backing alignment, rendered palette balance, easing variety, motion clusters, motion continuity, and timeline coverage. Pass staticLayout:true for the document-only pass: it skips rendering plus rendered-motion and rendered-contrast checks, while document-based easing and motion-uniformity analysis still runs. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else is advisory: it describes the scene, it does not prescribe one. Judgments about palette harmony, background richness, shape clarity, gradient falloff, and motion arc are deliberately not made here — read a render_still and decide those yourself. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
         [Description(VideoTypeDescription)]
         string? videoType = null,
@@ -385,8 +383,6 @@ public sealed class RenderTools(
         bool allowDenseText = false,
         [Description(AllowMultiObjectElementsDescription)]
         bool allowMultiObjectElements = false,
-        [Description(AllowMonochromeDescription)]
-        bool allowMonochrome = false,
         [Description(AllowMinimalDensityDescription)]
         bool allowMinimalDensity = false,
         [Description(PlannedForegroundElementsPerShotDescription)]
@@ -422,7 +418,6 @@ public sealed class RenderTools(
                 allowStillness,
                 allowDenseText,
                 allowMultiObjectElements,
-                allowMonochrome,
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 beatTimesSeconds,
@@ -478,8 +473,6 @@ public sealed class RenderTools(
         bool allowDenseText = false,
         [Description(AllowMultiObjectElementsDescription)]
         bool allowMultiObjectElements = false,
-        [Description(AllowMonochromeDescription)]
-        bool allowMonochrome = false,
         [Description(AllowMinimalDensityDescription)]
         bool allowMinimalDensity = false,
         [Description(PlannedForegroundElementsPerShotDescription)]
@@ -509,7 +502,6 @@ public sealed class RenderTools(
                     allowStillness,
                     allowDenseText,
                     allowMultiObjectElements,
-                    allowMonochrome,
                     allowMinimalDensity,
                     plannedForegroundElementsPerShot),
                 cancellationToken).ConfigureAwait(false);
@@ -556,8 +548,6 @@ public sealed class RenderTools(
         bool allowDenseText = false,
         [Description(AllowMultiObjectElementsDescription)]
         bool allowMultiObjectElements = false,
-        [Description(AllowMonochromeDescription)]
-        bool allowMonochrome = false,
         [Description(AllowMinimalDensityDescription)]
         bool allowMinimalDensity = false,
         [Description(PlannedForegroundElementsPerShotDescription)]
@@ -631,7 +621,6 @@ public sealed class RenderTools(
                 allowStillness,
                 allowDenseText,
                 allowMultiObjectElements,
-                allowMonochrome,
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 beatTimesSeconds,
@@ -1143,7 +1132,6 @@ public sealed class RenderTools(
         bool allowStillness,
         bool allowDenseText,
         bool allowMultiObjectElements,
-        bool allowMonochrome,
         bool allowMinimalDensity,
         double plannedForegroundElementsPerShot,
         double[]? beatTimesSeconds = null,
@@ -1159,7 +1147,6 @@ public sealed class RenderTools(
             allowStillness,
             allowDenseText,
             allowMultiObjectElements,
-            allowMonochrome,
             allowMinimalDensity,
             plannedForegroundElementsPerShot,
             beatTimesSeconds?.Where(double.IsFinite).ToArray(),
@@ -1186,7 +1173,6 @@ public sealed class RenderTools(
             options.AllowStillness,
             options.AllowDenseText,
             options.AllowMultiObjectElements,
-            options.AllowMonochrome,
             options.AllowMinimalDensity,
             options.PlannedForegroundElementsPerShot,
             evaluateMotion,
