@@ -42,4 +42,140 @@ public class ObjectTemplateServicePreviewTests
         Assert.That(item!.Preview, Is.Null);
         Assert.That(File.Exists(item.FilePath), Is.True);
     }
+
+    [Test]
+    public async Task TryLoadFromFile_ReturnsNullForMalformedPathWhenItemsAreCached()
+    {
+        ObjectTemplateItem? item = await ObjectTemplateService.Instance
+            .AddFromInstanceAsync(
+                new Audio.Effects.AudioEffectGroup(),
+                $"malformed-path-{Guid.NewGuid():N}");
+        Assert.That(item, Is.Not.Null);
+
+        ObjectTemplateItem? result = ObjectTemplateService.Instance.TryLoadFromFile("\0");
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
+    public async Task GetUniqueName_keeps_display_names_case_insensitively_unique()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        string name = $"DisplayName-{Guid.NewGuid():N}";
+        ObjectTemplateItem? item = await service.AddFromInstanceAsync(
+            new Audio.Effects.AudioEffectGroup(),
+            name);
+        Assert.That(item, Is.Not.Null);
+
+        string alternateCase = name.ToLowerInvariant();
+
+        Assert.That(service.GetUniqueName(alternateCase), Is.EqualTo($"{alternateCase} (2)"));
+    }
+
+    [Test]
+    public async Task RefreshFromFileSystem_tracks_case_distinct_files_independently()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        string name = $"CaseSensitive-{Guid.NewGuid():N}";
+        ObjectTemplateItem? item = await service.AddFromInstanceAsync(
+            new Audio.Effects.AudioEffectGroup(),
+            name);
+        Assert.That(item, Is.Not.Null);
+
+        string originalPath = item!.FilePath!;
+        string alternatePath = Path.Combine(
+            Path.GetDirectoryName(originalPath)!,
+            Path.GetFileName(originalPath).ToLowerInvariant());
+        try
+        {
+            if (File.Exists(alternatePath))
+            {
+                Assert.Ignore("The templates volume does not distinguish case-only file names.");
+            }
+
+            File.Copy(originalPath, alternatePath);
+            service.RefreshFromFileSystem();
+
+            string?[] loadedPaths = service.FindByBaseType(item.BaseType)
+                .Select(x => x.FilePath)
+                .ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(loadedPaths, Does.Contain(originalPath));
+                Assert.That(loadedPaths, Does.Contain(alternatePath));
+            });
+
+            File.Delete(originalPath);
+            service.RefreshFromFileSystem();
+
+            loadedPaths = service.FindByBaseType(item.BaseType)
+                .Select(x => x.FilePath)
+                .ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(loadedPaths, Does.Not.Contain(originalPath));
+                Assert.That(loadedPaths, Does.Contain(alternatePath));
+            });
+
+            File.Copy(alternatePath, originalPath);
+            service.RefreshFromFileSystem();
+            File.Delete(alternatePath);
+            service.RefreshFromFileSystem();
+
+            loadedPaths = service.FindByBaseType(item.BaseType)
+                .Select(x => x.FilePath)
+                .ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(loadedPaths, Does.Contain(originalPath));
+                Assert.That(loadedPaths, Does.Not.Contain(alternatePath));
+            });
+        }
+        finally
+        {
+            File.Delete(originalPath);
+            File.Delete(alternatePath);
+            service.RestoreItems();
+        }
+    }
+
+    [Test]
+    public async Task RefreshFromFileSystem_removes_a_template_hidden_by_a_dangling_link()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateItem? item = await service.AddFromInstanceAsync(
+            new Audio.Effects.AudioEffectGroup(),
+            $"Dangling-{Guid.NewGuid():N}");
+        Assert.That(item, Is.Not.Null);
+        string originalPath = item!.FilePath!;
+        string aliasPath = Path.Combine(
+            Path.GetDirectoryName(originalPath)!,
+            $"dangling-{Guid.NewGuid():N}.json");
+        try
+        {
+            try
+            {
+                File.CreateSymbolicLink(aliasPath, originalPath);
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"Symbolic links are unavailable: {ex.Message}");
+            }
+
+            File.Delete(originalPath);
+            service.RefreshFromFileSystem();
+
+            Assert.That(
+                service.FindByBaseType(item.BaseType).Select(template => template.FilePath),
+                Does.Not.Contain(originalPath));
+        }
+        finally
+        {
+            File.Delete(aliasPath);
+            File.Delete(originalPath);
+            service.RestoreItems();
+        }
+    }
 }

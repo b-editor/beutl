@@ -93,6 +93,7 @@ public sealed class ObjectTemplateService
         string filePath = Path.Combine(_directoryPath, name + ".json");
         if (File.Exists(filePath)) return true;
 
+        // Display names remain case-insensitively unique independently of path identity.
         foreach (ObjectTemplateItem item in _items)
         {
             if (string.Equals(item.Name.Value, name, StringComparison.OrdinalIgnoreCase))
@@ -291,11 +292,36 @@ public sealed class ObjectTemplateService
     {
         foreach (ObjectTemplateItem item in _items)
         {
-            if (FilePathComparison.Equals(item.FilePath, filePath))
+            if (item.FilePath is { } itemFilePath
+                && TryAreSameCanonicalPath(itemFilePath, filePath))
                 return item;
         }
 
         return null;
+    }
+
+    private static bool TryAreSameCanonicalPath(string left, string right)
+    {
+        return TryResolveCanonicalPath(left, out string canonicalLeft)
+               && TryResolveCanonicalPath(right, out string canonicalRight)
+               && string.Equals(canonicalLeft, canonicalRight, StringComparison.Ordinal);
+    }
+
+    private static bool TryResolveCanonicalPath(string path, out string canonicalPath)
+    {
+        canonicalPath = string.Empty;
+        try
+        {
+            canonicalPath = FilePathComparison.ResolveCanonicalPath(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
@@ -320,15 +346,20 @@ public sealed class ObjectTemplateService
         }
     }
 
-    private void RefreshFromFileSystem()
+    internal void RefreshFromFileSystem()
     {
         try
         {
             if (!Directory.Exists(_directoryPath)) return;
 
-            var diskFiles = new HashSet<string>(
-                Directory.EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories),
-                StringComparer.OrdinalIgnoreCase);
+            string[] diskFiles = Directory
+                .EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories)
+                .ToArray();
+            var diskPaths = new CanonicalPathSet();
+            foreach (string diskFile in diskFiles)
+            {
+                diskPaths.Add(diskFile);
+            }
 
             lock (_lock)
             {
@@ -336,7 +367,7 @@ public sealed class ObjectTemplateService
                 for (int i = _items.Count - 1; i >= 0; i--)
                 {
                     ObjectTemplateItem item = _items[i];
-                    if (item.FilePath == null || !diskFiles.Contains(item.FilePath))
+                    if (item.FilePath == null || !diskPaths.Contains(item.FilePath))
                     {
                         _items.RemoveAt(i);
                         _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
@@ -344,7 +375,7 @@ public sealed class ObjectTemplateService
                 }
 
                 // 外部変更を検知したら再読み込み、既読パスを収集
-                var loadedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var loadedPaths = new CanonicalPathSet();
                 for (int i = 0; i < _items.Count; i++)
                 {
                     ObjectTemplateItem item = _items[i];
@@ -373,6 +404,7 @@ public sealed class ObjectTemplateService
                     if (newItem != null)
                     {
                         _items.Add(newItem);
+                        loadedPaths.Add(filePath);
                         _logger.LogInformation("Added template (new file): {FilePath}", filePath);
                     }
                 }
@@ -381,6 +413,47 @@ public sealed class ObjectTemplateService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to refresh templates from filesystem.");
+        }
+    }
+
+    private sealed class CanonicalPathSet
+    {
+        private readonly HashSet<string> _canonicalPaths = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _exactPaths = new(StringComparer.Ordinal);
+
+        public void Add(string path)
+        {
+            _exactPaths.Add(path);
+            if (IsLiveFile(path)
+                && TryResolveCanonicalPath(path, out string canonicalPath))
+            {
+                _canonicalPaths.Add(canonicalPath);
+            }
+        }
+
+        private static bool IsLiveFile(string path)
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                return info.LinkTarget is null
+                    ? info.Exists
+                    : info.ResolveLinkTarget(returnFinalTarget: true)?.Exists == true;
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        public bool Contains(string path)
+        {
+            return _exactPaths.Contains(path)
+                   || TryResolveCanonicalPath(path, out string canonicalPath)
+                   && _canonicalPaths.Contains(canonicalPath);
         }
     }
 }

@@ -157,4 +157,156 @@ public class DirectoryWatcherServiceTests
 
         Assert.That(service.IsWatching, Is.False);
     }
+
+    [Test]
+    public void Failed_watcher_start_does_not_publish_a_disposed_instance()
+    {
+        using var service = new DirectoryWatcherService(
+            TimeSpan.Zero,
+            _ => { },
+            _ => throw new IOException("Injected watcher start failure."));
+
+        service.Watch(_scratch);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.IsWatching, Is.False);
+            Assert.That(service.TryRearmAfterError(), Is.False);
+        });
+    }
+
+    [Test]
+    public void Retargeted_symbolic_link_rebuilds_the_watcher_for_the_new_identity()
+    {
+        string firstTarget = Path.Combine(_scratch, "first-target");
+        string secondTarget = Path.Combine(_scratch, "second-target");
+        string alias = Path.Combine(_scratch, "alias");
+        Directory.CreateDirectory(firstTarget);
+        Directory.CreateDirectory(secondTarget);
+        try
+        {
+            Directory.CreateSymbolicLink(alias, firstTarget);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are unavailable: {ex.Message}");
+        }
+
+        var startedPaths = new List<string>();
+        using var service = new DirectoryWatcherService(
+            TimeSpan.Zero,
+            _ => { },
+            watcher =>
+            {
+                startedPaths.Add(watcher.Path);
+                watcher.EnableRaisingEvents = true;
+            });
+
+        service.Watch(alias);
+        Directory.Delete(alias);
+        Directory.CreateSymbolicLink(alias, secondTarget);
+        service.Watch(alias);
+
+        Assert.That(
+            startedPaths,
+            Is.EqualTo(new[]
+            {
+                FilePathComparison.ResolveCanonicalPath(firstTarget),
+                FilePathComparison.ResolveCanonicalPath(secondTarget),
+            }));
+    }
+
+    [Test]
+    public void Error_rearm_resolves_the_original_symbolic_link_again()
+    {
+        string firstTarget = Path.Combine(_scratch, "first-error-target");
+        string secondTarget = Path.Combine(_scratch, "second-error-target");
+        string alias = Path.Combine(_scratch, "error-alias");
+        Directory.CreateDirectory(firstTarget);
+        Directory.CreateDirectory(secondTarget);
+        try
+        {
+            Directory.CreateSymbolicLink(alias, firstTarget);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are unavailable: {ex.Message}");
+        }
+
+        var startedPaths = new List<string>();
+        using var service = new DirectoryWatcherService(
+            TimeSpan.Zero,
+            _ => { },
+            watcher => startedPaths.Add(watcher.Path));
+        service.Watch(alias);
+        Directory.Delete(alias);
+        Directory.CreateSymbolicLink(alias, secondTarget);
+
+        bool rearmed = service.TryRearmAfterError();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rearmed, Is.True);
+            Assert.That(startedPaths, Has.Count.EqualTo(2));
+            Assert.That(startedPaths[1],
+                Is.EqualTo(FilePathComparison.ResolveCanonicalPath(secondTarget)));
+        });
+    }
+
+    [Test]
+    public void Concurrent_rearms_cannot_exceed_the_retry_budget()
+    {
+        int starts = 0;
+        using var service = new DirectoryWatcherService(
+            TimeSpan.Zero,
+            _ => { },
+            _ => Interlocked.Increment(ref starts));
+        service.Watch(_scratch);
+        var failures = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+
+        Parallel.For(0, 128, _ =>
+        {
+            try
+            {
+                service.TryRearmAfterError();
+            }
+            catch (Exception ex)
+            {
+                failures.Enqueue(ex);
+            }
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failures, Is.Empty);
+            Assert.That(Volatile.Read(ref starts), Is.LessThanOrEqualTo(4));
+        });
+    }
+
+    [Test]
+    public void Navigating_to_a_symbolic_link_cycle_does_not_escape_path_comparison()
+    {
+        string cycle = Path.Combine(_scratch, "cycle");
+        try
+        {
+            Directory.CreateSymbolicLink(cycle, cycle);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Symbolic links are unavailable: {ex.Message}");
+        }
+
+        using var service = new DirectoryWatcherService();
+        service.Watch(_scratch);
+        Assert.That(service.IsWatching, Is.True);
+
+        Assert.DoesNotThrow(() => service.Watch(cycle));
+        Assert.That(service.IsWatching, Is.False);
+    }
 }
