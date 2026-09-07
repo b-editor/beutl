@@ -58,11 +58,11 @@ public partial class MenuBarViewModel
     //       Cut
     //       Copy
     //       Paste
-    public ReactiveCommandSlim NewScene { get; } = new();
+    public AsyncReactiveCommand NewScene { get; } = new();
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
 
-    public ReactiveCommandSlim DeleteLayer { get; private set; }
+    public AsyncReactiveCommand DeleteLayer { get; private set; }
 
     public ReactiveCommandSlim ExcludeLayer { get; private set; }
 

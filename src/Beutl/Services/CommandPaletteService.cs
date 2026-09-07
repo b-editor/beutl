@@ -94,15 +94,14 @@ public sealed class CommandPaletteService
                     CategoryName: category,
                     KeyGesture: gesture,
                     CanExecute: () => handler.CanExecute(new ContextCommandExecution(capturedEntry.Definition.Name)),
-                    Execute: () =>
+                    ExecuteAsync: () =>
                     {
                         // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                         // 実行直前にもう一度 CanExecute を確認してから Execute する。
                         var execution = new ContextCommandExecution(capturedEntry.Definition.Name);
-                        if (handler.CanExecute(execution))
-                        {
-                            handler.Execute(execution);
-                        }
+                        return handler.CanExecute(execution)
+                            ? handler.ExecuteAsync(execution)
+                            : Task.CompletedTask;
                     })
                 {
                     StateChanged = stateChanged
@@ -154,11 +153,7 @@ public sealed class CommandPaletteService
                 CategoryName: category,
                 KeyGesture: null,
                 CanExecute: () => command.CanExecute(null),
-                Execute: () =>
-                {
-                    if (command.CanExecute(null))
-                        command.Execute(null);
-                }));
+                ExecuteAsync: () => MenuBarViewModel.ExecuteCommandAsync(command)));
         }
     }
 }

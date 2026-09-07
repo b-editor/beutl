@@ -1,14 +1,24 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace Beutl.UnitTests.Api;
 
 [TestFixture]
 public class ContextCommandManagerTests
 {
+    private sealed class AwaitableAttributeContext(Task operation)
+    {
+        public Task TaskCommand() => operation;
+
+        public ValueTask ValueTaskCommand() => new(operation);
+    }
+
     // A command binding two platform-less gestures (like the timeline's Exit* commands binding
     // V and Escape) — the regression shape for multi-gesture remapping.
     private sealed class TestViewExtension : ViewExtension
@@ -39,6 +49,26 @@ public class ContextCommandManagerTests
             .Where(g => g.Platform == platform)
             .Select(g => g.KeyGesture)
             .ToArray();
+    }
+
+    [TestCase(nameof(AwaitableAttributeContext.TaskCommand))]
+    [TestCase(nameof(AwaitableAttributeContext.ValueTaskCommand))]
+    public async Task Attribute_handler_returns_the_complete_async_operation(string methodName)
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new AwaitableAttributeContext(gate.Task);
+        MethodInfo method = typeof(AwaitableAttributeContext).GetMethod(methodName)!;
+        var handler = new ContextCommandHandler(method, method.GetParameters());
+
+        Task operation = handler.InvokeAsync(
+            context,
+            new KeyEventArgs(),
+            Mock.Of<ILogger>());
+
+        Assert.That(operation.IsCompleted, Is.False);
+        gate.SetResult();
+        await operation;
+        Assert.That(operation.IsCompletedSuccessfully, Is.True);
     }
 
     [Test]

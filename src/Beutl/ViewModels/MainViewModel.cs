@@ -295,7 +295,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
     }
 
-    public void Execute(ContextCommandExecution execution)
+    public Task ExecuteAsync(ContextCommandExecution execution)
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
@@ -303,18 +303,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         if (execution.CommandName == "ShowCommandPalette")
         {
             CommandPalette.Toggle();
-            return;
+            return Task.CompletedTask;
         }
 
         if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
         {
-            if (command.CanExecute(null))
-                command.Execute(null);
-            return;
+            return MenuBarViewModel.ExecuteCommandAsync(command);
         }
 
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = false;
+
+        return Task.CompletedTask;
     }
 
     public bool CanExecute(ContextCommandExecution execution)

@@ -9,7 +9,7 @@ public sealed record PaletteCommand(
     string CategoryName,
     KeyGesture? KeyGesture,
     Func<bool> CanExecute,
-    Action Execute)
+    Func<Task> ExecuteAsync)
 {
     // ハンドラーが状態変化を通知できる場合の observable。
     // パレット側でこれを購読し、通知時に CanExecute を再評価する。

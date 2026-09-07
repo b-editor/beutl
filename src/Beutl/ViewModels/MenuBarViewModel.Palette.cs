@@ -1,4 +1,5 @@
 ﻿using System.Windows.Input;
+using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
@@ -21,7 +22,7 @@ public partial class MenuBarViewModel
     }
 
     // MainViewExtension の ContextCommand 名から MenuBar 上の ICommand への単一マッピング。
-    // MainViewModel.Execute / CanExecute と CommandPalette が共通で参照するためここに集約している。
+    // MainViewModel.ExecuteAsync / CanExecute と CommandPalette が共通で参照するためここに集約している。
     public ICommand? FindContextCommand(string commandName) => commandName switch
     {
         "CreateNewProject" => CreateNewProject,
@@ -38,4 +39,20 @@ public partial class MenuBarViewModel
         "Exit" => Exit,
         _ => null
     };
+
+    internal static Task ExecuteCommandAsync(ICommand command)
+    {
+        if (!command.CanExecute(null))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (command is AsyncReactiveCommand asyncCommand)
+        {
+            return asyncCommand.ExecuteAsync(null!);
+        }
+
+        command.Execute(null);
+        return Task.CompletedTask;
+    }
 }

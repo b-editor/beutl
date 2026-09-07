@@ -54,7 +54,7 @@ public class CommandPaletteViewLayoutTests
                 CategoryName: CategoryText,
                 KeyGesture: new KeyGesture(Key.P, KeyModifiers.Control),
                 CanExecute: () => true,
-                Execute: () => { });
+                ExecuteAsync: () => Task.CompletedTask);
             var item = new CommandPaletteItemViewModel(command, isEnabled: true, relevance: 0);
 
             Control? built = template!.Build(item);

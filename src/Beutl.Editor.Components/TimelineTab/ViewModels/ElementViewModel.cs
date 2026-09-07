@@ -834,7 +834,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return Model.HasOriginalDuration();
     }
 
-    public void Execute(ContextCommandExecution execution)
+    public Task ExecuteAsync(ContextCommandExecution execution)
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
@@ -854,6 +854,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     execution.KeyEventArgs.Handled = false;
                 break;
         }
+
+        return Task.CompletedTask;
     }
 
     public record struct PrepareAnimationContext(

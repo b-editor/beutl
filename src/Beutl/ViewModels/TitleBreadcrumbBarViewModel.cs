@@ -31,9 +31,9 @@ public class TitleBreadcrumbBarViewModel
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 
-    public ReactiveCommandSlim OpenFile => _viewModel.MenuBar.OpenFile;
+    public AsyncReactiveCommand OpenFile => _viewModel.MenuBar.OpenFile;
 
-    public ReactiveCommandSlim NewScene => _viewModel.MenuBar.NewScene;
+    public AsyncReactiveCommand NewScene => _viewModel.MenuBar.NewScene;
 
     public ReactiveCommandSlim<EditorTabItem> CloseOrRemoveFile => _viewModel.MenuBar.CloseFileCore;
 }

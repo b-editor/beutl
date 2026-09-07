@@ -1020,7 +1020,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         };
     }
 
-    public void Execute(ContextCommandExecution execution)
+    public Task ExecuteAsync(ContextCommandExecution execution)
     {
         _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);
 
@@ -1032,6 +1032,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             FlushPendingNudgeCommit();
         }
 
+        Task operation = Task.CompletedTask;
         switch (execution.CommandName)
         {
             case "Paste":
@@ -1055,7 +1056,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 SelectedElements.FirstOrDefault()?.Copy.Execute();
                 break;
             case "Cut":
-                SelectedElements.FirstOrDefault()?.Cut.Execute();
+                if (SelectedElements.FirstOrDefault() is { } cutTarget)
+                {
+                    operation = cutTarget.Cut.ExecuteAsync();
+                }
                 break;
             case "Delete":
                 SelectedElements.FirstOrDefault()?.Delete.Execute();
@@ -1256,6 +1260,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
                 break;
         }
+
+        return operation;
     }
 
     // Timeline shortcuts that use printable keys must not fire while a text input has focus.

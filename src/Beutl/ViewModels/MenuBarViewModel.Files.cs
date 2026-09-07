@@ -85,13 +85,13 @@ public partial class MenuBarViewModel
     //    Recent files
     //    Recent projects
     //    Exit
-    public ReactiveCommandSlim CreateNewProject { get; } = new();
+    public AsyncReactiveCommand CreateNewProject { get; } = new();
 
     public ReactiveCommandSlim CreateNew { get; } = new();
 
-    public ReactiveCommandSlim OpenProject { get; } = new();
+    public AsyncReactiveCommand OpenProject { get; } = new();
 
-    public ReactiveCommandSlim OpenFile { get; } = new();
+    public AsyncReactiveCommand OpenFile { get; } = new();
 
     public ReactiveCommandSlim CloseFile { get; private set; }
 

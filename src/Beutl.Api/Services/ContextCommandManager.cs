@@ -18,21 +18,41 @@ public record ContextCommandParsedKeyGesture(KeyGesture? KeyGesture, OSPlatform 
 
 public record ContextCommandHandler(MethodInfo MethodInfo, ParameterInfo[] Parameters)
 {
-    public void Invoke(object context, KeyEventArgs args, ILogger logger)
+    public Task InvokeAsync(object context, KeyEventArgs args, ILogger logger)
     {
+        object? result;
         switch (Parameters.Length)
         {
             case 0:
                 args.Handled = true;
-                MethodInfo.Invoke(context, []);
+                result = MethodInfo.Invoke(context, []);
                 break;
             case 1 when Parameters[0].ParameterType == typeof(KeyEventArgs):
-                MethodInfo.Invoke(context, [args]);
+                result = MethodInfo.Invoke(context, [args]);
                 break;
             default:
                 logger.LogWarning("Invalid parameter count: {ParameterCount}", Parameters.Length);
-                break;
+                return Task.CompletedTask;
         }
+
+        if (result is Task task)
+        {
+            return task;
+        }
+
+        if (result is ValueTask valueTask)
+        {
+            return valueTask.AsTask();
+        }
+
+        if (MethodInfo.ReturnType != typeof(void))
+        {
+            logger.LogWarning(
+                "Invalid context command return type: {ReturnType}",
+                MethodInfo.ReturnType);
+        }
+
+        return Task.CompletedTask;
     }
 }
 
@@ -238,7 +258,7 @@ public class ContextCommandManager(
         {
             element.Focusable = true;
             var logger = _logger;
-            element.KeyDown += (sender, args) =>
+            element.KeyDown += async (sender, args) =>
             {
                 if (sender is not InputElement { DataContext: { } context })
                     return;
@@ -271,7 +291,7 @@ public class ContextCommandManager(
                             continue;
                         }
 
-                        compiledHandler.Execute(execution);
+                        await compiledHandler.ExecuteAsync(execution);
                         return;
                     }
                 }
@@ -294,7 +314,7 @@ public class ContextCommandManager(
 
                     if (handlerRegistry.GetHandler(entry) is { } handler)
                     {
-                        handler.Invoke(context, args, logger);
+                        await handler.InvokeAsync(context, args, logger);
                         return;
                     }
                 }

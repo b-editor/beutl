@@ -127,14 +127,16 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         previous.Dispose();
     }
 
-    public void ExecuteSelected()
+    public Task ExecuteSelectedAsync()
     {
         CommandPaletteItemViewModel? item = SelectedCommand.Value;
         if (item is { IsEnabled: true })
         {
             Close();
-            item.Execute();
+            return item.ExecuteAsync();
         }
+
+        return Task.CompletedTask;
     }
 
     public void MoveSelection(int delta)

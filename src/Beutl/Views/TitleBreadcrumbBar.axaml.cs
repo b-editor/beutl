@@ -14,7 +14,7 @@ public partial class TitleBreadcrumbBar : UserControl
         InitializeComponent();
     }
 
-    private void OnButtonClick(object? sender, RoutedEventArgs e)
+    private async void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         // Commandプロパティを使わない理由
         // - flyout.Hideを実行するとbuttonのDataContextとCommandがnullになり実行されなくなってしまうため
@@ -23,10 +23,10 @@ public partial class TitleBreadcrumbBar : UserControl
             switch (button.Tag)
             {
                 case "OpenFile":
-                    viewModel.OpenFile.Execute(null);
+                    await viewModel.OpenFile.ExecuteAsync(null!);
                     break;
                 case "NewScene":
-                    viewModel.NewScene.Execute(null);
+                    await viewModel.NewScene.ExecuteAsync(null!);
                     break;
             }
         }
