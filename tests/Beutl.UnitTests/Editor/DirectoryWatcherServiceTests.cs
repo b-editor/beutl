@@ -149,6 +149,20 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void An_event_that_arrives_after_disposal_is_dropped()
+    {
+        var service = new DirectoryWatcherService();
+        service.Watch(_scratch);
+        string changed = Path.Combine(_scratch, "late.txt");
+
+        service.Dispose();
+
+        // The OS keeps delivering on the watcher's own thread after Dispose, and the
+        // exception that used to escape there took the whole process with it.
+        Assert.DoesNotThrow(() => service.OnFileSystemEvent(changed));
+    }
+
+    [Test]
     public void Watching_a_missing_path_leaves_nothing_armed()
     {
         using var service = new DirectoryWatcherService();

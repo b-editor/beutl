@@ -597,6 +597,8 @@ internal sealed class DirectoryWatcherService : IDisposable
         }
     }
 
+    internal void OnFileSystemEvent(string path) => NotifyPathChanged(path);
+
     internal void NotifyPathChanged(string path) => NotifyPathChanged(path, sourceWatcher: null);
 
     private void NotifyPathChanged(string path, object? sourceWatcher)
