@@ -261,22 +261,46 @@ fi
 # --- 20. Review remediation is bounded by a frozen PR scope ---------------
 GUIDELINES="docs/ai-workflow/coding-guidelines-for-ai.md"
 PR_TEMPLATE=".github/PULL_REQUEST_TEMPLATE.md"
+SCOPE_CHECK=".claude/scripts/review-scope-state-check.sh"
 if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
-   grep -q 'empty, dismissed, or unanswered response' "$RESOLVER" 2>/dev/null && \
-   grep -q 'is \*\*not approval\*\*' "$RESOLVER" 2>/dev/null && \
+   grep -Fq 'empty, dismissed, or unanswered response is **not approval**' "$RESOLVER" 2>/dev/null && \
    grep -q 'Do not defer work.*applies only inside the frozen scope' "$GUIDELINES" 2>/dev/null && \
    grep -q 'applies only inside this PR.*frozen scope' "$PR_TEMPLATE" 2>/dev/null && \
-   grep -q 'git-common-dir.*beutl-review-scopes' "$RESOLVER" 2>/dev/null && \
+   grep -q 'headRefOid' "$RESOLVER" 2>/dev/null && \
+   grep -q 'original_commit_id' "$RESOLVER" 2>/dev/null && \
+   grep -q -- '--scope-state-file' "$RESOLVER" 2>/dev/null && \
    grep -q 'Auto-address only the clearly actionable.*code changes' "$RESOLVER" 2>/dev/null && \
    grep -q 'scope-class restriction gates edits only' "$RESOLVER" 2>/dev/null && \
    grep -q 'Pre-existing/adjacent issues' "$RESOLVER" 2>/dev/null && \
    grep -q 'acceptance gaps always set.*needs_human' "$RESOLVER" 2>/dev/null && \
-   grep -q 'pass that exact record to' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
-   grep -q 'common Git directory.*beutl-review-scopes' "$DOC" 2>/dev/null; then
+   grep -q 'Before waiting for any review' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'review-scope-state-check.sh' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'tests never become the source of truth' "$DOC" 2>/dev/null && \
+   have "$SCOPE_CHECK"; then
   pass "review remediation stays inside a frozen PR scope"
 else
   fail "review-scope guard drift: AGENTS/resolver/guidelines/PR template disagree"
 fi
+
+# H0 is the frozen pre-review head; H1 is a remediation head. A resolver must be allowed to advance
+# only previous_remediation_head to H1, never replace initial_head with H1.
+scope_tmp=$(mktemp -d)
+scope_h0="0000000000000000000000000000000000000000"
+scope_h1="1111111111111111111111111111111111111111"
+printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/authoritative.json"
+printf '%s\n' '{"initial_head":"'"$scope_h1"'","previous_remediation_head":"'"$scope_h1"'","intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/rebased.json"
+printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":"'"$scope_h1"'","intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/advanced.json"
+if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/rebased.json" "$scope_h1" >/dev/null 2>&1; then
+  fail "review scope fixture accepted H0 -> H1 re-baselining"
+else
+  pass "review scope fixture rejects H0 -> H1 re-baselining"
+fi
+if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/advanced.json" "$scope_h1" >/dev/null 2>&1; then
+  pass "review scope fixture accepts verified previous-head advancement"
+else
+  fail "review scope fixture rejected verified previous-head advancement"
+fi
+rm -rf "$scope_tmp"
 
 # --- Summary ---------------------------------------------------------------
 if [ "$fails" -eq 0 ]; then

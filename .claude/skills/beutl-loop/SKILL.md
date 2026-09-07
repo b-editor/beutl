@@ -350,7 +350,13 @@ in Rework mode with `OPEN_PR=true` and empty
 opened"** outcome: reset both stagnation counters to 0, **clear `last_failure_signature`** (any
 progress reset must also clear it — otherwise an unrelated later item that fails with the same first
 error line trips Step 0's back-to-back repeat-signature stop despite real progress in between), and
-mark the tick as PR-opened (step 5 records `last_pr_tick`). If findings were left **unresolved** (2.5c), force the PR's risk to **high → leave for
+mark the tick as PR-opened (step 5 records `last_pr_tick`). Before waiting for any review, query the
+new PR's exact `headRefOid` and write its complete `review_scope` into the orchestrator-owned journal:
+that OID is `initial_head`, `previous_remediation_head` is null, and the intended behavior, affected
+modules, and acceptance tests come from the already-reviewed draft/spec. Keep the authoritative value
+in the orchestrator context as well as the journal; do not ask a later resolver invocation to infer it
+from its checkout or from review commit IDs. If this record cannot be written, the PR is not eligible
+for `--auto` remediation and is left for a human. If findings were left **unresolved** (2.5c), force the PR's risk to **high → leave for
 human** (`left_reason: "unresolved review/design findings after 2 reworks"`), **post a structured
 summary of the unresolved findings as a PR comment** (below) so the human reviewer can pick up fast,
 and skip the auto-merge path; otherwise continue to step 3.
@@ -415,13 +421,18 @@ done
 ```
 Then poll the review state, spacing polls ~90s apart with `sleep 90` (allowed via `Bash(sleep:*)`;
 `python3 -c 'import time;time.sleep(90)'` is an equivalent allowed fallback if a bare `sleep` is
-unavailable). Each poll: dispatch a sub-agent running **`beutl-resolve-reviews --auto`** for the PR to
-address clearly-actionable bot comments, re-verify, and resolve threads. On the first poll, persist
-the resolver's `scope_state` in this PR's journal entry; on every later poll pass that exact record to
-the resolver and require it to match the common-Git-dir record before classifying or editing. Never
-let a new resolver invocation replace `initial_head` with the latest remediation head. If the record
-is absent or inconsistent and cannot be recovered from the earliest review `original_commit_id`, set
-`needs_human` and leave the PR unchanged. "**Settled**" = CI complete+green · zero unresolved threads · no
+unavailable). Each poll: write the journaled `review_scope` to an absolute temporary state file outside
+the PR worktree, then dispatch a sub-agent running **`beutl-resolve-reviews --auto
+--scope-state-file <absolute-path>`** for the PR to address clearly-actionable bot comments, re-verify,
+and resolve threads. Compare the returned `scope_state` with the authoritative in-memory/journal value:
+`initial_head` and all three frozen arrays must be byte-for-byte unchanged; only
+`previous_remediation_head` may advance to a commit the resolver actually pushed. Materialize the
+authoritative in-memory value and returned value as separate temporary JSON files and run
+`.claude/scripts/review-scope-state-check.sh <authoritative> <returned> <pushed-head>`; a nonzero exit
+forces `needs_human`. Delete the temporary
+copy after the result is validated. If the authoritative record is absent, inconsistent, or changes
+unexpectedly, set `needs_human` and leave the PR unchanged; never recover a full scope from a review
+commit ID alone. "**Settled**" = CI complete+green · zero unresolved threads · no
 outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **Re-fetch CI
 (`gh pr checks`) and the thread/`reviewDecision` state yourself each poll — the resolver's
 `ci_status`/`changes_requested_outstanding`/counts are advisory; the orchestrator's own `gh` reads are

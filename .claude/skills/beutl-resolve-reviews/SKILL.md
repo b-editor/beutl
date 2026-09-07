@@ -6,7 +6,7 @@ description: |
   (confirm each comment via AskUserQuestion, like the global handle-pr-reviews skill); pass `--auto`
   for autonomous resolution — used by /beutl-loop after it opens a PR. Use when the user says
   "PRレビューに対応", "レビュー指摘を反映してResolve", "address and resolve the PR reviews".
-argument-hint: "[--auto] [reply | no-resolve] [PR#]"
+argument-hint: "[--auto --scope-state-file <absolute-path>] [reply | no-resolve] [PR#]"
 ---
 
 # Resolve PR reviews
@@ -36,9 +36,13 @@ GitHub replies (in `--auto`, replying on handled threads is always on, for the a
 ```bash
 # `author` is required: Step 3 drops the PR author's own comments, and in `--auto` they must not be
 # misread as human feedback (which would force needs_human and disable the auto-resolve/merge path).
-gh pr view ${PR:-} --json number,url,headRefName,baseRefName,title,state,mergeable,author
+gh pr view ${PR:-} --json number,url,headRefName,headRefOid,baseRefName,title,state,mergeable,author
+PR_NUMBER=$(gh pr view ${PR:-} --json number -q .number)
 PR_AUTHOR=$(gh pr view ${PR:-} --json author -q .author.login)   # carried into Step 3 filtering
+PR_HEAD_OID=$(gh pr view ${PR:-} --json headRefOid -q .headRefOid)
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)   # b-editor/beutl
+git fetch origin "pull/$PR_NUMBER/head"
+test "$(git rev-parse FETCH_HEAD)" = "$PR_HEAD_OID" || { echo "PR head changed while freezing scope" >&2; exit 1; }
 ```
 If no PR number was given, use the PR for the current branch. If none exists, stop (interactive) or
 return `{ "ok": false, "error": "no PR" }` (`--auto`) — the same `ok` flag the success object carries,
@@ -51,11 +55,11 @@ so the orchestrator can branch on it.
 # --paginate is required: on a busy PR an un-paginated fetch drops older reviews, and missing a human
 # review summary would let --auto wrongly treat the PR as bot-only.
 gh api "repos/$OWNER_REPO/pulls/<PR>/reviews" --paginate \
-  --jq '[.[] | {id, user: .user.login, state, body, submitted_at}]'
+  --jq '[.[] | {id, user: .user.login, state, body, commit_id, submitted_at}]'
 
 # Inline (line-anchored, threaded) comments
 gh api "repos/$OWNER_REPO/pulls/<PR>/comments" --paginate \
-  --jq '[.[] | {id, in_reply_to_id, user: .user.login, path, line, body, html_url, diff_hunk, created_at, updated_at}]'
+  --jq '[.[] | {id, in_reply_to_id, user: .user.login, path, line, body, html_url, diff_hunk, commit_id, original_commit_id, created_at, updated_at}]'
 
 # General PR (issue) comments
 gh api "repos/$OWNER_REPO/issues/<PR>/comments" --paginate \
@@ -96,20 +100,23 @@ thread root's `databaseId`, not a child reply's id).
 
 Before classifying severity, freeze the remediation boundary:
 
-1. Record the PR's intended behavior, affected modules, and acceptance tests from its specification,
-   description, and pre-review diff.
-2. Persist that boundary before the first edit in
-   `$(git rev-parse --git-common-dir)/beutl-review-scopes/<owner>-<repo>-<pr>.json`. The record contains
-   `initial_head`, `previous_remediation_head`, `intended_behavior`, `affected_modules`, and
-   `acceptance_tests`. This common-Git-dir location is shared by every worktree in the clone; in loop
-   mode, also return the record in Step 7 so the orchestrator can journal and pass it across hosts.
-   On later rounds, load the existing record and update only `previous_remediation_head` after a
-   remediation commit is successfully pushed. Never replace `initial_head` or silently freeze a new
-   current head. If the record is missing after review activity already exists, reconstruct
-   `initial_head` from the earliest non-author review/comment `original_commit_id` and re-read the
-   frozen scope at that commit. If GitHub does not expose one unambiguous commit, stop with
-   `needs_human`; current HEAD is not a safe recovery default.
-3. Classify every finding into exactly one scope class: **original-scope defect**,
+1. Work only from the PR head fetched and verified in Step 1. Never derive the boundary from the
+   resolver's incoming checkout or from a branch name without matching it to `PR_HEAD_OID`.
+2. Load the complete scope record from `--scope-state-file`. It contains `initial_head`,
+   `previous_remediation_head`, `intended_behavior`, `affected_modules`, and `acceptance_tests`.
+   In `--auto`, the loop must create this record in its own journal immediately after opening the PR,
+   before the first review poll, and pass an absolute path to a copy outside the PR worktree. Load it
+   before running any PR-controlled build or test and retain that in-memory value for the whole turn;
+   never re-read a copy that PR code could have changed. The resolver returns the full record in Step
+   7, and the orchestrator must reject any change to `initial_head` or the three frozen-scope arrays.
+   Only `previous_remediation_head` advances after a remediation commit is successfully pushed.
+3. If `--auto` has no exact full record, or if
+   `git merge-base --is-ancestor <initial_head> "$PR_HEAD_OID"` fails, set `needs_human` and do not
+   edit. Commit IDs retained in Step 2 are evidence for
+   classification, not enough to reconstruct the missing behavior/modules/tests. Interactive mode may
+   create a new record only after showing all five derived fields to the user and receiving explicit
+   confirmation; an unanswered prompt never creates or replaces it.
+4. Classify every finding into exactly one scope class: **original-scope defect**,
    **latest-remediation regression**, **pre-existing/adjacent issue**, **optional improvement**, or
    **acceptance gap**.
 
@@ -200,8 +207,8 @@ in-scope finding, offer Address / Reply only / Skip / Address differently. For a
 adjacent, optional, or newly requested acceptance finding, ask the scope decision first and offer
 Widen this PR / Create independent work / Skip / Decide differently; a generic "Address it" never
 chooses where that work belongs. One decision per comment; never change code without an explicit
-choice that authorizes both the edit and its destination. An empty, dismissed, or unanswered response
-is **not approval**, even when the surrounding runtime normally permits a best-judgment default. Leave
+choice that authorizes both the edit and its destination. An empty, dismissed, or unanswered response is **not approval**.
+This remains true even when the surrounding runtime normally permits a best-judgment default. Leave
 the code and thread unchanged and report the pending decision.
 
 ### `--auto` mode — conservative auto-decision

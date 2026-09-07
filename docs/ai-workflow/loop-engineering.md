@@ -213,21 +213,24 @@ them. (`beutl-board-task` was previously named `beutl-ai-review-task`; it was re
 ## Run journal
 
 `/beutl-loop` keeps a small, **gitignored, ephemeral** run journal at
-`.claude/logs/beutl-loop-state.json` — within-run bookkeeping for the budget / stagnation / merge
-decisions only. **The board (Project #9) is the single source of truth.** If the journal is deleted
-mid-run, correctness is unaffected: the next tick re-derives eligibility from the live board (claimed
-items are `In Progress` and excluded). The journal never moves an item to `Done`; that happens only
-on a successful auto-merge. A journal older than ~12h is discarded and a fresh one starts — this
+`.claude/logs/beutl-loop-state.json` — within-run bookkeeping for the budget, stagnation, merge
+decisions, and each opened PR's frozen review scope. **The board (Project #9) is the single source of
+truth for item status.** If the journal is deleted mid-run, the next tick still re-derives eligibility
+from the live board (claimed items are `In Progress` and excluded), but an already-open PR whose
+`review_scope` was lost is left for a human instead of being re-baselined. The journal never moves an
+item to `Done`; that happens only on a successful auto-merge. A journal older than ~12h is discarded and a fresh one starts — this
 **resets the stagnation counters** (`consecutive_no_progress`, `consecutive_false_positives`) to
 zero, which is intentional (a long gap means a new run context) but means a run that was thrashing
 can re-arm its no-progress budget after the 12h boundary.
 
-Each PR entry also caches the resolver's frozen `review_scope` (`initial_head`, previous remediation
-head, intended behavior, affected modules, and acceptance tests). The authoritative local copy lives
-under the clone's common Git directory in `beutl-review-scopes/`, so isolated worktrees reuse the
-same boundary. If both copies are missing, the resolver may recover the initial head only from an
-unambiguous earliest review `original_commit_id`; otherwise the loop leaves the PR for a human rather
-than treating the latest remediation commit as a new baseline.
+The orchestrator records `review_scope` (`initial_head`, previous remediation head, intended behavior,
+affected modules, and acceptance tests) immediately after it opens a PR and before the first review
+poll. Each resolver receives an absolute temporary copy outside its PR worktree after Step 1 has
+fetched and verified the exact PR head, and returns the full record for comparison. PR-controlled
+tests never become the source of truth: the orchestrator keeps the authoritative value in its own
+context and journal, rejects changes to the initial head or frozen arrays, and deletes the temporary
+copy after validation. A missing exact full record always leaves the PR for a human; review commit IDs
+alone cannot reconstruct the agreed behavior or acceptance tests.
 
 ## In-session execution + safety
 
