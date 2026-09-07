@@ -241,11 +241,15 @@ public class DockLayoutPresetTests
         // The element property tab writes a per-element config from its serializer, but only once
         // an element is selected — so select one to arm the side effect.
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(1),
-            Layer: 0,
-            EngineObjectFactory: () => new RectShape()));
+        ElementAddResult addResult = await adder.AddAsync(
+        [
+            new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(1),
+                Layer: 0,
+                Source: new ElementSource.EngineObject(() => new RectShape())),
+        ], CancellationToken.None);
+        Assert.That(addResult.IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
 
         var selection = (IEditorSelection)editor.GetService(typeof(IEditorSelection))!;

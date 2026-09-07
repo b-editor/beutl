@@ -197,7 +197,4 @@
   <data name="ApplyTemplate" xml:space="preserve">
     <value>Apply Template</value>
   </data>
-  <data name="AddElementFromTemplate" xml:space="preserve">
-    <value>Add Element from Template</value>
-  </data>
 </root>

@@ -13,6 +13,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Headless.NUnit" />
     <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Moq" />
   </ItemGroup>
 
   <ItemGroup>

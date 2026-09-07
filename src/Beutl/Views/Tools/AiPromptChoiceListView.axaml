@@ -1,0 +1,86 @@
+<UserControl x:Class="Beutl.Views.Tools.AiPromptChoiceListView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             x:Name="Root"
+             d:DesignWidth="320"
+             x:CompileBindings="True"
+             x:DataType="vm:AiPromptLibraryViewModel"
+             mc:Ignorable="d">
+    <UserControl.Styles>
+        <!--  Opacity rather than IsVisible: the row must not change height when actions appear.  -->
+        <Style Selector="ListBoxItem :is(Button).row-action">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover :is(Button).row-action">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="ListBoxItem:selected :is(Button).row-action">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <!--  A pin is state as well as an action, so a pinned row says so unasked.  -->
+        <Style Selector="ListBoxItem ToggleButton.row-action:checked">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+    <!--  Applying is a button rather than the row's selection: it is an action,
+          and re-picking the same prompt has to work a second time.  -->
+    <ListBox x:Name="ChoiceList"
+             Background="Transparent"
+             ItemsSource="{Binding #Root.Choices}"
+             SelectionMode="Single">
+        <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:AiPromptChoice">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{CompiledBinding Name}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{CompiledBinding Prompt}" />
+
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="2">
+                        <Button Padding="6"
+                                AutomationProperties.Name="{x:Static lang:Strings.AiPromptApply}"
+                                Classes="row-action"
+                                Command="{Binding #Root.((vm:AiPromptLibraryViewModel)DataContext).Apply}"
+                                CommandParameter="{CompiledBinding}"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="{x:Static lang:Strings.AiPromptApply}">
+                            <icons:FluentIcon FontSize="16" Icon="Checkmark" />
+                        </Button>
+                        <ToggleButton Padding="6"
+                                      AutomationProperties.Name="{x:Static lang:Strings.AiPromptPin}"
+                                      Classes="row-action"
+                                      Command="{Binding #Root.((vm:AiPromptLibraryViewModel)DataContext).TogglePin}"
+                                      CommandParameter="{CompiledBinding}"
+                                      IsChecked="{CompiledBinding IsPinned, Mode=OneWay}"
+                                      Theme="{StaticResource TransparentToggleButton}"
+                                      ToolTip.Tip="{x:Static lang:Strings.AiPromptPin}">
+                            <icons:FluentIcon FontSize="16" Icon="Pin" />
+                        </ToggleButton>
+                        <Button Padding="6"
+                                AutomationProperties.Name="{x:Static lang:Strings.Delete}"
+                                Classes="row-action"
+                                Command="{Binding #Root.((vm:AiPromptLibraryViewModel)DataContext).Delete}"
+                                CommandParameter="{CompiledBinding}"
+                                Theme="{StaticResource TransparentButton}"
+                                ToolTip.Tip="{x:Static lang:Strings.Delete}">
+                            <icons:FluentIcon FontSize="16" Icon="Delete" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+</UserControl>

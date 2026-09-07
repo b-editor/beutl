@@ -85,7 +85,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        AddElement.Subscribe(desc => editorContext.GetRequiredService<IElementAdder>().AddElement(desc)).AddTo(_disposables);
+        AddElement.WithSubscribe(AddElementCore).AddTo(_disposables);
 
         Paste.Subscribe(PasteCore)
             .AddTo(_disposables);
@@ -240,6 +240,31 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
     }
 
+    private async Task AddElementCore(ElementDescription description)
+    {
+        ElementAddResult result = await EditorContext
+            .GetRequiredService<IElementAdder>()
+            .AddAsync([description], CancellationToken.None);
+        if (result.IsSuccess)
+        {
+            Element scrollTarget = result.Items[^1].PrimaryElement;
+            ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex));
+            return;
+        }
+
+        if (result.Failure is LockedElementLayerFailure)
+        {
+            NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            return;
+        }
+
+        _logger.LogError(
+            result.Failure?.Exception,
+            "Failed to add a timeline element: {FailureId}",
+            result.Failure?.Id);
+        NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+    }
+
     private void RaiseCanExecuteChanged()
     {
         if (!_isDisposed)
@@ -326,7 +351,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
-    public ReactiveCommand<ElementDescription> AddElement { get; } = new();
+    public AsyncReactiveCommand<ElementDescription> AddElement { get; } = new();
 
     public CoreList<ElementViewModel> Elements { get; } = [];
 
@@ -561,6 +586,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             if (outcome.Pasted && outcome.ScrollTo.Duration > TimeSpan.Zero)
             {
                 ScrollTo.Execute((outcome.ScrollTo, outcome.ScrollToZIndex));
+            }
+            else if (outcome.AddFailure is LockedElementLayerFailure)
+            {
+                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            }
+            else if (outcome.AddFailure is not null)
+            {
+                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
             }
         }
         catch (Exception ex)

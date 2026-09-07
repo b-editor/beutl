@@ -40,16 +40,16 @@ public class PreviewRenderTests
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => new RectShape
+            Source: new ElementSource.EngineObject(() => new RectShape
             {
                 Width = { CurrentValue = 200 },
                 Height = { CurrentValue = 150 },
                 Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
-            }));
+            }))], CancellationToken.None);
         HeadlessTestHelpers.Settle();
         return scene;
     }

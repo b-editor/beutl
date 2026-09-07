@@ -1,0 +1,214 @@
+﻿<UserControl x:Class="Beutl.Views.Tools.AiImageEditView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:btl="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:ai="using:Beutl.Services.AI"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:vm="using:Beutl.ViewModels.Dialogs"
+             d:DesignHeight="640"
+             d:DesignWidth="480"
+             x:CompileBindings="True"
+             x:DataType="vm:AiImageEditDialogViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="12,10" Spacing="8">
+            <Border Padding="8"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    CornerRadius="4"
+                    IsVisible="{CompiledBinding RecoveryAvailable.Value}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{x:Static lang:Strings.AiPendingRequest}" TextWrapping="Wrap" />
+                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiPendingRequest}"
+                              ItemsSource="{CompiledBinding RecoveryAttempts.Value}"
+                              SelectedItem="{CompiledBinding SelectedRecoveryAttempt.Value}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="ai:AiPendingAttempt">
+                                <TextBlock Text="{CompiledBinding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Margin="0,0,6,0"
+                                Command="{CompiledBinding RecoverSelectedAttempt}"
+                                Content="{x:Static lang:Strings.AiRecoverRequest}" />
+                        <Button Command="{CompiledBinding AbandonSelectedAttempt}"
+                                Content="{x:Static lang:Strings.AiAbandonRequest}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+            <StackPanel Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiEditSourceImage}" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiEditSourceImage}"
+                             IsReadOnly="True"
+                             Text="{CompiledBinding SourceFilePath.Value}"
+                             Watermark="{x:Static lang:Strings.AiEditNoSourceSelected}" />
+                    <Button Grid.Column="1"
+                            Margin="8,0,0,0"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiEditBrowse}"
+                            Command="{CompiledBinding SelectSourceFileCommand}"
+                            Content="{x:Static lang:Strings.AiEditBrowse}"
+                            ToolTip.Tip="{x:Static lang:Strings.AiEditBrowse}" />
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiEditTask}" />
+                <ComboBox x:Name="TaskPicker"
+                          HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiEditTask}"
+                          ItemsSource="{CompiledBinding Tasks}"
+                          SelectedItem="{CompiledBinding SelectedTask.Value}" />
+            </StackPanel>
+
+            <!--  The models follow the selected task, which is its own operation.  -->
+            <StackPanel IsVisible="{CompiledBinding ModelPicker.HasChoice.Value}" Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiModel}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiModel}"
+                          ItemsSource="{CompiledBinding ModelPicker.Options}"
+                          SelectedItem="{CompiledBinding ModelPicker.Selected.Value}"
+                          IsEnabled="{CompiledBinding ModelPicker.IsSelectionEnabled.Value}" />
+            </StackPanel>
+
+            <StackPanel IsVisible="{CompiledBinding RequiresPrompt.Value}" Spacing="4">
+                <Expander Header="{x:Static lang:Strings.AiPromptTemplates}">
+                    <tools:AiPromptTemplatesView Margin="0,8,0,0"
+                                                 DataContext="{CompiledBinding PromptLibrary}" />
+                </Expander>
+                <!--  The history button sits over the box it fills in, so reaching for an
+                      earlier prompt does not mean opening the templates panel below.  -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.AiPrompt}" />
+                    <tools:AiPromptHistoryButton Grid.Column="1"
+                                                 DataContext="{CompiledBinding PromptLibrary}" />
+                </Grid>
+                <TextBox AcceptsReturn="True"
+                         AutomationProperties.Name="{x:Static lang:Strings.AiPrompt}"
+                         Height="72"
+                         MaxLength="4000"
+                         Text="{CompiledBinding Prompt.Value}"
+                         TextWrapping="Wrap"
+                         Watermark="{CompiledBinding PromptWatermark.Value}" />
+                <TextBlock AutomationProperties.LiveSetting="Assertive"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           IsVisible="{CompiledBinding VisiblePromptValidationError.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{CompiledBinding VisiblePromptValidationError.Value}"
+                           TextWrapping="Wrap" />
+                <StackPanel IsVisible="{CompiledBinding ShowOutpaintExpansion.Value}" Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.AiEditOutpaintExpansion}" />
+                    <ComboBox AutomationProperties.Name="{x:Static lang:Strings.AiEditOutpaintExpansion}"
+                              ItemsSource="{CompiledBinding OutpaintExpansionOptions}"
+                              SelectedItem="{CompiledBinding SelectedOutpaintExpansion.Value}" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel IsVisible="{CompiledBinding ResultImage.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Spacing="4">
+                <TextBlock Text="{x:Static lang:Strings.AiPreviewMode}" />
+                <ComboBox HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.AiPreviewMode}"
+                          ItemsSource="{CompiledBinding ComparisonModes}"
+                          SelectedItem="{CompiledBinding SelectedComparisonMode.Value}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <StackPanel IsVisible="{CompiledBinding Usage.HasSnapshot.Value}" Spacing="4">
+                    <tools:AiUsageSummaryView DataContext="{CompiledBinding Usage}" />
+                    <tools:AiUsageEstimateView DataContext="{CompiledBinding EstimatedUsage}" />
+                </StackPanel>
+                <Grid ColumnDefinitions="*,Auto">
+                    <Button HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="{x:Static lang:Strings.AiEditRun}"
+                            Classes="accent"
+                            Command="{CompiledBinding Edit}"
+                            Content="{x:Static lang:Strings.AiEditRun}"
+                            IsEnabled="{CompiledBinding CanEdit.Value}"
+                            ToolTip.Tip="{x:Static lang:Strings.AiEditRun}" />
+                    <Button Grid.Column="1"
+                            Margin="8,0,0,0"
+                            AutomationProperties.Name="{x:Static lang:Strings.Cancel}"
+                            Command="{CompiledBinding StopEditing}"
+                            Content="{x:Static lang:Strings.Cancel}"
+                            IsVisible="{CompiledBinding IsEditing.Value}" />
+                </Grid>
+            </StackPanel>
+
+            <Border Height="320"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    CornerRadius="8"
+                    IsVisible="{CompiledBinding !ShowPreviewPlaceholder.Value}">
+                <Grid>
+                    <btl:BitmapView Stretch="Uniform"
+                                    IsVisible="{CompiledBinding ShowOriginalPreview.Value}"
+                                    Source="{CompiledBinding OriginalImage.Value}" />
+                    <btl:BitmapView Stretch="Uniform"
+                                    IsVisible="{CompiledBinding ShowResultPreview.Value}"
+                                    Source="{CompiledBinding ResultImage.Value}" />
+                    <Grid ColumnDefinitions="*,8,*"
+                          IsVisible="{CompiledBinding ShowSideBySidePreview.Value}">
+                        <Border Grid.Column="0"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <btl:BitmapView Stretch="Uniform"
+                                            Source="{CompiledBinding OriginalImage.Value}" />
+                        </Border>
+                        <Border Grid.Column="2"
+                                BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <btl:BitmapView Stretch="Uniform"
+                                            Source="{CompiledBinding ResultImage.Value}" />
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Padding="16"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    CornerRadius="8"
+                    IsVisible="{CompiledBinding ShowPreviewPlaceholder.Value}">
+                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                    <icons:FluentIcon HorizontalAlignment="Center"
+                                      FontSize="24"
+                                      Icon="ImageEdit"
+                                      Opacity="0.6" />
+                    <TextBlock HorizontalAlignment="Center"
+                               Opacity="0.6"
+                               Text="{x:Static lang:Strings.AiImageEditIdle}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock AutomationProperties.LiveSetting="Assertive"
+                       AutomationProperties.Name="{CompiledBinding Error.Value}"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Text="{CompiledBinding Error.Value}"
+                       TextWrapping="Wrap" />
+
+            <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
+                <TextBlock Text="{x:Static lang:Strings.AiProRequired}"
+                           TextWrapping="Wrap" />
+                <Button HorizontalAlignment="Left"
+                        Command="{CompiledBinding OpenAiPlan}"
+                        Content="{x:Static lang:Strings.AiJoinPro}" />
+            </StackPanel>
+
+            <WrapPanel IsVisible="{CompiledBinding CanAddToScene.Value}" Orientation="Horizontal">
+                <Button Margin="0,0,8,8"
+                        Command="{CompiledBinding AddToScene}"
+                        Content="{x:Static lang:Strings.AiAddToScene}" />
+                <Button Margin="0,0,0,8"
+                        Command="{CompiledBinding SaveToFile}"
+                        Content="{x:Static lang:Strings.AiSaveToFile}" />
+            </WrapPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

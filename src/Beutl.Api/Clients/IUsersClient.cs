@@ -8,7 +8,9 @@ public interface IUsersClient
     Task<ProfileResponse> GetUser(string name, CancellationToken cancellationToken);
 
     [Get("/api/v3/user")]
-    Task<ProfileResponse> GetSelf(CancellationToken cancellationToken);
+    Task<ProfileResponse> GetSelf(
+        [Header("Authorization")] string authorization,
+        CancellationToken cancellationToken);
 
     [Get("/api/v3/users/{name}/packages")]
     Task<SimplePackageResponse[]> GetUserPackages(

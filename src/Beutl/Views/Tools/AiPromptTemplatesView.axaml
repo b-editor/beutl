@@ -1,0 +1,47 @@
+<UserControl x:Class="Beutl.Views.Tools.AiPromptTemplatesView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:vm="using:Beutl.ViewModels"
+             d:DesignWidth="340"
+             x:CompileBindings="True"
+             x:DataType="vm:AiPromptLibraryViewModel"
+             mc:Ignorable="d">
+    <StackPanel Spacing="8">
+        <tools:AiPromptChoiceListView x:Name="TemplateList"
+                                      MaxHeight="240"
+                                      Choices="{CompiledBinding Templates}"
+                                      IsVisible="{CompiledBinding HasTemplates.Value}" />
+        <TextBlock FontSize="11"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{CompiledBinding !HasTemplates.Value}"
+                   Text="{x:Static lang:Strings.AiPromptTemplatesEmpty}"
+                   TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBox AutomationProperties.Name="{x:Static lang:Strings.AiPromptTemplateName}"
+                     Text="{CompiledBinding TemplateName.Value}"
+                     Watermark="{x:Static lang:Strings.AiPromptTemplateName}" />
+            <Button Grid.Column="1"
+                    Margin="8,0,0,0"
+                    AutomationProperties.Name="{x:Static lang:Strings.AiPromptSaveTemplate}"
+                    Command="{CompiledBinding SaveTemplate}"
+                    Content="{x:Static lang:Strings.AiPromptSaveTemplate}" />
+        </Grid>
+        <TextBlock AutomationProperties.LiveSetting="Assertive"
+                   AutomationProperties.Name="{CompiledBinding Error.Value}"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{CompiledBinding Error.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Text="{CompiledBinding Error.Value}"
+                   TextWrapping="Wrap" />
+        <!--  Where prompts are kept matters the first time and never again, so it
+              is said while the list is still empty.  -->
+        <TextBlock FontSize="11"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{CompiledBinding !HasTemplates.Value}"
+                   Text="{CompiledBinding PrivacyText}"
+                   TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>

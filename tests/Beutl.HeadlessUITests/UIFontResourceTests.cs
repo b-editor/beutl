@@ -43,4 +43,24 @@ public class UIFontResourceTests
             Assert.That(AssetLoader.Exists(uri), Is.True);
         }
     }
+
+    [AvaloniaTest]
+    public void NotoSansJP_is_registered_with_the_rendering_engine()
+    {
+        var family = new Beutl.Media.FontFamily("Noto Sans JP");
+        Beutl.Media.Typeface[] typefaces =
+            [.. Beutl.Media.FontManager.Instance.GetTypefaces(family)];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(typefaces.Select(typeface => typeface.Weight),
+                Does.Contain(Beutl.Media.FontWeight.Regular));
+            Assert.That(typefaces.Select(typeface => typeface.Weight),
+                Does.Contain(Beutl.Media.FontWeight.Medium));
+            Assert.That(typefaces.Select(typeface => typeface.Weight),
+                Does.Contain(Beutl.Media.FontWeight.SemiBold));
+            Assert.That(typefaces.Select(typeface => typeface.Weight),
+                Does.Contain(Beutl.Media.FontWeight.Bold));
+        });
+    }
 }

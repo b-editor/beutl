@@ -30,7 +30,7 @@ public static class PropertyEditorService
     }
 
     public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(
-        IReadOnlyList<IPropertyAdapter> properties, IExtensionProvider extensionProvider)
+        IReadOnlyList<IPropertyAdapter> properties, ExtensionProvider extensionProvider)
     {
         ArgumentNullException.ThrowIfNull(extensionProvider);
 

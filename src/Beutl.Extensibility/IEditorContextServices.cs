@@ -9,15 +9,18 @@ namespace Beutl.Extensibility;
 /// </summary>
 public interface IEditorContextServices
 {
-    /// <summary>Gets the host's extension provider, for querying other registered extensions.</summary>
+    /// <summary>
+    /// Gets the host's metadata and lease provider for querying other registered extensions.
+    /// Executable extension instances must not be retained beyond their lease.
+    /// </summary>
     IExtensionProvider ExtensionProvider { get; }
 
     /// <summary>
     /// Resolves a host-provided service of type <typeparamref name="T"/> by type. This is the
     /// escape hatch for capabilities that live downstream of <c>Beutl.Extensibility</c> (for example
     /// the host's editor service), letting an extension reach them without downcasting to the host's
-    /// concrete implementation of <see cref="IEditorContextServices"/>. Implementers must honor this
-    /// by-type lookup rather than assume the concrete host type.
+    /// concrete implementation of <see cref="IEditorContextServices"/>. The concrete extension
+    /// registry is intentionally not resolvable through this method; use <see cref="ExtensionProvider"/>.
     /// </summary>
     /// <typeparam name="T">The reference type of the requested service.</typeparam>
     /// <param name="service">The resolved service when the method returns <see langword="true"/>.</param>
