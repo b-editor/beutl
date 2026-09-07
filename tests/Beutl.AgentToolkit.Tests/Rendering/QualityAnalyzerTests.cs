@@ -946,9 +946,12 @@ public sealed class QualityAnalyzerTests
                 issue.Category == "layerDensity"));
             Assert.That(slideshowResult.Issues, Has.None.Matches<QualityIssue>(issue =>
                 issue.Category == "tempoRhythm"));
+            Assert.That(slideshowResult.Metrics.LayerDensity.MotionGraphicsIntent, Is.False);
+            Assert.That(slideshowResult.Metrics.LayerDensity.DensityPlanViolation, Is.False);
             Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("Video type: slideshow"));
             Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("allowStillness"));
             Assert.That(slideshowResult.ReviewNotes, Has.Some.Contains("allowMinimalDensity"));
+            Assert.That(slideshowResult.ReviewNotes, Has.None.Contains("layer-density plan gate"));
         });
     }
 

@@ -28,7 +28,6 @@ public sealed record VideoTypeGateProfile(
     bool SuppressTempoAnalysis = false,
     bool SuppressTempoUnlessExplicitHighTempo = false,
     bool SuppressPaletteBalance = false,
-    bool SuppressLayerDensityPlanGate = false,
     bool SuppressCutRhythm = false,
     bool RewordCutRhythmForTransitions = false,
     bool RunTransitionVocabulary = false,
@@ -66,11 +65,6 @@ public sealed record VideoTypeGateProfile(
         if (SuppressPaletteBalance)
         {
             adjustments.Add("paletteBalance advisory skipped");
-        }
-
-        if (SuppressLayerDensityPlanGate)
-        {
-            adjustments.Add("motion-graphics layer-density plan gate skipped");
         }
 
         if (SuppressCutRhythm)
@@ -179,7 +173,6 @@ public static class VideoTypeCatalog
                 ImpliedAllowMinimalDensity: true,
                 ForceMotionGraphicsIntentOff: true,
                 SuppressTempoAnalysis: true,
-                SuppressLayerDensityPlanGate: true,
                 RewordCutRhythmForTransitions: true,
                 RunTransitionVocabulary: true,
                 RunTimelineCoverage: true)),

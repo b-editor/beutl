@@ -251,7 +251,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
             styleProfile,
             resolvedAllowMinimalDensity,
             gateProfile.ForceMotionGraphicsIntentOff,
-            gateProfile.SuppressLayerDensityPlanGate,
             plannedForegroundElementsPerShot,
             issues);
         AnalyzeTimelineCoverage(scene, objects, gateProfile.RunTimelineCoverage, issues);
@@ -822,7 +821,6 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         string? styleProfile,
         bool allowMinimalDensity,
         bool forceMotionGraphicsIntentOff,
-        bool suppressPlanGate,
         double plannedForegroundElementsPerShot,
         List<QualityIssue> issues)
     {
@@ -872,7 +870,7 @@ public sealed class QualityAnalyzer(MotionVariationAnalyzer motionVariationAnaly
         int bandsBelowHalfPlan = halfFloor > 0
             ? bands.Count(band => band.ForegroundLayerCount + 0.0001 < halfFloor)
             : 0;
-        bool densityPlanViolation = motionGraphicsIntent && !suppressPlanGate && bandsBelowHalfPlan > 0;
+        bool densityPlanViolation = motionGraphicsIntent && bandsBelowHalfPlan > 0;
         bool minimalIntent = allowMinimalDensity || IsMinimalProfile(styleProfile) || AnyMinimalDensityIntent(objects);
 
         if (motionGraphicsIntent

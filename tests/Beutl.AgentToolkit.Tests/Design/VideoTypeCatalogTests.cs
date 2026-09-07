@@ -54,7 +54,7 @@ public sealed class VideoTypeCatalogTests
     }
 
     [Test]
-    public void Lyric_caption_profile_does_not_expose_a_retired_hierarchy_switch()
+    public void Gate_profile_exposes_only_active_switches()
     {
         VideoTypeProfile profile = VideoTypeCatalog.Resolve("lyric-captions");
 
@@ -70,7 +70,6 @@ public sealed class VideoTypeCatalogTests
                     "SuppressTempoAnalysis",
                     "SuppressTempoUnlessExplicitHighTempo",
                     "SuppressPaletteBalance",
-                    "SuppressLayerDensityPlanGate",
                     "SuppressCutRhythm",
                     "RewordCutRhythmForTransitions",
                     "RunTransitionVocabulary",
