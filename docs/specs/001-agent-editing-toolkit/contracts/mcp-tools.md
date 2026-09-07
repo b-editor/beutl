@@ -270,6 +270,7 @@ Request cancellation of a running background render/export job.
 
 ## Cross-cutting contract rules
 
+- **Host output lease**: direct `RenderTools` callers pass an `IOutputOperationLeaseProvider`, using `StandaloneOutputOperationLeaseProvider.Instance` outside the editor. DI and in-app hosts register their host-backed provider so render/export jobs cannot overlap a conflicting workspace operation.
 - **Write boundary**: every tool with an `outputPath`/`path` write resolves it through `IWorkspaceGuard.ResolveForWrite` first; out-of-root ⇒ `workspace_boundary` (FR-026). Reads are never guarded.
 - **Strict tool arguments**: unknown MCP tool argument names return typed `validation_rejected` with the accepted parameter names; arguments are not silently ignored.
 - **Atomicity**: `apply_edit` commits as exactly one undoable transaction; a mid-batch failure rolls back wholly (FR-012).

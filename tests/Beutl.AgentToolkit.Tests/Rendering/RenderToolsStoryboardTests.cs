@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
@@ -11,6 +12,7 @@ using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -954,6 +956,245 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
+    [Test]
+    public async Task Same_root_disk_writing_tools_reject_busy_output_operation_before_creating_files()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        var outputOperations = new RejectingOutputOperationLeaseProvider();
+        RenderTools tools = CreateTools(workspace, session, outputOperations);
+
+        ToolResult<RenderStillResponse> still = ReadToolResult<RenderStillResponse>(
+            await tools.RenderStill("busy-still.png", cancellationToken: CancellationToken.None));
+        ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
+            await tools.RenderStoryboard(
+                outputDirectory: "busy-storyboard",
+                basename: "busy",
+                cancellationToken: CancellationToken.None));
+        ToolResult<QualityReviewResponse> quality = await tools.EvaluateEditQuality(
+            timeSeconds: [0.5, 1.5],
+            sampleCount: 2,
+            cancellationToken: CancellationToken.None);
+        ToolResult<FinalPreflightResponse> preflight = await tools.FinalPreflight(
+            outputPrefix: "busy-preflight.png",
+            timeSeconds: [0.5, 1.5],
+            sampleCount: 2,
+            staticLayout: true,
+            cancellationToken: CancellationToken.None);
+        ToolResult<ExportVideoResult> export = await tools.ExportVideo(
+            "busy-export.unknown",
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            AssertWorkspaceBusy(still);
+            AssertWorkspaceBusy(storyboard);
+            AssertWorkspaceBusy(quality);
+            AssertWorkspaceBusy(preflight);
+            AssertWorkspaceBusy(export);
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(5));
+            Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Busy_output_operation_is_rejected_before_session_or_baseline_capture()
+    {
+        string workspace = CreateWorkspace();
+        var outputOperations = new RejectingOutputOperationLeaseProvider();
+        RenderTools tools = CreateTools(workspace, new AgentSessionManager(), outputOperations);
+
+        ToolResult<RenderStillResponse> still = ReadToolResult<RenderStillResponse>(
+            await tools.RenderStill("busy-still.png", cancellationToken: CancellationToken.None));
+        ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
+            await tools.RenderStoryboard(background: true, cancellationToken: CancellationToken.None));
+        ToolResult<MotionVariationResponse> motion = await tools.EvaluateMotionVariation(
+            cancellationToken: CancellationToken.None);
+        ToolResult<QualityReviewResponse> quality = await tools.EvaluateEditQuality(
+            cancellationToken: CancellationToken.None);
+        ToolResult<FinalPreflightResponse> preflight = await tools.FinalPreflight(
+            cancellationToken: CancellationToken.None);
+        ToolResult<CompareRevisionsResponse> compare = ReadToolResult<CompareRevisionsResponse>(
+            await tools.CompareRevisions(cancellationToken: CancellationToken.None));
+        ToolResult<ExportVideoResult> export = await tools.ExportVideo(
+            "busy-export.unknown",
+            background: true,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            AssertWorkspaceBusy(still);
+            AssertWorkspaceBusy(storyboard);
+            AssertWorkspaceBusy(motion);
+            AssertWorkspaceBusy(quality);
+            AssertWorkspaceBusy(preflight);
+            AssertWorkspaceBusy(compare);
+            AssertWorkspaceBusy(export);
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(7));
+            Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Background_enqueue_failure_releases_the_caller_owned_output_operation_once()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        var outputOperations = new TrackingOutputOperationLeaseProvider();
+        var renderJobs = new RenderJobManager();
+        renderJobs.Dispose();
+        RenderTools tools = CreateTools(
+            workspace,
+            session,
+            outputOperations,
+            renderJobs: renderJobs);
+
+        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(
+            await tools.RenderStoryboard(
+                outputDirectory: "enqueue-failure",
+                basename: "busy",
+                background: true,
+                cancellationToken: CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo("internal_error"));
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(1));
+            Assert.That(outputOperations.Lease, Is.Not.Null);
+            Assert.That(outputOperations.Lease!.DisposeCount, Is.EqualTo(1));
+            Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Background_storyboard_transfers_its_output_operation_to_the_queued_job()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        var outputOperations = new TrackingOutputOperationLeaseProvider();
+        using var renderJobs = new RenderJobManager();
+        var blockerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseBlocker = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string blockerJob = renderJobs.Enqueue("blocker", async (_, _) =>
+        {
+            blockerStarted.TrySetResult();
+            await releaseBlocker.Task.ConfigureAwait(false);
+            return JsonValue.Create(true)!;
+        }, new CountingLease());
+        await blockerStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        RenderTools tools = CreateTools(
+            workspace,
+            session,
+            outputOperations,
+            renderJobs);
+
+        try
+        {
+            ToolResult<RenderStoryboardResult> started = ReadToolResult<RenderStoryboardResult>(
+                await tools.RenderStoryboard(
+                    outputDirectory: "queued-storyboard",
+                    basename: "queued",
+                    background: true,
+                    cancellationToken: CancellationToken.None));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(started.IsSuccess, Is.True, started.Error?.Message);
+                Assert.That(started.Value!.Status, Is.EqualTo("running"));
+                Assert.That(outputOperations.Lease, Is.Not.Null);
+                Assert.That(outputOperations.Lease!.DisposeCount, Is.EqualTo(0));
+            });
+
+            string storyboardJob = started.Value!.JobId!;
+            tools.CancelRenderJob(storyboardJob);
+            RenderJobSnapshot cancelled = await PollUntilTerminalAsync(tools, storyboardJob);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cancelled.State, Is.EqualTo("cancelled"));
+                Assert.That(outputOperations.Lease!.DisposeCount, Is.EqualTo(1));
+                Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
+            });
+        }
+        finally
+        {
+            releaseBlocker.TrySetResult();
+            await PollUntilTerminalAsync(tools, blockerJob);
+        }
+    }
+
+    [Test]
+    public async Task Render_still_holds_output_operation_until_the_file_is_complete()
+    {
+        string workspace = CreateWorkspace();
+        string expectedPath = Path.Combine(workspace, "agent-output", "leased-still.png");
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        var outputOperations = new CompletionObservingOutputOperationLeaseProvider(
+            () => File.Exists(expectedPath) && new FileInfo(expectedPath).Length > 0);
+        RenderTools tools = CreateTools(workspace, session, outputOperations);
+
+        ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(
+            await tools.RenderStill("leased-still.png", cancellationToken: CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(1));
+            Assert.That(outputOperations.FileWasCompleteWhenReleased, Is.True);
+        });
+    }
+
+    [Test]
+    public async Task Suggest_quality_fixes_only_reserves_output_for_motion_analysis()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        var outputOperations = new BlockingOutputOperationLeaseProvider();
+        RenderTools tools = CreateTools(workspace, session, outputOperations);
+        var renderEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRender = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task renderBlocker = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            renderEntered.TrySetResult();
+            releaseRender.Task.GetAwaiter().GetResult();
+        });
+        await renderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task<ToolResult<QualityFixSuggestionsResponse>> motionTask = tools.SuggestQualityFixes(
+            includeMotion: true,
+            cancellationToken: CancellationToken.None).AsTask();
+        try
+        {
+            await outputOperations.Acquired.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(motionTask.IsCompleted, Is.False);
+                Assert.That(outputOperations.TryBeginOutputOperation(), Is.Null);
+                Assert.That(outputOperations.Lease!.DisposeCount, Is.Zero);
+            });
+        }
+        finally
+        {
+            releaseRender.TrySetResult();
+            await renderBlocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        ToolResult<QualityFixSuggestionsResponse> motion = await motionTask;
+        ToolResult<QualityFixSuggestionsResponse> documentOnly = await tools.SuggestQualityFixes(
+            includeMotion: false,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(motion.IsSuccess, Is.True, motion.Error?.Message);
+            Assert.That(documentOnly.IsSuccess, Is.True, documentOnly.Error?.Message);
+            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(2));
+            Assert.That(outputOperations.Lease!.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
     private static IEnumerable<TestCaseData> InvalidStoryboardTimeCases()
     {
         yield return new TestCaseData(Array.Empty<double>(), "at least one");
@@ -1274,6 +1515,31 @@ public sealed class RenderToolsStoryboardTests
     {
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
+        RenderTools tools = CreateTools(
+            workspace,
+            manager,
+            StandaloneOutputOperationLeaseProvider.Instance);
+        return (tools, manager);
+    }
+
+    private static RenderTools CreateTools(
+        string workspace,
+        AgentToolkitTestSession session,
+        IOutputOperationLeaseProvider? outputOperations = null,
+        RenderJobManager? renderJobs = null)
+    {
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        outputOperations ??= StandaloneOutputOperationLeaseProvider.Instance;
+        return CreateTools(workspace, manager, outputOperations, renderJobs);
+    }
+
+    private static RenderTools CreateTools(
+        string workspace,
+        AgentSessionManager manager,
+        IOutputOperationLeaseProvider outputOperations,
+        RenderJobManager? renderJobs = null)
+    {
         var stillRenderer = new StillRenderer();
         var motionVariationAnalyzer = new MotionVariationAnalyzer(stillRenderer);
         var tools = new RenderTools(
@@ -1286,8 +1552,108 @@ public sealed class RenderToolsStoryboardTests
             new AudioRhythmAnalyzer(),
             new QualityAnalyzer(motionVariationAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
-            new RenderJobManager());
-        return (tools, manager);
+            renderJobs ?? new RenderJobManager(),
+            outputOperations);
+        return tools;
+    }
+
+    private static void AssertWorkspaceBusy<T>(ToolResult<T> result)
+    {
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.WorkspaceBusy));
+        Assert.That(result.Error.Hint, Does.Contain("Retry"));
+    }
+
+    private sealed class RejectingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+    {
+        public int AcquireAttempts { get; private set; }
+
+        public IDisposable? TryBeginOutputOperation()
+        {
+            AcquireAttempts++;
+            return null;
+        }
+    }
+
+    private sealed class BlockingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+    {
+        private int _active;
+
+        public int AcquireAttempts { get; private set; }
+
+        public TaskCompletionSource Acquired { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public CountingLease? Lease { get; private set; }
+
+        public IDisposable? TryBeginOutputOperation()
+        {
+            AcquireAttempts++;
+            if (Interlocked.CompareExchange(ref _active, 1, 0) != 0)
+            {
+                return null;
+            }
+
+            Acquired.TrySetResult();
+            Lease = new CountingLease(() => Volatile.Write(ref _active, 0));
+            return Lease;
+        }
+    }
+
+    private sealed class CompletionObservingOutputOperationLeaseProvider(Func<bool> isFileComplete)
+        : IOutputOperationLeaseProvider
+    {
+        public int AcquireAttempts { get; private set; }
+
+        public bool FileWasCompleteWhenReleased { get; private set; }
+
+        public IDisposable? TryBeginOutputOperation()
+        {
+            AcquireAttempts++;
+            return new CallbackDisposable(() => FileWasCompleteWhenReleased = isFileComplete());
+        }
+    }
+
+    private sealed class TrackingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
+    {
+        public int AcquireAttempts { get; private set; }
+
+        public CountingLease? Lease { get; private set; }
+
+        public IDisposable? TryBeginOutputOperation()
+        {
+            AcquireAttempts++;
+            Lease = new CountingLease();
+            return Lease;
+        }
+    }
+
+    private sealed class CountingLease(Action? onDispose = null) : IDisposable
+    {
+        private int _disposeCount;
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public void Dispose()
+        {
+            if (Interlocked.Increment(ref _disposeCount) == 1)
+            {
+                onDispose?.Invoke();
+            }
+        }
+    }
+
+    private sealed class CallbackDisposable(Action callback) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                callback();
+            }
+        }
     }
 
     private sealed class DispatchGuardedLiveSession : IEditingSession, IEditingSessionDispatcher, IDisposable

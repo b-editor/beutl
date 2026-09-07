@@ -101,6 +101,9 @@
   <data name="Output" xml:space="preserve">
     <value>Output</value>
   </data>
+  <data name="Output_WorkspaceBusy" xml:space="preserve">
+    <value>Another workspace operation is in progress. Wait for it to finish, then try again.</value>
+  </data>
   <data name="History" xml:space="preserve">
     <value>History</value>
   </data>

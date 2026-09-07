@@ -23,7 +23,7 @@ public class ExportSupersamplingTests
     [TestCase(-3)]
     public void GetRenderSize_FactorBelowOne_ClampsToOne(int factor)
     {
-        // Mirrors `renderScale = Math.Max(1, SupersampleFactor)` in OutputViewModel.StartEncode.
+        // Mirrors `renderScale = Math.Max(1, SupersampleFactor)` in OutputViewModel.RunAsync.
         (long width, long height) = ExportSupersampling.GetRenderSize(new PixelSize(1920, 1080), factor);
 
         Assert.That((width, height), Is.EqualTo((1920L, 1080L)));

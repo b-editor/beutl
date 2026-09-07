@@ -71,7 +71,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     }
 }
 
-public sealed class EditorService
+public sealed class EditorService : IOutputOperationLeaseProvider
 {
     private readonly CoreList<EditorTabItem> _tabItems;
     private readonly ExtensionProvider _extensionProvider;
@@ -140,20 +140,30 @@ public sealed class EditorService
         _projectVersionControlService.Value = service;
     }
 
-    internal IDisposable BeginObservedOutputOperation(IEditorContext? context = null)
+    internal IDisposable? TryBeginOutputOperation()
     {
-        WorkspaceOperationLease operation;
         lock (_workspaceOperationSync)
         {
             if (_worktreeMutationActive)
             {
-                throw new InvalidOperationException(
-                    "Output cannot start while the project workspace is being replaced.");
+                return null;
             }
 
             _activeOutputOperations++;
-            operation = new WorkspaceOperationLease(this, WorkspaceOperationKind.Output);
+            return new WorkspaceOperationLease(this, WorkspaceOperationKind.Output);
         }
+    }
+
+    IDisposable? IOutputOperationLeaseProvider.TryBeginOutputOperation()
+    {
+        return TryBeginOutputOperation();
+    }
+
+    internal IDisposable BeginObservedOutputOperation(IEditorContext? context = null)
+    {
+        IDisposable operation = TryBeginOutputOperation()
+                                ?? throw new InvalidOperationException(
+                                    "Output cannot start while the project workspace is being replaced.");
 
         if (context is null)
         {

@@ -12,7 +12,6 @@
                   x:CompileBindings="True"
                   x:DataType="tools:OutputViewModel"
                   CloseButtonClick="OnCloseButtonClick"
-                  CloseButtonText="{Binding CloseButtonText.Value}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />

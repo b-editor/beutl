@@ -7,6 +7,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:tools="using:Beutl.Views.Tools"
              xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             Name="Root"
              d:DesignHeight="800"
              d:DesignWidth="600"
              x:CompileBindings="True"
@@ -33,15 +34,15 @@
             <Button Grid.Column="1"
                     VerticalAlignment="Bottom"
                     Classes="accent"
-                    Click="StartEncodeClick"
+                    Click="StartOutputClick"
                     Content="{x:Static lang:Strings.Encode}"
                     IsEnabled="{Binding CanEncode.Value}"
-                    IsVisible="{Binding !IsEncoding.Value}" />
+                    IsVisible="{Binding !IsRunning.Value, ElementName=Root}" />
             <Button Grid.Column="1"
                     VerticalAlignment="Bottom"
-                    Command="{Binding CancelEncode}"
+                    Click="CancelOutputClick"
                     Content="{x:Static lang:Strings.Cancel}"
-                    IsVisible="{Binding IsEncoding.Value}" />
+                    IsVisible="{Binding IsRunning.Value, ElementName=Root}" />
         </Grid>
 
         <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.DestinationToSaveTo_Tip}">
