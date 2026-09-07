@@ -222,6 +222,13 @@ on a successful auto-merge. A journal older than ~12h is discarded and a fresh o
 zero, which is intentional (a long gap means a new run context) but means a run that was thrashing
 can re-arm its no-progress budget after the 12h boundary.
 
+Each PR entry also caches the resolver's frozen `review_scope` (`initial_head`, previous remediation
+head, intended behavior, affected modules, and acceptance tests). The authoritative local copy lives
+under the clone's common Git directory in `beutl-review-scopes/`, so isolated worktrees reuse the
+same boundary. If both copies are missing, the resolver may recover the initial head only from an
+unambiguous earliest review `original_commit_id`; otherwise the loop leaves the PR for a human rather
+than treating the latest remediation commit as a new baseline.
+
 ## In-session execution + safety
 
 The loop runs **in-session only** — there is no headless `claude -p` launcher (it billed as metered

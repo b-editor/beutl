@@ -262,9 +262,17 @@ fi
 GUIDELINES="docs/ai-workflow/coding-guidelines-for-ai.md"
 PR_TEMPLATE=".github/PULL_REQUEST_TEMPLATE.md"
 if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
-   grep -q 'empty, dismissed, or unanswered response is \*\*not approval\*\*' "$RESOLVER" 2>/dev/null && \
+   grep -q 'empty, dismissed, or unanswered response' "$RESOLVER" 2>/dev/null && \
+   grep -q 'is \*\*not approval\*\*' "$RESOLVER" 2>/dev/null && \
    grep -q 'Do not defer work.*applies only inside the frozen scope' "$GUIDELINES" 2>/dev/null && \
-   grep -q 'applies only inside this PR.*frozen scope' "$PR_TEMPLATE" 2>/dev/null; then
+   grep -q 'applies only inside this PR.*frozen scope' "$PR_TEMPLATE" 2>/dev/null && \
+   grep -q 'git-common-dir.*beutl-review-scopes' "$RESOLVER" 2>/dev/null && \
+   grep -q 'Auto-address only the clearly actionable.*code changes' "$RESOLVER" 2>/dev/null && \
+   grep -q 'scope-class restriction gates edits only' "$RESOLVER" 2>/dev/null && \
+   grep -q 'Pre-existing/adjacent issues' "$RESOLVER" 2>/dev/null && \
+   grep -q 'acceptance gaps always set.*needs_human' "$RESOLVER" 2>/dev/null && \
+   grep -q 'pass that exact record to' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'common Git directory.*beutl-review-scopes' "$DOC" 2>/dev/null; then
   pass "review remediation stays inside a frozen PR scope"
 else
   fail "review-scope guard drift: AGENTS/resolver/guidelines/PR template disagree"

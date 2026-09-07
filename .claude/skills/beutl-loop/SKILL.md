@@ -91,7 +91,9 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
    {"run_id":"<stamp>","budget":"until-empty","item_cap":null,"max_minutes":null,"settle_minutes":20,"filter":"any",
     "attempted_ids":[],"items_processed":0,"last_pr_tick":0,
     "prs":[{"item_id":"","pr_url":"","pr_number":0,"risk":"low|moderate|high",
-            "outcome":"merged|left_for_human","left_reason":null,"reviews_resolved":0}],
+            "outcome":"merged|left_for_human","left_reason":null,"reviews_resolved":0,
+            "review_scope":{"initial_head":"","previous_remediation_head":null,
+              "intended_behavior":[],"affected_modules":[],"acceptance_tests":[]}}],
     "false_positives":[],"blocked":[{"item_id":"","kind":"item-specific|systemic","reason":""}],
     "consecutive_no_progress":0,"consecutive_false_positives":0,
     "last_chosen_item_id":null,"last_failure_signature":null,"stop_reason":null}
@@ -414,7 +416,12 @@ done
 Then poll the review state, spacing polls ~90s apart with `sleep 90` (allowed via `Bash(sleep:*)`;
 `python3 -c 'import time;time.sleep(90)'` is an equivalent allowed fallback if a bare `sleep` is
 unavailable). Each poll: dispatch a sub-agent running **`beutl-resolve-reviews --auto`** for the PR to
-address clearly-actionable bot comments, re-verify, and resolve threads. "**Settled**" = CI complete+green · zero unresolved threads · no
+address clearly-actionable bot comments, re-verify, and resolve threads. On the first poll, persist
+the resolver's `scope_state` in this PR's journal entry; on every later poll pass that exact record to
+the resolver and require it to match the common-Git-dir record before classifying or editing. Never
+let a new resolver invocation replace `initial_head` with the latest remediation head. If the record
+is absent or inconsistent and cannot be recovered from the earliest review `original_commit_id`, set
+`needs_human` and leave the PR unchanged. "**Settled**" = CI complete+green · zero unresolved threads · no
 outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **Re-fetch CI
 (`gh pr checks`) and the thread/`reviewDecision` state yourself each poll — the resolver's
 `ci_status`/`changes_requested_outstanding`/counts are advisory; the orchestrator's own `gh` reads are

@@ -98,9 +98,17 @@ Before classifying severity, freeze the remediation boundary:
 
 1. Record the PR's intended behavior, affected modules, and acceptance tests from its specification,
    description, and pre-review diff.
-2. Record the current head as the remediation baseline. On later review rounds, also record the
-   previous remediation commit so a new comment can be tested specifically as a latest-fix
-   regression.
+2. Persist that boundary before the first edit in
+   `$(git rev-parse --git-common-dir)/beutl-review-scopes/<owner>-<repo>-<pr>.json`. The record contains
+   `initial_head`, `previous_remediation_head`, `intended_behavior`, `affected_modules`, and
+   `acceptance_tests`. This common-Git-dir location is shared by every worktree in the clone; in loop
+   mode, also return the record in Step 7 so the orchestrator can journal and pass it across hosts.
+   On later rounds, load the existing record and update only `previous_remediation_head` after a
+   remediation commit is successfully pushed. Never replace `initial_head` or silently freeze a new
+   current head. If the record is missing after review activity already exists, reconstruct
+   `initial_head` from the earliest non-author review/comment `original_commit_id` and re-read the
+   frozen scope at that commit. If GitHub does not expose one unambiguous commit, stop with
+   `needs_human`; current HEAD is not a safe recovery default.
 3. Classify every finding into exactly one scope class: **original-scope defect**,
    **latest-remediation regression**, **pre-existing/adjacent issue**, **optional improvement**, or
    **acceptance gap**.
@@ -110,6 +118,9 @@ The other three classes require an explicit user decision to reopen scope or cre
 The repository's "Do not defer work" rule applies only after a finding is inside this frozen boundary;
 it never widens the boundary. A finding that adds a public-API change, project dependency, or newly
 touched subsystem is scope expansion unless the frozen scope already names it.
+An **acceptance gap** means a newly requested criterion that is absent from the frozen acceptance
+tests. Failure of a criterion already recorded in `acceptance_tests` is an original-scope defect,
+not an acceptance gap.
 
 | Category | Default action |
 |---|---|
@@ -184,22 +195,27 @@ fi
 ```
 
 ### Interactive mode
-Ask `AskUserQuestion` per candidate (reviewer, file:line, verbatim body, your read, `html_url`).
-Offer Address / Reply only / Skip / Address differently. One decision per comment; never change code
-without an explicit "Address it". An empty, dismissed, or unanswered response is **not approval**,
-even when the surrounding runtime normally permits a best-judgment default. Leave the code and thread
-unchanged and report the pending decision.
+Ask `AskUserQuestion` per candidate (reviewer, file:line, verbatim body, your read, `html_url`). For an
+in-scope finding, offer Address / Reply only / Skip / Address differently. For a pre-existing,
+adjacent, optional, or newly requested acceptance finding, ask the scope decision first and offer
+Widen this PR / Create independent work / Skip / Decide differently; a generic "Address it" never
+chooses where that work belongs. One decision per comment; never change code without an explicit
+choice that authorizes both the edit and its destination. An empty, dismissed, or unanswered response
+is **not approval**, even when the surrounding runtime normally permits a best-judgment default. Leave
+the code and thread unchanged and report the pending decision.
 
 ### `--auto` mode — conservative auto-decision
 - **Bots only.** Auto-address / auto-resolve only feedback from the known bot reviewers. **Any human
   review or comment → set `needs_human` and leave the thread open**; do not edit code for it and do
   not resolve it. (A human's unresolved thread keeps the PR off the auto-merge path, which is the
   point — a person decides on human feedback.)
-- **Auto-address only the clearly actionable + low-judgment:** bug/correctness, straightforward
+- **Auto-address only the clearly actionable + low-judgment code changes:** bug/correctness, straightforward
   mechanical change-requests, and nits. Make the **smallest** change that resolves the comment; do
   **not** expand scope because a reviewer mused about a broader refactor. The finding must also be an
   original-scope defect or a latest-remediation regression. Pre-existing/adjacent issues, optional
   improvements, and acceptance gaps always set `needs_human` and stay open.
+- This scope-class restriction gates edits only. It does not block the no-code handling below for a
+  question or a demonstrable bot false positive, even when the cited code is adjacent.
 - **Questions:** post a brief factual reply if it is answerable from the code; otherwise escalate.
 - **Clear bot false positives:** when a **known bot's** comment is demonstrably wrong (you can point
   to the exact `path:line` that already handles the concern), post a **neutral, factual** reply that
@@ -281,6 +297,13 @@ handle-pr-reviews). Note that no merge was performed.
   "new_commits_pushed": 0,
   "post_fix_test_status": "green | none | red",
   "ci_status": "green | red | pending | unknown",
+  "scope_state": {
+    "initial_head": "<sha>",
+    "previous_remediation_head": "<sha-or-null>",
+    "intended_behavior": ["<frozen item>"],
+    "affected_modules": ["<frozen module>"],
+    "acceptance_tests": ["<frozen test or criterion>"]
+  },
   "last_activity_at": "<ISO-8601 of the most recent review / comment / commit on the PR>"
 }
 ```
