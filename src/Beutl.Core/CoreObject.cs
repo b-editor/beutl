@@ -33,6 +33,8 @@ public abstract class CoreObject : ICoreObject
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
     private CoreProperty? _forcedReplacementProperty;
+    private string? _requiredMinAppVersionAfterMigration;
+    private bool _wasTypeDiscriminatorAddedDuringRestore;
 
     internal interface IEntry
     {
@@ -78,6 +80,39 @@ public abstract class CoreObject : ICoreObject
     // Non-null while this object stands in for a file the serializer must not regenerate:
     // StoreToUri skips the source location and copies the raw text verbatim to any new one.
     internal SuppressedStorageSource? SuppressedStorageSource { get; set; }
+    internal bool WasTypeDiscriminatorAddedDuringRestore
+    {
+        get => _wasTypeDiscriminatorAddedDuringRestore;
+        set
+        {
+            _wasTypeDiscriminatorAddedDuringRestore = value;
+            if (value)
+            {
+                ReportPersistedContentMigration(Project.DefaultMinAppVersion);
+            }
+        }
+    }
+
+    internal string? RequiredMinAppVersionAfterMigration
+        => _requiredMinAppVersionAfterMigration;
+
+    /// <summary>
+    /// Reports that deserialization migrated persisted content and records the minimum Beutl
+    /// version required to read the migrated form.
+    /// </summary>
+    /// <param name="minAppVersion">A valid NuGet version string required by the migrated form.</param>
+    /// <remarks>
+    /// Derived serializable types should call this only when they actually rewrite legacy content.
+    /// Multiple reports are combined and the highest version is propagated to the containing
+    /// project when the object hierarchy is attached or serialized.
+    /// </remarks>
+    protected void ReportPersistedContentMigration(string minAppVersion)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
+        _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
+            _requiredMinAppVersionAfterMigration,
+            minAppVersion);
+    }
 
     private Dictionary<int, IEntry> Values => _values ??= [];
 

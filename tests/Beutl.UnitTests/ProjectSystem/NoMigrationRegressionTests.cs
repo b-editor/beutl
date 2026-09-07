@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -80,7 +81,7 @@ public class NoMigrationRegressionTests
             source,
             new CoreSerializerOptions { BaseUri = source.Uri });
         json["appVersion"] = "3.1.4";
-        json["minAppVersion"] = "2.0.0-preview.1";
+        json["minAppVersion"] = Project.DefaultMinAppVersion;
         json.JsonSave(path);
         byte[] before = File.ReadAllBytes(path);
 
@@ -115,5 +116,190 @@ public class NoMigrationRegressionTests
             Assert.That(text, Does.Not.Contain("\r\n"));
             Assert.That(bytes, Has.None.EqualTo((byte)'\r'));
         });
+    }
+
+    [Test]
+    public void Project_marked_as_migrated_advances_app_version()
+    {
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var source = new Project
+        {
+            Uri = new Uri(path),
+        };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(
+            source,
+            new CoreSerializerOptions { BaseUri = source.Uri });
+        json["appVersion"] = "3.1.4";
+        json.JsonSave(path);
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(path));
+
+        restored.MarkAsMigrated();
+        JsonObject migrated = CoreSerializer.SerializeToJsonObject(restored);
+
+        Assert.That((string?)migrated["appVersion"], Is.EqualTo(BeutlApplication.Version));
+    }
+
+    [Test]
+    public void Project_aggregates_migration_versions_from_items_attached_after_loading()
+    {
+        string path = Path.Combine(_tempDirectory, "project.bep");
+        var source = new Project { Uri = new Uri(path) };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(
+            source,
+            new CoreSerializerOptions { BaseUri = source.Uri });
+        json["appVersion"] = "3.1.4";
+        json["minAppVersion"] = Project.DefaultMinAppVersion;
+        json.JsonSave(path);
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(path));
+
+        restored.Items.Add(new MigratedProjectItem("4.2.0"));
+        restored.Items.Add(new MigratedProjectItem("5.1.0"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
+            Assert.That(restored.MinAppVersion, Is.EqualTo("5.1.0"));
+        });
+    }
+
+    [Test]
+    public void Project_serialization_aggregates_plugin_element_migrations()
+    {
+        var project = new Project();
+        var scene = new Scene();
+        project.Items.Add(scene);
+        scene.AddChild(new MigratedElement("6.0.0"));
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.MinAppVersion, Is.EqualTo("6.0.0"));
+            Assert.That((string?)json["minAppVersion"], Is.EqualTo("6.0.0"));
+        });
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public void Project_with_legacy_sidecar_discriminator_advances_app_version(
+        bool removeSceneDiscriminator,
+        bool removeElementDiscriminator)
+    {
+        (string projectPath, string scenePath, string elementPath) = CreateProjectWithSidecars();
+        SetPersistedAppVersion(projectPath, "1.0.0");
+        if (removeSceneDiscriminator)
+        {
+            JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(scenePath))!.AsObject();
+            sceneJson.Remove("$type");
+            sceneJson.JsonSave(scenePath);
+        }
+
+        if (removeElementDiscriminator)
+        {
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            elementJson.Remove("$type");
+            elementJson.JsonSave(elementPath);
+        }
+
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(projectPath));
+
+        Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
+    }
+
+    [Test]
+    public void Project_with_current_sidecars_preserves_loaded_app_version()
+    {
+        (string projectPath, _, _) = CreateProjectWithSidecars();
+        SetPersistedAppVersion(projectPath, "3.1.4");
+
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(projectPath));
+        CoreSerializer.StoreToUri(restored, new Uri(projectPath));
+        JsonObject resaved = JsonNode.Parse(File.ReadAllText(projectPath))!.AsObject();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.AppVersion, Is.EqualTo("3.1.4"));
+            Assert.That((string?)resaved["appVersion"], Is.EqualTo("3.1.4"));
+        });
+    }
+
+    [TestCase(typeof(ProjectItem))]
+    [TestCase(typeof(Element))]
+    public void Present_unresolvable_sidecar_discriminator_is_not_treated_as_legacy(Type type)
+    {
+        const string unknownDiscriminator = "[Missing.Extension]Missing.Extension:UnknownItem";
+        string path = Path.Combine(_tempDirectory, "unknown-sidecar.json");
+        var json = new JsonObject
+        {
+            ["$type"] = unknownDiscriminator,
+        };
+        json.JsonSave(path);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            CoreSerializer.RestoreFromUri(new Uri(path), type));
+
+        JsonObject preserved = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        Assert.That((string?)preserved["$type"], Is.EqualTo(unknownDiscriminator));
+    }
+
+    [Test]
+    public void Project_with_empty_legacy_operation_advances_app_version()
+    {
+        (string projectPath, _, string elementPath) = CreateProjectWithSidecars();
+        SetPersistedAppVersion(projectPath, "1.0.0");
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        elementJson.Remove(nameof(Element.Objects));
+        elementJson["Operation"] = new JsonObject
+        {
+            ["Children"] = new JsonArray(),
+        };
+        elementJson.JsonSave(elementPath);
+
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(projectPath));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
+            Assert.That(((Scene)restored.Items.Single()).Children.Single().Objects, Is.Empty);
+        });
+    }
+
+    private (string ProjectPath, string ScenePath, string ElementPath) CreateProjectWithSidecars()
+    {
+        string projectPath = Path.Combine(_tempDirectory, "project.bep");
+        string scenePath = Path.Combine(_tempDirectory, "scene", "scene.scene");
+        string elementPath = Path.Combine(_tempDirectory, "scene", "element.belm");
+        var source = new Project { Uri = new Uri(projectPath) };
+        var scene = new Scene { Uri = new Uri(scenePath) };
+        scene.AddChild(new Element { Uri = new Uri(elementPath) });
+        source.Items.Add(scene);
+        CoreSerializer.StoreToUri(
+            source,
+            source.Uri,
+            CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
+        return (projectPath, scenePath, elementPath);
+    }
+
+    private static void SetPersistedAppVersion(string projectPath, string version)
+    {
+        JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectPath))!.AsObject();
+        projectJson["appVersion"] = version;
+        projectJson.JsonSave(projectPath);
+    }
+
+    private sealed class MigratedProjectItem : ProjectItem
+    {
+        public MigratedProjectItem(string requiredVersion)
+        {
+            ReportPersistedContentMigration(requiredVersion);
+        }
+    }
+
+    private sealed class MigratedElement : Element
+    {
+        public MigratedElement(string requiredVersion)
+        {
+            ReportPersistedContentMigration(requiredVersion);
+        }
     }
 }
