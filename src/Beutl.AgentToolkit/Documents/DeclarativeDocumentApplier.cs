@@ -390,6 +390,7 @@ internal sealed class DeclarativeDocumentApplier
             animationJson = KeyFrameShorthand.Expand(animationJson, property.ValueType);
         }
 
+        HashSet<Guid>? changedValueIds = null;
         IAnimation? current = property.Animation;
         if (current is CoreObject currentObject
             && IdentityMatches(currentObject, animationJson)
@@ -411,6 +412,10 @@ internal sealed class DeclarativeDocumentApplier
             {
                 return;
             }
+
+            changedValueIds = KeyFrameValueChangeDetector.CollectChangedValueIds(
+                currentJson,
+                animationJson);
 
             if (currentObject is KeyFrameAnimation currentKeyFrameAnimation)
             {
@@ -456,10 +461,12 @@ internal sealed class DeclarativeDocumentApplier
             property.Animation = animation;
         }
 
-        RevalidateKeyFrameValues(property);
+        RevalidateKeyFrameValues(property, changedValueIds);
     }
 
-    private void RevalidateKeyFrameValues(IProperty property)
+    private void RevalidateKeyFrameValues(
+        IProperty property,
+        IReadOnlySet<Guid>? changedValueIds)
     {
         if (property.Animation is not KeyFrameAnimation animation)
         {
@@ -469,6 +476,11 @@ internal sealed class DeclarativeDocumentApplier
         CoreSerializerOptions options = CreateOptions(property.GetOwnerObject());
         foreach (IKeyFrame keyFrame in animation.KeyFrames)
         {
+            if (changedValueIds is not null && !changedValueIds.Contains(keyFrame.Id))
+            {
+                continue;
+            }
+
             object? value = keyFrame.Value;
             ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
                 property,

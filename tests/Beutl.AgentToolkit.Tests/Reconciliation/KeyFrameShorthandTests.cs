@@ -331,6 +331,38 @@ public sealed class KeyFrameShorthandTests
         });
     }
 
+    [Test]
+    public void Animation_metadata_edit_does_not_revalidate_unchanged_keyframe_values()
+    {
+        (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
+        var rect = (RectShape)element.Objects.Single();
+        var animation = new KeyFrameAnimation<float>();
+        var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
+        animation.KeyFrames.Add(keyFrame, out _);
+        rect.Opacity.Animation = animation;
+
+        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+            patch: OpacityAnimationPatch(
+                element,
+                new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = animation.Id.ToString(),
+                    [nameof(KeyFrameAnimation.UseGlobalClock)] = true
+                }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+            Assert.That(rect.Opacity.Animation, Is.SameAs(animation));
+            Assert.That(animation.UseGlobalClock, Is.True);
+            Assert.That(keyFrame.Value, Is.EqualTo(-25));
+            Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.EndsWith("/Value"));
+            Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
+                outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
+        });
+    }
+
     [TestCase(true)]
     [TestCase(false)]
     public void Unrelated_edit_skips_ambiguous_animation_validation_for_duplicate_ids(bool invalidFirst)

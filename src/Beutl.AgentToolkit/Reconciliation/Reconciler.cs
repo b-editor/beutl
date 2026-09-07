@@ -646,10 +646,20 @@ public sealed class Reconciler
                             continue;
                         }
 
+                        HashSet<Guid>? changedValueIds = KeyFrameValueChangeDetector.CollectChangedValueIds(
+                            currentAnimationNode as JsonObject,
+                            normalizedAnimation);
                         CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
                             DeclarativeDocumentApplier.ResolveBaseUri(engineObject) ?? sandboxRoot.Uri);
                         foreach (JsonObject keyFrame in keyFrames.OfType<JsonObject>())
                         {
+                            if (changedValueIds is not null
+                                && CollectionReconciler.TryGetId(keyFrame, out Guid keyFrameId)
+                                && !changedValueIds.Contains(keyFrameId))
+                            {
+                                continue;
+                            }
+
                             if (!keyFrame.TryGetPropertyValue(nameof(KeyFrame<float>.Value), out JsonNode? valueNode))
                             {
                                 continue;
