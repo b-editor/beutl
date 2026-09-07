@@ -244,6 +244,7 @@ Owns:
 - The single-consumer `Channel<ProxyJob>` plus its drain loop.
 - Job lifecycle, cancellation propagation, completion event surface for UI.
 - Async enqueue back-pressure (`ValueTask<ProxyJob> EnqueueAsync(...)`) so a full bounded queue can wait without blocking the UI thread.
+- Optional `IProxyGenerationAdmission` enforcement immediately before generator execution. Rejected attempts stay queued under capped backoff; accepted leases cover generation through terminal cleanup without prescribing a particular host conflict source.
 
 ### `IProxyGenerator` (Engine abstraction) and `FFmpegProxyGenerator` (concrete extension implementation)
 

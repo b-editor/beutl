@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using System.Runtime.ExceptionServices;
+using System.Threading.Channels;
 
 using Beutl.Logging;
 
@@ -18,10 +19,13 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), WorkItem> _itemsByKey = [];
     private readonly List<WorkItem> _items = [];
+    private readonly HashSet<Task> _admissionRetryTasks = [];
     private readonly Lock _lock = new();
     private readonly Task _drainTask;
     private readonly TimeSpan _minUnavailableBackoff;
     private readonly TimeSpan _maxUnavailableBackoff;
+    private readonly IProxyGenerationAdmission? _admission;
+    private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;
     private TaskCompletionSource? _resumeAfterGeneratorUnavailable;
     private int _consecutiveUnavailable;
     private bool _disposed;
@@ -36,12 +40,37 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
     }
 
+    /// <summary>
+    /// Constructs a queue whose generator runs only while <paramref name="admission"/> grants a
+    /// lease.
+    /// </summary>
+    public ProxyJobQueue(
+        IProxyGenerator generator,
+        IProxyStore? store,
+        IProxyGenerationAdmission admission)
+        : this(
+            EagerProvider(generator),
+            store,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(30),
+            admission ?? throw new ArgumentNullException(nameof(admission)))
+    {
+    }
+
     internal ProxyJobQueue(
         IProxyGenerator generator,
         IProxyStore? store,
         TimeSpan minUnavailableBackoff,
-        TimeSpan maxUnavailableBackoff)
-        : this(EagerProvider(generator), store, minUnavailableBackoff, maxUnavailableBackoff)
+        TimeSpan maxUnavailableBackoff,
+        IProxyGenerationAdmission? admission = null,
+        Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
+        : this(
+            EagerProvider(generator),
+            store,
+            minUnavailableBackoff,
+            maxUnavailableBackoff,
+            admission,
+            delayAsync)
     {
     }
 
@@ -58,13 +87,39 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
     }
 
+    /// <summary>
+    /// Constructs a lazy-generator queue whose generator runs only while
+    /// <paramref name="admission"/> grants a lease.
+    /// </summary>
+    public ProxyJobQueue(
+        Func<IProxyGenerator?> generatorProvider,
+        IProxyStore? store,
+        IProxyGenerationAdmission admission)
+        : this(
+            generatorProvider,
+            store,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(30),
+            admission ?? throw new ArgumentNullException(nameof(admission)))
+    {
+    }
+
     internal ProxyJobQueue(
         Func<IProxyGenerator?> generatorProvider,
         IProxyStore? store,
         TimeSpan minUnavailableBackoff,
-        TimeSpan maxUnavailableBackoff)
+        TimeSpan maxUnavailableBackoff,
+        IProxyGenerationAdmission? admission = null,
+        Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
     {
         ArgumentNullException.ThrowIfNull(generatorProvider);
+        if (admission is null && delayAsync is not null)
+        {
+            throw new ArgumentException(
+                "A custom admission delay requires an admission policy.",
+                nameof(delayAsync));
+        }
+
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minUnavailableBackoff, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxUnavailableBackoff, minUnavailableBackoff);
 
@@ -72,6 +127,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         _store = store;
         _minUnavailableBackoff = minUnavailableBackoff;
         _maxUnavailableBackoff = maxUnavailableBackoff;
+        _admission = admission;
+        _delayAsync = delayAsync ?? (static (delay, token) => Task.Delay(delay, token));
         // Unbounded: each queued item needs exactly one wake permit, and the drain (single reader,
         // MaxConcurrency 1) consumes one per dispatch. Items already live in _items — deduplicated by
         // (source, preset) — so the channel is a pure wake signal, not the memory bound. A bounded
@@ -326,6 +383,14 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
         }
 
+        Task[] admissionRetries;
+        lock (_lock)
+        {
+            admissionRetries = [.. _admissionRetryTasks];
+        }
+
+        await Task.WhenAll(admissionRetries).ConfigureAwait(false);
+
         // Unsubscribe only after the drain loop has ended. DrainAsync is the sole place that resolves a
         // generator and subscribes (under _lock), so reading _generatorAvailability before awaiting it
         // could miss a subscription taken between the read and the drain finishing, leaking a live
@@ -386,11 +451,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
-    // Drives one channel permit to a terminal state, then loops while a dispatchable item
-    // remains. Each iteration either completes the item or requeues it and waits up to
-    // _maxUnavailableBackoff for generator availability, so the loop is bounded by
-    // ceil(_maxUnavailableBackoff / _minUnavailableBackoff) consecutive unavailable retries
-    // before a successful dispatch or an empty _items set ends the call.
+    // Drives one channel permit to a terminal state, then loops while a dispatchable item remains.
+    // Generator unavailability parks the serial drain under its bounded wait. Admission rejection
+    // instead defers only that item and schedules a future permit, allowing an admissible peer to
+    // run immediately.
     private async Task ProcessOneAsync()
     {
         while (true)
@@ -407,10 +471,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 return;
             }
 
-            item.Job.Status = ProxyJobStatus.Running;
-            OnJobChanged(item.Job, ProxyJobChangeKind.Started);
-
             bool requeued = false;
+            bool admissionRejected = false;
             try
             {
                 // ResolveGenerator runs inside the guarded region: the provider is plugin-supplied
@@ -418,6 +480,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 IProxyGenerator? generator = ResolveGenerator();
                 if (generator is null)
                 {
+                    item.Job.Status = ProxyJobStatus.Running;
+                    OnJobChanged(item.Job, ProxyJobChangeKind.Started);
                     // No generator has registered yet. Keep the job queued and re-probe after the same
                     // bounded backoff used for unavailable generators; extension loading may register one.
                     item.Job.StatusMessage = "Waiting for proxy generator registration.";
@@ -427,24 +491,48 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 }
                 else
                 {
-                    item.Job.StatusMessage = null;
-                    await generator.GenerateAsync(item.Job).ConfigureAwait(false);
-                    item.Job.Status = ProxyJobStatus.Succeeded;
-                    Interlocked.Exchange(ref _consecutiveUnavailable, 0);
-                    OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
+                    IDisposable? admissionLease = _admission?.TryAcquireLease(item.Job);
+                    if (_admission is not null && admissionLease is null)
+                    {
+                        item.Job.StatusMessage = "Waiting for proxy generation admission.";
+                        admissionRejected = true;
+                        requeued = RequeueForAdmissionRetry(item);
+                        if (!requeued)
+                            CompleteCanceled(item);
+                    }
+                    else
+                    {
+                        item.ResetAdmissionRejections();
+                        item.Job.StatusMessage = null;
+                        await GenerateWithAdmissionLeaseAsync(generator, item, admissionLease)
+                            .ConfigureAwait(false);
+                        if (item.TryCompleteSuccess())
+                        {
+                            Interlocked.Exchange(ref _consecutiveUnavailable, 0);
+                            OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
+                        }
+                        else
+                        {
+                            CompleteCanceled(item);
+                        }
+                    }
                 }
+            }
+            catch (AdmissionLeaseReleaseException ex)
+            {
+                FailJob(item, ex.Failure, cancellationWins: false);
+            }
+            catch (Exception) when (item.Token.IsCancellationRequested)
+            {
+                // Cancellation owns terminal classification once requested, even when an
+                // admission policy or generator concurrently reports another error. Lease-release
+                // failures are handled above because failed cleanup cannot be reported as safe
+                // cancellation.
+                CompleteCanceled(item);
             }
             catch (ProxyGenerationSkippedException ex)
             {
-                item.Job.Status = ProxyJobStatus.Skipped;
-                item.Job.StatusMessage = ex.Message;
-                OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
-            }
-            catch (OperationCanceledException) when (item.Token.IsCancellationRequested)
-            {
-                // Guarded so an OCE thrown by a generator whose own token was NOT canceled is
-                // reported as Failed below instead of masquerading as a user cancellation.
-                CompleteCanceled(item);
+                CompleteSkippedOrCanceled(item, ex.Message);
             }
             catch (ProxyGeneratorUnavailableException ex)
             {
@@ -463,9 +551,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     // With no availability signal the queue can never learn the generator recovered,
                     // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
                     // Treat it as a terminal skip instead.
-                    item.Job.Status = ProxyJobStatus.Skipped;
-                    item.Job.StatusMessage = ex.Message;
-                    OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+                    CompleteSkippedOrCanceled(item, ex.Message);
                 }
                 else
                 {
@@ -483,12 +569,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
             catch (Exception ex)
             {
-                // Record the Failed store entry before the terminal transition so an observer
-                // that sees Status == Failed can already read the entry from the store.
-                item.Job.Error = ex;
-                RegisterFailure(item.Job, ex.Message);
-                item.Job.Status = ProxyJobStatus.Failed;
-                OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+                FailJob(item, ex, cancellationWins: true);
             }
 
             if (!requeued)
@@ -498,10 +579,65 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 return;
             }
 
+            if (admissionRejected)
+            {
+                // This item is deferred until its own bounded retry task republishes a permit.
+                // Continue immediately so another dispatchable job can run instead of sitting
+                // behind a job-aware policy that keeps rejecting this one.
+                continue;
+            }
+
             await WaitForGeneratorResumeOrDisposeAsync(item.Token).ConfigureAwait(false);
+
             if (_disposeCts.IsCancellationRequested)
                 return;
         }
+    }
+
+    private async Task GenerateWithAdmissionLeaseAsync(
+        IProxyGenerator generator,
+        WorkItem item,
+        IDisposable? admissionLease)
+    {
+        ExceptionDispatchInfo? generationFailure = null;
+        try
+        {
+            item.Token.ThrowIfCancellationRequested();
+            item.Job.Status = ProxyJobStatus.Running;
+            OnJobChanged(item.Job, ProxyJobChangeKind.Started);
+            await generator.GenerateAsync(item.Job).ConfigureAwait(false);
+            item.Token.ThrowIfCancellationRequested();
+        }
+        catch (Exception ex)
+        {
+            generationFailure = ExceptionDispatchInfo.Capture(ex);
+        }
+
+        Exception? releaseFailure = null;
+        try
+        {
+            admissionLease?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            releaseFailure = ex;
+        }
+
+        if (generationFailure is not null && releaseFailure is not null)
+        {
+            throw new AdmissionLeaseReleaseException(
+                new AggregateException(
+                    "Proxy generation and admission-lease release both failed.",
+                    generationFailure.SourceException,
+                    releaseFailure));
+        }
+
+        if (releaseFailure is not null)
+        {
+            throw new AdmissionLeaseReleaseException(releaseFailure);
+        }
+
+        generationFailure?.Throw();
     }
 
     private bool RequeueForRetry(WorkItem item)
@@ -511,6 +647,59 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
         return true;
+    }
+
+    private bool RequeueForAdmissionRetry(WorkItem item)
+    {
+        if (!item.ResetForAdmissionRetry())
+            return false;
+
+        OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
+        TimeSpan backoff = item.NextAdmissionBackoff(
+            _minUnavailableBackoff,
+            _maxUnavailableBackoff);
+        Task retry = ResumeAdmissionAfterBackoffAsync(item, backoff);
+        lock (_lock)
+        {
+            _admissionRetryTasks.Add(retry);
+        }
+
+        _ = RemoveAdmissionRetryWhenCompleteAsync(retry);
+        return true;
+    }
+
+    private async Task ResumeAdmissionAfterBackoffAsync(WorkItem item, TimeSpan backoff)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            _disposeCts.Token,
+            item.Token);
+        try
+        {
+            await _delayAsync(backoff, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (linked.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            // The production delay is Task.Delay; this guard keeps a host/test scheduler failure
+            // from silently stranding the job forever.
+            s_logger.LogError(ex, "Proxy admission retry delay failed; retrying immediately.");
+        }
+
+        if (item.TryResumeAdmission())
+        {
+            _channel.Writer.TryWrite(item);
+        }
+    }
+
+    private async Task RemoveAdmissionRetryWhenCompleteAsync(Task retry)
+    {
+        await retry.ConfigureAwait(false);
+        lock (_lock)
+        {
+            _admissionRetryTasks.Remove(retry);
+        }
     }
 
     private async Task WaitForGeneratorResumeOrDisposeAsync(CancellationToken jobCancellation)
@@ -562,6 +751,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 if (!candidate.Published
                     || candidate.Job.Status != ProxyJobStatus.Queued
+                    || candidate.IsAdmissionDeferred
                     || candidate.Cancellation.IsCancellationRequested)
                 {
                     continue;
@@ -655,6 +845,35 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
+    private void CompleteSkippedOrCanceled(WorkItem item, string message)
+    {
+        if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
+        {
+            CompleteCanceled(item);
+            return;
+        }
+
+        item.Job.Status = ProxyJobStatus.Skipped;
+        item.Job.StatusMessage = message;
+        OnJobChanged(item.Job, ProxyJobChangeKind.Skipped);
+    }
+
+    private void FailJob(WorkItem item, Exception failure, bool cancellationWins)
+    {
+        if (!item.TryClaimNonCancellationTerminal(cancellationWins))
+        {
+            CompleteCanceled(item);
+            return;
+        }
+
+        // Record the Failed store entry before the terminal transition so an observer that sees
+        // Status == Failed can already read the entry from the store.
+        item.Job.Error = failure;
+        RegisterFailure(item.Job, failure.Message);
+        item.Job.Status = ProxyJobStatus.Failed;
+        OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+    }
+
     private void Remove(WorkItem item)
     {
         lock (_lock)
@@ -706,11 +925,20 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             or ProxyJobStatus.Canceled
             or ProxyJobStatus.Skipped;
 
+    private sealed class AdmissionLeaseReleaseException(Exception failure)
+        : Exception("The proxy-generation admission lease could not be released.", failure)
+    {
+        public Exception Failure { get; } = failure;
+    }
+
     private sealed class WorkItem(ProxyJob job, CancellationTokenSource cancellation) : IDisposable
     {
         private readonly Lock _lock = new();
         private bool _started;
+        private bool _admissionDeferred;
+        private bool _terminalTransitionClaimed;
         private bool _disposed;
+        private int _consecutiveAdmissionRejections;
 
         public ProxyJob Job { get; } = job;
 
@@ -729,7 +957,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             lock (_lock)
             {
-                if (_disposed || Cancellation.IsCancellationRequested)
+                if (_disposed
+                    || _admissionDeferred
+                    || _terminalTransitionClaimed
+                    || Cancellation.IsCancellationRequested)
                     return false;
 
                 _started = true;
@@ -741,11 +972,117 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             lock (_lock)
             {
-                if (_disposed || Cancellation.IsCancellationRequested || IsTerminal(Job.Status))
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status))
                     return false;
 
                 _started = false;
+                _admissionDeferred = false;
                 Job.Status = ProxyJobStatus.Queued;
+                return true;
+            }
+        }
+
+        public bool ResetForAdmissionRetry()
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status))
+                    return false;
+
+                _started = false;
+                _admissionDeferred = true;
+                Job.Status = ProxyJobStatus.Queued;
+                return true;
+            }
+        }
+
+        public TimeSpan NextAdmissionBackoff(TimeSpan minimum, TimeSpan maximum)
+        {
+            lock (_lock)
+            {
+                int attempt = ++_consecutiveAdmissionRejections;
+                double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
+                double milliseconds = Math.Min(
+                    maximum.TotalMilliseconds,
+                    minimum.TotalMilliseconds * factor);
+                return TimeSpan.FromMilliseconds(milliseconds);
+            }
+        }
+
+        public void ResetAdmissionRejections()
+        {
+            lock (_lock)
+            {
+                _consecutiveAdmissionRejections = 0;
+            }
+        }
+
+        public bool TryResumeAdmission()
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status)
+                    || !_admissionDeferred)
+                {
+                    return false;
+                }
+
+                _admissionDeferred = false;
+                return true;
+            }
+        }
+
+        public bool IsAdmissionDeferred
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _admissionDeferred;
+                }
+            }
+        }
+
+        public bool TryCompleteSuccess()
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status))
+                {
+                    return false;
+                }
+
+                Job.Status = ProxyJobStatus.Succeeded;
+                _terminalTransitionClaimed = true;
+                return true;
+            }
+        }
+
+        public bool TryClaimNonCancellationTerminal(bool cancellationWins)
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || IsTerminal(Job.Status)
+                    || (cancellationWins && Cancellation.IsCancellationRequested))
+                {
+                    return false;
+                }
+
+                _terminalTransitionClaimed = true;
                 return true;
             }
         }
@@ -754,7 +1091,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             lock (_lock)
             {
-                if (_disposed || _started || IsTerminal(Job.Status))
+                if (_disposed
+                    || _started
+                    || _terminalTransitionClaimed
+                    || IsTerminal(Job.Status))
                     return false;
 
                 Cancellation.Cancel();
@@ -766,7 +1106,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             lock (_lock)
             {
-                if (_disposed || IsTerminal(Job.Status))
+                if (_disposed || _terminalTransitionClaimed || IsTerminal(Job.Status))
                     return;
 
                 Cancellation.Cancel();
