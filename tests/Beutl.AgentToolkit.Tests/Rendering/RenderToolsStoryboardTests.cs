@@ -905,21 +905,19 @@ public sealed class RenderToolsStoryboardTests
                     DateTimeOffset.UtcNow,
                     [TimeSpan.Zero],
                     new QualityAnalysisOptions(
-                        null,
-                        null,
-                        9,
-                        false,
-                        false,
-                        false,
-                        false,
-                        false,
-                        false,
-                        false,
-                        false,
-                        false,
-                        0,
-                        null,
-                        null),
+                        VideoType: null,
+                        StyleProfile: null,
+                        RenderScale: 9,
+                        AllowAllCaps: false,
+                        AllowHardCuts: false,
+                        RelaxAesthetics: false,
+                        AllowStillness: false,
+                        AllowDenseText: false,
+                        AllowMultiObjectElements: false,
+                        AllowMinimalDensity: false,
+                        PlannedForegroundElementsPerShot: 0,
+                        BeatTimesSeconds: null,
+                        PaletteRoleColors: null),
                     null!,
                     []));
                 error = ReadToolResult<CompareRevisionsResponse>(
@@ -1052,7 +1050,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Evaluate_edit_quality_static_layout_false_reports_major_motion_continuity_blocker()
+    public async Task Evaluate_edit_quality_static_layout_false_reports_motion_continuity_as_advisory()
     {
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
@@ -1066,9 +1064,9 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.PassesQualityGate, Is.False);
+            Assert.That(result.Value!.PassesQualityGate, Is.True);
             Assert.That(result.Value.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
         });
     }
 
@@ -1098,7 +1096,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Final_preflight_static_layout_false_is_not_ready_and_reports_motion_blockers()
+    public async Task Final_preflight_reports_low_motion_as_advisory_and_blocks_only_on_the_requested_check()
     {
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
@@ -1117,8 +1115,34 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.ReadyForExport, Is.False);
             Assert.That(result.Value.ReadyForStoryboard, Is.False);
             Assert.That(result.Value.Motion, Is.Not.Null);
-            Assert.That(result.Value.Blockers, Has.Some.Contains("Motion variation did not pass"));
+            Assert.That(result.Value.Advisories, Has.Some.Contains("Motion variation did not pass"));
+            Assert.That(result.Value.Blockers, Has.None.Contains("Motion variation did not pass"));
             Assert.That(result.Value.Blockers, Has.Some.Contains("animatedPropertyCount is 0"));
+        });
+    }
+
+    [Test]
+    public async Task Final_preflight_includes_non_blocking_quality_issues_in_advisories()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        RenderTools tools = CreateTools(workspace, session);
+
+        ToolResult<FinalPreflightResponse> result = await tools.FinalPreflight(
+            outputPrefix: "preflight/quality-advisories",
+            sampleCount: 2,
+            staticLayout: true,
+            styleProfile: "motion-graphics",
+            plannedForegroundElementsPerShot: 10,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Quality.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
+            Assert.That(result.Value.Advisories, Has.Some.Contains("[layerDensity]"));
+            Assert.That(result.Value.Blockers, Has.None.Contains("layerDensity"));
         });
     }
 
@@ -1168,7 +1192,7 @@ public sealed class RenderToolsStoryboardTests
             allowStillness: true,
             paletteRoleColors: CreateRevisionPaletteRolesJson(),
             cancellationToken: CancellationToken.None);
-        SetRevisionTextColor(scene, Colors.White);
+        FixRevisionElementStructure(scene);
         AddRevisionAccentFlood(scene, workspace);
 
         CallToolResult call = await tools.CompareRevisions(returnImageContent: true, cancellationToken: CancellationToken.None);
@@ -1177,9 +1201,9 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
-            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
             Assert.That(result.Value.IssuesIntroduced, Has.Some.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
             Assert.That(result.Value.Regression, Is.True);
             Assert.That(result.Value.MetricDeltas.Select(delta => delta.Metric), Does.Contain("paletteBalance.roleShare.accent"));
@@ -1339,6 +1363,9 @@ public sealed class RenderToolsStoryboardTests
             Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff1a2028")) }
         };
         AddElement(scene, workspace, "revision text", TimeSpan.Zero, TimeSpan.FromSeconds(2), 10, block);
+        // A multi-object Element with no flow operator: the revision fixes this while the
+        // accent flood worsens palette balance, which is what the regression flag detects.
+        scene.Children[^1].AddObject(new EllipseShape { Name = "stray accent" });
         return scene;
     }
 
@@ -1368,6 +1395,12 @@ public sealed class RenderToolsStoryboardTests
             }
         };
         AddElement(scene, workspace, "accent flood", TimeSpan.Zero, TimeSpan.FromSeconds(2), 5, rect);
+    }
+
+    private static void FixRevisionElementStructure(Scene scene)
+    {
+        Element element = scene.Children.Single(item => item.Objects.Count > 1);
+        element.RemoveObject(element.Objects.OfType<EllipseShape>().Single());
     }
 
     private static PaletteRoleColor[] CreateRevisionPaletteRoles()

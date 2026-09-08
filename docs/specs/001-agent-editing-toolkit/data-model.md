@@ -85,11 +85,11 @@ The reconciliation runs inside `HistoryManager.ExecuteInTransaction(action, name
 
 ## Quality Review
 
-`evaluate_edit_quality` produces a deterministic gate for common AI-editing failures. It inspects the live `Scene` graph plus rendered motion samples and returns `passesQualityGate`, a verdict, categorized issues, and metrics.
+`evaluate_edit_quality` measures deterministic document, readability, timing, palette-area, and rendered-motion properties. It inspects the live `Scene` graph plus optional rendered samples and returns `passesQualityGate`, a verdict, categorized issues, and metrics.
 
-Issue categories are `typography`, `shapeDiversity`, `textBackgroundFit`, `paletteHarmony`, `materialUiLook`, `motionContinuity`, and `cutRhythm`. Severity is `critical`, `major`, or `minor`; normal exports require no critical or major issues unless the user explicitly accepts the trade-off.
+Issue categories are `typography`, `typographyReadTime`, `typographyContrast`, `audioSync`, `elementStructure`, `layerDensity`, `tempoRhythm`, `textBackgroundFit`, `paletteBalance`, `transitionVocabulary`, `easingDiversity`, `motionUniformity`, `motionContinuity`, `cutRhythm`, `timelineCoverage`, and `geometryPathOffset`. Severity is `critical`, `major`, or `minor`. Only unreadable text (`typographyReadTime` and rendered `typographyContrast`) and malformed multi-object Element structure (`elementStructure`) fail the base quality gate; every other category is advisory. `final_preflight(requireAnimatedProperties:true)` may additionally make zero animated properties a caller-requested preflight blocker.
 
-The review intentionally avoids OCR and generative visual judging. It uses text properties, shape classes, transform estimates, brush/effect colors, keyframe presence, element timing boundaries, and `MotionVariationAnalyzer` output.
+The review intentionally avoids OCR and generative visual judging. It uses text properties, bounds math, keyframe/easing presence, element timing boundaries, optional supplied palette roles and beat times, and rendered contrast/motion samples. Palette harmony, background richness, shape clarity, gradient falloff, and motion arc are judged from rendered visual review rather than inferred by this model.
 
 ## Mapping summary (toolkit term → Beutl type / API)
 

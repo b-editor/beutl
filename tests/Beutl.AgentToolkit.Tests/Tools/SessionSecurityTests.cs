@@ -100,7 +100,7 @@ public sealed class SessionSecurityTests
             renderJobs);
 
         var gate = new TaskCompletionSource();
-        string jobId = renderJobs.Enqueue("test", async _ =>
+        string jobId = renderJobs.Enqueue("test", async (_, _) =>
         {
             await gate.Task;
             return (JsonNode)JsonValue.Create(true);

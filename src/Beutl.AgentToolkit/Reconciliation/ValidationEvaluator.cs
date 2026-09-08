@@ -91,30 +91,92 @@ public static class ValidationEvaluator
                 CreateValueHint(property.ValueType));
         }
 
-        IValidator validator = property.CreateValidator(property.GetAttributes() ?? []);
+        IValidator? validator = property.GetValidator();
         return EvaluateValidator(validator, new ValidationContext(property, null), value, options);
+    }
+
+    internal static ValidationOutcome EvaluateAnimationValue(
+        IProperty property,
+        object? value,
+        CoreSerializerOptions? options)
+    {
+        return EvaluateAnimationValue(property, value, options, out _);
+    }
+
+    internal static ValidationOutcome EvaluateAnimationValue(
+        IProperty property,
+        object? value,
+        CoreSerializerOptions? options,
+        out object? acceptedValue)
+    {
+        ArgumentNullException.ThrowIfNull(property);
+
+        if (!IsAssignableValue(property.ValueType, value))
+        {
+            acceptedValue = value;
+            return ValidationOutcome.Rejected(
+                value,
+                $"Value is not assignable to {property.ValueType.FullName}.",
+                options,
+                CreateValueHint(property.ValueType));
+        }
+
+        return EvaluateValidator(
+            property.GetValidator(),
+            new ValidationContext(property, null),
+            value,
+            options,
+            out acceptedValue);
+    }
+
+    // A FontFamily that is not registered renders as a fallback rather than the requested face,
+    // and nothing downstream says so — the frame just comes back in the wrong typeface.
+    private static ValidationOutcome? EvaluateFontFamily(object? value, CoreSerializerOptions? options)
+    {
+        if (value is not FontFamily family || FontManager.Instance.IsRegistered(family))
+        {
+            return null;
+        }
+
+        return ValidationOutcome.Warning(
+            value,
+            $"Font family '{family.Name}' is not installed or is not a typographic family name, so it renders in the fallback face.",
+            options,
+            "Call list_fonts for installed families and their available weight/style typeface pairs. A subfamily name such as \"Inter 28pt\" is not a family name; use the typographic family (\"Inter\") and choose FontWeight and FontStyle from the same returned typeface entry.");
     }
 
     private static ValidationOutcome EvaluateValidator(
         IValidator? validator, ValidationContext context, object? value, CoreSerializerOptions? options)
     {
-        if (validator is null)
+        return EvaluateValidator(validator, context, value, options, out _);
+    }
+
+    private static ValidationOutcome EvaluateValidator(
+        IValidator? validator,
+        ValidationContext context,
+        object? value,
+        CoreSerializerOptions? options,
+        out object? acceptedValue)
+    {
+        acceptedValue = value;
+        if (validator is not null)
         {
-            return ValidationOutcome.Ok(value, options);
+            object? coerced = value;
+            if (validator.TryCoerce(context, ref coerced))
+            {
+                acceptedValue = coerced;
+                if (!Equals(value, coerced))
+                {
+                    return ValidationOutcome.Coerced(value, coerced, options);
+                }
+            }
+            else if (validator.Validate(context, value) is { } message)
+            {
+                return ValidationOutcome.Rejected(value, message, options);
+            }
         }
 
-        object? coerced = value;
-        if (validator.TryCoerce(context, ref coerced))
-        {
-            return Equals(value, coerced)
-                ? ValidationOutcome.Ok(value, options)
-                : ValidationOutcome.Coerced(value, coerced, options);
-        }
-
-        string? message = validator.Validate(context, value);
-        return message is null
-            ? ValidationOutcome.Ok(value, options)
-            : ValidationOutcome.Rejected(value, message, options);
+        return EvaluateFontFamily(value, options) ?? ValidationOutcome.Ok(value, options);
     }
 
     private static bool IsAssignableValue(Type targetType, object? value)

@@ -2,7 +2,9 @@
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
+using Beutl.Validation;
 using Moq;
+using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.UnitTests.Engine.Animation;
 
@@ -83,5 +85,26 @@ public class KeyFrameTests
         Assert.That(easing.Y1, Is.EqualTo(0.2f));
         Assert.That(easing.X2, Is.EqualTo(0.3f));
         Assert.That(easing.Y2, Is.EqualTo(0.4f));
+    }
+
+    [Test]
+    public void UntypedNullAssignmentRunsTheTypedValidator()
+    {
+        var keyFrame = new KeyFrame<string> { Validator = new NullDefaultValidator() };
+
+        ((IKeyFrame)keyFrame).Value = null;
+
+        Assert.That(keyFrame.Value, Is.EqualTo("fallback"));
+    }
+
+    private sealed class NullDefaultValidator : IValidator<string>
+    {
+        public bool TryCoerce(ValidationContext context, ref string? value)
+        {
+            value ??= "fallback";
+            return true;
+        }
+
+        public string? Validate(ValidationContext context, string? value) => null;
     }
 }

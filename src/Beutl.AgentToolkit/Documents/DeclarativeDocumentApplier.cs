@@ -385,12 +385,58 @@ internal sealed class DeclarativeDocumentApplier
 
     private void ApplyAnimation(IProperty property, JsonObject animationJson)
     {
+        if (KeyFrameShorthand.IsShorthand(animationJson))
+        {
+            animationJson = KeyFrameShorthand.Expand(animationJson, property.ValueType);
+        }
+
+        HashSet<Guid>? changedValueIds = null;
         IAnimation? current = property.Animation;
         if (current is CoreObject currentObject
             && IdentityMatches(currentObject, animationJson)
             && TypeMatches(currentObject, animationJson))
         {
-            ApplyCoreObject(currentObject, animationJson);
+            // A merge-patch produces a full desired document, so animations unrelated to the edit
+            // arrive here structurally equivalent to their current serialization. Do not replay
+            // their setters: attaching a validator does not retroactively change old keyframes, and
+            // reassigning those values here would silently coerce or reject pre-existing project data
+            // that the caller did not edit.
+            JsonObject currentJson = CoreSerializer.SerializeToJsonObject(
+                currentObject,
+                new CoreSerializerOptions
+                {
+                    BaseUri = ResolveBaseUri(currentObject) ?? _documentBaseUri,
+                    Mode = CoreSerializationMode.EmbedReferencedObjects
+                });
+            if (JsonNode.DeepEquals(currentJson, animationJson))
+            {
+                return;
+            }
+
+            changedValueIds = KeyFrameValueChangeDetector.CollectChangedValueIds(
+                currentJson,
+                animationJson);
+
+            if (currentObject is KeyFrameAnimation currentKeyFrameAnimation)
+            {
+                // Existing keyframes already carry the owning validator, but their public setter
+                // can only supply a default context. Populate the requested fields first, then run
+                // the validator once below with the actual owner-property context.
+                var validator = currentKeyFrameAnimation.Validator;
+                currentKeyFrameAnimation.Validator = null;
+                try
+                {
+                    ApplyCoreObject(currentObject, animationJson);
+                }
+                finally
+                {
+                    currentKeyFrameAnimation.Validator = validator;
+                }
+            }
+            else
+            {
+                ApplyCoreObject(currentObject, animationJson);
+            }
         }
         else
         {
@@ -413,6 +459,67 @@ internal sealed class DeclarativeDocumentApplier
             }
 
             property.Animation = animation;
+        }
+
+        RevalidateKeyFrameValues(property, changedValueIds);
+    }
+
+    private void RevalidateKeyFrameValues(
+        IProperty property,
+        IReadOnlySet<Guid>? changedValueIds)
+    {
+        if (property.Animation is not KeyFrameAnimation animation)
+        {
+            return;
+        }
+
+        CoreSerializerOptions options = CreateOptions(property.GetOwnerObject());
+        foreach (IKeyFrame keyFrame in animation.KeyFrames)
+        {
+            if (changedValueIds is not null && !changedValueIds.Contains(keyFrame.Id))
+            {
+                continue;
+            }
+
+            object? value = keyFrame.Value;
+            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+                property,
+                value,
+                options,
+                out object? acceptedValue);
+            if (outcome.Status == ValidationStatus.Rejected)
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Animation value for property '{property.Name}' is invalid: {outcome.Message}",
+                    property.Name,
+                    outcome.Hint));
+            }
+
+            // A newly deserialized animation receives the owning property's validator only when it
+            // is attached. Evaluate once with that property's context, then store the accepted value
+            // without invoking KeyFrame<T>'s contextless validator path a second time.
+            AssignAcceptedKeyFrameValue(keyFrame, acceptedValue);
+        }
+    }
+
+    private static void AssignAcceptedKeyFrameValue(IKeyFrame keyFrame, object? value)
+    {
+        if (keyFrame is not KeyFrame concreteKeyFrame)
+        {
+            keyFrame.Value = value;
+            return;
+        }
+
+        var validator = concreteKeyFrame.Validator;
+        concreteKeyFrame.Validator = null;
+        try
+        {
+            keyFrame.Value = value;
+        }
+        finally
+        {
+            concreteKeyFrame.Validator = validator;
         }
     }
 

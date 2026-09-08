@@ -84,4 +84,36 @@ public sealed class LiveEditingSession : IEditingSession, IEditingSessionDispatc
             action();
         });
     }
+
+    internal ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+        Func<HistoryManager, bool> shouldPause,
+        Func<HistoryManager, TResult> operation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(shouldPause);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        return _binding.ExecuteHistoryMutationAsync(
+            history =>
+            {
+                EnsureHistoryBindingIsAlive(history);
+                return shouldPause(history);
+            },
+            history =>
+            {
+                EnsureHistoryBindingIsAlive(history);
+                return operation(history);
+            },
+            cancellationToken);
+    }
+
+    private void EnsureHistoryBindingIsAlive(HistoryManager history)
+    {
+        if (!_binding.IsAlive
+            || _binding.ActiveScene is null
+            || !ReferenceEquals(_binding.ActiveHistory, history))
+        {
+            throw new SessionUnavailableException();
+        }
+    }
 }

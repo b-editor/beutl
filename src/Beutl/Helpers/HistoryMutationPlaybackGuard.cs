@@ -7,11 +7,12 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile bool _disposed;
 
-    internal async ValueTask<bool> RunAsync(
+    internal async ValueTask<TResult> RunAsync<TResult>(
         IPreviewPlayer? player,
         Action drainPendingMutations,
         Func<bool> shouldPause,
-        Func<bool> mutate)
+        Func<TResult> mutate,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(drainPendingMutations);
         ArgumentNullException.ThrowIfNull(shouldPause);
@@ -20,7 +21,7 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         // Dispose() leaves the gate intact when an operation still holds it (see Dispose).
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        await _gate.WaitAsync();
+        await _gate.WaitAsync(cancellationToken);
         try
         {
             // Re-check after acquiring the gate: a caller that was already queued in WaitAsync()

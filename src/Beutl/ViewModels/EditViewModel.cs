@@ -1110,6 +1110,19 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             () => HistoryManager.JumpTo(index));
     }
 
+    internal ValueTask<TResult> ExecuteGuardedHistoryMutationAsync<TResult>(
+        Func<bool> shouldPause,
+        Func<TResult> mutate,
+        CancellationToken cancellationToken = default)
+    {
+        return _historyMutationPlaybackGuard.RunAsync(
+            Player,
+            HistoryManager.FlushPendingMutations,
+            shouldPause,
+            mutate,
+            cancellationToken);
+    }
+
     private async ValueTask<bool> ExecuteHistoryMutationAsync(
         string operationName,
         string? startMessage,
@@ -1124,8 +1137,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 _logger.LogInformation("{Message}", startMessage);
             }
 
-            bool changed = await _historyMutationPlaybackGuard.RunAsync(
-                Player, HistoryManager.FlushPendingMutations, shouldPause, mutate);
+            bool changed = await ExecuteGuardedHistoryMutationAsync(shouldPause, mutate);
             if (changed && completedMessage is not null)
             {
                 _logger.LogInformation("{Message}", completedMessage);

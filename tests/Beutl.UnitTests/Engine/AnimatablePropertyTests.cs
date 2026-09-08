@@ -4,6 +4,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
+using Beutl.Validation;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -61,6 +62,15 @@ public class AnimatablePropertyTests
         Assert.That(property.HasLocalValue, Is.False);
         Assert.That(property.HasExpression, Is.False);
         Assert.That(property.Animation, Is.Null);
+    }
+
+    [Test]
+    public void GetValidator_ReturnsTheAttachedValidator()
+    {
+        var validator = new MultipleValidator<int>([]);
+        var property = new AnimatableProperty<int>(0, validator);
+
+        Assert.That(property.GetValidator(), Is.SameAs(validator));
     }
 
     [Test]
