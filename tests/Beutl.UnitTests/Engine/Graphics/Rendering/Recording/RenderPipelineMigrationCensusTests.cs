@@ -386,6 +386,9 @@ public sealed class RenderPipelineMigrationCensusTests
         const string globalPath = "src/Compatibility/GlobalExtensions.cs";
         const string aliasPath = "src/Compatibility/AliasExtensions.cs";
         const string blockPath = "src/Compatibility/ExtensionBlock.cs";
+        const string constrainedPath = "src/Compatibility/ConstrainedExtensions.cs";
+        const string relativeImportPath = "src/Beutl.Compatibility/RelativeExtensions.cs";
+        const string fileLocalPeerPath = "src/FileLocal/PeerExtensions.cs";
         SourceCorpus corpus = SourceCorpus.Create(
             ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
                 """
@@ -419,8 +422,50 @@ public sealed class RenderPipelineMigrationCensusTests
                 {
                     extension(RenderNodeProcessor? processor)
                     {
-                        public void Pull() { }
+                        public void Pull(RenderNode node) { }
                     }
+                }
+                """),
+            (constrainedPath,
+                """
+                using Beutl.Graphics.Rendering;
+                namespace Compatibility;
+                public static class ConstrainedExtensions
+                {
+                    public static void Pull<T>(this T processor) where T : RenderNodeProcessor { }
+                }
+                """),
+            (relativeImportPath,
+                """
+                namespace Beutl.Compatibility
+                {
+                    using Graphics.Rendering;
+                    public static class RelativeExtensions
+                    {
+                        public static void Pull(this RenderNodeProcessor processor) { }
+                    }
+                }
+                """),
+            ("src/FileLocal/Shadow.cs",
+                """
+                namespace FileLocal;
+                file sealed class RenderNodeProcessor { }
+                """),
+            (fileLocalPeerPath,
+                """
+                using Beutl.Graphics.Rendering;
+                namespace FileLocal;
+                public static class PeerExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """),
+            ("src/Beutl.Engine/Graphics/Rendering/GenericProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor<T>
+                {
+                    public void Pull() { }
                 }
                 """),
             ("src/Other/AliasShadow.cs",
@@ -452,7 +497,78 @@ public sealed class RenderPipelineMigrationCensusTests
 
         Assert.That(
             findings.Select(finding => finding.RelativePath),
-            Is.EquivalentTo(new[] { globalPath, aliasPath, blockPath }));
+            Is.EquivalentTo(new[]
+            {
+                globalPath,
+                aliasPath,
+                blockPath,
+                constrainedPath,
+                relativeImportPath,
+                fileLocalPeerPath,
+            }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Includes_inherited_members()
+    {
+        const string basePath = "src/Beutl.Engine/Graphics/Rendering/ProcessorBase.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            (basePath,
+                """
+                namespace Beutl.Graphics.Rendering;
+                public class ProcessorBase
+                {
+                    public void Pull() { }
+                }
+                """),
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor : ProcessorBase { }
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"])
+            .ToArray();
+
+        Assert.That(findings.Select(finding => finding.RelativePath), Is.EqualTo(new[] { basePath }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Scopes_global_usings_to_their_compilation()
+    {
+        const string visiblePath = "src/A/VisibleExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.CreatePartitioned(
+            ("A", "src/A/GlobalUsings.cs", "global using Beutl.Graphics.Rendering;"),
+            ("A", visiblePath,
+                """
+                namespace A;
+                public static class VisibleExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """),
+            ("B", "src/B/InvisibleExtensions.cs",
+                """
+                namespace B;
+                public static class InvisibleExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """),
+            ("Engine", "src/Engine/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"])
+            .ToArray();
+
+        Assert.That(findings.Select(finding => finding.RelativePath), Is.EqualTo(new[] { visiblePath }));
     }
 
     [Test]
@@ -671,21 +787,30 @@ public sealed class RenderPipelineMigrationCensusTests
 
     private sealed class SourceCorpus
     {
-        private readonly UsingDirectiveSyntax[] _globalUsings;
-        private readonly HashSet<string> _declaredTypes;
+        private readonly IReadOnlyDictionary<string, UsingDirectiveSyntax[]> _globalUsings;
+        private readonly DeclaredType[] _declaredTypes;
 
         private SourceCorpus(string repositoryRoot, IReadOnlyList<SourceDocument> documents)
         {
             RepositoryRoot = repositoryRoot;
             Documents = documents;
             _globalUsings = documents
-                .SelectMany(document => document.Root.Usings)
-                .Where(item => item.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
-                .ToArray();
+                .GroupBy(document => document.CompilationId, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.SelectMany(document => document.Root.Usings)
+                        .Where(item => item.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+                        .ToArray(),
+                    StringComparer.Ordinal);
             _declaredTypes = documents
-                .SelectMany(document => document.Root.DescendantNodes().OfType<TypeDeclarationSyntax>())
-                .Select(GetQualifiedTypeName)
-                .ToHashSet(StringComparer.Ordinal);
+                .SelectMany(document => document.Root.DescendantNodes()
+                    .OfType<TypeDeclarationSyntax>()
+                    .Select(type => new DeclaredType(
+                        document,
+                        type,
+                        GetQualifiedTypeName(type),
+                        type.Modifiers.Any(SyntaxKind.FileKeyword))))
+                .ToArray();
         }
 
         public string RepositoryRoot { get; }
@@ -706,6 +831,7 @@ public sealed class RenderPipelineMigrationCensusTests
 
             string repositoryRoot = directory.FullName;
             var documents = new List<SourceDocument>();
+            var compilationIds = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (string sourceRootName in new[] { "src", "tests" })
             {
                 string sourceRoot = Path.Combine(repositoryRoot, sourceRootName);
@@ -725,7 +851,8 @@ public sealed class RenderPipelineMigrationCensusTests
                     documents.Add(new SourceDocument(
                         relativePath,
                         text,
-                        tree.GetCompilationUnitRoot()));
+                        tree.GetCompilationUnitRoot(),
+                        GetCompilationId(repositoryRoot, path, compilationIds)));
                 }
             }
 
@@ -746,11 +873,84 @@ public sealed class RenderPipelineMigrationCensusTests
                             .WithLanguageVersion(LanguageVersion.Preview)
                             .WithDocumentationMode(DocumentationMode.Parse),
                         source.RelativePath);
-                    return new SourceDocument(source.RelativePath, text, tree.GetCompilationUnitRoot());
+                    return new SourceDocument(
+                        source.RelativePath,
+                        text,
+                        tree.GetCompilationUnitRoot(),
+                        "synthetic");
                 })
                 .OrderBy(document => document.RelativePath, StringComparer.Ordinal)
                 .ToArray();
             return new SourceCorpus("synthetic", documents);
+        }
+
+        public static SourceCorpus CreatePartitioned(
+            params (string CompilationId, string RelativePath, string Source)[] sources)
+        {
+            SourceDocument[] documents = sources
+                .Select(source =>
+                {
+                    SourceText text = SourceText.From(source.Source);
+                    var tree = CSharpSyntaxTree.ParseText(
+                        text,
+                        CSharpParseOptions.Default
+                            .WithLanguageVersion(LanguageVersion.Preview)
+                            .WithDocumentationMode(DocumentationMode.Parse),
+                        source.RelativePath);
+                    return new SourceDocument(
+                        source.RelativePath,
+                        text,
+                        tree.GetCompilationUnitRoot(),
+                        source.CompilationId);
+                })
+                .OrderBy(document => document.RelativePath, StringComparer.Ordinal)
+                .ToArray();
+            return new SourceCorpus("synthetic", documents);
+        }
+
+        private static string GetCompilationId(
+            string repositoryRoot,
+            string path,
+            Dictionary<string, string> cache)
+        {
+            DirectoryInfo? directory = new FileInfo(path).Directory;
+            var visited = new List<string>();
+            while (directory is not null
+                   && directory.FullName.StartsWith(repositoryRoot, StringComparison.Ordinal))
+            {
+                if (cache.TryGetValue(directory.FullName, out string? cached))
+                {
+                    foreach (string visitedDirectory in visited)
+                    {
+                        cache[visitedDirectory] = cached;
+                    }
+
+                    return cached;
+                }
+
+                visited.Add(directory.FullName);
+                string? project = Directory.EnumerateFiles(
+                        directory.FullName,
+                        "*.csproj",
+                        SearchOption.TopDirectoryOnly)
+                    .OrderBy(candidate => candidate, StringComparer.Ordinal)
+                    .FirstOrDefault();
+                if (project is not null)
+                {
+                    string compilationId = NormalizePath(
+                        Path.GetRelativePath(repositoryRoot, project));
+                    foreach (string visitedDirectory in visited)
+                    {
+                        cache[visitedDirectory] = compilationId;
+                    }
+
+                    return compilationId;
+                }
+
+                directory = directory.Parent;
+            }
+
+            return NormalizePath(Path.GetRelativePath(repositoryRoot, path));
         }
 
         public IReadOnlyList<SourceMethod> FindRenderNodeProcessOverrides()
@@ -903,19 +1103,27 @@ public sealed class RenderPipelineMigrationCensusTests
             string namespaceName = separator >= 0 ? qualifiedTypeName[..separator] : string.Empty;
             string typeName = separator >= 0 ? qualifiedTypeName[(separator + 1)..] : qualifiedTypeName;
             var memberNameSet = new HashSet<string>(memberNames, StringComparer.Ordinal);
+            var reportedMembers = new HashSet<(string Path, int Position)>();
             foreach (SourceDocument document in Documents)
             {
-                foreach (TypeDeclarationSyntax type in document.Root.DescendantNodes()
-                             .OfType<TypeDeclarationSyntax>()
-                             .Where(type => GetQualifiedTypeName(type) == qualifiedTypeName))
+                foreach (DeclaredType declared in _declaredTypes.Where(item =>
+                             ReferenceEquals(item.Document, document)
+                             && !item.IsFileLocal
+                             && item.QualifiedName == qualifiedTypeName))
                 {
-                    foreach (MemberDeclarationSyntax member in type.Members)
+                    foreach (DeclaredType visibleType in EnumerateTypeHierarchy(declared))
                     {
-                        foreach (SyntaxToken identifier in GetDeclaredIdentifiers(member)
-                                     .Where(token => memberNameSet.Contains(token.ValueText)))
+                        foreach (MemberDeclarationSyntax member in visibleType.Syntax.Members)
                         {
-                            yield return document.ToFinding(identifier,
-                                $"forwarding member '{identifier.ValueText}' on '{typeName}'");
+                            foreach (SyntaxToken identifier in GetDeclaredIdentifiers(member)
+                                         .Where(token => memberNameSet.Contains(token.ValueText)))
+                            {
+                                if (reportedMembers.Add((visibleType.Document.RelativePath, identifier.SpanStart)))
+                                {
+                                    yield return visibleType.Document.ToFinding(identifier,
+                                        $"forwarding member '{identifier.ValueText}' on '{typeName}'");
+                                }
+                            }
                         }
                     }
                 }
@@ -924,17 +1132,20 @@ public sealed class RenderPipelineMigrationCensusTests
                              .OfType<MethodDeclarationSyntax>()
                              .Where(method => memberNameSet.Contains(method.Identifier.ValueText)))
                 {
-                    ParameterSyntax? receiver = method.ParameterList.Parameters.FirstOrDefault();
-                    bool extensionBlockReceiver = false;
-                    if (receiver is null
-                        && method.Ancestors().FirstOrDefault(node =>
-                            node.IsKind(SyntaxKind.ExtensionBlockDeclaration)) is { } extensionBlock)
+                    SyntaxNode? extensionBlock = method.Ancestors().FirstOrDefault(node =>
+                        node.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+                    bool extensionBlockReceiver = extensionBlock is not null;
+                    ParameterSyntax? receiver;
+                    if (extensionBlock is not null)
                     {
                         receiver = extensionBlock.ChildNodes()
                             .OfType<ParameterListSyntax>()
                             .SelectMany(list => list.Parameters)
                             .FirstOrDefault();
-                        extensionBlockReceiver = receiver is not null;
+                    }
+                    else
+                    {
+                        receiver = method.ParameterList.Parameters.FirstOrDefault();
                     }
 
                     if (receiver is null
@@ -966,8 +1177,51 @@ public sealed class RenderPipelineMigrationCensusTests
             IEnumerable<string> containingTypes = type.Ancestors()
                 .OfType<TypeDeclarationSyntax>()
                 .Reverse()
-                .Select(item => item.Identifier.ValueText);
-            return string.Join('.', namespaces.Concat(containingTypes).Append(type.Identifier.ValueText));
+                .Select(GetTypeIdentityName);
+            return string.Join('.', namespaces.Concat(containingTypes).Append(GetTypeIdentityName(type)));
+        }
+
+        private static string GetTypeIdentityName(TypeDeclarationSyntax type)
+        {
+            int arity = type.TypeParameterList?.Parameters.Count ?? 0;
+            return arity == 0
+                ? type.Identifier.ValueText
+                : $"{type.Identifier.ValueText}`{arity}";
+        }
+
+        private IEnumerable<DeclaredType> EnumerateTypeHierarchy(DeclaredType root)
+        {
+            var pending = new Stack<DeclaredType>();
+            var visited = new HashSet<(string Path, int Position)>();
+            pending.Push(root);
+            while (pending.TryPop(out DeclaredType? current))
+            {
+                if (!visited.Add((current.Document.RelativePath, current.Syntax.SpanStart)))
+                {
+                    continue;
+                }
+
+                yield return current;
+                if (current.Syntax.BaseList is null)
+                {
+                    continue;
+                }
+
+                foreach (BaseTypeSyntax baseType in current.Syntax.BaseList.Types)
+                {
+                    foreach (DeclaredType candidate in _declaredTypes.Where(candidate =>
+                                 IsVisibleIn(candidate, current.Document)
+                                 && CouldReferToType(
+                                     baseType.Type,
+                                     current.Document,
+                                     GetNamespaceName(candidate.Syntax),
+                                     GetTypeIdentityName(candidate.Syntax),
+                                     candidate.QualifiedName)))
+                    {
+                        pending.Push(candidate);
+                    }
+                }
+            }
         }
 
         private bool CouldReferToType(
@@ -987,7 +1241,25 @@ public sealed class RenderPipelineMigrationCensusTests
                 type = nullable.ElementType;
             }
 
-            string writtenType = type.ToString().Replace("global::", string.Empty, StringComparison.Ordinal);
+            if (type is IdentifierNameSyntax typeParameter
+                && type.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault() is { } method)
+            {
+                TypeParameterConstraintClauseSyntax? clause = method.ConstraintClauses.FirstOrDefault(
+                    item => item.Name.Identifier.ValueText == typeParameter.Identifier.ValueText);
+                if (clause is not null)
+                {
+                    return clause.Constraints
+                        .OfType<TypeConstraintSyntax>()
+                        .Any(constraint => CouldReferToType(
+                            constraint.Type,
+                            document,
+                            namespaceName,
+                            typeName,
+                            qualifiedTypeName));
+                }
+            }
+
+            string writtenType = GetWrittenTypeIdentity(type);
             if (writtenType == qualifiedTypeName)
             {
                 return true;
@@ -996,20 +1268,25 @@ public sealed class RenderPipelineMigrationCensusTests
             UsingDirectiveSyntax[] usings = document.Root.Usings.Concat(
                     type.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(item => item.Usings))
                 .ToArray();
-            usings = usings.Concat(_globalUsings).ToArray();
+            if (_globalUsings.TryGetValue(
+                    document.CompilationId,
+                    out UsingDirectiveSyntax[]? globalUsings))
+            {
+                usings = usings.Concat(globalUsings).ToArray();
+            }
+
             int nameSeparator = writtenType.IndexOf('.');
             string aliasName = nameSeparator < 0 ? writtenType : writtenType[..nameSeparator];
             UsingDirectiveSyntax? alias = usings.FirstOrDefault(item =>
                 item.Alias?.Name.Identifier.ValueText == aliasName);
             if (alias is not null)
             {
-                string aliasTarget = alias.Name?.ToString()
-                    .Replace("global::", string.Empty, StringComparison.Ordinal)
-                    ?? string.Empty;
-                string resolvedAlias = nameSeparator < 0
-                    ? aliasTarget
-                    : aliasTarget + writtenType[nameSeparator..];
-                return resolvedAlias == qualifiedTypeName;
+                string aliasTarget = alias.Name is null
+                    ? string.Empty
+                    : GetWrittenName(alias.Name);
+                string suffix = nameSeparator < 0 ? string.Empty : writtenType[nameSeparator..];
+                return GetImportCandidates(alias, aliasTarget)
+                    .Any(candidate => candidate + suffix == qualifiedTypeName);
             }
 
             if (writtenType != typeName)
@@ -1017,16 +1294,15 @@ public sealed class RenderPipelineMigrationCensusTests
                 return false;
             }
 
-            string declaredNamespace = string.Join('.', type.Ancestors()
-                .OfType<BaseNamespaceDeclarationSyntax>()
-                .Reverse()
-                .Select(item => item.Name.ToString()));
+            string declaredNamespace = GetNamespaceName(type);
             for (string scope = declaredNamespace; ;)
             {
                 string declaredType = string.IsNullOrEmpty(scope)
                     ? typeName
                     : scope + "." + typeName;
-                if (_declaredTypes.Contains(declaredType))
+                if (_declaredTypes.Any(item =>
+                        IsVisibleIn(item, document)
+                        && item.QualifiedName == declaredType))
                 {
                     return declaredType == qualifiedTypeName;
                 }
@@ -1042,10 +1318,67 @@ public sealed class RenderPipelineMigrationCensusTests
 
             return declaredNamespace == namespaceName
                    || usings.Any(item => item.Alias is null
-                       && item.Name?.ToString().Replace(
-                           "global::",
-                           string.Empty,
-                           StringComparison.Ordinal) == namespaceName);
+                       && item.Name is not null
+                       && GetImportCandidates(item, GetWrittenName(item.Name))
+                           .Contains(namespaceName, StringComparer.Ordinal));
+        }
+
+        private static string GetWrittenTypeIdentity(TypeSyntax type)
+        {
+            return type switch
+            {
+                IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+                GenericNameSyntax generic =>
+                    $"{generic.Identifier.ValueText}`{generic.TypeArgumentList.Arguments.Count}",
+                QualifiedNameSyntax qualified =>
+                    $"{GetWrittenTypeIdentity(qualified.Left)}.{GetWrittenTypeIdentity(qualified.Right)}",
+                AliasQualifiedNameSyntax alias =>
+                    alias.Alias.Identifier.ValueText == "global"
+                        ? GetWrittenTypeIdentity(alias.Name)
+                        : $"{alias.Alias.Identifier.ValueText}.{GetWrittenTypeIdentity(alias.Name)}",
+                _ => type.ToString().Replace("global::", string.Empty, StringComparison.Ordinal),
+            };
+        }
+
+        private static string GetWrittenName(NameSyntax name)
+        {
+            return name.ToString().Replace("global::", string.Empty, StringComparison.Ordinal);
+        }
+
+        private static IEnumerable<string> GetImportCandidates(
+            UsingDirectiveSyntax directive,
+            string importedName)
+        {
+            if (directive.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+            {
+                yield return importedName;
+                yield break;
+            }
+
+            string scope = GetNamespaceName(directive);
+            while (!string.IsNullOrEmpty(scope))
+            {
+                yield return scope + "." + importedName;
+                int separator = scope.LastIndexOf('.');
+                scope = separator < 0 ? string.Empty : scope[..separator];
+            }
+
+            yield return importedName;
+        }
+
+        private static string GetNamespaceName(SyntaxNode node)
+        {
+            return string.Join('.', node.Ancestors()
+                .OfType<BaseNamespaceDeclarationSyntax>()
+                .Reverse()
+                .Select(item => item.Name.ToString()));
+        }
+
+        private static bool IsVisibleIn(DeclaredType declared, SourceDocument document)
+        {
+            return declared.Document.CompilationId == document.CompilationId
+                   && (!declared.IsFileLocal
+                       || declared.Document.RelativePath == document.RelativePath);
         }
 
         private IEnumerable<SourceFinding> FindText(Regex pattern, string detail)
@@ -1092,7 +1425,8 @@ public sealed class RenderPipelineMigrationCensusTests
     private sealed record SourceDocument(
         string RelativePath,
         SourceText Text,
-        CompilationUnitSyntax Root)
+        CompilationUnitSyntax Root,
+        string CompilationId)
     {
         public SourceFinding ToFinding(SyntaxNode node, string detail)
         {
@@ -1124,6 +1458,12 @@ public sealed class RenderPipelineMigrationCensusTests
             return Document.ToFinding(Method, detail);
         }
     }
+
+    private sealed record DeclaredType(
+        SourceDocument Document,
+        TypeDeclarationSyntax Syntax,
+        string QualifiedName,
+        bool IsFileLocal);
 
     private sealed record SourceFinding(
         string RelativePath,
