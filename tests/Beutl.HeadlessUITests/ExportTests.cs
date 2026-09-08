@@ -1,4 +1,10 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
+using System.Text.Json.Nodes;
+using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
+using Avalonia.Platform.Storage;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
@@ -8,15 +14,133 @@ using Beutl.Language;
 using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
+using Beutl.Views.Tools;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public class ExportTests
 {
+    [Test]
+    public void Output_failure_reporting_is_scoped_to_the_reported_exception()
+    {
+        var reported = new InvalidOperationException("reported");
+        var unrelated = new InvalidOperationException("unrelated");
+        OutputViewModel.MarkFailureAsReported(reported);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OutputViewModel.WasFailureReported(reported), Is.True);
+            Assert.That(OutputViewModel.WasFailureReported(unrelated), Is.False);
+            Assert.That(
+                OutputViewModel.WasFailureReported(new AggregateException(reported)),
+                Is.True);
+            Assert.That(
+                OutputViewModel.WasFailureReported(
+                    new AggregateException(reported, unrelated)),
+                Is.False);
+        });
+    }
+
+    private sealed class TestCoreObject : CoreObject;
+
+    private sealed class TestOutputContext(string fileName) : IOutputContext
+    {
+        private readonly TaskCompletionSource _started = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _finish = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _disposeCount;
+        private int _runCount;
+
+        public OutputExtension Extension { get; init; } = SceneOutputExtension.Instance;
+
+        public CoreObject Object { get; } = new TestCoreObject
+        {
+            Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, fileName))
+        };
+
+        public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>(fileName);
+
+        public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
+            = new ReactivePropertySlim<bool>();
+
+        public IReadOnlyReactiveProperty<double> Progress { get; }
+            = new ReactivePropertySlim<double>();
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public int RunCount => Volatile.Read(ref _runCount);
+
+        public Task Started => _started.Task;
+
+        public Action? RunEntered { get; init; }
+
+        public bool IgnoreCancellation { get; init; }
+
+        public Exception? SynchronousFailure { get; init; }
+
+        public Exception? AsynchronousFailure { get; init; }
+
+        public Exception? DisposeFailure { get; init; }
+
+        public TaskCompletionSource? DisposeStarted { get; init; }
+
+        public Task? DisposeRelease { get; init; }
+
+        public void Finish()
+        {
+            _finish.TrySetResult();
+        }
+
+        public Task RunAsync(CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _runCount);
+            RunEntered?.Invoke();
+            _started.TrySetResult();
+            if (SynchronousFailure is not null)
+            {
+                throw SynchronousFailure;
+            }
+
+            if (AsynchronousFailure is not null)
+            {
+                return Task.FromException(AsynchronousFailure);
+            }
+
+            if (IgnoreCancellation)
+            {
+                return _finish.Task;
+            }
+
+            return _finish.Task.WaitAsync(cancellationToken);
+        }
+
+        public void Dispose()
+        {
+            Interlocked.Increment(ref _disposeCount);
+            DisposeStarted?.TrySetResult();
+            DisposeRelease?.GetAwaiter().GetResult();
+            if (DisposeFailure is not null)
+            {
+                throw DisposeFailure;
+            }
+        }
+
+        public void WriteToJson(JsonObject json)
+        {
+        }
+
+        public void ReadFromJson(JsonObject json)
+        {
+        }
+    }
+
     private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
@@ -85,6 +209,9 @@ public class ExportTests
         HeadlessTestHelpers.Settle();
         Assert.That(output.SupersampleWarning.Value, Is.Not.Null);
         Assert.That(output.CanEncode.Value, Is.False);
+        Exception? rejection = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await output.RunAsync(CancellationToken.None));
+        Assert.That(OutputViewModel.WasFailureReported(rejection!), Is.True);
 
         output.SupersampleFactor.Value = 1;
         HeadlessTestHelpers.Settle();
@@ -125,7 +252,8 @@ public class ExportTests
         NotificationService.Handler = recorder;
         try
         {
-            await output.StartEncode();
+            Assert.ThrowsAsync<FFmpegWorkerException>(async () =>
+                await output.RunAsync(CancellationToken.None));
         }
         finally
         {
@@ -139,6 +267,7 @@ public class ExportTests
             recorder.ErrorMessages,
             Does.Contain(expected),
             "The error notification must carry the translated message.");
+        Assert.That(recorder.ErrorMessages.Count(message => message == expected), Is.EqualTo(1));
     }
 
     private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
@@ -171,17 +300,916 @@ public class ExportTests
         }
     }
 
+    private sealed class CancellableMp4EncoderExtension : ControllableEncodingExtension
+    {
+        public CancellableController? Controller { get; private set; }
+
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".mp4";
+        }
+
+        public override EncodingController CreateController(string file)
+        {
+            return Controller = new CancellableController(file);
+        }
+    }
+
+    private sealed class CancellableController(string outputFile) : EncodingController(outputFile)
+    {
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+
+        public override async ValueTask Encode(
+            IFrameProvider frameProvider,
+            ISampleProvider sampleProvider,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+    }
+
     private sealed class RecordingNotificationHandler : INotificationServiceHandler
     {
         private readonly List<string> _errorMessages = [];
+        private readonly List<string> _warningMessages = [];
 
         public IReadOnlyList<string> ErrorMessages => _errorMessages;
+
+        public IReadOnlyList<string> WarningMessages => _warningMessages;
 
         public void Show(Notification notification)
         {
             if (notification.Type == NotificationType.Error)
+            {
                 _errorMessages.Add(notification.Message);
+            }
+            else if (notification.Type == NotificationType.Warning)
+            {
+                _warningMessages.Add(notification.Message);
+            }
         }
+    }
+
+    [AvaloniaTest]
+    public async Task Built_in_output_cancellation_cancels_the_shared_execution_task()
+    {
+        await ResetProjectAsync();
+        GpuTestGate.EnsureAvailable();
+        EditViewModel editor = await OpenEditorWithRectangle("export-built-in-cancel");
+        var extension = new CancellableMp4EncoderExtension();
+        var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(NewWorkspace("export-built-in-cancel"), "out.mp4");
+        output.SelectedEncoder.Value = extension;
+        HeadlessTestHelpers.Settle();
+        var item = new OutputProfileItem(output, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await extension.Controller!.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Cancel();
+
+            try
+            {
+                await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(execution.IsCanceled, Is.True);
+                Assert.That(output.WasCancelled.Value, Is.True);
+                Assert.That(output.IsEncoding.Value, Is.False);
+                Assert.That(output.IsCompleted.Value, Is.False);
+            });
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            item.Cancel();
+            try
+            {
+                await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputViewModel_preflight_cancellation_resets_completion_state()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-preflight-cancel");
+        using var output = new OutputViewModel(editor);
+        using var cancellation = new CancellationTokenSource();
+        output.IsCompleted.Value = true;
+        cancellation.Cancel();
+
+        try
+        {
+            await output.RunAsync(cancellation.Token);
+            Assert.Fail("The cancelled output preflight unexpectedly completed.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output.WasCancelled.Value, Is.True);
+            Assert.That(output.IsCompleted.Value, Is.False);
+            Assert.That(output.IsEncoding.Value, Is.False);
+            Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Cancel));
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_acquires_the_lease_before_context_work_starts()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-lease-before-run");
+        bool leaseHeldAtEntry = false;
+        var context = new TestOutputContext("export-lease-before-run.scene")
+        {
+            RunEntered = () => leaseHeldAtEntry = !CanBeginWorkspaceMutation()
+        };
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(leaseHeldAtEntry, Is.True);
+                Assert.That(context.RunCount, Is.EqualTo(1));
+                Assert.That(item.IsRunning.Value, Is.True);
+                Assert.That(editor.IsEnabled.Value, Is.False);
+            });
+            AssertWorkspaceMutationBlocked();
+
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(item.IsRunning.Value, Is.False);
+                Assert.That(editor.IsEnabled.Value, Is.True);
+            });
+            AssertWorkspaceMutationAvailable();
+
+            await StartOutput(item).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(context.RunCount, Is.EqualTo(2));
+        }
+        finally
+        {
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_does_not_enter_context_when_a_mutation_is_active()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-refused");
+        var context = new TestOutputContext("export-refused.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        using IDisposable mutation = TestShell.Editor.TryBeginWorktreeMutation()!;
+
+        try
+        {
+            bool started = item.TryStart(out Task? execution);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(started, Is.False);
+                Assert.That(execution, Is.Null);
+                Assert.That(context.RunCount, Is.Zero);
+                Assert.That(item.IsRunning.Value, Is.False);
+                Assert.That(editor.IsEnabled.Value, Is.True);
+            });
+        }
+        finally
+        {
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_releases_admission_when_editor_suspension_fails()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-suspension-failure");
+        var context = new TestOutputContext("export-suspension-failure.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        var expected = new InvalidOperationException("suspension observer failed");
+        using IDisposable subscription = editor.IsEnabled.Subscribe(value =>
+        {
+            if (!value)
+            {
+                throw expected;
+            }
+        });
+
+        Exception? actual = null;
+        try
+        {
+            Assert.That(item.TryStart(out Task? execution), Is.True);
+            await execution!;
+        }
+        catch (Exception ex)
+        {
+            actual = ex;
+        }
+
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(expected));
+                Assert.That(context.RunCount, Is.Zero);
+                Assert.That(editor.IsEnabled.Value, Is.True);
+            });
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_releases_the_lease_after_a_synchronous_context_failure()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-sync-failure");
+        var expected = new InvalidOperationException("synchronous failure");
+        var context = new TestOutputContext("export-sync-failure.scene")
+        {
+            SynchronousFailure = expected
+        };
+
+        await AssertContextFailureReleasesLease(editor, context, expected);
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_releases_the_lease_after_a_faulted_context_task()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-async-failure");
+        var expected = new InvalidOperationException("asynchronous failure");
+        var context = new TestOutputContext("export-async-failure.scene")
+        {
+            AsynchronousFailure = expected
+        };
+
+        await AssertContextFailureReleasesLease(editor, context, expected);
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_cancel_keeps_the_lease_until_context_returns()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-cancel-active");
+        var context = new TestOutputContext("export-cancel-active.scene")
+        {
+            IgnoreCancellation = true
+        };
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Cancel();
+
+            Assert.That(execution.IsCompleted, Is.False);
+            AssertWorkspaceMutationBlocked();
+
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_cooperative_cancellation_cancels_the_execution_task()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-cooperative-cancel");
+        var context = new TestOutputContext("export-cooperative-cancel.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Cancel();
+
+            try
+            {
+                await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            Assert.That(execution.IsCanceled, Is.True);
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            context.Finish();
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_concurrent_starts_share_one_execution()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-double-start");
+        var context = new TestOutputContext("export-double-start.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+
+        bool firstStarted = item.TryStart(out Task? first);
+        bool secondStarted = item.TryStart(out Task? second);
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstStarted, Is.True);
+                Assert.That(secondStarted, Is.True);
+                Assert.That(second, Is.SameAs(first));
+                Assert.That(context.RunCount, Is.EqualTo(1));
+            });
+
+            context.Finish();
+            await Task.WhenAll(first!, second!).WaitAsync(TimeSpan.FromSeconds(5));
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            context.Finish();
+            await first!.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItems_keep_the_editor_suspended_until_all_executions_finish()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-overlapping-profiles");
+        var firstContext = new TestOutputContext("export-overlapping-profiles-first.scene");
+        var secondContext = new TestOutputContext("export-overlapping-profiles-second.scene");
+        var firstItem = new OutputProfileItem(firstContext, editor, TestShell.Editor);
+        var secondItem = new OutputProfileItem(secondContext, editor, TestShell.Editor);
+        Task firstExecution = StartOutput(firstItem);
+        Task secondExecution = StartOutput(secondItem);
+
+        try
+        {
+            await Task.WhenAll(firstContext.Started, secondContext.Started)
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(editor.IsEnabled.Value, Is.False);
+            AssertWorkspaceMutationBlocked();
+
+            firstContext.Finish();
+            await firstExecution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(editor.IsEnabled.Value, Is.False);
+            AssertWorkspaceMutationBlocked();
+
+            secondContext.Finish();
+            await secondExecution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(editor.IsEnabled.Value, Is.True);
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            firstContext.Finish();
+            secondContext.Finish();
+            await Task.WhenAll(firstExecution, secondExecution).WaitAsync(TimeSpan.FromSeconds(5));
+            firstItem.Dispose();
+            secondItem.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_dispose_during_execution_waits_for_context_completion()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-active");
+        var context = new TestOutputContext("export-dispose-active.scene")
+        {
+            IgnoreCancellation = true
+        };
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(context.DisposeCount, Is.Zero);
+                Assert.That(execution.IsCompleted, Is.False);
+            });
+            AssertWorkspaceMutationBlocked();
+
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_holds_admission_through_deferred_context_disposal()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-deferred-dispose-lease");
+        var disposeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDispose = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new TestOutputContext("export-deferred-dispose-lease.scene")
+        {
+            DisposeStarted = disposeStarted,
+            DisposeRelease = releaseDispose.Task
+        };
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+            Task observeBlockedDisposal = Task.Run(async () =>
+            {
+                await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                try
+                {
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(execution.IsCompleted, Is.False);
+                        Assert.That(item.IsRunning.Value, Is.True);
+                        Assert.That(CanBeginWorkspaceMutation(), Is.False);
+                        Assert.That(context.DisposeCount, Is.EqualTo(1));
+                    });
+                }
+                finally
+                {
+                    releaseDispose.TrySetResult();
+                }
+            });
+            context.Finish();
+            await observeBlockedDisposal.WaitAsync(TimeSpan.FromSeconds(5));
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            releaseDispose.TrySetResult();
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_honors_disposal_requested_by_running_state_observer()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-running-observer-dispose");
+        var disposeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDispose = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new TestOutputContext("export-running-observer-dispose.scene")
+        {
+            DisposeStarted = disposeStarted,
+            DisposeRelease = releaseDispose.Task,
+        };
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        bool observedRunning = false;
+        using IDisposable subscription = item.IsRunning.Subscribe(isRunning =>
+        {
+            if (isRunning)
+            {
+                observedRunning = true;
+            }
+            else if (observedRunning)
+            {
+                item.Dispose();
+            }
+        });
+        Task execution = StartOutput(item);
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            context.Finish();
+            await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(execution.IsCompleted, Is.False);
+                Assert.That(CanBeginWorkspaceMutation(), Is.False);
+            });
+
+            releaseDispose.TrySetResult();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+                Assert.Throws<ObjectDisposedException>(() => item.TryStart(out _));
+            });
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            releaseDispose.TrySetResult();
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_completes_and_releases_the_lease_when_context_disposal_fails()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-failure");
+        var expected = new InvalidOperationException("dispose failure");
+        var context = new TestOutputContext("export-dispose-failure.scene")
+        {
+            DisposeFailure = expected
+        };
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Task execution = StartOutput(item);
+        await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+
+        item.Dispose();
+        context.Finish();
+        Exception? actual = null;
+        try
+        {
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            actual = ex;
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(expected));
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.That(editor.IsEnabled.Value, Is.True);
+        });
+        AssertWorkspaceMutationAvailable();
+    }
+
+    [AvaloniaTest]
+    public async Task OutputTabViewModel_remove_item_refuses_active_execution()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-remove-active");
+        var viewModel = new OutputTabViewModel(editor);
+        var context = new TestOutputContext("export-remove-active.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        viewModel.Items.Add(item);
+        viewModel.SelectedItem.Value = item;
+        Task execution = StartOutput(item);
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new RecordingNotificationHandler();
+        NotificationService.Handler = notifications;
+
+        try
+        {
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            viewModel.RemoveItem(item);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items, Does.Contain(item));
+                Assert.That(viewModel.SelectedItem.Value, Is.SameAs(item));
+                Assert.That(context.DisposeCount, Is.Zero);
+                Assert.That(notifications.WarningMessages, Does.Contain(Strings.Output_ProfileRunning));
+            });
+            AssertWorkspaceMutationBlocked();
+
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            viewModel.RemoveItem(item);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items, Does.Not.Contain(item));
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+            });
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            viewModel.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputTabViewModel_removes_and_reselects_before_plugin_disposal_failure()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-remove-dispose-failure");
+        var viewModel = new OutputTabViewModel(editor);
+        var expected = new InvalidOperationException("profile dispose failed");
+        var failingContext = new TestOutputContext("export-remove-dispose-failure.scene")
+        {
+            DisposeFailure = expected
+        };
+        var nextContext = new TestOutputContext("export-remove-dispose-next.scene");
+        var failingItem = new OutputProfileItem(failingContext, editor, TestShell.Editor);
+        var nextItem = new OutputProfileItem(nextContext, editor, TestShell.Editor);
+        viewModel.Items.Add(failingItem);
+        viewModel.Items.Add(nextItem);
+        viewModel.SelectedItem.Value = failingItem;
+        INotificationServiceHandler previousHandler = NotificationService.Handler;
+        var notifications = new RecordingNotificationHandler();
+        NotificationService.Handler = notifications;
+
+        try
+        {
+            Assert.DoesNotThrow(() => viewModel.RemoveItem(failingItem));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items, Does.Not.Contain(failingItem));
+                Assert.That(viewModel.SelectedItem.Value, Is.SameAs(nextItem));
+                Assert.That(failingContext.DisposeCount, Is.EqualTo(1));
+                Assert.That(notifications.ErrorMessages, Does.Contain(expected.Message));
+                Assert.Throws<ObjectDisposedException>(() => failingItem.TryStart(out _));
+            });
+        }
+        finally
+        {
+            NotificationService.Handler = previousHandler;
+            nextItem.Dispose();
+            viewModel.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputTabViewModel_finishes_removal_when_a_collection_observer_throws()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-remove-observer-failure");
+        var viewModel = new OutputTabViewModel(editor);
+        var removedContext = new TestOutputContext("export-remove-observer-failure.scene");
+        var nextContext = new TestOutputContext("export-remove-observer-next.scene");
+        var removedItem = new OutputProfileItem(removedContext, editor, TestShell.Editor);
+        var nextItem = new OutputProfileItem(nextContext, editor, TestShell.Editor);
+        viewModel.Items.Add(removedItem);
+        viewModel.Items.Add(nextItem);
+        viewModel.SelectedItem.Value = removedItem;
+        var expected = new InvalidOperationException("collection observer failed");
+        NotifyCollectionChangedEventHandler observer = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Remove)
+            {
+                throw expected;
+            }
+        };
+        viewModel.Items.CollectionChanged += observer;
+
+        try
+        {
+            Assert.That(
+                Assert.Throws<InvalidOperationException>(() => viewModel.RemoveItem(removedItem)),
+                Is.SameAs(expected));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viewModel.Items, Does.Not.Contain(removedItem));
+                Assert.That(viewModel.SelectedItem.Value, Is.SameAs(nextItem));
+                Assert.That(removedContext.DisposeCount, Is.EqualTo(1));
+                Assert.Throws<ObjectDisposedException>(() => removedItem.TryStart(out _));
+            });
+        }
+        finally
+        {
+            viewModel.Items.CollectionChanged -= observer;
+            nextItem.Dispose();
+            viewModel.Dispose();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_dispose_and_completion_race_disposes_once()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-race");
+        var context = new TestOutputContext("export-dispose-race.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        using var gate = new ManualResetEventSlim();
+        Task execution = StartOutput(item);
+        await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task disposeTask = Task.Run(() =>
+        {
+            gate.Wait();
+            item.Dispose();
+        });
+        Task finishTask = Task.Run(() =>
+        {
+            gate.Wait();
+            context.Finish();
+        });
+
+        gate.Set();
+        await Task.WhenAll(disposeTask, finishTask, execution).WaitAsync(TimeSpan.FromSeconds(5));
+        item.Dispose();
+        context.Finish();
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+        AssertWorkspaceMutationAvailable();
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_dispose_when_idle_is_immediate_and_idempotent()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-dispose-idle");
+        var context = new TestOutputContext("export-dispose-idle.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+
+        item.Dispose();
+        item.Dispose();
+
+        Assert.That(context.DisposeCount, Is.EqualTo(1));
+        AssertWorkspaceMutationAvailable();
+    }
+
+    [AvaloniaTest]
+    public async Task OutputTab_creates_a_profile_scoped_control_and_controller()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-profile-controls");
+        var extension = new RecordingOutputExtension();
+        var firstContext = new TestOutputContext("export-profile-controls-first.scene")
+        {
+            Extension = extension
+        };
+        var secondContext = new TestOutputContext("export-profile-controls-second.scene")
+        {
+            Extension = extension
+        };
+        var firstItem = new OutputProfileItem(firstContext, editor, TestShell.Editor);
+        var secondItem = new OutputProfileItem(secondContext, editor, TestShell.Editor);
+        var outputTab = new OutputTab();
+        ContentControl contentControl = outputTab.FindControl<ContentControl>("contentControl")!;
+
+        try
+        {
+            Control firstControl = contentControl.ContentTemplate!.Build(firstItem)!;
+            Control secondControl = contentControl.ContentTemplate.Build(secondItem)!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstControl, Is.Not.SameAs(secondControl));
+                Assert.That(firstControl.DataContext, Is.SameAs(firstContext));
+                Assert.That(secondControl.DataContext, Is.SameAs(secondContext));
+                Assert.That(extension.Contexts, Is.EqualTo(new[] { firstContext, secondContext }));
+                Assert.That(extension.Controllers, Is.EqualTo(new[] { firstItem, secondItem }));
+            });
+        }
+        finally
+        {
+            firstItem.Dispose();
+            secondItem.Dispose();
+        }
+    }
+
+    private static async Task AssertContextFailureReleasesLease(
+        EditViewModel editor,
+        TestOutputContext context,
+        Exception expected)
+    {
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        Exception? actual = null;
+        try
+        {
+            await StartOutput(item);
+        }
+        catch (Exception ex)
+        {
+            actual = ex;
+        }
+
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual, Is.SameAs(expected));
+                Assert.That(context.RunCount, Is.EqualTo(1));
+                Assert.That(item.IsRunning.Value, Is.False);
+                Assert.That(editor.IsEnabled.Value, Is.True);
+            });
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            item.Dispose();
+        }
+    }
+
+    private static Task StartOutput(OutputProfileItem item)
+    {
+        Assert.That(item.TryStart(out Task? execution), Is.True);
+        Assert.That(execution, Is.Not.Null);
+        return execution!;
+    }
+
+    private static bool CanBeginWorkspaceMutation()
+    {
+        using IDisposable? operation = TestShell.Editor.TryBeginWorktreeMutation();
+        return operation is not null;
+    }
+
+    private static void AssertWorkspaceMutationBlocked()
+    {
+        Assert.That(CanBeginWorkspaceMutation(), Is.False);
+    }
+
+    private static void AssertWorkspaceMutationAvailable()
+    {
+        Assert.That(CanBeginWorkspaceMutation(), Is.True);
+    }
+
+    private sealed class RecordingOutputExtension : OutputExtension
+    {
+        public List<IOutputContext> Contexts { get; } = [];
+
+        public List<IOutputExecutionController> Controllers { get; } = [];
+
+        public override FilePickerFileType GetFilePickerFileType() => new("Test output");
+
+        public override bool TryCreateControl(
+            IEditorContext editorContext,
+            IOutputContext context,
+            IOutputExecutionController execution,
+            [NotNullWhen(true)] out Control? control)
+        {
+            Contexts.Add(context);
+            Controllers.Add(execution);
+            control = new Border();
+            return true;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IOutputContext? context)
+        {
+            context = null;
+            return false;
+        }
+
+        public override bool IsSupported(Type type) => true;
     }
 
     // B2 (b) — selecting a real FFmpeg encoder and running the full export is BLOCKED headless, so

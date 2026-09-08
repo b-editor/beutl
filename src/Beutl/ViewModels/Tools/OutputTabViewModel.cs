@@ -18,7 +18,7 @@ public class OutputTabViewModel : IToolContext
         EditViewModel = editViewModel;
         _outputService = new OutputService(editViewModel);
         CanRemove = SelectedItem
-            .Select(x => x?.Context?.IsEncoding?.Not() ?? Observable.ReturnThenNever(false))
+            .Select(x => x?.IsRunning.Not() ?? Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
         ReadFromJson(null);
@@ -61,22 +61,58 @@ public class OutputTabViewModel : IToolContext
     {
         _logger.LogInformation("Removing item: {ItemName}", item.Context.Name.Value);
         int index = Items.IndexOf(item);
-        Items.Remove(item);
-        item.Dispose();
-        if (Items.Count > 0)
+        if (index < 0)
         {
-            if (index < Items.Count)
+            _logger.LogWarning("The output profile is not part of this tab.");
+            return;
+        }
+
+        if (!item.TryClaimDisposalIfIdle())
+        {
+            _logger.LogWarning("Cannot remove an output profile while it is encoding: {ItemName}",
+                item.Context.Name.Value);
+            NotificationService.ShowWarning(Strings.Output, Strings.Output_ProfileRunning);
+            return;
+        }
+
+        try
+        {
+            try
             {
-                SelectedItem.Value = Items[index];
+                Items.RemoveAt(index);
             }
-            else if (index == Items.Count)
+            finally
             {
-                SelectedItem.Value = Items[^1];
+                // CoreList updates its backing collection before notifying observers. Repair the
+                // selection even when one of those observers throws after the removal committed.
+                if (Items.Count > 0)
+                {
+                    if (index < Items.Count)
+                    {
+                        SelectedItem.Value = Items[index];
+                    }
+                    else if (index == Items.Count)
+                    {
+                        SelectedItem.Value = Items[^1];
+                    }
+                }
+                else
+                {
+                    SelectedItem.Value = null;
+                }
             }
         }
-        else
+        finally
         {
-            SelectedItem.Value = null;
+            try
+            {
+                item.CompleteClaimedDisposal();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "The removed output profile failed during disposal.");
+                NotificationService.ShowError(Strings.Output, ex.Message);
+            }
         }
 
         _logger.LogInformation("Item removed successfully.");

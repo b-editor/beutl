@@ -340,7 +340,8 @@ public sealed class EditorServiceTests
         editorService.TabItems.Add(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
         using var output = new OutputProfileItem(outputContext, context, editorService);
-        outputContext.RaiseStarted();
+        Assert.That(output.TryStart(out Task? execution), Is.True);
+        await outputContext.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Task<bool> save = editorService.SaveProjectFilesAsync(project, CancellationToken.None);
 
         try
@@ -348,7 +349,8 @@ public sealed class EditorServiceTests
             await serializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(context.IsEnabled.Value, Is.False);
 
-            outputContext.RaiseFinished();
+            outputContext.Finish();
+            await execution!.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.That(
                 context.IsEnabled.Value,
@@ -361,38 +363,35 @@ public sealed class EditorServiceTests
         }
         finally
         {
-            outputContext.RaiseFinished();
+            outputContext.Finish();
             allowSerialization.Set();
+            await execution!.WaitAsync(TimeSpan.FromSeconds(5));
             await save.WaitAsync(TimeSpan.FromSeconds(5));
         }
     }
 
     [Test]
-    public async Task Output_dispose_racing_with_started_releases_the_workspace_and_editor()
+    public async Task Output_dispose_defers_workspace_release_until_execution_finishes()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
         var context = new StubEditorContext();
         editorService.TabItems.Add(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
         var output = new OutputProfileItem(outputContext, context, editorService);
-        var suspensionStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        using var releaseSuspension = new ManualResetEventSlim();
-        using IDisposable subscription = context.IsEnabled.Subscribe(enabled =>
+        Assert.That(output.TryStart(out Task? execution), Is.True);
+        await outputContext.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        output.Dispose();
+
+        Assert.Multiple(() =>
         {
-            if (!enabled)
-            {
-                suspensionStarted.TrySetResult();
-                releaseSuspension.Wait();
-            }
+            Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
+            Assert.That(context.IsEnabled.Value, Is.False);
+            Assert.That(outputContext.DisposeCalls, Is.Zero);
         });
 
-        Task started = Task.Run(outputContext.RaiseStarted);
-        await suspensionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Task dispose = Task.Run(output.Dispose);
-        await dispose.WaitAsync(TimeSpan.FromSeconds(5));
-        releaseSuspension.Set();
-        await started.WaitAsync(TimeSpan.FromSeconds(5));
+        outputContext.Finish();
+        await execution!.WaitAsync(TimeSpan.FromSeconds(5));
 
         using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
         Assert.Multiple(() =>
@@ -414,9 +413,12 @@ public sealed class EditorServiceTests
 
         using (IDisposable mutation = editorService.TryBeginWorktreeMutation()!)
         {
-            Assert.Throws<InvalidOperationException>(outputContext.RaiseStarted);
-            outputContext.RaiseFinished();
-            Assert.That(context.IsEnabled.Value, Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(output.TryStart(out Task? execution), Is.False);
+                Assert.That(execution, Is.Null);
+                Assert.That(context.IsEnabled.Value, Is.True);
+            });
         }
 
         using IDisposable? nextMutation = editorService.TryBeginWorktreeMutation();
@@ -503,7 +505,13 @@ public sealed class EditorServiceTests
 
     private sealed class StubOutputContext(CoreObject obj) : IOutputContext
     {
+        private readonly TaskCompletionSource _finish = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
         public int DisposeCalls { get; private set; }
+
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
 
         public OutputExtension Extension => throw new NotSupportedException();
 
@@ -514,19 +522,16 @@ public sealed class EditorServiceTests
         public IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
             = new ReactivePropertySlim<bool>();
 
-        public IReadOnlyReactiveProperty<bool> IsEncoding { get; }
-            = new ReactivePropertySlim<bool>();
-
         public IReadOnlyReactiveProperty<double> Progress { get; }
             = new ReactivePropertySlim<double>();
 
-        public event EventHandler? Started;
+        public async Task RunAsync(CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await _finish.Task.WaitAsync(cancellationToken);
+        }
 
-        public event EventHandler? Finished;
-
-        public void RaiseStarted() => Started?.Invoke(this, EventArgs.Empty);
-
-        public void RaiseFinished() => Finished?.Invoke(this, EventArgs.Empty);
+        public void Finish() => _finish.TrySetResult();
 
         public void Dispose()
         {

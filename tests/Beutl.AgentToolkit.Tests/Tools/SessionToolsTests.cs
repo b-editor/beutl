@@ -12,6 +12,7 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -100,7 +101,8 @@ public sealed class SessionToolsTests
             new AudioRhythmAnalyzer(),
             new QualityAnalyzer(motionAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
-            new RenderJobManager());
+            new RenderJobManager(),
+            StandaloneOutputOperationLeaseProvider.Instance);
         string outputPath = Path.Combine(root, "corrupt-element.png");
         var rendered = await renderTools.RenderStill(
             outputPath,
@@ -325,7 +327,8 @@ public sealed class SessionToolsTests
             new AudioRhythmAnalyzer(),
             new QualityAnalyzer(motionAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
-            new RenderJobManager());
+            new RenderJobManager(),
+            StandaloneOutputOperationLeaseProvider.Instance);
         string outputPath = Path.Combine(root, "malformed-element.png");
         var rendered = await renderTools.RenderStill(
             outputPath,

@@ -29,7 +29,9 @@ public sealed class SceneOutputExtension : OutputExtension
         };
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IOutputContext? context)
     {
         if (editorContext is EditViewModel editViewModel)
         {
@@ -45,11 +47,15 @@ public sealed class SceneOutputExtension : OutputExtension
 
     public override bool IsSupported(Type type) => type.IsAssignableTo(typeof(Scene));
 
-    public override bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateControl(
+        IEditorContext editorContext,
+        IOutputContext context,
+        IOutputExecutionController execution,
+        [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
+        if (editorContext is EditViewModel && context is OutputViewModel)
         {
-            control = new OutputView();
+            control = new OutputView(execution);
             return true;
         }
         else

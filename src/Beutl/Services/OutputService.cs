@@ -1,6 +1,9 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.ExceptionServices;
+using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ViewModels;
@@ -9,15 +12,17 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class OutputProfileItem : IDisposable
+public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
-    private readonly object _outputSync = new();
+    private readonly object _outputOperationSync = new();
+    private readonly ReactivePropertySlim<bool> _isRunning = new();
     private IDisposable? _outputOperation;
-    private long _outputGeneration;
-    private bool _disposed;
-    private bool _isRunning;
+    private CancellationTokenSource? _executionCancellation;
+    private Task? _executionTask;
+    private bool _disposeRequested;
+    private bool _contextDisposed;
 
     public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
     {
@@ -25,8 +30,6 @@ public sealed class OutputProfileItem : IDisposable
         EditorContext = editorContext;
         _editorService = editorService;
 
-        Context.Started += OnStarted;
-        Context.Finished += OnFinished;
         _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.Object.Uri,
             Context);
     }
@@ -35,99 +38,394 @@ public sealed class OutputProfileItem : IDisposable
 
     public IEditorContext EditorContext { get; }
 
-    private void OnStarted(object? sender, EventArgs e)
+    public IReadOnlyReactiveProperty<bool> IsRunning => _isRunning;
+
+    public bool TryStart([NotNullWhen(true)] out Task? execution)
     {
-        long generation;
-        lock (_outputSync)
+        IDisposable? outputOperation;
+        CancellationTokenSource? executionCancellation = null;
+        TaskCompletionSource? completion = null;
+        lock (_outputOperationSync)
         {
-            if (_disposed || _isRunning)
+            ObjectDisposedException.ThrowIf(_disposeRequested || _contextDisposed, this);
+            if (_executionTask is not null)
+            {
+                execution = _executionTask;
+                return true;
+            }
+
+            outputOperation = _editorService.TryBeginOutputOperation();
+            if (outputOperation is not null)
+            {
+                try
+                {
+                    executionCancellation = new CancellationTokenSource();
+                }
+                catch
+                {
+                    outputOperation.Dispose();
+                    throw;
+                }
+
+                completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _outputOperation = outputOperation;
+                _executionCancellation = executionCancellation;
+                _executionTask = completion.Task;
+            }
+        }
+
+        if (outputOperation is null)
+        {
+            _logger.LogWarning(
+                "Could not reserve the workspace before starting output for {File}.",
+                Context.Object.Uri);
+            NotificationService.ShowWarning(
+                Strings.Output,
+                Strings.Output_WorkspaceBusy);
+            execution = null;
+            return false;
+        }
+
+        IDisposable outputContextSuspension;
+        try
+        {
+            // The execution task is published before changing reactive editor state, so a
+            // re-entrant start observes and joins this execution instead of creating another one.
+            outputContextSuspension = _editorService.SuspendEditor(EditorContext);
+        }
+        catch (Exception ex)
+        {
+            CompleteFailedStart(outputOperation, executionCancellation!, completion!, ex);
+            execution = completion!.Task;
+            return true;
+        }
+
+        _ = RunOutputAsync(
+            outputOperation,
+            outputContextSuspension,
+            executionCancellation!,
+            completion!);
+        execution = completion!.Task;
+        return true;
+    }
+
+    private void CompleteFailedStart(
+        IDisposable outputOperation,
+        CancellationTokenSource executionCancellation,
+        TaskCompletionSource completion,
+        Exception failure)
+    {
+        List<Exception>? failures = [failure];
+        CaptureCleanupFailure(executionCancellation.Dispose, ref failures);
+
+        lock (_outputOperationSync)
+        {
+            if (ReferenceEquals(_executionCancellation, executionCancellation))
+            {
+                _executionCancellation = null;
+            }
+        }
+
+        CompleteExecution(
+            completion,
+            outputOperation,
+            failures,
+            canceled: false,
+            cancellationToken: default);
+    }
+
+    public void Cancel()
+    {
+        CancellationTokenSource? cancellation;
+        lock (_outputOperationSync)
+        {
+            if (_executionTask is null)
             {
                 return;
             }
 
-            _isRunning = true;
-            generation = ++_outputGeneration;
+            cancellation = _executionCancellation;
         }
 
-        IDisposable? operation;
         try
         {
-            operation = _editorService.BeginObservedOutputOperation(EditorContext);
+            cancellation?.Cancel();
         }
-        catch
+        catch (ObjectDisposedException)
         {
-            lock (_outputSync)
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "An output cancellation callback failed.");
+        }
+    }
+
+    private async Task RunOutputAsync(
+        IDisposable outputOperation,
+        IDisposable outputContextSuspension,
+        CancellationTokenSource executionCancellation,
+        TaskCompletionSource completion)
+    {
+        bool canceled = false;
+        CancellationToken executionToken = executionCancellation.Token;
+        List<Exception>? failures = null;
+        try
+        {
+            _isRunning.Value = true;
+
+            executionToken.ThrowIfCancellationRequested();
+            await Context.RunAsync(executionToken);
+        }
+        catch (OperationCanceledException)
+            when (executionCancellation.IsCancellationRequested)
+        {
+            canceled = true;
+        }
+        catch (Exception ex)
+        {
+            failures = [ex];
+        }
+        finally
+        {
+            CaptureCleanupFailure(executionCancellation.Dispose, ref failures);
+
+            // Restore the editor-facing state while the workspace is still reserved. Releasing the
+            // output lease first would let a workspace mutation begin and race this restoration.
+            CaptureCleanupFailure(outputContextSuspension.Dispose, ref failures);
+
+            lock (_outputOperationSync)
             {
-                if (_isRunning && _outputGeneration == generation)
+                if (ReferenceEquals(_executionCancellation, executionCancellation))
                 {
-                    _isRunning = false;
-                    _outputGeneration++;
+                    _executionCancellation = null;
                 }
             }
 
-            throw;
+            CompleteExecution(
+                completion,
+                outputOperation,
+                failures,
+                canceled,
+                executionToken);
         }
-
-        bool releaseOperation;
-        lock (_outputSync)
-        {
-            releaseOperation = !_isRunning || _outputGeneration != generation;
-            if (!releaseOperation)
-            {
-                _outputOperation = operation;
-            }
-        }
-
-        if (releaseOperation)
-        {
-            operation?.Dispose();
-        }
-
-        _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
     }
 
-    private void OnFinished(object? sender, EventArgs e)
+    private void CompleteExecution(
+        TaskCompletionSource completion,
+        IDisposable outputOperation,
+        List<Exception>? failures,
+        bool canceled,
+        CancellationToken cancellationToken)
     {
-        FinishOutputTracking();
-        _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
+        bool disposeRunningProperty = false;
+        bool outputOperationReleased = false;
+        while (true)
+        {
+            bool disposeContext;
+            lock (_outputOperationSync)
+            {
+                disposeContext = _disposeRequested
+                                 && !_contextDisposed
+                                 && ReferenceEquals(_executionTask, completion.Task);
+                if (disposeContext)
+                {
+                    _contextDisposed = true;
+                }
+                else
+                {
+                    // Keep admission until any deferred context disposal has finished. The terminal
+                    // task is published before releasing the lease so a newly admitted workspace
+                    // mutation can never overlap an execution that still appears incomplete.
+                    CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
+                    disposeContext = _disposeRequested
+                                     && !_contextDisposed
+                                     && ReferenceEquals(_executionTask, completion.Task);
+                    if (disposeContext)
+                    {
+                        _contextDisposed = true;
+                    }
+                    else
+                    {
+                        if (disposeRunningProperty)
+                        {
+                            CaptureCleanupFailure(_isRunning.Dispose, ref failures);
+                        }
+
+                        // Publish the terminal result before clearing the single-flight task. A
+                        // concurrent start must either join this execution or observe it as already
+                        // complete; it must never enter the context between those two state changes.
+                        if (failures is null)
+                        {
+                            if (canceled)
+                            {
+                                completion.TrySetCanceled(cancellationToken);
+                            }
+                            else
+                            {
+                                completion.TrySetResult();
+                            }
+                        }
+                        else if (failures.Count == 1)
+                        {
+                            completion.TrySetException(failures[0]);
+                        }
+                        else
+                        {
+                            completion.TrySetException(new AggregateException(failures));
+                        }
+
+                        if (!outputOperationReleased)
+                        {
+                            try
+                            {
+                                outputOperation.Dispose();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(
+                                    ex,
+                                    "The output workspace lease failed during terminal release.");
+                            }
+
+                            outputOperationReleased = true;
+                            if (ReferenceEquals(_outputOperation, outputOperation))
+                            {
+                                _outputOperation = null;
+                            }
+                        }
+
+                        if (ReferenceEquals(_executionTask, completion.Task))
+                        {
+                            _executionTask = null;
+                        }
+
+                        return;
+                    }
+                }
+            }
+
+            if (disposeContext)
+            {
+                CaptureCleanupFailure(DisposeOutputContext, ref failures);
+                disposeRunningProperty = true;
+            }
+        }
+    }
+
+    private static void CaptureCleanupFailure(Action cleanup, ref List<Exception>? failures)
+    {
+        try
+        {
+            cleanup();
+        }
+        catch (Exception ex)
+        {
+            (failures ??= []).Add(ex);
+        }
     }
 
     public void Dispose()
     {
-        lock (_outputSync)
+        bool disposeContext;
+        lock (_outputOperationSync)
         {
-            if (_disposed)
+            if (_disposeRequested)
             {
                 return;
             }
 
-            _disposed = true;
+            _disposeRequested = true;
+            disposeContext = TryMarkContextDisposed();
         }
 
-        FinishOutputTracking();
-        _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
-        Context.Started -= OnStarted;
-        Context.Finished -= OnFinished;
-        Context.Dispose();
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
     }
 
-    private void FinishOutputTracking()
+    internal bool TryClaimDisposalIfIdle()
     {
-        IDisposable? operation;
-        lock (_outputSync)
+        lock (_outputOperationSync)
         {
-            if (!_isRunning)
+            if (_disposeRequested)
             {
-                return;
+                return _contextDisposed;
             }
 
-            _isRunning = false;
-            _outputGeneration++;
-            operation = _outputOperation;
-            _outputOperation = null;
+            if (_executionTask is not null)
+            {
+                return false;
+            }
+
+            _disposeRequested = true;
+            return true;
+        }
+    }
+
+    internal void CompleteClaimedDisposal()
+    {
+        bool disposeContext;
+        lock (_outputOperationSync)
+        {
+            if (!_disposeRequested)
+            {
+                throw new InvalidOperationException("Output profile disposal was not claimed.");
+            }
+
+            disposeContext = TryMarkContextDisposed();
         }
 
-        operation?.Dispose();
+        if (disposeContext)
+        {
+            DisposeContext();
+        }
+    }
+
+    private bool TryMarkContextDisposed()
+    {
+        if (!_disposeRequested
+            || _contextDisposed
+            || _executionTask is not null)
+        {
+            return false;
+        }
+
+        _contextDisposed = true;
+        return true;
+    }
+
+    private void DisposeContext()
+    {
+        Exception? contextFailure = null;
+        try
+        {
+            DisposeOutputContext();
+        }
+        catch (Exception ex)
+        {
+            contextFailure = ex;
+        }
+
+        try
+        {
+            _isRunning.Dispose();
+        }
+        catch (Exception ex) when (contextFailure is not null)
+        {
+            throw new AggregateException(contextFailure, ex);
+        }
+
+        if (contextFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(contextFailure).Throw();
+        }
+    }
+
+    private void DisposeOutputContext()
+    {
+        _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
+        Context.Dispose();
     }
 
     public static JsonNode ToJson(OutputProfileItem item)
@@ -160,7 +458,9 @@ public sealed class OutputProfileItem : IDisposable
             if (contextJson != null
                 && extension != null
                 && File.Exists(file)
-                && extension.TryCreateContext(editorContext, out IOutputContext? context))
+                && extension.TryCreateContext(
+                    editorContext,
+                    out IOutputContext? context))
             {
                 context.ReadFromJson(contextJson.AsObject());
                 logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
@@ -202,7 +502,9 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     public void AddItem(string file, OutputExtension extension)
     {
-        if (!extension.TryCreateContext(editViewModel, out IOutputContext? context))
+        if (!extension.TryCreateContext(
+                editViewModel,
+                out IOutputContext? context))
         {
             _logger.LogError("Failed to create context for file: {File}", file);
             throw new Exception("Failed to create context");

@@ -22,7 +22,7 @@ public sealed class RenderJobManagerTests
         {
             await gate.Task;
             return new JsonObject { ["ok"] = true };
-        });
+        }, new TestLease());
 
         Assert.That(SpinWait.SpinUntil(() => manager.Get(jobId)?.State == "running", 2000), Is.True);
         Assert.That(manager.Get(jobId)!.Result, Is.Null);
@@ -45,8 +45,10 @@ public sealed class RenderJobManagerTests
     {
         using var manager = new RenderJobManager();
 
-        string jobId = manager.Enqueue("test", (_, _) =>
-            throw new InvalidOperationException("boom"));
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => throw new InvalidOperationException("boom"),
+            new TestLease());
 
         RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
         Assert.Multiple(() =>
@@ -70,13 +72,36 @@ public sealed class RenderJobManagerTests
         {
             await Task.Delay(Timeout.Infinite, token);
             return (JsonNode)new JsonObject();
-        });
+        }, new TestLease());
 
         Assert.That(SpinWait.SpinUntil(() => manager.Get(jobId)?.State == "running", 2000), Is.True);
         Assert.That(manager.Cancel(jobId), Is.True);
 
         RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
         Assert.That(snapshot.State, Is.EqualTo("cancelled"));
+    }
+
+    [Test]
+    public async Task Unrelated_operation_cancellation_is_reported_as_a_failure()
+    {
+        using var manager = new RenderJobManager();
+        using var unrelatedCancellation = new CancellationTokenSource();
+        unrelatedCancellation.Cancel();
+
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromException<JsonNode>(
+                new OperationCanceledException(unrelatedCancellation.Token)),
+            new TestLease());
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Error, Is.Not.Null);
+            Assert.That(snapshot.Error!.Code, Is.EqualTo("internal_error"));
+            Assert.That(snapshot.Error.Message, Does.Contain(nameof(OperationCanceledException)));
+        });
     }
 
     [Test]
@@ -100,7 +125,7 @@ public sealed class RenderJobManagerTests
             startedA = true;
             await gateA.Task;
             return (JsonNode)new JsonObject();
-        });
+        }, new TestLease());
         Assert.That(SpinWait.SpinUntil(() => startedA, 2000), Is.True);
 
         string jobB = manager.Enqueue("test", async (_, _) =>
@@ -108,7 +133,7 @@ public sealed class RenderJobManagerTests
             startedB = true;
             await gateB.Task;
             return (JsonNode)new JsonObject();
-        });
+        }, new TestLease());
 
         // B must wait for A to release the single-flight gate before its work runs.
         Assert.That(SpinWait.SpinUntil(() => startedB, 300), Is.False);
@@ -121,6 +146,95 @@ public sealed class RenderJobManagerTests
         gateB.SetResult();
         RenderJobSnapshot snapshotB = await WaitForTerminalAsync(manager, jobB);
         Assert.That(snapshotB.State, Is.EqualTo("completed"));
+    }
+
+    [Test]
+    public void Enqueue_failure_leaves_the_output_lease_owned_by_the_caller()
+    {
+        var manager = new RenderJobManager();
+        manager.Dispose();
+        var lease = new TestLease();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.Enqueue(
+            "test",
+            (_, _) => Task.FromResult<JsonNode>(new JsonObject()),
+            lease));
+
+        Assert.That(lease.DisposeCount, Is.EqualTo(0));
+        lease.Dispose();
+        Assert.That(lease.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Background_jobs_hold_enqueue_time_leases_and_release_every_terminal_path_once()
+    {
+        var manager = new RenderJobManager();
+        var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool queuedWorkStarted = false;
+        var completedLease = new TestLease();
+        var cancelledLease = new TestLease();
+        var failedLease = new TestLease();
+
+        string completedJob = manager.Enqueue("completed", async (_, _) =>
+        {
+            firstStarted.TrySetResult();
+            await releaseFirst.Task.ConfigureAwait(false);
+            return new JsonObject { ["completed"] = true };
+        }, completedLease);
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        string queuedCancelledJob = manager.Enqueue("cancelled", (_, _) =>
+        {
+            queuedWorkStarted = true;
+            return Task.FromResult<JsonNode>(new JsonObject());
+        }, cancelledLease);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completedLease.DisposeCount, Is.EqualTo(0));
+            Assert.That(cancelledLease.DisposeCount, Is.EqualTo(0));
+            Assert.That(manager.Cancel(queuedCancelledJob), Is.True);
+        });
+
+        RenderJobSnapshot cancelled = await WaitForTerminalAsync(manager, queuedCancelledJob);
+        Assert.Multiple(() =>
+        {
+            Assert.That(cancelled.State, Is.EqualTo("cancelled"));
+            Assert.That(queuedWorkStarted, Is.False);
+            Assert.That(completedLease.DisposeCount, Is.EqualTo(0));
+            Assert.That(cancelledLease.DisposeCount, Is.EqualTo(1));
+        });
+
+        releaseFirst.TrySetResult();
+        RenderJobSnapshot completed = await WaitForTerminalAsync(manager, completedJob);
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed.State, Is.EqualTo("completed"));
+            Assert.That(completedLease.DisposeCount, Is.EqualTo(1));
+            Assert.That(cancelledLease.DisposeCount, Is.EqualTo(1));
+        });
+
+        string failedJob = manager.Enqueue(
+            "failed",
+            (_, _) => throw new InvalidOperationException("expected failure"),
+            failedLease);
+        RenderJobSnapshot failed = await WaitForTerminalAsync(manager, failedJob);
+        Assert.Multiple(() =>
+        {
+            Assert.That(failed.State, Is.EqualTo("failed"));
+            Assert.That(completedLease.DisposeCount, Is.EqualTo(1));
+            Assert.That(cancelledLease.DisposeCount, Is.EqualTo(1));
+            Assert.That(failedLease.DisposeCount, Is.EqualTo(1));
+        });
+
+        manager.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.That(completedLease.DisposeCount, Is.EqualTo(1));
+            Assert.That(cancelledLease.DisposeCount, Is.EqualTo(1));
+            Assert.That(failedLease.DisposeCount, Is.EqualTo(1));
+        });
     }
 
     private static async Task<RenderJobSnapshot> WaitForTerminalAsync(RenderJobManager manager, string jobId)
@@ -150,7 +264,7 @@ public sealed class RenderJobManagerTests
             progress.Report(3, 12, "rendering shots");
             await gate.Task;
             return (JsonNode)new JsonObject();
-        });
+        }, new TestLease());
 
         Assert.That(SpinWait.SpinUntil(() => manager.Get(jobId)?.Progress?.Completed == 3, 2000), Is.True);
         RenderJobSnapshot running = manager.Get(jobId)!;
@@ -180,13 +294,140 @@ public sealed class RenderJobManagerTests
             startedFirst = true;
             await gate.Task;
             return (JsonNode)new JsonObject();
-        });
+        }, new TestLease());
         Assert.That(SpinWait.SpinUntil(() => startedFirst, 2000), Is.True);
 
-        string queued = manager.Enqueue("test", (_, _) => Task.FromResult((JsonNode)new JsonObject()));
+        string queued = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromResult((JsonNode)new JsonObject()),
+            new TestLease());
 
         Assert.That(SpinWait.SpinUntil(() => manager.Get(queued)?.Progress?.Stage == "queued", 2000), Is.True);
         gate.SetResult();
     }
 
+    [Test]
+    public async Task Terminal_snapshot_is_published_before_the_output_lease_is_released()
+    {
+        using var manager = new RenderJobManager();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? jobId = null;
+        string? stateAtRelease = null;
+        var lease = new TestLease(() => stateAtRelease = manager.Get(jobId!)?.State);
+        jobId = manager.Enqueue(
+            "test",
+            async (_, _) =>
+            {
+                await gate.Task;
+                return new JsonObject();
+            },
+            lease);
+
+        gate.TrySetResult();
+        await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stateAtRelease, Is.EqualTo("completed"));
+            Assert.That(lease.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Output_lease_failure_publishes_only_the_failed_terminal_state()
+    {
+        using var manager = new RenderJobManager();
+        var expected = new InvalidOperationException("lease release failed");
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromResult<JsonNode>(new JsonObject()),
+            new ThrowingLease(expected));
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Result, Is.Null);
+            Assert.That(snapshot.Error, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public async Task Work_and_output_lease_failures_are_preserved_together()
+    {
+        using var manager = new RenderJobManager();
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromException<JsonNode>(
+                new InvalidOperationException("work failed")),
+            new ThrowingLease(new IOException("lease failed")));
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Error, Is.Not.Null);
+            Assert.That(snapshot.Error!.Message, Does.Contain(nameof(AggregateException)));
+        });
+    }
+
+    [Test]
+    public async Task Completed_work_rejects_cancellation_while_releasing_its_output_lease()
+    {
+        using var manager = new RenderJobManager();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new BlockingLease(releaseStarted, releaseLease.Task);
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromResult<JsonNode>(new JsonObject()),
+            lease);
+
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("completed"));
+            Assert.That(manager.Cancel(jobId), Is.False);
+        });
+
+        releaseLease.TrySetResult();
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+        Assert.That(snapshot.State, Is.EqualTo("completed"));
+    }
+
+    private sealed class TestLease(Action? onDispose = null) : IDisposable
+    {
+        private int _disposeCount;
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public void Dispose()
+        {
+            onDispose?.Invoke();
+            Interlocked.Increment(ref _disposeCount);
+        }
+    }
+
+    private sealed class ThrowingLease(Exception failure) : IDisposable
+    {
+        public void Dispose()
+        {
+            throw failure;
+        }
+    }
+
+    private sealed class BlockingLease(
+        TaskCompletionSource releaseStarted,
+        Task release) : IDisposable
+    {
+        public void Dispose()
+        {
+            releaseStarted.TrySetResult();
+            release.GetAwaiter().GetResult();
+        }
+    }
 }

@@ -81,23 +81,17 @@ public partial class OutputTab : UserControl
 
     private sealed class _DataTemplate : IDataTemplate
     {
-        private readonly Dictionary<OutputExtension, Control> _contextToViewType = [];
-
         public Control? Build(object? param)
         {
-            if (param is OutputProfileItem item)
+            if (param is OutputProfileItem item
+                && item.Context.Extension.TryCreateControl(
+                    item.EditorContext,
+                    item.Context,
+                    item,
+                    out Control? control))
             {
-                if (_contextToViewType.TryGetValue(item.Context.Extension, out Control? control))
-                {
-                    control.DataContext = item.Context;
-                    return control;
-                }
-                else if (item.Context.Extension.TryCreateControl(item.EditorContext, out control))
-                {
-                    _contextToViewType[item.Context.Extension] = control;
-                    control.DataContext = item.Context;
-                    return control;
-                }
+                control.DataContext = item.Context;
+                return control;
             }
 
             return null;

@@ -240,6 +240,12 @@
   <data name="Output" xml:space="preserve">
     <value>出力</value>
   </data>
+  <data name="Output_WorkspaceBusy" xml:space="preserve">
+    <value>別のワークスペース操作を実行中です。完了後に再試行してください。</value>
+  </data>
+  <data name="Output_ProfileRunning" xml:space="preserve">
+    <value>この出力プロファイルは実行中です。完了を待つかキャンセルしてから削除してください。</value>
+  </data>
   <data name="History" xml:space="preserve">
     <value>履歴</value>
   </data>

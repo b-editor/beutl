@@ -25,6 +25,7 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 {
+    private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
     private readonly ReactiveProperty<bool> _isIndeterminate = new();
@@ -32,7 +33,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
-    private CancellationTokenSource? _lastCts;
     private string? _activeDestination;
 
     public OutputViewModel(EditViewModel editViewModel)
@@ -115,10 +115,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .Subscribe()
             .DisposeWith(_disposable);
 
-        CloseButtonText = IsEncoding
-            .Select(e => e ? Strings.Cancel : Strings.Close)
-            .ToReadOnlyReactivePropertySlim(Strings.Close)
-            .DisposeWith(_disposable);
     }
 
     public OutputExtension Extension => SceneOutputExtension.Instance;
@@ -179,17 +175,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<bool> WasCancelled { get; } = new();
 
-    public ReadOnlyReactivePropertySlim<string> CloseButtonText { get; }
-
     public IReadOnlyReactiveProperty<bool> IsIndeterminate => _isIndeterminate;
 
     public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
 
     IReadOnlyReactiveProperty<double> IOutputContext.Progress => _progress;
-
-    public event EventHandler? Started;
-
-    public event EventHandler? Finished;
 
     public FilePickerFileType[] GetFilePickerFileTypes()
     {
@@ -223,8 +213,18 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToArray();
     }
 
-    public async Task StartEncode()
+    public async Task RunAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            HandlePreflightCancellation();
+            throw;
+        }
+
         // Defensive re-check: reject if supersampled surface cannot be allocated.
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
@@ -232,7 +232,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
                 SupersampleFactor.Value, Model.FrameSize);
-            return;
+            throw CreateReportedFailure(supersampleWarning);
         }
 
         // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
@@ -241,8 +241,20 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         // Scene.Start), so the preflight must scan the same interval — not [0, Duration).
         IReadOnlySet<string> referencedSources =
             ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
-        IReadOnlyList<string> missingSources =
-            await Task.Run(() => ExportSourceValidator.GetMissingPaths(referencedSources));
+        IReadOnlyList<string> missingSources;
+        try
+        {
+            missingSources = await Task.Run(
+                () => ExportSourceValidator.GetMissingPaths(referencedSources),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            HandlePreflightCancellation();
+            throw;
+        }
+
         if (missingSources.Count > 0)
         {
             string message = string.Format(
@@ -256,7 +268,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
                 missingSources.Count,
                 missingSources[0]);
-            return;
+            throw CreateReportedFailure(message);
         }
 
         var stopwatch = new Stopwatch();
@@ -265,7 +277,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             _logger.LogInformation("Starting encoding process.");
             LogEncodingSettings();
-            _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
             IsCompleted.Value = false;
             WasCancelled.Value = false;
@@ -280,8 +291,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             TotalFrames.Value = 0;
             FrameProgressText.Value = "0 / 0";
             _activeDestination = DestinationFile.Value;
-            Started?.Invoke(this, EventArgs.Empty);
-
             stopwatch.Start();
 
             await Task.Run(async () =>
@@ -349,32 +358,27 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                                UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
                            }))
                 {
-                    await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
+                    await controller.Encode(frameProvider, sampleProvider, cancellationToken);
                 }
             });
 
-            succeeded = !(_lastCts?.IsCancellationRequested ?? true);
-            if (succeeded)
-            {
-                ProgressValue.Value = ProgressMax.Value;
-                CurrentFrame.Value = TotalFrames.Value;
-                FrameProgressText.Value = TotalFrames.Value > 0
-                    ? $"{TotalFrames.Value} / {TotalFrames.Value}"
-                    : FrameProgressText.Value;
-                ProgressText.Value = Strings.Completed;
-                ProgressMain.Value = Strings.Completed;
-                ProgressSub.Value = string.Empty;
-                Eta.Value = "00:00:00";
-                _logger.LogInformation("Encoding process completed successfully.");
-            }
-            else
-            {
-                HandleCancellation();
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            succeeded = true;
+            ProgressValue.Value = ProgressMax.Value;
+            CurrentFrame.Value = TotalFrames.Value;
+            FrameProgressText.Value = TotalFrames.Value > 0
+                ? $"{TotalFrames.Value} / {TotalFrames.Value}"
+                : FrameProgressText.Value;
+            ProgressText.Value = Strings.Completed;
+            ProgressMain.Value = Strings.Completed;
+            ProgressSub.Value = string.Empty;
+            Eta.Value = "00:00:00";
+            _logger.LogInformation("Encoding process completed successfully.");
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             HandleCancellation();
+            throw;
         }
         catch (Exception ex)
         {
@@ -397,6 +401,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             // Keep the translated message visible after failure.
             ProgressText.Value = userMessage;
             NotificationService.ShowError(MessageStrings.OutputException, userMessage);
+            MarkFailureAsReported(ex);
             if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
             {
                 // Keep the code for diagnostics.
@@ -408,6 +413,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 _logger.LogError(ex, "An exception occurred during the encoding process.");
             }
+
+            throw;
         }
         finally
         {
@@ -419,8 +426,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             IsCompleted.Value = succeeded;
             string? completedPath = _activeDestination;
             _activeDestination = null;
-            _lastCts = null;
-            Finished?.Invoke(this, EventArgs.Empty);
             _logger.LogInformation("Encoding process finished.");
 
             if (succeeded && completedPath != null)
@@ -428,6 +433,41 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ShowCompletionNotification(completedPath);
             }
         }
+    }
+
+    internal static bool WasFailureReported(Exception failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        if (failure.Data.Contains(s_reportedFailureKey))
+        {
+            return true;
+        }
+
+        if (failure is not AggregateException aggregate)
+        {
+            return false;
+        }
+
+        IReadOnlyList<Exception> innerFailures = aggregate.Flatten().InnerExceptions;
+        return innerFailures.Count > 0 && innerFailures.All(WasFailureReported);
+    }
+
+    internal static void MarkFailureAsReported(Exception failure)
+    {
+        failure.Data[s_reportedFailureKey] = true;
+    }
+
+    private static Exception CreateReportedFailure(string message)
+    {
+        var failure = new InvalidOperationException(message);
+        MarkFailureAsReported(failure);
+        return failure;
+    }
+
+    private void HandlePreflightCancellation()
+    {
+        IsCompleted.Value = false;
+        HandleCancellation();
     }
 
     private void HandleCancellation()
@@ -601,12 +641,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 editViewModel.FrameCacheManager.Value.Clear();
             }
         }
-    }
-
-    public void CancelEncode()
-    {
-        _logger.LogInformation("Encoding process cancellation requested.");
-        _lastCts?.Cancel();
     }
 
     private void LogEncodingSettings()

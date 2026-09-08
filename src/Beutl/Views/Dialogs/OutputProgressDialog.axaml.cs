@@ -1,22 +1,41 @@
-﻿using Beutl.ViewModels.Tools;
+﻿using Beutl.Extensibility;
+using Beutl.Language;
+using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
 public partial class OutputProgressDialog : ContentDialog
 {
+    private readonly IOutputExecutionController? _execution;
+    private IDisposable? _runningSubscription;
+
     public OutputProgressDialog()
     {
         InitializeComponent();
+        CloseButtonText = Strings.Close;
+    }
+
+    public OutputProgressDialog(IOutputExecutionController execution)
+    {
+        _execution = execution ?? throw new ArgumentNullException(nameof(execution));
+        InitializeComponent();
+        _runningSubscription = execution.IsRunning.Subscribe(
+            isRunning => CloseButtonText = isRunning ? Strings.Cancel : Strings.Close);
+        Closed += (_, _) =>
+        {
+            _runningSubscription?.Dispose();
+            _runningSubscription = null;
+        };
     }
 
     protected override Type StyleKeyOverride => typeof(ContentDialog);
 
     private void OnCloseButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        if (DataContext is OutputViewModel vm && vm.IsEncoding.Value)
+        if (_execution?.IsRunning.Value == true)
         {
-            vm.CancelEncode();
+            _execution.Cancel();
         }
     }
 }

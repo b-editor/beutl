@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.AspNetCore.Builder;
@@ -387,6 +388,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton(_ => new CreativeMemoryStore(workspaceRoot))
             .AddSingleton<AgentSessionManager>()
             .AddSingleton<IWorkspaceGuard>(_ => new WorkspaceGuard(workspaceRoot))
+            .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
             .AddSingleton<DestructiveGuard>()
             .AddSingleton<StillRenderer>()
             .AddSingleton<StoryboardRenderer>()
