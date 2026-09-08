@@ -11,8 +11,10 @@ namespace Beutl.PublicApiContractTests;
 
 public class ElementRecoveryContractTests
 {
-    [Test]
-    public void PluginRepair_SaveAsUndoRestoresElementAndNestedSidecar()
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void PluginRepair_SaveUndoRestoresElementAndNestedSidecar(bool rehome, bool retainUri)
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -34,7 +36,12 @@ public class ElementRecoveryContractTests
         using var history = new HistoryManager(recoveredScene, new OperationSequenceGenerator());
         Assert.That(ElementRecoveryService.TryCompleteRepair(recovered, history), Is.False);
 
-        ((RectShape)recovered.Objects.Single()).Transform.CurrentValue = new RotationTransform();
+        string destinationRoot = rehome ? Path.Combine(root, "copy") : root;
+        string copiedTransform = Path.Combine(destinationRoot, "nested", "transform.json");
+        ((RectShape)recovered.Objects.Single()).Transform.CurrentValue = new RotationTransform
+        {
+            Uri = retainUri ? new Uri(copiedTransform) : null,
+        };
         using (var disposedHistory = new HistoryManager(recoveredScene, new OperationSequenceGenerator()))
         {
             disposedHistory.Dispose();
@@ -44,15 +51,22 @@ public class ElementRecoveryContractTests
         }
         Assert.That(ElementRecoveryService.TryCompleteRepair(recovered, history), Is.True);
         history.Commit("Plugin repair");
-        var copyUri = new Uri(Path.Combine(root, "copy", "element.belm"));
+        var copyUri = new Uri(Path.Combine(destinationRoot, "element.belm"));
         CoreSerializer.StoreToUri(recovered, copyUri);
-        Assert.That(File.ReadAllBytes(copyUri.LocalPath), Is.Not.EqualTo(originalElement));
-        Assert.That(File.Exists(Path.Combine(root, "copy", "nested", "transform.json")), Is.False);
+        if (!retainUri) Assert.That(File.ReadAllBytes(copyUri.LocalPath), Is.Not.EqualTo(originalElement));
+        Assert.That(File.Exists(copiedTransform), Is.EqualTo(retainUri));
+        if (retainUri) Assert.That(File.ReadAllBytes(copiedTransform), Is.Not.EqualTo(originalTransform));
 
         Assert.That(history.Undo(), Is.True);
+        string unrelatedRoot = Path.Combine(root, "unrelated");
+        string unrelatedSidecar = Path.Combine(unrelatedRoot, "nested", "transform.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(unrelatedSidecar)!);
+        File.WriteAllText(unrelatedSidecar, "Unrelated existing data");
+        Assert.Throws<IOException>(() => CoreSerializer.StoreToUri(
+            recovered, new Uri(Path.Combine(unrelatedRoot, "element.belm"))));
+        Assert.That(File.ReadAllText(unrelatedSidecar), Is.EqualTo("Unrelated existing data"));
         CoreSerializer.StoreToUri(recovered, copyUri);
         Assert.That(File.ReadAllBytes(copyUri.LocalPath), Is.EqualTo(originalElement));
-        string copiedTransform = Path.Combine(root, "copy", "nested", "transform.json");
         Assert.That(File.ReadAllBytes(copiedTransform), Is.EqualTo(originalTransform));
         var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single();
         Assert.That(reopened.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());

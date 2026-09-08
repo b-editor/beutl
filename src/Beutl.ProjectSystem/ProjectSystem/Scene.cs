@@ -1407,6 +1407,7 @@ public class Scene : ProjectItem, INotifyEdited
         SuppressedStorageSource source)
     {
         using var capture = new LossyEasingSerializationCapture();
+        using var objects = new SerializedObjectCapture();
         CoreSerializer.SerializeToJsonObject(
             element,
             new CoreSerializerOptions
@@ -1414,7 +1415,7 @@ public class Scene : ProjectItem, INotifyEdited
                 BaseUri = element.Uri,
                 Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
             });
-        if (capture.HasLossyEasing) return true;
+        if (capture.HasLossyEasing || objects.HasFallback) return true;
         if (source.UntraversedFallbacks is not { Length: > 0 } snapshots) return false;
         // Keep the original representation for fallback snapshot matching; embedding adds URI metadata.
         JsonObject current = CoreSerializer.SerializeToJsonObject(

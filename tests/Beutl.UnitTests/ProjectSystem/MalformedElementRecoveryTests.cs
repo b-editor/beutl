@@ -42,6 +42,67 @@ public sealed class MalformedElementRecoveryTests
     public sealed record StorageWrapper(ICoreSerializable Value);
 
     [SuppressResourceClassGeneration]
+    public sealed class NestedFatalConstructorTransform<T> : Transform where T : Exception, new()
+    {
+        public NestedFatalConstructorTransform() => throw new TargetInvocationException(new T());
+        public override Matrix CreateMatrix(CompositionContext context) => Matrix.Identity;
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class NestedFatalDeserializeTransform<T> : Transform where T : Exception, new()
+    {
+        public override void Deserialize(ICoreSerializationContext context) => throw new TargetInvocationException(new T());
+        public override Matrix CreateMatrix(CompositionContext context) => Matrix.Identity;
+    }
+
+    [TestCase(typeof(NestedFatalConstructorTransform<OutOfMemoryException>))]
+    [TestCase(typeof(NestedFatalConstructorTransform<AccessViolationException>))]
+    [TestCase(typeof(NestedFatalConstructorTransform<OperationCanceledException>))]
+    [TestCase(typeof(NestedFatalDeserializeTransform<OutOfMemoryException>))]
+    [TestCase(typeof(NestedFatalDeserializeTransform<AccessViolationException>))]
+    [TestCase(typeof(NestedFatalDeserializeTransform<OperationCanceledException>))]
+    public void Restore_NestedFatalTransformFailurePropagatesWithoutFallback(Type failingType)
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json["Objects"]![0]!["Transform"]!["$type"] = TypeFormat.ToString(failingType);
+        File.WriteAllText(elementPath, json.ToJsonString());
+        int before = DeserializationIncidents.FallbackCount;
+        Exception? failure = Assert.Catch(() => CoreSerializer.RestoreFromUri<Scene>(sceneUri));
+        Assert.That(Beutl.Utilities.ExceptionHelpers.ContainsFatalFailure(failure!), Is.True);
+        Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(before));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void HiddenUriFallbackStaysProtectedUntilRepairedOrRemoved(bool remove)
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        string sidecarPath = Path.Combine(_root, "hidden.json");
+        var holder = new WrappedStorageHolder();
+        var group = new TransformGroup { Uri = new Uri(sidecarPath) };
+        group.Children.Add(new RotationTransform());
+        holder.Wrapped.CurrentValue = [new StorageWrapper(group)];
+        source.AddObject(holder);
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(sidecarPath))!.AsObject();
+        json["Children"]![0]!["$type"] = "[Missing.Plugin]Missing:Transform";
+        File.WriteAllText(sidecarPath, json.ToJsonString());
+        byte[] original = File.ReadAllBytes(elementPath);
+        byte[] nested = File.ReadAllBytes(sidecarPath);
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        recovered.Name = "Unrelated edit";
+        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(original));
+        Assert.That(File.ReadAllBytes(sidecarPath), Is.EqualTo(nested));
+        var recoveredHolder = recovered.Objects.OfType<WrappedStorageHolder>().Single();
+        recoveredHolder.Wrapped.CurrentValue = remove ? [] : [new StorageWrapper(new RotationTransform())];
+        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Not.Null);
+    }
+
+    [SuppressResourceClassGeneration]
     public sealed class WrappedStorageHolder : EngineObject
     {
         public WrappedStorageHolder() => ScanProperties<WrappedStorageHolder>();

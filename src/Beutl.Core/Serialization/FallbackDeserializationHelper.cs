@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Utilities;
+
 namespace Beutl.Serialization;
 
 internal static class FallbackDeserializationHelper
@@ -7,6 +9,8 @@ internal static class FallbackDeserializationHelper
     internal static ICoreSerializable? TryCreateFallback(
         Type baseType, Type? actualType, JsonObject json, Exception? exception = null)
     {
+        if (exception != null && ExceptionHelpers.ContainsFatalFailure(exception)) return null;
+
         if (Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute))
             is not FallbackTypeAttribute attr)
         {

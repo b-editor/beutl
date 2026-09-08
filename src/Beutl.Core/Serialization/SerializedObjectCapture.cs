@@ -11,12 +11,15 @@ internal sealed class SerializedObjectCapture : IDisposable
 
     public SerializedObjectCapture() => t_current = this;
     public IEnumerable<CoreObject> Objects => _objects;
+    public bool HasFallback { get; private set; }
 
     public static void Record(ICoreSerializable value)
     {
-        if (value is not CoreObject obj) return;
         for (SerializedObjectCapture? capture = t_current; capture != null; capture = capture._parent)
-            capture._objects.Add(obj);
+        {
+            if (value is CoreObject obj) capture._objects.Add(obj);
+            capture.HasFallback |= value is IFallback;
+        }
     }
 
     public void Dispose()

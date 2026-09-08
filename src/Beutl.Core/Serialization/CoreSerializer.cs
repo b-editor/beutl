@@ -317,13 +317,15 @@ public static class CoreSerializer
                 // repair of the sidecar and leaves the changed file alone — clobbering it would
                 // destroy the user's repair.
                 string sourcePath = uri.LocalPath;
+                if (suppressed.WasReinstated)
+                    CopyReferencedStorageSources(suppressed, uri, suppressed.SourceRootPath, restore: true);
                 RestoreReinstatedBytes(suppressed, sourcePath);
                 return;
             }
 
             if (suppressed.WasReinstated && uri == suppressedObj.Uri)
             {
-                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
+                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath, restore: true);
                 RestoreReinstatedBytes(suppressed, uri.LocalPath);
                 return;
             }
@@ -469,7 +471,8 @@ public static class CoreSerializer
     private static void CopyReferencedStorageSources(
         SuppressedStorageSource suppressed,
         Uri rehomedUri,
-        string? authorizedRootPath)
+        string? authorizedRootPath,
+        bool restore = false)
     {
         if (suppressed.ReferencedStorageSources is not { Length: > 0 } referencedSources)
         {
@@ -509,7 +512,7 @@ public static class CoreSerializer
 
         foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
         {
-            if (File.Exists(destination))
+            if (!restore && File.Exists(destination))
             {
                 EnsureExistingBytesMatch(destination, source.RawBytes);
             }
@@ -517,7 +520,16 @@ public static class CoreSerializer
 
         foreach ((SuppressedReferencedStorageSource source, string destination) in copies)
         {
-            WriteBytesAtomicallyIfMatchingOrMissing(destination, source.RawBytes);
+            if (restore)
+            {
+                // Undo restores files written by the completed repair as well as missing files.
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                WriteBytesAtomically(destination, source.RawBytes);
+            }
+            else
+            {
+                WriteBytesAtomicallyIfMatchingOrMissing(destination, source.RawBytes);
+            }
         }
     }
 
