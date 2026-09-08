@@ -277,23 +277,27 @@ public sealed class ProjectService
 
     internal ValueTask<ProjectTransitionScope> BeginVersionControlTransitionAsync(
         object owner,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ProjectOpenAttempt? preservedOpenAttempt = null)
     {
         ArgumentNullException.ThrowIfNull(owner);
         return BeginTransitionAsync(
             ProjectTransitionPurpose.VersionControlMutation,
             owner,
-            cancellationToken);
+            cancellationToken,
+            preservedOpenAttempt);
     }
 
     private async ValueTask<ProjectTransitionScope> BeginTransitionAsync(
         ProjectTransitionPurpose purpose,
         object owner,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ProjectOpenAttempt? preservedOpenAttempt = null)
     {
-        CancelPendingOpenAttemptExcept(owner);
+        object openAttemptOwner = preservedOpenAttempt ?? owner;
+        CancelPendingOpenAttemptExcept(openAttemptOwner);
         await _transitionGate.WaitAsync(cancellationToken);
-        CancelPendingOpenAttemptExcept(owner);
+        CancelPendingOpenAttemptExcept(openAttemptOwner);
         if (cancellationToken.IsCancellationRequested)
         {
             _transitionGate.Release();

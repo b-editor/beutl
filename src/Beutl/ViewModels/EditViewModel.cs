@@ -47,7 +47,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementDuplicateService? _elementDuplicateService;
     private ElementMoveService? _elementMoveService;
     private ElementGapService? _elementGapService;
-    private ElementClipboardService? _elementClipboardService;
+    private IElementClipboardService? _elementClipboardService;
     private ElementStructureService? _elementStructureService;
     private ElementAttributeService? _elementAttributeService;
     private ElementNudgeService? _elementNudgeService;
@@ -982,13 +982,15 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType.IsAssignableTo(typeof(IElementClipboardService)))
             return _elementClipboardService ??= _clipboardGateway is null
                 ? null!
-                : new ElementClipboardService(
-                    HistoryManager,
-                    _clipboardGateway,
-                    (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
-                    static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
-                        typeof(Beutl.Graphics.SourceImage).FullName!),
-                    _elementAdder);
+                : new ProjectFileWriteClipboardService(
+                    EditorService,
+                    new ElementClipboardService(
+                        HistoryManager,
+                        _clipboardGateway,
+                        (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
+                        static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
+                            typeof(Beutl.Graphics.SourceImage).FullName!),
+                        _elementAdder));
 
         if (serviceType.IsAssignableTo(typeof(IElementStructureService)))
             return _elementStructureService ??= new ElementStructureService(HistoryManager);

@@ -1814,7 +1814,8 @@ internal sealed class VersionControlCoordinator :
         string recoveryId,
         bool requireConfirmation,
         CancellationToken cancellationToken,
-        PendingPullRecovery? confirmedRecovery = null)
+        PendingPullRecovery? confirmedRecovery = null,
+        ProjectService.ProjectOpenAttempt? preservedOpenAttempt = null)
     {
         CancellationTokenSource? confirmationCancellation = null;
         CancellationToken lookupCancellation = default;
@@ -1894,7 +1895,8 @@ internal sealed class VersionControlCoordinator :
             return await RunPendingPullRecoveryMutationCycleAsync(
                     recoveryId,
                     confirmedRecovery,
-                    cancellationToken)
+                    cancellationToken,
+                    preservedOpenAttempt)
                 .ConfigureAwait(false);
         }
         catch (ObjectDisposedException ex)
@@ -1916,7 +1918,8 @@ internal sealed class VersionControlCoordinator :
     private async Task<ProjectRecoveryResult> RunPendingPullRecoveryMutationCycleAsync(
         string recoveryId,
         PendingPullRecovery? confirmedRecovery,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ProjectService.ProjectOpenAttempt? preservedOpenAttempt)
     {
         await BeginLifecycleOperationAsync(cancellationToken);
         bool gateEntered = false;
@@ -1953,7 +1956,8 @@ internal sealed class VersionControlCoordinator :
             await using ProjectService.ProjectTransitionScope transition =
                 await _projectService.BeginVersionControlTransitionAsync(
                     this,
-                    cancellationToken);
+                    cancellationToken,
+                    preservedOpenAttempt);
             ThrowIfLifecycleOperationUnavailable();
             if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
                 || !ReferenceEquals(GetOwnedBackend(), ownedService))
@@ -2903,8 +2907,10 @@ internal sealed class VersionControlCoordinator :
         }
     }
 
-    // Returns null when the repository has no commit identity, which is a supported degraded mode:
-    // the caller must abandon the operation rather than proceed without the safety snapshot.
+    // Returns null when the requested safety point could not be established. The caller observed a
+    // dirty workspace before invoking this method, so NoChanges is safe only if a fresh status says
+    // the workspace became clean; a hook can otherwise empty only the temporary index while leaving
+    // the worktree dirty.
     private async Task<CommitResult?> CommitSafetySnapshotAsync(
         IProjectVersionControlTransaction service,
         string message,
@@ -2921,6 +2927,19 @@ internal sealed class VersionControlCoordinator :
                     Strings.VersionControl,
                     Strings.VersionControl_MissingIdentityNotice));
             return null;
+        }
+
+        if (result is CommitResult.NoChanges)
+        {
+            WorkspaceStatus status = await service.GetStatusAsync(cancellationToken);
+            if (!status.IsClean)
+            {
+                PublishNotification(() =>
+                    NotificationService.ShowWarning(
+                        Strings.VersionControl,
+                        Strings.VersionControl_SaveSnapshotFailed));
+                return null;
+            }
         }
 
         return result;
@@ -3732,12 +3751,13 @@ internal sealed class VersionControlCoordinator :
             return new AbortProjectOpenPreparation();
         }
 
+        CancellationToken operationCancellation = operation.CancellationToken;
         OpeningRepositoryInspection? inspection = null;
         try
         {
             inspection = await DiscoverPendingPullRecoveryForOpeningAsync(
                     attempt.ProjectFile,
-                    operation.CancellationToken)
+                    operationCancellation)
                 .ConfigureAwait(false);
             if (inspection is null
                 || !inspection.Repository.IsNestedInForeignRepo
@@ -3751,18 +3771,48 @@ internal sealed class VersionControlCoordinator :
                             || selection.AlreadyApplied
                             || await ConfirmPendingPullRecoveryAsync(
                                 ToRecoveryInfo(selection.Recovery),
-                                operation.CancellationToken);
+                                operationCancellation);
+            var preparedInspection = inspection with
+            {
+                Recovery = selection is null
+                    ? null
+                    : selection with { Accepted = accepted },
+            };
+
+            if (preparedInspection.Recovery is
+                {
+                    Accepted: true,
+                    AlreadyApplied: false,
+                } recovery
+                && _projectService.CurrentProject.Value?.Uri?.LocalPath is { } currentProjectFile
+                && RecoveryProjectPathsEqual(
+                    preparedInspection.Repository,
+                    currentProjectFile,
+                    recovery.ProjectFile))
+            {
+                // The existing recovery cycle needs to acquire the lifecycle and project-transition
+                // gates, so release this preflight operation before entering it.
+                operation.Dispose();
+                // The normal open transition applies preparations before closing the current
+                // project. Reuse the version-control recovery cycle for this same-project case so
+                // stale in-memory state cannot be saved over the recovered files afterward.
+                CancelPendingPullRecoveryOffer();
+                await RunPendingPullRecoveryCycleAsync(
+                        recovery.Recovery.Id,
+                        requireConfirmation: false,
+                        cancellationToken,
+                        recovery.Recovery,
+                        attempt)
+                    .ConfigureAwait(false);
+                return new AbortProjectOpenPreparation();
+            }
+
             return new VersionControlProjectOpenPreparation(
                 this,
                 attempt,
-                inspection with
-                {
-                    Recovery = selection is null
-                        ? null
-                        : selection with { Accepted = accepted },
-                });
+                preparedInspection);
         }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operationCancellation.IsCancellationRequested)
         {
             throw;
         }

@@ -2,8 +2,10 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -114,6 +116,51 @@ public sealed class EditorServiceTests
 
         using IProjectFileWriteLease free = editorService.TryBeginProjectFileWrite()!;
         Assert.That(free, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Clipboard_paste_reserves_the_workspace_through_the_model_update()
+    {
+        var editorService = new EditorService(new ExtensionProvider());
+        var pasteStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePaste = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var inner = new BlockingClipboardService(pasteStarted, releasePaste.Task);
+        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
+
+        Task<ElementPasteOutcome> paste = clipboard.PasteAsync(scene, TimeSpan.Zero, 0);
+        await pasteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
+
+        releasePaste.TrySetResult();
+        Assert.That(
+            (await paste.WaitAsync(TimeSpan.FromSeconds(5))).Pasted,
+            Is.True);
+        using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
+        Assert.That(mutation, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Clipboard_paste_is_rejected_while_the_worktree_is_mutating()
+    {
+        var editorService = new EditorService(new ExtensionProvider());
+        var inner = new BlockingClipboardService(
+            new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+            Task.CompletedTask);
+        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
+
+        using IDisposable mutation = editorService.TryBeginWorktreeMutation()!;
+        ElementPasteOutcome outcome = await clipboard.PasteAsync(scene, TimeSpan.Zero, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.SameAs(ElementPasteOutcome.Empty));
+            Assert.That(inner.PasteCalls, Is.Zero);
+        });
     }
 
     [AvaloniaTest]
@@ -337,6 +384,37 @@ public sealed class EditorServiceTests
     {
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class BlockingClipboardService(
+        TaskCompletionSource pasteStarted,
+        Task releasePaste) : IElementClipboardService
+    {
+        public int PasteCalls { get; private set; }
+
+        public Task<bool> CopyAsync(IReadOnlyList<Element> elements)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> CutAsync(
+            Scene scene,
+            IReadOnlyList<Element> elements,
+            bool ripple = false)
+        {
+            return Task.FromResult(true);
+        }
+
+        public async Task<ElementPasteOutcome> PasteAsync(
+            Scene scene,
+            TimeSpan clickedFrame,
+            int clickedLayer)
+        {
+            PasteCalls++;
+            pasteStarted.TrySetResult();
+            await releasePaste;
+            return new ElementPasteOutcome(true, [], default, 0);
         }
     }
 

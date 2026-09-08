@@ -5542,6 +5542,55 @@ public class VersionControlRestoreTests
         }
     }
 
+    [AvaloniaTest]
+    public async Task Branch_creation_stops_when_a_dirty_safety_snapshot_becomes_no_changes()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        try
+        {
+            Project project = await CreateProjectForFakeVersionControlAsync(
+                "version-control-branch-empty-safety-snapshot");
+            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(projectRoot, projectRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var backend = new PullCycleTestBackend(repository, repository, tip)
+            {
+                CommitAllResult = new CommitResult.NoChanges(),
+            };
+            coordinator = new VersionControlCoordinator(
+                TestShell.Project,
+                new EditorService(new ExtensionProvider()),
+                new VersionControlConfig(),
+                installationLocator: null,
+                serviceFactory: _ => backend);
+            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+            bool created = await coordinator.CreateBranchAsync("blocked-empty-snapshot");
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(created, Is.False);
+                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
+                Assert.That(backend.CreateBranchCalls, Is.Zero);
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            });
+        }
+        finally
+        {
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync();
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     [Test]
     public void Opening_recovery_keys_collapse_symbolic_link_aliases_of_one_project()
     {
@@ -7455,20 +7504,31 @@ public class VersionControlRestoreTests
 
         try
         {
-            config.AutoCommitOnClose = false;
+            config.AutoCommitOnClose = true;
             Project project = await CreateProjectForFakeVersionControlAsync(
                 "version-control-reoffer-on-recent-open");
             string projectFile = project.Uri!.LocalPath;
             string projectRoot = Path.GetDirectoryName(projectFile)!;
+            project.Variables[RestoreStateKey] = "recovered-state";
+            CoreSerializer.StoreToUri(project, project.Uri!);
+            byte[] recoveredProject = await File.ReadAllBytesAsync(projectFile);
+            project.Variables[RestoreStateKey] = "stale-in-memory-state";
             var repository = new RepositoryInfo(projectRoot, projectRoot);
             var originalTip = new CheckedOutBranchTip(
                 "refs/heads/main",
                 "1111111111111111111111111111111111111111");
             var discovery = new PullCycleTestBackend(null, repository, originalTip);
+            bool? projectWasClosedDuringRecovery = null;
             var tracked = new PullCycleTestBackend(repository, repository, originalTip)
             {
                 EnsureHygieneStarted = hygieneStarted,
                 EnsureHygieneRelease = releaseHygiene.Task,
+                RecoverPendingPullOverride = _ =>
+                {
+                    projectWasClosedDuringRecovery =
+                        TestShell.Project.CurrentProject.Value is null;
+                    return File.WriteAllBytesAsync(projectFile, recoveredProject);
+                },
             };
             var checkpoint = new ProjectCheckpoint(
                 "refs/beutl/safety/test-checkpoint",
@@ -7511,9 +7571,13 @@ public class VersionControlRestoreTests
                 Assert.That(confirmations, Is.EqualTo(2));
                 Assert.That(tracked.RecoverPendingPullCalls, Is.EqualTo(1));
                 Assert.That(tracked.CompletePendingPullCalls, Is.EqualTo(1));
+                Assert.That(projectWasClosedDuringRecovery, Is.True);
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
                 Assert.That(TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
                     Is.EqualTo(projectFile));
+                Assert.That(
+                    TestShell.Project.CurrentProject.Value.Variables[RestoreStateKey],
+                    Is.EqualTo("recovered-state"));
             });
         }
         finally
@@ -11029,7 +11093,8 @@ public class VersionControlRestoreTests
 
         public WorkspaceStatus Status { get; set; } = DirtyStatus;
 
-        public CommitResult CommitAllResult { get; set; } = new CommitResult.NoChanges();
+        public CommitResult CommitAllResult { get; set; } =
+            new CommitResult.Committed(new CommitRevision.Unavailable());
 
         public CommitResult? RetirementResult { get; set; } = new CommitResult.NoChanges();
 
