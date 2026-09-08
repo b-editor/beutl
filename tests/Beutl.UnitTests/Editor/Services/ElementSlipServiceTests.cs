@@ -926,6 +926,30 @@ public class ElementSlipServiceTests
             Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
+    [Test]
+    public void Slip_SceneSoundUsesReferencedSceneAbsoluteEnd()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var referenced = new Scene
+        {
+            Start = TimeSpan.FromSeconds(5),
+            Duration = TimeSpan.FromSeconds(3),
+        };
+        var sceneSound = new SceneSound
+        {
+            ReferencedScene = { CurrentValue = referenced },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(5) },
+        };
+        element.Objects.Add(sceneSound);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        });
+    }
 
     [Test]
     public void Slip_ZeroSpeedSourceSoundReservesReadableSample()
@@ -1412,6 +1436,34 @@ public class ElementSlipServiceTests
             Assert.That(controller.CanProvideCompleteTimeMapping(element.Range, video), Is.False);
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void Slip_TimeControllerWithNonFiniteFrameRateFailsClosed(float invalidFrameRate)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var video = new SourceVideo();
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = video },
+        };
+        SetPropertyValueSilently(controller.FrameRate, invalidFrameRate);
+        element.Objects.Add(controller);
+        int before = _history.UndoCount;
+        bool applied = true;
+
+        Assert.DoesNotThrow(() => applied = _service.Slip(
+            _scene,
+            [element],
+            TimeSpan.FromSeconds(1)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
 

@@ -81,6 +81,8 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             || AdjustTimeRange.Animation != null
             || FrameRate.HasExpression
             || FrameRate.Animation != null
+            || !float.IsFinite(FrameRate.CurrentValue)
+            || FrameRate.CurrentValue < 0
             || Loop.HasExpression
             || Loop.Animation != null
             || Reverse.HasExpression

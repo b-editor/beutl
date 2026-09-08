@@ -966,12 +966,56 @@ internal static class SlippableMedia
 
             if (resource.IsLoop && video.OffsetPosition.CurrentValue == TimeSpan.Zero)
             {
-                accumulated = AddDurationSaturated(accumulated, stateDuration);
-                if (boundary == horizon)
-                    return CompleteVideoTimelineRoom(context, accumulated);
+                TimeSpan loopSourceRoom = source.Duration - sourcePosition;
+                if (loopSourceRoom <= TimeSpan.Zero)
+                    loopSourceRoom = source.Duration;
 
-                cursor = boundary;
-                nextIndex++;
+                TimeSpan loopClockStart = GetVideoClockStartAt(video, cursor);
+                TimeSpan loopBoundaryDuration = video.CalculateTimelineDuration(
+                    loopClockStart,
+                    loopSourceRoom,
+                    resource);
+                TimeSpan inspectedDuration = loopBoundaryDuration < stateDuration
+                    ? loopBoundaryDuration
+                    : stateDuration;
+                if (inspectedDuration <= TimeSpan.Zero)
+                    return MapTimelineDuration(context, accumulated, TimeSpan.Zero);
+
+                TimeSpan loopRoundingHeadroom = GetVideoFrameRoundingHeadroom(source);
+                VideoSourceLimitEvaluation loopEvaluation = EvaluateVideoSourceLimit(
+                    video,
+                    loopClockStart,
+                    loopSourceRoom,
+                    cursor,
+                    inspectedDuration,
+                    boundary,
+                    resource,
+                    context.SampleTimesAtEnd,
+                    loopRoundingHeadroom);
+                if (loopEvaluation.Exceeded)
+                {
+                    TimeSpan safeLoopRoom = FindEarliestVideoConsumption(
+                        video,
+                        loopClockStart,
+                        loopSourceRoom,
+                        inspectedDuration,
+                        resource,
+                        cursor,
+                        boundary,
+                        context.SampleTimesAtEnd,
+                        loopRoundingHeadroom,
+                        false);
+                    return MapTimelineDuration(context, accumulated, safeLoopRoom);
+                }
+
+                accumulated = AddDurationSaturated(accumulated, inspectedDuration);
+                cursor += inspectedDuration;
+                if (cursor >= boundary)
+                {
+                    cursor = boundary;
+                    nextIndex++;
+                }
+
                 continue;
             }
 
@@ -1682,7 +1726,10 @@ internal static class SlippableMedia
         // The referenced scene is the "source": its duration bounds how far the media
         // window can advance. Unresolved references stay unbounded, like a SourceVideo
         // without a loaded source.
-        TimeSpan? total = sound.ReferencedScene.CurrentValue?.Duration;
+        Scene? referencedScene = sound.ReferencedScene.CurrentValue;
+        TimeSpan? total = referencedScene is null
+            ? null
+            : AddDurationSaturated(referencedScene.Start, referencedScene.Duration);
         return CreateSoundTargetCore(
             sound,
             sound.OffsetPosition,
