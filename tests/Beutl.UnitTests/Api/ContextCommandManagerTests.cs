@@ -17,6 +17,8 @@ public class ContextCommandManagerTests
         public Task TaskCommand() => operation;
 
         public ValueTask ValueTaskCommand() => new(operation);
+
+        public Task TaskCommandWithArgs(KeyEventArgs args) => operation;
     }
 
     // A command binding two platform-less gestures (like the timeline's Exit* commands binding
@@ -69,6 +71,31 @@ public class ContextCommandManagerTests
         gate.SetResult();
         await operation;
         Assert.That(operation.IsCompletedSuccessfully, Is.True);
+    }
+
+    [Test]
+    public async Task Attribute_handler_with_key_args_marks_the_event_handled_before_invocation()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new AwaitableAttributeContext(gate.Task);
+        MethodInfo method = typeof(AwaitableAttributeContext).GetMethod(
+            nameof(AwaitableAttributeContext.TaskCommandWithArgs))!;
+        var handler = new ContextCommandHandler(method, method.GetParameters());
+        var args = new KeyEventArgs();
+
+        Task operation = handler.InvokeAsync(context, args, Mock.Of<ILogger>());
+
+        Assert.That(args.Handled, Is.True);
+        gate.SetResult();
+        await operation;
+    }
+
+    [Test]
+    public void Input_event_boundary_consumes_faulted_command_tasks()
+    {
+        Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
+            () => Task.FromException(new InvalidOperationException("command failed")),
+            Mock.Of<ILogger>()));
     }
 
     [Test]

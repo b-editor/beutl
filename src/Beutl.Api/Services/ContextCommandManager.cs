@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Collections;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -28,6 +29,7 @@ public record ContextCommandHandler(MethodInfo MethodInfo, ParameterInfo[] Param
                 result = MethodInfo.Invoke(context, []);
                 break;
             case 1 when Parameters[0].ParameterType == typeof(KeyEventArgs):
+                args.Handled = true;
                 result = MethodInfo.Invoke(context, [args]);
                 break;
             default:
@@ -263,62 +265,82 @@ public class ContextCommandManager(
                 if (sender is not InputElement { DataContext: { } context })
                     return;
 
-                OSPlatform pid = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-                    OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-                    OperatingSystem.IsLinux() ? OSPlatform.Linux :
-                    throw new PlatformNotSupportedException();
-                if (context is IContextCommandHandler compiledHandler)
-                {
-                    foreach (ContextCommandEntry entry in entries)
-                    {
-                        // Platformが一致するものがない場合はスキップ
-                        // Gestureが一致するものがない場合はスキップ
-                        if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
-                            .All(gesture => gesture.KeyGesture?.Matches(args) != true))
-                        {
-                            continue;
-                        }
-
-                        var execution = new ContextCommandExecution(entry.Definition.Name)
-                        {
-                            KeyEventArgs = args
-                        };
-
-                        // ハンドラが CanExecute で false を返した場合は実行をスキップして
-                        // 同じジェスチャの後続バインディング（フォールバック）に処理を委ねる。
-                        if (!compiledHandler.CanExecute(execution))
-                        {
-                            continue;
-                        }
-
-                        await compiledHandler.ExecuteAsync(execution);
-                        return;
-                    }
-                }
-
-                Type contextType = context.GetType();
-                if (!handlerRegistry.IsRegistered(contextType))
-                {
-                    handlerRegistry.Register(contextType, extension.GetType());
-                }
-
-                foreach (ContextCommandEntry entry in entries)
-                {
-                    // Platformが一致するものがない場合はスキップ
-                    // Gestureが一致するものがない場合はスキップ
-                    if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
-                        .All(gesture => gesture.KeyGesture?.Matches(args) != true))
-                    {
-                        continue;
-                    }
-
-                    if (handlerRegistry.GetHandler(entry) is { } handler)
-                    {
-                        await handler.InvokeAsync(context, args, logger);
-                        return;
-                    }
-                }
+                await ExecuteSafelyAsync(
+                    () => DispatchAsync(context, args, entries, extension.GetType(), logger),
+                    logger);
             };
+        }
+    }
+
+    internal static async Task ExecuteSafelyAsync(Func<Task> execute, ILogger logger)
+    {
+        try
+        {
+            await execute();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "A context command failed at the input event boundary.");
+            NotificationService.ShowError(
+                MessageStrings.UnexpectedError,
+                MessageStrings.OperationFailed);
+        }
+    }
+
+    private async Task DispatchAsync(
+        object context,
+        KeyEventArgs args,
+        ContextCommandEntry[] entries,
+        Type extensionType,
+        ILogger logger)
+    {
+        OSPlatform pid = OperatingSystem.IsWindows() ? OSPlatform.Windows :
+            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
+            OperatingSystem.IsLinux() ? OSPlatform.Linux :
+            throw new PlatformNotSupportedException();
+        if (context is IContextCommandHandler compiledHandler)
+        {
+            foreach (ContextCommandEntry entry in entries)
+            {
+                if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
+                    .All(gesture => gesture.KeyGesture?.Matches(args) != true))
+                {
+                    continue;
+                }
+
+                var execution = new ContextCommandExecution(entry.Definition.Name)
+                {
+                    KeyEventArgs = args
+                };
+                if (!compiledHandler.CanExecute(execution))
+                {
+                    continue;
+                }
+
+                await compiledHandler.ExecuteAsync(execution);
+                return;
+            }
+        }
+
+        Type contextType = context.GetType();
+        if (!handlerRegistry.IsRegistered(contextType))
+        {
+            handlerRegistry.Register(contextType, extensionType);
+        }
+
+        foreach (ContextCommandEntry entry in entries)
+        {
+            if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
+                .All(gesture => gesture.KeyGesture?.Matches(args) != true))
+            {
+                continue;
+            }
+
+            if (handlerRegistry.GetHandler(entry) is { } handler)
+            {
+                await handler.InvokeAsync(context, args, logger);
+                return;
+            }
         }
     }
 }

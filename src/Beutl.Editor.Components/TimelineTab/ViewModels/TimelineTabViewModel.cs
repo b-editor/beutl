@@ -87,8 +87,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         AddElement.Subscribe(desc => editorContext.GetRequiredService<IElementAdder>().AddElement(desc)).AddTo(_disposables);
 
-        Paste.Subscribe(PasteCore)
-            .AddTo(_disposables);
+        Paste = new AsyncReactiveCommand()
+            .WithSubscribe(PasteCore)
+            .DisposeWith(_disposables);
 
         Duplicate.Subscribe(DuplicateSelectedElements)
             .AddTo(_disposables);
@@ -336,7 +337,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = [];
 
-    public ReactiveCommand Paste { get; } = new();
+    public AsyncReactiveCommand Paste { get; }
 
     public ReactiveCommand Duplicate { get; } = new();
 
@@ -551,7 +552,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    private async void PasteCore()
+    private async Task PasteCore()
     {
         try
         {
@@ -1036,7 +1037,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         switch (execution.CommandName)
         {
             case "Paste":
-                Paste.Execute();
+                operation = Paste.ExecuteAsync();
                 if (execution.KeyEventArgs != null)
                 {
                     execution.KeyEventArgs.Handled = true;
@@ -1053,7 +1054,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
                 break;
             case "Copy":
-                SelectedElements.FirstOrDefault()?.Copy.Execute();
+                if (SelectedElements.FirstOrDefault() is { } copyTarget)
+                {
+                    operation = copyTarget.Copy.ExecuteAsync();
+                }
+
                 break;
             case "Cut":
                 if (SelectedElements.FirstOrDefault() is { } cutTarget)

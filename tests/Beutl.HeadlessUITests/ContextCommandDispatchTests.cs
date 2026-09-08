@@ -159,6 +159,57 @@ public class ContextCommandDispatchTests
     }
 
     [AvaloniaTest]
+    [TestCase("Copy")]
+    [TestCase("Paste")]
+    public async Task Timeline_handler_returns_clipboard_command_operations(string commandName)
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                $"context-command-timeline-{commandName.ToLowerInvariant()}");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "timeline-handler",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            adder.AddElement(new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(1),
+                Layer: 0,
+                EngineObjectFactory: () => new RectShape()));
+            HeadlessTestHelpers.Settle();
+            TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+            ElementViewModel target = timeline.Elements.Single();
+            timeline.SelectElement(target);
+            AsyncReactiveCommand command = commandName == "Copy" ? target.Copy : timeline.Paste;
+            var gate = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            using IDisposable subscription = command.Subscribe(() => gate.Task);
+
+            Task operation = timeline.ExecuteAsync(new ContextCommandExecution(commandName));
+
+            Assert.That(operation.IsCompleted, Is.False);
+            gate.SetResult();
+            await operation.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(operation.IsCompletedSuccessfully, Is.True);
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Command_palette_returns_the_handler_operation()
     {
         await TestReset.ResetShellAsync();

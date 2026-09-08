@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
@@ -213,7 +214,7 @@ public partial class CommandPaletteView : UserControl
                 break;
             case Key.Enter:
                 e.Handled = true;
-                await viewModel.ExecuteSelectedAsync();
+                await ExecuteSelectedSafelyAsync(viewModel);
                 break;
         }
     }
@@ -232,7 +233,20 @@ public partial class CommandPaletteView : UserControl
         {
             viewModel.SelectedCommand.Value = item;
             e.Handled = true;
+            await ExecuteSelectedSafelyAsync(viewModel);
+        }
+    }
+
+    private async Task ExecuteSelectedSafelyAsync(CommandPaletteViewModel viewModel)
+    {
+        try
+        {
             await viewModel.ExecuteSelectedAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "A command palette action failed.");
+            await ex.Handle();
         }
     }
 

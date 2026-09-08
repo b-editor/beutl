@@ -102,7 +102,14 @@ public partial class EditorHostFallback : UserControl
     {
         if (this.FindAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
         {
-            await action(viewModel);
+            try
+            {
+                await action(viewModel);
+            }
+            catch (Exception ex)
+            {
+                await ex.Handle();
+            }
         }
     }
 
