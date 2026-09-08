@@ -73,6 +73,11 @@ public sealed class EditorProjectSessionGateway(
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (activeSession is LiveEditingSession liveSession && !liveSession.ProbeIsAlive())
+            {
+                throw new SessionUnavailableException();
+            }
+
             if (projectService.CurrentProject.Value is not { } project)
             {
                 throw new SessionUnavailableException();
