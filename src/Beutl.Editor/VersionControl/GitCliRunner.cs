@@ -118,9 +118,14 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     private readonly Func<string, RepositoryLockFileSnapshot?> _readLockFileSnapshot;
     private readonly Func<string, RepositoryLockFileSnapshot, bool> _deleteLockFileConditionally;
     private readonly Func<string, IEnumerable<string>> _enumerateFileSystemEntries;
+    private readonly Action<Process> _killProcessTree;
+    private readonly Action<Process> _closeRedirectedStreams;
+    private readonly object _quarantineSync = new();
     private readonly ConditionalWeakTable<RepositoryLockInfo, RepositoryLockFileIdentityBox>
         _lockFileIdentities = new();
+    private TaskCompletionSource? _quarantineQuiesced;
     private int _activeProcesses;
+    private int _quarantinedProcesses;
 
     internal GitCliRunner(string gitPath)
         : this(
@@ -140,7 +145,9 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         bool? supportsConditionalLockDeletion = null,
         Func<string, RepositoryLockFileSnapshot?>? readLockFileSnapshot = null,
         Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null,
-        Func<string, IEnumerable<string>>? enumerateFileSystemEntries = null)
+        Func<string, IEnumerable<string>>? enumerateFileSystemEntries = null,
+        Action<Process>? killProcessTree = null,
+        Action<Process>? closeRedirectedStreams = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gitPath);
         if (localTimeout <= TimeSpan.Zero)
@@ -166,6 +173,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                                           path,
                                           "*",
                                           SearchOption.TopDirectoryOnly));
+        _killProcessTree = killProcessTree ?? TryKillProcessTree;
+        _closeRedirectedStreams = closeRedirectedStreams ?? TryCloseRedirectedStreams;
     }
 
     public event EventHandler<GitRepositoryLockEventArgs>? RepositoryLockFailed;
@@ -194,6 +203,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                 nameof(options));
         }
 
+        await WaitForQuarantineAsync(cancellationToken).ConfigureAwait(false);
         GitExecutionPolicy executionPolicy = await ResolveExecutionPolicyAsync(
             repository,
             options,
@@ -231,6 +241,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             throw new ArgumentOutOfRangeException(nameof(options));
         }
 
+        await WaitForQuarantineAsync(cancellationToken).ConfigureAwait(false);
         GitExecutionPolicy executionPolicy = await ResolveExecutionPolicyAsync(
             repository,
             options,
@@ -255,7 +266,8 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         bool captureStdoutBytes,
         bool throwOnFailure)
     {
-        using var process = new Process { StartInfo = startInfo };
+        var process = new Process { StartInfo = startInfo };
+        bool processQuarantined = false;
         Interlocked.Increment(ref _activeProcesses);
         try
         {
@@ -300,15 +312,20 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             }
             catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
             {
-                TryKillProcessTree(process);
-                TryCloseRedirectedStreams(process);
+                _killProcessTree(process);
+                _closeRedirectedStreams(process);
                 Task cleanup = Task.WhenAll(
                     ObserveCleanupTaskAsync(completion),
                     ObserveCleanupTaskAsync(processExitTask),
                     ObserveCleanupTaskAsync(stdinTask),
                     ObserveCleanupTaskAsync(stdoutTask),
                     ObserveCleanupTaskAsync(stderrTask));
-                await WaitForCleanupGracePeriodAsync(cleanup).ConfigureAwait(false);
+                if (!await WaitForCleanupGracePeriodAsync(cleanup).ConfigureAwait(false))
+                {
+                    processQuarantined = true;
+                    QuarantineProcess(process, cleanup);
+                }
+
                 if (!cancellationToken.IsCancellationRequested && timeoutCts?.IsCancellationRequested == true)
                 {
                     throw new TimeoutException($"Git did not finish within {_localTimeout}.");
@@ -344,18 +361,76 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         }
         finally
         {
-            Interlocked.Decrement(ref _activeProcesses);
+            if (!processQuarantined)
+            {
+                process.Dispose();
+                Interlocked.Decrement(ref _activeProcesses);
+            }
         }
     }
 
-    private static async Task WaitForCleanupGracePeriodAsync(Task cleanup)
+    private async Task WaitForQuarantineAsync(CancellationToken cancellationToken)
+    {
+        Task? quarantine;
+        lock (_quarantineSync)
+        {
+            quarantine = _quarantineQuiesced?.Task;
+        }
+
+        if (quarantine is not null)
+        {
+            await quarantine.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private void QuarantineProcess(Process process, Task cleanup)
+    {
+        lock (_quarantineSync)
+        {
+            _quarantinedProcesses++;
+            _quarantineQuiesced ??= new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        _ = CompleteQuarantinedProcessAsync(process, cleanup);
+    }
+
+    private async Task CompleteQuarantinedProcessAsync(Process process, Task cleanup)
+    {
+        try
+        {
+            await cleanup.ConfigureAwait(false);
+        }
+        finally
+        {
+            process.Dispose();
+            Interlocked.Decrement(ref _activeProcesses);
+
+            TaskCompletionSource? quiesced = null;
+            lock (_quarantineSync)
+            {
+                _quarantinedProcesses--;
+                if (_quarantinedProcesses == 0)
+                {
+                    quiesced = _quarantineQuiesced;
+                    _quarantineQuiesced = null;
+                }
+            }
+
+            quiesced?.TrySetResult();
+        }
+    }
+
+    private static async Task<bool> WaitForCleanupGracePeriodAsync(Task cleanup)
     {
         try
         {
             await cleanup.WaitAsync(s_cleanupGracePeriod).ConfigureAwait(false);
+            return true;
         }
         catch (TimeoutException)
         {
+            return false;
         }
     }
 

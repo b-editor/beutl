@@ -882,6 +882,74 @@ public class GitCliRunnerTests : RealGitTestRepository
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Unconfirmed_process_exit_quarantines_follow_up_commands_and_lock_recovery(
+        bool callerCancellation)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This live process regression uses the Unix process model.");
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        TimeSpan localTimeout = callerCancellation
+            ? TimeSpan.FromSeconds(10)
+            : TimeSpan.FromMilliseconds(500);
+        (GitCliRunner runner, Task<GitCommandResult> runTask, string pidPath) =
+            StartProcessWhoseCleanupCannotStop(
+                localTimeout,
+                callerCancellation ? cancellation.Token : CancellationToken.None);
+        Task<GitCommandResult>? followUp = null;
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "surviving process lock");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            DateTime.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
+
+        try
+        {
+            Assert.That(await WaitForRecordedProcessIdAsync(pidPath), Is.Not.Null);
+            if (callerCancellation)
+            {
+                cancellation.Cancel();
+                Assert.ThrowsAsync<OperationCanceledException>(
+                    async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
+            }
+            else
+            {
+                Assert.ThrowsAsync<TimeoutException>(
+                    async () => await runTask.WaitAsync(TimeSpan.FromSeconds(4)));
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(runner.HasActiveProcess, Is.True);
+                Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Null);
+            });
+            followUp = runner.RunAsync(
+                Repository,
+                ["-c", "exit 0"],
+                GitCommandOptions.Local,
+                CancellationToken.None);
+            await Task.Delay(100);
+            Assert.That(followUp.IsCompleted, Is.False);
+        }
+        finally
+        {
+            await KillRecordedProcessAsync(pidPath);
+            await ObserveAsync(runTask);
+        }
+
+        GitCommandResult followUpResult = await followUp!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Multiple(() =>
+        {
+            Assert.That(runner.HasActiveProcess, Is.False);
+            Assert.That(runner.GetRecoverableRepositoryLock(Repository), Is.Not.Null);
+            Assert.That(followUpResult.ExitCode, Is.Zero);
+        });
+    }
+
     [Test]
     public async Task Standard_input_is_closed_after_process_start()
     {
@@ -1636,6 +1704,34 @@ public class GitCliRunnerTests : RealGitTestRepository
         const string command =
             "sleep 30 & descendant=$!; "
             + "printf '%s' \"$descendant\" > \"$BEUTL_TEST_DESCENDANT_PID\"; exit 0";
+        Task<GitCommandResult> runTask = runner.RunAsync(
+            Repository,
+            ["-c", command],
+            options,
+            cancellationToken);
+        return (runner, runTask, pidPath);
+    }
+
+    private (GitCliRunner Runner, Task<GitCommandResult> RunTask, string PidPath)
+        StartProcessWhoseCleanupCannotStop(
+            TimeSpan localTimeout,
+            CancellationToken cancellationToken)
+    {
+        string pidPath = Path.Combine(CreateTemporaryDirectory(), "process.pid");
+        var runner = new GitCliRunner(
+            "/bin/sh",
+            localTimeout,
+            IsolatedGitEnvironment,
+            killProcessTree: static _ => { },
+            closeRedirectedStreams: static _ => { });
+        var options = new GitCommandOptions(
+            GitCommandExecutionKind.Local,
+            new Dictionary<string, string?>
+            {
+                ["BEUTL_TEST_PROCESS_PID"] = pidPath,
+            });
+        const string command =
+            "printf '%s' \"$$\" > \"$BEUTL_TEST_PROCESS_PID\"; exec sleep 30";
         Task<GitCommandResult> runTask = runner.RunAsync(
             Repository,
             ["-c", command],
