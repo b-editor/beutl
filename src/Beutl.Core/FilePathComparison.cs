@@ -340,7 +340,8 @@ public static class FilePathComparison
         if (OperatingSystem.IsWindows()
             && TryGetWindowsLongPath(candidate) is { } longPath)
         {
-            return longPath;
+            candidate = longPath;
+            component = Path.GetFileName(longPath);
         }
 
         try

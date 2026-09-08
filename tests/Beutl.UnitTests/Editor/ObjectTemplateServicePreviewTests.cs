@@ -263,9 +263,11 @@ public class ObjectTemplateServicePreviewTests
 
             service.RestoreItems();
 
-            int matching = service.FindByBaseType(item.BaseType).Count(template =>
-                template.FilePath == originalPath || template.FilePath == aliasPath);
-            Assert.That(matching, Is.EqualTo(1));
+            string?[] matchingPaths = service.FindByBaseType(item.BaseType)
+                .Select(template => template.FilePath)
+                .Where(path => path == originalPath || path == aliasPath)
+                .ToArray();
+            Assert.That(matchingPaths, Is.EqualTo(new[] { originalPath }));
         }
         finally
         {
