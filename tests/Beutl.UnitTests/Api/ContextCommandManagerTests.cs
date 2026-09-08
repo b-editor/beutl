@@ -74,7 +74,7 @@ public class ContextCommandManagerTests
     }
 
     [Test]
-    public async Task Attribute_handler_with_key_args_marks_the_event_handled_before_invocation()
+    public async Task Attribute_handler_with_key_args_preserves_handler_controlled_propagation()
     {
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var context = new AwaitableAttributeContext(gate.Task);
@@ -85,7 +85,7 @@ public class ContextCommandManagerTests
 
         Task operation = handler.InvokeAsync(context, args, Mock.Of<ILogger>());
 
-        Assert.That(args.Handled, Is.True);
+        Assert.That(args.Handled, Is.False);
         gate.SetResult();
         await operation;
     }
@@ -95,6 +95,14 @@ public class ContextCommandManagerTests
     {
         Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
             () => Task.FromException(new InvalidOperationException("command failed")),
+            Mock.Of<ILogger>()));
+    }
+
+    [Test]
+    public void Input_event_boundary_consumes_canceled_command_tasks()
+    {
+        Assert.DoesNotThrowAsync(() => ContextCommandManager.ExecuteSafelyAsync(
+            () => Task.FromCanceled(new CancellationToken(canceled: true)),
             Mock.Of<ILogger>()));
     }
 

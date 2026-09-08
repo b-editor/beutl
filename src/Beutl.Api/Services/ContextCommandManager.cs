@@ -30,7 +30,6 @@ public record ContextCommandHandler(MethodInfo MethodInfo, ParameterInfo[] Param
                 result = MethodInfo.Invoke(context, []);
                 break;
             case 1 when Parameters[0].ParameterType == typeof(KeyEventArgs):
-                args.Handled = true;
                 result = MethodInfo.Invoke(context, [args]);
                 break;
             default:
@@ -278,6 +277,9 @@ public class ContextCommandManager(
         try
         {
             await execute();
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
