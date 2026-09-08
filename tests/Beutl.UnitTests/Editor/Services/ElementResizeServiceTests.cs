@@ -1260,8 +1260,9 @@ public class ElementResizeServiceTests
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1.25)).Within(TimeSpan.FromMilliseconds(10)));
     }
 
-    [Test]
-    public void GetTrimDeltaBounds_TimeControllerRecomputesFutureSampleGap()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void GetTrimDeltaBounds_TimeControllerRecomputesFutureSampleGap(bool loop)
     {
         var frontSource = new VideoSource();
         frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
@@ -1282,6 +1283,7 @@ public class ElementResizeServiceTests
         });
         var controller = new DrawableTimeController
         {
+            Loop = { CurrentValue = loop },
             Target = { CurrentValue = video },
             Speed = { Animation = speed },
         };
@@ -1304,6 +1306,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(max, Is.GreaterThan(TimeSpan.FromSeconds(8)));
+            Assert.That(max, Is.LessThan(TimeSpan.FromSeconds(10)));
             Assert.That(requestedFrame, Is.LessThan(60));
         });
     }
@@ -2129,6 +2132,30 @@ public class ElementResizeServiceTests
         (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]);
 
         Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(4)).Within(TimeSpan.FromMilliseconds(1)));
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_UniformLoopBoundaryDoesNotUseWholeTargetAsFrameWidth()
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 30)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { CurrentValue = 10f },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+
+        Assert.That(_service.GetTrimDeltaBounds(_scene, [new ElementTrimPair(front, back)]).Max,
+            Is.EqualTo(TimeSpan.Zero));
     }
 
     [Test]

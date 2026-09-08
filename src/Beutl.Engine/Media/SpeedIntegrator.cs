@@ -42,27 +42,11 @@ public sealed class SpeedIntegrator : IDisposable
                 return true;
         }
 
-        // Custom easings need not provide a range contract. Reject proven invalid output
-        // without requiring that optional contract from otherwise supported animations.
+        // Endpoint samples cannot prove a nonnegative speed throughout an interval.
         bool known = clockRange is { } interval
             ? animation.TryGetOutputRange(interval, out float minimum, out float maximum)
             : animation.TryGetOutputRange(out minimum, out maximum);
-        if (known)
-            return !float.IsFinite(minimum) || !float.IsFinite(maximum) || minimum < 0;
-        if (clockRange is { } endpoints)
-        {
-            try
-            {
-                float start = animation.Interpolate(endpoints.Start);
-                float end = animation.Interpolate(endpoints.End);
-                return !float.IsFinite(start) || !float.IsFinite(end) || start < 0 || end < 0;
-            }
-            catch (OverflowException)
-            {
-                return true;
-            }
-        }
-        return false;
+        return !known || !float.IsFinite(minimum) || !float.IsFinite(maximum) || minimum < 0;
     }
 
     /// <summary>

@@ -30,7 +30,8 @@ internal static class SlippableMedia
         Func<TimeSpan, TimeSpan>? TimelineDurationFromTarget,
         bool HasUnboundedTail,
         bool IsReversed,
-        bool AffectsOffset);
+        bool AffectsOffset,
+        bool FrameDurationIsUniform = true);
 
     private readonly record struct TimeMappingTargetState(
         TimeRange Range,
@@ -329,7 +330,9 @@ internal static class SlippableMedia
                             mapper,
                             hasUnboundedTail,
                             isReversed,
-                            state.AffectsOffset);
+                            state.AffectsOffset,
+                            context.FrameDurationIsUniform
+                                && IsUniformController(timeMappingPresenter));
                         CollectFrom(controlled, targets, active, mappedContext, ref isComplete);
                     }
                     break;
@@ -365,7 +368,8 @@ internal static class SlippableMedia
                             mapper,
                             state.IgnoreTail || context.HasUnboundedTail,
                             context.IsReversed,
-                            state.AffectsOffset);
+                            state.AffectsOffset,
+                            context.FrameDurationIsUniform);
                         CollectFrom(state.Target, targets, active, presentedContext, ref isComplete);
                     }
                     break;
@@ -691,12 +695,27 @@ internal static class SlippableMedia
         return TimeSpan.FromTicks((long)Math.Min(TimeSpan.MaxValue.Ticks, ticks));
     }
 
+    private static bool IsUniformController(ITimeMappingPresenter presenter)
+        => presenter is DrawableTimeController controller
+            && controller.Speed.Animation == null
+            && !controller.Speed.HasExpression
+            && float.IsFinite(controller.Speed.CurrentValue)
+            && controller.Speed.CurrentValue >= 0
+            && controller.FrameRate.CurrentValue == 0
+            && !controller.HoldFirstFrame.CurrentValue
+            && !controller.HoldLastFrame.CurrentValue;
+
     private static TimeSpan GetMappedFrameDuration(
         ITimeMappingPresenter presenter,
         TimeMappingTargetState state,
         CoreObject target,
         TimeSpan parentFrameDuration)
     {
+        // Mapping a range across a loop can return the entire target range. A known
+        // constant speed gives the actual unwrapped sample width instead.
+        if (IsUniformController(presenter))
+            return ScaleDuration(parentFrameDuration, ((DrawableTimeController)presenter).Speed.CurrentValue / 100d);
+
         // Preserve the target-time distance between adjacent timeline samples through nested
         // time mappings so leaf video bounds can mirror SourceVideo's frame rounding.
         TimeRange basis = state.Range.IsEmpty ? state.ReachableRange : state.Range;
@@ -1319,7 +1338,16 @@ internal static class SlippableMedia
         if (video.Speed.Animation == null && video.Speed.CurrentValue == 0)
             return IsVideoSampleReadableAt(video, context.Range.End);
 
-        if (video.Source.Animation == null)
+        MappedSampleTimes samples = context.SampleTimesAtEnd(context.ReachableRange.End);
+        // At a loop boundary a mapped interval can expand to the whole target range.
+        // A proven uniform mapping supplies the unwrapped adjacent sample instead.
+        MappedSampleTimes gapSamples = samples;
+        if (context.FrameDurationIsUniform
+            && TryMoveTime(context.ReachableRange.End, context.FrameDuration, true, out TimeSpan previous))
+            gapSamples = new MappedSampleTimes(previous, context.ReachableRange.End);
+        if (video.Source.Animation == null
+            && gapSamples.End >= gapSamples.Previous
+            && (decimal)gapSamples.End.Ticks - gapSamples.Previous.Ticks <= long.MaxValue)
         {
             if (video.Source.CurrentValue is not { } currentSource)
                 return true;
@@ -1330,24 +1358,22 @@ internal static class SlippableMedia
                 return true;
 
             double sourceFrameTicks = GetVideoFrameTicks(sourceResource);
-            TimeSpan clockStart = GetVideoClockStartAt(
-                video,
-                context.ReachableRange.End - context.FrameDuration);
+            TimeSpan clockStart = GetVideoClockStartAt(video, gapSamples.Previous);
             TimeSpan mappedFrameDuration = video.CalculateVideoDuration(
                 clockStart,
-                context.FrameDuration,
+                gapSamples.End - gapSamples.Previous,
                 videoResource);
             if (sourceFrameTicks > 0
-                && mappedFrameDuration.Ticks + 1 >= sourceFrameTicks)
+                && mappedFrameDuration != TimeSpan.MaxValue
+                && mappedFrameDuration.Ticks >= sourceFrameTicks - 1)
             {
                 return true;
             }
         }
 
-        MappedSampleTimes samples = context.SampleTimesAtEnd(context.ReachableRange.End);
-        return samples.Previous >= context.ReachableRange.Start
-            && samples.Previous <= context.ReachableRange.End
-            && IsVideoSampleReadableAt(video, samples.Previous);
+        return gapSamples.Previous >= context.ReachableRange.Start
+            && gapSamples.Previous <= context.ReachableRange.End
+            && IsVideoSampleReadableAt(video, gapSamples.Previous);
     }
 
     private static bool IsVideoSampleReadableAt(

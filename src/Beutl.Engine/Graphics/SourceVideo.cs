@@ -183,6 +183,14 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         if (!TryGetTimelineUpperBound(start, sourceDuration, resource, animation, out TimeSpan high))
             return TimeSpan.MaxValue;
 
+        if (!TryAddTime(start, high, out TimeSpan end))
+            return TimeSpan.MaxValue;
+        TimeSpan earliest = TimeSpan.FromTicks(Math.Min(0, Math.Min(start.Ticks, end.Ticks)));
+        TimeSpan latest = TimeSpan.FromTicks(Math.Max(0, Math.Max(start.Ticks, end.Ticks)));
+        if ((decimal)latest.Ticks - earliest.Ticks > long.MaxValue
+            || SpeedIntegrator.HasInvalidSpeed(animation, new TimeRange(earliest, latest - earliest)))
+            return TimeSpan.MaxValue;
+
         TimeSpan consumed = CalculateVideoDurationBounded(start, high, resource, animation);
 
         if (consumed < sourceDuration) return TimeSpan.MaxValue;

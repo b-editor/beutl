@@ -51,6 +51,11 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         TimeRange compositionRange,
         out IReadOnlyList<PresenterTargetState> states)
     {
+        if (!IsValidRange(compositionRange))
+        {
+            states = [];
+            return false;
+        }
         if (compositionRange.IsEmpty)
         {
             states = [];
@@ -74,6 +79,8 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         bool reverse = false)
     {
         ArgumentNullException.ThrowIfNull(target);
+
+        if (!IsValidRange(timeRange)) return false;
 
         if (OffsetPosition.HasExpression
             || OffsetPosition.Animation != null
@@ -881,6 +888,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     public bool IsReversed(TimeRange timeRange, Drawable targetDrawable)
     {
         ArgumentNullException.ThrowIfNull(targetDrawable);
+        if (!IsValidRange(timeRange)) throw new ArgumentOutOfRangeException(nameof(timeRange));
         TimeSpan sampleTime = timeRange.IsEmpty
             ? timeRange.Start
             : timeRange.Start + TimeSpan.FromTicks(timeRange.Duration.Ticks / 2);
@@ -893,6 +901,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     /// </summary>
     public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable, bool reverse = false)
     {
+        if (!IsValidRange(timeRange)) return false;
         using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
         return HasUnboundedTail(timeRange, targetDrawable, resource, reverse);
     }
@@ -1057,6 +1066,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     {
         ArgumentNullException.ThrowIfNull(targetDrawable);
         ArgumentNullException.ThrowIfNull(resource);
+        if (!IsValidRange(timeRange)) throw new ArgumentOutOfRangeException(nameof(timeRange));
 
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return timeRange;
@@ -1090,9 +1100,13 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable targetDrawable)
     {
+        if (!IsValidRange(timeRange)) throw new ArgumentOutOfRangeException(nameof(timeRange));
         using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
         return CalculateTargetTimeRange(timeRange, targetDrawable, resource);
     }
+
+    private static bool IsValidRange(TimeRange range)
+        => range.Duration >= TimeSpan.Zero && range.Start.Ticks <= long.MaxValue - range.Duration.Ticks;
 
     private static TimeSpan GetSampleTime(TimeRange timeRange)
     {
