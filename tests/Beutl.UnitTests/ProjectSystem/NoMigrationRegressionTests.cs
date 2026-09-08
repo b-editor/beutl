@@ -332,6 +332,64 @@ public class NoMigrationRegressionTests
                 new MigrationNodeContainer()));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Json_population_records_missing_discriminators(bool populateElement)
+    {
+        var scene = new Scene();
+        var element = new Element();
+        scene.Children.Add(element);
+        var project = new Project();
+        project.RestoreVersionMetadata("1.0.0", "1.0.0");
+        project.Items.Add(scene);
+        CoreObject target = populateElement ? element : scene;
+        JsonObject json = CoreSerializer.SerializeToJsonObject(target);
+        json.Remove("$type");
+
+        CoreSerializer.PopulateFromJsonObject(target, json);
+        CoreSerializer.SerializeToJsonObject(project);
+
+        Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
+    }
+
+    [Test]
+    public void Detached_sidecar_migration_reaches_its_deserializing_owner()
+    {
+        string path = Path.Combine(_tempDirectory, "detached.belm");
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new Element());
+        json.Remove("$type");
+        json.JsonSave(path);
+        var owner = new DetachedSidecarOwner { SidecarPath = path };
+        JsonObject ownerJson = CoreSerializer.SerializeToJsonObject(owner);
+        var restored = (DetachedSidecarOwner)CoreSerializer.DeserializeFromJsonObject(
+            ownerJson, typeof(DetachedSidecarOwner));
+        var project = new Project();
+        project.RestoreVersionMetadata("1.0.0", "1.0.0");
+        project.Items.Add(restored);
+
+        Assert.That(restored.Child!.HierarchicalParent, Is.Null);
+        Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
+    }
+
+    private sealed class DetachedSidecarOwner : ProjectItem
+    {
+        public string SidecarPath { get; set; } = null!;
+        public Element? Child { get; private set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(SidecarPath), SidecarPath);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            SidecarPath = context.GetValue<string>(nameof(SidecarPath))!;
+            Child = CoreSerializer.RestoreFromUri<Element>(new Uri(SidecarPath));
+        }
+    }
+
     [Test]
     public void PopulateFromUri_reports_a_legacy_discriminator_migration()
     {

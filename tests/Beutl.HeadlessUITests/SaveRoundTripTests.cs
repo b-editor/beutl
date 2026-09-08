@@ -107,9 +107,10 @@ public class SaveRoundTripTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Saving_a_migrated_scene_persists_project_version_metadata(bool failProjectWrite)
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    public async Task Saving_a_migrated_scene_persists_project_version_metadata(int failureStage)
     {
         await ResetProjectAsync();
 
@@ -166,15 +167,19 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
-        if (failProjectWrite)
+        if (failureStage != 0)
         {
             Project currentProject = TestShell.Project.CurrentProject.Value!;
             Uri originalUri = currentProject.Uri!;
+            Uri originalSceneUri = migratedScene.Uri!;
             byte[] projectBefore = File.ReadAllBytes(projectFile);
             byte[] sceneBefore = File.ReadAllBytes(migratedScene.Uri!.LocalPath);
             byte[] elementBefore = File.ReadAllBytes(elementFile);
             // An existing file cannot serve as the destination's parent directory.
-            currentProject.Uri = new Uri(Path.Combine(projectFile, "blocked.bep"));
+            if (failureStage == 1)
+                currentProject.Uri = new Uri(Path.Combine(projectFile, "blocked.bep"));
+            else
+                migratedScene.Uri = new Uri(Path.Combine(projectFile, "blocked.scene"));
             Exception? failure = null;
             try
             {
@@ -187,14 +192,27 @@ public class SaveRoundTripTests
             finally
             {
                 currentProject.Uri = originalUri;
+                migratedScene.Uri = originalSceneUri;
             }
 
             Assert.Multiple(() =>
             {
                 Assert.That(failure, Is.Not.Null);
-                Assert.That(File.ReadAllBytes(projectFile), Is.EqualTo(projectBefore));
                 Assert.That(File.ReadAllBytes(migratedScene.Uri.LocalPath), Is.EqualTo(sceneBefore));
-                Assert.That(File.ReadAllBytes(elementFile), Is.EqualTo(elementBefore));
+                if (failureStage == 1)
+                {
+                    Assert.That(File.ReadAllBytes(projectFile), Is.EqualTo(projectBefore));
+                    Assert.That(File.ReadAllBytes(elementFile), Is.EqualTo(elementBefore));
+                }
+                else
+                {
+                    // The element write succeeded before the scene failed. Lowering the
+                    // project gate here would expose migrated bytes to older applications.
+                    JsonObject persistedProject = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
+                    Assert.That((string?)persistedProject["minAppVersion"],
+                        Is.EqualTo(Project.DefaultMinAppVersion));
+                    Assert.That(JsonNode.Parse(File.ReadAllText(elementFile))!["$type"], Is.Not.Null);
+                }
             });
             return;
         }

@@ -144,6 +144,13 @@ public static class CoreSerializer
     public static void PopulateFromJsonObject(ICoreSerializable obj, Type type, JsonObject json,
         CoreSerializerOptions? options = null)
     {
+        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(json, obj.GetType());
+        PopulateFromJsonObjectCore(obj, type, json, options, addedTypeDiscriminator);
+    }
+
+    private static void PopulateFromJsonObjectCore(ICoreSerializable obj, Type type, JsonObject json,
+        CoreSerializerOptions? options, bool addedTypeDiscriminator)
+    {
         var parentContext = ThreadLocalSerializationContext.Current;
         ReflectUri(json, obj, parentContext, ref options);
 
@@ -152,7 +159,15 @@ public static class CoreSerializer
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
+            if (addedTypeDiscriminator)
+            {
+                context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
+            }
             context.AfterDeserialized(obj);
+        }
+        if (addedTypeDiscriminator && obj is CoreObject coreObject)
+        {
+            coreObject.WasTypeDiscriminatorAddedDuringRestore = true;
         }
     }
 
@@ -231,7 +246,7 @@ public static class CoreSerializer
             }
 
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-            PopulateFromJsonObject(obj, type, jsonObject, options);
+            PopulateFromJsonObjectCore(obj, type, jsonObject, options, addedTypeDiscriminator);
             if (obj is CoreObject restoredCoreObject)
             {
                 restoredCoreObject.WasTypeDiscriminatorAddedDuringRestore =
@@ -268,14 +283,14 @@ public static class CoreSerializer
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) throw new JsonException();
-        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, type);
+        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
         }
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-        PopulateFromJsonObject(obj, type, jsonObject, options);
+        PopulateFromJsonObjectCore(obj, type, jsonObject, options, addedTypeDiscriminator);
         if (obj is CoreObject populatedCoreObject)
         {
             populatedCoreObject.WasTypeDiscriminatorAddedDuringRestore =
@@ -291,7 +306,7 @@ public static class CoreSerializer
             return false;
         }
 
-        if (type == typeof(ProjectItem))
+        if (type == typeof(ProjectItem) || type.FullName == "Beutl.ProjectSystem.Scene")
         {
             json["$type"] = LegacyTypeNames.SceneDiscriminator;
             return true;
