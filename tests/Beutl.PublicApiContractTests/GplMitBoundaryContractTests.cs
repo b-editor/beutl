@@ -75,17 +75,12 @@ public sealed class GplMitBoundaryContractTests
                 }
 
                 string resolvedItemSpec = ResolveItemSpec(document, file, itemSpec);
-                if (IsDynamicItemSpec(resolvedItemSpec))
+                if (IsDynamicItemSpec(resolvedItemSpec) && !isAssemblyReference)
                 {
                     if (isProjectReference)
                     {
                         violations.Add(
                             $"{relativePath}: contains an unresolved dynamic ProjectReference");
-                    }
-                    else if (isAssemblyReference)
-                    {
-                        violations.Add(
-                            $"{relativePath}: contains an unresolved dynamic assembly Reference");
                     }
                     else if (include is not null)
                     {
@@ -107,22 +102,18 @@ public sealed class GplMitBoundaryContractTests
 
                 if (isAssemblyReference)
                 {
-                    string? hintPath = element.Elements()
-                        .FirstOrDefault(child => string.Equals(
-                            child.Name.LocalName,
-                            "HintPath",
-                            StringComparison.OrdinalIgnoreCase))
-                        ?.Value;
-                    string? resolvedHintPath = hintPath is null
-                        ? null
-                        : ResolveItemSpec(document, file, hintPath);
-                    if (resolvedItemSpec.Contains(
+                    bool referencesWorker = resolvedItemSpec.Contains(
+                        "Beutl.FFmpegWorker",
+                        StringComparison.OrdinalIgnoreCase);
+                    foreach (string hintPath in EnumerateReferenceHintPaths(document, element))
+                    {
+                        string resolvedHintPath = ResolveItemSpec(document, file, hintPath);
+                        referencesWorker |= resolvedHintPath.Contains(
                             "Beutl.FFmpegWorker",
-                            StringComparison.OrdinalIgnoreCase)
-                        || resolvedHintPath?.Contains(
-                            "Beutl.FFmpegWorker",
-                            StringComparison.OrdinalIgnoreCase) == true
-                        || (resolvedHintPath is not null && IsDynamicItemSpec(resolvedHintPath)))
+                            StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    if (referencesWorker)
                     {
                         violations.Add(
                             $"{relativePath}: directly references the Beutl.FFmpegWorker assembly");
@@ -174,6 +165,52 @@ public sealed class GplMitBoundaryContractTests
         return violations;
     }
 
+    private static IEnumerable<string> EnumerateReferenceHintPaths(
+        XDocument document,
+        XElement reference)
+    {
+        string? attributeHintPath = GetAttributeValue(reference, "HintPath");
+        if (attributeHintPath is not null)
+        {
+            yield return attributeHintPath;
+        }
+
+        foreach (XElement hintPath in reference.Elements().Where(IsHintPath))
+        {
+            yield return hintPath.Value;
+        }
+
+        foreach (XElement itemDefinition in document.Descendants()
+                     .Where(element => string.Equals(
+                             element.Name.LocalName,
+                             "Reference",
+                             StringComparison.OrdinalIgnoreCase)
+                         && string.Equals(
+                             element.Parent?.Name.LocalName,
+                             "ItemDefinitionGroup",
+                             StringComparison.OrdinalIgnoreCase)))
+        {
+            string? defaultAttributeHintPath = GetAttributeValue(itemDefinition, "HintPath");
+            if (defaultAttributeHintPath is not null)
+            {
+                yield return defaultAttributeHintPath;
+            }
+
+            foreach (XElement hintPath in itemDefinition.Elements().Where(IsHintPath))
+            {
+                yield return hintPath.Value;
+            }
+        }
+    }
+
+    private static bool IsHintPath(XElement element)
+    {
+        return string.Equals(
+            element.Name.LocalName,
+            "HintPath",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string ResolveItemSpec(XDocument document, string file, string itemSpec)
     {
         var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -184,15 +221,27 @@ public sealed class GplMitBoundaryContractTests
 
         foreach (XElement propertyGroup in document.Descendants()
                      .Where(element => string.Equals(
-                             element.Name.LocalName,
-                             "PropertyGroup",
-                             StringComparison.OrdinalIgnoreCase)
-                         && GetAttributeValue(element, "Condition") is null))
+                         element.Name.LocalName,
+                         "PropertyGroup",
+                         StringComparison.OrdinalIgnoreCase)))
         {
-            foreach (XElement property in propertyGroup.Elements()
-                         .Where(element => GetAttributeValue(element, "Condition") is null))
+            bool conditionalGroup = GetAttributeValue(propertyGroup, "Condition") is not null
+                || propertyGroup.Ancestors().Any(element =>
+                    string.Equals(element.Name.LocalName, "When", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(
+                        element.Name.LocalName,
+                        "Otherwise",
+                        StringComparison.OrdinalIgnoreCase));
+            foreach (XElement property in propertyGroup.Elements())
             {
                 string name = property.Name.LocalName;
+                if (conditionalGroup || GetAttributeValue(property, "Condition") is not null)
+                {
+                    properties.Remove(name);
+                    ambiguous.Add(name);
+                    continue;
+                }
+
                 if (ambiguous.Contains(name))
                 {
                     continue;
@@ -325,6 +374,43 @@ public sealed class GplMitBoundaryContractTests
     }
 
     [Test]
+    public void Build_file_enumeration_includes_declared_submodules()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-submodule-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, ".gitmodules"),
+                """
+                [submodule "external/Tracked"]
+                    path = external/Tracked
+                    url = https://example.invalid/tracked.git
+                """);
+            string submoduleRoot = Directory.CreateDirectory(
+                Path.Combine(testRoot, "external", "Tracked")).FullName;
+            File.WriteAllText(Path.Combine(submoduleRoot, ".git"), "gitdir: elsewhere");
+            File.WriteAllText(Path.Combine(submoduleRoot, "Tracked.csproj"), "<Project />");
+
+            string[] files = EnumerateBuildFiles(testRoot)
+                .Select(path => Path.GetRelativePath(testRoot, path).Replace('\\', '/'))
+                .ToArray();
+
+            Assert.That(files, Is.EqualTo(new[] { "external/Tracked/Tracked.csproj" }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
     public void Boundary_scan_rejects_an_update_that_enables_the_worker_compile_reference()
     {
         string testRoot = Path.Combine(
@@ -431,6 +517,50 @@ public sealed class GplMitBoundaryContractTests
             Assert.That(
                 violations,
                 Is.EqualTo(new[] { "Project.csproj: references Beutl.FFmpegWorker" }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
+    public void Boundary_scan_rejects_conditionally_overridden_properties()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-conditional-property-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Project.csproj"),
+                """
+                <Project>
+                  <PropertyGroup>
+                    <WorkerProject>Safe.csproj</WorkerProject>
+                  </PropertyGroup>
+                  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+                    <WorkerProject>src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj</WorkerProject>
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <ProjectReference Include="$(WorkerProject)" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "Project.csproj: contains an unresolved dynamic ProjectReference",
+                }));
         }
         finally
         {
@@ -644,14 +774,106 @@ public sealed class GplMitBoundaryContractTests
         }
     }
 
+    [Test]
+    public void Boundary_scan_reads_attribute_and_item_definition_hint_paths()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-effective-hint-path-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Attribute.csproj"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <Reference Include="WorkerAlias"
+                               HintPath="lib/Beutl.FFmpegWorker.dll" />
+                  </ItemGroup>
+                </Project>
+                """);
+            File.WriteAllText(
+                Path.Combine(testRoot, "ItemDefinition.csproj"),
+                """
+                <Project>
+                  <ItemDefinitionGroup>
+                    <Reference>
+                      <HintPath>lib/Beutl.FFmpegWorker.dll</HintPath>
+                    </Reference>
+                  </ItemDefinitionGroup>
+                  <ItemGroup>
+                    <Reference Include="InheritedWorkerAlias" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "Attribute.csproj: directly references the Beutl.FFmpegWorker assembly",
+                    "ItemDefinition.csproj: directly references the Beutl.FFmpegWorker assembly",
+                }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
+    public void Boundary_scan_allows_unrelated_dynamic_assembly_hint_paths()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-unrelated-reference-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Project.csproj"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <Reference Include="Other.Library">
+                      <HintPath>$(NuGetPackageRoot)other.library/lib/Other.Library.dll</HintPath>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(violations, Is.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
     private static IReadOnlyList<string> EnumerateBuildFiles(string repositoryRoot)
     {
-        return EnumerateBuildFiles(new DirectoryInfo(repositoryRoot))
+        HashSet<string> submoduleRoots = FindSubmoduleRoots(repositoryRoot);
+        return EnumerateBuildFiles(new DirectoryInfo(repositoryRoot), submoduleRoots)
             .Order(StringComparer.Ordinal)
             .ToArray();
     }
 
-    private static IEnumerable<string> EnumerateBuildFiles(DirectoryInfo directory)
+    private static IEnumerable<string> EnumerateBuildFiles(
+        DirectoryInfo directory,
+        IReadOnlySet<string> submoduleRoots)
     {
         foreach (FileInfo file in directory.EnumerateFiles())
         {
@@ -666,16 +888,77 @@ public sealed class GplMitBoundaryContractTests
         foreach (DirectoryInfo child in directory.EnumerateDirectories())
         {
             if (ShouldSkipDirectory(child)
-                || IsRepositoryRoot(child))
+                || (IsRepositoryRoot(child) && !submoduleRoots.Contains(child.FullName)))
             {
                 continue;
             }
 
-            foreach (string file in EnumerateBuildFiles(child))
+            foreach (string file in EnumerateBuildFiles(child, submoduleRoots))
             {
                 yield return file;
             }
         }
+    }
+
+    private static HashSet<string> FindSubmoduleRoots(string repositoryRoot)
+    {
+        string boundaryRoot = Path.GetFullPath(repositoryRoot);
+        var result = new HashSet<string>(PathComparer());
+        var pending = new Queue<string>();
+        pending.Enqueue(boundaryRoot);
+
+        while (pending.TryDequeue(out string? currentRoot))
+        {
+            string modulesPath = Path.Combine(currentRoot, ".gitmodules");
+            if (!File.Exists(modulesPath))
+            {
+                continue;
+            }
+
+            foreach (string line in File.ReadLines(modulesPath))
+            {
+                string trimmed = line.Trim();
+                if (!trimmed.StartsWith("path", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                int separator = trimmed.IndexOf('=');
+                if (separator < 0)
+                {
+                    continue;
+                }
+
+                string relativePath = trimmed[(separator + 1)..].Trim();
+                string fullPath = Path.GetFullPath(Path.Combine(currentRoot, relativePath));
+                if (IsWithinDirectory(fullPath, boundaryRoot)
+                    && Directory.Exists(fullPath)
+                    && result.Add(fullPath))
+                {
+                    pending.Enqueue(fullPath);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsWithinDirectory(string path, string directory)
+    {
+        string normalizedDirectory = directory.EndsWith(Path.DirectorySeparatorChar)
+            ? directory
+            : directory + Path.DirectorySeparatorChar;
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return path.StartsWith(normalizedDirectory, comparison);
+    }
+
+    private static StringComparer PathComparer()
+    {
+        return OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
     }
 
     private static bool ShouldSkipDirectory(DirectoryInfo directory)
