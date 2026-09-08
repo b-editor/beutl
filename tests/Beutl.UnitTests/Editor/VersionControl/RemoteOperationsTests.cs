@@ -1978,6 +1978,45 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Pending_pull_recovery_keeps_literal_Unix_backslashes_in_the_project_path()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows treats backslashes as path separators.");
+        }
+
+        await CommitFileAsync("project.bep", "base\n", "initial");
+        string projectFile = Path.Combine(Root, "draft\\..\\project.bep");
+        await File.WriteAllTextAsync(projectFile, "literal backslashes\n");
+        using var service = CreateService();
+        ProjectCheckpoint checkpoint = await service.CreateProjectCheckpointAsync(
+            "beutl: checkpoint",
+            CancellationToken.None);
+        string tree = (await RunGitAsync("rev-parse", "HEAD^{tree}")).Stdout.Trim();
+        string targetCommit = (await RunGitAsync(
+            "commit-tree",
+            tree,
+            "-p",
+            checkpoint.BaseTip.Commit,
+            "-m",
+            "prospective pull target")).Stdout.Trim();
+
+        PendingPullRecovery persisted = await service.PersistPendingPullRecoveryAsync(
+            checkpoint,
+            new CheckedOutBranchTip(checkpoint.BaseTip.RefName, targetCommit),
+            projectFile,
+            CancellationToken.None);
+        PendingPullRecovery restored = (await service.GetPendingPullRecoveriesAsync(
+            CancellationToken.None)).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Id, Is.EqualTo(persisted.Id));
+            Assert.That(restored.ProjectFile, Is.EqualTo(Path.GetFullPath(projectFile)));
+        });
+    }
+
+    [Test]
     public async Task Pending_pull_recovery_rolls_an_applied_invalid_target_back_to_the_checkpoint()
     {
         await CommitFileAsync("project.bep", "{\"valid\":true}\n", "initial");

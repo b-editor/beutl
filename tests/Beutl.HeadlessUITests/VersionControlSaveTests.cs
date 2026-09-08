@@ -134,6 +134,52 @@ public class VersionControlSaveTests
     }
 
     [AvaloniaTest]
+    public async Task Explicit_save_persists_element_edits_when_auto_save_is_disabled()
+    {
+        await TestReset.ResetShellAsync();
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        bool oldAutoSave = editorConfig.IsAutoSaveEnabled;
+        try
+        {
+            editorConfig.IsAutoSaveEnabled = false;
+            string location = Path.Combine(
+                BeutlHomeIsolation.CurrentHome!,
+                "explicit-element-save");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "explicit-save",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            adder.AddElement(new ElementDescription(
+                Start: TimeSpan.Zero,
+                Length: TimeSpan.FromSeconds(1),
+                Layer: 0,
+                EngineObjectFactory: () => new RectShape()));
+            HeadlessTestHelpers.Settle();
+            Element element = scene.Children.Single();
+            element.Name = "saved-without-auto-save";
+
+            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+
+            Element persisted = CoreSerializer.RestoreFromUri<Element>(element.Uri!);
+            Assert.That(persisted.Name, Is.EqualTo("saved-without-auto-save"));
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            editorConfig.IsAutoSaveEnabled = oldAutoSave;
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Explicit_save_creates_one_snapshot_and_a_second_clean_save_creates_none()
     {
         await TestReset.ResetShellAsync();

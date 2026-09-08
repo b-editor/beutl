@@ -1296,6 +1296,27 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         });
     }
 
+    [TestCase(".gitignore")]
+    [TestCase(".gitattributes")]
+    public async Task EnsureRepositoryHygieneAsync_rejects_non_UTF8_without_rewriting(
+        string fileName)
+    {
+        await CommitFileAsync("project.bep", "{}\n", "baseline");
+        string hygienePath = Path.Combine(Root, fileName);
+        byte[] originalBytes = [0x23, 0x20, 0x80, 0x0a];
+        await File.WriteAllBytesAsync(hygienePath, originalBytes);
+        using var service = CreateService();
+
+        InvalidDataException? exception = Assert.ThrowsAsync<InvalidDataException>(
+            async () => await service.EnsureRepositoryHygieneAsync(CancellationToken.None));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Does.Contain("UTF-8"));
+            Assert.That(File.ReadAllBytes(hygienePath), Is.EqualTo(originalBytes));
+        });
+    }
+
     [Test]
     public async Task EnsureRepositoryHygieneAsync_retries_after_a_concurrent_regular_file_edit()
     {

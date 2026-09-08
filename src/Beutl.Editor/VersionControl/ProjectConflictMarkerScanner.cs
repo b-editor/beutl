@@ -182,7 +182,19 @@ internal static class ProjectConflictMarkerScanner
                     continue;
                 }
 
-                string canonicalFile = VersionControlPathComparison.ResolveCanonicalPath(file);
+                string canonicalFile;
+                try
+                {
+                    canonicalFile = VersionControlPathComparison.ResolveCanonicalPath(file);
+                }
+                catch (Exception ex) when (ex is IOException
+                                           or UnauthorizedAccessException
+                                           or NotSupportedException
+                                           or ArgumentException)
+                {
+                    continue;
+                }
+
                 if (!scannedFiles.Add(canonicalFile))
                 {
                     continue;

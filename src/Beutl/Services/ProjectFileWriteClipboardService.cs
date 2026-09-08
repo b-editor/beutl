@@ -4,6 +4,15 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Services;
 
+internal sealed class ProjectFileWriteAdmission(EditorService editorService)
+    : IProjectFileWriteAdmission
+{
+    IProjectFileWriteLease? IProjectFileWriteAdmission.TryBeginProjectFileWrite()
+    {
+        return editorService.TryBeginProjectFileWrite();
+    }
+}
+
 internal sealed class ProjectFileWriteClipboardService(
     EditorService editorService,
     IElementClipboardService inner) : IElementClipboardService

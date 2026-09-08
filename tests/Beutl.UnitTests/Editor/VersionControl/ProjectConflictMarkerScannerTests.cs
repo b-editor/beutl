@@ -391,6 +391,30 @@ public class ProjectConflictMarkerScannerTests
     }
 
     [Test]
+    public async Task FindFirstAsync_skips_a_cyclic_symbolic_link_with_a_project_extension()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string cyclicFile = Path.Combine(_root, "broken.scene");
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        try
+        {
+            File.CreateSymbolicLink(cyclicFile, Path.GetFileName(cyclicFile));
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Creating symbolic links is not supported in this environment.");
+        }
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.That(result, Is.Null);
+    }
+
+    [Test]
     public async Task FindFirstAsync_does_not_descend_into_a_symbolic_link_directory()
     {
         string projectFile = Path.Combine(_root, "project.bep");

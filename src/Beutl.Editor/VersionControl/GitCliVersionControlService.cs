@@ -37,6 +37,10 @@ internal sealed class GitCliVersionControlService :
 
     private static readonly JsonSerializerOptions s_recoveryJsonOptions =
         new(JsonSerializerOptions.Strict);
+    private static readonly UTF8Encoding s_strictUtf8 = new(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true);
+    private static readonly byte[] s_utf8Bom = [0xef, 0xbb, 0xbf];
 
     private sealed record PendingPullRecoveryData(
         int Version,
@@ -3277,13 +3281,14 @@ internal sealed class GitCliVersionControlService :
 
     private static void ValidateRecoveryProjectFileContainment(string relativePath)
     {
+        char[] separators = OperatingSystem.IsWindows() ? ['/', '\\'] : ['/'];
         if (string.IsNullOrWhiteSpace(relativePath)
             || relativePath == ".."
             || relativePath.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || relativePath.StartsWith("../", StringComparison.Ordinal)
             || Path.IsPathRooted(relativePath)
             || relativePath
-                .Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+                .Split(separators, StringSplitOptions.RemoveEmptyEntries)
                 .Any(static component => component is "." or ".."))
         {
             throw new ArgumentException(
@@ -9417,6 +9422,10 @@ internal sealed class GitCliVersionControlService :
         CancellationToken cancellationToken)
     {
         EnsureHygienePathsAreSafe(repository);
+        string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
+        string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
+        await ReadHygieneFileSnapshotAsync(ignorePath, cancellationToken).ConfigureAwait(false);
+        await ReadHygieneFileSnapshotAsync(attributesPath, cancellationToken).ConfigureAwait(false);
         if (useLfs)
         {
             useLfs = await TryInstallLfsLocallyAsync(
@@ -9427,11 +9436,11 @@ internal sealed class GitCliVersionControlService :
         }
 
         await EnsureLinesAsync(
-            Path.Combine(repository.ProjectRoot, ".gitignore"),
+            ignorePath,
             s_gitIgnoreLines,
             cancellationToken).ConfigureAwait(false);
         await EnsureAttributesAsync(
-            Path.Combine(repository.ProjectRoot, ".gitattributes"),
+            attributesPath,
             useLfs,
             cancellationToken).ConfigureAwait(false);
     }
@@ -11577,8 +11586,29 @@ internal sealed class GitCliVersionControlService :
                     UnixMode: null);
             }
 
-            string contents = await File.ReadAllTextAsync(path, cancellationToken)
+            byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken)
                 .ConfigureAwait(false);
+            int offset = bytes.AsSpan().StartsWith(s_utf8Bom)
+                ? s_utf8Bom.Length
+                : 0;
+            string contents;
+            try
+            {
+                contents = s_strictUtf8.GetString(bytes.AsSpan(offset));
+            }
+            catch (DecoderFallbackException ex)
+            {
+                throw new InvalidDataException(
+                    $"Repository hygiene requires '{path}' to use UTF-8 encoding.",
+                    ex);
+            }
+
+            if (contents.Contains('\0'))
+            {
+                throw new InvalidDataException(
+                    $"Repository hygiene requires '{path}' to use UTF-8 encoding.");
+            }
+
             FileAttributes attributes = File.GetAttributes(path);
             UnixFileMode? unixMode = null;
             if (!OperatingSystem.IsWindows())

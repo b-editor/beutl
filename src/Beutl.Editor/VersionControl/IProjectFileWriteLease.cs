@@ -5,3 +5,8 @@
 /// version-control operation can replace them mid-write. Disposing it releases the reservation.
 /// </summary>
 internal interface IProjectFileWriteLease : IDisposable;
+
+internal interface IProjectFileWriteAdmission
+{
+    IProjectFileWriteLease? TryBeginProjectFileWrite();
+}

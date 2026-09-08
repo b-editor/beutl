@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.ProjectSystem;
@@ -27,6 +28,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly IEditorContext _editorContext;
+    private readonly IProjectFileWriteAdmission? _projectFileWriteAdmission;
     private readonly DirectoryWatcherService _directoryWatcher = new();
     private string _rootPath = string.Empty;
     private readonly FavoritesManager _favoritesManager = new();
@@ -40,6 +42,9 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public FileBrowserTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
+        _projectFileWriteAdmission =
+            editorContext.GetService(typeof(IProjectFileWriteAdmission))
+                as IProjectFileWriteAdmission;
 
         // お気に入り変更時にホームビューを更新
         _favoritesManager.Changed += () =>
@@ -318,22 +323,28 @@ public sealed class FileBrowserTabViewModel : IToolContext
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            try
+            if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
             {
-                if (item.IsDirectory)
-                {
-                    Directory.Delete(item.FullPath, true);
-                }
-                else
-                {
-                    File.Delete(item.FullPath);
-                }
+                return;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
-            }
+
+            using (fileWrite)
+                try
+                {
+                    if (item.IsDirectory)
+                    {
+                        Directory.Delete(item.FullPath, true);
+                    }
+                    else
+                    {
+                        File.Delete(item.FullPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+                    NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
+                }
         }
     }
 
@@ -360,25 +371,31 @@ public sealed class FileBrowserTabViewModel : IToolContext
         var result = await dialog.ShowAsync();
         if (result == ContentDialogResult.Primary)
         {
-            foreach (var item in items)
+            if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
             {
-                try
-                {
-                    if (item.IsDirectory)
-                    {
-                        Directory.Delete(item.FullPath, true);
-                    }
-                    else
-                    {
-                        File.Delete(item.FullPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                    NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
-                }
+                return;
             }
+
+            using (fileWrite)
+                foreach (var item in items)
+                {
+                    try
+                    {
+                        if (item.IsDirectory)
+                        {
+                            Directory.Delete(item.FullPath, true);
+                        }
+                        else
+                        {
+                            File.Delete(item.FullPath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+                        NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
+                    }
+                }
         }
     }
 
@@ -397,15 +414,21 @@ public sealed class FileBrowserTabViewModel : IToolContext
             counter++;
         }
 
-        try
+        if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
         {
-            Directory.CreateDirectory(newFolderPath);
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
-            NotificationService.ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
-        }
+
+        using (fileWrite)
+            try
+            {
+                Directory.CreateDirectory(newFolderPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
+                NotificationService.ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
+            }
     }
 
     public async Task RenameItemAsync(FileSystemItemViewModel item, string newName)
@@ -427,22 +450,28 @@ public sealed class FileBrowserTabViewModel : IToolContext
             return;
         }
 
-        try
+        if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
         {
-            if (item.IsDirectory)
-            {
-                Directory.Move(item.FullPath, newPath);
-            }
-            else
-            {
-                File.Move(item.FullPath, newPath);
-            }
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
-            NotificationService.ShowError(Strings.Rename, MessageStrings.OperationFailed);
-        }
+
+        using (fileWrite)
+            try
+            {
+                if (item.IsDirectory)
+                {
+                    Directory.Move(item.FullPath, newPath);
+                }
+                else
+                {
+                    File.Move(item.FullPath, newPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
+                NotificationService.ShowError(Strings.Rename, MessageStrings.OperationFailed);
+            }
     }
 
     public void Refresh()
@@ -504,6 +533,21 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
     {
+        if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
+        {
+            return;
+        }
+
+        using (fileWrite)
+        {
+            CopyFilesToDirectoryCore(files, targetDir);
+        }
+    }
+
+    private void CopyFilesToDirectoryCore(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string targetDir)
+    {
         foreach (var (localPath, isDir) in files)
         {
             string destPath = Path.Combine(targetDir, Path.GetFileName(localPath));
@@ -538,12 +582,35 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (string.IsNullOrEmpty(_projectDirectory))
             return;
 
-        string resourcesDir = Path.Combine(_projectDirectory, "resources");
-        Directory.CreateDirectory(resourcesDir);
-        CopyFilesToDirectory(files, resourcesDir);
+        if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
+        {
+            return;
+        }
+
+        using (fileWrite)
+        {
+            string resourcesDir = Path.Combine(_projectDirectory, "resources");
+            Directory.CreateDirectory(resourcesDir);
+            CopyFilesToDirectoryCore(files, resourcesDir);
+        }
     }
 
     public void MoveFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    {
+        if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
+        {
+            return;
+        }
+
+        using (fileWrite)
+        {
+            MoveFilesToDirectoryCore(files, targetDir);
+        }
+    }
+
+    private void MoveFilesToDirectoryCore(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string targetDir)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
         string targetDirWithSep = normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -607,9 +674,31 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (string.IsNullOrEmpty(_projectDirectory))
             return;
 
-        string resourcesDir = Path.Combine(_projectDirectory, "resources");
-        Directory.CreateDirectory(resourcesDir);
-        MoveFilesToDirectory(files, resourcesDir);
+        if (!TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite))
+        {
+            return;
+        }
+
+        using (fileWrite)
+        {
+            string resourcesDir = Path.Combine(_projectDirectory, "resources");
+            Directory.CreateDirectory(resourcesDir);
+            MoveFilesToDirectoryCore(files, resourcesDir);
+        }
+    }
+
+    private bool TryBeginProjectFileWrite(out IProjectFileWriteLease? fileWrite)
+    {
+        fileWrite = _projectFileWriteAdmission?.TryBeginProjectFileWrite();
+        if (_projectFileWriteAdmission is null || fileWrite is not null)
+        {
+            return true;
+        }
+
+        NotificationService.ShowWarning(
+            Strings.VersionControl,
+            Strings.VersionControl_WorkspaceBusy);
+        return false;
     }
 
     public void WriteToJson(JsonObject json)
