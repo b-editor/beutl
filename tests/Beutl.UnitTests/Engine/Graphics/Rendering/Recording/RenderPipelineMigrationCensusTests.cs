@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 using Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 
@@ -519,6 +520,10 @@ public sealed class RenderPipelineMigrationCensusTests
             "src/Compatibility/PropertyExtensions.cs",
             "src/Beutl.Compatibility/RelativeQualifiedExtensions.cs",
             "src/Compatibility/BaseReceiverExtensions.cs",
+            "src/Compatibility/DebugExtensions.cs",
+            "src/Compatibility/BuiltInExtensions.cs",
+            "src/Compatibility/ImportedQualifiedExtensions.cs",
+            "src/Conditional/ConditionalGlobalExtensions.cs",
         ];
         SourceCorpus corpus = SourceCorpus.Create(
             ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
@@ -597,6 +602,53 @@ public sealed class RenderPipelineMigrationCensusTests
                 {
                     public static void Pull(this ProcessorBase processor) { }
                 }
+                """),
+            (expectedPaths[6],
+                """
+                namespace Compatibility;
+                public static class DebugExtensions
+                {
+                #if DEBUG
+                    public static void Pull(
+                        this Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
+                #endif
+                }
+                """),
+            (expectedPaths[7],
+                """
+                namespace Compatibility;
+                public static class BuiltInExtensions
+                {
+                #if FFMPEG_BUILD_IN
+                    public static void Pull(
+                        this Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
+                #endif
+                }
+                """),
+            (expectedPaths[8],
+                """
+                using Beutl.Graphics;
+                namespace Compatibility;
+                public static class ImportedQualifiedExtensions
+                {
+                    public static void Pull(this Rendering.RenderNodeProcessor processor) { }
+                }
+                """),
+            ("src/Conditional/GlobalUsings.cs",
+                """
+                #if WINDOWS
+                global using Beutl.Graphics.Rendering;
+                #endif
+                """),
+            (expectedPaths[9],
+                """
+                namespace Conditional;
+                public static class ConditionalGlobalExtensions
+                {
+                #if WINDOWS
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                #endif
+                }
                 """));
 
         SourceFinding[] findings = corpus.FindMembersDeclaredByType(
@@ -607,6 +659,50 @@ public sealed class RenderPipelineMigrationCensusTests
         Assert.That(
             findings.Select(finding => finding.RelativePath),
             Is.EquivalentTo(expectedPaths));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Reports_positional_record_members()
+    {
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                using System;
+                namespace Beutl.Graphics.Rendering;
+                public sealed record RenderNodeProcessor(Action Pull);
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"])
+            .ToArray();
+
+        Assert.That(findings, Has.Length.EqualTo(1));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Excludes_test_compilations()
+    {
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            ("tests/Compatibility/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor
+                {
+                    public void Pull() { }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"]),
+            Is.Empty);
     }
 
     [Test]
@@ -890,14 +986,44 @@ public sealed class RenderPipelineMigrationCensusTests
     {
         private readonly IReadOnlyDictionary<string, UsingDirectiveSyntax[]> _globalUsings;
         private readonly DeclaredType[] _declaredTypes;
+        private readonly HashSet<string> _productionCompilationIds;
         private readonly Lazy<SourceDocument[]> _memberCensusDocuments;
+        private readonly Lazy<IReadOnlyDictionary<(string CompilationId, string VariantId), UsingDirectiveSyntax[]>>
+            _memberGlobalUsings;
+        private readonly Lazy<DeclaredType[]> _memberDeclaredTypes;
 
         private SourceCorpus(string repositoryRoot, IReadOnlyList<SourceDocument> documents)
         {
             RepositoryRoot = repositoryRoot;
             Documents = documents;
+            _productionCompilationIds = GetProductionCompilationIds(repositoryRoot, documents);
             _memberCensusDocuments = new Lazy<SourceDocument[]>(() =>
-                CreateMemberCensusDocuments(documents));
+                CreateMemberCensusDocuments(
+                    repositoryRoot,
+                    documents,
+                    _productionCompilationIds));
+            _memberGlobalUsings = new Lazy<IReadOnlyDictionary<
+                (string CompilationId, string VariantId),
+                UsingDirectiveSyntax[]>>(() =>
+                    _memberCensusDocuments.Value
+                        .GroupBy(document =>
+                            (document.CompilationId, document.VariantId))
+                        .ToDictionary(
+                            group => group.Key,
+                            group => group.SelectMany(document => document.Root.Usings)
+                                .Where(item => item.GlobalKeyword.IsKind(
+                                    SyntaxKind.GlobalKeyword))
+                                .ToArray()));
+            _memberDeclaredTypes = new Lazy<DeclaredType[]>(() =>
+                _memberCensusDocuments.Value
+                    .SelectMany(document => document.Root.DescendantNodes()
+                        .OfType<TypeDeclarationSyntax>()
+                        .Select(type => new DeclaredType(
+                            document,
+                            type,
+                            GetQualifiedTypeName(type),
+                            type.Modifiers.Any(SyntaxKind.FileKeyword))))
+                    .ToArray());
             _globalUsings = documents
                 .GroupBy(document => document.CompilationId, StringComparer.Ordinal)
                 .ToDictionary(
@@ -1235,6 +1361,26 @@ public sealed class RenderPipelineMigrationCensusTests
                                 }
                             }
                         }
+
+                        if (visibleType.Syntax is RecordDeclarationSyntax
+                            {
+                                ParameterList: { } parameterList,
+                            })
+                        {
+                            foreach (SyntaxToken identifier in parameterList.Parameters
+                                         .Select(parameter => parameter.Identifier)
+                                         .Where(token => memberNameSet.Contains(token.ValueText)))
+                            {
+                                if (reportedMembers.Add((
+                                        visibleType.Document.RelativePath,
+                                        identifier.SpanStart)))
+                                {
+                                    yield return visibleType.Document.ToFinding(
+                                        identifier,
+                                        $"positional member '{identifier.ValueText}' on '{typeName}'");
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1301,31 +1447,261 @@ public sealed class RenderPipelineMigrationCensusTests
         }
 
         private static SourceDocument[] CreateMemberCensusDocuments(
-            IReadOnlyList<SourceDocument> documents)
+            string repositoryRoot,
+            IReadOnlyList<SourceDocument> documents,
+            IReadOnlySet<string> productionCompilationIds)
         {
-            string[][] symbolSets =
-            [
-                ["NET", "NET10_0", "NETCOREAPP"],
-                ["NET", "NET10_0", "NET10_0_WINDOWS", "NETCOREAPP", "WINDOWS"],
-            ];
-            var result = new List<SourceDocument>(documents.Count * (symbolSets.Length + 1));
-            foreach (SourceDocument document in documents)
+            var result = new List<SourceDocument>();
+            foreach (IGrouping<string, SourceDocument> compilation in documents
+                         .Where(document =>
+                             document.RelativePath.StartsWith("src/", StringComparison.Ordinal)
+                             && productionCompilationIds.Contains(document.CompilationId))
+                         .GroupBy(document => document.CompilationId, StringComparer.Ordinal))
             {
-                result.Add(document);
-                foreach (string[] symbols in symbolSets)
+                IReadOnlyList<string[]> symbolSets = GetCompilationSymbolSets(
+                    repositoryRoot,
+                    compilation.Key,
+                    compilation);
+                foreach (SourceDocument document in compilation)
                 {
-                    var tree = CSharpSyntaxTree.ParseText(
-                        document.Text,
-                        CSharpParseOptions.Default
-                            .WithLanguageVersion(LanguageVersion.Preview)
-                            .WithDocumentationMode(DocumentationMode.Parse)
-                            .WithPreprocessorSymbols(symbols),
-                        document.RelativePath);
-                    result.Add(document with { Root = tree.GetCompilationUnitRoot() });
+                    foreach (string[] symbols in symbolSets)
+                    {
+                        var tree = CSharpSyntaxTree.ParseText(
+                            document.Text,
+                            CSharpParseOptions.Default
+                                .WithLanguageVersion(LanguageVersion.Preview)
+                                .WithDocumentationMode(DocumentationMode.Parse)
+                                .WithPreprocessorSymbols(symbols),
+                            document.RelativePath);
+                        result.Add(document with
+                        {
+                            Root = tree.GetCompilationUnitRoot(),
+                            VariantId = string.Join(';', symbols),
+                        });
+                    }
                 }
             }
 
             return [.. result];
+        }
+
+        private static IReadOnlyList<string[]> GetCompilationSymbolSets(
+            string repositoryRoot,
+            string compilationId,
+            IEnumerable<SourceDocument> documents)
+        {
+            string[] baseSymbols =
+            [
+                "NET",
+                "NET10_0",
+                "NET10_0_OR_GREATER",
+                "NET9_0_OR_GREATER",
+                "NET8_0_OR_GREATER",
+                "NETCOREAPP",
+            ];
+            string[] windowsSymbols = ["NET10_0_WINDOWS", "WINDOWS"];
+            var directiveSymbols = new HashSet<string>(StringComparer.Ordinal);
+            var directivePositiveSets = new List<string[]>();
+            var conditionalPattern = new Regex(
+                @"(?m)^\s*#(?:if|elif)\s+(?<expression>[^\r\n]+)",
+                RegexOptions.CultureInvariant);
+            var identifierPattern = new Regex(
+                @"\b[A-Za-z_][A-Za-z0-9_]*\b",
+                RegexOptions.CultureInvariant);
+            foreach (SourceDocument document in documents)
+            {
+                foreach (Match match in conditionalPattern.Matches(document.Text.ToString()))
+                {
+                    string expression = match.Groups["expression"].Value;
+                    string withoutNegatedSymbols = Regex.Replace(
+                        expression,
+                        @"!\s*[A-Za-z_][A-Za-z0-9_]*",
+                        string.Empty,
+                        RegexOptions.CultureInvariant);
+                    string[] positiveSymbols = identifierPattern.Matches(withoutNegatedSymbols)
+                        .Select(item => item.Value)
+                        .Where(IsPreprocessorSymbol)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray();
+                    if (positiveSymbols.Length > 0)
+                    {
+                        directivePositiveSets.Add(positiveSymbols);
+                    }
+
+                    foreach (string symbol in identifierPattern.Matches(expression)
+                                 .Select(item => item.Value)
+                                 .Where(IsPreprocessorSymbol))
+                    {
+                        directiveSymbols.Add(symbol);
+                    }
+                }
+            }
+
+            HashSet<string> projectSymbols = GetProjectDefinedSymbols(
+                repositoryRoot,
+                compilationId);
+            var variants = new Dictionary<string, string[]>(StringComparer.Ordinal);
+            AddSymbolVariant(variants, []);
+            AddSymbolVariant(variants, baseSymbols);
+            AddSymbolVariant(variants, baseSymbols.Concat(["DEBUG", "TRACE"]));
+            AddSymbolVariant(variants, baseSymbols.Concat(windowsSymbols));
+            AddSymbolVariant(
+                variants,
+                baseSymbols.Concat(windowsSymbols).Concat(["DEBUG", "TRACE"]));
+            AddSymbolVariant(variants, baseSymbols.Concat(projectSymbols));
+            AddSymbolVariant(
+                variants,
+                baseSymbols.Concat(windowsSymbols).Concat(projectSymbols));
+            AddSymbolVariant(variants, baseSymbols.Concat(directiveSymbols));
+            AddSymbolVariant(
+                variants,
+                baseSymbols.Concat(windowsSymbols).Concat(directiveSymbols));
+            foreach (string[] positiveSymbols in directivePositiveSets)
+            {
+                AddSymbolVariant(variants, baseSymbols.Concat(positiveSymbols));
+                AddSymbolVariant(
+                    variants,
+                    baseSymbols.Concat(windowsSymbols).Concat(positiveSymbols));
+            }
+
+            return variants.Values.ToArray();
+        }
+
+        private static bool IsPreprocessorSymbol(string value)
+        {
+            return value is not ("true" or "false" or "defined");
+        }
+
+        private static void AddSymbolVariant(
+            IDictionary<string, string[]> variants,
+            IEnumerable<string> symbols)
+        {
+            string[] normalized = symbols
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(symbol => symbol, StringComparer.Ordinal)
+                .ToArray();
+            variants.TryAdd(string.Join(';', normalized), normalized);
+        }
+
+        private static HashSet<string> GetProjectDefinedSymbols(
+            string repositoryRoot,
+            string compilationId)
+        {
+            var result = new HashSet<string>(StringComparer.Ordinal);
+            string projectPath = Path.Combine(
+                repositoryRoot,
+                compilationId.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(projectPath))
+            {
+                return result;
+            }
+
+            try
+            {
+                XDocument project = XDocument.Load(projectPath);
+                foreach (XElement constants in project.Descendants()
+                             .Where(element => element.Name.LocalName == "DefineConstants"))
+                {
+                    foreach (string symbol in constants.Value.Split(
+                                 [';', ',', ' '],
+                                 StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        if (symbol.All(character =>
+                                char.IsLetterOrDigit(character) || character == '_')
+                            && symbol != "DefineConstants")
+                        {
+                            result.Add(symbol);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or System.Xml.XmlException)
+            {
+            }
+
+            return result;
+        }
+
+        private static HashSet<string> GetProductionCompilationIds(
+            string repositoryRoot,
+            IReadOnlyList<SourceDocument> documents)
+        {
+            if (repositoryRoot == "synthetic")
+            {
+                return documents
+                    .Where(document => document.RelativePath.StartsWith(
+                        "src/",
+                        StringComparison.Ordinal))
+                    .Select(document => document.CompilationId)
+                    .ToHashSet(StringComparer.Ordinal);
+            }
+
+            string[] projects = documents
+                .Select(document => document.CompilationId)
+                .Where(compilationId =>
+                    compilationId.StartsWith("src/", StringComparison.Ordinal)
+                    && compilationId.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var references = projects.ToDictionary(
+                project => project,
+                project => GetProjectReferences(repositoryRoot, project),
+                StringComparer.Ordinal);
+            var result = projects
+                .Where(project => string.Equals(
+                    project,
+                    "src/Beutl.Engine/Beutl.Engine.csproj",
+                    StringComparison.Ordinal))
+                .ToHashSet(StringComparer.Ordinal);
+            bool changed;
+            do
+            {
+                changed = false;
+                foreach (string project in projects)
+                {
+                    if (!result.Contains(project)
+                        && references[project].Any(result.Contains))
+                    {
+                        result.Add(project);
+                        changed = true;
+                    }
+                }
+            } while (changed);
+
+            return result;
+        }
+
+        private static string[] GetProjectReferences(
+            string repositoryRoot,
+            string compilationId)
+        {
+            string projectPath = Path.Combine(
+                repositoryRoot,
+                compilationId.Replace('/', Path.DirectorySeparatorChar));
+            try
+            {
+                XDocument project = XDocument.Load(projectPath);
+                return project.Descendants()
+                    .Where(element => element.Name.LocalName == "ProjectReference")
+                    .Select(element => (string?)element.Attribute("Include"))
+                    .OfType<string>()
+                    .Select(reference => NormalizePath(Path.GetRelativePath(
+                        repositoryRoot,
+                        Path.GetFullPath(
+                            reference.Replace('\\', Path.DirectorySeparatorChar),
+                            Path.GetDirectoryName(projectPath)!))))
+                    .ToArray();
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException
+                                       or System.Xml.XmlException)
+            {
+                return [];
+            }
         }
 
         private static string GetQualifiedTypeName(TypeDeclarationSyntax type)
@@ -1369,7 +1745,8 @@ public sealed class RenderPipelineMigrationCensusTests
 
                 foreach (BaseTypeSyntax baseType in current.Syntax.BaseList.Types)
                 {
-                    foreach (DeclaredType candidate in _declaredTypes.Where(candidate =>
+                    foreach (DeclaredType candidate in GetMemberDeclaredTypes(
+                                 current.Document).Where(candidate =>
                                  IsVisibleIn(candidate, current.Document)
                                  && CouldReferToType(
                                      baseType.Type,
@@ -1403,6 +1780,8 @@ public sealed class RenderPipelineMigrationCensusTests
 
             foreach (DeclaredType target in _declaredTypes.Where(item =>
                          !item.IsFileLocal
+                         && item.Document.RelativePath.StartsWith("src/", StringComparison.Ordinal)
+                         && _productionCompilationIds.Contains(item.Document.CompilationId)
                          && item.QualifiedName == qualifiedTypeName))
             {
                 foreach (DeclaredType baseType in EnumerateTypeHierarchy(target).Skip(1))
@@ -1475,9 +1854,15 @@ public sealed class RenderPipelineMigrationCensusTests
                 .Concat(document.Root.Usings.Where(item =>
                     !item.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword)))
                 .ToArray();
-            if (_globalUsings.TryGetValue(
-                    document.CompilationId,
-                    out UsingDirectiveSyntax[]? globalUsings))
+            UsingDirectiveSyntax[]? globalUsings = null;
+            if (!_memberGlobalUsings.Value.TryGetValue(
+                    (document.CompilationId, document.VariantId),
+                    out globalUsings))
+            {
+                _globalUsings.TryGetValue(document.CompilationId, out globalUsings);
+            }
+
+            if (globalUsings is not null)
             {
                 usings = usings.Concat(globalUsings).ToArray();
             }
@@ -1504,7 +1889,7 @@ public sealed class RenderPipelineMigrationCensusTests
                     string candidate = string.IsNullOrEmpty(scope)
                         ? writtenType
                         : scope + "." + writtenType;
-                    DeclaredType? visible = _declaredTypes.FirstOrDefault(item =>
+                    DeclaredType? visible = GetMemberDeclaredTypes(document).FirstOrDefault(item =>
                         IsVisibleIn(item, document)
                         && item.QualifiedName == candidate);
                     if (visible is not null || candidate == qualifiedTypeName)
@@ -1521,7 +1906,12 @@ public sealed class RenderPipelineMigrationCensusTests
                     scope = scope[..separator];
                 }
 
-                return false;
+                return usings
+                    .Where(item => item.Alias is null && item.Name is not null)
+                    .SelectMany(item => GetImportCandidates(
+                        item,
+                        GetWrittenName(item.Name!)))
+                    .Any(import => import + "." + writtenType == qualifiedTypeName);
             }
 
             if (writtenType != typeName)
@@ -1534,7 +1924,7 @@ public sealed class RenderPipelineMigrationCensusTests
                 string declaredType = string.IsNullOrEmpty(scope)
                     ? typeName
                     : scope + "." + typeName;
-                if (_declaredTypes.Any(item =>
+                if (GetMemberDeclaredTypes(document).Any(item =>
                         IsVisibleIn(item, document)
                         && item.QualifiedName == declaredType))
                 {
@@ -1555,6 +1945,19 @@ public sealed class RenderPipelineMigrationCensusTests
                        && item.Name is not null
                        && GetImportCandidates(item, GetWrittenName(item.Name))
                            .Contains(namespaceName, StringComparer.Ordinal));
+        }
+
+        private IEnumerable<DeclaredType> GetMemberDeclaredTypes(SourceDocument document)
+        {
+            IEnumerable<DeclaredType> candidates = document.VariantId == "default"
+                ? _declaredTypes
+                : _memberDeclaredTypes.Value;
+            return candidates.Where(item =>
+                item.Document.CompilationId == document.CompilationId
+                && (document.VariantId == "default"
+                    || item.Document.VariantId == document.VariantId)
+                && item.Document.RelativePath.StartsWith("src/", StringComparison.Ordinal)
+                && _productionCompilationIds.Contains(item.Document.CompilationId));
         }
 
         private static string GetWrittenTypeIdentity(TypeSyntax type)
@@ -1662,6 +2065,8 @@ public sealed class RenderPipelineMigrationCensusTests
         CompilationUnitSyntax Root,
         string CompilationId)
     {
+        public string VariantId { get; init; } = "default";
+
         public SourceFinding ToFinding(SyntaxNode node, string detail)
         {
             return ToFinding(node.SpanStart, detail);
