@@ -224,50 +224,28 @@ public class FFmpegInstallNotifierTests
     {
         FFmpegInstallNotifier.MarkMissing();
         long since = FFmpegInstallNotifier.MissingSinceTicks;
-        const int callers = 32;
-        using var barrier = new Barrier(callers);
-        var tasks = new Task[callers];
-
-        for (int i = 0; i < callers; i++)
-        {
-            tasks[i] = Task.Run(() =>
-            {
-                barrier.SignalAndWait();
-                FFmpegInstallNotifier.NotifyMissing();
-            });
-        }
-
-        Task.WaitAll(tasks);
-        Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since));
+        RunConcurrentIterations(32, 1,
+            beforeIteration: () => { },
+            action: FFmpegInstallNotifier.NotifyMissing,
+            afterIteration: () => Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since)));
     }
 
     [Test]
     public void RecordMissingObserved_UnderConcurrency_OnlyOneFirstObservation()
     {
-        const int iterations = 25;
-        const int threads = 64;
-
-        for (int i = 0; i < iterations; i++)
-        {
-            FFmpegInstallNotifier.MarkInstalled();
-
-            int firstObservations = 0;
-            using var barrier = new Barrier(threads);
-            var tasks = new Task[threads];
-            for (int t = 0; t < threads; t++)
+        int firstObservations = 0;
+        RunConcurrentIterations(64, 25,
+            beforeIteration: () =>
             {
-                tasks[t] = Task.Run(() =>
-                {
-                    barrier.SignalAndWait();
-                    if (!FFmpegInstallNotifier.RecordMissingObserved())
-                        Interlocked.Increment(ref firstObservations);
-                });
-            }
-
-            Task.WaitAll(tasks);
-            Assert.That(firstObservations, Is.EqualTo(1),
-                $"iteration {i}: expected exactly one first observation");
-        }
+                FFmpegInstallNotifier.MarkInstalled();
+                firstObservations = 0;
+            },
+            action: () =>
+            {
+                if (!FFmpegInstallNotifier.RecordMissingObserved())
+                    Interlocked.Increment(ref firstObservations);
+            },
+            afterIteration: () => Assert.That(firstObservations, Is.EqualTo(1)));
     }
 
     [Test]
@@ -632,29 +610,51 @@ public class FFmpegInstallNotifierTests
     [Test]
     public void TryAcquireNotifySlot_UnderConcurrency_OnlyOneWinner()
     {
-        const int iterations = 25;
-        const int threads = 64;
-
-        for (int i = 0; i < iterations; i++)
-        {
-            FFmpegInstallNotifier.MarkInstalled();
-
-            long now = 1_000_000L + i; // any non-zero value works
-            int winners = 0;
-            using var barrier = new Barrier(threads);
-            var tasks = new Task[threads];
-            for (int t = 0; t < threads; t++)
+        long now = 1_000_000L;
+        int winners = 0;
+        RunConcurrentIterations(64, 25,
+            beforeIteration: () =>
             {
-                tasks[t] = Task.Run(() =>
-                {
-                    barrier.SignalAndWait();
-                    if (FFmpegInstallNotifier.TryAcquireNotifySlot(now))
-                        Interlocked.Increment(ref winners);
-                });
-            }
+                FFmpegInstallNotifier.MarkInstalled();
+                now++;
+                winners = 0;
+            },
+            action: () =>
+            {
+                if (FFmpegInstallNotifier.TryAcquireNotifySlot(now))
+                    Interlocked.Increment(ref winners);
+            },
+            afterIteration: () => Assert.That(winners, Is.EqualTo(1)));
+    }
 
-            Task.WaitAll(tasks);
-            Assert.That(winners, Is.EqualTo(1), $"iteration {i}: expected exactly one winner");
+    private static void RunConcurrentIterations(int participants, int iterations,
+        Action beforeIteration, Action action, Action afterIteration)
+    {
+        // Dedicated workers avoid ThreadPool starvation at the barrier. Reuse them
+        // across rounds instead of creating thousands of OS threads per test.
+        using var barrier = new Barrier(participants, phase =>
+        {
+            if (phase.CurrentPhaseNumber % 2 == 0)
+                beforeIteration();
+            else
+                afterIteration();
+        });
+        var tasks = new Task[participants];
+        for (int i = 0; i < participants; i++)
+        {
+            tasks[i] = Task.Factory.StartNew(() =>
+            {
+                for (int round = 0; round < iterations; round++)
+                {
+                    if (!barrier.SignalAndWait(TimeSpan.FromSeconds(30)))
+                        throw new TimeoutException("Concurrent test workers did not reach the start barrier.");
+                    action();
+                    if (!barrier.SignalAndWait(TimeSpan.FromSeconds(30)))
+                        throw new TimeoutException("Concurrent test workers did not reach the end barrier.");
+                }
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
+
+        Task.WaitAll(tasks);
     }
 }

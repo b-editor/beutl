@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# A newer PR revision supersedes its previous checks. Keep main runs independent.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     permissions:
@@ -22,7 +27,10 @@ jobs:
       - name: Free disk space
         run: |
           df -h /
-          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          # Independent directory trees can be removed concurrently; wait for all
+          # removals before checkout so the same disk headroom is still reclaimed.
+          printf '%s\0' /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+            | xargs -0 -n 1 -P 4 sudo rm -rf
           sudo docker image prune --all --force || true
           df -h /
 
