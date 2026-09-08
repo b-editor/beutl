@@ -59,10 +59,19 @@ public sealed class GplMitBoundaryContractTests
                 }
 
                 string resolvedItemSpec = ResolveItemSpec(document, file, itemSpec);
-                if (elementName == "ProjectReference" && IsDynamicItemSpec(resolvedItemSpec))
+                if (IsDynamicItemSpec(resolvedItemSpec))
                 {
-                    violations.Add(
-                        $"{relativePath}: contains an unresolved dynamic ProjectReference");
+                    if (elementName == "ProjectReference")
+                    {
+                        violations.Add(
+                            $"{relativePath}: contains an unresolved dynamic ProjectReference");
+                    }
+                    else if (include is not null)
+                    {
+                        violations.Add(
+                            $"{relativePath}: contains an unresolved dynamic Compile item");
+                    }
+
                     continue;
                 }
 
@@ -377,6 +386,53 @@ public sealed class GplMitBoundaryContractTests
             Assert.That(
                 violations,
                 Is.EqualTo(new[] { "src/Beutl/Beutl.csproj: references Beutl.FFmpegWorker" }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
+    public void Boundary_scan_rejects_compile_items_backed_by_external_properties()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-compile-property-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Directory.Build.props"),
+                """
+                <Project>
+                  <PropertyGroup>
+                    <WorkerSource>src/Beutl.FFmpegWorker/WorkerHost.cs</WorkerSource>
+                  </PropertyGroup>
+                </Project>
+                """);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Project.csproj"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <Compile Include="$(WorkerSource)" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "Project.csproj: contains an unresolved dynamic Compile item",
+                }));
         }
         finally
         {
