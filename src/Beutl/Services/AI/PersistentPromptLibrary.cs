@@ -586,13 +586,17 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary, IPromptLibraryCh
 
         items.Sort((left, right) => right.UpdatedAtUtc.CompareTo(left.UpdatedAtUtc));
         var coalesced = new List<PromptTemplate>(items.Count);
+        var indexesByTask = new Dictionary<PromptTaskKind, Dictionary<string, int>>();
         foreach (PromptTemplate item in items)
         {
-            int index = coalesced.FindIndex(existing =>
-                existing.TaskKind == item.TaskKind
-                && string.Equals(existing.Name, item.Name, StringComparison.OrdinalIgnoreCase));
-            if (index < 0)
+            if (!indexesByTask.TryGetValue(item.TaskKind, out Dictionary<string, int>? indexesByName))
             {
+                indexesByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                indexesByTask.Add(item.TaskKind, indexesByName);
+            }
+            if (!indexesByName.TryGetValue(item.Name, out int index))
+            {
+                indexesByName.Add(item.Name, coalesced.Count);
                 coalesced.Add(item);
                 continue;
             }

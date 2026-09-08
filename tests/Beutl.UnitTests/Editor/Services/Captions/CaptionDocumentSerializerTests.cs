@@ -379,6 +379,37 @@ public class CaptionDocumentSerializerTests
         }
     }
 
+    [Test]
+    public void ImportWebVtt_DiscardedStyleAndRegionBlocksProduceExplicitDiagnostics()
+    {
+        const string source = """
+            WEBVTT
+
+            STYLE
+            ::cue { color: lime; }
+
+            REGION
+            id:top
+            width:40%
+
+            00:00.000 --> 00:01.000 region:top
+            text
+            """;
+
+        CaptionImportResult result = Import(source, CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Text, Is.EqualTo("text"));
+            Assert.That(
+                result.Diagnostics.Where(diagnostic =>
+                    diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup)
+                    .Select(diagnostic => diagnostic.LineNumber),
+                Is.EqualTo(new int?[] { 3, 6 }));
+        }
+    }
+
     [TestCase(" Alice")]
     [TestCase("Alice ")]
     [TestCase("Alice\tBob")]
@@ -473,6 +504,74 @@ public class CaptionDocumentSerializerTests
     }
 
     [Test]
+    public void ImportAss_DiscardedCustomStyleDefinitionProducesAnExplicitDiagnostic()
+    {
+        const string source = """
+            [V4+ Styles]
+            Format: Name, Fontname, Fontsize
+            Style: Narration,Comic Sans MS,72
+
+            [Events]
+            Format: Start, End, Style, Text
+            Dialogue: 0:00:00.00,0:00:01.00,Narration,text
+            """;
+
+        CaptionImportResult result = Import(source, CaptionFormats.Ass);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(
+                result.Document![0].Metadata.GetValueOrDefault(CaptionMetadataKeys.AssStyle),
+                Is.EqualTo("Narration"));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 3));
+        }
+    }
+
+    [Test]
+    public void ImportAss_UnreferencedGeneratedStyleProducesAnExplicitDiagnostic()
+    {
+        string generated = new AssCaptionCodec().Encode(new CaptionDocument(
+        [
+            new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "text"),
+        ]));
+        string defaultStyle = generated.Split("\r\n", StringSplitOptions.None)
+            .Single(line => line.StartsWith("Style: Default,", StringComparison.Ordinal));
+        string withUnusedStyle = generated.Replace(
+            defaultStyle,
+            defaultStyle + "\r\n" + defaultStyle.Replace(
+                "Style: Default,",
+                "Style: Unused,",
+                StringComparison.Ordinal),
+            StringComparison.Ordinal);
+
+        CaptionImportResult result = new AssCaptionCodec().Decode(withUnusedStyle);
+
+        Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+            diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+    }
+
+    [Test]
+    public void ImportAss_GeneratedStyleUnderReorderedFormatProducesAnExplicitDiagnostic()
+    {
+        string generated = new AssCaptionCodec().Encode(new CaptionDocument(
+        [
+            new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "text"),
+        ]));
+        string reordered = generated.Replace(
+            "Format: Name, Fontname, Fontsize,",
+            "Format: Fontname, Name, Fontsize,",
+            StringComparison.Ordinal);
+
+        CaptionImportResult result = new AssCaptionCodec().Decode(reordered);
+
+        Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+            diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+    }
+
+    [Test]
     public void ImportSsa_ActorAndLegacyFormatting_ArePreservedAsPlainCueData()
     {
         const string source = """
@@ -515,6 +614,7 @@ public class CaptionDocumentSerializerTests
             Assert.That(text, Does.Contain("Style: Narration,"));
             Assert.That(text, Does.Contain("Hello, world\\NC:\\\\New  "));
             Assert.That(imported.IsSuccess, Is.True);
+            Assert.That(imported.Diagnostics, Is.Empty);
             Assert.That(imported.Document!.Cues, Is.EqualTo(document.Cues));
         });
     }

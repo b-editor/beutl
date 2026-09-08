@@ -42,10 +42,17 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             if (index >= lines.Length)
                 break;
 
-            if (IsBlock(lines[index], "NOTE")
-                || IsBlock(lines[index], "STYLE")
-                || IsBlock(lines[index], "REGION"))
+            if (IsBlock(lines[index], "NOTE"))
             {
+                SkipBlock(lines, ref index);
+                continue;
+            }
+            if (IsBlock(lines[index], "STYLE") || IsBlock(lines[index], "REGION"))
+            {
+                errors.Add(new CaptionDiagnostic(
+                    CaptionDiagnosticKinds.UnsupportedMarkup,
+                    index + 1,
+                    "WebVTT STYLE and REGION blocks cannot be represented and were removed."));
                 SkipBlock(lines, ref index);
                 continue;
             }

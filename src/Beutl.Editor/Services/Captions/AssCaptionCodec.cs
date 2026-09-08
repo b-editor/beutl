@@ -6,6 +6,10 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
 {
     private const string LanguageEffectPrefix = "beutl-language=";
     private const string ImplicitStyleEffect = "beutl-style=implicit";
+    private const string GeneratedStyleFormat =
+        "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding";
+    private const string GeneratedStyleSuffix =
+        ",Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,20,20,20,1";
 
     public CaptionFormatId Format => CaptionFormats.Ass;
 
@@ -16,8 +20,11 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         string[] lines = CaptionTextUtilities.GetLines(content);
         var cues = new List<CaptionCue>();
         var errors = new List<CaptionDiagnostic>();
+        var styleDefinitions = new List<AssStyleDefinition>();
         string[]? format = null;
         bool inEvents = false;
+        bool inStyles = false;
+        bool usesGeneratedStyleFormat = false;
         bool foundEvents = false;
 
         for (int i = 0; i < lines.Length; i++)
@@ -26,14 +33,37 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
             if (trimmedLine.StartsWith('[') && trimmedLine.EndsWith(']'))
             {
                 inEvents = trimmedLine.Equals("[Events]", StringComparison.OrdinalIgnoreCase);
+                inStyles = trimmedLine.Equals("[V4+ Styles]", StringComparison.OrdinalIgnoreCase)
+                    || trimmedLine.Equals("[V4 Styles]", StringComparison.OrdinalIgnoreCase);
+                if (inStyles)
+                    usesGeneratedStyleFormat = false;
                 foundEvents |= inEvents;
                 continue;
             }
 
-            if (!inEvents || trimmedLine.Length == 0 || trimmedLine.StartsWith(';'))
+            if (trimmedLine.Length == 0 || trimmedLine.StartsWith(';'))
                 continue;
 
             string directiveLine = lines[i].TrimStart();
+            if (inStyles)
+            {
+                if (TryGetDirective(directiveLine, "Format", out string styleFormat))
+                {
+                    usesGeneratedStyleFormat = IsGeneratedStyleFormat(styleFormat);
+                }
+                else if (TryGetDirective(directiveLine, "Style", out string styleDefinition))
+                {
+                    styleDefinitions.Add(new AssStyleDefinition(
+                        GetStyleDefinitionName(styleDefinition),
+                        i + 1,
+                        usesGeneratedStyleFormat && IsGeneratedStyleDefinition(styleDefinition)));
+                }
+                continue;
+            }
+
+            if (!inEvents)
+                continue;
+
             if (TryGetDirective(directiveLine, "Format", out string formatValue))
             {
                 string[] candidate = formatValue.Split(',').Select(field => field.Trim()).ToArray();
@@ -121,6 +151,26 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 metadata));
         }
 
+        var regeneratedStyleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Default",
+        };
+        foreach (CaptionCue cue in cues)
+        {
+            if (cue.Metadata.GetValueOrDefault(CaptionMetadataKeys.AssStyle) is { } style)
+                regeneratedStyleNames.Add(style);
+        }
+        foreach (AssStyleDefinition definition in styleDefinitions)
+        {
+            if (!definition.HasGeneratedValues || !regeneratedStyleNames.Contains(definition.Name))
+            {
+                errors.Add(new CaptionDiagnostic(
+                    CaptionDiagnosticKinds.UnsupportedMarkup,
+                    definition.LineNumber,
+                    "ASS/SSA custom style definitions cannot be represented and were removed."));
+            }
+        }
+
         if (!foundEvents)
         {
             errors.Add(new CaptionDiagnostic(
@@ -179,11 +229,11 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         builder.Append("WrapStyle: 0\r\n");
         builder.Append("ScaledBorderAndShadow: yes\r\n\r\n");
         builder.Append("[V4+ Styles]\r\n");
-        builder.Append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\r\n");
+        builder.Append("Format: ").Append(GeneratedStyleFormat).Append("\r\n");
         foreach (string style in styles)
         {
             builder.Append("Style: ").Append(style);
-            builder.Append(",Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,20,20,20,1\r\n");
+            builder.Append(GeneratedStyleSuffix).Append("\r\n");
         }
 
         builder.Append("\r\n[Events]\r\n");
@@ -268,6 +318,28 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         }
 
         return builder.ToString();
+    }
+
+    private static bool IsGeneratedStyleDefinition(string value)
+    {
+        int separator = value.IndexOf(',');
+        return separator > 0
+            && value.AsSpan(separator).Equals(GeneratedStyleSuffix, StringComparison.Ordinal);
+    }
+
+    private static bool IsGeneratedStyleFormat(string value)
+    {
+        string[] fields = value.Split(',').Select(field => field.Trim()).ToArray();
+        string[] generatedFields = GeneratedStyleFormat.Split(',')
+            .Select(field => field.Trim())
+            .ToArray();
+        return fields.SequenceEqual(generatedFields, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string GetStyleDefinitionName(string value)
+    {
+        int separator = value.IndexOf(',');
+        return separator < 0 ? string.Empty : value[..separator].Trim();
     }
 
     private static string EncodeText(string value)
@@ -411,4 +483,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
     }
 
     private static string? EmptyToNull(string value) => value.Length == 0 ? null : value;
+
+    private sealed record AssStyleDefinition(string Name, int LineNumber, bool HasGeneratedValues);
 }

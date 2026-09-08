@@ -288,6 +288,40 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
+    public void LoadingManyDistinctTemplatesPreservesEveryIndexedEntry()
+    {
+        const int TemplateCount = 512;
+        DateTimeOffset timestamp = new(2026, 8, 9, 0, 0, 0, TimeSpan.Zero);
+        var templates = Enumerable.Range(0, TemplateCount)
+            .Select(index => new
+            {
+                id = Guid.NewGuid(),
+                name = $"Template {index}",
+                taskKind = "image",
+                prompt = $"Prompt {index}",
+                createdAtUtc = timestamp,
+                updatedAtUtc = timestamp.AddSeconds(index),
+                isPinned = false,
+            })
+            .ToArray();
+        File.WriteAllText(_storagePath, JsonSerializer.Serialize(new
+        {
+            version = PersistentPromptLibrary.CurrentStorageVersion,
+            history = Array.Empty<object>(),
+            templates,
+        }));
+
+        var library = new PersistentPromptLibrary(_storagePath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(library.Templates, Has.Count.EqualTo(TemplateCount));
+            Assert.That(library.Templates[0].Name, Is.EqualTo($"Template {TemplateCount - 1}"));
+            Assert.That(library.Templates[^1].Name, Is.EqualTo("Template 0"));
+        }
+    }
+
+    [Test]
     public void FutureVersion_IsRejectedWithoutChangingOrQuarantiningTheFile()
     {
         string contents = $$"""
