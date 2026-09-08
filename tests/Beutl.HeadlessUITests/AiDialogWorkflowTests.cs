@@ -1111,6 +1111,132 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    public async Task Transcription_stops_before_purchasing_more_chunks_after_audio_changes(bool sceneMix, bool editElement)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel? editor = sceneMix ? await OpenEditor("changed-scene-transcription-" + editElement) : null;
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"changed-source-{sceneMix}.wav");
+        WritePcmWave(path, 16000, 2400);
+        AiSubtitleDialogViewModel? dialog = null;
+        int requests = 0;
+        using var handler = new StubHandler(async (request, _) =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                requests++;
+                if (requests == 1)
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (sceneMix && editElement)
+                            editor!.Scene.AddChild(new Element
+                            {
+                                Length = TimeSpan.FromMilliseconds(150),
+                                Uri = new Uri(Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "changed.belm")),
+                            });
+                        else if (sceneMix)
+                            editor!.Scene.Duration = TimeSpan.FromMilliseconds(200);
+                        else
+                            dialog!.SelectedAudioSource.Value = new AudioSourceItem(
+                                "Changed", path, TimeSpan.FromMilliseconds(150),
+                                elementLength: TimeSpan.FromMilliseconds(100));
+                    });
+                return CreateTranscriptionResponse("changed-audio");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var http = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(clients, http);
+        using var viewModel = CreateSubtitleDialog(clients, editor);
+        dialog = viewModel;
+        viewModel.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
+        viewModel.SceneMixAudioComposer = (start, duration, _) => Task.FromResult<AudioFrameSnapshot?>(
+            new AudioFrameSnapshot(new float[Math.Max(1, (int)(duration.TotalSeconds * 16000))], 16000, 1, start));
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        if (sceneMix)
+            editor!.Scene.Duration = TimeSpan.FromMilliseconds(150);
+        else
+            viewModel.SelectedAudioSource.Value = new AudioSourceItem("Original", path, TimeSpan.FromMilliseconds(150));
+        await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
+        await viewModel.Transcribe.ExecuteAsync();
+        Assert.That(requests, Is.EqualTo(1));
+        File.Delete(path);
+    }
+
+    [AvaloniaTest]
+    public async Task Rejected_successful_transcription_retires_its_key_before_retry()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("rejected-transcription-key");
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return keys.Count == 1
+                    ? JsonResponse(HttpStatusCode.OK, """{"segments":[{"start":0,"end":100,"text":"invalid"}]}""")
+                    : CreateTranscriptionResponse("valid-retry");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var http = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(clients, http);
+        using var dialog = CreateSubtitleDialog(clients, editor);
+        dialog.SceneMixChunkDuration = TimeSpan.FromMilliseconds(50);
+        dialog.SceneMixAudioComposer = (start, duration, _) => Task.FromResult<AudioFrameSnapshot?>(
+            new AudioFrameSnapshot(new float[Math.Max(1, (int)(duration.TotalSeconds * 16000))], 16000, 1, start));
+        await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.SelectedAudioSource.Value?.IsSceneMix == true);
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
+        await WaitUntilAsync(() => dialog.CanTranscribe.Value);
+        await dialog.Transcribe.ExecuteAsync();
+        Assert.That(dialog.Error.Value, Is.Not.Null);
+        Assert.That(dialog.HasOutstandingTranscriptionRequest.Value, Is.False);
+        await dialog.Transcribe.ExecuteAsync();
+        Assert.That(keys, Has.Count.EqualTo(2));
+        Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+    }
+
+    [AvaloniaTest]
+    public async Task Rejected_successful_translation_retires_its_key_before_retry()
+    {
+        await TestReset.ResetShellAsync();
+        var keys = new List<string?>();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                return JsonResponse(HttpStatusCode.OK, """{"segments":[]}""");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var http = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(clients, http);
+        using var dialog = CreateSubtitleDialog(clients);
+        await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value);
+        dialog.ResultSegments.Value = [new AiTranscriptionSegment { Start = 0, End = 1, Text = "Translate me" }];
+        await WaitUntilAsync(() => dialog.CanTranslate.Value);
+        await dialog.Translate.ExecuteAsync();
+        Assert.That(dialog.Error.Value, Is.Not.Null);
+        Assert.That(dialog.HasOutstandingTranslationRequest.Value, Is.False);
+        await dialog.Translate.ExecuteAsync();
+        Assert.That(keys, Has.Count.EqualTo(2));
+        Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+    }
+
+    [AvaloniaTest]
     public async Task ImageGeneration_SendsTheSeedAsJsonAndTheReferenceAsAnUpload()
     {
         await TestReset.ResetShellAsync();

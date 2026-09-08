@@ -518,13 +518,12 @@ internal sealed class PersistentPromptLibrary : IPromptLibrary, IPromptLibraryCh
 
         items.Sort((left, right) => right.LastUsedAtUtc.CompareTo(left.LastUsedAtUtc));
         var coalesced = new List<PromptHistoryEntry>(items.Count);
+        var historyIndex = new Dictionary<(PromptTaskKind Kind, string Prompt), int>();
         foreach (PromptHistoryEntry item in items)
         {
-            int index = coalesced.FindIndex(existing =>
-                existing.TaskKind == item.TaskKind
-                && string.Equals(existing.Prompt, item.Prompt, StringComparison.Ordinal));
-            if (index < 0)
+            if (!historyIndex.TryGetValue((item.TaskKind, item.Prompt), out int index))
             {
+                historyIndex.Add((item.TaskKind, item.Prompt), coalesced.Count);
                 coalesced.Add(item);
                 continue;
             }

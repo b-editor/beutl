@@ -642,6 +642,8 @@ public sealed partial class AiSubtitleDialogViewModel
             chunkIndex++)
         {
             RequestToken.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(SelectedAudioSource.Value, source))
+                return;
             long chunkOffset = checked((long)chunkIndex * operation.ChunkSamples);
             int requestedSamples = checked((int)Math.Min(
                 operation.ChunkSamples,
@@ -726,10 +728,11 @@ public sealed partial class AiSubtitleDialogViewModel
                             runModel,
                             name.Key),
                         RequestToken);
+                    ValidateTranscriptionSegments(response.Segments, chunk.UploadedDuration.TotalSeconds);
                 }
                 catch (AiProviderErrorException)
                 {
-                    // The server settled this chunk as failed and refunded it.
+                    // Failed or invalid settled responses need a fresh key on retry.
                     // Its key would keep answering with that failure, so the
                     // rest of the run takes new ones — and the resume state is
                     // rewritten with them, or a resumed run would ask under the
@@ -746,9 +749,6 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSourceTranscriptionName(operation, name);
                     throw;
                 }
-                ValidateTranscriptionSegments(
-                    response.Segments,
-                    chunk.UploadedDuration.TotalSeconds);
                 // Settle the durable key before publishing any local progress.
                 // A failed CAS means another owner replaced the recovery row;
                 // leave this operation untouched so it can still be resumed.
@@ -906,6 +906,11 @@ public sealed partial class AiSubtitleDialogViewModel
         for (int index = operation.CompletedChunkCount; index < chunkCount; index++)
         {
             RequestToken.ThrowIfCancellationRequested();
+            if (operation.ExpectedSceneAudioRevision != Interlocked.Read(ref _sceneAudioRevision)
+                || !ReferenceEquals(SelectedAudioSource.Value, source)
+                || !TryGetSceneRange(out TimeSpan liveStart, out TimeSpan liveDuration)
+                || liveStart != operation.RangeStart || liveDuration != operation.Duration)
+                return;
             TimeSpan chunkOffset = TimeSpan.FromTicks(
                 Math.Min(duration.Ticks, index * operation.ChunkDuration.Ticks));
             TimeSpan chunkDuration = TimeSpan.FromTicks(
@@ -983,12 +988,13 @@ public sealed partial class AiSubtitleDialogViewModel
                                 FormatChunkFileName("scene-mix", index)),
                             language,
                             runModel,
-                            name.Key),
+                                name.Key),
                         RequestToken);
+                    ValidateTranscriptionSegments(response.Segments, uploadedDuration.TotalSeconds);
                 }
                 catch (AiProviderErrorException)
                 {
-                    // The server settled this chunk as failed and refunded it.
+                    // Failed or invalid settled responses need a fresh key on retry.
                     // Its key would keep answering with that failure, so the
                     // rest of the run takes new ones — written down as well, or
                     // a run picked up later asks under the spent key again and
@@ -1005,9 +1011,6 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSceneTranscriptionName(operation, name);
                     throw;
                 }
-                ValidateTranscriptionSegments(
-                    response.Segments,
-                    uploadedDuration.TotalSeconds);
                 if (!operation.RequestKey.Retire(name))
                     return;
                 operation.DetectedLanguage ??= response.Language;
@@ -1223,6 +1226,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 }
 
                 AiCaptionTranslationResponse response;
+                Dictionary<string, string> translatedBatch;
                 try
                 {
                     response = await _aiService.TranslateAsync(
@@ -1245,10 +1249,11 @@ public sealed partial class AiSubtitleDialogViewModel
                         new Progress<AiCaptionTranslationSegment>(segment =>
                             operationLifetime.TryPublish(() => ShowTranslatedLine(segment))),
                         RequestToken);
+                    translatedBatch = ValidateTranslatedBatch(batch, response);
                 }
                 catch (AiProviderErrorException)
                 {
-                    // The server settled this batch as failed and refunded it.
+                    // Failed or invalid settled responses need a fresh key on retry.
                     // Its key would keep answering with that failure, so what is
                     // left of the run goes out under new ones — and the resume
                     // state is rewritten with them, or a run resumed after a
@@ -1265,9 +1270,6 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawTranslationName(operation, name);
                     throw;
                 }
-                Dictionary<string, string> translatedBatch = ValidateTranslatedBatch(
-                    batch,
-                    response);
                 if (!operation.RequestKey.Retire(name))
                     return;
                 AddTranslatedBatch(operation, translatedBatch);

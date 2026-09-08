@@ -22,7 +22,8 @@ public sealed class AiUploadSource
         if (length < 0)
             throw new ArgumentOutOfRangeException(nameof(length));
         string normalizedFileName = fileName.Trim();
-        if (Path.GetFileName(normalizedFileName) != normalizedFileName)
+        if (normalizedFileName.Contains('/') || normalizedFileName.Contains('\\')
+            || Path.GetFileName(normalizedFileName) != normalizedFileName)
             throw new ArgumentException("The upload filename cannot contain a path.", nameof(fileName));
         if (!MediaTypeHeaderValue.TryParse(mediaType.Trim(), out MediaTypeHeaderValue? parsedMediaType))
             throw new ArgumentException("The upload media type is invalid.", nameof(mediaType));

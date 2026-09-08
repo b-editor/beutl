@@ -589,23 +589,50 @@ internal sealed class AiTranscriptionService(
             request.Audio,
             AiRequestLimits.MaxTranscriptionUploadBytes,
             cancellationToken);
-        var filePart = new StreamPart(
-            stream,
-            request.Audio.FileName,
-            request.Audio.MediaType);
-        return await ExecuteAsync(
+        return await ExecuteStreamingAsync(
             "AiTranscriptionService.Transcribe",
-            (authorization, token) => Application.Ai.Transcribe(
-                authorization,
-                idempotencyKey,
-                filePart,
-                request.Language,
-                request.Model?.Value,
-                token),
-            AiModelMapper.ToModel,
-            cancellationToken);
+            () =>
+            {
+                var body = new MultipartFormDataContent();
+                var file = new StreamContent(stream);
+                file.Headers.ContentType = MediaTypeHeaderValue.Parse(request.Audio.MediaType);
+                body.Add(file, "file", request.Audio.FileName);
+                if (request.Language is not null)
+                    body.Add(new StringContent(request.Language), "language");
+                if (request.Model is { } model)
+                    body.Add(new StringContent(model.Value), "model");
+                var message = new HttpRequestMessage(HttpMethod.Post, "/api/v3/ai/transcriptions") { Content = body };
+                message.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey);
+                return message;
+            },
+            _ => { },
+            ReadTranscriptionResult,
+            cancellationToken,
+            requestEventStream: false);
     }
 
+    internal static AiTranscriptionResponse ReadTranscriptionResult(string body)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("segments", out JsonElement segments)
+                || segments.ValueKind != JsonValueKind.Array || segments.GetArrayLength() > 10000)
+                throw new AiProviderErrorException(new InvalidDataException("The transcription result has an invalid or excessive segment count."));
+            if (document.RootElement.TryGetProperty("words", out JsonElement words)
+                && words.ValueKind != JsonValueKind.Null
+                && (words.ValueKind != JsonValueKind.Array || words.GetArrayLength() > 100000))
+                throw new AiProviderErrorException(new InvalidDataException("The transcription result has an invalid or excessive word count."));
+            return AiModelMapper.ToModel(
+                JsonSerializer.Deserialize<AiTranscriptionResponseDto>(body, AiStreamJson.Options)
+                ?? throw new AiProviderErrorException(new InvalidDataException("The transcription result was empty.")));
+        }
+        catch (JsonException ex)
+        {
+            throw new AiProviderErrorException(ex);
+        }
+    }
 }
 
 internal sealed class AiCaptionTranslationService(

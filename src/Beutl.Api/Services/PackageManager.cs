@@ -86,14 +86,14 @@ public sealed class PackageManager : PackageLoader
     public async Task<IReadOnlyList<PackageUpdate>> CheckUpdate(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        var (discover, lifetime) = apiApplication.GetResourceWithLifetime<DiscoverService>(cancellationToken);
+        using CancellationTokenSource operationCts = lifetime;
         CancellationToken operationToken = operationCts.Token;
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
             PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
 
             var updates = new List<PackageUpdate>(packages.Length);
-            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
             for (int i = 0; i < packages.Length; i++)
             {
@@ -151,11 +151,11 @@ public sealed class PackageManager : PackageLoader
     public async Task<PackageUpdate?> CheckUpdate(string name, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using CancellationTokenSource operationCts = apiApplication.CreateLifetimeLinkedTokenSource(cancellationToken);
+        var (discover, lifetime) = apiApplication.GetResourceWithLifetime<DiscoverService>(cancellationToken);
+        using CancellationTokenSource operationCts = lifetime;
         CancellationToken operationToken = operationCts.Token;
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("CheckUpdate"))
         {
-            DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
             LocalPackage? pkg = _loadedPackages.Values
                 .Select(x => x.Package)

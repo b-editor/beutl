@@ -48,16 +48,6 @@ internal interface IAiClient
         [AliasAs("model")] string? model,
         CancellationToken cancellationToken);
 
-    [Multipart]
-    [Post("/api/v3/ai/transcriptions")]
-    Task<AiTranscriptionResponseDto> Transcribe(
-        [Header("Authorization")] string authorization,
-        [Header("Idempotency-Key")] string idempotencyKey,
-        [AliasAs("file")] StreamPart file,
-        [AliasAs("language")] string? language,
-        [AliasAs("model")] string? model,
-        CancellationToken cancellationToken);
-
     [Post("/api/v3/ai/videos")]
     Task<CreateAiVideoResponse> CreateVideo(
         [Header("Authorization")] string authorization,

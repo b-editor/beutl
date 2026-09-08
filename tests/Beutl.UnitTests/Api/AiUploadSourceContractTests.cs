@@ -6,6 +6,13 @@ namespace Beutl.UnitTests.Api;
 [TestFixture]
 public sealed class AiUploadSourceContractTests
 {
+    [TestCase("dir/frame.png")]
+    [TestCase(@"dir\frame.png")]
+    public void Upload_names_reject_both_path_separator_styles(string name)
+    {
+        Assert.Throws<ArgumentException>(() => AiUploadSource.FromBytes(name, "image/png", new byte[] { 1 }));
+    }
+
     [Test]
     public async Task OpenReadAsync_IsPublicForExternalCapabilityImplementations()
     {

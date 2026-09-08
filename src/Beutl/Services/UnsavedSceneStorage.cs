@@ -112,8 +112,8 @@ internal static class UnsavedSceneStorage
         {
             foreach (ElementRehome rehome in _elements)
                 TryDelete(rehome.Original.LocalPath);
-            foreach (ResourceRehome rehome in _resources)
-                TryDelete(rehome.Original.LocalPath);
+            // Distinct source instances in undo/redo may still reference the original resource.
+            // The editor's terminal cleanup removes these copies when history is retired.
             TryPruneDirectories(GetDirectory(_scene.Id));
         }
 

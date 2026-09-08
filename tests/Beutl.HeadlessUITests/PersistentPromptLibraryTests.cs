@@ -322,6 +322,30 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
+    public void Loading_many_pinned_history_items_preserves_and_coalesces_each_prompt()
+    {
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+        var history = Enumerable.Range(0, 1024).Select(index => new
+        {
+            id = Guid.NewGuid(),
+            taskKind = "image",
+            prompt = $"Pinned {index % 512}",
+            lastUsedAtUtc = timestamp.AddSeconds(index),
+            useCount = 1,
+            isPinned = true,
+        });
+        File.WriteAllText(_storagePath, JsonSerializer.Serialize(new
+        {
+            version = PersistentPromptLibrary.CurrentStorageVersion,
+            history,
+            templates = Array.Empty<object>(),
+        }));
+        var library = new PersistentPromptLibrary(_storagePath);
+        Assert.That(library.History, Has.Count.EqualTo(512));
+        Assert.That(library.History.All(entry => entry.UseCount == 2 && entry.IsPinned), Is.True);
+    }
+
+    [Test]
     public void FutureVersion_IsRejectedWithoutChangingOrQuarantiningTheFile()
     {
         string contents = $$"""

@@ -64,7 +64,7 @@ public sealed class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         IAiJobMonitor jobMonitor,
         IAiJobKindRegistry jobKinds,
         AiJobResultRegistry resultHandlers,
-        Action<AiCaptionHistoryResult>? openCaptionResult)
+        Func<AiCaptionHistoryResult, Task<bool>>? openCaptionResult)
     {
         _editViewModel = editViewModel ?? throw new ArgumentNullException(nameof(editViewModel));
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));

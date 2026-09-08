@@ -16,6 +16,37 @@ namespace Beutl.UnitTests.Api;
 [TestFixture]
 public sealed class AiCapabilityServiceTests
 {
+    [Test]
+    public void Transcription_rejects_excessive_segment_counts_before_deserializing_segments()
+    {
+        string body = "{\"segments\":[" + string.Join(",", Enumerable.Repeat("{}", 10001)) + "]}";
+        var error = Assert.Throws<AiProviderErrorException>(() => AiTranscriptionService.ReadTranscriptionResult(body));
+        Assert.That(error!.InnerException!.Message, Does.Contain("segment count"));
+    }
+
+    [TestCase("[]")]
+    [TestCase("null")]
+    [TestCase("{}")]
+    public void Transcription_rejects_invalid_response_shapes(string body)
+    {
+        Assert.Throws<AiProviderErrorException>(() => AiTranscriptionService.ReadTranscriptionResult(body));
+    }
+
+    [Test]
+    public async Task Transcription_bounds_response_bytes_without_a_content_length()
+    {
+        using var content = new StreamContent(new RepeatingReadStream(
+            AiMeteredCapabilityService.MaximumResponseBodyBytes + 1L));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        using var http = new HttpClient(handler);
+        await using var app = new BeutlApiApplication(http, new ExtensionProvider());
+        SetAuthenticatedUser(app);
+        Assert.ThrowsAsync<AiException>(async () => await app.GetResource<IAiTranscriptionService>()
+            .TranscribeAsync(new AiTranscriptionRequest(
+                AiUploadSource.FromBytes("audio.wav", "audio/wav", new byte[] { 1 })), CancellationToken.None));
+    }
+
     // Monthly usage is proportional; the exact purchased balance appears only
     // in this account snapshot, not in ordinary operation responses.
     private const string EntitlementBalanceJson = """

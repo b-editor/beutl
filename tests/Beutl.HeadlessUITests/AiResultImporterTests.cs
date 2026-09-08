@@ -18,6 +18,39 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class AiResultImporterTests
 {
+    [AvaloniaTest]
+    public async Task First_save_keeps_a_shared_unsaved_resource_for_an_undo_owned_source()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("undo-owned-unsaved-resource");
+        Scene scene = editor.Scene;
+        Uri savedUri = scene.Uri!;
+        scene.Uri = null;
+        using var bitmap = new Bitmap(2, 2);
+        var importer = new AiResultImporter(scene, editor.GetRequiredService<IElementAdder>());
+        ElementAddResult added = await importer.ImportImageAsync(bitmap,
+            new AiResultImportOptions(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, "Shared resource"));
+        Assert.That(added.IsSuccess, Is.True);
+        Element element = added.Elements.Single();
+        Uri original = element.Objects.OfType<Beutl.Graphics.SourceImage>().Single().Source.CurrentValue!.Uri;
+        var historySource = new Beutl.Media.Source.ImageSource();
+        historySource.ReadFrom(original);
+        var historyObject = new Beutl.Graphics.SourceImage();
+        historyObject.Source.CurrentValue = historySource;
+        element.AddObject(historyObject);
+        editor.HistoryManager.Commit("Add history source");
+        element.Objects.Remove(historyObject);
+        editor.HistoryManager.Commit("Remove history source");
+        scene.Uri = savedUri;
+        Assert.That(await editor.Commands!.OnSave(), Is.True);
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        Assert.That(element.Objects, Does.Contain(historyObject));
+        Assert.That(historySource.Uri, Is.EqualTo(original));
+        Assert.That(File.Exists(historySource.Uri.LocalPath), Is.True);
+        await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
+        Assert.That(File.Exists(original.LocalPath), Is.False);
+    }
+
     private static async Task<EditViewModel> OpenEditor(string name)
     {
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
@@ -519,8 +552,9 @@ public sealed class AiResultImporterTests
                     "resources",
                     "ai")));
                 Assert.That(File.Exists(savedResourcePath), Is.True);
-                Assert.That(File.Exists(resourcePath), Is.False);
-                Assert.That(Directory.Exists(ownedDirectory), Is.False);
+                Assert.That(File.Exists(resourcePath), Is.True,
+                    "Distinct sources retained by undo history may still use the original URI.");
+                Assert.That(Directory.Exists(ownedDirectory), Is.True);
             }
 
             await TestShell.Editor.CloseTabItem(tab);

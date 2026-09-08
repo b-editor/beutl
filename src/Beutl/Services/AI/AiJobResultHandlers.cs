@@ -13,13 +13,13 @@ namespace Beutl.Services.AI;
 
 internal interface IAiCaptionResultPresenter
 {
-    bool TryPresentCaptionResult(AiCaptionHistoryResult result);
+    Task<bool> TryPresentCaptionResultAsync(AiCaptionHistoryResult result);
 }
 
 internal sealed class AiJobResultContext(
     IAiJobResultEditorContext editor,
     IAuthenticatedContentService content,
-    Action<AiCaptionHistoryResult>? openCaptionResult) : IAiJobResultContext, IAiCaptionResultPresenter
+    Func<AiCaptionHistoryResult, Task<bool>>? openCaptionResult) : IAiJobResultContext, IAiCaptionResultPresenter
 {
     private readonly IAiJobResultEditorContext _editor = editor ?? throw new ArgumentNullException(nameof(editor));
     private readonly IAuthenticatedContentService _content = content ?? throw new ArgumentNullException(nameof(content));
@@ -32,13 +32,11 @@ internal sealed class AiJobResultContext(
         CancellationToken cancellationToken)
         => _content.CopyToAsync(contentUri, destination, cancellationToken);
 
-    public bool TryPresentCaptionResult(AiCaptionHistoryResult result)
+    public Task<bool> TryPresentCaptionResultAsync(AiCaptionHistoryResult result)
     {
         if (openCaptionResult is null)
-            return false;
-
-        openCaptionResult(result);
-        return true;
+            return Task.FromResult(false);
+        return openCaptionResult(result);
     }
 }
 
@@ -345,12 +343,14 @@ internal sealed class CaptionAiJobResultCapabilities(
         CancellationToken cancellationToken)
     {
         AiCaptionHistoryResult recovered = await DownloadAsync(job, context, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (context is IAiCaptionResultPresenter presenter
-            && presenter.TryPresentCaptionResult(recovered))
+            && await presenter.TryPresentCaptionResultAsync(recovered))
         {
             return;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var document = new CaptionDocument(recovered.Segments.Select(segment => new CaptionCue(
             TimeSpan.FromSeconds(segment.Start),
             TimeSpan.FromSeconds(segment.End),

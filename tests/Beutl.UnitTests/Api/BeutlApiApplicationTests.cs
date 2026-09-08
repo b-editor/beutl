@@ -14,6 +14,22 @@ namespace Beutl.UnitTests.Api;
 public sealed class BeutlApiApplicationTests
 {
     [Test]
+    public async Task Resource_admission_keeps_the_application_cancellation_token_with_the_resource()
+    {
+        using var http = new HttpClient();
+        var app = new BeutlApiApplication(http, new ExtensionProvider());
+        var (resource, lifetime) = app.GetResourceWithLifetime<DiscoverService>(CancellationToken.None);
+        using (lifetime)
+        {
+            Assert.That(resource, Is.SameAs(app.GetResource<DiscoverService>()));
+            await app.DisposeAsync();
+            Assert.That(lifetime.IsCancellationRequested, Is.True);
+            Assert.Throws<ObjectDisposedException>(() =>
+                app.GetResourceWithLifetime<DiscoverService>(CancellationToken.None));
+        }
+    }
+
+    [Test]
     public async Task Constructor_RegistersProvidedExtensionProvider()
     {
         using var httpClient = new HttpClient();

@@ -35,6 +35,46 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class AiJobCenterTests
 {
+    [AvaloniaTest]
+    public async Task Caption_presentation_targets_the_originating_editor_after_selection_changes()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel origin = await OpenEditor("caption-origin");
+        var second = new Scene(640, 480, "second")
+        {
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(origin.Scene.Uri!.LocalPath)!, "second.scene")),
+        };
+        Beutl.Serialization.CoreSerializer.StoreToUri(second, second.Uri!);
+        TestShell.Project.CurrentProject.Value!.Items.Add(second);
+        TestShell.Editor.ActivateTabItem(second);
+        HeadlessTestHelpers.Settle();
+        var selected = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
+        var result = new AiCaptionHistoryResult(new AiJobId("origin-caption"),
+            [new AiTranscriptionSegment { Start = 0, End = 1, Text = "Origin only" }], "en");
+        Assert.That(await TestShell.MainViewModel.PresentCaptionResultAsync(origin, result), Is.True);
+        Assert.That(origin.FindToolTab<AiWorkspaceViewModel>(), Is.Not.Null);
+        Assert.That(selected.FindToolTab<AiWorkspaceViewModel>(), Is.Null);
+        var originTab = TestShell.Editor.TabItems.Single(item => ReferenceEquals(item.Context.Value, origin));
+        await TestShell.Editor.CloseTabItem(originTab);
+        Assert.That(await TestShell.MainViewModel.PresentCaptionResultAsync(origin, result), Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task Caption_result_context_awaits_presentation_acceptance()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("caption-acceptance");
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new AiJobResultContext(editor,
+            TestShell.MainViewModel._beutlClients.GetResource<IAuthenticatedContentService>(),
+            _ => completion.Task);
+        Task<bool> presenting = context.TryPresentCaptionResultAsync(
+            new AiCaptionHistoryResult(new AiJobId("job"), [], null));
+        Assert.That(presenting.IsCompleted, Is.False);
+        completion.SetResult(false);
+        Assert.That(await presenting, Is.False);
+    }
+
     private static readonly byte[] s_png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
     private AiJobKindRegistry _jobKinds = null!;

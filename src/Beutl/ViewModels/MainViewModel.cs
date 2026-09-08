@@ -442,9 +442,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal async void OpenAiVideoGeneration()
         => await OpenAiWorkspaceAsync(AiWorkspaceSection.VideoGeneration);
 
-    private async Task<object?> OpenAiWorkspaceAsync(AiWorkspaceSection section)
+    private async Task<object?> OpenAiWorkspaceAsync(AiWorkspaceSection section, EditViewModel? target = null)
     {
-        if (_editorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editorContext)
+        EditViewModel? editorContext = target ?? _editorService.SelectedTabItem.Value?.Context.Value as EditViewModel;
+        if (editorContext is null
+            || !_editorService.TabItems.Any(item => ReferenceEquals(item.Context.Value, editorContext)))
         {
             return null;
         }
@@ -474,7 +476,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             }
         }
 
-        return workspace.Show(section);
+        return _editorService.TabItems.Any(item => ReferenceEquals(item.Context.Value, editorContext))
+            ? workspace.Show(section)
+            : null;
+    }
+
+    internal async Task<bool> PresentCaptionResultAsync(EditViewModel editor, AiCaptionHistoryResult result)
+    {
+        if (await OpenAiWorkspaceAsync(AiWorkspaceSection.Subtitles, editor)
+            is not AiSubtitleDialogViewModel viewModel)
+            return false;
+        viewModel.LoadHistoryResult(result);
+        return true;
     }
 
     internal static async Task<bool> TryOpenNewAiWorkspaceAsync(
@@ -541,7 +554,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             _beutlClients.GetResource<IAiJobMonitor>(),
             _beutlClients.GetResource<IAiJobKindRegistry>(),
             _aiJobResultHandlers,
-            OpenAiSubtitle);
+            result => PresentCaptionResultAsync(editViewModel, result));
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {

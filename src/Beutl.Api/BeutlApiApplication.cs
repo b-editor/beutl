@@ -512,6 +512,16 @@ public class BeutlApiApplication : IAsyncDisposable
         }
     }
 
+    internal (T Resource, CancellationTokenSource Lifetime) GetResourceWithLifetime<T>(
+        CancellationToken cancellationToken) where T : IBeutlApiResource
+    {
+        lock (_disposeGate)
+        {
+            T resource = GetResource<T>();
+            return (resource, CreateLifetimeLinkedTokenSource(cancellationToken));
+        }
+    }
+
     internal async Task<AuthenticatedApiResult<T>> SendAuthenticatedAsync<T>(
         Func<string, CancellationToken, Task<T>> send,
         CancellationToken cancellationToken,
