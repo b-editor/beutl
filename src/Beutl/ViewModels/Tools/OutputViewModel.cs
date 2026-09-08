@@ -232,7 +232,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
                 SupersampleFactor.Value, Model.FrameSize);
-            return;
+            throw CreateReportedFailure(supersampleWarning);
         }
 
         // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
@@ -268,7 +268,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 "Encoding blocked because {MissingSourceCount} referenced source file(s) are missing. First missing source: {MissingSource}",
                 missingSources.Count,
                 missingSources[0]);
-            return;
+            throw CreateReportedFailure(message);
         }
 
         var stopwatch = new Stopwatch();
@@ -455,6 +455,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     internal static void MarkFailureAsReported(Exception failure)
     {
         failure.Data[s_reportedFailureKey] = true;
+    }
+
+    private static Exception CreateReportedFailure(string message)
+    {
+        var failure = new InvalidOperationException(message);
+        MarkFailureAsReported(failure);
+        return failure;
     }
 
     private void HandlePreflightCancellation()

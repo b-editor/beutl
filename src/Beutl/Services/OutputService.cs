@@ -218,6 +218,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         CancellationToken cancellationToken)
     {
         bool disposeRunningProperty = false;
+        bool outputOperationReleased = false;
         while (true)
         {
             bool disposeContext;
@@ -236,47 +237,61 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                     // it immediately before publishing the terminal execution. Dispose linearizes
                     // on this lock, so a request that loses this race is an idle-profile disposal,
                     // not cleanup belonging to the completed output operation.
-                    CaptureCleanupFailure(outputOperation.Dispose, ref failures);
-                    if (ReferenceEquals(_outputOperation, outputOperation))
+                    if (!outputOperationReleased)
                     {
-                        _outputOperation = null;
+                        CaptureCleanupFailure(outputOperation.Dispose, ref failures);
+                        outputOperationReleased = true;
+                        if (ReferenceEquals(_outputOperation, outputOperation))
+                        {
+                            _outputOperation = null;
+                        }
                     }
 
                     CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
-                    if (disposeRunningProperty)
+                    disposeContext = _disposeRequested
+                                     && !_contextDisposed
+                                     && ReferenceEquals(_executionTask, completion.Task);
+                    if (disposeContext)
                     {
-                        CaptureCleanupFailure(_isRunning.Dispose, ref failures);
-                    }
-
-                    // Publish the terminal result before clearing the single-flight task. A
-                    // concurrent start must either join this execution or observe it as already
-                    // complete; it must never enter the context between those two state changes.
-                    if (failures is null)
-                    {
-                        if (canceled)
-                        {
-                            completion.TrySetCanceled(cancellationToken);
-                        }
-                        else
-                        {
-                            completion.TrySetResult();
-                        }
-                    }
-                    else if (failures.Count == 1)
-                    {
-                        completion.TrySetException(failures[0]);
+                        _contextDisposed = true;
                     }
                     else
                     {
-                        completion.TrySetException(new AggregateException(failures));
-                    }
+                        if (disposeRunningProperty)
+                        {
+                            CaptureCleanupFailure(_isRunning.Dispose, ref failures);
+                        }
 
-                    if (ReferenceEquals(_executionTask, completion.Task))
-                    {
-                        _executionTask = null;
-                    }
+                        // Publish the terminal result before clearing the single-flight task. A
+                        // concurrent start must either join this execution or observe it as already
+                        // complete; it must never enter the context between those two state changes.
+                        if (failures is null)
+                        {
+                            if (canceled)
+                            {
+                                completion.TrySetCanceled(cancellationToken);
+                            }
+                            else
+                            {
+                                completion.TrySetResult();
+                            }
+                        }
+                        else if (failures.Count == 1)
+                        {
+                            completion.TrySetException(failures[0]);
+                        }
+                        else
+                        {
+                            completion.TrySetException(new AggregateException(failures));
+                        }
 
-                    return;
+                        if (ReferenceEquals(_executionTask, completion.Task))
+                        {
+                            _executionTask = null;
+                        }
+
+                        return;
+                    }
                 }
             }
 

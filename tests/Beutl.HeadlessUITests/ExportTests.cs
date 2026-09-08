@@ -209,6 +209,9 @@ public class ExportTests
         HeadlessTestHelpers.Settle();
         Assert.That(output.SupersampleWarning.Value, Is.Not.Null);
         Assert.That(output.CanEncode.Value, Is.False);
+        Exception? rejection = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await output.RunAsync(CancellationToken.None));
+        Assert.That(OutputViewModel.WasFailureReported(rejection!), Is.True);
 
         output.SupersampleFactor.Value = 1;
         HeadlessTestHelpers.Settle();
@@ -804,6 +807,39 @@ public class ExportTests
             await execution.WaitAsync(TimeSpan.FromSeconds(5));
             item.Dispose();
         }
+    }
+
+    [AvaloniaTest]
+    public async Task OutputProfileItem_honors_disposal_requested_by_running_state_observer()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorWithRectangle("export-running-observer-dispose");
+        var context = new TestOutputContext("export-running-observer-dispose.scene");
+        var item = new OutputProfileItem(context, editor, TestShell.Editor);
+        bool observedRunning = false;
+        using IDisposable subscription = item.IsRunning.Subscribe(isRunning =>
+        {
+            if (isRunning)
+            {
+                observedRunning = true;
+            }
+            else if (observedRunning)
+            {
+                item.Dispose();
+            }
+        });
+        Task execution = StartOutput(item);
+
+        await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+        context.Finish();
+        await execution.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(context.DisposeCount, Is.EqualTo(1));
+            Assert.Throws<ObjectDisposedException>(() => item.TryStart(out _));
+        });
+        AssertWorkspaceMutationAvailable();
     }
 
     [AvaloniaTest]

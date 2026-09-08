@@ -202,7 +202,14 @@ public sealed class RenderJobManager : IDisposable
             await _gate.WaitAsync(record.Cts.Token).ConfigureAwait(false);
             acquired = true;
             reporter.Report(0, 0, "starting");
-            result = await work(reporter, record.Cts.Token).ConfigureAwait(false);
+            Task<JsonNode> workTask = work(reporter, record.Cts.Token);
+            _ = workTask.ContinueWith(
+                static (_, state) => CloseCancellationWindow((JobRecord)state!),
+                record,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            result = await workTask.ConfigureAwait(false);
             lock (record.Sync)
             {
                 record.AcceptsCancellation = false;
@@ -233,7 +240,12 @@ public sealed class RenderJobManager : IDisposable
             }
             catch (Exception ex)
             {
-                failure ??= ex;
+                failure = failure is null
+                    ? ex
+                    : new AggregateException(
+                        "Render work and output-lease cleanup both failed.",
+                        failure,
+                        ex);
                 terminalState = RenderJobState.Failed;
             }
             finally
@@ -261,6 +273,14 @@ public sealed class RenderJobManager : IDisposable
                 record.State = terminalState;
                 record.CompletedAt = DateTimeOffset.UtcNow;
             }
+        }
+    }
+
+    private static void CloseCancellationWindow(JobRecord record)
+    {
+        lock (record.Sync)
+        {
+            record.AcceptsCancellation = false;
         }
     }
 

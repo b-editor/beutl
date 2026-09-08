@@ -354,6 +354,26 @@ public sealed class RenderJobManagerTests
     }
 
     [Test]
+    public async Task Work_and_output_lease_failures_are_preserved_together()
+    {
+        using var manager = new RenderJobManager();
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromException<JsonNode>(
+                new InvalidOperationException("work failed")),
+            new ThrowingLease(new IOException("lease failed")));
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Error, Is.Not.Null);
+            Assert.That(snapshot.Error!.Message, Does.Contain(nameof(AggregateException)));
+        });
+    }
+
+    [Test]
     public async Task Completed_work_rejects_cancellation_while_releasing_its_output_lease()
     {
         using var manager = new RenderJobManager();
