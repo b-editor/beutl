@@ -600,6 +600,45 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task Admission_failure_waits_for_token_cancellation_callbacks()
+    {
+        var admission = new BlockingThrowingAdmission(
+            new InvalidOperationException("admission callback failed"));
+        await using var queue = new ProxyJobQueue(
+            new RecordingGenerator(),
+            store: null,
+            admission);
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-callback-cleanup.mov"),
+            ProxyPreset.Quarter);
+        await admission.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var callbackStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseCallback = new ManualResetEventSlim();
+        using CancellationTokenRegistration registration = job.CancellationToken.Register(() =>
+        {
+            callbackStarted.TrySetResult();
+            releaseCallback.Wait();
+        });
+
+        Task cancellation = Task.Run(() => queue.Cancel(job.JobId));
+        try
+        {
+            await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            admission.Release();
+            Assert.That(job.Status, Is.Not.EqualTo(ProxyJobStatus.Canceled));
+        }
+        finally
+        {
+            releaseCallback.Set();
+        }
+
+        await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
     public async Task Dispose_wins_when_a_blocked_admission_callback_later_throws()
     {
         string root = CreateRoot();

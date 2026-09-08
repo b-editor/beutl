@@ -542,6 +542,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 // admission policy or generator concurrently reports another error. Lease-release
                 // failures are handled above because failed cleanup cannot be reported as safe
                 // cancellation.
+                await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
                 CompleteCanceled(item);
             }
             catch (ProxyGenerationSkippedException ex)
@@ -784,7 +785,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             out bool firstRejection);
         if (firstRejection)
         {
-            OnJobChanged(item.Job, ProxyJobChangeKind.WaitingForAdmission);
+            if (!item.TryPublishAdmissionWaiting(() =>
+                    OnJobChanged(item.Job, ProxyJobChangeKind.WaitingForAdmission)))
+            {
+                return false;
+            }
         }
 
         Task retry = ResumeAdmissionAfterBackoffAsync(item, backoff);
@@ -1336,6 +1341,24 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
 
         public bool IsAdmissionDeferred => _admissionDeferred;
+
+        public bool TryPublishAdmissionWaiting(Action publish)
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || !_admissionDeferred
+                    || _cancellationRequested
+                    || Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status))
+                {
+                    return false;
+                }
+
+                publish();
+                return true;
+            }
+        }
 
         public bool TryCompleteSuccess()
         {
