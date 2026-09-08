@@ -119,7 +119,6 @@ public sealed class Reconciler
             sandboxRoot = BuildValidationSandbox(session, currentDocument, desiredDocument);
         }
 
-        ValidateNoNewFallbackObjects(session, sandboxRoot);
         ValidateChangedAnimationValues(sandboxRoot, currentDocument, desiredDocument, validation);
 
         var changes = new List<ChangeSetEntry>();
@@ -581,10 +580,18 @@ public sealed class Reconciler
         JsonObject currentDocument,
         JsonObject desiredDocument)
     {
-        CoreObject sandboxRoot = CloneCurrentRoot(session, currentDocument);
+        CoreObject sandboxRoot;
+        Dictionary<IncidentIdentity, int> existingIncidents;
+        using (var baseline = DeserializationIncidents.BeginCapture())
+        {
+            sandboxRoot = CloneCurrentRoot(session, currentDocument);
+            existingIncidents = baseline.Incidents.GroupBy(CreateIncidentIdentity)
+                .ToDictionary(group => group.Key, group => group.Count());
+        }
         JsonObject payload = (JsonObject)desiredDocument.DeepClone();
         payload.Remove(SchemaVersion.PropertyName);
 
+        using var appliedIncidents = DeserializationIncidents.BeginCapture();
         try
         {
             new DeclarativeDocumentApplier().Apply(sandboxRoot, payload);
@@ -602,8 +609,55 @@ public sealed class Reconciler
                 "Call get_schema for the concrete type, then retry apply_edit with the serialized property shapes returned by the schema."));
         }
 
+        ValidateNoNewFallbackObjects(session, sandboxRoot);
+        ValidateNoNewIncidents(appliedIncidents.Incidents, existingIncidents);
+        // Converters can create fallbacks inside plugin wrappers that graph traversal cannot see.
+        // Compare complete snapshots, including unchanged animations skipped by the applier, so an
+        // existing fallback cannot lend its allowance to a second, newly inserted occurrence.
+        using var incidents = DeserializationIncidents.BeginCapture();
+        _ = CloneCurrentRoot(session, session.Documents.Read(sandboxRoot));
+        ValidateNoNewIncidents(incidents.Incidents, existingIncidents);
+
         return sandboxRoot;
     }
+
+    private static void ValidateNoNewIncidents(
+        IReadOnlyList<DeserializationIncidents.DeserializationIncident> incidents,
+        Dictionary<IncidentIdentity, int> baseline)
+    {
+        var existingIncidents = new Dictionary<IncidentIdentity, int>(baseline);
+        foreach (var incident in incidents)
+        {
+            IncidentIdentity identity = CreateIncidentIdentity(incident);
+            if (existingIncidents.TryGetValue(identity, out int remaining) && remaining > 0)
+            {
+                existingIncidents[identity] = remaining - 1;
+                continue;
+            }
+
+            var occurrence = new FallbackOccurrence("$", identity.TypeName, identity.Reason, identity.Message);
+            throw new ReconcileException(new ToolError(
+                ErrorCode.ValidationRejected,
+                $"Desired document produced a fallback object for {identity.TypeName ?? "unknown serialized type"}.",
+                occurrence.Path,
+                CreateFallbackHint(occurrence)));
+        }
+    }
+
+    private static IncidentIdentity CreateIncidentIdentity(DeserializationIncidents.DeserializationIncident incident)
+    {
+        if (incident.Fallback is { } fallback)
+        {
+            fallback.TryGetTypeName(out string? typeName);
+            return new IncidentIdentity(typeName, fallback.Reason.ToString(), fallback.ErrorMessage,
+                fallback.Json?.ToJsonString());
+        }
+
+        return new IncidentIdentity(incident.TypeName,
+            incident.Reason?.ToString() ?? nameof(FallbackReason.DeserializationFailed), incident.Message, null);
+    }
+
+    private readonly record struct IncidentIdentity(string? TypeName, string Reason, string? Message, string? Json);
 
     private static bool ExpandAnimationShorthand(CoreObject sandboxRoot, JsonNode? node)
     {

@@ -1345,7 +1345,7 @@ public class Scene : ProjectItem, INotifyEdited
                     PathBoundary.Comparison)
                 || !PathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath)
                 || !File.Exists(sourcePath)
-                || !seenPaths.Add(resolvedSourcePath))
+                || !seenPaths.Add(sourcePath))
             {
                 continue;
             }

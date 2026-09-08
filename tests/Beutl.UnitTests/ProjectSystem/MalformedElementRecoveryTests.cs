@@ -2519,11 +2519,15 @@ public sealed class MalformedElementRecoveryTests
         }
 
         objects[1]!.AsObject()["$type"] = "[Beutl.Engine]Beutl.Graphics.Shapes:DoesNotExist";
+        objects[0]!.AsObject()[nameof(CoreObject.Name)] = "Healthy sibling";
+        objects[1]!.AsObject()[nameof(CoreObject.Name)] = "Fallback sibling";
         File.WriteAllText(elementPaths[1], json.ToJsonString());
+        byte[] retainedBytes = File.ReadAllBytes(elementPaths[1]);
 
         Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element firstRecovered = firstLoad.Children.Single(child => child.Uri!.LocalPath == elementPaths[1]);
         Guid[] firstAssignedIds = firstRecovered.Objects.Select(static obj => obj.Id).ToArray();
+        var firstIdentities = firstRecovered.Objects.ToDictionary(obj => obj.Name!, obj => obj.Id);
         Guid[] firstGraphIds = EnumerateElementGraphs(firstLoad).Select(static obj => obj.Id).ToArray();
         firstRecovered.Objects.Move(0, 1);
         CoreSerializer.StoreToUri(firstLoad, sceneUri);
@@ -2542,6 +2546,8 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(firstAssignedIds, Has.Length.EqualTo(2));
             Assert.That(firstAssignedIds, Does.Not.Contain(claimantId));
             Assert.That(secondAssignedIds, Is.EqualTo(firstAssignedIds));
+            Assert.That(secondRecovered.Objects.ToDictionary(obj => obj.Name!, obj => obj.Id), Is.EquivalentTo(firstIdentities));
+            Assert.That(File.ReadAllBytes(elementPaths[1]), Is.EqualTo(retainedBytes));
             Assert.That(
                 persistedIds[$"recovered.belm!{claimantId:D}#0"]!.GetValue<string>(),
                 Is.EqualTo(firstAssignedIds[0].ToString()));
@@ -3025,6 +3031,52 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(reopenedShape.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
             Assert.That(reopenedShape.Transform.CurrentValue?.Uri,
                 Is.EqualTo(new Uri(rehomedReferencedPath)));
+        });
+    }
+
+    [Test]
+    public void SaveAs_CopiesEveryLogicalAliasOfRetainedSidecar()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string actualDirectory = Path.Combine(_root, "actual");
+        string aliasDirectory = Path.Combine(_root, "alias");
+        Directory.CreateDirectory(actualDirectory);
+        try
+        {
+            Directory.CreateSymbolicLink(aliasDirectory, actualDirectory);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            Assert.Ignore($"Directory symlink creation is unavailable: {ex.Message}");
+        }
+
+        string actualPath = Path.Combine(actualDirectory, "transform.json");
+        string aliasPath = Path.Combine(aliasDirectory, "transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var firstShape = (RectShape)source.Objects.Single();
+        firstShape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(actualPath) };
+        var secondShape = new RectShape();
+        secondShape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(aliasPath) };
+        source.AddObject(secondShape);
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject transformJson = JsonNode.Parse(File.ReadAllText(actualPath))!.AsObject();
+        transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(actualPath, transformJson.ToJsonString());
+        byte[] retainedBytes = File.ReadAllBytes(actualPath);
+        byte[] elementBytes = File.ReadAllBytes(elementPath);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        string copyRoot = Path.Combine(_root, "copy");
+        var copyUri = new Uri(Path.Combine(copyRoot, Path.GetFileName(elementPath)));
+        CoreSerializer.StoreToUri(recovered, copyUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(copyUri.LocalPath), Is.EqualTo(elementBytes));
+            Assert.That(File.ReadAllBytes(Path.Combine(copyRoot, "actual", "transform.json")), Is.EqualTo(retainedBytes));
+            Assert.That(File.ReadAllBytes(Path.Combine(copyRoot, "alias", "transform.json")), Is.EqualTo(retainedBytes));
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.OfType<RectShape>()
+                .Select(shape => shape.Transform.CurrentValue), Has.All.InstanceOf<FallbackTransform>());
         });
     }
 

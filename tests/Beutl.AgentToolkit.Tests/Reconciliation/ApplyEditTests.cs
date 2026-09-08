@@ -6,6 +6,7 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -72,7 +73,120 @@ public sealed class ApplyEditTests
             = Property.Create<Optional<Transform>>();
     }
 
-    private sealed class PlainFallback : IFallback
+    public sealed record TransformWrapper(ICoreSerializable Transform);
+
+    [SuppressResourceClassGeneration]
+    public sealed class WrappedTransformHolder : EngineObject
+    {
+        public WrappedTransformHolder() => ScanProperties<WrappedTransformHolder>();
+
+        public IProperty<List<TransformWrapper>> Wrapped { get; } = Property.CreateAnimatable<List<TransformWrapper>>();
+    }
+
+    [Test]
+    public void Apply_edit_rejects_new_fallback_inside_record_wrapper()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var holder = new WrappedTransformHolder();
+        var group = new TransformGroup();
+        group.Children.Add(new RotationTransform());
+        var original = new List<TransformWrapper> { new(group) };
+        holder.Wrapped.CurrentValue = original;
+        element.AddObject(holder);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonObject holderJson = desired["Elements"]![0]!["Objects"]!.AsArray()
+            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
+        holderJson["Wrapped"]![0]!["Transform"]!["Children"]![0]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        holderJson["Wrapped"]![0]!["Transform"]!["Children"]![0]!.AsObject().Remove("Id");
+
+        var result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error?.Message, Does.Contain("fallback object"));
+            Assert.That(holder.Wrapped.CurrentValue, Is.SameAs(original));
+        });
+    }
+
+    [Test]
+    public void Apply_edit_preserves_existing_fallback_inside_record_wrapper()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var fallback = (Transform)CoreSerializer.DeserializeFromJsonObject(new JsonObject
+        {
+            ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform",
+            ["Id"] = Guid.NewGuid().ToString(),
+        }, typeof(Transform));
+        var group = new TransformGroup();
+        group.Children.Add(fallback);
+        var holder = new WrappedTransformHolder();
+        holder.Wrapped.CurrentValue = [new(group)];
+        element.AddObject(holder);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new EditTools(manager);
+        JsonObject desired = session.Documents.Read(scene);
+        desired["Elements"]![0]!["Start"] = TimeSpan.FromSeconds(2).ToString("c");
+
+        var result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(((TransformGroup)holder.Wrapped.CurrentValue![0].Transform).Children.Single(), Is.InstanceOf<IFallback>());
+        });
+    }
+
+    [Test]
+    public void Apply_edit_rejects_duplicate_hidden_fallback_when_animation_is_unchanged()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var holder = new WrappedTransformHolder();
+        holder.Wrapped.CurrentValue = [];
+        var animation = new KeyFrameAnimation<List<TransformWrapper>>();
+        animation.KeyFrames.Add(new KeyFrame<List<TransformWrapper>>
+        {
+            Value = [new(new PlainFallback())],
+        });
+        holder.Wrapped.Animation = animation;
+        element.AddObject(holder);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonObject holderJson = desired["Elements"]![0]!["Objects"]!.AsArray()
+            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
+        holderJson["Wrapped"] = holderJson["Animations"]!["Wrapped"]!["KeyFrames"]![0]!["Value"]!.DeepClone();
+
+        Assert.That(() => new Reconciler().Plan(session, desired), Throws.TypeOf<ReconcileException>());
+        Assert.That(holder.Wrapped.CurrentValue, Is.Empty);
+    }
+
+    [Test]
+    public void Apply_edit_rejects_lossy_easing_inside_record_wrapper()
+    {
+        Scene scene = CreateSceneWithElement(out Element element);
+        var holder = new WrappedTransformHolder();
+        holder.Wrapped.CurrentValue = [new(new KeyFrame<float>())];
+        element.AddObject(holder);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonObject holderJson = desired["Elements"]![0]!["Objects"]!.AsArray()
+            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
+        holderJson["Wrapped"]![0]!["Transform"]!["Easing"] = "[Missing.Plugin]Missing.Namespace:MissingEasing";
+
+        Assert.That(() => new Reconciler().Plan(session, desired), Throws.TypeOf<ReconcileException>());
+        Assert.That(((KeyFrame<float>)holder.Wrapped.CurrentValue![0].Transform).Easing,
+            Is.InstanceOf<Beutl.Animation.Easings.LinearEasing>());
+    }
+
+    public sealed class PlainFallback : IFallback
     {
         public JsonObject? Json { get; set; } = new()
         {

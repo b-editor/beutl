@@ -79,6 +79,63 @@ public sealed class ProjectOperationsTests
         Assert.That(File.Exists(outside), Is.False, "The out-of-project sidecar must not be written.");
     }
 
+    [TestCase(false, "file")]
+    [TestCase(true, "file")]
+    [TestCase(false, "directory")]
+    [TestCase(true, "directory")]
+    [TestCase(false, "dangling-link")]
+    [TestCase(true, "dangling-link")]
+    public void Save_RehomesHealthyElementWithoutOverwritingExistingEntry(bool normalizeFirst, string entryKind)
+    {
+        Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
+            Path.Combine(_tempRoot, "project", "proj.bep"), 1920, 1080, 30, TimeSpan.FromSeconds(10)));
+        Scene scene = project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        Directory.CreateDirectory(sceneDirectory);
+        string occupiedPath = Path.Combine(sceneDirectory, "clip.belm");
+        string missingTarget = Path.Combine(_tempRoot, "missing-target");
+        if (entryKind == "directory")
+            Directory.CreateDirectory(occupiedPath);
+        else if (entryKind == "dangling-link")
+        {
+            try
+            {
+                File.CreateSymbolicLink(occupiedPath, missingTarget);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                Assert.Ignore($"File symlink creation is unavailable: {ex.Message}");
+            }
+        }
+        else
+            File.WriteAllText(occupiedPath, "unrelated data");
+        var element = new Element
+        {
+            Uri = new Uri(Path.Combine(_tempRoot, "outside", "clip.belm")),
+            Length = TimeSpan.FromSeconds(1),
+        };
+        scene.Children.Add(element);
+
+        if (normalizeFirst)
+            ProjectOperations.NormalizeSidecarUrisWithinProject(scene);
+        ProjectOperations.Save(project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Uri!.LocalPath, Is.EqualTo(Path.Combine(sceneDirectory, "clip-2.belm")));
+            if (entryKind == "directory")
+                Assert.That(Directory.Exists(occupiedPath), Is.True);
+            else if (entryKind == "dangling-link")
+            {
+                Assert.That(new FileInfo(occupiedPath).LinkTarget, Is.EqualTo(missingTarget));
+                Assert.That(File.Exists(missingTarget), Is.False);
+            }
+            else
+                Assert.That(File.ReadAllText(occupiedPath), Is.EqualTo("unrelated data"));
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri!).Id, Is.EqualTo(element.Id));
+        });
+    }
+
     [Test]
     public void Save_RehomesRecoveredElementOutsideProject_WithoutChangingItsRelativeName()
     {

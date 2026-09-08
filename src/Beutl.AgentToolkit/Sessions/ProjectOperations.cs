@@ -223,7 +223,10 @@ public static class ProjectOperations
                 string uniqueCandidate = candidate;
                 string name = Path.GetFileNameWithoutExtension(candidate);
                 string extension = Path.GetExtension(candidate);
-                for (int suffix = 2; !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate))); suffix++)
+                for (int suffix = 2;
+                     FileSystemEntryExists(uniqueCandidate)
+                     || !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate)));
+                     suffix++)
                 {
                     uniqueCandidate = Path.Combine(
                         Path.GetDirectoryName(candidate)!,
