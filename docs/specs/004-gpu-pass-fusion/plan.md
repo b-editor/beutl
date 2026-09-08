@@ -32,7 +32,7 @@ The public filter-effect lifecycle remains `FilterEffect.ApplyTo(FilterEffectCon
 
 **Scale/Scope**: One complete target-surface request, including all top-level drawables and nested/auxiliary 2D requests; migrate 29 production and 7 test `Process` overrides plus every direct processor/operation and scale-helper consumer across `Beutl.Engine`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`, `Beutl.Editor`, `Beutl.AgentToolkit`, and application call sites; add a non-friend public API contract test project
 
-## Constitution Check
+## Project Requirements Check
 
 *GATE: Passed before Phase 0 research and re-checked after Phase 1 design.*
 
@@ -46,7 +46,7 @@ The public filter-effect lifecycle remains `FilterEffect.ApplyTo(FilterEffectCon
 | VI. Source Generators Are Load-Bearing | PASS | One generator change ships: `ResourceClassEmitter` emits a nullable resource backing field and makes a non-nullable resource property throw when it holds no owned resource. No new ownership protocol is generated; `tests/SourceGeneratorTest` snapshots are updated and source-generator review is required (see Dependency and Review Boundaries). The new non-friend project references the existing generator only as an analyzer when its public authoring fixtures require generated members. |
 | Quality gates | PASS BY PLAN | The implementation must pass format verification, dual-target solution build, `net10.0` tests with coverage settings, GPU-required tests on capable hardware, and review before merge. |
 
-Post-design re-check: the selected request recorder, planner, public descriptors, test project, and donor extraction policy introduce no constitutional exception. There is therefore no complexity violation to justify.
+Post-design re-check: the selected request recorder, planner, public descriptors, test project, and donor extraction policy introduce no project-policy exception. There is therefore no complexity violation to justify.
 
 ## Project Structure
 
@@ -313,4 +313,4 @@ Both authoring contexts accept the same public `ShaderDescription` and `Geometry
 
 ## Complexity Tracking
 
-No constitution violations or intentionally retained parallel architectures exist. The temporary opaque interpreter is an implementation stage of the single new request pipeline, not a compatibility API, and is removed or retained only as the explicit long-term opaque execution boundary required by the specification.
+No project-requirement violations or intentionally retained parallel architectures exist. The temporary opaque interpreter is an implementation stage of the single new request pipeline, not a compatibility API, and is removed or retained only as the explicit long-term opaque execution boundary required by the specification.

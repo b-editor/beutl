@@ -76,4 +76,4 @@ Guard: restore and branch-switch refuse to begin while the existing output servi
 | Settings | `VersionControlConfig` page | per data-model.md table |
 | Degradation | tool tab + the version control commands collapse to one informational state | per-OS install guidance (FR-037) |
 
-All new XAML declares `x:CompileBindings="True"` + `x:DataType` (constitution IV). All user-facing strings go through `Beutl.Language` resources; repository content stays English (R-5).
+All new XAML declares `x:CompileBindings="True"` + `x:DataType` (compiled-binding requirement). All user-facing strings go through `Beutl.Language` resources; repository content stays English (R-5).

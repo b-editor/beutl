@@ -370,7 +370,7 @@ Every normative requirement and success criterion has a concrete test, implement
 | SC-011 | ~~T007~~ (retired), T052, T067, T097, T104, T120–T122 |
 | SC-012 | T083, T087, T091, T092 |
 | SC-013 | ~~T007~~ (retired), T069, T070, ~~T115~~ (retired) |
-| Constitution quality gates | T119, T124 |
+| Project quality gates | T119, T124 |
 | Traceability meta-gate | T126 |
 
 Owners marked `(retired)` were withdrawn with the evidence tree (T005–T007, T016, T019, T020, T114, T115, T123) and produced no committed artifact. Four rows lose part of their evidence with them:

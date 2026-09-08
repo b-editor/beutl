@@ -28,7 +28,7 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 
 **Scale/Scope**: ~28 `RenderNode.Process` overrides reached via one `RenderNodeContext` construction site; ~40 filter effects + particles + audio visualizers adopt the supply-driven scale contract; ~12 breaking public symbols + 1 new value type (`EffectiveScale`; an earlier `ResolutionPolicy` type was added then removed); 6 implementation slices; FR-001..037
 
-## Constitution Check
+## Project Requirements Check
 
 *GATE: evaluated against the project's architecture, testing, and compatibility constraints. Re-checked post-design — still PASS.*
 
@@ -41,9 +41,9 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 | **V. Style Belongs to the Linter** | ✅ PASS | No stylistic-only edits; `dotnet format` owns style. |
 | **VI. Source Generators Are Load-Bearing** | ✅ PASS | FR-032 resolves to **no generator change** for the common path (scale is not an `IProperty`; the resource model stays scale-free — D6). Only effect-property unit/type changes (e.g. `ColorShift` `PixelPoint`→`Point`) flow through the existing `CompareAndUpdate<T>`; the `tests/SourceGeneratorTest` NUnit snapshot suite must stay green and `dotnet build Beutl.slnx` must pass before review. |
 
-**Quality Gates** (constitution §Quality Gates, all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage threshold; independent code review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; complete an independent public-API design review (FR-028).
+**Quality Gates** (see [development quality gates](../../development/quality-gates.md), all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage threshold; independent code review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; complete an independent public-API design review (FR-028).
 
-**No constitutional violations — Complexity Tracking is empty.**
+**No project-requirement violations — Complexity Tracking is empty.**
 
 ## Project Structure
 
@@ -102,7 +102,7 @@ Each slice is golden-testable (render at `s`, compare to `s=1.0` within the gate
 
 ## Complexity Tracking
 
-*No constitutional violations — section intentionally empty.*
+*No project-requirement violations — section intentionally empty.*
 
 ## Residual decisions for the task-planning phase / implementation
 

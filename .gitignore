@@ -376,3 +376,9 @@ coverage_report/
 .nuke/temp
 
 telemetry-data.json
+
+# Machine-local AI tooling state; the repository does not provide shared configuration.
+.agents/
+.claude/
+.codex/
+.mcp.json

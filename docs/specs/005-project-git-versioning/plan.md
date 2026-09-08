@@ -28,7 +28,7 @@ Turn a Beutl project directory into a Git repository the app manages for the use
 
 **Scale/Scope**: hundreds of small JSON files per project; histories in the hundreds of versions; media up to multi-GB via LFS
 
-## Constitution Check
+## Project Requirements Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
@@ -143,4 +143,4 @@ Complete — [data-model.md](./data-model.md), [contracts/](./contracts/), [quic
 
 ## Complexity Tracking
 
-No constitution violations to justify — no new projects, no new packages, no boundary crossings.
+No project-requirement violations to justify — no new projects, no new packages, no boundary crossings.

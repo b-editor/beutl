@@ -30,7 +30,7 @@ The technical approach is **adapter, not reimplementation**: the toolkit drives 
 
 **Scale/Scope**: **Three** new `src/` projects (`Beutl.AgentToolkit`, `Beutl.AgentToolkit.Mcp`, and the split-out `Beutl.Extensions.FFmpeg.Core`) + one test project, plus an in-app host folder in `src/Beutl` and relocations into `Beutl.Editor` (`FrameProviderImpl`/`SampleProviderImpl`) and `Beutl.Extensions.FFmpeg` (UI kept, encode core extracted). ~6 MCP tool groups (schema, read, plan, apply, render-still, export-video); covers visual + audio content, properties, keyframe animations, and effects across built-in and installed-extension types.
 
-## Constitution Check
+## Project Requirements Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
@@ -111,7 +111,7 @@ See [research.md](./research.md). Six unknowns resolved: (1) MCP .NET SDK & host
 - [contracts/declarative-document.md](./contracts/declarative-document.md) — the normalized JSON document shape (`$type`/`Id`/properties/`Animations`/`Expressions`/children), merge-patch semantics, and the machine-readable schema descriptor.
 - [quickstart.md](./quickstart.md) — build, `.mcp.json` wiring, a worked author→plan→apply→render example, and the test layout.
 
-**Post-design Constitution re-check: PASS** — the design adds three MIT `net10.0` projects (`Beutl.AgentToolkit`, `Beutl.AgentToolkit.Mcp`, the split-out non-UI `Beutl.Extensions.FFmpeg.Core`) + one test project, no generator changes, NUnit-tested, no GPL edge except via `Beutl.FFmpegIpc`. All new projects single-target `net10.0` (no new TFM). No new violations; Complexity Tracking remains empty.
+**Post-design requirements re-check: PASS** — the design adds three MIT `net10.0` projects (`Beutl.AgentToolkit`, `Beutl.AgentToolkit.Mcp`, the split-out non-UI `Beutl.Extensions.FFmpeg.Core`) + one test project, no generator changes, NUnit-tested, no GPL edge except via `Beutl.FFmpegIpc`. All new projects single-target `net10.0` (no new TFM). No new violations; Complexity Tracking remains empty.
 
 ## Key risks carried into the task-planning phase
 

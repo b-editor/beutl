@@ -43,7 +43,7 @@ While editing, Beutl must transparently serve preview video decode requests from
 - Concurrency: 1 active proxy generation job at MVP (serial queue).
 - UI surface: one new editor-wide toggle (preview source mode) + one new tool tab ("Proxies") for queue / store / eviction visibility.
 
-## Constitution Check
+## Project Requirements Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
