@@ -218,6 +218,48 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task Live_binding_reports_unavailable_when_its_scene_is_cleared()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            string location = Path.Combine(
+                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
+                "agent-live-cleared-scene");
+            Directory.CreateDirectory(location);
+            Project project = (await TestShell.Project.CreateProject(
+                640,
+                480,
+                30,
+                44100,
+                "live",
+                location))!;
+            Scene scene = project.Items.OfType<Scene>().Single();
+            TestShell.Editor.ActivateTabItem(scene);
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            var binding = new EditViewModelLiveBinding(editor);
+            FieldInfo sceneField = typeof(EditViewModel).GetField(
+                "<Scene>k__BackingField",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            sceneField.SetValue(editor, null);
+            try
+            {
+                Assert.That(binding.IsAlive, Is.False);
+            }
+            finally
+            {
+                sceneField.SetValue(editor, scene);
+            }
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
     {
         await TestReset.ResetShellAsync();
