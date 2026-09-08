@@ -140,7 +140,8 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         }
         catch (Exception ex) when (ex is IOException
             or UnauthorizedAccessException
-            or InvalidDataException)
+            or InvalidDataException
+            or NotSupportedException)
         {
             Error.Value = Strings.AiResultUnavailable;
             System.Diagnostics.Trace.TraceWarning(
@@ -267,7 +268,8 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         }
         catch (Exception ex) when (ex is IOException
             or UnauthorizedAccessException
-            or InvalidDataException)
+            or InvalidDataException
+            or NotSupportedException)
         {
             Error.Value = Strings.AiResultUnavailable;
             System.Diagnostics.Trace.TraceWarning(
@@ -354,7 +356,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
                         Error.Value = null;
                     }
                 }
-                catch (InvalidDataException ex)
+                catch (Exception ex) when (ex is InvalidDataException or NotSupportedException)
                 {
                     ClearPromptChoices();
                     Error.Value = Strings.AiResultUnavailable;
@@ -403,7 +405,7 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         {
             Refresh();
         }
-        catch (InvalidDataException ex)
+        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException)
         {
             // IdentityChanged is multicast and the dialog must still clear its
             // previous account's form even when this account's library is corrupt.

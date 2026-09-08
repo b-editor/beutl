@@ -373,11 +373,21 @@ public sealed class AiModelCatalog
         {
             if (models.IsDefault)
                 return [];
-            if (models.Any(model => model is null || model.Id.Value.Length == 0))
+            var modelIds = new HashSet<AiModelId>();
+            foreach (AiModelOption? model in models)
             {
-                throw new ArgumentException(
-                    "Every catalog model must have a non-empty identifier.",
-                    nameof(operations));
+                if (model is null || model.Id.Value.Length == 0)
+                {
+                    throw new ArgumentException(
+                        "Every catalog model must have a non-empty identifier.",
+                        nameof(operations));
+                }
+                if (!modelIds.Add(model.Id))
+                {
+                    throw new ArgumentException(
+                        "Model identifiers must be unique within an operation.",
+                        nameof(operations));
+                }
             }
 
             return models;

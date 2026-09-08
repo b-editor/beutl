@@ -171,6 +171,22 @@ public class AiModelCatalogTests
     }
 
     [Test]
+    public void Catalog_RejectsDuplicateModelIdsWithinAnOperation()
+    {
+        var operation = new AiOperationId("vendor.duplicate-model-id");
+        var modelId = new AiModelId("same-model");
+
+        Assert.Throws<ArgumentException>(() => new AiModelCatalog(
+        [
+            KeyValuePair.Create(
+                operation,
+                ImmutableArray.Create(
+                    new AiModelOption(modelId, "First", AiModelCostTier.Low, IsDefault: true),
+                    new AiModelOption(modelId, "Second", AiModelCostTier.High, IsDefault: false))),
+        ]));
+    }
+
+    [Test]
     public void Catalog_TreatsAFullyFilteredModelListAsExplicitlyUnavailable()
     {
         AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(

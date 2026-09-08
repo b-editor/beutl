@@ -459,7 +459,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         if (workspace is null)
         {
             workspace = CreateAiWorkspaceViewModel(editorContext);
-            if (!editorContext.OpenToolTab(workspace))
+            if (!await TryOpenNewAiWorkspaceAsync(
+                    workspace,
+                    () => editorContext.OpenToolTab(workspace)))
             {
                 return null;
             }
@@ -473,6 +475,19 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
 
         return workspace.Show(section);
+    }
+
+    internal static async Task<bool> TryOpenNewAiWorkspaceAsync(
+        AiWorkspaceViewModel workspace,
+        Func<bool> tryOpen)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        ArgumentNullException.ThrowIfNull(tryOpen);
+        if (tryOpen())
+            return true;
+
+        await workspace.DisposeAsync();
+        return false;
     }
 
     internal AiWorkspaceViewModel CreateAiWorkspaceViewModel(EditViewModel editViewModel)

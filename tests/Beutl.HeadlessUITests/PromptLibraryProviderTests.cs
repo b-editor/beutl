@@ -130,6 +130,35 @@ public sealed class PromptLibraryProviderTests
     }
 
     [Test]
+    public void AccountSwitchWithNewerFormatDoesNotAbortIdentityHandlers()
+    {
+        string? account = "account-a";
+        using var context = Context(() => account);
+        var library = new ThrowingPromptLibrary(
+            () => account == "account-b",
+            new NotSupportedException("newer prompt library"));
+        using var viewModel = new AiPromptLibraryViewModel(
+            PromptTaskKind.Image,
+            static () => string.Empty,
+            static _ => { },
+            library,
+            context,
+            static action => action());
+        bool followingHandlerRan = false;
+        context.IdentityChanged += () => followingHandlerRan = true;
+
+        account = "account-b";
+        Assert.DoesNotThrow(context.RefreshIdentity);
+        Assert.Multiple(() =>
+        {
+            Assert.That(followingHandlerRan, Is.True);
+            Assert.That(viewModel.History, Is.Empty);
+            Assert.That(viewModel.Templates, Is.Empty);
+            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
+        });
+    }
+
+    [Test]
     public async Task IdentityChangeDuringInitialSnapshotCannotPublishThePreviousAccount()
     {
         string? account = "account-a";
@@ -527,13 +556,17 @@ public sealed class PromptLibraryProviderTests
                 ? new AiAuthenticatedRequestIdentity(id, User: null)
                 : null);
 
-    private sealed class ThrowingPromptLibrary(Func<bool> shouldThrow) : IPromptLibrary
+    private sealed class ThrowingPromptLibrary(
+        Func<bool> shouldThrow,
+        Exception? failure = null) : IPromptLibrary
     {
         public string StoragePath => string.Empty;
         public bool RetainRecentPromptText => false;
         public string? RecoveredCorruptFilePath => null;
         public IReadOnlyList<PromptHistoryEntry> History
-            => shouldThrow() ? throw new InvalidDataException("corrupt") : Array.Empty<PromptHistoryEntry>();
+            => shouldThrow()
+                ? throw failure ?? new InvalidDataException("corrupt")
+                : Array.Empty<PromptHistoryEntry>();
         public IReadOnlyList<PromptTemplate> Templates => Array.Empty<PromptTemplate>();
         public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
         public PromptTemplate SaveTemplate(string name, PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();

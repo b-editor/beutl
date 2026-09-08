@@ -203,6 +203,28 @@ public sealed class AiShellEntryPointTests
     }
 
     [AvaloniaTest]
+    public async Task Workspace_DisposesItsPagesWhenOpeningANewTabFails()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-workspace-open-failure");
+        var page = new StubPage();
+        var workspace = new AiWorkspaceViewModel(editor, _ => page);
+
+        bool opened = await MainViewModel.TryOpenNewAiWorkspaceAsync(
+            workspace,
+            static () => false);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(opened, Is.False);
+            Assert.That(page.IsDisposed, Is.True);
+            Assert.That(
+                () => workspace.Show(AiWorkspaceSection.Jobs),
+                Throws.TypeOf<ObjectDisposedException>());
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Workspace_AsyncDisposeAwaitsChildBeforeEditorResources()
     {
         await TestReset.ResetShellAsync();

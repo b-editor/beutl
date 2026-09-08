@@ -1567,6 +1567,88 @@ public sealed class AiJobCenterTests
     }
 
     [AvaloniaTest]
+    public async Task QueuedPreviewLoadDropsAStaleGenerationBeforeDownloading()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-job-center-preview-generation");
+        var releaseDownloads = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var fourDownloadsStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        int activeDownloads = 0;
+        int contentRequests = 0;
+        int queuedItemRequests = 0;
+        using var handler = new StubHandler(async (request, cancellationToken) =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/jobs")
+                return JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}");
+            if (request.RequestUri?.AbsolutePath.StartsWith(
+                    "/api/contents/generation-",
+                    StringComparison.Ordinal) == true)
+            {
+                Interlocked.Increment(ref contentRequests);
+                if (request.RequestUri.AbsolutePath == "/api/contents/generation-4")
+                    Interlocked.Increment(ref queuedItemRequests);
+                if (Interlocked.Increment(ref activeDownloads) == 4)
+                    fourDownloadsStarted.TrySetResult();
+                try
+                {
+                    await releaseDownloads.Task.WaitAsync(cancellationToken);
+                    return ByteResponse(s_png, "image/png");
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref activeDownloads);
+                }
+            }
+
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateJobCenter(editor, clients);
+        AiJob[] jobs = Enumerable.Range(0, 5)
+            .Select(index => CreateJob(
+                "image",
+                "succeeded",
+                ParseInput($"{{\"prompt\":\"generation {index}\"}}"),
+                $"https://beutl.beditor.net/api/contents/generation-{index}") with
+            {
+                Id = new AiJobId($"generation-{index}"),
+                FileId = new AiContentId($"generation-{index}"),
+            })
+            .ToArray();
+        viewModel.ApplySnapshot(new AiJobMonitorSnapshot([.. jobs], null, false, null));
+        foreach (AiJobItemViewModel item in viewModel.Jobs)
+            viewModel.SetPreviewVisibility(item, true);
+
+        try
+        {
+            await fourDownloadsStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            AiJobItemViewModel queued = viewModel.Jobs.Single(item => item.Id == "generation-4");
+            viewModel.SetPreviewVisibility(queued, false);
+            viewModel.SetPreviewVisibility(queued, true);
+
+            releaseDownloads.TrySetResult();
+            await WaitUntilAsync(() => viewModel.Jobs.All(item => item.Preview is not null));
+            await WaitUntilAsync(() => Volatile.Read(ref activeDownloads) == 0);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(Volatile.Read(ref contentRequests), Is.EqualTo(5));
+                Assert.That(Volatile.Read(ref queuedItemRequests), Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            releaseDownloads.TrySetResult();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ViewRequestsPreviewsOnlyForRealizedRowsAndLoadsMoreAfterScrolling()
     {
         await TestReset.ResetShellAsync();

@@ -942,7 +942,9 @@ public sealed class AiJobCenterViewModel : IDisposable, IAsyncDisposable
             enteredGate = true;
             lock (_lifetimeGate)
             {
-                if (_isDisposed || !_visiblePreviewItems.Contains(item))
+                if (_isDisposed
+                    || !_visiblePreviewItems.Contains(item)
+                    || !item.IsPreviewLoadCurrent(loadGeneration))
                 {
                     item.ResetPreviewLoadClaim(loadGeneration);
                     return;
@@ -1275,6 +1277,16 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         {
             lock (_stateGate)
                 return _previewRequested;
+        }
+    }
+
+    internal bool IsPreviewLoadCurrent(long loadGeneration)
+    {
+        lock (_stateGate)
+        {
+            return !_disposeRequested
+                && _previewRequested
+                && loadGeneration == _previewLoadGeneration;
         }
     }
 
