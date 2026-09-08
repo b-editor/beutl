@@ -202,6 +202,9 @@ if [ "$IS_DETACHED" = "true" ]; then
 else
     git push origin "$HEAD_REF"        # on the branch: normal push
 fi
+# After the push succeeds, record `pushed_commit_sha=$(git rev-parse HEAD)` in the result. The
+# orchestrator independently fetches the PR head and requires exact equality before accepting this
+# SHA as a scope advancement. Never derive it from the moving remote head after the push.
 ```
 
 ### Interactive mode
@@ -305,6 +308,7 @@ handle-pr-reviews). Note that no merge was performed.
   "needs_human": false,
   "needs_human_reasons": [],
   "new_commits_pushed": 0,
+  "pushed_commit_sha": "<locally-created-pushed-sha-or-null>",
   "post_fix_test_status": "green | none | red",
   "ci_status": "green | red | pending | unknown",
   "scope_state": {
@@ -319,6 +323,9 @@ handle-pr-reviews). Note that no merge was performed.
 ```
 - `false_positives_resolved`: how many **bot** threads you resolved as clear false positives (a factual
   `path:line` refutation reply, no code change). A subset of `threads_resolved`.
+- `pushed_commit_sha`: the exact local commit created and successfully pushed by this resolver, or
+  `null` when `new_commits_pushed == 0`. The orchestrator verifies it against a fresh PR-head fetch;
+  never reconstruct it from `scope_state` or a moving branch ref.
 - `human_feedback_present`: true if any non-author **human** review or comment exists (always forces
   `needs_human`, since `--auto` never handles human feedback).
 - `last_activity_at`: lets the orchestrator compute the "quiet period" (no new activity for ~10 min)

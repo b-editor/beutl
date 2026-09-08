@@ -445,7 +445,11 @@ authoritative in-memory value and returned value as separate temporary JSON file
 `bash .claude/scripts/review-scope-state-check.sh <authoritative> <returned>` so
 `previous_remediation_head` must remain unchanged. Only when `new_commits_pushed > 0`, run
 `bash .claude/scripts/review-scope-state-check.sh <authoritative> <returned> <pushed-head>` so the verified
-push is required as the new `previous_remediation_head`. A nonzero exit forces `needs_human`. Delete the temporary
+push is required as the new `previous_remediation_head`. Obtain `<pushed-head>` only from the
+resolver's `pushed_commit_sha`, then independently `git fetch origin "$DRAFT_BRANCH"` and require
+`git rev-parse "origin/$DRAFT_BRANCH"` to equal that SHA before running the checker. A missing SHA,
+count/SHA mismatch, or remote mismatch forces `needs_human`; never substitute the returned
+`scope_state.previous_remediation_head` or a moving PR head. A nonzero exit forces `needs_human`. Delete the temporary
 copy after the result is validated. After a successful three-argument check, replace the
 authoritative in-memory and journaled `review_scope` with the validated returned record before the
 next poll. A no-push result leaves the authoritative record byte-for-byte unchanged. If the

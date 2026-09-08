@@ -278,6 +278,8 @@ if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
    grep -q 'new_commits_pushed == 0' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'EXPECTED_SCOPE_HEAD' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'authoritative in-memory and journaled' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'pushed_commit_sha' "$RESOLVER" 2>/dev/null && \
+   grep -q 'remote mismatch forces.*needs_human' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'review-scope-state-check.sh' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'tests never become the source of truth' "$DOC" 2>/dev/null && \
    have "$SCOPE_CHECK"; then
