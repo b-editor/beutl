@@ -381,6 +381,81 @@ public sealed class RenderPipelineMigrationCensusTests
     }
 
     [Test]
+    public void ProcessorPullApiCensus_Resolves_global_alias_block_and_shadowing_rules()
+    {
+        const string globalPath = "src/Compatibility/GlobalExtensions.cs";
+        const string aliasPath = "src/Compatibility/AliasExtensions.cs";
+        const string blockPath = "src/Compatibility/ExtensionBlock.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            ("src/Compatibility/GlobalUsings.cs",
+                "global using Beutl.Graphics.Rendering;"),
+            (globalPath,
+                """
+                namespace Compatibility;
+                public static class GlobalExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """),
+            (aliasPath,
+                """
+                using Rendering = Beutl.Graphics.Rendering;
+                namespace Compatibility;
+                public static class AliasExtensions
+                {
+                    public static void Pull(this Rendering.RenderNodeProcessor processor) { }
+                }
+                """),
+            (blockPath,
+                """
+                using Beutl.Graphics.Rendering;
+                namespace Compatibility;
+                public static class BlockExtensions
+                {
+                    extension(RenderNodeProcessor processor)
+                    {
+                        public void Pull() { }
+                    }
+                }
+                """),
+            ("src/Other/AliasShadow.cs",
+                """
+                using RenderNodeProcessor = Other.RenderNodeProcessor;
+                using Beutl.Graphics.Rendering;
+                namespace Other;
+                public sealed class RenderNodeProcessor { }
+                public static class AliasShadowExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """),
+            ("src/Other/LocalShadow.cs",
+                """
+                using Beutl.Graphics.Rendering;
+                namespace LocalShadow;
+                public sealed class RenderNodeProcessor { }
+                public static class LocalShadowExtensions
+                {
+                    public static void Pull(this RenderNodeProcessor processor) { }
+                }
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"])
+            .ToArray();
+
+        Assert.That(
+            findings.Select(finding => finding.RelativePath),
+            Is.EquivalentTo(new[] { globalPath, aliasPath, blockPath }));
+    }
+
+    [Test]
     public void ListRasterizationCompatibility_IsRemoved()
     {
         string[] compatibilityNames =
@@ -462,6 +537,7 @@ public sealed class RenderPipelineMigrationCensusTests
     public void ContextScaleHelpers_AreMovedWithoutForwardingMembers()
     {
         string contextType = BuildName("Render", "Node", "Context");
+        string qualifiedContextType = $"Beutl.Graphics.Rendering.{contextType}";
         string[] helperNames =
         [
             BuildName("Max", "Buffer", "Dimension"),
@@ -470,7 +546,7 @@ public sealed class RenderPipelineMigrationCensusTests
             BuildName("Clamp", "Working", "Scale", "To", "Buffer", "Budget"),
         ];
         IEnumerable<SourceFinding> findings = s_corpus.Value.FindQualifiedReferences(contextType, helperNames)
-            .Concat(s_corpus.Value.FindMembersDeclaredByType(contextType, helperNames));
+            .Concat(s_corpus.Value.FindMembersDeclaredByType(qualifiedContextType, helperNames));
 
         AssertNoFindings("Scale helpers must be owned only by RenderScaleUtilities.", findings);
     }
@@ -595,10 +671,21 @@ public sealed class RenderPipelineMigrationCensusTests
 
     private sealed class SourceCorpus
     {
+        private readonly UsingDirectiveSyntax[] _globalUsings;
+        private readonly HashSet<string> _declaredTypes;
+
         private SourceCorpus(string repositoryRoot, IReadOnlyList<SourceDocument> documents)
         {
             RepositoryRoot = repositoryRoot;
             Documents = documents;
+            _globalUsings = documents
+                .SelectMany(document => document.Root.Usings)
+                .Where(item => item.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword))
+                .ToArray();
+            _declaredTypes = documents
+                .SelectMany(document => document.Root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+                .Select(GetQualifiedTypeName)
+                .ToHashSet(StringComparer.Ordinal);
         }
 
         public string RepositoryRoot { get; }
@@ -631,7 +718,9 @@ public sealed class RenderPipelineMigrationCensusTests
                     SourceText text = SourceText.From(File.ReadAllText(path));
                     var tree = CSharpSyntaxTree.ParseText(
                         text,
-                        CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse),
+                        CSharpParseOptions.Default
+                            .WithLanguageVersion(LanguageVersion.Preview)
+                            .WithDocumentationMode(DocumentationMode.Parse),
                         relativePath);
                     documents.Add(new SourceDocument(
                         relativePath,
@@ -653,7 +742,9 @@ public sealed class RenderPipelineMigrationCensusTests
                     SourceText text = SourceText.From(source.Source);
                     var tree = CSharpSyntaxTree.ParseText(
                         text,
-                        CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Parse),
+                        CSharpParseOptions.Default
+                            .WithLanguageVersion(LanguageVersion.Preview)
+                            .WithDocumentationMode(DocumentationMode.Parse),
                         source.RelativePath);
                     return new SourceDocument(source.RelativePath, text, tree.GetCompilationUnitRoot());
                 })
@@ -834,11 +925,24 @@ public sealed class RenderPipelineMigrationCensusTests
                              .Where(method => memberNameSet.Contains(method.Identifier.ValueText)))
                 {
                     ParameterSyntax? receiver = method.ParameterList.Parameters.FirstOrDefault();
+                    bool extensionBlockReceiver = false;
                     if (receiver is null
-                        || !receiver.Modifiers.Any(SyntaxKind.ThisKeyword)
+                        && method.Ancestors().FirstOrDefault(node =>
+                            node.IsKind(SyntaxKind.ExtensionBlockDeclaration)) is { } extensionBlock)
+                    {
+                        receiver = extensionBlock.ChildNodes()
+                            .OfType<ParameterListSyntax>()
+                            .SelectMany(list => list.Parameters)
+                            .FirstOrDefault();
+                        extensionBlockReceiver = receiver is not null;
+                    }
+
+                    if (receiver is null
+                        || !extensionBlockReceiver
+                        && !receiver.Modifiers.Any(SyntaxKind.ThisKeyword)
                         || !CouldReferToType(
                             receiver.Type,
-                            document.Root,
+                            document,
                             namespaceName,
                             typeName,
                             qualifiedTypeName))
@@ -866,9 +970,9 @@ public sealed class RenderPipelineMigrationCensusTests
             return string.Join('.', namespaces.Concat(containingTypes).Append(type.Identifier.ValueText));
         }
 
-        private static bool CouldReferToType(
+        private bool CouldReferToType(
             TypeSyntax? type,
-            CompilationUnitSyntax root,
+            SourceDocument document,
             string namespaceName,
             string typeName,
             string qualifiedTypeName)
@@ -884,14 +988,22 @@ public sealed class RenderPipelineMigrationCensusTests
                 return true;
             }
 
-            IEnumerable<UsingDirectiveSyntax> usings = root.Usings.Concat(
+            UsingDirectiveSyntax[] usings = document.Root.Usings.Concat(
                 type.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(item => item.Usings));
+            usings = usings.Concat(_globalUsings).ToArray();
+            int nameSeparator = writtenType.IndexOf('.');
+            string aliasName = nameSeparator < 0 ? writtenType : writtenType[..nameSeparator];
             UsingDirectiveSyntax? alias = usings.FirstOrDefault(item =>
-                item.Alias?.Name.Identifier.ValueText == writtenType);
-            if (alias?.Name?.ToString().Replace("global::", string.Empty, StringComparison.Ordinal)
-                == qualifiedTypeName)
+                item.Alias?.Name.Identifier.ValueText == aliasName);
+            if (alias is not null)
             {
-                return true;
+                string aliasTarget = alias.Name?.ToString()
+                    .Replace("global::", string.Empty, StringComparison.Ordinal)
+                    ?? string.Empty;
+                string resolvedAlias = nameSeparator < 0
+                    ? aliasTarget
+                    : aliasTarget + writtenType[nameSeparator..];
+                return resolvedAlias == qualifiedTypeName;
             }
 
             if (writtenType != typeName)
@@ -903,8 +1015,31 @@ public sealed class RenderPipelineMigrationCensusTests
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
                 .Select(item => item.Name.ToString()));
+            for (string scope = declaredNamespace;;)
+            {
+                string declaredType = string.IsNullOrEmpty(scope)
+                    ? typeName
+                    : scope + "." + typeName;
+                if (_declaredTypes.Contains(declaredType))
+                {
+                    return declaredType == qualifiedTypeName;
+                }
+
+                int separator = scope.LastIndexOf('.');
+                if (separator < 0)
+                {
+                    break;
+                }
+
+                scope = scope[..separator];
+            }
+
             return declaredNamespace == namespaceName
-                   || usings.Any(item => item.Alias is null && item.Name?.ToString() == namespaceName);
+                   || usings.Any(item => item.Alias is null
+                       && item.Name?.ToString().Replace(
+                           "global::",
+                           string.Empty,
+                           StringComparison.Ordinal) == namespaceName);
         }
 
         private IEnumerable<SourceFinding> FindText(Regex pattern, string detail)
