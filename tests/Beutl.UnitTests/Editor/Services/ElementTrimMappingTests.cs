@@ -179,6 +179,92 @@ public class ElementTrimMappingTests
         Assert.That(_harness.History.UndoCount, Is.EqualTo(undoCount));
     }
 
+    [TestCase("animated")]
+    [TestCase("expression")]
+    [TestCase("alias")]
+    [TestCase("locked")]
+    public void SlidePreviewBounds_RejectsUneditableMiddle(string kind)
+    {
+        var (front, middle, back) = AddClips(true);
+        var video = new SourceVideo();
+        if (kind == "animated")
+        {
+            var speed = new KeyFrameAnimation<float>();
+            speed.KeyFrames.Add(new KeyFrame<float> { Value = 100f });
+            speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200f });
+            video.Speed.Animation = speed;
+            middle.Objects.Add(video);
+        }
+        else if (kind == "expression")
+        {
+            var presenter = new DrawablePresenter();
+            presenter.Target.Expression = new ConstantSourceVideoExpression(video);
+            middle.Objects.Add(presenter);
+        }
+        else if (kind == "alias")
+        {
+            middle.Objects.Add(video);
+            back.Objects.Add(new DrawablePresenter { Target = { CurrentValue = video } });
+        }
+        else
+        {
+            middle.IsLocked = true;
+        }
+        ElementSlideLane[] lanes = [new(front, [middle], back)];
+        int undoCount = _harness.History.UndoCount;
+        var bounds = _service.GetSlideDeltaBounds(_harness.Scene, lanes);
+        Assert.That(bounds, Is.EqualTo((TimeSpan.Zero, TimeSpan.Zero)));
+        Assert.That(_service.Slide(_harness.Scene, lanes, TimeSpan.FromSeconds(1)), Is.False);
+        Assert.That(_harness.History.UndoCount, Is.EqualTo(undoCount));
+    }
+
+    [Test]
+    public void SlidePreviewBounds_MatchesCommitWithoutMutatingState()
+    {
+        var (front, middle, back) = AddClips(true);
+        var video = new SourceVideo
+        {
+            Speed = { CurrentValue = 200f },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(0.5) },
+        };
+        back.Objects.Add(video);
+        ElementSlideLane[] lanes = [new(front, [middle], back)];
+        TimeSpan originalStart = back.Start;
+        int undoCount = _harness.History.UndoCount;
+        var bounds = _service.GetSlideDeltaBounds(_harness.Scene, lanes);
+        Assert.That(bounds.Min, Is.EqualTo(TimeSpan.FromSeconds(-0.25)));
+        Assert.That(bounds.Max, Is.GreaterThan(TimeSpan.Zero));
+        Assert.That(back.Start, Is.EqualTo(originalStart));
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        Assert.That(_harness.History.UndoCount, Is.EqualTo(undoCount));
+        Assert.That(_service.Slide(_harness.Scene, lanes, TimeSpan.FromSeconds(-1)), Is.True);
+        Assert.That(back.Start, Is.EqualTo(originalStart + bounds.Min));
+        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+    }
+
+    [Test]
+    public void Slide_RevalidatesAfterPreviewQuery()
+    {
+        var (front, middle, back) = AddClips(true);
+        ElementSlideLane[] lanes = [new(front, [middle], back)];
+        Assert.That(_service.GetSlideDeltaBounds(_harness.Scene, lanes).Max, Is.GreaterThan(TimeSpan.Zero));
+        middle.IsLocked = true;
+        int undoCount = _harness.History.UndoCount;
+        Assert.That(_service.Slide(_harness.Scene, lanes, TimeSpan.FromSeconds(1)), Is.False);
+        Assert.That(front.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(_harness.History.UndoCount, Is.EqualTo(undoCount));
+    }
+
+    [Test]
+    public void SlidePreviewBounds_EmptyAndMalformedInputsMatchSlideContract()
+    {
+        var (front, _, back) = AddClips(true);
+        Assert.That(_service.GetSlideDeltaBounds(_harness.Scene, []), Is.EqualTo((TimeSpan.Zero, TimeSpan.Zero)));
+        Assert.Throws<ArgumentNullException>(() => _service.GetSlideDeltaBounds(null!, []));
+        Assert.Throws<ArgumentNullException>(() => _service.GetSlideDeltaBounds(_harness.Scene, null!));
+        Assert.Throws<ArgumentException>(() => _service.GetSlideDeltaBounds(_harness.Scene, [new(front, [], back)]));
+    }
+
     [Test]
     public void Slide_AnimatedMiddleRejectsEntireLane()
     {

@@ -411,8 +411,17 @@ public sealed class ElementResizeService : IElementResizeService
         return true;
     }
 
-    public bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta)
+    public (TimeSpan Min, TimeSpan Max) GetSlideDeltaBounds(Scene scene, IReadOnlyList<ElementSlideLane> lanes)
+        => TryPrepareSlide(scene, lanes, out _, out TimeSpan min, out TimeSpan max)
+            ? (min, max)
+            : (TimeSpan.Zero, TimeSpan.Zero);
+
+    private static bool TryPrepareSlide(
+        Scene scene, IReadOnlyList<ElementSlideLane> lanes,
+        out TrimMediaOffsetPlan offsetPlan, out TimeSpan min, out TimeSpan max)
     {
+        offsetPlan = null!;
+        min = max = TimeSpan.Zero;
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(lanes);
         foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
@@ -456,12 +465,12 @@ public sealed class ElementResizeService : IElementResizeService
 
         // The middle clips' lengths are unaffected by Slide, so only front and back bound the delta.
         if (!TrimMediaOffsetPlan.TryCreate(
-                lanes.Select(lane => lane.Back), lanes.SelectMany(lane => lane.Middles), out var offsetPlan))
+                lanes.Select(lane => lane.Back), lanes.SelectMany(lane => lane.Middles), out offsetPlan))
             return false;
 
         var backTargets = new SlippableMedia.TargetCollection[lanes.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
-        (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
+        (min, max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
         for (int i = 0; i < lanes.Count; i++)
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
@@ -501,6 +510,13 @@ public sealed class ElementResizeService : IElementResizeService
         // stay fixed, so the whole operation is rejected rather than applied desynced.
         if (backTargets.Any(targets => targets.Any(t => fixedOffsets.Contains(t.Offset)))) return false;
 
+        return true;
+    }
+
+    public bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta)
+    {
+        if (!TryPrepareSlide(scene, lanes, out var offsetPlan, out TimeSpan min, out TimeSpan max))
+            return false;
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 

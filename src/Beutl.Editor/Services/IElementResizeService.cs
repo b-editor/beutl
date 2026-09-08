@@ -64,12 +64,20 @@ public interface IElementResizeService
     bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta);
 
     /// <summary>
-    /// The delta window shared by <see cref="Roll"/> and <see cref="Slide"/>: the
+    /// Gets the slide preview window using the same lane, middle-content, lock, alias,
+    /// and media-bound validation as <see cref="Slide"/>. Empty collections and unsupported
+    /// or invalid lanes return <c>(Zero, Zero)</c>. Invalid arguments throw as in Slide.
+    /// This query does not mutate geometry, offsets, or history; Slide revalidates on commit.
+    /// </summary>
+    (TimeSpan Min, TimeSpan Max) GetSlideDeltaBounds(Scene scene, IReadOnlyList<ElementSlideLane> lanes);
+
+    /// <summary>
+    /// The delta window for <see cref="Roll"/>: the
     /// intersection over <paramref name="pairs"/> of each front/back window,
     /// <c>Min ≤ 0 ≤ Max</c>, bounded per pair by both clips keeping at least one frame at
     /// the scene's frame rate, the back in-point staying at or above zero, and — when the
     /// editor's ClampResizeToOriginalLength preference is on — the front out-point staying
-    /// within its source. Both operations clamp with the same window on commit; the
+    /// within its source. Roll clamps with the same window on commit; the
     /// Timeline View queries it once at drag start so the per-pointer-frame preview cannot
     /// overshoot what the release will apply. <c>(Zero, Zero)</c> when
     /// <paramref name="pairs"/> is empty or no trim is possible. Adjacency is not validated

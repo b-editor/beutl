@@ -743,9 +743,8 @@ public sealed partial class ElementView : UserControl
 
             (TimeSpan minDelta, TimeSpan maxDelta) = viewModel.Timeline.EditorContext
                 .GetRequiredService<IElementResizeService>()
-                .GetTrimDeltaBounds(
-                    viewModel.Scene,
-                    lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray());
+                .GetSlideDeltaBounds(viewModel.Scene, lanes);
+            if (minDelta == TimeSpan.Zero && maxDelta == TimeSpan.Zero) return false;
 
             _trimDrag = new TrimDragContext(
                 Kind: TrimDragKind.Slide,
