@@ -733,6 +733,68 @@ public sealed class RenderPipelineMigrationCensusTests
     }
 
     [Test]
+    public void ProcessorPullApiCensus_Filters_private_bases_and_resolves_generic_aliases()
+    {
+        const string genericBasePath = "src/Compatibility/ProcessorBase.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            (genericBasePath,
+                """
+                namespace Compatibility;
+                public class ProcessorBase<T>
+                {
+                    public void Pull() { }
+                    private void PullToRoot() { }
+                }
+                """),
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                using B = Compatibility.ProcessorBase<int>;
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor : B { }
+                """));
+
+        SourceFinding[] findings = corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull", "PullToRoot"])
+            .ToArray();
+
+        Assert.That(findings.Select(finding => finding.RelativePath),
+            Is.EqualTo(new[] { genericBasePath }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Preserves_global_qualification_over_aliases()
+    {
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            ("src/Other/GlobalProcessor.cs",
+                """
+                namespace Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            ("src/Compatibility/GlobalQualifiedExtensions.cs",
+                """
+                using Rendering = Beutl.Graphics.Rendering;
+                namespace Compatibility;
+                public static class GlobalQualifiedExtensions
+                {
+                    public static void Pull(
+                        this global::Rendering.RenderNodeProcessor processor) { }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"]),
+            Is.Empty);
+    }
+
+    [Test]
     public void ProcessorPullApiCensus_Scopes_global_usings_to_their_compilation()
     {
         const string visiblePath = "src/A/VisibleExtensions.cs";
@@ -1351,6 +1413,11 @@ public sealed class RenderPipelineMigrationCensusTests
                     {
                         foreach (MemberDeclarationSyntax member in visibleType.Syntax.Members)
                         {
+                            if (!IsExternallyAccessible(member, visibleType.Syntax))
+                            {
+                                continue;
+                            }
+
                             foreach (SyntaxToken identifier in GetDeclaredIdentifiers(member)
                                          .Where(token => memberNameSet.Contains(token.ValueText)))
                             {
@@ -1387,6 +1454,15 @@ public sealed class RenderPipelineMigrationCensusTests
                 foreach (MemberDeclarationSyntax member in document.Root.DescendantNodes()
                              .OfType<MemberDeclarationSyntax>())
                 {
+                    TypeDeclarationSyntax? containingType = member.Ancestors()
+                        .OfType<TypeDeclarationSyntax>()
+                        .FirstOrDefault();
+                    if (containingType is null
+                        || !IsExternallyAccessible(member, containingType))
+                    {
+                        continue;
+                    }
+
                     SyntaxToken[] identifiers = GetDeclaredIdentifiers(member)
                         .Where(token => memberNameSet.Contains(token.ValueText))
                         .ToArray();
@@ -1848,6 +1924,11 @@ public sealed class RenderPipelineMigrationCensusTests
                 return true;
             }
 
+            if (IsGloballyQualified(type))
+            {
+                return false;
+            }
+
             UsingDirectiveSyntax[] usings = type.Ancestors()
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .SelectMany(item => item.Usings)
@@ -1875,7 +1956,7 @@ public sealed class RenderPipelineMigrationCensusTests
             {
                 string aliasTarget = alias.Name is null
                     ? string.Empty
-                    : GetWrittenName(alias.Name);
+                    : GetWrittenTypeIdentity(alias.Name);
                 string suffix = nameSeparator < 0 ? string.Empty : writtenType[nameSeparator..];
                 return GetImportCandidates(alias, aliasTarget)
                     .Any(candidate => candidate + suffix == qualifiedTypeName);
@@ -1977,6 +2058,13 @@ public sealed class RenderPipelineMigrationCensusTests
             };
         }
 
+        private static bool IsGloballyQualified(TypeSyntax type)
+        {
+            return type.DescendantNodesAndSelf()
+                .OfType<AliasQualifiedNameSyntax>()
+                .Any(alias => alias.Alias.Identifier.ValueText == "global");
+        }
+
         private static string GetWrittenName(NameSyntax name)
         {
             return name.ToString().Replace("global::", string.Empty, StringComparison.Ordinal);
@@ -2051,6 +2139,22 @@ public sealed class RenderPipelineMigrationCensusTests
                     eventField.Declaration.Variables.Select(variable => variable.Identifier),
                 _ => [],
             };
+        }
+
+        private static bool IsExternallyAccessible(
+            MemberDeclarationSyntax member,
+            TypeDeclarationSyntax containingType)
+        {
+            SyntaxTokenList modifiers = member switch
+            {
+                BaseMethodDeclarationSyntax method => method.Modifiers,
+                BasePropertyDeclarationSyntax property => property.Modifiers,
+                BaseFieldDeclarationSyntax field => field.Modifiers,
+                _ => default,
+            };
+            return modifiers.Any(SyntaxKind.PublicKeyword)
+                   || containingType is InterfaceDeclarationSyntax
+                   && !modifiers.Any(SyntaxKind.PrivateKeyword);
         }
 
         private static string NormalizePath(string path)
