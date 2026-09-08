@@ -37,6 +37,11 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
+        if (OffsetPosition.CurrentValue < TimeSpan.Zero)
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
         using var resource = ToResource(CompositionContext.Default);
         Resource sourceResource = (Resource)resource;
         if (sourceResource.Source is not { } source)

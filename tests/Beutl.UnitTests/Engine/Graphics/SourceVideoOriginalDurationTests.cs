@@ -57,6 +57,17 @@ public class SourceVideoOriginalDurationTests
         Assert.That(video.CalculateOriginalTime(resource), Is.Null);
     }
 
+    [TestCase(long.MinValue)]
+    [TestCase(-1L)]
+    public void OriginalDurationQueries_NegativeOffsetReturnsUnavailable(long ticks)
+    {
+        SourceVideo video = CreateSourceVideo();
+        video.OffsetPosition.CurrentValue = TimeSpan.FromTicks(ticks);
+        Assert.That(video.HasOriginalDuration(), Is.False);
+        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
+        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+    }
+
     [Test]
     public void TryGetOriginalDuration_OffsetAtMediaEnd_ReturnsFalse()
     {

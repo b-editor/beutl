@@ -106,20 +106,36 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             && !HasUnsupportedSpeedState(timeRange, target);
     }
 
-    private bool HasRepresentableSpeedMapping(TimeRange range, Drawable target)
+    private readonly record struct MappingParameters(
+        float Speed, TimeSpan OffsetPosition, bool AdjustTimeRange, bool Reverse,
+        bool Loop, bool HoldFirstFrame, bool HoldLastFrame, float FrameRate);
+
+    private MappingParameters GetMappingParameters(CompositionContext context)
+        => new(Speed.GetValue(context), OffsetPosition.GetValue(context), AdjustTimeRange.GetValue(context),
+            Reverse.GetValue(context), Loop.GetValue(context), HoldFirstFrame.GetValue(context),
+            HoldLastFrame.GetValue(context), FrameRate.GetValue(context));
+
+    private static MappingParameters GetMappingParameters(Resource resource)
+        => new(resource.Speed, resource.OffsetPosition, resource.AdjustTimeRange, resource.Reverse,
+            resource.Loop, resource.HoldFirstFrame, resource.HoldLastFrame, resource.FrameRate);
+
+    private bool HasRepresentableSpeedMapping(TimeRange range, Drawable target, MappingParameters? parameters = null)
     {
-        if (!IsValidRange(target.TimeRange) || Speed.HasExpression) return false;
+        if (!IsValidRange(target.TimeRange) || parameters is null && Speed.HasExpression) return false;
+        MappingParameters values = parameters ?? new MappingParameters(
+            Speed.CurrentValue, OffsetPosition.CurrentValue, AdjustTimeRange.CurrentValue, Reverse.CurrentValue,
+            Loop.CurrentValue, HoldFirstFrame.CurrentValue, HoldLastFrame.CurrentValue, FrameRate.CurrentValue);
         decimal first = (decimal)range.Start.Ticks - TimeRange.Start.Ticks;
         decimal last = (decimal)range.End.Ticks - TimeRange.Start.Ticks;
         if (!FitsTicks(first) || !FitsTicks(last)) return false;
-        if (AdjustTimeRange.CurrentValue)
+        if (values.AdjustTimeRange)
         {
             first = (decimal)range.Start.Ticks - target.TimeRange.Start.Ticks;
             last = (decimal)range.End.Ticks - target.TimeRange.Start.Ticks;
             if (!FitsTicks(first) || !FitsTicks(last)) return false;
         }
-        first += OffsetPosition.CurrentValue.Ticks;
-        last += OffsetPosition.CurrentValue.Ticks;
+        first += values.OffsetPosition.Ticks;
+        last += values.OffsetPosition.Ticks;
         if (!FitsTicks(first) || !FitsTicks(last)) return false;
 
         double lower;
@@ -152,28 +168,29 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         }
         else
         {
-            double scale = Speed.CurrentValue / 100d;
+            double scale = values.Speed / 100d;
             if (!double.IsFinite(scale) || scale < 0) return false;
             lower = (double)first * scale;
             upper = (double)last * scale;
         }
         if (!FitsScaledTicks(lower) || !FitsScaledTicks(upper)) return false;
-        if (Reverse.CurrentValue)
+        if (values.Reverse)
             (lower, upper) = (target.TimeRange.Duration.Ticks - upper, target.TimeRange.Duration.Ticks - lower);
         if (!FitsScaledTicks(lower) || !FitsScaledTicks(upper)) return false;
-        if (Loop.CurrentValue && target.TimeRange.Duration > TimeSpan.Zero)
+        if (values.Loop && target.TimeRange.Duration > TimeSpan.Zero)
             (lower, upper) = (0, target.TimeRange.Duration.Ticks);
-        if (HoldFirstFrame.CurrentValue)
+        if (values.HoldFirstFrame)
             (lower, upper) = (Math.Max(0, lower), Math.Max(0, upper));
-        if (HoldLastFrame.CurrentValue)
+        if (values.HoldLastFrame)
             (lower, upper) = (Math.Min(target.TimeRange.Duration.Ticks, lower), Math.Min(target.TimeRange.Duration.Ticks, upper));
-        if (FrameRate.CurrentValue > 0)
+        if (values.FrameRate > 0)
         {
-            double frameTicks = TimeSpan.TicksPerSecond / (double)FrameRate.CurrentValue;
+            double frameTicks = TimeSpan.TicksPerSecond / (double)values.FrameRate;
             lower = Math.Floor(lower / frameTicks) * frameTicks;
             upper = Math.Floor(upper / frameTicks) * frameTicks;
         }
         return FitsScaledTicks(lower) && FitsScaledTicks(upper)
+            && FitsScaledTicks(upper - lower)
             && FitsScaledTicks(lower + target.TimeRange.Start.Ticks)
             && FitsScaledTicks(upper + target.TimeRange.Start.Ticks);
     }
@@ -987,8 +1004,12 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
     /// </summary>
     public bool HasUnboundedTail(TimeRange timeRange, Drawable targetDrawable, bool reverse = false)
     {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
         if (!IsValidRange(timeRange)) return false;
-        using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
+        if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero) return false;
+        var context = new CompositionContext(GetSampleTime(timeRange));
+        if (!HasRepresentableSpeedMapping(timeRange, targetDrawable, GetMappingParameters(context))) return false;
+        using var resource = (Resource)ToResource(context);
         return HasUnboundedTail(timeRange, targetDrawable, resource, reverse);
     }
 
@@ -1004,6 +1025,8 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return false;
 
+        if (!HasRepresentableSpeedMapping(timeRange, targetDrawable, GetMappingParameters(resource)))
+            return false;
         if (!CanKeepTraversalDirection(timeRange, targetDrawable, resource, reverse))
             return false;
 
@@ -1064,6 +1087,8 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
                     if (animation.Interpolate(lastKeyTime) != 0)
                         return false;
 
+                    if ((decimal)lastKeyTime.Ticks - clock.Ticks > long.MaxValue)
+                        return false;
                     stationaryDuration = lastKeyTime > clock
                         ? lastKeyTime - clock
                         : TimeSpan.Zero;
@@ -1085,8 +1110,11 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         TimeSpan stationaryTime = MoveTime(tail, stationaryDuration, reverse);
         TimeSpan rangeStart = stationaryTime <= tail ? stationaryTime : tail;
         TimeSpan rangeEnd = stationaryTime >= tail ? stationaryTime : tail;
+        var futureRange = new TimeRange(rangeStart, rangeEnd - rangeStart);
+        if (!HasRepresentableSpeedMapping(futureRange, targetDrawable, GetMappingParameters(resource)))
+            return false;
         TimeRange mappedRange = CalculateTargetTimeRange(
-            new TimeRange(rangeStart, rangeEnd - rangeStart),
+            futureRange,
             targetDrawable,
             resource);
         if (resource.Loop)
@@ -1157,6 +1185,8 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero)
             return timeRange;
 
+        if (!HasRepresentableSpeedMapping(timeRange, targetDrawable, GetMappingParameters(resource)))
+            throw new InvalidOperationException("Time mapping cannot be proven representable for the requested range.");
         if (SpeedMayRunBackward(timeRange, targetDrawable, resource))
             return targetDrawable.TimeRange;
 
@@ -1186,8 +1216,13 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
 
     public TimeRange CalculateTargetTimeRange(TimeRange timeRange, Drawable targetDrawable)
     {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
         if (!IsValidRange(timeRange)) throw new ArgumentOutOfRangeException(nameof(timeRange));
-        using var resource = (Resource)ToResource(new CompositionContext(GetSampleTime(timeRange)));
+        if (targetDrawable.TimeRange.Duration <= TimeSpan.Zero) return timeRange;
+        var context = new CompositionContext(GetSampleTime(timeRange));
+        if (!HasRepresentableSpeedMapping(timeRange, targetDrawable, GetMappingParameters(context)))
+            throw new InvalidOperationException("Time mapping cannot be proven representable for the requested range.");
+        using var resource = (Resource)ToResource(context);
         return CalculateTargetTimeRange(timeRange, targetDrawable, resource);
     }
 

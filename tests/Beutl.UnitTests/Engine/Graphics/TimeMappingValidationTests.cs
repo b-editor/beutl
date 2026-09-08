@@ -157,6 +157,101 @@ public class TimeMappingValidationTests
         Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DirectMapping_UnrepresentableSpeedThrowsStateError(bool suppliedResource)
+    {
+        var controller = new DrawableTimeController();
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+        controller.Speed.CurrentValue = float.MaxValue;
+        typeof(DrawableTimeController.Resource)
+            .GetField("_speed", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(resource, float.MaxValue);
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            if (suppliedResource) controller.CalculateTargetTimeRange(target.TimeRange, target, resource);
+            else controller.CalculateTargetTimeRange(target.TimeRange, target);
+        });
+    }
+
+    [Test]
+    public void DirectMapping_UsesSuppliedResourceSnapshot()
+    {
+        var controller = new DrawableTimeController();
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+        controller.Speed.CurrentValue = float.MaxValue;
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        Assert.That(controller.CalculateTargetTimeRange(target.TimeRange, target, resource), Is.EqualTo(target.TimeRange));
+    }
+
+    [Test]
+    public void DirectMapping_EvaluatesOffsetExpressionBeforeResourceCreation()
+    {
+        var controller = new DrawableTimeController { Loop = { CurrentValue = true } };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+        controller.OffsetPosition.Expression = new Beutl.UnitTests.Editor.Services.TimeSpanAtOrAfterExpression(
+            TimeSpan.Zero, TimeSpan.MaxValue);
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        Assert.Throws<InvalidOperationException>(() => controller.CalculateTargetTimeRange(target.TimeRange, target));
+        Assert.That(controller.HasUnboundedTail(target.TimeRange, target), Is.False);
+        Assert.That(controller.CalculateTargetTimeRange(target.TimeRange, target, resource), Is.EqualTo(target.TimeRange));
+    }
+
+    [Test]
+    public void HasUnboundedTail_UnrepresentableLoopMappingReturnsFalse()
+    {
+        var controller = new DrawableTimeController
+        {
+            Speed = { CurrentValue = float.MaxValue },
+            Loop = { CurrentValue = true },
+        };
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        Assert.That(controller.HasUnboundedTail(target.TimeRange, target), Is.False);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void HasUnboundedTail_UnrepresentableFutureStationaryRangeReturnsFalse(bool distantOrigin)
+    {
+        var controller = new DrawableTimeController();
+        var animation = new KeyFrameAnimation<float>();
+        if (distantOrigin)
+        {
+            controller.OffsetPosition.CurrentValue = TimeSpan.FromTicks(long.MinValue + 1);
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromTicks(1), Value = 0 });
+        }
+        else
+        {
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f });
+            animation.KeyFrames.Add(new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(2),
+                Value = float.MaxValue,
+                Easing = new HoldEasing(),
+            });
+            animation.KeyFrames.Add(new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(3),
+                Value = 0,
+                Easing = new HoldEasing(),
+            });
+        }
+        controller.Speed.Animation = animation;
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        var range = new TimeRange(TimeSpan.Zero, distantOrigin ? TimeSpan.Zero : TimeSpan.FromSeconds(1));
+        Assert.That(controller.HasUnboundedTail(range, target), Is.False);
+    }
+
+    [Test]
+    public void DirectMapping_UnrepresentableMappedWidthThrowsStateError()
+    {
+        var controller = new DrawableTimeController { Speed = { CurrentValue = 110f } };
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        var range = new TimeRange(TimeSpan.FromTicks(-5000000000000000000), TimeSpan.FromTicks(9000000000000000000));
+        Assert.Throws<InvalidOperationException>(() => controller.CalculateTargetTimeRange(range, target));
+    }
+
     [Test]
     public void OverflowingRange_IsRejectedBeforeResourceEvaluation()
     {
