@@ -2,11 +2,11 @@
 description: |
   Fetch every review and review comment on a pull request (CodeRabbit, GitHub Copilot, Codex,
   Claude code-review, and humans), decide which genuinely need a code change, address the clearly
-  actionable ones, then reply and resolve the threads. Two modes: the default is human-in-the-loop
+  actionable ones, then resolve the handled threads without posting review replies. Two modes: the default is human-in-the-loop
   (confirm each comment via AskUserQuestion, like the global handle-pr-reviews skill); pass `--auto`
   for autonomous resolution — used by /beutl-loop after it opens a PR. Use when the user says
   "PRレビューに対応", "レビュー指摘を反映してResolve", "address and resolve the PR reviews".
-argument-hint: "[--auto --scope-state-file <absolute-path>] [reply | no-resolve] [PR#]"
+argument-hint: "[--auto --scope-state-file <absolute-path>] [no-resolve] [PR#]"
 ---
 
 # Resolve PR reviews
@@ -24,12 +24,12 @@ mode so `/beutl-loop` can clear bot reviews without a human in the loop.
   via `AskUserQuestion` before changing code, exactly like `handle-pr-reviews`. The human has final
   authority; reviewers can be wrong or out of scope.
 - **`--auto` (autonomous)** — for `/beutl-loop`. No per-comment confirmation (the loop run is the
-  authorization). Apply the conservative auto-decision policy below, re-verify, reply + resolve, and
+  authorization). Apply the conservative auto-decision policy below, re-verify, resolve without replying, and
   return a structured result. **Escalate anything that needs judgment to the human instead of
   guessing.**
 
-Other flags (both modes): `no-resolve` leaves threads open; in interactive mode `reply` also posts
-GitHub replies (in `--auto`, replying on handled threads is always on, for the audit trail).
+Other flags (both modes): `no-resolve` leaves threads open. This workflow never posts GitHub review
+replies; its audit trail is the pushed commit, resolved thread state, and structured result.
 
 ## Step 1 — Identify the PR
 
@@ -91,10 +91,7 @@ key when `in_reply_to_id` is null, so each top-level comment is its own thread r
 mirrors it. The **latest** comment in a thread is what matters. Skip: **comments whose author is
 `$PR_AUTHOR`** (the PR author's / implementing agent's own notes, captured in Step 1 — never treat
 these as human review feedback), pure approvals / praise / 👍, and threads already `isResolved: true`
-or whose latest reply says done/fixed/resolved. Keep the `{thread id ↔ comment databaseId}` map for
-Step 6 — **replies must target the top-level review comment ID of the thread** (GitHub's
-`/comments/<comment_id>/replies` endpoint replies in the thread rooted at `<comment_id>`; use the
-thread root's `databaseId`, not a child reply's id).
+or whose latest reply says done/fixed/resolved. Keep each GraphQL thread ID for Step 6 resolution.
 
 ## Step 4 — Classify (same taxonomy as handle-pr-reviews)
 
@@ -136,8 +133,8 @@ not an acceptance gap.
 | **Bug / correctness** ("throws on empty", "race here") | Address |
 | **Change request** ("rename this", "extract helper") | Address (if mechanical/clear) |
 | **Style / nit** | Address (cheap) |
-| **Question** | Reply, no code change |
-| **Clear false positive** (bot misread the code; the concern does not hold) | Reply with a factual refutation citing `path:line`, then resolve — **no code change** |
+| **Question** | Resolve without code change when the answer is verified; otherwise escalate |
+| **Clear false positive** (bot misread the code; the concern does not hold) | Resolve with no reply and **no code change** |
 | **Out of scope / opinion / architecture call** | Do NOT auto-address — escalate |
 | **Praise / discussion** | Ignore |
 
@@ -194,8 +191,8 @@ IS_DETACHED=$(git symbolic-ref -q --short HEAD >/dev/null 2>&1 && echo false || 
 `isCrossRepository` is true (a **fork** PR), do **not** push a fix — `origin` is the base repo, so
 `git push origin HEAD:<headRefName>` would create/update a same-named *base* branch, not the PR's fork
 head. Escalate (`needs_human`) for any cross-repo edit, even when `maintainerCanModify` is true
-(pushing to the fork head needs its own remote/repo and is out of scope here). You may still reply to
-and resolve threads on a fork PR; you just don't push code. /beutl-loop only ever resolves its own
+(pushing to the fork head needs its own remote/repo and is out of scope here). You may still resolve
+no-code threads on a fork PR; you just don't push code. /beutl-loop only ever resolves its own
 same-repo PRs, so this matters mainly for standalone/interactive use on fork PRs.
 
 ## Step 5 — Act
@@ -219,17 +216,17 @@ fi
 
 ### Interactive mode
 Ask `AskUserQuestion` per candidate (reviewer, file:line, verbatim body, your read, `html_url`). For an
-in-scope finding, offer Address / Reply only / Skip / Address differently. For a pre-existing,
-adjacent, optional, or newly requested acceptance finding, ask the scope decision first and offer
-Widen this PR / Create independent work / Skip / Decide differently; a generic "Address it" never
-chooses where that work belongs. One decision per comment; never change code without an explicit
-choice that authorizes both the edit and its destination. An empty, dismissed, or unanswered response is **not approval**.
-This remains true even when the surrounding runtime normally permits a best-judgment default. Leave
-the code and thread unchanged and report the pending decision.
+in-scope finding, offer Address / Resolve without code / Skip / Address differently. For a pre-existing,
+adjacent, optional, or newly requested acceptance finding, create independent work automatically;
+never widen the reviewed PR by default. One decision per in-scope comment. If the question is
+dismissed or unanswered, follow the recommended action: Address for an actionable in-scope defect,
+Resolve without code for a verified false positive, and Create independent work for anything outside
+the frozen scope.
 
 When the user selects **Create independent work**, create a GitHub Issue that records the source PR
 and review URL, the separate scope, and its acceptance criteria. Do not edit or commit anything on
-the current PR branch, and leave its review thread unchanged. A later implementation must fetch
+the current PR branch; after the Issue is created successfully, resolve the source review thread
+without replying so it no longer blocks the current PR. A later implementation must fetch
 `origin/main`, create a new feature branch directly from that commit, and open a PR whose base is
 `main`; never base it on the reviewed PR or make it a stacked PR. Creating the Issue records the
 separate work but does not authorize starting that implementation.
@@ -246,11 +243,10 @@ separate work but does not authorize starting that implementation.
   improvements, and acceptance gaps always set `needs_human` and stay open.
 - This scope-class restriction gates edits only. It does not block the no-code handling below for a
   question or a demonstrable bot false positive, even when the cited code is adjacent.
-- **Questions:** post a brief factual reply if it is answerable from the code; otherwise escalate.
+- **Questions:** resolve without replying if the answer is verified from the code; otherwise escalate.
 - **Clear bot false positives:** when a **known bot's** comment is demonstrably wrong (you can point
-  to the exact `path:line` that already handles the concern), post a **neutral, factual** reply that
-  cites that `path:line` to refute it, then **resolve** the thread — with **no code change**. The
-  refutation must quote concrete code, not a general assurance. If you are not certain it is a false
+  to the exact `path:line` that already handles the concern), **resolve** the thread without replying
+  and with **no code change**. Record the concrete refutation in the structured result. If you are not certain it is a false
   positive, **escalate** (`needs_human`) instead of resolving. Count each one in
   `false_positives_resolved`. (Never do this for human comments — those always escalate.) **Append
   the pattern to `.claude/loop-memory/bot-false-positive-patterns.md`** (D-8): one line per pattern —
@@ -282,32 +278,39 @@ separate work but does not authorize starting that implementation.
   fix leaves the PR unmergeable) and push to the PR head (see Step 5 preamble for the branch/detached
   push commands). Never force-push; never push `main`.
 
-## Step 6 — Reply + resolve handled threads
+## Step 6 — Recheck the head and resolve handled threads
 
-For each thread you addressed (or answered), post a short factual reply, then resolve it (skip both
-when `no-resolve`):
+Immediately before changing any thread state, verify that the live PR head is still the object that
+was classified and handled. Use the locally created pushed SHA after a code change, otherwise the
+head captured in Step 1. If it differs, resolve nothing, set `needs_human`, and report the race.
 
-**Review-thread comments** (inline, from `pulls/<PR>/comments`) — reply on the thread, then resolve it:
 ```bash
-# <comment_id> = the thread's top-level review comment ID (the root databaseId from Step 3's map),
-# NOT a child reply's id — GitHub's reply endpoint roots the reply in the thread of <comment_id>.
-gh api "repos/$OWNER_REPO/pulls/<PR>/comments/<comment_id>/replies" -f body="Done — <one-line fix>."
+EXPECTED_HEAD=${pushed_commit_sha:-$PR_HEAD_OID}
+LIVE_HEAD=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)
+test "$LIVE_HEAD" = "$EXPECTED_HEAD" || {
+    echo "PR head changed before thread resolution" >&2
+    exit 1
+}
+```
+
+For each thread you addressed (or verified as a no-code resolution), resolve it without posting a
+reply (skip resolution when `no-resolve`):
+
+**Review-thread comments** (inline, from `pulls/<PR>/comments`):
+```bash
 gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"<THREAD_ID>"}){thread{isResolved}}}'
 ```
 
 **General PR (issue) comments** (from `issues/<PR>/comments`, Step 2) have **no review thread** — they
-are not line-anchored and have no `THREAD_ID`. Reply with the **issue-comments API** and do **not**
-attempt `resolveReviewThread` (it would fail — there is no thread):
-```bash
-gh api "repos/$OWNER_REPO/issues/<PR>/comments" -f body="<reply addressing the comment>."
-```
+are not line-anchored and have no `THREAD_ID`. Do not reply and do not attempt
+`resolveReviewThread`; report them as still open when they need follow-up.
 
 Resolve a review thread once even if it had several handled comments. **Never resolve threads you escalated
-(`needs_human`) or skipped.** Keep replies neutral and factual; do not argue with reviewers.
+(`needs_human`) or skipped.**
 
 ## Step 7 — Report
 
-**Interactive:** summarize Addressed / Replied / Skipped / Resolved / Still-open (like
+**Interactive:** summarize Addressed / Skipped / Resolved / Still-open (like
 handle-pr-reviews). Note that no merge was performed.
 
 **`--auto`:** return EXACTLY this JSON and nothing after it:
@@ -338,8 +341,9 @@ handle-pr-reviews). Note that no merge was performed.
   "last_activity_at": "<ISO-8601 of the most recent review / comment / commit on the PR>"
 }
 ```
-- `false_positives_resolved`: how many **bot** threads you resolved as clear false positives (a factual
-  `path:line` refutation reply, no code change). A subset of `threads_resolved`.
+- `false_positives_resolved`: how many **bot** threads you resolved as clear false positives (with a
+  factual `path:line` refutation recorded in the result, no reply and no code change). A subset of
+  `threads_resolved`.
 - `pushed_commit_sha`: the exact local commit created and successfully pushed by this resolver, or
   `null` when `new_commits_pushed == 0`. The orchestrator verifies it against a fresh PR-head fetch;
   never reconstruct it from `scope_state` or a moving branch ref.
