@@ -306,6 +306,36 @@ public class ProxyJobQueueTests
         });
     }
 
+    [Test]
+    public async Task Cancellation_rolls_back_an_ambiguous_failure_registration()
+    {
+        var store = new MutatingThenThrowStore();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("ambiguous-failure-registration.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.BookkeepingError, Is.InstanceOf<InvalidOperationException>());
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
+        });
+    }
+
     [TestCase(AdmissionGeneratorOutcome.Success, ProxyJobStatus.Succeeded)]
     [TestCase(AdmissionGeneratorOutcome.Skipped, ProxyJobStatus.Skipped)]
     [TestCase(AdmissionGeneratorOutcome.Failed, ProxyJobStatus.Failed)]
@@ -2135,6 +2165,57 @@ public class ProxyJobQueueTests
         public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+    }
+
+    private sealed class MutatingThenThrowStore : IProxyStore
+    {
+        private ProxyEntry? _entry;
+        private bool _throwOnRegister = true;
+
+        public string StoreRootPath => Path.GetTempPath();
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
+
+        public void Register(ProxyEntry entry)
+        {
+            _entry = entry;
+            if (_throwOnRegister)
+            {
+                _throwOnRegister = false;
+                throw new InvalidOperationException("persistence failed after mutation");
+            }
+        }
+
+        public bool TryTransition(
+            ProxyFingerprint source,
+            ProxyPreset preset,
+            ProxyState newState,
+            string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        {
+            bool removed = _entry is not null;
+            _entry = null;
+            return removed;
+        }
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+#pragma warning disable CS0067 // Not exercised by these tests.
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
     }
 
     private sealed class ControlledBlockingGenerator : IProxyGenerator

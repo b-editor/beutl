@@ -669,6 +669,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
                 failureCanPublish = terminalReleaseFailure is not null
                                     || item.TryCloseCancellationWindow();
+                if (!failureCanPublish)
+                {
+                    await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
+                }
             }
 
             Exception? synchronizedRollbackFailure;
@@ -733,6 +737,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         generationFailure?.Throw();
         if (!successfulGenerationSealed)
         {
+            await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
             item.Token.ThrowIfCancellationRequested();
             throw new InvalidOperationException(
                 "Proxy generation completed after its terminal transition was closed.");
@@ -986,12 +991,22 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         if (_store == null)
             return default;
 
+        ProxyEntry? previous;
         try
         {
-            ProxyEntry? previous = _store.TryGet(job.Source, job.Preset);
-            if (previous is { State: ProxyState.Ready or ProxyState.Stale })
-                return default;
+            previous = _store.TryGet(job.Source, job.Preset);
+        }
+        catch (Exception ex)
+        {
+            RecordBookkeepingFailure(job, ex);
+            return default;
+        }
 
+        if (previous is { State: ProxyState.Ready or ProxyState.Stale })
+            return default;
+
+        try
+        {
             var now = DateTime.UtcNow;
             _store.Register(new ProxyEntry(
                 job.Source,
@@ -1008,14 +1023,23 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
         catch (Exception ex)
         {
-            job.BookkeepingError = ex;
-            s_logger.LogError(
-                ex,
-                "Failed to record Failed proxy entry for {Source} ({Preset}).",
-                job.Source.AbsolutePath,
-                job.Preset);
-            return default;
+            RecordBookkeepingFailure(job, ex);
+            // Register may update memory before persistence throws. Treat the result as ambiguous
+            // so a cancellation path restores the captured entry or deletes the attempted one.
+            return new FailureRegistration(previous, Changed: true);
         }
+    }
+
+    private static void RecordBookkeepingFailure(ProxyJob job, Exception failure)
+    {
+        job.BookkeepingError = job.BookkeepingError is null
+            ? failure
+            : new AggregateException(job.BookkeepingError, failure);
+        s_logger.LogError(
+            failure,
+            "Failed to record Failed proxy entry for {Source} ({Preset}).",
+            job.Source.AbsolutePath,
+            job.Preset);
     }
 
     private Exception? RollBackFailure(ProxyJob job, FailureRegistration registration)
@@ -1034,6 +1058,13 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             else
             {
                 _store.Delete(job.Source, job.Preset);
+            }
+
+            ProxyEntry? restored = _store.TryGet(job.Source, job.Preset);
+            if (!Equals(restored, registration.Previous))
+            {
+                throw new InvalidOperationException(
+                    "Proxy failure bookkeeping could not be restored after cancellation.");
             }
 
             return null;
@@ -1144,6 +1175,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         private bool _started;
         private volatile bool _admissionDeferred;
         private TaskCompletionSource? _admissionAvailability;
+        private TaskCompletionSource? _cancellationCallbacksCompleted;
         private long _admissionGeneration;
         private bool _terminalTransitionClaimed;
         private bool _cancellationRequested;
@@ -1377,40 +1409,56 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
         public bool TryCancelQueued()
         {
+            TaskCompletionSource cancellationCompleted;
             lock (_lock)
             {
                 if (_disposed
                     || _started
                     || _terminalTransitionClaimed
+                    || _cancellationRequested
                     || _cancellationWindowClosed
                     || IsTerminal(Job.Status))
                     return false;
 
                 _cancellationRequested = true;
+                cancellationCompleted = _cancellationCallbacksCompleted = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
-            CancelSource();
+            CancelSource(cancellationCompleted);
 
             return true;
         }
 
         public void Cancel()
         {
+            TaskCompletionSource cancellationCompleted;
             lock (_lock)
             {
                 if (_disposed
                     || _terminalTransitionClaimed
+                    || _cancellationRequested
                     || _cancellationWindowClosed
                     || IsTerminal(Job.Status))
                     return;
 
                 _cancellationRequested = true;
+                cancellationCompleted = _cancellationCallbacksCompleted = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
-            CancelSource();
+            CancelSource(cancellationCompleted);
         }
 
-        private void CancelSource()
+        public Task WaitForCancellationCallbacksAsync()
+        {
+            lock (_lock)
+            {
+                return _cancellationCallbacksCompleted?.Task ?? Task.CompletedTask;
+            }
+        }
+
+        private void CancelSource(TaskCompletionSource cancellationCompleted)
         {
             try
             {
@@ -1418,6 +1466,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
             catch (ObjectDisposedException)
             {
+            }
+            finally
+            {
+                cancellationCompleted.TrySetResult();
             }
         }
 
