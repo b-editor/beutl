@@ -4,7 +4,7 @@
 
 ## Hard boundary
 
-1. No MIT project may add a `ProjectReference` to `Beutl.FFmpegWorker.csproj`. `Beutl.PublicApiContractTests` enforces this boundary.
+1. No MIT project may add a compile-closure `ProjectReference` to `Beutl.FFmpegWorker.csproj`. The application's build-order-only reference remains non-compiling through `ReferenceOutputAssembly="false"`.
 2. MIT consumers reach this worker **only via IPC** through `Beutl.FFmpegIpc` (MIT). The IPC protocol is the entire API surface.
 3. Inbound source links are limited to the shared settings and decoding helpers currently listed in the worker project from `Beutl.Extensions.FFmpeg.Core` and `Beutl.Extensions.FFmpeg`. Do not move FFmpeg-calling worker code into an MIT project.
 

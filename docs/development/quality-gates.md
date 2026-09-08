@@ -23,5 +23,3 @@ Before merging a pull request:
 4. Review the generated coverage report for unexpected regressions. The repository does not currently enforce a fixed coverage threshold.
 5. Address all review findings and leave no unresolved review threads.
 6. Leave no orphaned TODO comments; `.github/workflows/todo-comments.yml` reports them on pull requests.
-
-The `Beutl.PublicApiContractTests` suite also scans project and shared build files for forbidden compile-time links to `Beutl.FFmpegWorker`.

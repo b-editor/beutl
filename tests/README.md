@@ -9,7 +9,7 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 | `src/Beutl.Engine/Graphics/`, `Animation/`, `Audio/`, `Composition/`, etc. (non-3D) | `tests/Beutl.UnitTests/` |
 | `src/Beutl.Engine/Graphics3D/` | `tests/Beutl.UnitTests/Engine/Graphics3D/` |
 | `src/Beutl.Engine.SourceGenerators/` | `tests/SourceGeneratorTest/` |
-| Public authoring contracts and the GPL/MIT project boundary | `tests/Beutl.PublicApiContractTests/` |
+| Public authoring contracts | `tests/Beutl.PublicApiContractTests/` |
 | `src/Beutl.FFmpegIpc/` and IPC-level contract tests against `Beutl.FFmpegWorker` | `tests/Beutl.FFmpegIpc.Tests/` |
 | `src/Beutl.FFmpegWorker/` direct in-process FFmpeg-native types (e.g. `FFmpegEncodingController`) | `tests/Beutl.FFmpegWorker.Tests/` |
 | `src/Beutl.Editor*/` | `tests/Beutl.UnitTests/Editor*/` |

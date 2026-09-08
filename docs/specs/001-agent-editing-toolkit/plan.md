@@ -36,7 +36,7 @@ The technical approach is **adapter, not reimplementation**: the toolkit drives 
 
 | Principle | Status | Notes |
 |---|---|---|
-| I. License Firewall (NON-NEGOTIABLE) | PASS | New projects are MIT; reach the FFmpeg worker only via `Beutl.FFmpegIpc` (separate process + pipe). No `ProjectReference` to `Beutl.FFmpegWorker`; `Beutl.PublicApiContractTests` enforces this mechanically. |
+| I. License Firewall (NON-NEGOTIABLE) | PASS | New projects are MIT; reach the FFmpeg worker only via `Beutl.FFmpegIpc` (separate process + pipe). No compile-closure `ProjectReference` to `Beutl.FFmpegWorker`. |
 | II. Dual-Target Framework | PASS | The toolkit single-targets `net10.0`, matching its dependency closure (`Beutl.Editor`/`Engine`/`ProjectSystem`/`Extensibility`/`FFmpegIpc` are all single-target `net10.0`); the split-out `Beutl.Extensions.FFmpeg.Core` is likewise `net10.0` single-target. No new TFM is introduced; the dual-target app/worker keep building untouched. |
 | III. Test-First with NUnit | PASS | New logic ships with NUnit tests in `tests/Beutl.AgentToolkit.Tests`; the reconciler, schema gen, merge-patch, and guard are GPU-free and unit-testable. |
 | IV. Avalonia + Compiled Bindings | N/A | The core library and headless server are UI-free. The in-app host (`src/Beutl/AgentHost`) is endpoint wiring that drives the existing `EditViewModel` — it adds **no new XAML/UserControls**, so the compiled-bindings rule does not apply; any incidental UI (e.g. an on/off toggle) follows the rule. |

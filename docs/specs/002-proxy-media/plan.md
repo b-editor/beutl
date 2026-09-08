@@ -31,7 +31,7 @@ While editing, Beutl must transparently serve preview video decode requests from
 - Eviction and store lookups must not block UI thread (lookup ≤1 ms p95 for hot path; eviction off the UI thread)
 
 **Constraints**:
-- **License firewall and project-reference direction (NON-NEGOTIABLE)**: no MIT project may take a `ProjectReference` to `Beutl.FFmpegWorker`, and `Beutl.Engine` MUST NOT take a new reference to `Beutl.FFmpegIpc` or `Beutl.Extensions.FFmpeg` because those projects already depend on Engine-side media abstractions. Engine exposes `IProxyGenerator`; the concrete FFmpeg implementation is registered from the application / extension composition root and goes through existing `FFmpegIpc` + `FFmpegEncodingControllerProxy`. `Beutl.PublicApiContractTests` enforces the compile-time GPL boundary and must remain green.
+- **License firewall and project-reference direction (NON-NEGOTIABLE)**: no MIT project may take a `ProjectReference` to `Beutl.FFmpegWorker`, and `Beutl.Engine` MUST NOT take a new reference to `Beutl.FFmpegIpc` or `Beutl.Extensions.FFmpeg` because those projects already depend on Engine-side media abstractions. Engine exposes `IProxyGenerator`; the concrete FFmpeg implementation is registered from the application / extension composition root and goes through existing `FFmpegIpc` + `FFmpegEncodingControllerProxy`. Review the project-reference direction whenever these project files change.
 - Dual-target build must stay green on both `net10.0` and `net10.0-windows`.
 - Default proxy-store root must NOT live inside the project directory (project portability).
 - LRU eviction must never delete a file that is currently being decoded for preview or whose generation job is in flight (FR-018a safety clause).

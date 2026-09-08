@@ -21,12 +21,7 @@ Beutl's main app is **MIT-licensed**; only `Beutl.FFmpegWorker` is **GPL-3.0-or-
 ## Invariants
 
 1. **MIT projects must not take a compile-closure `ProjectReference` to `Beutl.FFmpegWorker`.**
-   - `tests/Beutl.PublicApiContractTests/GplMitBoundaryContractTests.cs` enforces this mechanically across project and shared build files in the active checkout while excluding nested repositories and machine-local tooling state.
    - Sanctioned exception: a build-order-only reference carrying `ReferenceOutputAssembly="false"`, paired with a target that mirrors the worker's output next to the app (dev builds only — `src/Beutl/Beutl.csproj` uses this shape; Nuke publishes lay the worker out separately).
-   - Any `ProjectReference Update` targeting the worker must explicitly preserve `ReferenceOutputAssembly="false"`; setting, removing, or replacing that metadata with another value is a boundary violation.
-   - Keep worker `ProjectReference`, `Reference`/`HintPath`, and `Compile` item specs statically resolvable and the `ReferenceOutputAssembly="false"` metadata unconditional. Property-backed or wildcard items whose targets cannot be proven from their build file, and conditioned metadata that can disappear in another configuration, fail the boundary contract.
-   - Assembly `HintPath` metadata is checked in attribute, child-element, and `ItemDefinitionGroup` forms. Declared submodules are scanned as part of the checkout; ignored nested repositories and machine-local tooling directories are not.
-   - Keep worker source inclusions inside `Beutl.FFmpegWorker.csproj`. Shared `.props` or `.targets` files under the worker directory must not publish `Compile` items that an MIT project could import.
    - Do not look for workarounds — surface the design issue instead.
 
 2. **All communication goes through `Beutl.FFmpegIpc`.**
