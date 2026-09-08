@@ -41,7 +41,7 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 | **V. Style Belongs to the Linter** | ✅ PASS | No stylistic-only edits; `dotnet format` owns style. |
 | **VI. Source Generators Are Load-Bearing** | ✅ PASS | FR-032 resolves to **no generator change** for the common path (scale is not an `IProperty`; the resource model stays scale-free — D6). Only effect-property unit/type changes (e.g. `ColorShift` `PixelPoint`→`Point`) flow through the existing `CompareAndUpdate<T>`; the `tests/SourceGeneratorTest` NUnit snapshot suite must stay green and `dotnet build Beutl.slnx` must pass before review. |
 
-**Quality Gates** (see [development quality gates](../../development/quality-gates.md), all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage threshold; independent code review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; complete an independent public-API design review (FR-028).
+**Quality Gates** (see [development quality gates](../../development/quality-gates.md), all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage regression review; independent code review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; complete an independent public-API design review (FR-028).
 
 **No project-requirement violations — Complexity Tracking is empty.**
 

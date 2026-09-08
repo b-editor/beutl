@@ -116,4 +116,6 @@ module responsibilities and dependency boundaries.
 
 Extension authors should also read the
 [resolution-independent rendering guide](docs/extension-authoring/resolution-independent-rendering.md)
-before implementing custom drawables, filter effects, brushes, or shaders.
+before implementing custom drawables, filter effects, brushes, or shaders, and
+the [tool-tab extension guide](docs/extension-authoring/tool-tabs.md) before
+adding a dockable editor tool.

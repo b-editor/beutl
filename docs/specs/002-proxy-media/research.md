@@ -199,7 +199,7 @@ Phase 0 resolves the open items left after the clarification phase so that Phase
 
 A small per-clip badge on the timeline strip is captured as a stretch goal and left for the task-planning phase to slot.
 
-**Rationale**: Tool tab is the established Beutl pattern for "auxiliary feature with its own state" (see `beutl-tooltab-extension` skill). Putting visibility behind a tab keeps the timeline UI uncluttered for users who don't use proxies.
+**Rationale**: Tool tab is the established Beutl pattern for "auxiliary feature with its own state" (see the [tool-tab extension guide](../../extension-authoring/tool-tabs.md)). Putting visibility behind a tab keeps the timeline UI uncluttered for users who don't use proxies.
 
 **Alternatives considered**:
 

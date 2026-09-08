@@ -20,7 +20,7 @@ Before merging a pull request:
 1. Run `dotnet format Beutl.slnx --verify-no-changes`.
 2. Run `dotnet build Beutl.slnx` for every affected target framework.
 3. Run `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings` and any required platform- or GPU-specific suites.
-4. Confirm that the coverage threshold configured in `.github/workflows/dotnet.yml` has not regressed.
+4. Review the generated coverage report for unexpected regressions. The repository does not currently enforce a fixed coverage threshold.
 5. Address all review findings and leave no unresolved review threads.
 6. Leave no orphaned TODO comments; `.github/workflows/todo-comments.yml` reports them on pull requests.
 

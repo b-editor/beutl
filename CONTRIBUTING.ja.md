@@ -97,5 +97,7 @@ XAMLファイル
 
 カスタム Drawable、フィルター効果、ブラシ、シェーダーを実装する場合は、
 [解像度非依存レンダリングのガイド](docs/extension-authoring/resolution-independent-rendering.md)も参照してください。
+ドッキング可能なエディターツールを追加する場合は、
+[ツールタブ拡張ガイド](docs/extension-authoring/tool-tabs.md)を参照してください。
 
 [プロジェクト構成ガイド](docs/development/project-structure.md)には、各モジュールの責務と依存境界をまとめています。

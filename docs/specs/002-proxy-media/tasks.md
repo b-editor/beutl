@@ -155,7 +155,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
    - Buttons: Generate selection / Regenerate / Delete / Delete-all-for-project
    - Pending-jobs list with progress + cancel
    - Store totals (project / global) and cap usage
-- [ ] T046 [US2] Register the tool tab via the existing `ToolTabExtension` mechanism (follow `beutl-tooltab-extension` skill guidance). Reference the existing tool tab pattern for placement / lifecycle
+- [ ] T046 [US2] Register the tool tab via the existing `ToolTabExtension` mechanism. Follow the [tool-tab extension guide](../../extension-authoring/tool-tabs.md) and the existing Proxies tab pattern for placement and lifecycle
 - [ ] T047 [US2] (Headless smoke if feasible) Add `tests/Beutl.UnitTests/Editor/ToolTabs/ProxiesToolTabSmokeTests.cs` using `Avalonia.Headless` if the project already wires it; otherwise mark this task as a manual verification step in quickstart.md (FR-015 visibility check)
 
 **Checkpoint**: User can generate, regenerate, and delete proxies through the Proxies tool tab; LRU eviction enforces the cap; FFmpeg-missing flows cleanly to the install prompt. With US1 + US2 done, the headline workflow works end-to-end from a clean install.

@@ -1,4 +1,5 @@
-﻿using System.Xml.Linq;
+﻿using System.Diagnostics;
+using System.Xml.Linq;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -64,20 +65,38 @@ public sealed class GplMitBoundaryContractTests
             "GPL/MIT boundary violations:" + Environment.NewLine + string.Join(Environment.NewLine, violations));
     }
 
-    private static IEnumerable<string> EnumerateBuildFiles(string repositoryRoot)
+    private static IReadOnlyList<string> EnumerateBuildFiles(string repositoryRoot)
     {
-        string[] patterns = ["*.csproj", "*.props", "*.targets"];
-        return patterns
-            .SelectMany(pattern => Directory.EnumerateFiles(repositoryRoot, pattern, SearchOption.AllDirectories))
-            .Where(path => !HasDirectorySegment(path, ".git")
-                && !HasDirectorySegment(path, "bin")
-                && !HasDirectorySegment(path, "obj"));
-    }
+        var startInfo = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = repositoryRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add("ls-files");
+        startInfo.ArgumentList.Add("-z");
+        startInfo.ArgumentList.Add("--");
+        startInfo.ArgumentList.Add("*.csproj");
+        startInfo.ArgumentList.Add("*.props");
+        startInfo.ArgumentList.Add("*.targets");
 
-    private static bool HasDirectorySegment(string path, string segment)
-    {
-        string marker = Path.DirectorySeparatorChar + segment + Path.DirectorySeparatorChar;
-        return path.Contains(marker, StringComparison.Ordinal);
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Could not start git to enumerate tracked build files.");
+        string output = process.StandardOutput.ReadToEnd();
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Could not enumerate tracked build files (exit {process.ExitCode}): {error}");
+        }
+
+        return output
+            .Split('\0', StringSplitOptions.RemoveEmptyEntries)
+            .Select(path => Path.Combine(repositoryRoot, path.Replace('/', Path.DirectorySeparatorChar)))
+            .ToArray();
     }
 
     private static string FindRepositoryRoot()
