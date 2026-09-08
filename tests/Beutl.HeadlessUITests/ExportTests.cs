@@ -842,7 +842,7 @@ public class ExportTests
                 Assert.That(viewModel.Items, Does.Contain(item));
                 Assert.That(viewModel.SelectedItem.Value, Is.SameAs(item));
                 Assert.That(context.DisposeCount, Is.Zero);
-                Assert.That(notifications.WarningMessages, Does.Contain(Strings.Output_WorkspaceBusy));
+                Assert.That(notifications.WarningMessages, Does.Contain(Strings.Output_ProfileRunning));
             });
             AssertWorkspaceMutationBlocked();
 
