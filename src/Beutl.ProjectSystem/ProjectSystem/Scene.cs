@@ -1380,7 +1380,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         if (element.SuppressedStorageSource is not { } source
             || EnumerateSerializedGraphFallbacks(element).Any()
-            || HasUnresolvedUntraversedFallback(element, source)
+            || HasUnresolvedSerializedRecoveryBlocker(element, source)
             || EnumerateSerializedGraphObjects(element).OfType<KeyFrame>().Any(static keyFrame => keyFrame.HasLossyEasing))
         {
             return null;
@@ -1410,7 +1410,8 @@ public class Scene : ProjectItem, INotifyEdited
     {
         if (removedValue is null)
         {
-            return source.UntraversedFallbacks is { Length: > 0 };
+            // Some editors cannot retain the removed value; recheck the remaining serialized graph.
+            return true;
         }
 
         if (SerializedGraphTraversal.Enumerate(removedValue).Any(static value =>
@@ -1419,16 +1420,20 @@ public class Scene : ProjectItem, INotifyEdited
             return true;
         }
 
-        if (source.UntraversedFallbacks is not { Length: > 0 } snapshots)
-        {
-            return false;
-        }
-
         try
         {
-            JsonNode serializedValue = CoreSerializer.SerializeToJsonNode(
+            using var capture = new LossyEasingSerializationCapture();
+            CoreSerializer.SerializeToJsonNode(
                 removedValue,
-                new CoreSerializerOptions { BaseUri = element.Uri });
+                new CoreSerializerOptions
+                {
+                    BaseUri = element.Uri,
+                    Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+                });
+            if (capture.HasLossyEasing) return true;
+            if (source.UntraversedFallbacks is not { Length: > 0 } snapshots) return false;
+            JsonNode serializedValue = CoreSerializer.SerializeToJsonNode(
+                removedValue, new CoreSerializerOptions { BaseUri = element.Uri });
             return snapshots.Any(snapshot => ContainsEquivalentJsonNode(serializedValue, snapshot));
         }
         catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
@@ -1437,18 +1442,23 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private static bool HasUnresolvedUntraversedFallback(
+    private static bool HasUnresolvedSerializedRecoveryBlocker(
         Element element,
         SuppressedStorageSource source)
     {
-        if (source.UntraversedFallbacks is not { Length: > 0 } snapshots)
-        {
-            return false;
-        }
-
-        JsonObject current = CoreSerializer.SerializeToJsonObject(
+        using var capture = new LossyEasingSerializationCapture();
+        CoreSerializer.SerializeToJsonObject(
             element,
-            new CoreSerializerOptions { BaseUri = element.Uri });
+            new CoreSerializerOptions
+            {
+                BaseUri = element.Uri,
+                Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+            });
+        if (capture.HasLossyEasing) return true;
+        if (source.UntraversedFallbacks is not { Length: > 0 } snapshots) return false;
+        // Keep the original representation for fallback snapshot matching; embedding adds URI metadata.
+        JsonObject current = CoreSerializer.SerializeToJsonObject(
+            element, new CoreSerializerOptions { BaseUri = element.Uri });
         return snapshots.Any(snapshot => ContainsEquivalentJsonNode(current, snapshot));
     }
 

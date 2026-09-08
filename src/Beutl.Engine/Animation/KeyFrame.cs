@@ -184,6 +184,7 @@ public class KeyFrame : Hierarchical
         base.Serialize(context);
         if (HasLossyEasing)
         {
+            LossyEasingSerializationCapture.Record();
             context.SetValue(nameof(Easing), _lossyFallbackEasingJson?.DeepClone());
         }
         else if (Easing is SplineEasing splineEasing)

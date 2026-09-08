@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -13,10 +14,22 @@ namespace Beutl.AgentToolkit.Tests.Sessions;
 
 public sealed class FileEditingSessionTests
 {
-    [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"")]
-    [TestCase("null")]
-    [TestCase("{\"X1\":\"invalid\"}")]
-    public void ApplyEdit_ExplicitLinearEasingRepairsRecoveredKeyframeAndUndoRestoresBytes(string easingJson)
+    public sealed record KeyFrameWrapper(ICoreSerializable Frame);
+
+    [SuppressResourceClassGeneration]
+    public sealed class WrappedKeyFrameHolder : EngineObject
+    {
+        public WrappedKeyFrameHolder() => ScanProperties<WrappedKeyFrameHolder>();
+        public IProperty<List<KeyFrameWrapper>> Frames { get; } = Property.Create<List<KeyFrameWrapper>>();
+    }
+
+    [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"", false)]
+    [TestCase("null", false)]
+    [TestCase("{\"X1\":\"invalid\"}", false)]
+    [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"", true)]
+    [TestCase("null", true)]
+    [TestCase("{\"X1\":\"invalid\"}", true)]
+    public void ApplyEdit_ExplicitLinearEasingRepairsRecoveredKeyframeAndUndoRestoresBytes(string easingJson, bool wrapped)
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -30,12 +43,16 @@ public sealed class FileEditingSessionTests
         var shape = new RectShape();
         shape.Width.Animation = animation;
         var element = new Element { Uri = new Uri(elementPath), Length = TimeSpan.FromSeconds(1) };
-        element.AddObject(shape);
+        var holder = new WrappedKeyFrameHolder();
+        holder.Frames.CurrentValue = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
+        element.AddObject(wrapped ? holder : shape);
         session.Scene.Children.Add(element);
         session.Save(skipConflictCheck: true);
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        json["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!["Easing"]
-            = JsonNode.Parse(easingJson);
+        JsonNode GetFrame(JsonNode elementJson) => wrapped
+            ? elementJson["Objects"]![0]!["Frames"]![0]!["Frame"]!
+            : elementJson["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!;
+        GetFrame(json)["Easing"] = JsonNode.Parse(easingJson);
         File.WriteAllText(elementPath, json.ToJsonString());
         byte[] originalBytes = File.ReadAllBytes(elementPath);
         FileEditingSession recovered = source.OpenProject(projectPath);
@@ -44,21 +61,23 @@ public sealed class FileEditingSessionTests
         var tools = new EditTools(manager);
         JsonObject desired = recovered.Documents.Read(recovered.Scene);
         desired["Elements"]![0]!["Name"] = "Unrelated edit";
-        desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!["Value"] = 20;
+        GetFrame(desired["Elements"]![0]!)["Value"] = 20;
         var unrelated = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
         Assert.That(unrelated.IsSuccess, Is.True, unrelated.Error?.Message);
         recovered.Save(skipConflictCheck: true);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
 
         JsonObject patch = recovered.Documents.Read(recovered.Scene);
-        patch["Elements"]![0]!["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!["Easing"]
-            = TypeFormat.ToString(typeof(LinearEasing));
+        GetFrame(patch["Elements"]![0]!)["Easing"] = TypeFormat.ToString(typeof(LinearEasing));
         var repaired = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
         Assert.That(repaired.IsSuccess, Is.True, repaired.Error?.Message);
         recovered.Save(skipConflictCheck: true);
         Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
-        var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Objects.Single();
-        Assert.That(((KeyFrameAnimation<float>)reopened.Width.Animation!).KeyFrames.Single().Easing, Is.TypeOf<LinearEasing>());
+        EngineObject reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Objects.Single();
+        IKeyFrame reopenedFrame = wrapped
+            ? (KeyFrame<float>)((WrappedKeyFrameHolder)reopened).Frames.CurrentValue!.Single().Frame
+            : ((KeyFrameAnimation<float>)((RectShape)reopened).Width.Animation!).KeyFrames.Single();
+        Assert.That(reopenedFrame.Easing, Is.TypeOf<LinearEasing>());
         Assert.That(recovered.History.Undo(), Is.True);
         recovered.Save(skipConflictCheck: true);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));

@@ -105,6 +105,58 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(((CoreObject)reopened.Wrapped.CurrentValue!.Single().Value).Uri, Is.EqualTo(new Uri(copiedReference)));
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void TryResumeElementPersistence_WrappedLossyEasingStaysBlockedUntilRepair(bool removeWrapper, bool referenced)
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var holder = new WrappedStorageHolder();
+        string framePath = Path.Combine(_root, "frame.json");
+        holder.Wrapped.CurrentValue = [new StorageWrapper(new KeyFrame<float>
+        {
+            Value = 10,
+            Uri = referenced ? new Uri(framePath) : null,
+        })];
+        source.AddObject(holder);
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        string malformedPath = referenced ? framePath : elementPath;
+        JsonObject json = JsonNode.Parse(File.ReadAllText(malformedPath))!.AsObject();
+        JsonNode frameJson = referenced ? json : json["Objects"]![1]!["Wrapped"]![0]!["Value"]!;
+        frameJson["Easing"] = "[Missing.Plugin]Missing:Easing";
+        File.WriteAllText(malformedPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        var recoveredHolder = recovered.Objects.OfType<WrappedStorageHolder>().Single();
+        var keyFrame = (KeyFrame<float>)recoveredHolder.Wrapped.CurrentValue!.Single().Value;
+        recovered.Name = "Unrelated edit";
+        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
+        EngineObject unrelated = recovered.Objects[0];
+        recovered.Objects.Remove(unrelated);
+        Assert.That(Scene.TryResumeElementPersistence(recovered, unrelated), Is.Null);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+
+        object removed = recoveredHolder.Wrapped.CurrentValue;
+        if (removeWrapper)
+            recoveredHolder.Wrapped.CurrentValue = [];
+        else
+            keyFrame.Easing = new LinearEasing();
+        SuppressedStorageSource? suppression = removeWrapper
+            ? Scene.TryResumeElementPersistence(recovered, removed)
+            : Scene.TryResumeElementPersistence(recovered);
+        Assert.That(suppression, Is.Not.Null);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
+        suppression!.WasReinstated = true;
+        recovered.SuppressedStorageSource = suppression;
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+    }
+
     public sealed class PluginScene : Scene
     {
         public static readonly CoreProperty<CoreObject?> OwnedProperty =
