@@ -6,7 +6,12 @@ namespace Beutl.Extensibility;
 
 public interface IContextCommandHandler
 {
-    void Execute(ContextCommandExecution execution);
+    /// <summary>
+    /// Executes a context command and completes when the command's operation has finished.
+    /// </summary>
+    /// <param name="execution">The context command invocation.</param>
+    /// <returns>A task representing the complete command operation.</returns>
+    Task ExecuteAsync(ContextCommandExecution execution);
 
     bool CanExecute(ContextCommandExecution execution) => true;
 }

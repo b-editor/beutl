@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
@@ -197,7 +198,7 @@ public partial class CommandPaletteView : UserControl
         }
     }
 
-    private void OnRootKeyDown(object? sender, KeyEventArgs e)
+    private async void OnRootKeyDown(object? sender, KeyEventArgs e)
     {
         // IME 変換中の Enter/Escape は IME による確定・取消に使われるため横取りしない。
         if (e.Handled || e.Key == Key.ImeProcessed || DataContext is not CommandPaletteViewModel viewModel)
@@ -212,13 +213,13 @@ public partial class CommandPaletteView : UserControl
                 e.Handled = true;
                 break;
             case Key.Enter:
-                viewModel.ExecuteSelected();
                 e.Handled = true;
+                await ExecuteSelectedSafelyAsync(viewModel);
                 break;
         }
     }
 
-    private void OnResultsDoubleTapped(object? sender, TappedEventArgs e)
+    private async void OnResultsDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is not CommandPaletteViewModel viewModel)
         {
@@ -231,8 +232,21 @@ public partial class CommandPaletteView : UserControl
             && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { DataContext: CommandPaletteItemViewModel item })
         {
             viewModel.SelectedCommand.Value = item;
-            viewModel.ExecuteSelected();
             e.Handled = true;
+            await ExecuteSelectedSafelyAsync(viewModel);
+        }
+    }
+
+    private async Task ExecuteSelectedSafelyAsync(CommandPaletteViewModel viewModel)
+    {
+        try
+        {
+            await viewModel.ExecuteSelectedAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "A command palette action failed.");
+            await ex.Handle();
         }
     }
 

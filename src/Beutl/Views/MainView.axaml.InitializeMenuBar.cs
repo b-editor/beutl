@@ -301,7 +301,7 @@ public partial class MainView
         }
     }
 
-    private async void OnDeleteElement()
+    private async Task OnDeleteElement()
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
@@ -362,7 +362,7 @@ public partial class MainView
         }
     }
 
-    private async void OnOpenFile()
+    private async Task OnOpenFile()
     {
         if (VisualRoot is not Window window || DataContext is not MainViewModel viewModel)
         {
@@ -389,7 +389,7 @@ public partial class MainView
         }
     }
 
-    private async void OnOpenProject()
+    private async Task OnOpenProject()
     {
         if (VisualRoot is Window window)
         {

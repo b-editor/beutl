@@ -121,8 +121,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Cut.Subscribe(OnCut)
             .AddTo(_disposables);
 
-        Copy.Subscribe(async () => await OnCopy())
-            .AddTo(_disposables);
+        Copy = new AsyncReactiveCommand()
+            .WithSubscribe(OnCopy)
+            .DisposeWith(_disposables);
 
         Exclude.Subscribe(OnExclude)
             .AddTo(_disposables);
@@ -429,7 +430,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public AsyncReactiveCommand Cut { get; } = new();
 
-    public ReactiveCommand Copy { get; } = new();
+    public AsyncReactiveCommand Copy { get; }
 
     public ReactiveCommand Exclude { get; } = new();
 
@@ -834,7 +835,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return Model.HasOriginalDuration();
     }
 
-    public void Execute(ContextCommandExecution execution)
+    public Task ExecuteAsync(ContextCommandExecution execution)
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
@@ -854,6 +855,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     execution.KeyEventArgs.Handled = false;
                 break;
         }
+
+        return Task.CompletedTask;
     }
 
     public record struct PrepareAnimationContext(

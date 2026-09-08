@@ -1136,9 +1136,10 @@ public class VersionControlTabViewTests
     {
         public ContextCommandExecution? LastExecution { get; private set; }
 
-        public void Execute(ContextCommandExecution execution)
+        public Task ExecuteAsync(ContextCommandExecution execution)
         {
             LastExecution = execution;
+            return Task.CompletedTask;
         }
     }
 

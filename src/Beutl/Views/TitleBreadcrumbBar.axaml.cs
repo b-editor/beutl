@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Beutl.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;
@@ -14,19 +15,20 @@ public partial class TitleBreadcrumbBar : UserControl
         InitializeComponent();
     }
 
-    private void OnButtonClick(object? sender, RoutedEventArgs e)
+    private async void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         // Commandプロパティを使わない理由
         // - flyout.Hideを実行するとbuttonのDataContextとCommandがnullになり実行されなくなってしまうため
+        Func<Task>? execute = null;
         if (sender is Button button && DataContext is TitleBreadcrumbBarViewModel viewModel)
         {
             switch (button.Tag)
             {
                 case "OpenFile":
-                    viewModel.OpenFile.Execute(null);
+                    execute = () => viewModel.OpenFile.ExecuteAsync(null!);
                     break;
                 case "NewScene":
-                    viewModel.NewScene.Execute(null);
+                    execute = () => viewModel.NewScene.ExecuteAsync(null!);
                     break;
             }
         }
@@ -34,6 +36,18 @@ public partial class TitleBreadcrumbBar : UserControl
         if (FileButton.Flyout is Flyout flyout)
         {
             flyout.Hide();
+        }
+
+        if (execute is not null)
+        {
+            try
+            {
+                await execute();
+            }
+            catch (Exception ex)
+            {
+                await ex.Handle();
+            }
         }
     }
 

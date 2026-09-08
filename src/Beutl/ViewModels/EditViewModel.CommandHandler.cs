@@ -96,15 +96,16 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         };
     }
 
-    public void Execute(ContextCommandExecution execution)
+    public Task ExecuteAsync(ContextCommandExecution execution)
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
         bool isFromTextBox = execution.KeyEventArgs?.Source is TextBox;
+        Task operation = Task.CompletedTask;
         switch (execution.CommandName)
         {
             case "PlayPause" when !isFromTextBox:
-                Player.PlayPause.Execute();
+                operation = Player.PlayPause.ExecuteAsync();
                 break;
             case "Next":
                 Player.Next.Execute();
@@ -165,6 +166,8 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
                     execution.KeyEventArgs.Handled = false;
                 break;
         }
+
+        return operation;
     }
 
     private void ToggleMarkerAtCurrentTime()

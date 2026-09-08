@@ -33,15 +33,8 @@ public partial class MenuBarViewModel
             .WithSubscribe(OnCutElement);
         CopyLayer = new AsyncReactiveCommand(isSceneOpened)
             .WithSubscribe(OnCopyElement);
-        PasteLayer = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(() =>
-            {
-                if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-                    && viewModel.FindToolTab<TimelineTabViewModel>() is TimelineTabViewModel timeline)
-                {
-                    timeline.Paste.Execute();
-                }
-            });
+        PasteLayer = new AsyncReactiveCommand(isSceneOpened)
+            .WithSubscribe(OnPasteElement);
 
         ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnShowSceneSettings);
@@ -58,11 +51,11 @@ public partial class MenuBarViewModel
     //       Cut
     //       Copy
     //       Paste
-    public ReactiveCommandSlim NewScene { get; } = new();
+    public AsyncReactiveCommand NewScene { get; } = new();
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
 
-    public ReactiveCommandSlim DeleteLayer { get; private set; }
+    public AsyncReactiveCommand DeleteLayer { get; private set; }
 
     public ReactiveCommandSlim ExcludeLayer { get; private set; }
 
@@ -70,7 +63,7 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand CopyLayer { get; private set; }
 
-    public ReactiveCommandSlim PasteLayer { get; private set; }
+    public AsyncReactiveCommand PasteLayer { get; private set; }
 
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
@@ -130,6 +123,14 @@ public partial class MenuBarViewModel
 
             await clipboard.SetDataAsync(data);
         }
+    }
+
+    private Task OnPasteElement()
+    {
+        return TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+               && viewModel.FindToolTab<TimelineTabViewModel>() is { } timeline
+            ? timeline.Paste.ExecuteAsync()
+            : Task.CompletedTask;
     }
 
     private void OnShowSceneSettings()

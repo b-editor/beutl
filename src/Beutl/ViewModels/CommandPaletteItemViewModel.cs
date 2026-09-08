@@ -28,11 +28,13 @@ public sealed class CommandPaletteItemViewModel
 
     internal int Relevance { get; }
 
-    public void Execute()
+    public Task ExecuteAsync()
     {
         if (IsEnabled)
         {
-            Command.Execute();
+            return Command.ExecuteAsync();
         }
+
+        return Task.CompletedTask;
     }
 }
