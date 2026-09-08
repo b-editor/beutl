@@ -324,6 +324,16 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         if (maximumTimelineDuration < traversalLimit)
             traversalLimit = maximumTimelineDuration;
 
+        if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } speedAnimation)
+        {
+            if (SpeedIntegrator.HasInvalidSpeed(speedAnimation))
+                return TimeSpan.MaxValue;
+        }
+        else if (!float.IsFinite(resource.Speed) || resource.Speed < 0)
+        {
+            return TimeSpan.MaxValue;
+        }
+
         bool heldAtTail = IsValidHeldTail(resource, reverse)
             && CanKeepTraversalDirection(
                 new TimeRange(start, TimeSpan.Zero),

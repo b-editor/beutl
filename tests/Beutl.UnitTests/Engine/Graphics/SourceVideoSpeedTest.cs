@@ -200,6 +200,35 @@ public class SourceVideoSpeedTest
         Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    [TestCase(-100f)]
+    public void PublicConversions_InvalidAnimatedSpeedReturnsUnbounded(float speed)
+    {
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(CompositionContext.Default);
+        var animation = new KeyFrameAnimation<float>();
+        _sourceVideo.Speed.Animation = animation;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = speed });
+
+        Assert.That(_sourceVideo.CalculateVideoDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(1), _sourceVideoResource), Is.EqualTo(TimeSpan.MaxValue));
+        Assert.That(_sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(1), _sourceVideoResource), Is.EqualTo(TimeSpan.MaxValue));
+    }
+
+    [Test]
+    public void PublicConversions_OverflowingAnimatedConsumptionSaturates()
+    {
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(CompositionContext.Default);
+        var animation = new KeyFrameAnimation<float>();
+        _sourceVideo.Speed.Animation = animation;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = float.MaxValue });
+
+        Assert.That(_sourceVideo.CalculateVideoDuration(
+            TimeSpan.Zero, TimeSpan.FromSeconds(1), _sourceVideoResource), Is.EqualTo(TimeSpan.MaxValue));
+    }
+
     [Test]
     public void CalculateTimelineDuration_ZeroSpeedTail_ReturnsUnbounded()
     {

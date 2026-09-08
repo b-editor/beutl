@@ -1424,6 +1424,28 @@ public class ElementResizeServiceTests
         Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    [TestCase(-100f)]
+    public void CalculateTimelineDuration_InvalidAnimatedControllerSpeedReturnsUnbounded(float speed)
+    {
+        var video = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)) };
+        var controller = new DrawableTimeController
+        {
+            TimeRange = video.TimeRange,
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+        var animation = new KeyFrameAnimation<float>();
+        controller.Speed.Animation = animation;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = speed });
+
+        Assert.That(controller.CalculateTimelineDuration(
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), video, resource),
+            Is.EqualTo(TimeSpan.MaxValue));
+    }
+
     [Test]
     public void CalculateTimelineDuration_StaticLowSpeedWithFrameRateFindsFiniteBound()
     {

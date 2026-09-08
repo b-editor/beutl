@@ -212,6 +212,17 @@ public class EasingOutputRangeTests
     }
 
     [Test]
+    public void KeyFrameAnimation_OverflowingKeyIntervalReturnsFalse()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.MinValue, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.MaxValue, Value = 200f });
+
+        Assert.That(animation.TryGetOutputRange(
+            new TimeRange(TimeSpan.Zero, TimeSpan.Zero), out _, out _), Is.False);
+    }
+
+    [Test]
     public void BounceEaseRanges_ContainFloatingPointExtrema()
     {
         var easeIn = new BounceEaseIn();

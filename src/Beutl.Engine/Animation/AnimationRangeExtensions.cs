@@ -67,6 +67,21 @@ public static class AnimationRangeExtensions
             return false;
         }
 
+        // Interpolate also subtracts adjacent key times, so validate before evaluating endpoints.
+        for (int i = 1; i < keyFrameAnimation.KeyFrames.Count; i++)
+        {
+            long previousTicks = keyFrameAnimation.KeyFrames[i - 1].KeyTime.Ticks;
+            long nextTicks = keyFrameAnimation.KeyFrames[i].KeyTime.Ticks;
+            if (previousTicks <= rangeEnd.Ticks && nextTicks >= clockRange.Start.Ticks
+                && (nextTicks <= previousTicks
+                    || previousTicks < 0 && nextTicks > long.MaxValue + previousTicks))
+            {
+                minimum = default;
+                maximum = default;
+                return false;
+            }
+        }
+
         float startValue = keyFrameAnimation.Interpolate(clockRange.Start);
         float endValue = keyFrameAnimation.Interpolate(rangeEnd);
         if (!float.IsFinite(startValue) || !float.IsFinite(endValue))

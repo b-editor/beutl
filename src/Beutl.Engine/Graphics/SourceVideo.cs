@@ -32,7 +32,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
     public bool HasOriginalDuration()
     {
-        return Source.CurrentValue != null;
+        return Source.CurrentValue != null && TryGetOriginalDuration(out _);
     }
 
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
@@ -85,7 +85,14 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
 
         resource._speedIntegrator.EnsureCache(anm);
-        return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
+        try
+        {
+            return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
+        }
+        catch (OverflowException)
+        {
+            return timeSpan < TimeSpan.Zero ? TimeSpan.MinValue : TimeSpan.MaxValue;
+        }
     }
 
     private static TimeSpan ScaleStaticVideoTime(TimeSpan timeSpan, float speed)
@@ -109,12 +116,26 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     /// </summary>
     public TimeSpan CalculateVideoDuration(TimeSpan start, TimeSpan duration, Resource resource)
     {
-        if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
+        if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
         {
             if (!TryAddTime(start, duration, out TimeSpan end))
                 return duration > TimeSpan.Zero ? TimeSpan.MaxValue : TimeSpan.MinValue;
+            TimeSpan earliest = TimeSpan.FromTicks(Math.Min(0, Math.Min(start.Ticks, end.Ticks)));
+            TimeSpan latest = TimeSpan.FromTicks(Math.Max(0, Math.Max(start.Ticks, end.Ticks)));
+            if ((decimal)latest.Ticks - earliest.Ticks > long.MaxValue
+                || SpeedIntegrator.HasInvalidSpeed(animation, new TimeRange(earliest, latest - earliest)))
+                return TimeSpan.MaxValue;
 
-            return CalculateVideoTime(end, resource) - CalculateVideoTime(start, resource);
+            TimeSpan endTime = CalculateVideoTime(end, resource);
+            TimeSpan startTime = CalculateVideoTime(start, resource);
+            if (endTime == TimeSpan.MaxValue || startTime == TimeSpan.MinValue)
+                return TimeSpan.MaxValue;
+            if (endTime == TimeSpan.MinValue || startTime == TimeSpan.MaxValue)
+                return TimeSpan.MinValue;
+            decimal ticks = (decimal)endTime.Ticks - startTime.Ticks;
+            return ticks >= long.MaxValue ? TimeSpan.MaxValue
+                : ticks <= long.MinValue ? TimeSpan.MinValue
+                : TimeSpan.FromTicks((long)ticks);
         }
 
         return CalculateVideoTime(duration, resource);
@@ -157,6 +178,8 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
 
         var animation = (KeyFrameAnimation<float>)Speed.Animation!;
+        if (SpeedIntegrator.HasInvalidSpeed(animation, new TimeRange(start, TimeSpan.Zero)))
+            return TimeSpan.MaxValue;
         if (!TryGetTimelineUpperBound(start, sourceDuration, resource, animation, out TimeSpan high))
             return TimeSpan.MaxValue;
 
@@ -298,55 +321,11 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         if (resource.Source == null) return null;
 
-        var anm = Speed.Animation;
-
-        // スピードのアニメーションまたはキーフレームが 1 つもない場合は、単純に逆変換する
-        if (anm is not KeyFrameAnimation<float> keyFrameAnimation || keyFrameAnimation.KeyFrames.Count == 0)
-        {
-            return TimeSpan.FromTicks((long)(duration.Ticks / (Speed.CurrentValue / 100.0)));
-        }
-
-        // 二分探索で、CalculateVideoTime(t) == duration となる t を求める
-        TimeSpan low = TimeSpan.Zero;
-        // 上限は、CalculateVideoTime(high) >= duration となるまで徐々に拡大する
-        TimeSpan high = duration;
-        TimeSpan videoTimeAtHigh = CalculateVideoTime(high, resource);
-        const int maxIterations = 50;
-        const double toleranceSeconds = 1.0 / 60.0; // 1フレーム以下の精度
-
-        // 速度が非常に遅い場合に備えて high を段階的に拡大する
-        const int maxHighExpansions = 20;
-        int expansionCount = 0;
-        while (videoTimeAtHigh < duration
-               && expansionCount < maxHighExpansions
-               && high <= TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2))
-        {
-            high = TimeSpan.FromTicks(high.Ticks * 2);
-            videoTimeAtHigh = CalculateVideoTime(high, resource);
-            expansionCount++;
-        }
-
-        for (int i = 0; i < maxIterations; i++)
-        {
-            TimeSpan mid = TimeSpan.FromTicks((low.Ticks + high.Ticks) / 2);
-            TimeSpan videoTime = CalculateVideoTime(mid, resource);
-
-            if (Math.Abs((videoTime - duration).TotalSeconds) < toleranceSeconds)
-            {
-                return mid;
-            }
-
-            if (videoTime < duration)
-            {
-                low = mid;
-            }
-            else
-            {
-                high = mid;
-            }
-        }
-
-        return TimeSpan.FromTicks((low.Ticks + high.Ticks) / 2);
+        TimeSpan start = Speed.Animation is KeyFrameAnimation<float> { UseGlobalClock: true }
+            ? TimeRange.Start
+            : TimeSpan.Zero;
+        TimeSpan result = CalculateTimelineDuration(start, duration, resource);
+        return result > TimeSpan.Zero && result != TimeSpan.MaxValue ? result : null;
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

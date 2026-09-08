@@ -37,6 +37,26 @@ public class SourceVideoOriginalDurationTests
         Assert.That(duration, Is.EqualTo(MediaDuration - TimeSpan.FromSeconds(0.5)));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TryGetOriginalDuration_StoppedSpeedReturnsFalse(bool animated)
+    {
+        SourceVideo video = CreateSourceVideo();
+        video.Speed.CurrentValue = 0;
+        if (animated)
+        {
+            var animation = new Beutl.Animation.KeyFrameAnimation<float>();
+            animation.KeyFrames.Add(new Beutl.Animation.KeyFrame<float> { Value = 0 });
+            video.Speed.Animation = animation;
+        }
+
+        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
+        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.HasOriginalDuration(), Is.False);
+        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        Assert.That(video.CalculateOriginalTime(resource), Is.Null);
+    }
+
     [Test]
     public void TryGetOriginalDuration_OffsetAtMediaEnd_ReturnsFalse()
     {

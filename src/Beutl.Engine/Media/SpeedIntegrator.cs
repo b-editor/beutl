@@ -32,6 +32,39 @@ public sealed class SpeedIntegrator : IDisposable
         }
     }
 
+    internal static bool HasInvalidSpeed(KeyFrameAnimation<float> animation, TimeRange? clockRange = null)
+    {
+        foreach (IKeyFrame key in animation.KeyFrames)
+        {
+            if (clockRange is { } range && (key.KeyTime < range.Start || key.KeyTime > range.End))
+                continue;
+            if (key is not KeyFrame<float> value || !float.IsFinite(value.Value) || value.Value < 0)
+                return true;
+        }
+
+        // Custom easings need not provide a range contract. Reject proven invalid output
+        // without requiring that optional contract from otherwise supported animations.
+        bool known = clockRange is { } interval
+            ? animation.TryGetOutputRange(interval, out float minimum, out float maximum)
+            : animation.TryGetOutputRange(out minimum, out maximum);
+        if (known)
+            return !float.IsFinite(minimum) || !float.IsFinite(maximum) || minimum < 0;
+        if (clockRange is { } endpoints)
+        {
+            try
+            {
+                float start = animation.Interpolate(endpoints.Start);
+                float end = animation.Interpolate(endpoints.End);
+                return !float.IsFinite(start) || !float.IsFinite(end) || start < 0 || end < 0;
+            }
+            catch (OverflowException)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// <summary>
     /// Starts tracking the animation and initializes the cache.
     /// If the animation changes, clears the cache and re-registers the event handler.
