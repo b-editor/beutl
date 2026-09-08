@@ -1,4 +1,5 @@
-﻿using Beutl.ProjectSystem;
+﻿using System.Text.Json.Nodes;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.PublicApiContractTests;
@@ -7,42 +8,55 @@ namespace Beutl.PublicApiContractTests;
 public sealed class PersistedContentMigrationContractTests : PublicApiContractTestBase
 {
     [Test]
-    public void Plugin_project_items_and_elements_can_report_required_migration_versions()
+    public void Plugin_serializable_types_can_report_required_migration_versions()
     {
         AssertDoesNotHaveFriendAccess(typeof(Project).Assembly);
         AssertDoesNotHaveFriendAccess(typeof(Element).Assembly);
         string root = Path.Combine(
             Path.GetTempPath(),
             $"migration-contract-{Guid.NewGuid():N}");
-        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
-        var scene = new MigratingSceneItem
+        var source = new MigratingSceneItem
         {
             Uri = new Uri(Path.Combine(root, "scene.scene")),
+            Child = new MigratingLeaf(),
         };
-        project.Items.Add(scene);
-        scene.AddChild(new MigratingElement
-        {
-            Uri = new Uri(Path.Combine(root, "element.belm")),
-        });
-
-        CoreSerializer.SerializeToJsonObject(project);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+        var restored = (MigratingSceneItem)CoreSerializer.DeserializeFromJsonObject(
+            json,
+            typeof(ProjectItem));
+        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+        project.Items.Add(restored);
 
         Assert.That(project.MinAppVersion, Is.EqualTo("8.0.0"));
     }
 
     private sealed class MigratingSceneItem : Scene
     {
-        public MigratingSceneItem()
+        public MigratingLeaf? Child { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
         {
-            ReportPersistedContentMigration("7.0.0");
+            base.Serialize(context);
+            context.SetValue(nameof(Child), Child);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            context.ReportPersistedContentMigration("7.0.0");
+            Child = context.GetValue<MigratingLeaf>(nameof(Child));
         }
     }
 
-    private sealed class MigratingElement : Element
+    private sealed class MigratingLeaf : ICoreSerializable
     {
-        public MigratingElement()
+        public void Serialize(ICoreSerializationContext context)
         {
-            ReportPersistedContentMigration("8.0.0");
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            context.ReportPersistedContentMigration("8.0.0");
         }
     }
 }

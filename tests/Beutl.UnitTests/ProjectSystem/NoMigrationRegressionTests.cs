@@ -152,8 +152,8 @@ public class NoMigrationRegressionTests
         json.JsonSave(path);
         Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(path));
 
-        restored.Items.Add(new MigratedProjectItem("4.2.0"));
-        restored.Items.Add(new MigratedProjectItem("5.1.0"));
+        restored.Items.Add(CreateMigrated(new MigratedProjectItem("4.2.0")));
+        restored.Items.Add(CreateMigrated(new MigratedProjectItem("5.1.0")));
 
         Assert.Multiple(() =>
         {
@@ -174,10 +174,10 @@ public class NoMigrationRegressionTests
             Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")),
         };
         project.Items.Add(scene);
-        scene.AddChild(new MigratedElement("6.0.0")
+        scene.AddChild(CreateMigrated(new MigratedElement("6.0.0")
         {
             Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
-        });
+        }));
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(project);
 
@@ -188,22 +188,69 @@ public class NoMigrationRegressionTests
         });
     }
 
-    [Test]
-    public void Deserialization_aggregates_non_hierarchical_serialized_child_migrations()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Deserialization_aggregates_non_hierarchical_serialized_child_migrations(
+        bool deserializeFromNode)
     {
         var source = new MigratingContainer
         {
-            Child = new MigratingLeaf(),
+            First = new MigratingLeaf("7.0.0"),
+            Second = new MigratingLeaf("8.0.0"),
         };
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
 
-        var restored = (MigratingContainer)CoreSerializer.DeserializeFromJsonObject(
-            json,
-            typeof(ProjectItem));
+        var restored = (MigratingContainer)(deserializeFromNode
+            ? CoreSerializer.DeserializeFromJsonNode(json, typeof(ProjectItem))!
+            : CoreSerializer.DeserializeFromJsonObject(json, typeof(ProjectItem)));
         var project = new Project();
         project.Items.Add(restored);
 
-        Assert.That(project.MinAppVersion, Is.EqualTo("7.0.0"));
+        Assert.That(project.MinAppVersion, Is.EqualTo("8.0.0"));
+    }
+
+    [Test]
+    public void Invalid_migration_version_is_rejected()
+    {
+        var context = new JsonSerializationContext(
+            typeof(MigratingLeaf),
+            options: new CoreSerializerOptions { Mode = CoreSerializationMode.Read });
+        context.EnablePersistedContentMigrationReporting();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            context.ReportPersistedContentMigration("not-a-version"));
+    }
+
+    [Test]
+    public void PopulateFromJsonObject_aggregates_serialized_child_migrations()
+    {
+        var source = new MigratingContainer
+        {
+            First = new MigratingLeaf("7.0.0"),
+            Second = new MigratingLeaf("8.0.0"),
+        };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+        var restored = new MigratingContainer();
+
+        CoreSerializer.PopulateFromJsonObject(restored, json);
+        var project = new Project();
+        project.Items.Add(restored);
+
+        Assert.That(project.MinAppVersion, Is.EqualTo("8.0.0"));
+    }
+
+    [Test]
+    public void Failed_deserialization_does_not_attach_a_reported_migration()
+    {
+        var item = new ThrowingMigrationItem();
+        JsonObject json = CoreSerializer.SerializeToJsonObject(item);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            CoreSerializer.PopulateFromJsonObject(item, json));
+        var project = new Project();
+        project.Items.Add(item);
+
+        Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
     }
 
     [Test]
@@ -340,43 +387,119 @@ public class NoMigrationRegressionTests
 
     private sealed class MigratedProjectItem : ProjectItem
     {
+        public MigratedProjectItem()
+        {
+        }
+
         public MigratedProjectItem(string requiredVersion)
         {
-            ReportPersistedContentMigration(requiredVersion);
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
         }
     }
 
     private sealed class MigratedElement : Element
     {
+        public MigratedElement()
+        {
+        }
+
         public MigratedElement(string requiredVersion)
         {
-            ReportPersistedContentMigration(requiredVersion);
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
         }
     }
 
     private sealed class MigratingContainer : ProjectItem
     {
-        public MigratingLeaf? Child { get; set; }
+        public MigratingLeaf? First { get; set; }
+
+        public MigratingLeaf? Second { get; set; }
 
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
-            context.SetValue(nameof(Child), Child);
+            context.SetValue(nameof(First), First);
+            context.SetValue(nameof(Second), Second);
         }
 
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            Child = context.GetValue<MigratingLeaf>(nameof(Child));
+            First = context.GetValue<MigratingLeaf>(nameof(First));
+            Second = context.GetValue<MigratingLeaf>(nameof(Second));
         }
     }
 
-    private sealed class MigratingLeaf : CoreObject
+    private sealed class MigratingLeaf : ICoreSerializable
+    {
+        public MigratingLeaf()
+        {
+        }
+
+        public MigratingLeaf(string requiredVersion)
+        {
+            RequiredVersion = requiredVersion;
+        }
+
+        public string RequiredVersion { get; set; } = null!;
+
+        public void Serialize(ICoreSerializationContext context)
+        {
+            context.SetValue(nameof(RequiredVersion), RequiredVersion);
+        }
+
+        public void Deserialize(ICoreSerializationContext context)
+        {
+            RequiredVersion = context.GetValue<string>(nameof(RequiredVersion))!;
+            context.ReportPersistedContentMigration(RequiredVersion);
+        }
+    }
+
+    private sealed class ThrowingMigrationItem : ProjectItem
     {
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            ReportPersistedContentMigration("7.0.0");
+            context.ReportPersistedContentMigration("9.0.0");
+            throw new InvalidOperationException("migration failed");
         }
+    }
+
+    private static T CreateMigrated<T>(T source)
+        where T : ICoreSerializable
+    {
+        return (T)CoreSerializer.DeserializeFromJsonObject(
+            CoreSerializer.SerializeToJsonObject(source),
+            typeof(T));
     }
 }

@@ -15,6 +15,8 @@ public partial class JsonSerializationContext(
     private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
     private Dictionary<Guid, ICoreSerializable>? _objects;
     private readonly JsonObject _json = json ?? [];
+    private string? _requiredMinAppVersionAfterMigration;
+    private bool _acceptsPersistedContentMigrationReports;
 
     public ICoreSerializationContext? Parent { get; } = parent;
 
@@ -25,6 +27,25 @@ public partial class JsonSerializationContext(
     public Uri? BaseUri => options?.BaseUri ?? Parent?.BaseUri;
 
     public Type OwnerType { get; } = ownerType;
+
+    public void ReportPersistedContentMigration(string minAppVersion)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
+        if (!_acceptsPersistedContentMigrationReports)
+        {
+            throw new InvalidOperationException(
+                "Persisted-content migrations can only be reported while deserializing.");
+        }
+
+        _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
+            _requiredMinAppVersionAfterMigration,
+            minAppVersion);
+    }
+
+    internal void EnablePersistedContentMigrationReporting()
+    {
+        _acceptsPersistedContentMigrationReports = true;
+    }
 
     [MemberNotNullWhen(false, nameof(Parent))]
     public bool IsRoot => Parent == null;
@@ -59,6 +80,7 @@ public partial class JsonSerializationContext(
                 ownerType: obj.GetType(),
                 parent: this,
                 json: jobj);
+            context.EnablePersistedContentMigrationReporting();
 
             using (ThreadLocalSerializationContext.Enter(context))
             {
@@ -70,6 +92,20 @@ public partial class JsonSerializationContext(
 
     public void AfterDeserialized(ICoreSerializable obj)
     {
+        if (_requiredMinAppVersionAfterMigration is { } requiredVersion)
+        {
+            if (obj is CoreObject migratedObject)
+            {
+                migratedObject.MergePersistedContentMigration(requiredVersion);
+                if (migratedObject is Project project)
+                {
+                    project.MarkAsMigrated(requiredVersion);
+                }
+            }
+
+            Parent?.ReportPersistedContentMigration(requiredVersion);
+        }
+
         if (_resolvers?.Count > 0)
         {
             Root._rootResolvers ??= [];

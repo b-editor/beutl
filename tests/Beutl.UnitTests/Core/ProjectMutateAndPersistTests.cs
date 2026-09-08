@@ -11,9 +11,10 @@ public class ProjectMutateAndPersistTests
 
     private sealed class MigratingProjectItem : ProjectItem
     {
-        public MigratingProjectItem()
+        public override void Deserialize(ICoreSerializationContext context)
         {
-            ReportPersistedContentMigration("9.0.0");
+            base.Deserialize(context);
+            context.ReportPersistedContentMigration("9.0.0");
         }
     }
 
@@ -52,7 +53,9 @@ public class ProjectMutateAndPersistTests
         var project = new Project();
         string appVersion = project.AppVersion;
         string minAppVersion = project.MinAppVersion;
-        var item = new MigratingProjectItem();
+        var item = (MigratingProjectItem)CoreSerializer.DeserializeFromJsonObject(
+            CoreSerializer.SerializeToJsonObject(new MigratingProjectItem()),
+            typeof(MigratingProjectItem));
 
         Assert.Throws<InvalidOperationException>(() =>
             ProjectPersistence.AddItemAndPersist(

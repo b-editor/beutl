@@ -84,6 +84,7 @@ public static class CoreSerializer
             ReflectUri(json, obj, parentContext, ref options);
 
             var context = new JsonSerializationContext(actualType, parentContext, json, options);
+            context.EnablePersistedContentMigrationReporting();
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 obj.Deserialize(context);
@@ -127,6 +128,7 @@ public static class CoreSerializer
     {
         var ownerJson = new JsonObject { ["Value"] = json.DeepClone() };
         var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, ownerJson, options);
+        context.EnablePersistedContentMigrationReporting();
         using (ThreadLocalSerializationContext.Enter(context))
         {
             return context.GetValue("Value", type);
@@ -146,8 +148,7 @@ public static class CoreSerializer
         ReflectUri(json, obj, parentContext, ref options);
 
         var context = new JsonSerializationContext(type, parentContext, json, options);
-        using IDisposable migrationScope = CoreObject.BeginPersistedContentMigrationCollection(
-            obj as CoreObject);
+        context.EnablePersistedContentMigrationReporting();
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);

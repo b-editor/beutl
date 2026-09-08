@@ -179,7 +179,7 @@ public class ProjectPersistenceTests
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            ReportPersistedContentMigration(Project.DefaultMinAppVersion);
+            context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
         }
     }
 }

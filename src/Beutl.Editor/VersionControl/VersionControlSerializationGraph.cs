@@ -1767,6 +1767,12 @@ internal static class VersionControlSerializationGraph
 
         public Type OwnerType => owner.GetType();
 
+        public void ReportPersistedContentMigration(string minAppVersion)
+        {
+            throw new InvalidOperationException(
+                "Persisted-content migrations cannot be reported during serialization graph inspection.");
+        }
+
         public JsonObject GetJsonObject()
         {
             throw new InvalidDataException(

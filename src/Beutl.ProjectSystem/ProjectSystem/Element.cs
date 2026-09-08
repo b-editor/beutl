@@ -195,7 +195,7 @@ public class Element : Hierarchical, INotifyEdited
             {
                 Objects.Replace(migrated);
                 WasMigratedFromOperation = true;
-                ReportPersistedContentMigration(Project.DefaultMinAppVersion);
+                context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
             }
         }
     }
