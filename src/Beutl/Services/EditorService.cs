@@ -1856,8 +1856,6 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
         registration.OwnershipLease.Dispose();
     }
 
-    internal ExtensionProvider ExtensionProvider => _extensionProvider;
-
     internal void RequestContextShutdown(IEditorContext context)
     {
         var registration = GetRegisteredItem(context);

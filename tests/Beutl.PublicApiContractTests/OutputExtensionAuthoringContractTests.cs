@@ -15,7 +15,7 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
     {
         AssertDoesNotHaveFriendAccess(typeof(OutputExtension).Assembly);
 
-        var editor = new TestEditorContext();
+        await using var editor = new TestEditorContext();
         var extension = new TestOutputExtension();
         var execution = new TestOutputExecutionController();
         var outputOperations = new TestOutputOperationLeaseProvider();
@@ -156,6 +156,14 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
 
     private sealed class TestEditorContext : IEditorContext
     {
+        public IEditorContextCloseService CloseService { get; } = new TestCloseService();
+
+        public ValueTask DisposeAsync()
+        {
+            IsEnabled.Dispose();
+            return ValueTask.CompletedTask;
+        }
+
         public CoreObject Object { get; } = new TestCoreObject();
 
         public EditorExtension Extension => null!;
@@ -172,14 +180,19 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
             where T : IToolContext
             => default;
 
-        public bool OpenToolTab(IToolContext item) => false;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => ValueTask.FromResult(false);
 
-        public void CloseToolTab(IToolContext item)
-        {
-        }
+        public ValueTask CloseToolTabAsync(IToolContext item) => ValueTask.CompletedTask;
 
         public object? GetService(Type serviceType) => null;
     }
 
     private sealed class TestCoreObject : CoreObject;
+
+    private sealed class TestCloseService : IEditorContextCloseService
+    {
+        public EditorContextHostToken HostToken { get; } = new();
+
+        public EditorContextCloseRequest RequestClose(IEditorContext context) => default;
+    }
 }

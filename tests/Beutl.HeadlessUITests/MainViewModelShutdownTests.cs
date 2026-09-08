@@ -102,7 +102,7 @@ public sealed class MainViewModelShutdownTests
         Project project = (await viewModel.ProjectService.CreateProject(
             640, 480, 30, 44_100, "shutdown-editor", workspace))!;
         Scene scene = project.Items.OfType<Scene>().Single();
-        viewModel.EditorService.ActivateTabItem(scene);
+        await viewModel.EditorService.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
 
         try

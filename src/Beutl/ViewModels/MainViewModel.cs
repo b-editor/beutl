@@ -26,7 +26,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
+public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler, IAsyncDisposable
 {
     internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authHttpClient;
@@ -338,17 +338,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         }
     }
 
-    private void BeginDisposeOrThrow()
-    {
-        _projectService.CloseProjectOrThrow();
-        _ = GetOrStartDisposal();
-    }
-
-    internal bool TryDisposeForWindowClose()
+    internal async Task<bool> TryDisposeForWindowCloseAsync()
     {
         try
         {
-            BeginDisposeOrThrow();
+            await DisposeAsync();
             return true;
         }
         catch (ProjectCloseAbortedException)
@@ -401,7 +395,18 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     private async Task DisposeCoreAsync()
     {
-        await _projectService.CloseProjectAsync();
+        try
+        {
+            await _projectService.CloseProjectAsync();
+        }
+        catch (ProjectCloseAbortedException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to close the active project during shutdown.");
+        }
         try
         {
             PackageInstaller packageInstaller = _beutlClients.GetResource<PackageInstaller>();
@@ -533,14 +538,14 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             workspace = CreateAiWorkspaceViewModel(editorContext);
             if (!await TryOpenNewAiWorkspaceAsync(
                     workspace,
-                    () => editorContext.OpenToolTab(workspace)))
+                    () => editorContext.OpenToolTabAsync(workspace)))
             {
                 return null;
             }
         }
         else
         {
-            if (!editorContext.OpenToolTab(workspace))
+            if (!await editorContext.OpenToolTabAsync(workspace))
             {
                 return null;
             }
@@ -562,11 +567,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     internal static async Task<bool> TryOpenNewAiWorkspaceAsync(
         AiWorkspaceViewModel workspace,
-        Func<bool> tryOpen)
+        Func<ValueTask<bool>> tryOpen)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(tryOpen);
-        if (tryOpen())
+        if (await tryOpen())
             return true;
 
         await workspace.DisposeAsync();
@@ -679,36 +684,13 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     private async Task CloseEditorSessionAsync()
     {
-        EditorTabItem[] tabs = _editorService.TabItems.ToArray();
         try
         {
-            _editorService.SelectedTabItem.Value = null;
-            _editorService.TabItems.Clear();
+            await EditorHost.DisposeAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to unpublish editor tabs during shutdown.");
-        }
-
-        foreach (EditorTabItem tab in tabs)
-        {
-            try
-            {
-                await tab.DisposeAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to dispose an editor tab during shutdown.");
-            }
-        }
-
-        try
-        {
-            _projectService.CloseProject();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to close the active project during shutdown.");
+            _logger.LogError(ex, "Failed to drain editor services during shutdown.");
         }
     }
 

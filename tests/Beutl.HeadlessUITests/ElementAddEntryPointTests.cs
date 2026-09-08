@@ -43,7 +43,7 @@ public class ElementAddEntryPointTests
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
 
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
@@ -271,7 +271,7 @@ public class ElementAddEntryPointTests
         await TestReset.ResetShellAsync();
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("player-drop-without-timeline");
-        editor.CloseToolTab(timeline);
+        await editor.CloseToolTabAsync(timeline);
         Assert.That(editor.FindToolTab<TimelineTabViewModel>(), Is.Null);
         using (editor.HistoryManager.SuppressRecording())
         {

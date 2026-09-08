@@ -96,7 +96,7 @@ public sealed class AiShellEntryPointTests
             AiWorkspaceViewModel first = editor.FindToolTab<AiWorkspaceViewModel>()!;
 
             AiWorkspaceViewModel second = mainViewModel.CreateAiWorkspaceViewModel(editor);
-            Assert.That(editor.OpenToolTab(second), Is.True);
+            Assert.That(await editor.OpenToolTabAsync(second), Is.True);
             HeadlessTestHelpers.Settle();
 
             using (Assert.EnterMultipleScope())
@@ -210,9 +210,14 @@ public sealed class AiShellEntryPointTests
         var page = new StubPage();
         var workspace = new AiWorkspaceViewModel(editor, _ => page);
 
-        bool opened = await MainViewModel.TryOpenNewAiWorkspaceAsync(
+        var admission = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<bool> opening = MainViewModel.TryOpenNewAiWorkspaceAsync(
             workspace,
-            static () => false);
+            () => new ValueTask<bool>(admission.Task));
+        Assert.That(opening.IsCompleted, Is.False);
+        Assert.That(page.IsDisposed, Is.False);
+        admission.SetResult(false);
+        bool opened = await opening;
 
         using (Assert.EnterMultipleScope())
         {
@@ -377,7 +382,7 @@ public sealed class AiShellEntryPointTests
         Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, name, workspace))!;
         Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }

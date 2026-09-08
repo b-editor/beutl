@@ -90,7 +90,7 @@ public class ContextCommandDispatchTests
                 "edit-handler",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var gate = new TaskCompletionSource(
@@ -128,7 +128,7 @@ public class ContextCommandDispatchTests
                 "timeline-handler",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -178,7 +178,7 @@ public class ContextCommandDispatchTests
                 "timeline-handler",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;

@@ -5633,7 +5633,7 @@ public sealed class AiDialogWorkflowTests
         Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, name, workspace))!;
         Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }

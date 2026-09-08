@@ -46,7 +46,7 @@ public sealed class AiJobCenterTests
         };
         Beutl.Serialization.CoreSerializer.StoreToUri(second, second.Uri!);
         TestShell.Project.CurrentProject.Value!.Items.Add(second);
-        TestShell.Editor.ActivateTabItem(second);
+        await TestShell.Editor.ActivateTabItemAsync(second);
         HeadlessTestHelpers.Settle();
         var selected = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
         var result = new AiCaptionHistoryResult(new AiJobId("origin-caption"),
@@ -2037,7 +2037,7 @@ public sealed class AiJobCenterTests
         Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, name, workspace))!;
         Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
