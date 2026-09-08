@@ -177,6 +177,16 @@ else
         git checkout --detach FETCH_HEAD
     fi
 fi
+# A local branch that is ahead of the fetched PR head must not carry its extra commits into the
+# remediation. Work from the verified object even when `merge --ff-only FETCH_HEAD` reported
+# "Already up to date" for that local descendant.
+if [ "$(git rev-parse HEAD)" != "$PR_HEAD_OID" ]; then
+    git checkout --detach FETCH_HEAD
+fi
+test "$(git rev-parse HEAD)" = "$PR_HEAD_OID" || {
+    echo "Checked-out head does not match the verified PR head" >&2
+    exit 1
+}
 # Track whether we ended up detached for Step 5 push logic
 IS_DETACHED=$(git symbolic-ref -q --short HEAD >/dev/null 2>&1 && echo false || echo true)
 ```
@@ -216,6 +226,13 @@ chooses where that work belongs. One decision per comment; never change code wit
 choice that authorizes both the edit and its destination. An empty, dismissed, or unanswered response is **not approval**.
 This remains true even when the surrounding runtime normally permits a best-judgment default. Leave
 the code and thread unchanged and report the pending decision.
+
+When the user selects **Create independent work**, create a GitHub Issue that records the source PR
+and review URL, the separate scope, and its acceptance criteria. Do not edit or commit anything on
+the current PR branch, and leave its review thread unchanged. A later implementation must fetch
+`origin/main`, create a new feature branch directly from that commit, and open a PR whose base is
+`main`; never base it on the reviewed PR or make it a stacked PR. Creating the Issue records the
+separate work but does not authorize starting that implementation.
 
 ### `--auto` mode — conservative auto-decision
 - **Bots only.** Auto-address / auto-resolve only feedback from the known bot reviewers. **Any human
