@@ -29,12 +29,16 @@ public sealed class GplMitBoundaryContractTests
         foreach (string file in EnumerateBuildFiles(repositoryRoot))
         {
             string relativePath = Path.GetRelativePath(repositoryRoot, file).Replace('\\', '/');
-            if (relativePath.StartsWith("src/Beutl.FFmpegWorker/", StringComparison.Ordinal))
+            if (relativePath == "src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj")
             {
                 continue;
             }
 
             XDocument document = XDocument.Load(file);
+            bool isWorkerSideSharedBuildFile = relativePath.StartsWith(
+                    "src/Beutl.FFmpegWorker/",
+                    StringComparison.Ordinal)
+                && Path.GetExtension(relativePath) is ".props" or ".targets";
             bool allowsWorkerSourceLinks = relativePath.StartsWith(
                     "tests/Beutl.FFmpegBenchmarks/",
                     StringComparison.Ordinal)
@@ -72,6 +76,15 @@ public sealed class GplMitBoundaryContractTests
                             $"{relativePath}: contains an unresolved dynamic Compile item");
                     }
 
+                    continue;
+                }
+
+                if (elementName == "Compile"
+                    && include is not null
+                    && isWorkerSideSharedBuildFile)
+                {
+                    violations.Add(
+                        $"{relativePath}: exposes worker Compile items from a shared build file");
                     continue;
                 }
 
@@ -432,6 +445,45 @@ public sealed class GplMitBoundaryContractTests
                 Is.EqualTo(new[]
                 {
                     "Project.csproj: contains an unresolved dynamic Compile item",
+                }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
+    public void Boundary_scan_rejects_compile_items_in_worker_side_shared_build_files()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-worker-import-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            string workerDirectory = Directory.CreateDirectory(
+                Path.Combine(testRoot, "src", "Beutl.FFmpegWorker")).FullName;
+            File.WriteAllText(
+                Path.Combine(workerDirectory, "WorkerItems.targets"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <Compile Include="WorkerHost.cs" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "src/Beutl.FFmpegWorker/WorkerItems.targets: exposes worker Compile items from a shared build file",
                 }));
         }
         finally
