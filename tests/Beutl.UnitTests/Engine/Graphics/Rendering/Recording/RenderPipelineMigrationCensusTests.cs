@@ -994,7 +994,8 @@ public sealed class RenderPipelineMigrationCensusTests
             }
 
             UsingDirectiveSyntax[] usings = document.Root.Usings.Concat(
-                type.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(item => item.Usings));
+                    type.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(item => item.Usings))
+                .ToArray();
             usings = usings.Concat(_globalUsings).ToArray();
             int nameSeparator = writtenType.IndexOf('.');
             string aliasName = nameSeparator < 0 ? writtenType : writtenType[..nameSeparator];
@@ -1020,7 +1021,7 @@ public sealed class RenderPipelineMigrationCensusTests
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
                 .Select(item => item.Name.ToString()));
-            for (string scope = declaredNamespace;;)
+            for (string scope = declaredNamespace; ;)
             {
                 string declaredType = string.IsNullOrEmpty(scope)
                     ? typeName
