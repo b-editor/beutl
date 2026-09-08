@@ -37,6 +37,32 @@ PRテンプレートでは概要・影響範囲・テスト計画・破壊的変
 - **新しい XAML はコンパイル済みバインディングを使う**（`x:CompileBindings="True"` + `x:DataType`）。
 - **GPL/MIT の境界を越えない** — MIT プロジェクトは `Beutl.FFmpegWorker` への `ProjectReference` を持たず、IPC 経由でのみアクセスします。
 
+ビルド、テスト、カバレッジ、アーキテクチャに関する要件は、
+[開発品質ゲート](docs/development/quality-gates.md)にまとめています。
+FFmpeg worker を含む配布物を変更する場合は、
+[GPL/MIT 配布要件](docs/development/gpl-mit-boundary.md)にも従ってください。
+
+### 公開 API の設計
+
+明確に優れた設計がある場合、扱いにくい API の互換性維持を既定の選択にはしません。
+公開抽象は直交性を保ち、現在のアプリケーションが想定していない用途にもプラグイン作者が
+対応できるよう、インターフェイス、仮想フック、合成可能なプリミティブを優先してください。
+
+既存の呼び出し元を更新しないためだけに、`[Obsolete]` shim、重複した `V2` 型、
+legacy パラメーター、互換ラッパーを追加しないでください。ツリー内の呼び出し元は同じ変更で
+更新します。公開済みの拡張契約に廃止猶予を設ける場合は、メンテナーが明示的に選択し、
+PR に削除時期を記載する必要があります。判断が自明でない場合は、互換性維持または大規模な
+書き換えを黙って選ばず、PR でトレードオフを説明してください。
+
+### 変更範囲とブランチの安全性
+
+変更範囲に含まれる欠陥や回帰は同じ変更内で完了してください。別の機能に属する作業、または
+メンテナーだけが提供できる情報によってブロックされている作業は、未説明の TODO として残さず、
+その境界を明記してください。
+
+`.github/workflows/` 配下の既存ファイルは、メンテナーの明示的な承認なしに変更しないでください。
+`main` または `master` を force-push せず、feature branch を使用してください。
+
 ### コミットメッセージ
 
 [Conventional Commits](https://www.conventionalcommits.org/) に従います。
@@ -71,6 +97,9 @@ XAMLファイル
 </UserControl>
 ```
 
-### 各モジュールについて
+カスタム Drawable、フィルター効果、ブラシ、シェーダーを実装する場合は、
+[解像度非依存レンダリングのガイド](docs/extension-authoring/resolution-independent-rendering.md)も参照してください。
+ドッキング可能なエディターツールを追加する場合は、
+[ツールタブ拡張ガイド](docs/extension-authoring/tool-tabs.md)を参照してください。
 
-モジュール境界マップと詳細なコントリビューションルールは [`AGENTS.md`](AGENTS.md) を、AI 支援ワークフローのドキュメントは [`docs/ai-workflow/`](docs/ai-workflow/README.md) を参照してください。
+[プロジェクト構成ガイド](docs/development/project-structure.md)には、各モジュールの責務と依存境界をまとめています。

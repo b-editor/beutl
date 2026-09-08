@@ -50,6 +50,34 @@ breaking changes — please fill it in. A few rules CI and reviewers enforce:
 - **Do not cross the GPL/MIT boundary**: MIT projects must not take a
   `ProjectReference` to `Beutl.FFmpegWorker`; reach it only via IPC.
 
+The complete build, test, coverage, and architecture requirements are listed in
+the [development quality gates](docs/development/quality-gates.md).
+Packaging changes that include the FFmpeg worker must also follow the
+[GPL/MIT distribution requirements](docs/development/gpl-mit-boundary.md).
+
+### Public API design
+
+Prefer a clearly better design over preserving an awkward API by default. Keep
+public abstractions orthogonal, and favor interfaces, virtual hooks, and
+composable primitives that let plugin authors support use cases outside the
+current application.
+
+Do not add `[Obsolete]` shims, duplicate `V2` types, legacy parameters, or
+compatibility wrappers merely to avoid updating call sites. Update in-tree call
+sites in the same change. A published extensibility contract may use a
+deprecation window only when maintainers explicitly choose one and the PR
+documents the removal target. When the trade-off is non-obvious, explain it in
+the PR instead of silently choosing either compatibility or a sweeping rewrite.
+
+### Change scope and branch safety
+
+Finish defects and regressions that belong to the stated change. If work is
+genuinely separate or blocked by information only a maintainer can provide,
+describe that boundary explicitly instead of leaving an undocumented TODO.
+
+Do not change existing files under `.github/workflows/` without explicit
+maintainer approval. Never force-push `main` or `master`; use a feature branch.
+
 ### Commit messages
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):
@@ -82,11 +110,14 @@ XAML Files
 </UserControl>
 ```
 
-### Where things live
-
-See the module boundary map and detailed contributor rules in
-[`AGENTS.md`](AGENTS.md), and the AI-assisted workflow docs under
-[`docs/ai-workflow/`](docs/ai-workflow/README.md).
-
 Packaging materials or object templates for the store is described in
 [`docs/data-packages.md`](docs/data-packages.md).
+
+The [project structure guide](docs/development/project-structure.md) describes
+module responsibilities and dependency boundaries.
+
+Extension authors should also read the
+[resolution-independent rendering guide](docs/extension-authoring/resolution-independent-rendering.md)
+before implementing custom drawables, filter effects, brushes, or shaders, and
+the [tool-tab extension guide](docs/extension-authoring/tool-tabs.md) before
+adding a dockable editor tool.

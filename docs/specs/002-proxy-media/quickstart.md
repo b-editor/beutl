@@ -8,7 +8,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 
 ## 0. Prerequisites
 
-- Beutl built with `dotnet build Beutl.slnx` (or `/beutl-build`).
+- Beutl built with `dotnet build Beutl.slnx`.
 - **The 003 resolution-independent pipeline is the implemented baseline** this feature builds on. The headline verification below depends on the 003 supply-density seam (a proxy keeps the clip's logical footprint and only lowers its `EffectiveScale`). If 003 is not present, several steps (4a, the export rationale in 8) will not apply.
 - FFmpeg installed via the existing `FFmpegInstallService` flow (Help → Install FFmpeg, or it'll prompt when needed).
 - One **heavy** source clip available locally (≥4K, ≥60 Mbps, ≥30 s long) — call its path `$SRC`.

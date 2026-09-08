@@ -32,4 +32,4 @@
 ## Notes
 
 - "Git" appears throughout as a product-level domain concept (the user-approved scope is Git-based versioning with remotes), not as an implementation choice; engine selection (CLI vs library) is deliberately absent and deferred to plan/research.
-- Four assumptions are marked *(to be confirmed in clarification)* — creation-default, timer checkpoints, Save As history, LFS default. They carry informed defaults, so no [NEEDS CLARIFICATION] markers were needed; `/speckit-clarify` will confirm or adjust them.
+- Four assumptions are marked *(to be confirmed in clarification)* — creation-default, timer checkpoints, Save As history, LFS default. They carry informed defaults, so no [NEEDS CLARIFICATION] markers were needed; the clarification phase will confirm or adjust them.

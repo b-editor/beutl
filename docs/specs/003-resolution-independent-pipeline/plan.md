@@ -20,7 +20,7 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 
 **Target Platform**: cross-platform desktop (`net10.0` + `net10.0-windows`), GPU (Vulkan/MoltenVK) for rendering
 
-**Project Type**: desktop application + engine library (single repo; module-boundary map in AGENTS.md)
+**Project Type**: desktop application + engine library (single repository)
 
 **Performance Goals**: reduced-scale preview render-stage time scales ~`s²` for the rasterization-bound portion (SC-003 gate: pinned seed `20040719` produces a counterbalanced, seeded permutation of 11 paired 0.5×/1.0× samples—five 0.5×/1.0× orders, five 1.0×/0.5× orders, plus one seed-selected unmatched order; 0.5× is faster in at least 9 pairs, an exact tie is reported and counted as not a 0.5× win, the one-sided exact sign test has `p < 0.05`, and the pinned vector-heavy workload has `median(0.5)/median(1.0) < 0.85`; report the seed, realized order, tie count, ratio, and ~0.25 target without asserting that fixed overhead scales with `s²`; a **required** source-heavy benchmark variant anchors the supply-driven model's deliberate non-speedup); reduced-scale "exact" effects SSIM ≥ 0.985 vs 1.0 (SC-004); `s=1.0` byte-identical for vector / Skia-filter / unscaled-bitmap content (SC-001)
 
@@ -28,9 +28,9 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 
 **Scale/Scope**: ~28 `RenderNode.Process` overrides reached via one `RenderNodeContext` construction site; ~40 filter effects + particles + audio visualizers adopt the supply-driven scale contract; ~12 breaking public symbols + 1 new value type (`EffectiveScale`; an earlier `ResolutionPolicy` type was added then removed); 6 implementation slices; FR-001..037
 
-## Constitution Check
+## Project Requirements Check
 
-*GATE: evaluated against `.specify/memory/constitution.md` v0.1.0. Re-checked post-design — still PASS.*
+*GATE: evaluated against the project's architecture, testing, and compatibility constraints. Re-checked post-design — still PASS.*
 
 | Principle | Status | Notes |
 |---|---|---|
@@ -39,11 +39,11 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 | **III. Test-First with NUnit** | ✅ PASS | New logic ships with NUnit: golden byte-equality + SSIM harness, per-effect manifest `[TestCaseSource]`, supply-driven `ResolveWorkingScale`/`ClampWorkingScaleToBufferBudget` pure-math tests, cache-scale-invalidation, perspective-append unit test. (`NoPixelCouplingOnRenderPathTest` deferred — T007/SC-008.) Benchmarks excluded from the default gate. |
 | **IV. Avalonia + Compiled Bindings** | ✅ PASS (action) | The preview-scale control (FR-035) touches XAML/VM. Any new `UserControl` MUST declare `x:CompileBindings="True"` + `x:DataType`; prefer extending an existing player/quality control over a new control. |
 | **V. Style Belongs to the Linter** | ✅ PASS | No stylistic-only edits; `dotnet format` owns style. |
-| **VI. Source Generators Are Load-Bearing** | ✅ PASS | FR-032 resolves to **no generator change** for the common path (scale is not an `IProperty`; the resource model stays scale-free — D6). Only effect-property unit/type changes (e.g. `ColorShift` `PixelPoint`→`Point`) flow through the existing `CompareAndUpdate<T>`; the `tests/SourceGeneratorTest` NUnit snapshot suite must stay green and `/beutl-build` must pass before review. |
+| **VI. Source Generators Are Load-Bearing** | ✅ PASS | FR-032 resolves to **no generator change** for the common path (scale is not an `IProperty`; the resource model stays scale-free — D6). Only effect-property unit/type changes (e.g. `ColorShift` `PixelPoint`→`Point`) flow through the existing `CompareAndUpdate<T>`; the `tests/SourceGeneratorTest` NUnit snapshot suite must stay green and `dotnet build Beutl.slnx` must pass before review. |
 
-**Quality Gates** (constitution §Quality Gates, all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage threshold; CI Claude review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; route the public surface through `beutl-design-reviewer` (FR-028).
+**Quality Gates** (see [development quality gates](../../development/quality-gates.md), all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage regression review; independent code review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; complete an independent public-API design review (FR-028).
 
-**No constitutional violations — Complexity Tracking is empty.**
+**No project-requirement violations — Complexity Tracking is empty.**
 
 ## Project Structure
 
@@ -51,7 +51,7 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 
 ```text
 docs/specs/003-resolution-independent-pipeline/
-├── spec.md                  # /speckit-specify (+ /speckit-clarify)
+├── spec.md                  # specification phase (+ clarification phase)
 ├── plan.md                  # this file
 ├── research.md              # Phase 0 — the design decisions (D1–D7)
 ├── data-model.md            # Phase 1 — entities/types
@@ -59,7 +59,7 @@ docs/specs/003-resolution-independent-pipeline/
 ├── quickstart.md            # Phase 1 — validation walkthrough + slice order
 ├── checklists/requirements.md
 ├── notes/rendering-analysis.md   # research dossier (+ §12 Codex corrections)
-└── tasks.md                 # /speckit-tasks (NOT created here)
+└── tasks.md                 # task-planning phase (NOT created here)
 ```
 
 ### Source Code (repository root) — affected areas
@@ -89,7 +89,7 @@ tests/SourceGeneratorTest/              # NUnit snapshot regression for any effe
 
 ## Phasing (implementation slices — independently testable)
 
-Each slice is golden-testable (render at `s`, compare to `s=1.0` within the gate) and delivers value without the whole pipeline. Detail in [quickstart.md](./quickstart.md#implementation-slice-order-independently-testable-see-planmd); `/speckit-tasks` decomposes them.
+Each slice is golden-testable (render at `s`, compare to `s=1.0` within the gate) and delivers value without the whole pipeline. Detail in [quickstart.md](./quickstart.md#implementation-slice-order-independently-testable-see-planmd); task-planning phase decomposes them.
 
 1. **Slice 0 — plumbing skeleton** (no behavior change). `RenderNodeContext.OutputScale` + `ResolveWorkingScale` + `EffectiveScale` (value type), `RenderNodeProcessor.OutputScale`, `Renderer.RenderScale`; 3 sinks → `PixelRect.FromRect(rect, w)` (w=1). Land the golden harness (`NoPixelCouplingOnRenderPathTest` deferred — T007/SC-008). **Gate: byte-identical at 1.0.**
 2. **Slice 1 — reduced-scale preview for vector + Skia-filter** (root `ceil(FrameSize×s_out)` + `CreateScale(s_out)`, re-shaped text, scale-keyed `RenderNodeCache`). First user-visible slice.
@@ -102,9 +102,9 @@ Each slice is golden-testable (render at `s`, compare to `s=1.0` within the gate
 
 ## Complexity Tracking
 
-*No constitutional violations — section intentionally empty.*
+*No project-requirement violations — section intentionally empty.*
 
-## Residual decisions for `/speckit-tasks` / implementation
+## Residual decisions for the task-planning phase / implementation
 
 - **CI GPU lane**: whether to add SwiftShader/llvmpipe so SC-001/SC-004 pixel goldens run in CI, or keep them dev/self-hosted (maintainer + CI-workflow approval; do not change `.github/workflows/*` without it). If no GPU lane, the CI-enforced guards are the **non-GPU pure-math** tests (`ResolveWorkingScale`/`ClampWorkingScaleToBufferBudget`/`EffectiveScale` density flow, `Editor/RenderScaleTests`) and goldens run on dev/self-hosted GPU. *(The SC-008 search test it originally named was deferred — T007; an allowlist scan is the follow-up.)*
 - **RgbaF16 zero-epsilon reproducibility** across MoltenVK/SwiftShader/native — validate empirically on the chosen golden backend; fall back to a tiny ULP tolerance only if required.
@@ -112,4 +112,4 @@ Each slice is golden-testable (render at `s`, compare to `s=1.0` within the gate
 - **Supersample factor surfacing** in `OutputViewModel`/encoder preset UI (cap at 2× + Mitchell per research.md).
 - **Built-in working scale** (FR-036) — **as shipped, every built-in is supply-driven** (no closed per-effect policy enum; runs at the input supply density, which keeps a high-res source through the effect). The `ResolutionPolicy` type (`Inherit`/`ClampToOutput`/`Oversample`/`PreserveSource`) was removed entirely — an effect needing a non-supply `w` overrides `GetWorkingScaleContract()` in a custom `FilterEffectRenderNode`; `Process` remains for different topology/lowering. At `s_out = 1.0`, the representative FR-005 golden set with vector, Skia-filter, text, and unscaled/unit-density bitmap inputs MUST remain byte-identical. Transform-rescaled or scaled-bitmap-into-effect scenes retain the explicit FR-005/FR-019 exemption.
 - **Global working-scale ceiling value** `MaxWorkingScale` (FR-037) — **as shipped:** preview `2 × s_out` (interactive backstop), **export `+∞`** (no working-scale quality ceiling — *amended 2026-06-15*; the earlier finite `max(8, 4 × s_out)` was removed as a quality clip). `RenderScaleUtilities.ClampWorkingScaleToBufferBudget` provides only a per-buffer, 16384-px-per-axis clamp. It does not bound aggregate bytes, area, live-buffer count, or a backend-specific image limit, so the request-scoped aggregate budget and backend-reported limit remain explicitly out of scope for feature 003. Configured in `WorkingScaleCeiling` (`Beutl.Editor`), seeded by `EditViewModel` (preview) / `OutputViewModel` (export).
-- **`IRenderer.RenderScale`/`DeviceSize`** as hard breaking members vs default-interface-impls — `beutl-design-reviewer` call.
+- **`IRenderer.RenderScale`/`DeviceSize`** as hard breaking members vs default-interface implementations — explicit public-API design decision.

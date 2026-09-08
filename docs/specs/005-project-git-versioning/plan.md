@@ -28,7 +28,7 @@ Turn a Beutl project directory into a Git repository the app manages for the use
 
 **Scale/Scope**: hundreds of small JSON files per project; histories in the hundreds of versions; media up to multi-GB via LFS
 
-## Constitution Check
+## Project Requirements Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
@@ -58,7 +58,7 @@ docs/specs/005-project-git-versioning/
 │   ├── version-control-service.md   # IProjectVersionControlService seam
 │   ├── git-cli-invocation.md        # GitCliRunner process contract
 │   └── coordinator-lifecycle.md     # trigger wiring + close/reopen cycle + UI map
-└── tasks.md             # Phase 2 (/speckit-tasks — not created by /speckit-plan)
+└── tasks.md             # Phase 2 (created during task planning, not this planning phase)
 ```
 
 ### Source Code (repository root)
@@ -143,4 +143,4 @@ Complete — [data-model.md](./data-model.md), [contracts/](./contracts/), [quic
 
 ## Complexity Tracking
 
-No constitution violations to justify — no new projects, no new packages, no boundary crossings.
+No project-requirement violations to justify — no new projects, no new packages, no boundary crossings.

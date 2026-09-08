@@ -210,7 +210,7 @@ This is the load-bearing integration with 003 for video proxies. As shipped by 0
 | `SourceVideo` | `Graphics/SourceVideo.cs:139` | `r.Source.FrameSize.ToSize(1)` (logical == decoded `FrameSize`) | Return the **original** logical size when the backing decode is a proxy |
 | `VideoSourceRenderNode` | `Graphics/Rendering/VideoSourceRenderNode.cs` | `Bounds = …FrameSize.ToSize(1)`; `effectiveScale: EffectiveScale.At(1f)` (hard-coded) | `Bounds` from the **original** logical size; `EffectiveScale.At(SupplyDensity)`; draw the decoded proxy bitmap into the original-footprint dest rect |
 
-Design (to be pinned in `/speckit-tasks`): the original logical `FrameSize` and the proxy decoded `FrameSize` are carried on the resolved `ProxyResolution` (see [contracts/IProxyResolver.md](./contracts/IProxyResolver.md)) and threaded into the source `.Resource` / render node at open time, so:
+Design (to be pinned in the task-planning phase): the original logical `FrameSize` and the proxy decoded `FrameSize` are carried on the resolved `ProxyResolution` (see [contracts/IProxyResolver.md](./contracts/IProxyResolver.md)) and threaded into the source `.Resource` / render node at open time, so:
 
 - the render node's `Bounds` (and the source's logical size) use the **original** `FrameSize` — the proxy does not move or resize content (FR-021);
 - the op reports `EffectiveScale.At(SupplyDensity)`, where `SupplyDensity` is computed from the actual `ProxyDecodedFrameSize / OriginalLogicalFrameSize` and may differ from a preset's nominal factor because of long-edge clamps and integer rounding (FR-022);

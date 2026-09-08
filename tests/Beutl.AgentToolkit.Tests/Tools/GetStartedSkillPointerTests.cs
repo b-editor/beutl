@@ -149,6 +149,7 @@ public sealed class GetStartedSkillPointerTests
         string[] bundled = BundledAgentToolkitAssets.Load()
             .Where(a => a.Kind == AgentToolkitAssetKind.Skill)
             .Select(a => a.RelativePath.Split('/')[0])
+            .Distinct(StringComparer.Ordinal)
             .ToArray();
 
         Assert.That(

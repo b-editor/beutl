@@ -11,23 +11,25 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-brief-expansion\SKILL.md"
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-brief-expansion\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-brief-expansion.SKILL.md" />
-    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-timeline-from-shotlist\SKILL.md"
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-timeline-from-shotlist\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-timeline-from-shotlist.SKILL.md" />
-    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-look-effect-chain\SKILL.md"
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-look-effect-chain\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-look-effect-chain.SKILL.md" />
-    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-asset-sourcing\SKILL.md"
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-asset-sourcing\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-asset-sourcing.SKILL.md" />
-    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-source-grounding\SKILL.md"
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-source-grounding\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.SKILL.md" />
-    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-visual-review\SKILL.md"
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-source-grounding\agents\openai.yaml"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.agents.openai.yaml" />
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-visual-review\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-visual-review.SKILL.md" />
-    <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-timeline-builder.md"
+    <EmbeddedResource Include="Installation\Assets\agents\beutl-agent-timeline-builder.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-timeline-builder.md" />
-    <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-look-applier.md"
+    <EmbeddedResource Include="Installation\Assets\agents\beutl-agent-look-applier.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-look-applier.md" />
-    <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-quality-reviewer.md"
+    <EmbeddedResource Include="Installation\Assets\agents\beutl-agent-quality-reviewer.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-quality-reviewer.md" />
   </ItemGroup>
 

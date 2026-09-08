@@ -7,10 +7,10 @@
 > `RenderNodeOperation`/`RenderNodeProcessor` and revises the filter-effect compatibility surface.
 > Use Feature 004's [breaking-change contract](../../004-gpu-pass-fusion/contracts/breaking-changes.md)
 > and [public API contract](../../004-gpu-pass-fusion/contracts/public-api.md) for current migration
-> instructions. For current author guidance, use
-> [Resolution-independent rendering](../../../ai-workflow/resolution-independent-rendering.md).
+> instructions. For current author guidance, use the
+> [resolution-independent rendering author guide](../../../extension-authoring/resolution-independent-rendering.md).
 
-This feature ships as a **breaking change**: `refactor!:` / `feat!:` with a `BREAKING CHANGE:` footer naming `Beutl.Engine`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`. **No `[Obsolete]` shims** (AGENTS.md); all in-tree call sites updated in the same change. Route through `beutl-design-reviewer` (FR-028). **No file-format change** (FR-001/SC-002).
+This feature ships as a **breaking change**: `refactor!:` / `feat!:` with a `BREAKING CHANGE:` footer naming `Beutl.Engine`, `Beutl.NodeGraph`, `Beutl.ProjectSystem`. **No `[Obsolete]` shims**; all in-tree call sites updated in the same change. Complete an explicit public-API design review (FR-028). **No file-format change** (FR-001/SC-002).
 
 ## Breaking symbols
 

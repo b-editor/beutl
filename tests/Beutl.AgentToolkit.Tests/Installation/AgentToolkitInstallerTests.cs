@@ -30,13 +30,22 @@ public sealed class AgentToolkitInstallerTests
     {
         IReadOnlyList<AgentToolkitAsset> assets = BundledAgentToolkitAssets.Load();
 
-        Assert.That(assets, Has.Count.EqualTo(9));
-        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(6));
+        Assert.That(assets, Has.Count.EqualTo(10));
+        Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Skill), Is.EqualTo(7));
         Assert.That(assets.Count(x => x.Kind == AgentToolkitAssetKind.Subagent), Is.EqualTo(3));
+        Assert.That(
+            assets.Where(x => x.Kind == AgentToolkitAssetKind.Skill)
+                .Select(x => x.RelativePath.Split('/')[0])
+                .Distinct(StringComparer.Ordinal)
+                .Count(),
+            Is.EqualTo(6));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-brief-expansion/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-timeline-from-shotlist/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-asset-sourcing/SKILL.md"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-source-grounding/SKILL.md"));
+        Assert.That(
+            assets.Select(x => x.RelativePath),
+            Does.Contain("beutl-agent-source-grounding/agents/openai.yaml"));
         Assert.That(assets.Select(x => x.RelativePath), Does.Contain("beutl-agent-visual-review/SKILL.md"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
@@ -72,6 +81,9 @@ public sealed class AgentToolkitInstallerTests
             assets.Single(x => x.RelativePath == "beutl-agent-source-grounding/SKILL.md").Content,
             Does.Contain("measure_object_bounds"));
         Assert.That(
+            assets.Single(x => x.RelativePath == "beutl-agent-source-grounding/agents/openai.yaml").Content,
+            Does.Contain("display_name: \"Beutl Agent Source Grounding\""));
+        Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
             Does.Contain("paletteHarmony"));
         Assert.That(
@@ -101,6 +113,29 @@ public sealed class AgentToolkitInstallerTests
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-look-applier.md").Content, Does.Contain("render_still"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("final_preflight"));
         Assert.That(assets.Single(x => x.RelativePath == "beutl-agent-quality-reviewer.md").Content, Does.Contain("subdivisionLevel:1"));
+    }
+
+    [Test]
+    public async Task InstallAsync_WritesBundledSkillMetadata()
+    {
+        await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSubagents = false,
+                InstallStdioMcp = false,
+            },
+            BundledAgentToolkitAssets.Load());
+
+        string metadataPath = Path.Combine(
+            _tempRoot,
+            "skills",
+            "beutl-agent-source-grounding",
+            "agents",
+            "openai.yaml");
+
+        Assert.That(File.Exists(metadataPath), Is.True);
+        Assert.That(File.ReadAllText(metadataPath), Does.Contain("Beutl Agent Source Grounding"));
     }
 
     [Test]

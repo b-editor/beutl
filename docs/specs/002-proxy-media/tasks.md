@@ -9,9 +9,9 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, and the **implemented** sibling spec `docs/specs/003-resolution-independent-pipeline/` (the resolution-independent pipeline this feature builds on — its supply-driven scale model, `EffectiveScale`, and the source logical-size seam are load-bearing here; see spec FR-021/FR-022 and research R-11).
 
-**Tests**: REQUIRED for every implementation task — Beutl constitution principle III ("Test-First with NUnit") mandates NUnit tests for any new logic in `src/`. Each user story phase below includes its tests before the corresponding implementation.
+**Tests**: REQUIRED for every implementation task — the project test policy mandates NUnit tests for any new logic in `src/`. Each user story phase below includes its tests before the corresponding implementation.
 
-**Organization**: Tasks are grouped by user story. The constitution forbids GPL ↔ MIT coupling, so every task that touches media generation goes through `Beutl.FFmpegIpc` only — never via `ProjectReference` to `Beutl.FFmpegWorker`.
+**Organization**: Tasks are grouped by user story. The GPL/MIT license boundary forbids direct coupling, so every task that touches media generation goes through `Beutl.FFmpegIpc` only — never via `ProjectReference` to `Beutl.FFmpegWorker`.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -33,7 +33,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 - [ ] T001 Create folder `src/Beutl.Engine/Media/Proxy/` (empty placeholder file to add it to the project; replace with real types in later phases)
 - [ ] T002 Create folder `tests/Beutl.UnitTests/Media/Proxy/` (matching test namespace)
-- [ ] T003 Run `/beutl-build` to confirm the new folders compile clean before any code is added
+- [ ] T003 Run `dotnet build Beutl.slnx` to confirm the new folders compile clean before any code is added
 - [ ] T004 [P] Skim `src/Beutl.Engine/Media/Source/VideoSource.cs` and `src/Beutl.Engine/Media/Decoding/DecoderRegistry.cs` / `MediaOptions.cs` end-to-end and note any uses of `MediaOptions` that will need the new `PreferProxy` flag (planning input for T013). **Also (post-003)** skim `src/Beutl.Engine/Composition/CompositionContext.cs`, `src/Beutl.ProjectSystem/SceneCompositor.cs`, `src/Beutl.Engine/Graphics/SourceVideo.cs`, and `src/Beutl.Engine/Graphics/Rendering/VideoSourceRenderNode.cs` — note how logical size is derived from decoded `FrameSize` (`r.Source.FrameSize.ToSize(1)`) and how `EffectiveScale.At(1f)` is hard-coded; these are the video seam sites for the logical-size decoupling (T062–T065). Confirm `src/Beutl.Engine/Graphics/Rendering/EffectiveScale.cs` exists (003) and read its `At`/`Unbounded` API. Still images stay out of MVP scope because `ImageSource` bypasses `DecoderRegistry.OpenMediaFile`.
 
 ---
@@ -77,7 +77,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 ### Verification step
 
-- [ ] T021 Run `/beutl-build` + targeted `dotnet test --filter "FullyQualifiedName~Media.Proxy"` and confirm: foundational tests (T005, T006) pass against the new types; the `MediaOptions` change has not broken any existing test
+- [ ] T021 Run `dotnet build Beutl.slnx` plus targeted `dotnet test Beutl.slnx -f net10.0 --filter "FullyQualifiedName~Media.Proxy"` and confirm: foundational tests (T005, T006) pass against the new types; the `MediaOptions` change has not broken any existing test
 
 **Checkpoint**: enums, records, interfaces, `MediaOptions.PreferProxy`, and config are in place. User stories can now begin in parallel.
 
@@ -149,13 +149,13 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 ### UI for US2
 
 - [ ] T045 [US2] Create `src/Beutl.Editor*/ToolTabs/Proxies/ProxiesToolTab.axaml` + `.axaml.cs` + `ProxiesToolTabViewModel.cs`. Required:
-   - `x:CompileBindings="True"` + `x:DataType="vm:ProxiesToolTabViewModel"` (constitution principle IV)
+   - `x:CompileBindings="True"` + `x:DataType="vm:ProxiesToolTabViewModel"` (compiled-binding requirement)
    - Clip list with proxy state badge per clip (None / Generating / Ready / Stale / Failed) plus a computed `Skipped` eligibility/job-result badge for sources that cannot be proxied
    - Preset selector (defaults to `Quarter`)
    - Buttons: Generate selection / Regenerate / Delete / Delete-all-for-project
    - Pending-jobs list with progress + cancel
    - Store totals (project / global) and cap usage
-- [ ] T046 [US2] Register the tool tab via the existing `ToolTabExtension` mechanism (follow `beutl-tooltab-extension` skill guidance). Reference the existing tool tab pattern for placement / lifecycle
+- [ ] T046 [US2] Register the tool tab via the existing `ToolTabExtension` mechanism. Follow the [tool-tab extension guide](../../extension-authoring/tool-tabs.md) and the existing Proxies tab pattern for placement and lifecycle
 - [ ] T047 [US2] (Headless smoke if feasible) Add `tests/Beutl.UnitTests/Editor/ToolTabs/ProxiesToolTabSmokeTests.cs` using `Avalonia.Headless` if the project already wires it; otherwise mark this task as a manual verification step in quickstart.md (FR-015 visibility check)
 
 **Checkpoint**: User can generate, regenerate, and delete proxies through the Proxies tool tab; LRU eviction enforces the cap; FFmpeg-missing flows cleanly to the install prompt. With US1 + US2 done, the headline workflow works end-to-end from a clean install.
@@ -187,15 +187,15 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 **Purpose**: confirm gates, run the quickstart end-to-end, document for downstream consumers.
 
-- [ ] T053 [P] Run `/beutl-format` (apply mode) to make sure the entire diff conforms to `.editorconfig` and `xamlstyler.json`
-- [ ] T054 [P] Run `/beutl-build` to confirm full-solution build is green on `net10.0` and `net10.0-windows` (constitution principle II)
-- [ ] T055 [P] Run `/beutl-test` filtered to `FullyQualifiedName~Media.Proxy` plus `FullyQualifiedName~ProxyGeneration`; iterate until green; then run the full suite (constitution principle III)
-- [ ] T056 [P] Run `/beutl-coverage` and confirm no regression in `Beutl.Engine` / `Beutl.ProjectSystem` coverage (constitution gate 4)
+- [ ] T053 [P] Run `dotnet format Beutl.slnx` to make sure the entire diff conforms to `.editorconfig` and `xamlstyler.json`
+- [ ] T054 [P] Run `dotnet build Beutl.slnx` to confirm full-solution build is green on `net10.0` and `net10.0-windows` (dual-target requirement)
+- [ ] T055 [P] Run `dotnet test Beutl.slnx -f net10.0 --filter "FullyQualifiedName~Media.Proxy|FullyQualifiedName~ProxyGeneration"`; iterate until green; then run the full suite (project test policy)
+- [ ] T056 [P] Run `dotnet test Beutl.slnx -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings` and confirm no regression in `Beutl.Engine` / `Beutl.ProjectSystem` coverage (coverage requirement)
 - [ ] T057 Manually walk through `docs/specs/002-proxy-media/quickstart.md` steps 1 → 12; report any deviation as a defect, not as quickstart drift. The "Measurement protocol" section in quickstart.md is the official verification path for SC-001 and SC-004 (no automated benchmark in MVP — manual is the contract)
-- [ ] T058 Trigger `@beutl-design-reviewer` against the diff to catch any public-API drift that doesn't match the "adopt better designs eagerly" priority (e.g., overlapping abstractions, compatibility shims)
-- [ ] T059 Trigger `@beutl-reviewer` to validate GPL/MIT boundary, XAML compiled-bindings, NUnit conventions, and source-generator impact across the diff
-- [ ] T060 Update `docs/ai-workflow/` (if affected) and the per-module anchor in `src/Beutl.Engine/CLAUDE.md` with a short pointer to the new `Beutl.Media.Proxy` namespace
-- [ ] T061 Run `/beutl-ai-self-review` to ensure the AI workflow scaffolding (subagents, skills, rules, hooks) still reflects current reality after a non-trivial feature has landed
+- [ ] T058 Perform an independent public-API design review against the diff to catch drift from the "adopt better designs eagerly" priority (e.g., overlapping abstractions, compatibility shims)
+- [ ] T059 Review the complete diff for GPL/MIT boundary violations, missing XAML compiled bindings, NUnit convention issues, and source-generator impact
+- [ ] T060 Update the relevant developer documentation with a short pointer to the new `Beutl.Media.Proxy` namespace
+- [x] T061 Retired because repository-local AI workflow scaffolding is no longer part of the project
 
 **Final checkpoint**: Beutl ships a working proxy media workflow with green CI, no GPL ↔ MIT leakage, full NUnit coverage on the new namespace, and a quickstart that walks anyone through verifying the headline guarantee.
 
@@ -208,13 +208,13 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 - **Setup (Phase 1)**: no dependencies; starts immediately.
 - **Foundational (Phase 2)**: depends on Setup. **Blocks all user stories** — interfaces, enums, and `MediaOptions.PreferProxy` plumbing must exist before any story phase begins.
 - **US1 (Phase 3)**: depends on Foundational. Independent of US2 and US3 (can be tested with manually-seeded proxies; see T033).
-- **US2 (Phase 4)**: depends on Foundational. Independent of US1 in implementation but the demo flow (`/beutl-test`-level confidence) benefits from US1 being merged so end-to-end preview-with-real-proxy works.
+- **US2 (Phase 4)**: depends on Foundational. Independent of US1 in implementation but the demo flow benefits from US1 being merged so end-to-end preview-with-real-proxy works.
 - **US3 (Phase 5)**: depends on US1 (T031 / T051) and Foundational (T010 `PreviewSourceMode` enum). Trivially independent in test scope (mock `Scene`).
 - **Polish (Phase 6)**: depends on every prior phase.
 
 ### Within each user story
 
-- Tests are written first and confirmed failing before implementation (constitution principle III).
+- Tests are written first and confirmed failing before implementation (project test policy).
 - Within US1: `IProxyResolver` impl precedes `DecoderRegistry` wire-up (T029, which hands the resolved `ProxyResolution` to the source layer) which precedes the 003 video logical-size seam (T063 source → T064 render node → T065 cache invalidation) which precedes context/export-path wiring (T030/T031). The seam (T062–T065) is part of US1 — US1's guarantee is incorrect without it.
 - Within US2: `ProxyStore.ReconcileAsync` + `ProxyJobQueue` precede the concrete `FFmpegProxyGenerator` which precedes UI.
 - Within US3: `Scene.PreviewSourceMode` precedes `SceneCompositor` context seeding which precedes the settings-UI toggle.
@@ -252,7 +252,7 @@ Task: "Implement PreviewSourceMode enum in src/Beutl.Engine/Media/Proxy/PreviewS
 ### MVP first (User Story 1 only)
 
 1. Phase 1 Setup → 4 tasks, ~30 min.
-2. Phase 2 Foundational → 17 tasks. Pause and confirm `/beutl-build` green.
+2. Phase 2 Foundational → 17 tasks. Pause and confirm `dotnet build Beutl.slnx` is green.
 3. Phase 3 US1 → 12 tasks. **MVP demo step**: pre-seed a proxy on disk and verify preview=proxy / export=original (T033 + quickstart steps 4, 5, 8).
 4. Stop here for an initial PR if scope must be split — the headline guarantee already holds with manually-managed proxies, which unblocks any team experimenting with the workflow.
 
@@ -262,7 +262,7 @@ Task: "Implement PreviewSourceMode enum in src/Beutl.Engine/Media/Proxy/PreviewS
 2. PR 2: Phase 4 (US2). Ships generation + queue + LRU + UI.
 3. PR 3: Phase 5 + Phase 6 (US3 toggle + polish). Ships the convenience toggle + closes out gates.
 
-Each PR independently passes constitution gates 1–6. Each PR's diff stays under ~30 changed files. Each PR can be reverted without breaking the others (US3 falls back to default `PreferProxy`; US2 absent just means no generation UI but routing still works).
+Each PR independently passes the [development quality gates](../../development/quality-gates.md). Each PR's diff stays under ~30 changed files. Each PR can be reverted without breaking the others (US3 falls back to default `PreferProxy`; US2 absent just means no generation UI but routing still works).
 
 ### Parallel team strategy
 
@@ -280,8 +280,8 @@ After Foundational (Phase 2) merges:
 - `[P]` = different files, no dependencies on incomplete tasks.
 - `[Story]` label maps task → user story for traceability.
 - Each user story is independently completable and independently testable (US1 with mocks / pre-seeded proxies).
-- Tests must FAIL before their corresponding implementation lands (constitution III).
+- Tests must FAIL before their corresponding implementation lands (project test policy).
 - The export path (`OutputViewModel` / `FrameProviderImpl` plus the `SceneCompositor` context seam) is the spec's headline safety floor — every change touching it must keep T024 + T025 + T030 green.
-- The constitution forbids `ProjectReference` from MIT to `Beutl.FFmpegWorker`; additionally, do not add a reverse `Beutl.Engine` reference to `Beutl.Extensions.FFmpeg` or `Beutl.FFmpegIpc`. Proxy generation reuses `FFmpegEncodingControllerProxy` over the existing `Beutl.FFmpegIpc` channel from the concrete `Beutl.Extensions.FFmpeg` generator.
+- The GPL/MIT license boundary forbids `ProjectReference` from MIT to `Beutl.FFmpegWorker`; additionally, do not add a reverse `Beutl.Engine` reference to `Beutl.Extensions.FFmpeg` or `Beutl.FFmpegIpc`. Proxy generation reuses `FFmpegEncodingControllerProxy` over the existing `Beutl.FFmpegIpc` channel from the concrete `Beutl.Extensions.FFmpeg` generator.
 - Commit after each task or each logical group; prefer `feat:` for new types, `refactor:` for `MediaOptions` plumbing, `test:` for fixtures.
 - Preset implementation starts from research R-5 numbers (`Half`, `Quarter`, `Eighth`) and tunes only if the quickstart measurement protocol shows the defaults miss SC-001 / SC-004.

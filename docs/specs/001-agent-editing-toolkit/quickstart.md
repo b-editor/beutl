@@ -1,6 +1,6 @@
 # Quickstart: Agent Editing Toolkit
 
-How to build the toolkit, wire it into an MCP-capable agent host, and drive a project through the declarative loop. (This describes the *target* developer experience the plan delivers; the projects below are created by `/speckit-tasks` → `/speckit-implement`.)
+How to build the toolkit, wire it into an MCP-capable agent host, and drive a project through the declarative loop. (This describes the *target* developer experience the plan delivers; the projects below are created during the task-planning and implementation phases.)
 
 ## Build
 
@@ -181,10 +181,10 @@ dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 
 Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) and scoped specialists (Subagents) so agents follow Beutl's conventions without re-deriving them:
 
-- `.claude/skills/beutl-agent-timeline-from-shotlist/SKILL.md`
-- `.claude/skills/beutl-agent-look-effect-chain/SKILL.md`
-- `.claude/agents/beutl-agent-timeline-builder.md`
-- `.claude/agents/beutl-agent-look-applier.md`
-- `.claude/agents/beutl-agent-quality-reviewer.md`
+- `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-timeline-from-shotlist/SKILL.md`
+- `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-look-effect-chain/SKILL.md`
+- `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-timeline-builder.md`
+- `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-look-applier.md`
+- `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-quality-reviewer.md`
 
 Use the timeline recipe/specialist for shot-list layout, retiming, splitting, grouping, and media placement. Use the look/effect recipe/specialist for color/effect chains, effect ordering, and cross-shot consistency. Use the quality reviewer before export or when an edit feels sparse, over-dense, unreadable, slow for its BPM, structurally ambiguous, or likely to fail deterministic gates. The guidance documents PascalCase property keys, id-keyed array merge-patch rules, in-range schema-driven values, role tags such as `[role:text-backing]`, the one-EngineObject-per-ordinary-Element rule, and preflight quality checks.

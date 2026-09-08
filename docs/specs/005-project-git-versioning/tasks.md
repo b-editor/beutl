@@ -4,7 +4,7 @@
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
 
-**Tests**: included — constitution principle III ("new logic in `src/` is incomplete without an accompanying test") makes them mandatory, not optional. Unit suites run real `git` in temp directories with env isolation (research R-14).
+**Tests**: included — the project test policy makes them mandatory, not optional. Unit suites run real `git` in temp directories with env isolation (research R-14).
 
 **Organization**: grouped by user story (US1–US6 from spec.md) so each story is an independently testable increment.
 

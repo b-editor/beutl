@@ -1,9 +1,9 @@
 # Public API / design review
 
 Design-axis review of the proxy-media public surface on branch `yuto-trd/proxy`
-(base `main`), against the AGENTS.md "adopt better designs eagerly" priorities:
+(base `main`), against the design priorities used for the review:
 orthogonality, library-user flexibility, compatibility-shim avoidance, and
-breaking-change hygiene. The four `beutl-reviewer` axes (GPL/MIT, XAML bindings,
+breaking-change hygiene. The four general review axes (GPL/MIT, XAML bindings,
 NUnit, SourceGen) are out of scope here.
 
 ## Severity summary
@@ -51,7 +51,7 @@ which the doc admits reduces to `!PreferProxy` given the invariant. So
 medium
 
 ### Why this matters
-AGENTS.md "Orthogonality first": two fields encoding one decision with a
+Two fields encoding one decision with a
 hand-maintained invariant is exactly the kind of muddled state the policy asks us
 to collapse. Any future producer that sets the two bools inconsistently silently
 violates the invariant, and there is no type-level guard. Because Engine already
@@ -88,7 +88,7 @@ pluggable eviction strategy.
 - `src/Beutl.Editor.Components/ProxiesTab/ViewModels/ProxiesTabViewModel.cs:596` (only consumer)
 
 ### Why this matters
-AGENTS.md "Library-user flexibility first" and orthogonality. Compared to the
+For library-user flexibility and orthogonality, compared to the
 sibling seams in this same change — `IProxyGeneratorFactory`, `IProxyResolver`,
 `IProxyStore`, all genuine replacement points — this interface is the odd one out:
 its name implies a substitutable policy, but a plugin author cannot replace the

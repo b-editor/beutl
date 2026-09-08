@@ -273,7 +273,7 @@ A creator opens a project in the Beutl editor and asks the agent — connected t
 
 ## Delivered Extensions
 
-The toolkit shipped five design extensions after the original spec was approved. Each is fully implemented in this branch; their design notes were consolidated here from `docs/superpowers/specs/` and `docs/benchmarks/` to keep `docs/` aligned with the Spec-Kit layout (`docs/specs/<NNN>-<slug>/`). The benchmark briefs and vision-scoring baselines that exercise these extensions live under `checklists/briefs/` and `checklists/visual-quality-baselines/`.
+The toolkit shipped five design extensions after the original spec was approved. Each is fully implemented in this branch; their design notes were consolidated here from `docs/superpowers/specs/` and `docs/benchmarks/` to keep the numbered design records together under `docs/specs/<NNN>-<slug>/`. The benchmark briefs and vision-scoring baselines that exercise these extensions live under `checklists/briefs/` and `checklists/visual-quality-baselines/`.
 
 ### Visual-Quality Improvement (2026-07-02)
 

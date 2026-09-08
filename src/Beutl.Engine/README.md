@@ -1,0 +1,30 @@
+# Beutl.Engine contributor guide
+
+This subtree is the **rendering / scene-graph core**. Nothing else in the solution may depend on the UI layer from here. Keep the dependency arrow pointing only toward `Beutl.Core`, `Beutl.Threading`, `Beutl.Configuration`, `Beutl.Language`.
+
+## What lives here
+
+- `Graphics/` — 2D pipeline, `IDrawable` chain, SKSurface ↔ `GraphicsContext`
+- `Graphics/Rendering/` — `RenderNode` tree recorded for each render request; nodes are **structurally immutable per frame** — do not mutate fields after a node is added to its parent in the same frame
+- `Graphics3D/` — 3D pipeline, mesh / material / camera
+- `Animation/` — `IAnimation<T>` / animators / easing; integer animators must use checked arithmetic (see `cd6c40b5b`)
+- `Audio/` — sample-rate-agnostic audio graph
+- `Composition/` — track / clip / element composition layered on top of Graphics
+- `Engine/` — top-level scene container
+- `Media/Proxy/` — MIT-side proxy metadata, resolver, queue, eviction, and value types. Concrete FFmpeg generation stays outside Engine.
+
+## Mandatory rules in this subtree
+
+1. **No UI references.** `using Avalonia.*` or any `Beutl.Editor*` / `Beutl.Controls*` symbol here is a build break. The project file enforces this via `ProjectReference` shape; do not loosen it.
+2. **Source generators run from `Beutl.Engine.SourceGenerators`** as an analyzer reference. Changes that touch generated APIs (e.g. `CoreProperty` registration) must be exercised by `tests/SourceGeneratorTest/` and `tests/Beutl.UnitTests/` together — coverage on one side is not enough.
+3. **`InternalsVisibleTo`** grants are declared in both the project file and `Properties/AssemblyInfo.cs`. Do not add more without a discussion.
+4. **`FilterEffect` / `Drawable` authoring** must follow the [resolution-independent rendering guide](../../docs/extension-authoring/resolution-independent-rendering.md) whenever scale, intermediate buffers, brushes, or shaders are involved.
+5. **Avoid allocations on the render hot path.** Prefer `stackalloc` / pooled arrays in render-node `Process(...)` and request-execution paths. Profile before optimising past that.
+6. **Proxy media stays on the MIT side.** `Media/Proxy/` may expose Engine abstractions such as `IProxyGenerator`, but it must not reference `Beutl.Extensions.FFmpeg`, `Beutl.FFmpegWorker`, or FFmpeg IPC implementation types.
+
+## Common traps
+
+- **Integer animator overflow** — interpolating `int` / `long` between distant keyframes can overflow. Always go through the checked helpers in `Animation/Animators/`; see `cd6c40b5b` for the regression test pattern.
+- **Render-node invalidation** — when state affecting `Process(...)` output changes, call `MarkChanged()` so a cached recording is not replayed for stale state.
+- **Disposal ordering** — `GraphicsContext` owns SKSurface lifetime. Returning a context to a caller that outlives the render pass leaks GPU memory.
+- **`GeometryShape` placement is not origin-normalized** — `Shape.OnDraw` draws the path at its own coordinates while alignment centers a box of `geometry.Bounds.Size`, so the drawn center = alignment-resolved center + `geometry.Bounds.Position` (deliberately kept; characterized by `GeometryShapePlacementTests` in Beutl.AgentToolkit.Tests). Paths must be authored with bounds starting at `(0,0)`; the GUI path editor and player overlay mirror this model (`PathEditorViewModel.CalculateMatrix`, `PlayerView.axaml.MouseControl.cs`).

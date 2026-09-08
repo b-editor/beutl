@@ -81,7 +81,7 @@ The model: recorded fragments carry their own scale `e`; intermediates run at `w
 
 **Rationale**: F16-linear surfaces make SSIM/SSAA correct in linear light; the byte-equality gate on raw F16 is the strongest possible regression anchor; the ratio-based benchmark is hardware-independent.
 
-**Residual for plan**: whether CI adds a GPU lane (SwiftShader/llvmpipe) or pixel-goldens stay dev/self-hosted only (maintainer/CI-workflow decision — see Constitution note); whether RgbaF16 byte-equality is reproducible across MoltenVK/SwiftShader/native closely enough for zero-epsilon (else a tiny ULP tolerance, validated empirically).
+**Residual for plan**: whether CI adds a GPU lane (SwiftShader/llvmpipe) or pixel-goldens stay dev/self-hosted only (maintainer/CI-workflow decision — see the project requirements note); whether RgbaF16 byte-equality is reproducible across MoltenVK/SwiftShader/native closely enough for zero-epsilon (else a tiny ULP tolerance, validated empirically).
 
 ---
 
