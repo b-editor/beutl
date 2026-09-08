@@ -208,7 +208,7 @@ public class ElementResizeServiceTests
 
         Assert.DoesNotThrow(() =>
             _service.Resize(_scene,
-                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(2), 0)],
+                [new ElementResizeRequest(element, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(3), 0)],
                 ripple: true));
 
         Assert.Multiple(() =>
@@ -218,6 +218,41 @@ public class ElementResizeServiceTests
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
+    }
+
+    [Test]
+    public void Resize_RippleLeftEdgeCrossesOrigin_PreservesRightEdgeAndFollowers()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element follower = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2));
+        TimeSpan requestedStart = TimeSpan.FromSeconds(-1);
+        TimeSpan fixedEnd = element.Range.End;
+
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, requestedStart, fixedEnd - requestedStart, 0)], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Range.End, Is.EqualTo(fixedEnd));
+            Assert.That(follower.Start, Is.EqualTo(fixedEnd));
+        });
+        _history.Undo();
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(follower.Start, Is.EqualTo(fixedEnd));
+    }
+
+    [TestCase(-2, 1)]
+    [TestCase(-2, -1)]
+    public void Resize_RippleRequestedEndBeforeOrigin_UsesMinimumLength(int start, int length)
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        _service.Resize(_scene,
+            [new ElementResizeRequest(element, TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), 0)], ripple: true);
+
+        Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
     }
 
     [Test]

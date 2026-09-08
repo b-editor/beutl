@@ -26,7 +26,7 @@ public sealed class ElementResizeService : IElementResizeService
         if (requests.Count == 0) return;
 
         // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
-        requests = NormalizeRequests(scene, requests);
+        requests = NormalizeRequests(scene, requests, ripple);
 
         bool autoAdjustSceneDuration = ripple && GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         var oldBounds = ripple ? new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count) : null;
@@ -104,7 +104,7 @@ public sealed class ElementResizeService : IElementResizeService
         scene.Duration = sceneEnd - scene.Start;
     }
 
-    private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests)
+    private static ElementResizeRequest[] NormalizeRequests(Scene scene, IReadOnlyList<ElementResizeRequest> requests, bool ripple)
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         // Invalid persisted rates use the default; sub-tick frames still require a positive duration.
@@ -115,7 +115,14 @@ public sealed class ElementResizeService : IElementResizeService
             ElementResizeRequest req = requests[i];
             ArgumentNullException.ThrowIfNull(req.Element);
             TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
-            TimeSpan length = req.NewLength < minLength ? minLength : req.NewLength;
+            TimeSpan length = req.NewLength;
+            if (ripple && req.NewStart < TimeSpan.Zero && length > TimeSpan.Zero)
+            {
+                // Preserve the requested end so clamping a left-edge drag does not ripple followers.
+                length += req.NewStart;
+            }
+
+            if (length < minLength) length = minLength;
             normalized[i] = new ElementResizeRequest(req.Element, start, length, req.ZIndex);
         }
 
