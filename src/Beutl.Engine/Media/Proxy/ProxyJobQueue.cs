@@ -639,14 +639,14 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 item.Job,
                 failure.Message);
 
-            Exception? releaseFailure = ReleaseAdmissionLease(admissionLease);
-            if (releaseFailure is not null)
+            Exception? terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
+            if (terminalReleaseFailure is not null)
             {
                 item.TryClaimNonCancellationTerminal(cancellationWins: false);
                 item.Job.Error = new AggregateException(
                     "Proxy generation and admission-lease release both failed.",
                     failure,
-                    releaseFailure);
+                    terminalReleaseFailure);
             }
             else if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
             {
