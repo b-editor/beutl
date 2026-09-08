@@ -87,12 +87,27 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         NativeWebView webView = _createWebView(_viewModel.CurrentUri);
+        if (OperatingSystem.IsMacOS())
+        {
+            webView.EnvironmentRequested += ConfigureMacOSWebViewEnvironment;
+        }
         webView.AdapterCreated += OnAdapterCreated;
         webView.NavigationStarted += OnNavigationStarted;
         webView.NavigationCompleted += OnNavigationCompleted;
         webView.NewWindowRequested += OnNewWindowRequested;
         _webView = webView;
         WebViewHost.Content = webView;
+    }
+
+    internal static void ConfigureMacOSWebViewEnvironment(object? sender, WebViewEnvironmentRequestedEventArgs e)
+    {
+        if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple)
+        {
+            // WKWebView omits Safari's product token, so Google serves its basic HTML UI.
+            // Append the compatibility token while retaining the system's OS and WebKit UA.
+            // EnvironmentRequested runs before the first navigation; AdapterCreated is too late.
+            apple.ApplicationNameForUserAgent = "Safari/605.1.15";
+        }
     }
 
     private void OnAdapterCreated(object? sender, WebViewAdapterEventArgs e)
@@ -399,6 +414,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             return;
         }
 
+        _webView.EnvironmentRequested -= ConfigureMacOSWebViewEnvironment;
         _webView.AdapterCreated -= OnAdapterCreated;
         _webView.NavigationStarted -= OnNavigationStarted;
         _webView.NavigationCompleted -= OnNavigationCompleted;

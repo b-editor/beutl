@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
+using System.Runtime.CompilerServices;
+
 using Avalonia.Platform;
 
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -14,6 +16,23 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class WebBrowserTabViewModelTests
 {
+    [Test]
+    public void MacOSEnvironment_AddsSafariIdentificationBeforeNavigation()
+    {
+        // Avalonia creates these event args internally; this test only exercises their settings.
+        var environment = (AppleWKWebViewEnvironmentRequestedEventArgs)RuntimeHelpers.GetUninitializedObject(
+            typeof(AppleWKWebViewEnvironmentRequestedEventArgs));
+        environment.NonPersistentDataStore = true;
+
+        WebBrowserTabView.ConfigureMacOSWebViewEnvironment(null, environment);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(environment.ApplicationNameForUserAgent, Is.EqualTo("Safari/605.1.15"));
+            Assert.That(environment.NonPersistentDataStore, Is.True);
+        });
+    }
+
     [Test]
     public void InstalledWebKitGtk_IsAcceptedDespiteNativeDialogScenarioMetadata()
     {
