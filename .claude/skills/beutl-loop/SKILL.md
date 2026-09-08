@@ -463,8 +463,8 @@ authoritative** (and the step-5 merge gate re-checks them regardless). **Derive 
 yourself too** — take the **max** of: the latest review `submitted_at`, the head commit
 `committedDate`, the newest **issue** comment `updated_at` (`gh pr view "$PR" --json reviews,comments,commits`),
 **and the newest inline review-comment `updated_at`** (`gh api "repos/b-editor/beutl/pulls/$PR/comments" --paginate`)
-— `gh pr view --json comments` returns only issue comments, so an inline reply (including the
-resolver's own) is invisible to it and the loop could merge right after replying, before bots respond.
+— `gh pr view --json comments` returns only issue comments, so newly posted inline review comments
+are otherwise invisible to the quiet-period calculation.
 That max is `last_activity_at`; the resolver's `last_activity_at` is advisory (it now carries real timestamps, but
 the orchestrator's own read is authoritative, consistent with CI/thread state). If `needs_human` is
 set, the settle window elapses, or CI is red → the PR is **left for human** (do not merge).

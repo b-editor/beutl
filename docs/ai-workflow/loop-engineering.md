@@ -77,8 +77,8 @@ defaults to sequential ticks with per-tick sub-agent dispatch.
    (with a structured findings comment — F-12).
 2.6. **Spec-Kit flow** (only for `speckit_required`): `/speckit-specify → plan → tasks`, then
    re-dispatch the runner with `tasks.md` → draft → step 2.5.
-3. **Dispatch B** (bounded settle) → resolve bot reviews, including replying-and-resolving clear bot
-   **false positives** with a `path:line` refutation (and recording the pattern to loop-memory — D-8);
+3. **Dispatch B** (bounded settle) → resolve bot reviews without posting replies, including clear bot
+   **false positives** whose `path:line` refutation is recorded in the structured result and loop-memory (D-8);
    `needs_human` / red / timeout ⇒ leave for the human.
 4. **Classify risk + merge** (below) — the loop **posts its own code-owner approval** then
    squash-merges low/mod-risk; a conditional **coverage probe** (B-4) gates auto-merge when the
@@ -192,9 +192,9 @@ mode for the loop. In `--auto` it auto-handles **bot feedback only** — a **hum
 is never auto-addressed or auto-resolved; it sets `needs_human` and stays open for a person. For the
 bots, it **autonomously** addresses only clearly-actionable, low-judgment comments (bug/correctness,
 mechanical change-requests, nits) with the smallest possible change, **re-runs build/test/format after
-every edit (never pushes red)**, and replies and resolves the handled threads. A **clear bot false
-positive** (the bot misread code that already handles its concern) is answered with a neutral, factual
-reply that cites the exact `path:line` and then resolved **without a code change** — but only when the
+every edit (never pushes red)**, and resolves the handled threads without posting replies. A **clear bot false
+positive** (the bot misread code that already handles its concern) records a factual `path:line`
+refutation in the structured result and is resolved **without a code change** — but only when the
 refutation is certain; an uncertain one **escalates** (`needs_human`) rather than guessing. Anything
 needing product/architecture judgment likewise escalates, which pushes the PR to the human-merge path.
 Run standalone it stays human-in-the-loop (per-comment `AskUserQuestion`), so a person can use it
