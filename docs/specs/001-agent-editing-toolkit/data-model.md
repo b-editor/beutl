@@ -11,7 +11,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 | Merge Patch | An RFC 7396 partial document (null = delete) the agent submits | `JsonObject` + hand-rolled RFC 7396 apply |
 | Capability / Schema Descriptor | Machine-readable catalog of editable types + their parameters (type/unit/range/default/animatable/`$type`) | `PropertyRegistry` + `EngineObject.Properties` (`IProperty`) + `LibraryService` |
 | Change Set / Plan | The minimal, Id-keyed list of changes a desired-state/patch implies, with validation results | derived diff → `IUpdatePropertyValueOperation` / collection ops (introspected, not yet committed) |
-| Edit Transaction | The atomic, undoable application of a Change Set | `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on exception**) |
+| Edit Transaction | The atomic, undoable application of a Change Set | `HistoryManager.ExecuteInTransaction` (commits prior pending work separately, blocks concurrent records, commits on success, and **rolls back the callback on exception**) |
 | Workspace Guard | The write-boundary policy (read anywhere, write only under the configured root) | `IWorkspaceGuard.ResolveForWrite` (new) |
 | Render Job / Export Job | A request to produce a still image or a video/audio file | `SceneRenderer`+`Renderer.Snapshot`+`Bitmap.Save` / `EncodingController.Encode` via `Beutl.FFmpegIpc` |
 | Quality Review | Deterministic review of AI-generated editing quality before export | scene graph + sampled still/motion analysis (`QualityAnalyzer`) |
@@ -72,7 +72,7 @@ Position directives (`$index`/`$after`/`$before`) are **patch-input only** — t
 
 ## Edit Transaction
 
-The reconciliation runs inside `HistoryManager.ExecuteInTransaction(action, name)`, which commits the recorded operations on success and **rolls back on exception**. This is required for FR-012: a bare `Commit` only finalizes what was recorded, so a mid-reconcile throw before `Commit` would leave the partial *live* mutations applied — `ExecuteInTransaction` (or an explicit `try`/`catch` + `Rollback`) is what guarantees no partial state persists. Auto-compacts via `IMergableChangeOperation.TryMerge`. Reversible by the human in the editor (FR-015).
+The reconciliation runs inside `HistoryManager.ExecuteInTransaction(action, name)`, which commits prior pending work as a separate entry, prevents records from other threads from joining the callback, commits the callback operations on success, and **rolls back only those operations on exception**. This is required for FR-012: a bare `Commit` only finalizes what was recorded, so a mid-reconcile throw before `Commit` would leave the partial *live* mutations applied — `ExecuteInTransaction` (or an equivalent isolated boundary) is what guarantees no partial state persists without absorbing unrelated edits. Auto-compacts via `IMergableChangeOperation.TryMerge`. Reversible by the human in the editor (FR-015).
 
 ## Workspace Guard
 
@@ -101,7 +101,7 @@ The review intentionally avoids OCR and generative visual judging. It uses text 
 | schema source | `PropertyRegistry.GetRegistered` + `EngineObject.Properties` (`IProperty`) + `LibraryService` |
 | set property (undoable) | mutate live instance → `CoreObjectOperationObserver` records `UpdatePropertyValueOperation<T>` |
 | collection edit (undoable) | `Insert`/`Add`/`RemoveAt`/`Move` on the live `ICoreList`; keyframes via `KeyFrames.Add(IKeyFrame, out int)` (sorted insert) + `KeyFrames.Remove`/`RemoveAt` (the convenience `AnimationOperations.*` helpers are UI-only in `Beutl.Editor.Components`, not used headlessly) |
-| atomic commit | `HistoryManager.ExecuteInTransaction` (commit-or-rollback; a bare `Commit` would not roll back a mid-reconcile throw) |
+| atomic commit | `HistoryManager.ExecuteInTransaction` (isolated commit-or-rollback; prior pending work remains a separate entry and a bare `Commit` would not roll back a mid-reconcile throw) |
 | still render | `SceneRenderer` + `Renderer.Render`/`Snapshot` + `Bitmap.Save` (on `RenderThread.Dispatcher`) |
 | video/audio export | `Beutl.Extensibility.EncodingController.Encode` + `FrameProviderImpl`/`SampleProviderImpl`; the concrete encoder comes from the MIT non-UI `Beutl.Extensions.FFmpeg.Core` (or a headlessly-registered installed encoder) and reaches the GPL worker over `Beutl.FFmpegIpc` (the Avalonia-coupled `Beutl.Extensions.FFmpeg` is not referenced) |
 | write boundary | `IWorkspaceGuard.ResolveForWrite` (new) |

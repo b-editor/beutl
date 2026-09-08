@@ -484,6 +484,181 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
+    public async Task AsyncMaterializationCommitsUnrelatedPendingHistorySeparately()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-history-isolation");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var handler = new LeaseBlockingTestSourceHandler();
+        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
+            new ElementSourceHandlerRegistration(handler));
+        Task<ElementAddResult> operation = adder.AddAsync(
+            [CreateTestDescription("isolated-history", 0)],
+            CancellationToken.None).AsTask();
+        int unrelatedValue = 0;
+
+        try
+        {
+            await handler.PreflightStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            handler.ReleasePreflight.TrySetResult();
+            await handler.MaterializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            unrelatedValue = 1;
+            editor.HistoryManager.Record(
+                () => unrelatedValue = 1,
+                () => unrelatedValue = 0,
+                "Concurrent edit");
+            handler.ReleaseMaterialization.TrySetResult();
+            ElementAddResult result = await operation.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.IsSuccess, Is.True);
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(2));
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+                Assert.That(unrelatedValue, Is.EqualTo(1));
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(unrelatedValue, Is.EqualTo(1));
+            }
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(unrelatedValue, Is.Zero);
+        }
+        finally
+        {
+            handler.ReleasePreflight.TrySetResult();
+            handler.ReleaseMaterialization.TrySetResult();
+            await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AddAsync_CancelledWhileWaitingForHistoryGateDoesNotCommit()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-history-cancellation");
+        var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
+        using var historyGateEntered = new ManualResetEventSlim();
+        using var releaseHistoryGate = new ManualResetEventSlim();
+        using var beforeHistoryTransaction = new ManualResetEventSlim();
+        using var cancellation = new CancellationTokenSource();
+        Task blocker = Task.Run(() => editor.HistoryManager.ExecuteInTransaction(() =>
+        {
+            historyGateEntered.Set();
+            if (!releaseHistoryGate.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("The blocking history transaction was not released.");
+        }, "Block history"));
+        Assert.That(historyGateEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        adder.BeforeHistoryTransaction = beforeHistoryTransaction.Set;
+        Task cancelAndRelease = Task.Run(() =>
+        {
+            if (!beforeHistoryTransaction.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("ElementAdder did not reach the history boundary.");
+            cancellation.Cancel();
+            releaseHistoryGate.Set();
+        });
+
+        OperationCanceledException? thrown = null;
+        try
+        {
+            try
+            {
+                await adder.AddAsync(
+                [
+                    new ElementDescription(
+                        TimeSpan.Zero,
+                        TimeSpan.FromSeconds(1),
+                        0,
+                        new ElementSource.EngineObject(() => new RectShape())),
+                ], cancellation.Token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                thrown = ex;
+            }
+
+            await Task.WhenAll(blocker, cancelAndRelease).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            adder.BeforeHistoryTransaction = null;
+            releaseHistoryGate.Set();
+            await Task.WhenAll(blocker, cancelAndRelease).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(thrown, Is.Not.Null);
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AddAsync_RevalidatesAfterWaitingForHistoryGate()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-gated-revalidation");
+        var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
+        using var historyGateEntered = new ManualResetEventSlim();
+        using var beforeHistoryTransaction = new ManualResetEventSlim();
+        var lockedLayer = new TimelineLayer { ZIndex = 0, IsLocked = true };
+        Task blocker = Task.Run(() => editor.HistoryManager.ExecuteInTransaction(() =>
+        {
+            historyGateEntered.Set();
+            if (!beforeHistoryTransaction.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("ElementAdder did not reach the history boundary.");
+            editor.Scene.Layers.Add(lockedLayer);
+        }, "Lock target layer"));
+        Assert.That(historyGateEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        adder.BeforeHistoryTransaction = beforeHistoryTransaction.Set;
+
+        ElementAddResult result;
+        try
+        {
+            result = await adder.AddAsync(
+            [
+                new ElementDescription(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(1),
+                    0,
+                    new ElementSource.EngineObject(() => new RectShape())),
+            ], CancellationToken.None);
+            await blocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            adder.BeforeHistoryTransaction = null;
+            beforeHistoryTransaction.Set();
+            await blocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        try
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Layers.Remove(lockedLayer);
+            }
+        }
+    }
+
+    [AvaloniaTest]
     public async Task EditorDispose_OnUiThreadCancelsAwaitingHandlerAndDrainsItsLease()
     {
         await TestReset.ResetShellAsync();
@@ -911,6 +1086,79 @@ public class ElementAdderTests
             Assert.That(
                 Directory.GetFiles(sceneDirectory, "*.belm", SearchOption.AllDirectories),
                 Is.EqualTo(filesBefore));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AddAsync_WhenRollbackLeavesAnElementAttached_PreservesItsStagedFile()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-partial-rollback");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var materialized = new List<Element>();
+        var sourceHandler = new MutationTestSourceHandler((_, element) => materialized.Add(element));
+        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
+            new ElementSourceHandlerRegistration(sourceHandler));
+        bool shouldInjectMutationFailure = true;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action != NotifyCollectionChangedAction.Add)
+                return;
+
+            if (editor.Scene.Children.Count == 1 && shouldInjectMutationFailure)
+            {
+                editor.HistoryManager.Record(
+                    static () => { },
+                    () =>
+                    {
+                        editor.Scene.AddChild(materialized[1]);
+                        throw new InvalidOperationException("Injected rollback failure");
+                    },
+                    "Injected rollback operation");
+            }
+            else if (editor.Scene.Children.Count == 2 && shouldInjectMutationFailure)
+            {
+                shouldInjectMutationFailure = false;
+                throw new InvalidOperationException("Injected mutation failure");
+            }
+        };
+        editor.Scene.Children.CollectionChanged += handler;
+
+        ElementAddResult result;
+        try
+        {
+            result = await adder.AddAsync(
+            [
+                CreateTestDescription("first", 0),
+                CreateTestDescription("second", 1),
+            ], CancellationToken.None);
+        }
+        finally
+        {
+            editor.Scene.Children.CollectionChanged -= handler;
+        }
+
+        Element retained = materialized[1];
+        try
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Failure, Is.TypeOf<ElementSceneMutationFailure>());
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+                Assert.That(editor.Scene.Children[0], Is.SameAs(retained));
+                Assert.That(retained.Uri, Is.Not.Null);
+                Assert.That(File.Exists(retained.Uri!.LocalPath), Is.True);
+                Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            }
+        }
+        finally
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Children.Remove(retained);
+            }
+            File.Delete(retained.Uri!.LocalPath);
         }
     }
 

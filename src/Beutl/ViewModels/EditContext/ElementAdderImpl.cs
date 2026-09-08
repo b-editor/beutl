@@ -31,6 +31,8 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
     internal Action? BeforeCompanionAudioMaterialization { get; set; }
 
+    internal Action? BeforeHistoryTransaction { get; set; }
+
     public ElementAdderImpl(EditViewModel context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -325,36 +327,52 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 commitValidation.Description);
         }
 
+        CommitValidationFailure? gatedCommitValidation = null;
         try
         {
-            foreach (Element element in preparedElements)
+            BeforeHistoryTransaction?.Invoke();
+            _context.HistoryManager.ExecuteInTransaction(() =>
             {
-                scene.AddChild(element);
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                gatedCommitValidation = RevalidateBeforeCommit(
+                    scene,
+                    sceneId,
+                    plans,
+                    itemResults);
+                if (gatedCommitValidation is not null)
+                    return;
 
-            if (groups.Count > 0)
-            {
-                scene.Groups.AddRange(groups);
-            }
+                foreach (Element element in preparedElements)
+                {
+                    scene.AddChild(element);
+                }
 
-            _context.HistoryManager.Commit(CommandNames.AddElement);
+                if (groups.Count > 0)
+                {
+                    scene.Groups.AddRange(groups);
+                }
+            }, CommandNames.AddElement, cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
+            throw;
         }
         catch (Exception ex)
         {
-            try
-            {
-                _context.HistoryManager.Rollback();
-            }
-            catch (Exception rollbackException)
-            {
-                _logger.LogError(
-                    rollbackException,
-                    "Failed to roll back an unsuccessful element batch mutation caused by {OriginalError}.",
-                    ex.Message);
-            }
-
-            CleanupStagedFiles(stagedFiles, ex);
+            CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
             return ElementAddResult.Failed(new ElementSceneMutationFailure(ex));
+        }
+
+        if (gatedCommitValidation is not null)
+        {
+            CleanupStagedFiles(
+                stagedFiles,
+                gatedCommitValidation.Failure.Exception
+                ?? new InvalidOperationException(gatedCommitValidation.Failure.Message));
+            return ElementAddResult.Failed(
+                gatedCommitValidation.Failure,
+                gatedCommitValidation.Description);
         }
 
         _logger.LogInformation("Added {Count} elements successfully.", preparedElements.Count);
@@ -618,6 +636,23 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     originalException.Message);
             }
         }
+    }
+
+    private void CleanupDetachedStagedFiles(
+        Scene scene,
+        IEnumerable<Element> preparedElements,
+        IEnumerable<string?> stagedFiles,
+        Exception originalException)
+    {
+        var retainedPaths = preparedElements
+            .Where(scene.Children.Contains)
+            .Select(element => element.Uri?.LocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path!)
+            .ToHashSet(System.OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        CleanupStagedFiles(
+            stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
+            originalException);
     }
 
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)

@@ -1,8 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
@@ -13,29 +13,38 @@ namespace Beutl.Editor;
 
 public sealed class HistoryManager : IDisposable
 {
+    private const int MaximumPreActionPublicationTransactions = 64;
     private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
     private readonly Stack<HistoryTransaction> _undoStack = new();
     private readonly Stack<HistoryTransaction> _redoStack = new();
     private readonly OperationExecutionContext _context;
     private readonly OperationSequenceGenerator _sequenceGenerator;
-    private readonly Subject<HistoryState> _stateChanged = new();
-    private readonly Subject<System.Reactive.Unit> _beforeMutation = new();
+    private readonly FaultIsolatedSubject<HistoryState> _stateChanged;
+    private readonly FaultIsolatedSubject<System.Reactive.Unit> _beforeMutation;
     private readonly List<IDisposable> _subscriptions = new();
+    private readonly List<EntrySubscriber> _entrySubscribers = [];
     private readonly object _lock = new();
     private readonly ObservableCollection<HistoryEntry> _entries = new();
     private readonly ReadOnlyObservableCollection<HistoryEntry> _readOnlyEntries;
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
+    private int _entryPublicationDepth;
+    private readonly AsyncLocal<BeforeMutationDispatch?> _beforeMutationDispatch = new();
+    private bool _isolatedTransactionActive;
     private bool _isDisposed;
 
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
     {
+        _stateChanged = new FaultIsolatedSubject<HistoryState>(ex =>
+            _logger.LogError(ex, "A history state observer failed; continuing publication."));
+        _beforeMutation = new FaultIsolatedSubject<System.Reactive.Unit>(ex =>
+            _logger.LogError(ex, "A BeforeMutation observer failed; continuing publication."));
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
         _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
         _entries.Add(HistoryEntry.CreateInitial());
-        _readOnlyEntries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
+        _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
     }
 
     public CoreObject Root { get; }
@@ -140,14 +149,14 @@ public sealed class HistoryManager : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(handler);
 
-        INotifyCollectionChanged source = _entries;
+        var subscriber = new EntrySubscriber(handler);
         HistoryEntry[] snapshot;
         int currentIndex;
         lock (_lock)
         {
             snapshot = [.. _entries];
             currentIndex = _undoStack.Count;
-            source.CollectionChanged += handler;
+            _entrySubscribers.Add(subscriber);
         }
 
         // Unsubscribe under the same lock that mutators hold so a concurrent
@@ -156,7 +165,7 @@ public sealed class HistoryManager : IDisposable
         {
             lock (_lock)
             {
-                source.CollectionChanged -= handler;
+                _entrySubscribers.Remove(subscriber);
             }
         });
 
@@ -169,23 +178,8 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction.HasOperations)
-            {
-                _currentTransaction.Name = expression;
-                _currentTransaction.DisplayName = name;
-                _logger.LogDebug("Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
-                    expression, _currentTransaction.Id, _currentTransaction.OperationCount);
-                int currentEntryIndex = _undoStack.Count;
-                _undoStack.Push(_currentTransaction);
-                _redoStack.Clear();
-                TruncateEntriesAfter(currentEntryIndex);
-                _entries.Add(HistoryEntry.FromTransaction(_currentTransaction));
-                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
-            }
-            else
-            {
-                _logger.LogDebug("Commit called but no operations to commit");
-            }
+            ThrowIfHistoryControlIsBlocked_NoLock();
+            CommitCurrentTransaction_NoLock(name, expression);
         }
 
         NotifyStateChanged();
@@ -197,18 +191,190 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction.HasOperations)
+            ThrowIfHistoryControlIsBlocked_NoLock();
+            RollbackCurrentTransaction_NoLock();
+        }
+    }
+
+    /// <summary>
+    /// Commits already pending operations as a separate history entry, then executes and commits
+    /// <paramref name="action"/> as one isolated transaction.
+    /// </summary>
+    /// <remarks>
+    /// The action is synchronous so every observer it triggers records reentrantly while the
+    /// history gate is held. Records from other threads wait until the action commits or rolls back.
+    /// Records produced while earlier pending entries are published are committed as separate
+    /// entries before the callback begins.
+    /// <paramref name="cancellationToken"/> is checked before mutation flush and again after the
+    /// gate is acquired, before any pending transaction is committed; the callback owns any later
+    /// cancellation checks it requires.
+    /// The action must not call <see cref="Commit"/>, <see cref="Rollback"/>, <see cref="Undo"/>,
+    /// <see cref="Redo"/>, <see cref="Clear"/>, <see cref="JumpTo"/>, or this method recursively.
+    /// </remarks>
+    public void ExecuteInTransaction(
+        Action action,
+        string? name = null,
+        [CallerArgumentExpression(nameof(name))] string? expression = null,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(action);
+        cancellationToken.ThrowIfCancellationRequested();
+        FireBeforeMutation();
+
+        bool stateChanged = false;
+        try
+        {
+            lock (_lock)
             {
-                _logger.LogDebug("Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
-                    _currentTransaction.Id, _currentTransaction.OperationCount);
-                using (SuppressRecording())
+                ThrowIfHistoryControlIsBlocked_NoLock();
+                cancellationToken.ThrowIfCancellationRequested();
+                _isolatedTransactionActive = true;
+                try
                 {
-                    _currentTransaction.Revert(_context);
+                    stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
+                    DrainPreActionPublicationTransactions_NoLock(ref stateChanged);
+                    try
+                    {
+                        action();
+                        stateChanged |= CommitCurrentTransaction_NoLock(name, expression);
+                    }
+                    catch (Exception actionFailure)
+                    {
+                        try
+                        {
+                            RollbackIsolatedTransaction_NoLock();
+                        }
+                        catch (Exception rollbackFailure)
+                        {
+                            throw new AggregateException(
+                                "An isolated history transaction and its rollback both failed.",
+                                [actionFailure, .. GetRollbackFailures(rollbackFailure)]);
+                        }
+                        throw;
+                    }
+                }
+                finally
+                {
+                    _isolatedTransactionActive = false;
+                }
+            }
+        }
+        finally
+        {
+            if (stateChanged)
+                NotifyStateChanged();
+        }
+    }
+
+    private void ThrowIfHistoryControlIsBlocked_NoLock()
+    {
+        if (_isolatedTransactionActive)
+        {
+            throw new InvalidOperationException(
+                "History cannot commit or roll back from inside an isolated transaction.");
+        }
+        if (_entryPublicationDepth > 0)
+        {
+            throw new InvalidOperationException(
+                "History control cannot run while history entry changes are being published.");
+        }
+    }
+
+    private bool CommitCurrentTransaction_NoLock(string? name, string? expression)
+    {
+        if (!_currentTransaction.HasOperations)
+        {
+            _logger.LogDebug("Commit called but no operations to commit");
+            return false;
+        }
+
+        HistoryTransaction transaction = _currentTransaction;
+        transaction.Name = expression;
+        transaction.DisplayName = name;
+        _logger.LogDebug(
+            "Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
+            expression,
+            transaction.Id,
+            transaction.OperationCount);
+        int currentEntryIndex = _undoStack.Count;
+        _undoStack.Push(transaction);
+        _redoStack.Clear();
+        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        TruncateEntriesAfter(currentEntryIndex);
+        AddEntry(HistoryEntry.FromTransaction(transaction));
+        return true;
+    }
+
+    private void DrainPreActionPublicationTransactions_NoLock(ref bool stateChanged)
+    {
+        for (int count = 0; _currentTransaction.HasOperations; count++)
+        {
+            if (count >= MaximumPreActionPublicationTransactions)
+            {
+                throw new InvalidOperationException(
+                    "History entry publication did not reach a stable transaction boundary.");
+            }
+
+            stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
+        }
+    }
+
+    private void RollbackCurrentTransaction_NoLock()
+    {
+        if (_currentTransaction.HasOperations)
+        {
+            _logger.LogDebug(
+                "Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
+                _currentTransaction.Id,
+                _currentTransaction.OperationCount);
+            using (SuppressRecording())
+            {
+                _currentTransaction.Revert(_context);
+            }
+        }
+
+        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+    }
+
+    private void RollbackIsolatedTransaction_NoLock()
+    {
+        HistoryTransaction transaction = _currentTransaction;
+        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        if (transaction.HasOperations)
+        {
+            _logger.LogDebug(
+                "Rolling back isolated transaction (ID: {TransactionId}, Operations: {OperationCount})",
+                transaction.Id,
+                transaction.OperationCount);
+            List<Exception>? failures = null;
+            using (SuppressRecording())
+            {
+                for (int i = transaction.Operations.Count - 1; i >= 0; i--)
+                {
+                    try
+                    {
+                        transaction.Operations[i].Revert(_context);
+                    }
+                    catch (Exception ex)
+                    {
+                        (failures ??= []).Add(ex);
+                    }
                 }
             }
 
-            _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+            if (failures is [var failure])
+                throw failure;
+            if (failures is { Count: > 1 })
+                throw new AggregateException("One or more history rollback operations failed.", failures);
         }
+    }
+
+    private static IEnumerable<Exception> GetRollbackFailures(Exception failure)
+    {
+        return failure is AggregateException aggregate
+            ? aggregate.Flatten().InnerExceptions
+            : [failure];
     }
 
     public void Record(ChangeOperation operation)
@@ -236,6 +402,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            ThrowIfHistoryControlIsBlocked_NoLock();
             Rollback();
 
             if (_undoStack.Count == 0)
@@ -267,6 +434,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            ThrowIfHistoryControlIsBlocked_NoLock();
             Rollback();
 
             if (_redoStack.Count == 0)
@@ -296,6 +464,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            ThrowIfHistoryControlIsBlocked_NoLock();
             int undoCount = _undoStack.Count;
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
@@ -309,14 +478,14 @@ public sealed class HistoryManager : IDisposable
             HistoryEntry newInitial = HistoryEntry.CreateInitial();
             if (_entries.Count == 0)
             {
-                _entries.Add(newInitial);
+                AddEntry(newInitial);
             }
             else
             {
-                _entries[0] = newInitial;
+                ReplaceEntry(0, newInitial);
                 for (int i = _entries.Count - 1; i > 0; i--)
                 {
-                    _entries.RemoveAt(i);
+                    RemoveEntryAt(i);
                 }
             }
 
@@ -340,6 +509,7 @@ public sealed class HistoryManager : IDisposable
         {
             lock (_lock)
             {
+                ThrowIfHistoryControlIsBlocked_NoLock();
                 if (index < 0 || index >= _entries.Count)
                 {
                     _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
@@ -438,8 +608,166 @@ public sealed class HistoryManager : IDisposable
     {
         for (int i = _entries.Count - 1; i > lastKeptIndex; i--)
         {
-            _entries.RemoveAt(i);
+            RemoveEntryAt(i);
         }
+    }
+
+    private void AddEntry(HistoryEntry entry)
+    {
+        int index = _entries.Count;
+        EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
+        _entryPublicationDepth++;
+        try
+        {
+            try
+            {
+                _entries.Add(entry);
+            }
+            catch (Exception ex) when (_entries.Count == index + 1
+                && ReferenceEquals(_entries[index], entry))
+            {
+                _logger.LogError(ex, "A direct history entry observer failed while adding entry {EntryIndex}.", index);
+            }
+
+            NotifyEntrySubscribersSafely(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, entry, index),
+                subscribers);
+        }
+        finally
+        {
+            _entryPublicationDepth--;
+        }
+    }
+
+    private void ReplaceEntry(int index, HistoryEntry entry)
+    {
+        HistoryEntry previous = _entries[index];
+        EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
+        _entryPublicationDepth++;
+        try
+        {
+            try
+            {
+                _entries[index] = entry;
+            }
+            catch (Exception ex) when (ReferenceEquals(_entries[index], entry))
+            {
+                _logger.LogError(ex, "A direct history entry observer failed while replacing entry {EntryIndex}.", index);
+            }
+
+            NotifyEntrySubscribersSafely(
+                new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Replace,
+                    entry,
+                    previous,
+                    index),
+                subscribers);
+        }
+        finally
+        {
+            _entryPublicationDepth--;
+        }
+    }
+
+    private void RemoveEntryAt(int index)
+    {
+        HistoryEntry removed = _entries[index];
+        int previousCount = _entries.Count;
+        EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
+        _entryPublicationDepth++;
+        try
+        {
+            try
+            {
+                _entries.RemoveAt(index);
+            }
+            catch (Exception ex) when (_entries.Count == previousCount - 1)
+            {
+                _logger.LogError(ex, "A direct history entry observer failed while removing entry {EntryIndex}.", index);
+            }
+
+            NotifyEntrySubscribersSafely(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removed, index),
+                subscribers);
+        }
+        finally
+        {
+            _entryPublicationDepth--;
+        }
+    }
+
+    private void NotifyEntrySubscribersSafely(
+        NotifyCollectionChangedEventArgs args,
+        IReadOnlyList<EntrySubscriber> subscribers)
+    {
+        foreach (EntrySubscriber subscriber in subscribers)
+        {
+            if (!_entrySubscribers.Contains(subscriber))
+                continue;
+            try
+            {
+                subscriber.Handler(_readOnlyEntries, args);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "A history entry subscriber failed while handling {Action}; continuing publication.",
+                    args.Action);
+            }
+        }
+    }
+
+    private sealed class EntrySubscriber(NotifyCollectionChangedEventHandler handler)
+    {
+        public NotifyCollectionChangedEventHandler Handler { get; } = handler;
+    }
+
+    private sealed class IsolatedEntryCollection(
+        ObservableCollection<HistoryEntry> source,
+        ILogger logger) : ReadOnlyObservableCollection<HistoryEntry>(source),
+        INotifyCollectionChanged, INotifyPropertyChanged
+    {
+        private event NotifyCollectionChangedEventHandler? CollectionHandlers;
+        private event PropertyChangedEventHandler? PropertyHandlers;
+
+        event NotifyCollectionChangedEventHandler? INotifyCollectionChanged.CollectionChanged
+        {
+            add => CollectionHandlers += value;
+            remove => CollectionHandlers -= value;
+        }
+
+        event PropertyChangedEventHandler? INotifyPropertyChanged.PropertyChanged
+        {
+            add => PropertyHandlers += value;
+            remove => PropertyHandlers -= value;
+        }
+
+        protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs args)
+        {
+            try { base.OnCollectionChanged(args); }
+            catch (Exception ex) { Report(ex); }
+            foreach (NotifyCollectionChangedEventHandler handler in
+                     CollectionHandlers?.GetInvocationList() ?? [])
+            {
+                try { handler(this, args); }
+                catch (Exception ex) { Report(ex); }
+            }
+        }
+
+        protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+        {
+            try { base.OnPropertyChanged(args); }
+            catch (Exception ex) { Report(ex); }
+            foreach (PropertyChangedEventHandler handler in PropertyHandlers?.GetInvocationList() ?? [])
+            {
+                try { handler(this, args); }
+                catch (Exception ex) { Report(ex); }
+            }
+        }
+
+        private void Report(Exception exception)
+            => logger.LogError(exception, "A direct history entry observer failed; continuing publication.");
     }
 
     public IDisposable Subscribe(IOperationObserver observer)
@@ -453,23 +781,6 @@ public sealed class HistoryManager : IDisposable
             _subscriptions.Add(subscription);
         }
         return subscription;
-    }
-
-    public void ExecuteInTransaction(Action action, string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(action);
-
-        try
-        {
-            action();
-            Commit(name, expression);
-        }
-        catch
-        {
-            Rollback();
-            throw;
-        }
     }
 
     public HistoryTransaction? PeekUndo()
@@ -522,6 +833,11 @@ public sealed class HistoryManager : IDisposable
     // the history operation itself is independent of any debounce flush.
     private void FireBeforeMutation()
     {
+        if (_beforeMutationDispatch.Value is { IsActive: true })
+            return;
+        BeforeMutationDispatch? previous = _beforeMutationDispatch.Value;
+        var dispatch = new BeforeMutationDispatch();
+        _beforeMutationDispatch.Value = dispatch;
         try
         {
             _beforeMutation.OnNext(System.Reactive.Unit.Default);
@@ -530,6 +846,18 @@ public sealed class HistoryManager : IDisposable
         {
             _logger.LogError(ex, "BeforeMutation subscriber threw; continuing with the pending Undo/Redo.");
         }
+        finally
+        {
+            dispatch.Complete();
+            _beforeMutationDispatch.Value = previous;
+        }
+    }
+
+    private sealed class BeforeMutationDispatch
+    {
+        private int _active = 1;
+        public bool IsActive => Volatile.Read(ref _active) != 0;
+        public void Complete() => Volatile.Write(ref _active, 0);
     }
 
     public IDisposable SuppressRecording()
@@ -557,12 +885,112 @@ public sealed class HistoryManager : IDisposable
             }
             _subscriptions.Clear();
         }
+        lock (_lock)
+        {
+            _entrySubscribers.Clear();
+        }
         _stateChanged.OnCompleted();
         _stateChanged.Dispose();
         _beforeMutation.OnCompleted();
         _beforeMutation.Dispose();
         _undoStack.Clear();
         _redoStack.Clear();
+    }
+
+    private sealed class FaultIsolatedSubject<T>(Action<Exception> observerFailure) : IObservable<T>, IDisposable
+    {
+        private readonly object _gate = new();
+        private readonly List<SubscriptionEntry> _subscriptions = [];
+        private bool _isCompleted;
+        private bool _isDisposed;
+
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            ArgumentNullException.ThrowIfNull(observer);
+            var entry = new SubscriptionEntry(observer);
+            lock (_gate)
+            {
+                ObjectDisposedException.ThrowIf(_isDisposed, this);
+                if (_isCompleted)
+                {
+                    observer.OnCompleted();
+                    return Disposable.Empty;
+                }
+
+                _subscriptions.Add(entry);
+            }
+
+            return Disposable.Create(() =>
+            {
+                lock (_gate)
+                {
+                    _subscriptions.Remove(entry);
+                }
+            });
+        }
+
+        public void OnNext(T value)
+        {
+            SubscriptionEntry[] subscriptions;
+            lock (_gate)
+            {
+                ObjectDisposedException.ThrowIf(_isDisposed, this);
+                if (_isCompleted)
+                    return;
+                subscriptions = _subscriptions.ToArray();
+            }
+
+            foreach (SubscriptionEntry subscription in subscriptions)
+            {
+                try
+                {
+                    subscription.Observer.OnNext(value);
+                }
+                catch (Exception ex)
+                {
+                    observerFailure(ex);
+                }
+            }
+        }
+
+        public void OnCompleted()
+        {
+            SubscriptionEntry[] subscriptions;
+            lock (_gate)
+            {
+                if (_isDisposed || _isCompleted)
+                    return;
+                _isCompleted = true;
+                subscriptions = _subscriptions.ToArray();
+                _subscriptions.Clear();
+            }
+
+            foreach (SubscriptionEntry subscription in subscriptions)
+            {
+                try
+                {
+                    subscription.Observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observerFailure(ex);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                _isDisposed = true;
+                _subscriptions.Clear();
+            }
+        }
+
+        private sealed class SubscriptionEntry(IObserver<T> observer)
+        {
+            public IObserver<T> Observer { get; } = observer;
+        }
     }
 }
 

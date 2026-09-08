@@ -169,6 +169,42 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void Rollback_WhenRevertFails_RetainsThePendingTransactionForRetry()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        bool failFirstRevert = true;
+        var operation = CustomOperation.Create(
+            () => _root.Value = 100,
+            () =>
+            {
+                if (failFirstRevert)
+                {
+                    failFirstRevert = false;
+                    throw new InvalidOperationException("Injected revert failure");
+                }
+                _root.Value = 0;
+            },
+            _sequenceGenerator,
+            "Retryable revert");
+        operation.Apply(new OperationExecutionContext(_root));
+        manager.Record(operation);
+
+        Assert.Throws<InvalidOperationException>(() => manager.Rollback());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(100));
+            Assert.That(manager.HasPendingOperations, Is.True);
+        }
+
+        Assert.DoesNotThrow(() => manager.Rollback());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.Zero);
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+    }
+
+    [Test]
     public void Undo_ShouldRevertLastCommittedTransaction()
     {
         // Arrange
@@ -396,6 +432,485 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void ExecuteInTransaction_CommitsPendingOperationsSeparately()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+
+        manager.ExecuteInTransaction(
+            () => CreateValueOperation(
+                manager,
+                targetValue: 2,
+                previousValue: 1,
+                description: "Isolated"),
+            "Isolated");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(2));
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
+            Assert.That(manager.PeekUndo()?.DisplayName, Is.EqualTo("Isolated"));
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(1));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+    }
+
+    [Test]
+    public void ExecuteInTransaction_RollsBackOnlyItsOwnFailedOperations()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+
+        Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
+        {
+            CreateValueOperation(
+                manager,
+                targetValue: 2,
+                previousValue: 1,
+                description: "Isolated");
+            throw new InvalidOperationException("isolated mutation failed");
+        }, "Isolated"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+    }
+
+    [Test]
+    public async Task ExecuteInTransaction_QueuesConcurrentRecordsForTheNextTransaction()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var isolatedEntered = new ManualResetEventSlim();
+        using var releaseIsolated = new ManualResetEventSlim();
+        using var concurrentStarted = new ManualResetEventSlim();
+        using var concurrentReturned = new ManualResetEventSlim();
+        Task isolated = Task.Run(() => manager.ExecuteInTransaction(() =>
+        {
+            manager.Record(CreateTestOperation());
+            isolatedEntered.Set();
+            if (!releaseIsolated.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("The isolated transaction was not released.");
+        }, "Isolated"));
+
+        Assert.That(isolatedEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        Task concurrent = Task.Run(() =>
+        {
+            concurrentStarted.Set();
+            manager.Record(CreateTestOperation());
+            concurrentReturned.Set();
+        });
+        try
+        {
+            Assert.That(concurrentStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(concurrentReturned.Wait(TimeSpan.FromMilliseconds(200)), Is.False);
+        }
+        finally
+        {
+            releaseIsolated.Set();
+        }
+
+        await Task.WhenAll(isolated, concurrent).WaitAsync(TimeSpan.FromSeconds(5));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.HasPendingOperations, Is.True);
+        }
+        manager.Commit("Concurrent");
+        Assert.That(manager.UndoCount, Is.EqualTo(2));
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ExecuteInTransaction_RejectsReentrantTransactionControl(bool commit)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+
+        Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
+        {
+            CreateValueOperation(
+                manager,
+                targetValue: 1,
+                previousValue: 0,
+                description: "Isolated");
+            if (commit)
+                manager.Commit("Nested");
+            else
+                manager.Rollback();
+        }, "Isolated"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.Zero);
+            Assert.That(manager.UndoCount, Is.Zero);
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+    }
+
+    [Test]
+    public void ExecuteInTransaction_ContainsPostCommitStateObserverFailure()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using IDisposable subscription = manager.StateChanged.Subscribe(_ =>
+            throw new InvalidOperationException("observer failed"));
+        HistoryState? laterState = null;
+        using IDisposable laterSubscription = manager.StateChanged.Subscribe(state =>
+            laterState = state);
+
+        Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
+            () => CreateValueOperation(
+                manager,
+                targetValue: 1,
+                previousValue: 0,
+                description: "Isolated"),
+            "Isolated"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(laterState?.UndoCount, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void ExecuteInTransaction_DetachesAFailedRollbackTransaction()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var operation = CustomOperation.Create(
+            () => _root.Value = 1,
+            () => throw new InvalidOperationException("revert failed"),
+            _sequenceGenerator,
+            "Throwing revert");
+
+        AggregateException? exception = Assert.Throws<AggregateException>(() =>
+            manager.ExecuteInTransaction(() =>
+            {
+                operation.Apply(new OperationExecutionContext(_root));
+                manager.Record(operation);
+                throw new InvalidOperationException("mutation failed");
+            }, "Isolated"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                exception!.InnerExceptions.Select(item => item.Message),
+                Is.EqualTo(new[] { "mutation failed", "revert failed" }));
+            Assert.That(manager.UndoCount, Is.Zero);
+            Assert.That(manager.HasPendingOperations, Is.False);
+        });
+
+        manager.Record(CreateTestOperation());
+        manager.Commit("After failure");
+        Assert.That(manager.UndoCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ExecuteInTransaction_ContainsHistoryEntryObserverFailure()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int laterSubscriberNotifications = 0;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler handler = (_, _) =>
+            throw new InvalidOperationException("entry observer failed");
+        entries.CollectionChanged += handler;
+        IDisposable throwingSubscription = manager.SubscribeEntries((_, _) =>
+            throw new InvalidOperationException("managed entry observer failed")).Subscription;
+        IDisposable laterSubscription = manager.SubscribeEntries((_, _) =>
+            laterSubscriberNotifications++).Subscription;
+        try
+        {
+            Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
+                () => CreateValueOperation(
+                    manager,
+                    targetValue: 1,
+                    previousValue: 0,
+                    description: "Isolated"),
+                "Isolated"));
+        }
+        finally
+        {
+            laterSubscription.Dispose();
+            throwingSubscription.Dispose();
+            entries.CollectionChanged -= handler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.Entries, Has.Count.EqualTo(2));
+            Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(laterSubscriberNotifications, Is.EqualTo(1));
+        }
+    }
+
+    [Test]
+    public void Commit_RejectsDirectHistoryControlReentrancyBeforeManagedPublication()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var mirroredEntries = manager.GetEntriesSnapshot().ToList();
+        using IDisposable managedSubscription = manager.SubscribeEntries((_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add && args.NewItems is not null)
+            {
+                mirroredEntries.Insert(
+                    args.NewStartingIndex,
+                    (HistoryEntry)args.NewItems[0]!);
+            }
+        }).Subscription;
+        int reentrantAttempts = 0;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler directHandler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+            {
+                reentrantAttempts++;
+                manager.Clear();
+            }
+        };
+        entries.CollectionChanged += directHandler;
+        try
+        {
+            manager.Record(CreateTestOperation());
+            Assert.DoesNotThrow(() => manager.Commit("Commit"));
+        }
+        finally
+        {
+            entries.CollectionChanged -= directHandler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reentrantAttempts, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.Entries, Has.Count.EqualTo(2));
+            Assert.That(
+                mirroredEntries.Select(entry => entry.TransactionId),
+                Is.EqualTo(manager.Entries.Select(entry => entry.TransactionId)));
+        }
+    }
+
+    [Test]
+    public void Commit_DoesNotReplayAddToManagedSubscriberCreatedDuringDirectPublication()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        List<HistoryEntry>? lateMirror = null;
+        IDisposable? lateSubscription = null;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler directHandler = (_, args) =>
+        {
+            if (args.Action != NotifyCollectionChangedAction.Add || lateSubscription is not null)
+                return;
+
+            var subscriptionResult = manager.SubscribeEntries((_, change) =>
+            {
+                if (change.Action == NotifyCollectionChangedAction.Add && change.NewItems is not null)
+                {
+                    lateMirror!.Insert(
+                        change.NewStartingIndex,
+                        (HistoryEntry)change.NewItems[0]!);
+                }
+            });
+            lateSubscription = subscriptionResult.Subscription;
+            lateMirror = subscriptionResult.InitialSnapshot.ToList();
+        };
+        entries.CollectionChanged += directHandler;
+        try
+        {
+            manager.Record(CreateTestOperation());
+            manager.Commit("Commit");
+        }
+        finally
+        {
+            entries.CollectionChanged -= directHandler;
+            lateSubscription?.Dispose();
+        }
+
+        Assert.That(lateMirror, Is.Not.Null);
+        Assert.That(
+            lateMirror!.Select(entry => entry.TransactionId),
+            Is.EqualTo(manager.Entries.Select(entry => entry.TransactionId)));
+    }
+
+    [Test]
+    public void ExecuteInTransaction_GuardsPendingEntryPublication()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        int reentrantAttempts = 0;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+            {
+                reentrantAttempts++;
+                manager.Rollback();
+            }
+        };
+        entries.CollectionChanged += handler;
+        try
+        {
+            Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
+                () => CreateValueOperation(
+                    manager,
+                    targetValue: 2,
+                    previousValue: 1,
+                    description: "Isolated"),
+                "Isolated"));
+        }
+        finally
+        {
+            entries.CollectionChanged -= handler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reentrantAttempts, Is.EqualTo(2));
+            Assert.That(_root.Value, Is.EqualTo(2));
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
+            Assert.That(manager.Entries, Has.Count.EqualTo(3));
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ExecuteInTransaction_SeparatesRecordsProducedByPendingEntryPublication(
+        bool useAtomicSubscription)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        bool injected = false;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add && !injected)
+            {
+                injected = true;
+                CreateValueOperation(
+                    manager,
+                    targetValue: 2,
+                    previousValue: 1,
+                    description: "Entry publication");
+            }
+        };
+        IDisposable? subscription = null;
+        if (useAtomicSubscription)
+            subscription = manager.SubscribeEntries(handler).Subscription;
+        else
+            entries.CollectionChanged += handler;
+        try
+        {
+            manager.ExecuteInTransaction(() => CreateValueOperation(
+                manager,
+                targetValue: 3,
+                previousValue: 2,
+                description: "Callback"), "Callback");
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!useAtomicSubscription)
+                entries.CollectionChanged -= handler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(3));
+            Assert.That(manager.UndoCount, Is.EqualTo(3));
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(2));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(1));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+    }
+
+    [Test]
+    public void ExecuteInTransaction_RejectsNonConvergingEntryPublicationBeforeCallback()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        bool actionInvoked = false;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+                manager.Record(CreateTestOperation());
+        };
+        entries.CollectionChanged += handler;
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(
+                () => actionInvoked = true,
+                "Callback"));
+        }
+        finally
+        {
+            entries.CollectionChanged -= handler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(actionInvoked, Is.False);
+            Assert.That(manager.UndoCount, Is.GreaterThan(1));
+            Assert.That(manager.HasPendingOperations, Is.True);
+        }
+    }
+
+    [Test]
+    public void ExecuteInTransaction_ContinuesRollbackAfterARevertFailure()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int firstValue = 0;
+        int secondValue = 0;
+
+        AggregateException? exception = Assert.Throws<AggregateException>(() =>
+            manager.ExecuteInTransaction(() =>
+            {
+                var first = CustomOperation.Create(
+                    () => firstValue = 1,
+                    () => firstValue = 0,
+                    _sequenceGenerator,
+                    "First");
+                first.Apply(new OperationExecutionContext(_root));
+                manager.Record(first);
+
+                var second = CustomOperation.Create(
+                    () => secondValue = 1,
+                    () => throw new InvalidOperationException("second revert failed"),
+                    _sequenceGenerator,
+                    "Second");
+                second.Apply(new OperationExecutionContext(_root));
+                manager.Record(second);
+                throw new InvalidOperationException("mutation failed");
+            }, "Isolated"));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                exception!.InnerExceptions.Select(item => item.Message),
+                Is.EqualTo(new[] { "mutation failed", "second revert failed" }));
+            Assert.That(firstValue, Is.Zero);
+            Assert.That(secondValue, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.Zero);
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+    }
+
+    [Test]
     public void Record_WithActions_ShouldCreateCustomOperation()
     {
         // Arrange
@@ -439,6 +954,29 @@ public class HistoryManagerTests
             Assert.That(receivedState!.Value.UndoCount, Is.EqualTo(1));
             Assert.That(receivedState!.Value.RedoCount, Is.EqualTo(0));
         });
+    }
+
+    [Test]
+    public void StateChanged_DisposingOneOfTwoEqualObserversRemovesOnlyItsSubscription()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        var first = new EqualHistoryObserver();
+        var second = new EqualHistoryObserver();
+        using IDisposable firstSubscription = manager.StateChanged.Subscribe(first);
+        IDisposable secondSubscription = manager.StateChanged.Subscribe(second);
+        secondSubscription.Dispose();
+
+        manager.Record(CreateTestOperation());
+        manager.Commit("Test");
+        manager.Dispose();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.NotificationCount, Is.EqualTo(1));
+            Assert.That(first.CompletionCount, Is.EqualTo(1));
+            Assert.That(second.NotificationCount, Is.Zero);
+            Assert.That(second.CompletionCount, Is.Zero);
+        }
     }
 
     [Test]
@@ -524,6 +1062,8 @@ public class HistoryManagerTests
         Assert.Throws<ObjectDisposedException>(() => manager.Undo());
         Assert.Throws<ObjectDisposedException>(() => manager.Redo());
         Assert.Throws<ObjectDisposedException>(() => manager.Clear());
+        Assert.Throws<ObjectDisposedException>(() =>
+            manager.ExecuteInTransaction(static () => { }, "Test"));
     }
 
     [Test]
@@ -1090,6 +1630,32 @@ public class HistoryManagerTests
 
             Assert.That(received, Does.Contain(NotifyCollectionChangedAction.Add));
         }
+    }
+
+    [Test]
+    public void Direct_entry_subscribers_continue_after_collection_and_property_failures()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var collection = (INotifyCollectionChanged)manager.Entries;
+        var properties = (System.ComponentModel.INotifyPropertyChanged)manager.Entries;
+        var actions = new List<NotifyCollectionChangedAction>();
+        int propertyCalls = 0;
+        collection.CollectionChanged += (_, _) => throw new InvalidOperationException("collection observer");
+        collection.CollectionChanged += (_, args) => actions.Add(args.Action);
+        properties.PropertyChanged += (_, _) => throw new InvalidOperationException("property observer");
+        properties.PropertyChanged += (_, _) => propertyCalls++;
+        manager.Record(CreateTestOperation());
+        manager.Commit("first");
+        manager.Record(CreateTestOperation());
+        manager.Commit("second");
+        manager.Undo();
+        manager.Record(CreateTestOperation());
+        manager.Commit("third");
+        manager.Clear();
+        Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Add));
+        Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Replace));
+        Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Remove));
+        Assert.That(propertyCalls, Is.GreaterThan(0));
     }
 
     [Test]
@@ -1827,6 +2393,55 @@ public class HistoryManagerTests
 
     #region BeforeMutation Tests
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BeforeMutation_transaction_flush_does_not_recursively_publish(bool crossThread)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int calls = 0;
+        bool flushed = false;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            calls++;
+            if (!flushed)
+            {
+                flushed = true;
+                void Flush() => manager.ExecuteInTransaction(() => manager.Record(CreateTestOperation()), "Flush");
+                if (crossThread)
+                    Task.Run(Flush).GetAwaiter().GetResult();
+                else
+                    Flush();
+            }
+        });
+        manager.ExecuteInTransaction(() => manager.Record(CreateTestOperation()), "Edit");
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(manager.UndoCount, Is.EqualTo(2));
+        manager.FlushPendingMutations();
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task BeforeMutation_deferred_work_can_publish_after_the_original_dispatch_completes()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? deferred = null;
+        int calls = 0;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            if (++calls == 1)
+                deferred = Task.Run(async () =>
+                {
+                    await release.Task;
+                    manager.FlushPendingMutations();
+                });
+        });
+        manager.FlushPendingMutations();
+        release.TrySetResult();
+        await deferred!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
     [Test]
     public void BeforeMutation_Undo_FiresBeforeStackMutates()
     {
@@ -1969,6 +2584,21 @@ public class HistoryManagerTests
         Assert.That(completed, Is.True);
     }
 
+    [Test]
+    public void BeforeMutation_ContinuesAfterAnObserverThrows()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using IDisposable throwingSubscription = manager.BeforeMutation.Subscribe(_ =>
+            throw new InvalidOperationException("observer failed"));
+        int laterNotifications = 0;
+        using IDisposable laterSubscription = manager.BeforeMutation.Subscribe(_ =>
+            laterNotifications++);
+
+        Assert.DoesNotThrow(() => manager.FlushPendingMutations());
+
+        Assert.That(laterNotifications, Is.EqualTo(1));
+    }
+
     [TestCase(0, ExpectedResult = true)]
     [TestCase(1, ExpectedResult = true)]
     [TestCase(2, ExpectedResult = false)]
@@ -2055,6 +2685,25 @@ public class HistoryManagerTests
         manager.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => manager.FlushPendingMutations());
+    }
+
+    private sealed class EqualHistoryObserver : IObserver<HistoryState>
+    {
+        public int NotificationCount { get; private set; }
+
+        public int CompletionCount { get; private set; }
+
+        public void OnCompleted() => CompletionCount++;
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(HistoryState value) => NotificationCount++;
+
+        public override bool Equals(object? obj) => obj is EqualHistoryObserver;
+
+        public override int GetHashCode() => 0;
     }
 
     #endregion
