@@ -1,4 +1,5 @@
 ﻿using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
@@ -92,11 +93,9 @@ internal static class SlippableMedia
 
     private static Target CreateVideoTarget(SourceVideo video)
     {
-        // SourceVideo.TryGetOriginalDuration returns the duration remaining from the current
-        // offset, so the absolute source length is current + remaining.
-        TimeSpan? total = video.TryGetOriginalDuration(out TimeSpan remaining)
-            ? video.OffsetPosition.CurrentValue + remaining
-            : null;
+        // An exhausted source still has a known total even when TryGetOriginalDuration returns false.
+        using var resource = video.ToResource(CompositionContext.Default);
+        TimeSpan? total = video.CalculateOriginalTime((SourceVideo.Resource)resource);
         return new Target(video.OffsetPosition, total);
     }
 

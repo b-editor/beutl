@@ -187,6 +187,35 @@ public class ElementSlipServiceTests
         });
     }
 
+    [TestCase(2, 1, false)]
+    [TestCase(3, 1, false)]
+    [TestCase(2, -1, true)]
+    [TestCase(3, -1, true)]
+    public void Slip_ExhaustedVideo_PreservesKnownSourceBounds(int offset, int delta, bool expectedApplied)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 60)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) }
+        };
+        element.Objects.Add(video);
+        int before = _history.UndoCount;
+        Assert.That(video.TryGetOriginalDuration(out _), Is.False);
+
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(delta));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.EqualTo(expectedApplied));
+            Assert.That(video.OffsetPosition.CurrentValue,
+                Is.EqualTo(TimeSpan.FromSeconds(expectedApplied ? offset + delta : offset)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedApplied ? 1 : 0)));
+        });
+    }
+
     [Test]
     public void Slip_SourceSound_ShiftsOffsetPositionAndCommits()
     {
