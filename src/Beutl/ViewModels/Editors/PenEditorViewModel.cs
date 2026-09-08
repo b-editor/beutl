@@ -131,6 +131,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<Pen>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -143,7 +144,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         if (template.CreateInstance() is not Pen instance) return false;
         IsExpanded.Value = true;
+
         PropertyAdapter.SetValue(instance);
+        CompleteElementRepair();
         Commit(CommandNames.ApplyTemplate);
         return true;
     }
@@ -153,7 +156,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
+
         PropertyAdapter.SetValue(pasted);
+        CompleteElementRepair();
         Commit(CommandNames.PasteObject);
         return true;
     }

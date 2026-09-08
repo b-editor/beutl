@@ -61,6 +61,67 @@ public sealed class ApplierReviewFollowupTests
     }
 
     [Test]
+    public void Unrelated_edit_preserves_lossy_easing_storage_suppression()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
+            string elementPath = Path.Combine(dir, "element.belm");
+            var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
+            var element = new Element
+            {
+                Name = "Recovered",
+                Length = TimeSpan.FromSeconds(2),
+                Uri = new Uri(elementPath),
+            };
+            var text = new TextBlock { Text = { CurrentValue = "Title" } };
+            var animation = new KeyFrameAnimation<float>();
+            var keyFrame = new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = 100,
+                Easing = new LinearEasing(),
+            };
+            animation.KeyFrames.Add(keyFrame, out _);
+            text.Opacity.Animation = animation;
+            element.AddObject(text);
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+
+            JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            FindById(elementJson, keyFrame.Id)![nameof(KeyFrame.Easing)]
+                = "[Missing.Plugin]Missing.Namespace:MissingEasing";
+            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+            Element recoveredElement = recovered.Children.Single();
+            using var session = new AgentToolkitTestSession(recovered);
+            EditTools tools = CreateTools(session);
+            JsonObject desired = session.Documents.Read(session.Root);
+            FindById(desired, recoveredElement.Id)![nameof(CoreObject.Name)] = "Changed";
+
+            ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
+                desired: desired,
+                schemaVersion: SchemaVersion.Current);
+            CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
+                Assert.That(recoveredElement.Name, Is.EqualTo("Changed"));
+                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Test]
     public void Scene_groups_are_reconciled_after_element_mutations()
     {
         Scene scene = CreateSceneWithElement(out Element first);

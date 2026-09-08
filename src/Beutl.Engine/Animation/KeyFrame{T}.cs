@@ -28,19 +28,21 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public T? Value
     {
         get => _value;
-        set
-        {
-            if (Validator != null)
-            {
-                T? coerced = value;
-                if (Validator.TryCoerce(default, ref coerced))
-                {
-                    value = coerced!;
-                }
-            }
+        set => SetValue(value, replaceEquivalent: false);
+    }
 
-            SetAndRaise(ValueProperty, ref _value, value);
+    private void SetValue(T? value, bool replaceEquivalent)
+    {
+        if (Validator != null)
+        {
+            T? coerced = value;
+            if (Validator.TryCoerce(default, ref coerced))
+            {
+                value = coerced!;
+            }
         }
+
+        SetAndRaise(ValueProperty, ref _value, value, replaceEquivalent);
     }
 
     object? IKeyFrame.Value
@@ -57,6 +59,22 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
             {
                 Value = default;
             }
+        }
+    }
+
+    void IKeyFrame.ReplaceValue(object? value)
+    {
+        if (value is T typed)
+        {
+            SetValue(typed, replaceEquivalent: true);
+        }
+        else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
+        {
+            SetValue(default, replaceEquivalent: true);
+        }
+        else
+        {
+            throw new InvalidCastException();
         }
     }
 

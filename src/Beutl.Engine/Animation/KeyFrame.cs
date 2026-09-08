@@ -1,7 +1,11 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reflection;
+using System.Runtime.ExceptionServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
+using Beutl.Utilities;
 using Beutl.Validation;
 
 namespace Beutl.Animation;
@@ -11,6 +15,8 @@ public class KeyFrame : Hierarchical
     public static readonly CoreProperty<Easing> EasingProperty;
     public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
     private Easing _easing;
+    private Easing? _lossyFallbackEasing;
+    private JsonNode? _lossyFallbackEasingJson;
     private TimeSpan _keyTime;
 
     protected KeyFrame()
@@ -37,6 +43,9 @@ public class KeyFrame : Hierarchical
         set => SetAndRaise(EasingProperty, ref _easing, value);
     }
 
+    [NotAutoSerialized]
+    internal bool HasLossyEasing => ReferenceEquals(_easing, _lossyFallbackEasing);
+
     public TimeSpan KeyTime
     {
         get => _keyTime;
@@ -49,34 +58,136 @@ public class KeyFrame : Hierarchical
     {
         base.Deserialize(context);
 
-        if (context.GetValue<JsonNode>(nameof(Easing)) is { } easingNode)
+        JsonNode? easingNode = context.GetValue<JsonNode>(nameof(Easing));
+        if (easingNode is null)
         {
-            if (easingNode is JsonValue easingTypeValue
-                && easingTypeValue.TryGetValue(out string? easingType))
+            if (context.Contains(nameof(Easing)))
             {
-                Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
-
-                if (Activator.CreateInstance(type) is Easing easing)
-                {
-                    Easing = easing;
-                }
-            }
-            else if (easingNode is JsonObject easingObject)
-            {
-                float x1 = (float?)easingObject["X1"] ?? 0;
-                float y1 = (float?)easingObject["Y1"] ?? 0;
-                float x2 = (float?)easingObject["X2"] ?? 1;
-                float y2 = (float?)easingObject["Y2"] ?? 1;
-
-                Easing = new SplineEasing(x1, y1, x2, y2);
+                UseFallbackEasing(
+                    easingNode,
+                    FallbackReason.DeserializationFailed,
+                    null,
+                    "The easing value is null.");
             }
         }
+        else if (easingNode is JsonValue easingTypeValue
+                 && easingTypeValue.TryGetValue(out string? easingType))
+        {
+            Type? type = TypeFormat.ToType(easingType);
+            if (type is null)
+            {
+                UseFallbackEasing(
+                    easingNode,
+                    FallbackReason.TypeNotFound,
+                    easingType,
+                    $"The easing type '{easingType}' could not be resolved.");
+            }
+            else if (!type.IsAssignableTo(typeof(Easing))
+                || type.IsAbstract
+                || type.ContainsGenericParameters
+                || type.GetConstructor(Type.EmptyTypes) is null)
+            {
+                UseFallbackEasing(
+                    easingNode,
+                    FallbackReason.DeserializationFailed,
+                    easingType,
+                    $"The easing type '{easingType}' cannot be instantiated as an Easing.");
+            }
+            else
+            {
+                try
+                {
+                    if (Activator.CreateInstance(type) is Easing easing)
+                    {
+                        Easing = easing;
+                    }
+                    else
+                    {
+                        UseFallbackEasing(
+                            easingNode,
+                            FallbackReason.DeserializationFailed,
+                            easingType,
+                            $"The easing type '{easingType}' did not create an Easing instance.");
+                    }
+                }
+                catch (Exception ex) when (ex is MissingMethodException
+                                                or MemberAccessException
+                                                or TargetInvocationException
+                                                or TypeInitializationException
+                                                or NotSupportedException)
+                {
+                    if (ExceptionHelpers.ContainsFatalFailure(ex)
+                        || ExceptionHelpers.ContainsFileSystemFailure(ex))
+                    {
+                        if (ex.InnerException is { } inner)
+                        {
+                            ExceptionDispatchInfo.Capture(inner).Throw();
+                        }
+
+                        throw;
+                    }
+
+                    UseFallbackEasing(
+                        easingNode,
+                        FallbackReason.DeserializationFailed,
+                        easingType,
+                        $"{ex.GetType().Name}: {ex.Message}");
+                }
+            }
+        }
+        else if (easingNode is JsonObject easingObject)
+        {
+            if (easingObject["X1"] is JsonValue x1Value
+                && easingObject["Y1"] is JsonValue y1Value
+                && easingObject["X2"] is JsonValue x2Value
+                && easingObject["Y2"] is JsonValue y2Value
+                && x1Value.TryGetValue<float>(out float x1)
+                && y1Value.TryGetValue<float>(out float y1)
+                && x2Value.TryGetValue<float>(out float x2)
+                && y2Value.TryGetValue<float>(out float y2))
+            {
+                Easing = new SplineEasing(x1, y1, x2, y2);
+            }
+            else
+            {
+                UseFallbackEasing(
+                    easingNode,
+                    FallbackReason.DeserializationFailed,
+                    null,
+                    "The spline easing object does not contain four valid control-point values.");
+            }
+        }
+        else
+        {
+            UseFallbackEasing(
+                easingNode,
+                FallbackReason.DeserializationFailed,
+                null,
+                "The easing value has an unsupported JSON representation.");
+        }
+    }
+
+    private void UseFallbackEasing(
+        JsonNode? originalJson,
+        FallbackReason reason,
+        string? typeName,
+        string message)
+    {
+        DeserializationIncidents.RecordFallback(reason, typeName, message);
+        _lossyFallbackEasing = new LinearEasing();
+        _lossyFallbackEasingJson = originalJson?.DeepClone();
+        Easing = _lossyFallbackEasing;
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        if (Easing is SplineEasing splineEasing)
+        if (HasLossyEasing)
+        {
+            LossyEasingSerializationCapture.Record();
+            context.SetValue(nameof(Easing), _lossyFallbackEasingJson?.DeepClone());
+        }
+        else if (Easing is SplineEasing splineEasing)
         {
             context.SetValue(nameof(Easing), new JsonObject
             {

@@ -1,10 +1,88 @@
-﻿using Beutl.AgentToolkit.Sessions;
+﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Engine;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
 public sealed class FileEditingSessionTests
 {
+    public sealed record KeyFrameWrapper(ICoreSerializable Frame);
+
+    [SuppressResourceClassGeneration]
+    public sealed class WrappedKeyFrameHolder : EngineObject
+    {
+        public WrappedKeyFrameHolder() => ScanProperties<WrappedKeyFrameHolder>();
+        public IProperty<List<KeyFrameWrapper>> Frames { get; } = Property.Create<List<KeyFrameWrapper>>();
+    }
+
+    [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"", false)]
+    [TestCase("null", false)]
+    [TestCase("{\"X1\":\"invalid\"}", false)]
+    [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"", true)]
+    [TestCase("null", true)]
+    [TestCase("{\"X1\":\"invalid\"}", true)]
+    public void ApplyEdit_ExplicitLinearEasingRepairsRecoveredKeyframeAndUndoRestoresBytes(string easingJson, bool wrapped)
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string projectPath = Path.Combine(root, "demo.bep");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2)));
+        string elementPath = Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "clip.belm");
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 10 });
+        var shape = new RectShape();
+        shape.Width.Animation = animation;
+        var element = new Element { Uri = new Uri(elementPath), Length = TimeSpan.FromSeconds(1) };
+        var holder = new WrappedKeyFrameHolder();
+        holder.Frames.CurrentValue = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
+        element.AddObject(wrapped ? holder : shape);
+        session.Scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonNode GetFrame(JsonNode elementJson) => wrapped
+            ? elementJson["Objects"]![0]!["Frames"]![0]!["Frame"]!
+            : elementJson["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!;
+        GetFrame(json)["Easing"] = JsonNode.Parse(easingJson);
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+        FileEditingSession recovered = source.OpenProject(projectPath);
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+        var tools = new EditTools(manager);
+        JsonObject desired = recovered.Documents.Read(recovered.Scene);
+        desired["Elements"]![0]!["Name"] = "Unrelated edit";
+        GetFrame(desired["Elements"]![0]!)["Value"] = 20;
+        var unrelated = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        Assert.That(unrelated.IsSuccess, Is.True, unrelated.Error?.Message);
+        recovered.Save(skipConflictCheck: true);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+
+        JsonObject patch = recovered.Documents.Read(recovered.Scene);
+        GetFrame(patch["Elements"]![0]!)["Easing"] = TypeFormat.ToString(typeof(LinearEasing));
+        var repaired = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        Assert.That(repaired.IsSuccess, Is.True, repaired.Error?.Message);
+        recovered.Save(skipConflictCheck: true);
+        Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
+        EngineObject reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Objects.Single();
+        IKeyFrame reopenedFrame = wrapped
+            ? (KeyFrame<float>)((WrappedKeyFrameHolder)reopened).Frames.CurrentValue!.Single().Frame
+            : ((KeyFrameAnimation<float>)((RectShape)reopened).Width.Animation!).KeyFrames.Single();
+        Assert.That(reopenedFrame.Easing, Is.TypeOf<LinearEasing>());
+        Assert.That(recovered.History.Undo(), Is.True);
+        recovered.Save(skipConflictCheck: true);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+    }
+
     [Test]
     public void SetProjectPath_disambiguates_sidecars_for_scenes_sharing_a_name()
     {
@@ -55,6 +133,149 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
+    public void SetProjectPath_keeps_element_sidecar_file_names()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        var element = new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
+        };
+        scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+        string originalFileName = Path.GetFileName(element.Uri!.LocalPath);
+
+        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+
+        // A recovered element's fallback identity is derived from the scene-relative sidecar path,
+        // so Save As must not regenerate the file name.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Path.GetFileName(element.Uri!.LocalPath), Is.EqualTo(originalFileName));
+            Assert.That(
+                Path.GetDirectoryName(element.Uri.LocalPath),
+                Is.EqualTo(Path.GetDirectoryName(scene.Uri!.LocalPath)));
+        });
+    }
+
+    [Test]
+    public void SetProjectPath_keeps_element_sidecar_relative_subpaths()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string relativePath = Path.Combine("sub", "clip.belm");
+        var element = new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
+        };
+        scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+
+        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+
+        string newSceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        Assert.That(
+            Path.GetRelativePath(newSceneDirectory, element.Uri!.LocalPath),
+            Is.EqualTo(relativePath));
+    }
+
+    [Test]
+    public void SetProjectPath_keeps_element_sidecar_subpaths_starting_with_two_dots()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string relativePath = Path.Combine("..assets", "clip.belm");
+        var element = new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
+        };
+        scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+
+        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+
+        string newSceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        Assert.That(
+            Path.GetRelativePath(newSceneDirectory, element.Uri!.LocalPath),
+            Is.EqualTo(relativePath));
+    }
+
+    [Test]
+    public void SaveAs_uniquifies_escaping_same_named_recovered_sidecars()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string projectPath = Path.Combine(root, "demo.bep");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
+        string firstPath = Path.Combine(sceneDirectory, "first", "clip.belm");
+        string secondPath = Path.Combine(sceneDirectory, "second", "clip.belm");
+        scene.Children.Add(new Element
+        {
+            Name = "First",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(firstPath),
+        });
+        scene.Children.Add(new Element
+        {
+            Name = "Second",
+            Start = TimeSpan.FromSeconds(1),
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(secondPath),
+        });
+        session.Save(skipConflictCheck: true);
+
+        byte[] firstBytes = "{\"$type\":\"[Missing]Example:First\",\"Id\":\"11111111-1111-1111-1111-111111111111\"}"u8.ToArray();
+        byte[] secondBytes = "{\"$type\":\"[Missing]Example:Second\",\"Id\":\"22222222-2222-2222-2222-222222222222\"}"u8.ToArray();
+        File.WriteAllBytes(firstPath, firstBytes);
+        File.WriteAllBytes(secondPath, secondBytes);
+
+        FileEditingSession recovered = source.OpenProject(projectPath);
+        Scene recoveredScene = recovered.Project.Items.OfType<Scene>().Single();
+        Element first = recoveredScene.Children.Single(element => element.Uri!.LocalPath == firstPath);
+        Element second = recoveredScene.Children.Single(element => element.Uri!.LocalPath == secondPath);
+        string firstOutsidePath = Path.Combine(root, "outside-first", "clip.belm");
+        string secondOutsidePath = Path.Combine(root, "outside-second", "clip.belm");
+        first.Uri = new Uri(firstOutsidePath);
+        second.Uri = new Uri(secondOutsidePath);
+
+        recovered.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.Uri!.LocalPath, Is.Not.EqualTo(second.Uri!.LocalPath));
+            Assert.That(
+                new[] { Path.GetFileName(first.Uri.LocalPath), Path.GetFileName(second.Uri.LocalPath) },
+                Is.EquivalentTo(new[] { "clip.belm", "clip-2.belm" }));
+            Assert.That(File.Exists(first.Uri.LocalPath), Is.True);
+            Assert.That(File.Exists(second.Uri.LocalPath), Is.True);
+            Assert.That(File.ReadAllBytes(first.Uri.LocalPath), Is.EqualTo(firstBytes));
+            Assert.That(File.ReadAllBytes(second.Uri.LocalPath), Is.EqualTo(secondBytes));
+        });
+    }
+
+    [Test]
     public void Failed_plain_save_restores_the_original_uri_state()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
@@ -79,6 +300,63 @@ public sealed class FileEditingSessionTests
                 session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath),
                 Is.EqualTo(originalSceneUris));
         });
+    }
+
+    [Test]
+    public void Failed_save_as_restores_reinstated_suppression_state()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string projectPath = Path.Combine(root, "demo.bep");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+        Scene scene = session.Project.Items.OfType<Scene>().Single();
+        string elementPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm");
+        scene.Children.Add(new Element
+        {
+            Name = "clip",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(elementPath),
+            Objects = { new RectShape() },
+        });
+        session.Save(skipConflictCheck: true);
+
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()["$type"]
+            = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        File.WriteAllText(elementPath, elementJson.ToJsonString());
+        byte[] malformedBytes = File.ReadAllBytes(elementPath);
+        FileEditingSession recovered = source.OpenProject(projectPath);
+        Element recoveredElement = recovered.Scene.Children.Single();
+        JsonObject desired = recovered.Documents.Read(recovered.Scene);
+        JsonObject repairedJson = CoreSerializer.SerializeToJsonObject(new RectShape
+        {
+            Name = "Repaired shape",
+        });
+        repairedJson.Remove(nameof(CoreObject.Id));
+        desired["Elements"]!.AsArray()[0]!.AsObject()[nameof(Element.Objects)]
+            = new JsonArray(repairedJson);
+        new Reconciler().Apply(recovered, desired);
+        CoreSerializer.StoreToUri(recovered.Scene, recovered.Scene.Uri!);
+        byte[] repairedBytes = File.ReadAllBytes(elementPath);
+        bool undone = recovered.History.Undo();
+
+        string failedTarget = Path.Combine(root, "copy.bep");
+        Directory.CreateDirectory(failedTarget);
+        Assert.Catch(() => recovered.SaveAs(failedTarget, skipConflictCheck: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.Project.Uri!.LocalPath, Is.EqualTo(projectPath));
+            Assert.That(recoveredElement.Uri!.LocalPath, Is.EqualTo(elementPath));
+            Assert.That(undone, Is.True);
+            Assert.That(repairedBytes, Is.Not.EqualTo(malformedBytes));
+        });
+
+        recovered.Save(skipConflictCheck: true);
+
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(malformedBytes));
     }
 
     [Test]

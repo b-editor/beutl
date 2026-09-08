@@ -15,6 +15,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -185,6 +186,15 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
     protected ImmutableArray<CoreObject?> GetStorables() => [_element];
+
+    protected void CompleteElementRepair()
+    {
+        if (_element is not null)
+        {
+            Beutl.Editor.Services.ElementRecoveryService.TryCompleteRepair(
+                _element, this.GetRequiredService<HistoryManager>());
+        }
+    }
 
     public void Dispose()
     {
@@ -548,6 +558,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void SetValue(T? oldValue, T? newValue)
     {
+        SetValue(oldValue, newValue, null);
+    }
+
+    internal void SetValue(T? oldValue, T? newValue, string? commandName)
+    {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is { } kf)
@@ -560,7 +575,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 prop.SetValue(newValue);
             }
 
-            Commit();
+            CompleteElementRepair();
+            Commit(commandName);
         }
     }
 
@@ -576,6 +592,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             prop.SetValue(newValue);
         }
 
+        CompleteElementRepair();
         Commit();
     }
 
@@ -623,6 +640,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             animation: kfAnimation,
             keyTime: keyTime,
             logger: Logger);
+        CompleteElementRepair();
         Commit();
     }
 
@@ -655,6 +673,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
             animatableProperty.Animation = null;
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -672,6 +691,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
             {
                 ap.Animation = null;
+                CompleteElementRepair();
             }
 
             Commit();

@@ -44,6 +44,17 @@ public class ElementObjectServiceTests
     [SuppressResourceClassGeneration]
     private sealed class TestEngineObject : EngineObject;
 
+    [SuppressResourceClassGeneration]
+    private sealed class FallbackContainer : EngineObject
+    {
+        public FallbackContainer()
+        {
+            ScanProperties<FallbackContainer>();
+        }
+
+        public IProperty<EngineObject?> Child { get; } = Property.Create<EngineObject?>();
+    }
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -113,6 +124,152 @@ public class ElementObjectServiceTests
             Assert.That(removed, Is.True);
             Assert.That(_element.Objects, Does.Not.Contain(obj));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Remove_LastFallback_ClearsPersistenceSuppression()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, fallback);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(_element.Objects, Is.Empty);
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Remove_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, fallback);
+        bool undone = _history.Undo();
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(undone, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Remove_ContainerWithLastNestedFallback_KeepsSuppressionUntilContainerRemoved()
+    {
+        var container = new FallbackContainer
+        {
+            Child = { CurrentValue = new FallbackEngineObject() },
+        };
+        var other = new TestEngineObject();
+        _service.Add(_element, container);
+        _service.Add(_element, other);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removedOther = _service.Remove(_element, other);
+        Assert.Multiple(() =>
+        {
+            Assert.That(removedOther, Is.True);
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+        });
+
+        bool removed = _service.Remove(_element, container);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Remove_LastFallbackAfterRehome_UndoRestoresRehomedSidecar()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
+        _element.SuppressedStorageSource = suppression;
+        var rehomedUri = new Uri(Path.Combine(_basePath, "save-as", "element.belm"));
+        CoreSerializer.StoreToUri(_element, rehomedUri);
+
+        bool removed = _service.Remove(_element, fallback);
+        CoreSerializer.StoreToUri(_element, _element.Uri!);
+        byte[] repairedBytes = File.ReadAllBytes(rehomedUri.LocalPath);
+        bool undone = _history.Undo();
+        CoreSerializer.StoreToUri(_element, _element.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
+            Assert.That(undone, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+            Assert.That(File.ReadAllBytes(rehomedUri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Remove_LastFallback_UndoRecreatesDeletedSidecarAndDirectory()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, fallback);
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+        Directory.Delete(_basePath, recursive: true);
+        bool undone = _history.Undo();
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(undone, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void Remove_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
+    {
+        var first = new FallbackEngineObject();
+        var second = new FallbackEngineObject();
+        _service.Add(_element, first);
+        _service.Add(_element, second);
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+
+        bool removed = _service.Remove(_element, first);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(second));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
     }
 
@@ -198,6 +355,115 @@ public class ElementObjectServiceTests
             Assert.That(_element.Objects[0], Is.Not.SameAs(original));
             Assert.That(_element.Objects[0], Is.InstanceOf<TestEngineObject>());
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void PasteOver_LastFallback_ClearsPersistenceSuppression()
+    {
+        _service.Add(_element, new FallbackEngineObject());
+        _element.SuppressedStorageSource = new SuppressedStorageSource([], _element.Uri!);
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void PasteOver_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
+    {
+        var fallback = new FallbackEngineObject();
+        _service.Add(_element, fallback);
+        byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+        bool undone = _history.Undo();
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(undone, Is.True);
+            Assert.That(_element.Objects.Single(), Is.SameAs(fallback));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void PasteOver_ContainerWithLastNestedFallback_KeepsSuppressionUntilContainerReplaced()
+    {
+        var container = new FallbackContainer
+        {
+            Child = { CurrentValue = new FallbackEngineObject() },
+        };
+        _service.Add(_element, container);
+        _service.Add(_element, new TestEngineObject());
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome intermediate = _service.PasteOver(_element, 1, json);
+        Assert.Multiple(() =>
+        {
+            Assert.That(intermediate, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+        });
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void PasteOver_StaleNonFallbackIncidentFlagWithoutLiveMarker_ResumesPersistence()
+    {
+        _service.Add(_element, new FallbackEngineObject());
+        byte[] originalBytes = "{ preserved lossy bytes"u8.ToArray();
+        File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
+        var suppression = new SuppressedStorageSource(originalBytes, _element.Uri, true);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+        CoreSerializer.StoreToUri(_element, _element.Uri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.Null);
+            Assert.That(File.ReadAllBytes(_element.Uri.LocalPath), Is.Not.EqualTo(originalBytes));
+        });
+    }
+
+    [Test]
+    public void PasteOver_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
+    {
+        _service.Add(_element, new FallbackEngineObject());
+        _service.Add(_element, new FallbackEngineObject());
+        var suppression = new SuppressedStorageSource([], _element.Uri!);
+        _element.SuppressedStorageSource = suppression;
+        string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
+
+        ObjectPasteOutcome outcome = _service.PasteOver(_element, 0, json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
+            Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
         });
     }
 

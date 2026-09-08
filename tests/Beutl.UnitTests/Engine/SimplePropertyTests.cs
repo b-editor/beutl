@@ -8,6 +8,51 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class SimplePropertyTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void UntypedNullableValueAcceptsNull(bool replace)
+    {
+        IProperty<Guid?> typed = Property.Create<Guid?>();
+        typed.CurrentValue = Guid.NewGuid();
+        IProperty property = typed;
+        if (replace) property.ReplaceCurrentValue(null);
+        else property.CurrentValue = null;
+        Assert.That(typed.CurrentValue, Is.Null);
+    }
+
+    private sealed class EqualityValue(string key, string state)
+    {
+        public string Key { get; } = key;
+
+        public string State { get; } = state;
+
+        public override bool Equals(object? obj)
+        {
+            return obj is EqualityValue other && Key == other.Key;
+        }
+
+        public override int GetHashCode()
+        {
+            return Key.GetHashCode(StringComparison.Ordinal);
+        }
+    }
+
+    private sealed class CountingValidator : IValidator<EqualityValue>
+    {
+        public int CoerceCount { get; private set; }
+
+        public bool TryCoerce(ValidationContext context, ref EqualityValue? value)
+        {
+            CoerceCount++;
+            return true;
+        }
+
+        public string? Validate(ValidationContext context, EqualityValue? value)
+        {
+            return null;
+        }
+    }
+
     private static SimpleProperty<T> Make<T>(T defaultValue, string name = "Value")
     {
         var property = new SimpleProperty<T>(defaultValue);
@@ -65,6 +110,33 @@ public class SimplePropertyTests
         Assert.That(args.NewValue, Is.EqualTo(42));
         Assert.That(edited, Is.EqualTo(1));
         Assert.That(property.HasLocalValue, Is.True);
+    }
+
+    [Test]
+    public void ReplaceCurrentValue_EquivalentInstance_ReplacesAndNotifiesOnce()
+    {
+        var current = new EqualityValue("same", "old");
+        var replacement = new EqualityValue("same", "new");
+        var validator = new CountingValidator();
+        var property = new SimpleProperty<EqualityValue>(current, validator);
+        property.SetAttributes("Value", []);
+        PropertyValueChangedEventArgs<EqualityValue>? args = null;
+        int edited = 0;
+        property.ValueChanged += (_, e) => args = e;
+        property.Edited += (_, _) => edited++;
+
+        ((IProperty)property).ReplaceCurrentValue(replacement);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(property.CurrentValue, Is.SameAs(replacement));
+            Assert.That(property.CurrentValue.State, Is.EqualTo("new"));
+            Assert.That(validator.CoerceCount, Is.EqualTo(1));
+            Assert.That(args!.OldValue, Is.SameAs(current));
+            Assert.That(args.NewValue, Is.SameAs(replacement));
+            Assert.That(edited, Is.EqualTo(1));
+            Assert.That(property.HasLocalValue, Is.True);
+        });
     }
 
     [Test]

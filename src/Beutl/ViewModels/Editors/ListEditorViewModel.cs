@@ -282,6 +282,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Initialize()
     {
+
         if (List.Value == null)
         {
             Type listType = PropertyAdapter.PropertyType;
@@ -302,6 +303,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             List.Value.Clear();
         }
 
+        CompleteElementRepair();
         Commit();
     }
 
@@ -313,6 +315,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 throw new InvalidOperationException("読み取り専用です。");
 
             PropertyAdapter.SetValue(null);
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -344,7 +347,9 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void RemoveItem(int index)
     {
+
         List.Value!.RemoveAt(index);
+        CompleteElementRepair();
         Commit();
     }
 

@@ -9,7 +9,8 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.Engine;
 
-public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>
+public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
+    : IProperty<T>
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -32,33 +33,42 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     public T CurrentValue
     {
         get => _currentValue;
-        set
+        set => SetCurrentValue(value, replaceEquivalent: false);
+    }
+
+    private void SetCurrentValue(T value, bool replaceEquivalent)
+    {
+        var validatedValue = ValidateAndCoerce(value);
+        bool hasReplacement = ValueReplacement.RequiresReplacement(
+            _currentValue,
+            validatedValue,
+            replaceEquivalent);
+        if (hasReplacement)
         {
-            var validatedValue = ValidateAndCoerce(value);
-            if (!EqualityComparer<T>.Default.Equals(_currentValue, validatedValue))
+            var oldValue = _currentValue;
+            _currentValue = validatedValue;
+            HasLocalValue = true;
+
+            ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+            Edited?.Invoke(this, EventArgs.Empty);
+            if (_owner is IModifiableHierarchical ownerHierarchical)
             {
-                var oldValue = _currentValue;
-                _currentValue = validatedValue;
-                HasLocalValue = true;
+                if (oldValue is IHierarchical oldHierarchical)
+                    ownerHierarchical.RemoveChild(oldHierarchical);
 
-                ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
-                Edited?.Invoke(this, EventArgs.Empty);
-                if (_owner is IModifiableHierarchical ownerHierarchical)
-                {
-                    if (oldValue is IHierarchical oldHierarchical)
-                        ownerHierarchical.RemoveChild(oldHierarchical);
-
-                    if (validatedValue is IHierarchical newHierarchical)
-                        ownerHierarchical.AddChild(newHierarchical);
-                }
-
-                if (oldValue is INotifyEdited oldEdited)
-                    oldEdited.Edited -= OnChildEdited;
-                if (validatedValue is INotifyEdited newEdited)
-                    newEdited.Edited += OnChildEdited;
+                if (validatedValue is IHierarchical newHierarchical)
+                    ownerHierarchical.AddChild(newHierarchical);
             }
+
+            if (oldValue is INotifyEdited oldEdited)
+                oldEdited.Edited -= OnChildEdited;
+            if (validatedValue is INotifyEdited newEdited)
+                newEdited.Edited += OnChildEdited;
         }
     }
+
+    public void ReplaceCurrentValue(T value)
+        => SetCurrentValue(value, replaceEquivalent: true);
 
     public IAnimation<T>? Animation
     {

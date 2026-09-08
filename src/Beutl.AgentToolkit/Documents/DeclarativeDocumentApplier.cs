@@ -220,7 +220,13 @@ internal sealed class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.Easing), out JsonNode? easingNode) && easingNode is not null)
         {
-            keyFrame.Easing = DeserializeEasing(easingNode);
+            JsonObject current = CoreSerializer.SerializeToJsonObject(keyFrame, CreateOptions(keyFrame as CoreObject));
+            // Recovered easings retain their original JSON even while evaluating as Linear.
+            // A different serialized value is an explicit repair, including a new Linear easing.
+            if (!JsonNode.DeepEquals(current[nameof(KeyFrame.Easing)], easingNode))
+            {
+                keyFrame.Easing = DeserializeEasing(easingNode);
+            }
         }
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.KeyTime), out JsonNode? keyTimeNode) && keyTimeNode is not null)

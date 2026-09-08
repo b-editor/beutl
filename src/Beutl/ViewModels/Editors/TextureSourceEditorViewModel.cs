@@ -89,6 +89,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<TextureSource?>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -117,8 +118,10 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value is DrawableTextureSource drawableSource)
         {
+
             var drawable = (Drawable?)Activator.CreateInstance(type);
             drawableSource.Drawable.CurrentValue = drawable;
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -131,9 +134,11 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             && presenterDrawable is IPresenter<Drawable> presenterInterface
             && Value.Value is DrawableTextureSource drawableSource)
         {
+
             var expression = Expression.CreateReference<Drawable>(target.Id);
             presenterInterface.Target.Expression = expression;
             drawableSource.Drawable.CurrentValue = presenterDrawable;
+            CompleteElementRepair();
             Commit();
         }
     }
