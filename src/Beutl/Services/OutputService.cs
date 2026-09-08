@@ -166,13 +166,11 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         CancellationTokenSource executionCancellation,
         TaskCompletionSource completion)
     {
-        bool runningPublished = false;
         bool canceled = false;
         CancellationToken executionToken = executionCancellation.Token;
         List<Exception>? failures = null;
         try
         {
-            runningPublished = true;
             _isRunning.Value = true;
 
             executionToken.ThrowIfCancellationRequested();
@@ -190,11 +188,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         finally
         {
             CaptureCleanupFailure(executionCancellation.Dispose, ref failures);
-
-            if (runningPublished)
-            {
-                CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
-            }
 
             // Restore the editor-facing state while the workspace is still reserved. Releasing the
             // output lease first would let a workspace mutation begin and race this restoration.
@@ -224,6 +217,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         bool canceled,
         CancellationToken cancellationToken)
     {
+        bool disposeRunningProperty = false;
         while (true)
         {
             bool disposeContext;
@@ -246,6 +240,12 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                     if (ReferenceEquals(_outputOperation, outputOperation))
                     {
                         _outputOperation = null;
+                    }
+
+                    CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
+                    if (disposeRunningProperty)
+                    {
+                        CaptureCleanupFailure(_isRunning.Dispose, ref failures);
                     }
 
                     // Publish the terminal result before clearing the single-flight task. A
@@ -282,7 +282,8 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
 
             if (disposeContext)
             {
-                CaptureCleanupFailure(DisposeContext, ref failures);
+                CaptureCleanupFailure(DisposeOutputContext, ref failures);
+                disposeRunningProperty = true;
             }
         }
     }
@@ -372,11 +373,10 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
 
     private void DisposeContext()
     {
-        _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Exception? contextFailure = null;
         try
         {
-            Context.Dispose();
+            DisposeOutputContext();
         }
         catch (Exception ex)
         {
@@ -396,6 +396,12 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         {
             ExceptionDispatchInfo.Capture(contextFailure).Throw();
         }
+    }
+
+    private void DisposeOutputContext()
+    {
+        _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
+        Context.Dispose();
     }
 
     public static JsonNode ToJson(OutputProfileItem item)

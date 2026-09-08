@@ -353,6 +353,32 @@ public sealed class RenderJobManagerTests
         });
     }
 
+    [Test]
+    public async Task Completed_work_rejects_cancellation_while_releasing_its_output_lease()
+    {
+        using var manager = new RenderJobManager();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new BlockingLease(releaseStarted, releaseLease.Task);
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromResult<JsonNode>(new JsonObject()),
+            lease);
+
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("running"));
+            Assert.That(manager.Cancel(jobId), Is.False);
+        });
+
+        releaseLease.TrySetResult();
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+        Assert.That(snapshot.State, Is.EqualTo("completed"));
+    }
+
     private sealed class TestLease(Action? onDispose = null) : IDisposable
     {
         private int _disposeCount;
@@ -371,6 +397,17 @@ public sealed class RenderJobManagerTests
         public void Dispose()
         {
             throw failure;
+        }
+    }
+
+    private sealed class BlockingLease(
+        TaskCompletionSource releaseStarted,
+        Task release) : IDisposable
+    {
+        public void Dispose()
+        {
+            releaseStarted.TrySetResult();
+            release.GetAwaiter().GetResult();
         }
     }
 }

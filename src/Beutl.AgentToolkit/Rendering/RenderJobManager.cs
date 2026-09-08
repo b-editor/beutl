@@ -64,6 +64,8 @@ public sealed class RenderJobManager : IDisposable
         public JsonNode? Result { get; set; }
         public Exception? Failure { get; set; }
         public DateTimeOffset? CompletedAt { get; set; }
+        public bool AcceptsCancellation { get; set; } = true;
+        public bool CancellationRequested { get; set; }
     }
 
     private readonly ConcurrentDictionary<string, JobRecord> _jobs = new();
@@ -137,10 +139,14 @@ public sealed class RenderJobManager : IDisposable
 
         lock (record.Sync)
         {
-            if (record.State != RenderJobState.Running)
+            if (record.State != RenderJobState.Running
+                || !record.AcceptsCancellation)
             {
                 return false;
             }
+
+            record.AcceptsCancellation = false;
+            record.CancellationRequested = true;
         }
 
         try
@@ -197,7 +203,13 @@ public sealed class RenderJobManager : IDisposable
             acquired = true;
             reporter.Report(0, 0, "starting");
             result = await work(reporter, record.Cts.Token).ConfigureAwait(false);
-            terminalState = RenderJobState.Completed;
+            lock (record.Sync)
+            {
+                record.AcceptsCancellation = false;
+                terminalState = record.CancellationRequested
+                    ? RenderJobState.Cancelled
+                    : RenderJobState.Completed;
+            }
         }
         catch (OperationCanceledException) when (record.Cts.IsCancellationRequested)
         {
@@ -210,6 +222,11 @@ public sealed class RenderJobManager : IDisposable
         }
         finally
         {
+            lock (record.Sync)
+            {
+                record.AcceptsCancellation = false;
+            }
+
             try
             {
                 record.OutputOperationLease.Dispose();

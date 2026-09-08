@@ -26,6 +26,27 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ExportTests
 {
+    [Test]
+    public void Output_failure_reporting_is_scoped_to_the_reported_exception()
+    {
+        var reported = new InvalidOperationException("reported");
+        var unrelated = new InvalidOperationException("unrelated");
+        OutputViewModel.MarkFailureAsReported(reported);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OutputViewModel.WasFailureReported(reported), Is.True);
+            Assert.That(OutputViewModel.WasFailureReported(unrelated), Is.False);
+            Assert.That(
+                OutputViewModel.WasFailureReported(new AggregateException(reported)),
+                Is.True);
+            Assert.That(
+                OutputViewModel.WasFailureReported(
+                    new AggregateException(reported, unrelated)),
+                Is.False);
+        });
+    }
+
     private sealed class TestCoreObject : CoreObject;
 
     private sealed class TestOutputContext(string fileName) : IOutputContext
@@ -761,6 +782,7 @@ public class ExportTests
                     Assert.Multiple(() =>
                     {
                         Assert.That(execution.IsCompleted, Is.False);
+                        Assert.That(item.IsRunning.Value, Is.True);
                         Assert.That(CanBeginWorkspaceMutation(), Is.False);
                         Assert.That(context.DisposeCount, Is.EqualTo(1));
                     });

@@ -75,7 +75,7 @@ public partial class OutputView : UserControl
         }
         catch (Exception ex)
         {
-            if (!viewModel.LastFailureWasReported)
+            if (!OutputViewModel.WasFailureReported(ex))
             {
                 await ex.Handle();
             }

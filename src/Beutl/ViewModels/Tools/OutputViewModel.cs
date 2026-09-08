@@ -25,6 +25,7 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 {
+    private static readonly object s_reportedFailureKey = new();
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
     private readonly ReactiveProperty<bool> _isIndeterminate = new();
@@ -33,8 +34,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
     private string? _activeDestination;
-
-    internal bool LastFailureWasReported { get; private set; }
 
     public OutputViewModel(EditViewModel editViewModel)
     {
@@ -216,7 +215,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        LastFailureWasReported = false;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -403,7 +401,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             // Keep the translated message visible after failure.
             ProgressText.Value = userMessage;
             NotificationService.ShowError(MessageStrings.OutputException, userMessage);
-            LastFailureWasReported = true;
+            MarkFailureAsReported(ex);
             if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
             {
                 // Keep the code for diagnostics.
@@ -435,6 +433,28 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ShowCompletionNotification(completedPath);
             }
         }
+    }
+
+    internal static bool WasFailureReported(Exception failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        if (failure.Data.Contains(s_reportedFailureKey))
+        {
+            return true;
+        }
+
+        if (failure is not AggregateException aggregate)
+        {
+            return false;
+        }
+
+        IReadOnlyList<Exception> innerFailures = aggregate.Flatten().InnerExceptions;
+        return innerFailures.Count > 0 && innerFailures.All(WasFailureReported);
+    }
+
+    internal static void MarkFailureAsReported(Exception failure)
+    {
+        failure.Data[s_reportedFailureKey] = true;
     }
 
     private void HandlePreflightCancellation()
