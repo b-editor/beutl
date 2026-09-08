@@ -6,11 +6,12 @@ using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
 
+using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 
 namespace Beutl.Editor.Components.WebBrowserTab.Views;
 
-internal partial class WebBrowserTabView : UserControl, IDisposable
+internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewReparentingContent
 {
     internal static readonly Uri LinuxWebViewSetupGuide = new(
         "https://docs.avaloniaui.net/docs/app-development/embedding-web-content#linux");
@@ -19,9 +20,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable
     private readonly Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> _getWebViewAvailability;
     private readonly Func<Uri, Task<bool>>? _launchInDefaultBrowser;
     private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
+    private readonly Func<NativeWebView, bool> _canReparentWebView;
     private NativeWebView? _webView;
     private WebBrowserTabViewModel? _viewModel;
-    private IDisposable? _reparentingScope;
     private bool _disposed;
 
     public WebBrowserTabView()
@@ -33,12 +34,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable
         Func<Uri, NativeWebView> createWebView,
         Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> getWebViewAvailability,
         Func<Uri, Task<bool>>? launchInDefaultBrowser = null,
-        Func<NativeWebView, Task<string?>>? getPageTitle = null)
+        Func<NativeWebView, Task<string?>>? getPageTitle = null,
+        Func<NativeWebView, bool>? canReparentWebView = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
         _launchInDefaultBrowser = launchInDefaultBrowser;
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
+        _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         InitializeComponent();
         Loaded += OnLoaded;
     }
@@ -99,7 +102,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable
             return;
         }
 
-        _reparentingScope ??= _webView.BeginReparenting(yieldOnLayoutBeforeExiting: false);
         UpdateHistoryState();
         ScheduleLinuxSizeRefresh(_webView);
     }
@@ -335,6 +337,48 @@ internal partial class WebBrowserTabView : UserControl, IDisposable
         _viewModel.UpdateHistoryState(_webView.CanGoBack, _webView.CanGoForward);
     }
 
+    IDisposable? IWebViewReparentingContent.BeginReparenting()
+    {
+        NativeWebView? webView = _webView;
+        if (_disposed
+            || webView == null
+            || !ReferenceEquals(WebViewHost.Content, webView)
+            || !_canReparentWebView(webView))
+        {
+            return null;
+        }
+
+        IDisposable reparentingScope = webView.BeginReparenting();
+        try
+        {
+            // Dock can present the destination window before the source presenter completes its
+            // deferred cleanup. Detach synchronously so the scope captures the current adapter.
+            WebViewHost.Content = null;
+        }
+        catch
+        {
+            reparentingScope.Dispose();
+            throw;
+        }
+
+        return Disposable.Create(() =>
+        {
+            try
+            {
+                if (!_disposed
+                    && ReferenceEquals(_webView, webView)
+                    && WebViewHost.Content == null)
+                {
+                    WebViewHost.Content = webView;
+                }
+            }
+            finally
+            {
+                reparentingScope.Dispose();
+            }
+        });
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -359,8 +403,6 @@ internal partial class WebBrowserTabView : UserControl, IDisposable
         _webView.NavigationStarted -= OnNavigationStarted;
         _webView.NavigationCompleted -= OnNavigationCompleted;
         _webView.NewWindowRequested -= OnNewWindowRequested;
-        _reparentingScope?.Dispose();
-        _reparentingScope = null;
         WebViewHost.Content = null;
         _webView = null;
     }

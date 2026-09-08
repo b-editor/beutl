@@ -8,10 +8,14 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 
 using Beutl.Controls;
+using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
 using Beutl.Editor.Components.WebBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.ViewModels.Dock;
+
+using Dock.Model.Controls;
+using Dock.Model.Core;
 
 using FluentAvalonia.UI.Controls;
 
@@ -104,6 +108,114 @@ public class WebBrowserTabLifecycleTests
         });
 
         view.Dispose();
+    }
+
+    [AvaloniaTest]
+    public void ReparentingWithoutANativeAdapter_LeavesTheWebViewAttached()
+    {
+        var nativeWebView = new NativeWebView();
+        var view = new WebBrowserTabView(
+            uri =>
+            {
+                nativeWebView.Source = uri;
+                return nativeWebView;
+            },
+            () => (true, null, false));
+        var context = new TestEditorContext();
+        using var viewModel = new WebBrowserTabViewModel(context);
+        view.DataContext = viewModel;
+
+        IDisposable? reparentingScope = ((IWebViewReparentingContent)view).BeginReparenting();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reparentingScope, Is.Null);
+            Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Content, Is.SameAs(nativeWebView));
+        });
+        view.Dispose();
+    }
+
+    [AvaloniaTest]
+    public void FloatingBrowserDockable_DetachesNativeWebViewDuringDockMove()
+    {
+        var nativeWebView = new NativeWebView();
+        var view = new WebBrowserTabView(
+            uri =>
+            {
+                nativeWebView.Source = uri;
+                return nativeWebView;
+            },
+            () => (true, null, false),
+            canReparentWebView: _ => true);
+        var context = new TestEditorContext();
+        var viewModel = new WebBrowserTabViewModel(context);
+        using var dockable = new BeutlToolDockable(viewModel, null!)
+        {
+            ToolContent = view
+        };
+        view.DataContext = viewModel;
+
+        ContentControl webViewHost = view.FindControl<ContentControl>("WebViewHost")!;
+        bool nativeWebViewWasDetached = false;
+        using IDisposable subscription = webViewHost
+            .GetObservable(ContentControl.ContentProperty)
+            .Subscribe(content => nativeWebViewWasDetached |= content == null);
+
+        var factory = new BeutlDockFactory(null!);
+        IToolDock toolDock = factory.CreateToolDock();
+        toolDock.IsCollapsable = false;
+        toolDock.VisibleDockables = factory.CreateList<IDockable>(dockable);
+        toolDock.ActiveDockable = dockable;
+        IRootDock rootDock = factory.CreateRootDock();
+        rootDock.VisibleDockables = factory.CreateList<IDockable>(toolDock);
+        rootDock.ActiveDockable = toolDock;
+        factory.InitDockable(rootDock, null);
+
+        factory.FloatDockable(dockable);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(webViewHost.Content, Is.SameAs(nativeWebView));
+            Assert.That(nativeWebViewWasDetached, Is.True);
+            Assert.That(rootDock.Windows, Has.Count.EqualTo(1));
+        });
+
+        IDock floatingDock = (IDock)dockable.Owner!;
+        nativeWebViewWasDetached = false;
+
+        factory.MoveDockable(floatingDock, toolDock, dockable, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(webViewHost.Content, Is.SameAs(nativeWebView));
+            Assert.That(nativeWebViewWasDetached, Is.True);
+            Assert.That(dockable.Owner, Is.SameAs(toolDock));
+        });
+
+        nativeWebViewWasDetached = false;
+
+        factory.FloatAllDockables(dockable);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(webViewHost.Content, Is.SameAs(nativeWebView));
+            Assert.That(nativeWebViewWasDetached, Is.True);
+            Assert.That(dockable.Owner, Is.Not.SameAs(toolDock));
+        });
+
+        IDock secondFloatingDock = (IDock)dockable.Owner!;
+        ITool swapTarget = factory.CreateTool();
+        factory.AddDockable(toolDock, swapTarget);
+        nativeWebViewWasDetached = false;
+
+        factory.SwapDockable(secondFloatingDock, toolDock, dockable, swapTarget);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(webViewHost.Content, Is.SameAs(nativeWebView));
+            Assert.That(nativeWebViewWasDetached, Is.True);
+            Assert.That(dockable.Owner, Is.SameAs(toolDock));
+        });
     }
 
     [AvaloniaTest]
