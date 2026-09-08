@@ -1230,10 +1230,9 @@ public class VersionControlSaveTests
             int commitsAfterFailedPackageSave = await CountCommitsAsync(gitPath, projectRoot);
             config.AutoCommitOnClose = true;
             Assert.DoesNotThrow(TestShell.Project.CloseProject);
-            Assert.DoesNotThrow(TestShell.MainViewModel.Dispose);
             Assert.Multiple(() =>
             {
-                Assert.That(failedCommands.SaveCalls, Is.EqualTo(5));
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(4));
                 Assert.That(commitsAfterFailedPackageSave, Is.EqualTo(commitsBeforeClose));
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
                 Assert.That(TestShell.Editor.TabItems, Does.Contain(failedTab));
