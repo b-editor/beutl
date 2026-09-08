@@ -18,11 +18,12 @@ public class FilePathComparisonTests
         Directory.CreateDirectory(whitespacePath);
         try
         {
+            string expectedPath = Path.Combine(FilePathComparison.ResolveCanonicalPath(temporaryRoot), " ");
             Assert.Multiple(() =>
             {
                 Assert.That(
                     FilePathComparison.ResolveCanonicalPath(whitespacePath),
-                    Is.EqualTo(whitespacePath));
+                    Is.EqualTo(expectedPath));
                 Assert.That(
                     FilePathComparison.TryAreSameChildPath(
                         temporaryRoot,

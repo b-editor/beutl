@@ -580,6 +580,12 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     private void NotifyPathChanged(string path, object? sourceWatcher)
     {
+        lock (_stateSync)
+        {
+            if (_disposed || sourceWatcher is not null && !ReferenceEquals(_watcher, sourceWatcher))
+                return;
+        }
+
         try
         {
             if (ShouldExcludePath(path))

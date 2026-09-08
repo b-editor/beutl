@@ -71,7 +71,7 @@ internal static class UnsavedSceneStorage
             }
             foreach (ResourceRehome rehome in _resources)
             {
-                foreach (IFileSource source in rehome.Sources)
+                foreach ((IFileSource source, _) in rehome.Sources)
                     source.ReadFrom(rehome.Destination);
             }
             foreach (ElementRehome rehome in _elements)
@@ -84,11 +84,11 @@ internal static class UnsavedSceneStorage
         {
             foreach (ResourceRehome rehome in _resources)
             {
-                foreach (IFileSource source in rehome.Sources)
+                foreach ((IFileSource source, Uri original) in rehome.Sources)
                 {
                     try
                     {
-                        source.ReadFrom(rehome.Original);
+                        source.ReadFrom(original);
                     }
                     catch (Exception ex)
                     {
@@ -153,7 +153,7 @@ internal static class UnsavedSceneStorage
                 Path.GetDirectoryName(sceneUri.LocalPath)!,
                 "resources",
                 "ai");
-            var groups = new Dictionary<string, List<IFileSource>>(StringComparer.Ordinal);
+            var groups = new Dictionary<string, List<(IFileSource Source, Uri Original)>>(StringComparer.Ordinal);
             var seen = new HashSet<IFileSource>(ReferenceEqualityComparer.Instance);
             foreach (IFileSource source in scene.Children
                          .SelectMany(element => ProxySourceEnumerator.EnumerateFileSources(element)))
@@ -175,19 +175,19 @@ internal static class UnsavedSceneStorage
                     || !TryResolveOwnedPath(paths, ownedRoot, original.LocalPath, out string identity))
                     continue;
 
-                if (!groups.TryGetValue(identity, out List<IFileSource>? sources))
+                if (!groups.TryGetValue(identity, out List<(IFileSource Source, Uri Original)>? sources))
                 {
                     sources = [];
                     groups.Add(identity, sources);
                 }
-                sources.Add(source);
+                sources.Add((source, original));
             }
 
             // Reserve new names conservatively; unlike existing sources, these files have no
             // filesystem identity yet. An extra suffix is safe on case-sensitive volumes too.
             var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var result = new List<ResourceRehome>(groups.Count);
-            foreach ((string sourcePath, List<IFileSource> sources) in groups)
+            foreach ((string sourcePath, List<(IFileSource Source, Uri Original)> sources) in groups)
             {
                 if (!File.Exists(sourcePath))
                     throw new FileNotFoundException("An unsaved scene resource is missing.", sourcePath);
@@ -289,6 +289,6 @@ internal static class UnsavedSceneStorage
         private sealed record ResourceRehome(
             Uri Original,
             Uri Destination,
-            IReadOnlyList<IFileSource> Sources);
+            IReadOnlyList<(IFileSource Source, Uri Original)> Sources);
     }
 }
