@@ -307,7 +307,7 @@ public sealed class RenderJobManagerTests
     }
 
     [Test]
-    public async Task Terminal_snapshot_is_published_after_the_output_lease_is_released()
+    public async Task Terminal_snapshot_is_published_before_the_output_lease_is_released()
     {
         using var manager = new RenderJobManager();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -328,7 +328,7 @@ public sealed class RenderJobManagerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(stateAtRelease, Is.EqualTo("running"));
+            Assert.That(stateAtRelease, Is.EqualTo("completed"));
             Assert.That(lease.DisposeCount, Is.EqualTo(1));
         });
     }

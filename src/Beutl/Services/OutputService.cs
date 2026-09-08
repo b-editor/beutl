@@ -237,16 +237,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                     // it immediately before publishing the terminal execution. Dispose linearizes
                     // on this lock, so a request that loses this race is an idle-profile disposal,
                     // not cleanup belonging to the completed output operation.
-                    if (!outputOperationReleased)
-                    {
-                        CaptureCleanupFailure(outputOperation.Dispose, ref failures);
-                        outputOperationReleased = true;
-                        if (ReferenceEquals(_outputOperation, outputOperation))
-                        {
-                            _outputOperation = null;
-                        }
-                    }
-
                     CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
                     disposeContext = _disposeRequested
                                      && !_contextDisposed
@@ -257,6 +247,16 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                     }
                     else
                     {
+                        if (!outputOperationReleased)
+                        {
+                            CaptureCleanupFailure(outputOperation.Dispose, ref failures);
+                            outputOperationReleased = true;
+                            if (ReferenceEquals(_outputOperation, outputOperation))
+                            {
+                                _outputOperation = null;
+                            }
+                        }
+
                         if (disposeRunningProperty)
                         {
                             CaptureCleanupFailure(_isRunning.Dispose, ref failures);

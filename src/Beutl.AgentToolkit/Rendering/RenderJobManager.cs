@@ -229,9 +229,14 @@ public sealed class RenderJobManager : IDisposable
         }
         finally
         {
+            DateTimeOffset completedAt = DateTimeOffset.UtcNow;
             lock (record.Sync)
             {
                 record.AcceptsCancellation = false;
+                record.Result = terminalState == RenderJobState.Completed ? result : null;
+                record.Failure = failure;
+                record.State = terminalState;
+                record.CompletedAt = completedAt;
             }
 
             try
@@ -247,6 +252,13 @@ public sealed class RenderJobManager : IDisposable
                         failure,
                         ex);
                 terminalState = RenderJobState.Failed;
+                lock (record.Sync)
+                {
+                    record.Result = null;
+                    record.Failure = failure;
+                    record.State = RenderJobState.Failed;
+                    record.CompletedAt = completedAt;
+                }
             }
             finally
             {
@@ -264,14 +276,6 @@ public sealed class RenderJobManager : IDisposable
                 }
 
                 record.Cts.Dispose();
-            }
-
-            lock (record.Sync)
-            {
-                record.Result = terminalState == RenderJobState.Completed ? result : null;
-                record.Failure = failure;
-                record.State = terminalState;
-                record.CompletedAt = DateTimeOffset.UtcNow;
             }
         }
     }

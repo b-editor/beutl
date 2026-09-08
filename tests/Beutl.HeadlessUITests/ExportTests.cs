@@ -814,7 +814,15 @@ public class ExportTests
     {
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorWithRectangle("export-running-observer-dispose");
-        var context = new TestOutputContext("export-running-observer-dispose.scene");
+        var disposeStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDispose = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var context = new TestOutputContext("export-running-observer-dispose.scene")
+        {
+            DisposeStarted = disposeStarted,
+            DisposeRelease = releaseDispose.Task,
+        };
         var item = new OutputProfileItem(context, editor, TestShell.Editor);
         bool observedRunning = false;
         using IDisposable subscription = item.IsRunning.Subscribe(isRunning =>
@@ -830,16 +838,34 @@ public class ExportTests
         });
         Task execution = StartOutput(item);
 
-        await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
-        context.Finish();
-        await execution.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
+        try
         {
-            Assert.That(context.DisposeCount, Is.EqualTo(1));
-            Assert.Throws<ObjectDisposedException>(() => item.TryStart(out _));
-        });
-        AssertWorkspaceMutationAvailable();
+            await context.Started.WaitAsync(TimeSpan.FromSeconds(5));
+            context.Finish();
+            await disposeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Multiple(() =>
+            {
+                Assert.That(execution.IsCompleted, Is.False);
+                Assert.That(CanBeginWorkspaceMutation(), Is.False);
+            });
+
+            releaseDispose.TrySetResult();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(context.DisposeCount, Is.EqualTo(1));
+                Assert.Throws<ObjectDisposedException>(() => item.TryStart(out _));
+            });
+            AssertWorkspaceMutationAvailable();
+        }
+        finally
+        {
+            releaseDispose.TrySetResult();
+            context.Finish();
+            await execution.WaitAsync(TimeSpan.FromSeconds(5));
+            item.Dispose();
+        }
     }
 
     [AvaloniaTest]
