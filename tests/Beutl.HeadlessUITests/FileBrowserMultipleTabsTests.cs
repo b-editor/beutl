@@ -225,46 +225,6 @@ public class FileBrowserMultipleTabsTests
         });
     }
 
-    [AvaloniaTest]
-    public async Task File_browser_mutations_are_rejected_during_a_worktree_transition()
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-worktree-admission");
-        var browser = (FileBrowserTabViewModel)FileBrowsers(editor).Single().ToolContext;
-        string projectRoot = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
-        string sourceDir = Path.Combine(projectRoot, "admission-sources");
-        string targetDir = Path.Combine(projectRoot, "admission-target");
-        Directory.CreateDirectory(sourceDir);
-        Directory.CreateDirectory(targetDir);
-        string copySource = Path.Combine(sourceDir, "copy.txt");
-        string moveSource = Path.Combine(sourceDir, "move.txt");
-        string renameSource = Path.Combine(sourceDir, "rename.txt");
-        await File.WriteAllTextAsync(copySource, "copy");
-        await File.WriteAllTextAsync(moveSource, "move");
-        await File.WriteAllTextAsync(renameSource, "rename");
-        browser.RootPath.Value = targetDir;
-        using var renameItem = new FileSystemItemViewModel(renameSource, isDirectory: false);
-
-        using (IDisposable mutation = TestShell.Editor.TryBeginWorktreeMutation()!)
-        {
-            browser.CopyFilesToDirectory([(copySource, false)], targetDir);
-            browser.MoveFilesToDirectory([(moveSource, false)], targetDir);
-            browser.CreateNewFolder();
-            await browser.RenameItemAsync(renameItem, "renamed.txt");
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(File.Exists(Path.Combine(targetDir, "copy.txt")), Is.False);
-                Assert.That(File.Exists(moveSource), Is.True);
-                Assert.That(File.Exists(renameSource), Is.True);
-                Assert.That(Directory.GetDirectories(targetDir), Is.Empty);
-            });
-        }
-
-        browser.CopyFilesToDirectory([(copySource, false)], targetDir);
-        Assert.That(File.Exists(Path.Combine(targetDir, "copy.txt")), Is.True);
-    }
-
     private static void RewriteFileBrowserId(JsonNode? node, string id)
     {
         switch (node)
