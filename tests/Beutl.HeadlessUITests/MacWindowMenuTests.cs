@@ -49,6 +49,9 @@ public class MacWindowMenuTests
         }
         finally
         {
+            // The per-assembly test shell owns this MainViewModel. A window used only to inspect
+            // native menu wiring must not run the application shutdown path when it closes.
+            window.DataContext = null;
             window.Close();
             await TestReset.ResetShellAsync();
         }
