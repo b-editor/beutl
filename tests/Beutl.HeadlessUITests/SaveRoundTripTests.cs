@@ -114,16 +114,28 @@ public class SaveRoundTripTests
         Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, "migrated-save", NewWorkspace("migrated-save")))!;
         string projectFile = project.Uri!.LocalPath;
-        string sceneFile = project.Items.OfType<Scene>().Single().Uri!.LocalPath;
+        Scene sourceScene = project.Items.OfType<Scene>().Single();
+        TestShell.Editor.ActivateTabItem(sourceScene);
+        HeadlessTestHelpers.Settle();
+        var sourceEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var adder = (IElementAdder)sourceEditor.GetService(typeof(IElementAdder))!;
+        adder.AddElement(new ElementDescription(
+            Start: TimeSpan.Zero,
+            Length: TimeSpan.FromSeconds(1),
+            Layer: 0,
+            EngineObjectFactory: () => new RectShape()));
+        HeadlessTestHelpers.Settle();
+        Assert.That(await sourceEditor.Commands!.OnSave(), Is.True);
+        string elementFile = sourceScene.Children.Single().Uri!.LocalPath;
         await ResetProjectAsync();
 
         JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
         projectJson["appVersion"] = "1.0.0";
         projectJson["minAppVersion"] = "1.0.0";
         projectJson.JsonSave(projectFile);
-        JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(sceneFile))!.AsObject();
-        sceneJson.Remove("$type");
-        sceneJson.JsonSave(sceneFile);
+        JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementFile))!.AsObject();
+        elementJson.Remove("$type");
+        elementJson.JsonSave(elementFile);
 
         await TestShell.Project.OpenProject(projectFile);
         Scene migratedScene = TestShell.Project.CurrentProject.Value!.Items

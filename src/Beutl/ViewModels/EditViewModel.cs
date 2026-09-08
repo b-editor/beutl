@@ -1216,7 +1216,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             }
 
             relocation.Commit();
-            if (scene.RequiredMinAppVersionAfterMigration is not null
+            if (Project.GetRequiredMigrationVersion(scene) is not null
                 && scene.HierarchicalParent is Project project
                 && project.Uri is not null)
             {

@@ -120,6 +120,15 @@ public sealed class Project : Hierarchical
 
     private void PropagateItemMigration(ProjectItem item)
     {
+        string? requiredVersion = GetRequiredMigrationVersion(item);
+        if (requiredVersion is not null)
+        {
+            MarkAsMigrated(requiredVersion);
+        }
+    }
+
+    internal static string? GetRequiredMigrationVersion(ProjectItem item)
+    {
         string? requiredVersion = null;
         var pending = new Stack<CoreObject>();
         pending.Push(item);
@@ -140,10 +149,7 @@ public sealed class Project : Hierarchical
             }
         }
 
-        if (requiredVersion is not null)
-        {
-            MarkAsMigrated(requiredVersion);
-        }
+        return requiredVersion;
     }
 
     internal static string? GetMaximumMigrationVersion(string? left, string? right)
