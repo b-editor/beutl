@@ -252,7 +252,9 @@ internal class PackageOperationHandler
 
                 fileWrite.Dispose();
                 fileWrite = null;
-                return await _projectService.TryCloseProjectAsync(expectedProject);
+                return await _projectService.TryCloseProjectAsync(
+                    expectedProject,
+                    ProjectService.ProjectCloseIntent.SaveChanges);
             }
             finally
             {
@@ -263,7 +265,9 @@ internal class PackageOperationHandler
 
         if (result == ContentDialogResult.Primary)
         {
-            return await _projectService.TryCloseProjectAsync(expectedProject);
+            return await _projectService.TryCloseProjectAsync(
+                expectedProject,
+                ProjectService.ProjectCloseIntent.DiscardChanges);
         }
 
         return false;

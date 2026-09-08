@@ -479,7 +479,8 @@ internal sealed class VersionControlCoordinator :
         IDisposable? editorSuspension = null;
         try
         {
-            if (_config.AutoCommitOnClose
+            if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
+                && _config.AutoCommitOnClose
                 && GetOwnedBackend()?.Repository is not null
                 && _projectService.CurrentProject.Value is not null)
             {
@@ -528,7 +529,10 @@ internal sealed class VersionControlCoordinator :
             }
         }
 
-        await TrySaveForCloseSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges)
+        {
+            await TrySaveForCloseSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task<IDisposable> SuspendEditorsAsync(CancellationToken cancellationToken)

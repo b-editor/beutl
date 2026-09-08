@@ -236,6 +236,7 @@ public sealed class ProjectService
 
     internal async Task<bool> TryCloseProjectAsync(
         Project expectedProject,
+        ProjectCloseIntent closeIntent,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expectedProject);
@@ -250,7 +251,7 @@ public sealed class ProjectService
                 return false;
             }
 
-            await CloseProjectCoreAsync(transition.Context, cancellationToken);
+            await CloseProjectCoreAsync(transition.Context, cancellationToken, closeIntent);
             return true;
         }
         catch (ProjectCloseAbortedException)
@@ -466,7 +467,8 @@ public sealed class ProjectService
 
     private async Task CloseProjectCoreAsync(
         ProjectTransitionContext transition,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ProjectCloseIntent closeIntent = ProjectCloseIntent.SaveChanges)
     {
         VerifyTransition(transition);
         if (_app.Project is not { } closingProject)
@@ -474,7 +476,7 @@ public sealed class ProjectService
             return;
         }
 
-        var closeContext = new ProjectCloseContext();
+        var closeContext = new ProjectCloseContext(closeIntent);
         try
         {
             await NotifyClosingPreparingAsync(closeContext, cancellationToken);
@@ -630,7 +632,7 @@ public sealed class ProjectService
             return;
         }
 
-        var closeContext = new ProjectCloseContext();
+        var closeContext = new ProjectCloseContext(ProjectCloseIntent.SaveChanges);
         try
         {
             foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
@@ -791,11 +793,19 @@ public sealed class ProjectService
         _transitionGate.Release();
     }
 
-    internal sealed class ProjectCloseContext
+    internal enum ProjectCloseIntent
+    {
+        SaveChanges,
+        DiscardChanges,
+    }
+
+    internal sealed class ProjectCloseContext(ProjectCloseIntent closeIntent)
     {
         private readonly object _gate = new();
         private readonly List<Func<bool, Task>> _completions = [];
         private bool _completed;
+
+        internal ProjectCloseIntent CloseIntent { get; } = closeIntent;
 
         internal void RegisterCompletion(Func<bool, Task> completion)
         {
