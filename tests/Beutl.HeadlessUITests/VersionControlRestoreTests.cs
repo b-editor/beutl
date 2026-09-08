@@ -3999,6 +3999,151 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
+    public async Task Project_open_waits_for_configuration_activation_before_inspecting_conflicts()
+    {
+        await TestReset.ResetShellAsync();
+        VersionControlCoordinator? coordinator = null;
+        ProjectService? projectService = null;
+        Func<
+            ProjectService.ProjectOpenAttempt,
+            CancellationToken,
+            Task<ProjectService.ProjectOpenPreparation?>>? pauseAfterPreflight = null;
+        var preflightReached = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releasePreflight = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var configurationActivationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseConfigurationActivation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            Project target = await CreateProjectForFakeVersionControlAsync(
+                "version-control-conflict-after-configuration-target");
+            string targetFile = target.Uri!.LocalPath;
+            string markerFile = Path.Combine(
+                Path.GetDirectoryName(targetFile)!,
+                "conflicted.belm");
+            await File.WriteAllTextAsync(
+                markerFile,
+                "<<<<<<< ours\n{}\n=======\n{}\n>>>>>>> theirs\n");
+
+            Project source = await CreateProjectForFakeVersionControlAsync(
+                "version-control-conflict-after-configuration-source");
+            string sourceRoot = Path.GetDirectoryName(source.Uri!.LocalPath)!;
+            var repository = new RepositoryInfo(sourceRoot, sourceRoot);
+            var tip = new CheckedOutBranchTip(
+                "refs/heads/main",
+                "1111111111111111111111111111111111111111");
+            var discovery = new PullCycleTestBackend(null, null, tip)
+            {
+                DiscoverRepositoryOverride = projectRoot =>
+                    RepositoryPathComparer.AreEquivalent(projectRoot, sourceRoot)
+                        ? repository
+                        : null,
+            };
+            int blockConfigurationActivation = 0;
+            var tracked = new PullCycleTestBackend(repository, repository, tip)
+            {
+                EnsureHygieneOverride = async cancellationToken =>
+                {
+                    if (Volatile.Read(ref blockConfigurationActivation) == 0)
+                    {
+                        return;
+                    }
+
+                    configurationActivationStarted.TrySetResult();
+                    await releaseConfigurationActivation.Task.WaitAsync(cancellationToken);
+                },
+            };
+            var config = new VersionControlConfig
+            {
+                UseLfsWhenAvailable = false,
+            };
+            var activeProjectService = new ProjectService();
+            projectService = activeProjectService;
+            coordinator = new VersionControlCoordinator(
+                activeProjectService,
+                new EditorService(new ExtensionProvider()),
+                config,
+                installationLocator: null,
+                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            await WaitUntilAsync(() =>
+                ReferenceEquals(coordinator.CurrentService, tracked)
+                && coordinator.IsTracked.Value);
+
+            string? warnedFile = null;
+            bool sourceWasStillOpenAtWarning = false;
+            coordinator.WarnConflictMarkersAsync = file =>
+            {
+                sourceWasStillOpenAtWarning =
+                    ReferenceEquals(activeProjectService.CurrentProject.Value, source);
+                warnedFile = file;
+                return Task.CompletedTask;
+            };
+            pauseAfterPreflight = async (_, cancellationToken) =>
+            {
+                preflightReached.TrySetResult();
+                await releasePreflight.Task.WaitAsync(cancellationToken);
+                return null;
+            };
+            activeProjectService.OpeningPreflight += pauseAfterPreflight;
+
+            Task opening = activeProjectService.OpenProject(targetFile);
+            await preflightReached.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Volatile.Write(ref blockConfigurationActivation, 1);
+            config.UseLfsWhenAvailable = true;
+            await configurationActivationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            releasePreflight.TrySetResult();
+
+            System.Reflection.FieldInfo? readinessField =
+                typeof(VersionControlCoordinator).GetField(
+                    "_configurationActivationQuiesced",
+                    System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(readinessField, Is.Not.Null);
+            await WaitUntilAsync(() => readinessField!.GetValue(coordinator) is not null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(opening.IsCompleted, Is.False);
+                Assert.That(warnedFile, Is.Null);
+                Assert.That(activeProjectService.CurrentProject.Value, Is.SameAs(source));
+            });
+
+            releaseConfigurationActivation.TrySetResult();
+            await opening.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(warnedFile, Is.EqualTo(markerFile));
+                Assert.That(sourceWasStillOpenAtWarning, Is.True);
+                Assert.That(activeProjectService.CurrentProject.Value?.Uri?.LocalPath,
+                    Is.EqualTo(targetFile));
+            });
+        }
+        finally
+        {
+            releasePreflight.TrySetResult();
+            releaseConfigurationActivation.TrySetResult();
+            if (pauseAfterPreflight is not null)
+            {
+                if (projectService is not null)
+                {
+                    projectService.OpeningPreflight -= pauseAfterPreflight;
+                }
+            }
+
+            if (coordinator is not null)
+            {
+                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Newer_git_configuration_cancels_a_stale_unassociated_rediscovery()
     {
         await TestReset.ResetShellAsync();
