@@ -326,6 +326,11 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     private bool IsTemplateOrMaterialPath(string path)
     {
+        if (IsConfiguredSpecialDirectory(path))
+        {
+            return true;
+        }
+
         string? directory = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
         if (string.IsNullOrEmpty(directory))
         {
@@ -384,6 +389,31 @@ internal sealed class DirectoryWatcherService : IDisposable
         return _templateOrMaterialDirectories.GetOrAdd(canonicalDirectory, static candidate =>
             PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetTemplatesDirectoryPath())
             || PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetMaterialsDirectoryPath()));
+    }
+
+    private static bool IsConfiguredSpecialDirectory(string path)
+    {
+        try
+        {
+            string fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            return string.Equals(
+                       fullPath,
+                       Path.TrimEndingDirectorySeparator(Path.GetFullPath(
+                           BeutlEnvironment.GetTemplatesDirectoryPath())),
+                       StringComparison.Ordinal)
+                   || string.Equals(
+                       fullPath,
+                       Path.TrimEndingDirectorySeparator(Path.GetFullPath(
+                           BeutlEnvironment.GetMaterialsDirectoryPath())),
+                       StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private static string CreateLinkFingerprint(string directory)

@@ -450,6 +450,15 @@ public sealed class ObjectTemplateService
                         }
                     }
 
+                    if (loadedPaths.ContainsKnown(item.FilePath, currentCanonicalPath))
+                    {
+                        _items.RemoveAt(i--);
+                        _logger.LogInformation(
+                            "Removed duplicate template identity: {FilePath}",
+                            item.FilePath);
+                        continue;
+                    }
+
                     loadedPaths.AddKnown(item.FilePath, currentCanonicalPath);
 
                     DateTime diskTime = GetLastWriteTimeOrDefault(item.FilePath);
@@ -588,7 +597,7 @@ public sealed class ObjectTemplateService
         {
             if (_exactPaths.TryGetValue(path, out canonicalPath))
             {
-                return true;
+                return canonicalPath is not null;
             }
 
             if (TryResolve(path, out string resolvedPath)

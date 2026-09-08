@@ -4,6 +4,40 @@
 public class FilePathComparisonTests
 {
     [Test]
+    public void Canonical_identity_accepts_whitespace_only_posix_components()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows does not preserve whitespace-only path components.");
+        }
+
+        string temporaryRoot = CreateTemporaryDirectory();
+        string whitespacePath = Path.Combine(temporaryRoot, " ");
+        Directory.CreateDirectory(whitespacePath);
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    FilePathComparison.ResolveCanonicalPath(whitespacePath),
+                    Is.EqualTo(whitespacePath));
+                Assert.That(
+                    FilePathComparison.TryAreSameChildPath(
+                        temporaryRoot,
+                        " ",
+                        " ",
+                        out bool areSame),
+                    Is.True);
+                Assert.That(areSame, Is.True);
+            });
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    [Test]
     public void Canonical_identity_follows_the_actual_volume_casing_rules()
     {
         string temporaryRoot = CreateTemporaryDirectory();

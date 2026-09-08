@@ -19,8 +19,8 @@ public static class FilePathComparison
     /// <summary>Determines whether two paths have the same canonical spelling.</summary>
     public static bool AreSameCanonicalPath(string left, string right)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(left);
-        ArgumentException.ThrowIfNullOrWhiteSpace(right);
+        ValidatePath(left, nameof(left));
+        ValidatePath(right, nameof(right));
         ResolutionContext context = CreateResolutionContext();
 
         return string.Equals(
@@ -32,8 +32,8 @@ public static class FilePathComparison
     /// <summary>Determines whether a path is the root itself or one of its descendants.</summary>
     public static bool IsSameOrDescendant(string root, string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(root);
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ValidatePath(root, nameof(root));
+        ValidatePath(path, nameof(path));
 
         ResolutionContext context = CreateResolutionContext();
         string canonicalRoot = Path.TrimEndingDirectorySeparator(
@@ -66,7 +66,7 @@ public static class FilePathComparison
         string rightName,
         out bool areSame)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(parentPath);
+        ValidatePath(parentPath, nameof(parentPath));
         ValidateChildName(leftName, nameof(leftName));
         ValidateChildName(rightName, nameof(rightName));
 
@@ -84,26 +84,6 @@ public static class FilePathComparison
         if (!leftExists || !rightExists)
         {
             return leftExists != rightExists;
-        }
-
-        if (!CouldHaveEquivalentFilesystemSpelling(leftName, rightName))
-        {
-            try
-            {
-                bool leftIsLink = GetFileSystemInfo(leftPath).LinkTarget is not null;
-                bool rightIsLink = GetFileSystemInfo(rightPath).LinkTarget is not null;
-                if (!leftIsLink && !rightIsLink)
-                {
-                    return true;
-                }
-            }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or ArgumentException
-                                       or NotSupportedException)
-            {
-                return false;
-            }
         }
 
         try
@@ -136,7 +116,7 @@ public static class FilePathComparison
 
     private static string ResolveCanonicalPath(string path, ResolutionContext context)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ValidatePath(path, nameof(path));
 
         (string root, IEnumerable<string> unresolvedComponents) =
             GetUnresolvedAbsolutePath(path);
@@ -260,7 +240,7 @@ public static class FilePathComparison
 
     private static void ValidateChildName(string name, string paramName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name, paramName);
+        ValidatePath(name, paramName);
         if (name is "." or ".."
             || Path.IsPathRooted(name)
             || name.AsSpan().IndexOfAny(
@@ -271,6 +251,16 @@ public static class FilePathComparison
             throw new ArgumentException(
                 "A child name must contain exactly one path component.",
                 paramName);
+        }
+    }
+
+    private static void ValidatePath(string path, string paramName)
+    {
+        ArgumentNullException.ThrowIfNull(path, paramName);
+        if (path.Length == 0
+            || OperatingSystem.IsWindows() && string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("The path must not be empty.", paramName);
         }
     }
 
@@ -315,15 +305,6 @@ public static class FilePathComparison
         return Directory.Exists(path)
             ? new DirectoryInfo(path)
             : new FileInfo(path);
-    }
-
-    private static bool CouldHaveEquivalentFilesystemSpelling(string left, string right)
-    {
-        return string.Equals(left, right, StringComparison.OrdinalIgnoreCase)
-               || string.Equals(
-                   left.Normalize(NormalizationForm.FormC),
-                   right.Normalize(NormalizationForm.FormC),
-                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeExistingEntrySpelling(

@@ -93,8 +93,8 @@ public sealed class FileThumbnailService : IDisposable
     private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
     private readonly ConcurrentDictionary<string, CachedThumbnail> _cache = new();
     private readonly ConcurrentDictionary<string, (MediaFileInfo Info, long LastAccessTicks)> _mediaInfoCache = new();
-    private readonly ConcurrentDictionary<string, bool> _templateDirectoryMembership =
-        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<TemplateDirectoryMembershipKey, bool>
+        _templateDirectoryMembership = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
     private readonly Timer _pruneTimer;
@@ -304,21 +304,32 @@ public sealed class FileThumbnailService : IDisposable
     /// </remarks>
     public bool IsObjectTemplateFile(string filePath)
     {
+        return IsObjectTemplateFile(
+            filePath,
+            BeutlEnvironment.GetTemplatesDirectoryPath());
+    }
+
+    internal bool IsObjectTemplateFile(string filePath, string templatesDirectoryPath)
+    {
         if (!string.Equals(Path.GetExtension(filePath), ".json", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        string? directory = Path.GetDirectoryName(filePath);
-        if (string.IsNullOrEmpty(directory))
-        {
-            return false;
-        }
-
         string canonicalDirectory;
+        string canonicalTemplatesDirectory;
         try
         {
+            string fullPath = Path.GetFullPath(filePath);
+            string? directory = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrEmpty(directory))
+            {
+                return false;
+            }
+
             canonicalDirectory = FilePathComparison.ResolveCanonicalPath(directory);
+            canonicalTemplatesDirectory = FilePathComparison.ResolveCanonicalPath(
+                templatesDirectoryPath);
         }
         catch (Exception ex) when (ex is IOException
                                    or UnauthorizedAccessException
@@ -333,9 +344,18 @@ public sealed class FileThumbnailService : IDisposable
             _templateDirectoryMembership.Clear();
         }
 
-        return _templateDirectoryMembership.GetOrAdd(canonicalDirectory, static candidate =>
-            PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetTemplatesDirectoryPath()));
+        return _templateDirectoryMembership.GetOrAdd(
+            new TemplateDirectoryMembershipKey(
+                canonicalTemplatesDirectory,
+                canonicalDirectory),
+            static key => FilePathComparison.IsSameOrDescendant(
+                key.TemplatesDirectory,
+                key.CandidateDirectory));
     }
+
+    private readonly record struct TemplateDirectoryMembershipKey(
+        string TemplatesDirectory,
+        string CandidateDirectory);
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
     {

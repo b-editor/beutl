@@ -276,4 +276,98 @@ public class ObjectTemplateServicePreviewTests
             service.RestoreItems();
         }
     }
+
+    [Test]
+    public void RefreshFromFileSystem_removes_an_alias_whose_target_was_deleted()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        string targetRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"template-dangling-target-{Guid.NewGuid():N}");
+        string targetPath = Path.Combine(targetRoot, "target.json");
+        string aliasPath = Path.Combine(
+            BeutlEnvironment.GetTemplatesDirectoryPath(),
+            $"dangling-alias-{Guid.NewGuid():N}.json");
+        Directory.CreateDirectory(targetRoot);
+        Directory.CreateDirectory(Path.GetDirectoryName(aliasPath)!);
+        ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(
+            new Audio.Effects.AudioEffectGroup(),
+            "dangling-alias");
+        File.WriteAllText(targetPath, ObjectTemplateItem.ToJson(template).ToJsonString());
+        try
+        {
+            try
+            {
+                File.CreateSymbolicLink(aliasPath, targetPath);
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
+            }
+
+            service.RestoreItems();
+            Assert.That(
+                service.FindByBaseType(template.BaseType).Select(item => item.FilePath),
+                Does.Contain(aliasPath));
+
+            File.Delete(targetPath);
+            service.RefreshFromFileSystem();
+
+            Assert.That(
+                service.FindByBaseType(template.BaseType).Select(item => item.FilePath),
+                Does.Not.Contain(aliasPath));
+        }
+        finally
+        {
+            File.Delete(aliasPath);
+            if (Directory.Exists(targetRoot)) Directory.Delete(targetRoot, recursive: true);
+            service.RestoreItems();
+        }
+    }
+
+    [Test]
+    public async Task RefreshFromFileSystem_deduplicates_paths_that_converge_on_one_identity()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateItem? first = await service.AddFromInstanceAsync(
+            new Audio.Effects.AudioEffectGroup(),
+            $"converging-first-{Guid.NewGuid():N}");
+        ObjectTemplateItem? second = await service.AddFromInstanceAsync(
+            new Audio.Effects.AudioEffectGroup(),
+            $"converging-second-{Guid.NewGuid():N}");
+        Assert.That(first, Is.Not.Null);
+        Assert.That(second, Is.Not.Null);
+        string firstPath = first!.FilePath!;
+        string secondPath = second!.FilePath!;
+        try
+        {
+            File.Delete(secondPath);
+            try
+            {
+                File.CreateSymbolicLink(secondPath, firstPath);
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
+            }
+
+            service.RefreshFromFileSystem();
+
+            string?[] matchingPaths = service.FindByBaseType(first.BaseType)
+                .Select(item => item.FilePath)
+                .Where(path => path == firstPath || path == secondPath)
+                .ToArray();
+            Assert.That(matchingPaths, Is.EqualTo(new[] { firstPath }));
+        }
+        finally
+        {
+            File.Delete(secondPath);
+            File.Delete(firstPath);
+            service.RestoreItems();
+        }
+    }
 }

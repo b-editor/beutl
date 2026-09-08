@@ -209,6 +209,28 @@ public class DirectoryWatcherServiceTests
         Assert.That(service.ShouldExcludePath(path), Is.False);
     }
 
+    [TestCase(true)]
+    [TestCase(false)]
+    [NonParallelizable]
+    public void Deleted_template_and_material_roots_remain_explicit_filter_exceptions(
+        bool template)
+    {
+        string directory = template
+            ? BeutlEnvironment.GetTemplatesDirectoryPath()
+            : BeutlEnvironment.GetMaterialsDirectoryPath();
+        Directory.CreateDirectory(directory);
+        Directory.Delete(directory, recursive: true);
+        try
+        {
+            using var service = new DirectoryWatcherService();
+            Assert.That(service.ShouldExcludePath(directory), Is.False);
+        }
+        finally
+        {
+            Directory.CreateDirectory(directory);
+        }
+    }
+
     [Test]
     public void Template_thumbnail_scope_is_cached_per_containing_directory()
     {
@@ -228,6 +250,59 @@ public class DirectoryWatcherServiceTests
         finally
         {
             service.ClearCache();
+        }
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void Template_thumbnail_scope_resolves_a_bare_relative_file_path()
+    {
+        string previousDirectory = Environment.CurrentDirectory;
+        FileThumbnailService service = FileThumbnailService.Instance;
+        service.ClearCache();
+        try
+        {
+            Environment.CurrentDirectory = _projectRoot;
+            Assert.That(
+                service.IsObjectTemplateFile("template.json", _projectRoot),
+                Is.True);
+        }
+        finally
+        {
+            Environment.CurrentDirectory = previousDirectory;
+            service.ClearCache();
+        }
+    }
+
+    [Test]
+    public void Template_root_retarget_invalidates_cached_directory_membership()
+    {
+        string firstTarget = Path.Combine(_projectRoot, "template-root-first");
+        string secondTarget = Path.Combine(_projectRoot, "template-root-second");
+        string templateAlias = Path.Combine(_projectRoot, "template-root-alias");
+        Directory.CreateDirectory(firstTarget);
+        Directory.CreateDirectory(secondTarget);
+        FileThumbnailService service = FileThumbnailService.Instance;
+        service.ClearCache();
+        try
+        {
+            CreateDirectorySymlinkOrIgnore(templateAlias, firstTarget);
+            string candidate = Path.Combine(secondTarget, "template.json");
+            Assert.That(
+                service.IsObjectTemplateFile(candidate, templateAlias),
+                Is.False);
+
+            Directory.Delete(templateAlias);
+            CreateDirectorySymlinkOrIgnore(templateAlias, secondTarget);
+
+            Assert.That(
+                service.IsObjectTemplateFile(candidate, templateAlias),
+                Is.True);
+        }
+        finally
+        {
+            service.ClearCache();
+            if (Directory.Exists(templateAlias)) Directory.Delete(templateAlias);
         }
     }
 
@@ -306,12 +381,12 @@ public class DirectoryWatcherServiceTests
         string alias = Path.Combine(_projectRoot, "nested-alias");
         Directory.CreateDirectory(templateTarget);
         Directory.CreateDirectory(outsideTarget);
-        CreateDirectorySymlinkOrIgnore(intermediate, templateTarget);
-        CreateDirectorySymlinkOrIgnore(alias, intermediate);
-        using var service = new DirectoryWatcherService();
 
         try
         {
+            CreateDirectorySymlinkOrIgnore(intermediate, templateTarget);
+            CreateDirectorySymlinkOrIgnore(alias, intermediate);
+            using var service = new DirectoryWatcherService();
             Assert.That(service.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.False);
 
             Directory.Delete(intermediate);
@@ -323,7 +398,7 @@ public class DirectoryWatcherServiceTests
         {
             if (Directory.Exists(alias)) Directory.Delete(alias);
             if (Directory.Exists(intermediate)) Directory.Delete(intermediate);
-            Directory.Delete(templateTarget, recursive: true);
+            if (Directory.Exists(templateTarget)) Directory.Delete(templateTarget, recursive: true);
         }
     }
 
