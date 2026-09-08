@@ -77,15 +77,29 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
+            return ScaleStaticVideoTime(timeSpan, resource.Speed);
 
         if (keyFrameAnimation.KeyFrames.Count == 0)
         {
-            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
+            return ScaleStaticVideoTime(timeSpan, resource.Speed);
         }
 
         resource._speedIntegrator.EnsureCache(anm);
         return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
+    }
+
+    private static TimeSpan ScaleStaticVideoTime(TimeSpan timeSpan, float speed)
+    {
+        if (!float.IsFinite(speed) || speed < 0)
+            return TimeSpan.MaxValue;
+
+        double ticks = timeSpan.Ticks * (speed / 100d);
+        if (ticks >= TimeSpan.MaxValue.Ticks)
+            return TimeSpan.MaxValue;
+        if (ticks <= TimeSpan.MinValue.Ticks)
+            return TimeSpan.MinValue;
+
+        return TimeSpan.FromTicks((long)ticks);
     }
 
     /// <summary>

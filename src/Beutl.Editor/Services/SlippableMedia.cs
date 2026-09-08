@@ -404,9 +404,32 @@ internal static class SlippableMedia
 
     private static bool HasCompleteVideoSpeedState(SourceVideo video, TimeRange reachableRange)
     {
-        return video.Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 }
-            ? !SpeedMayRunBackward(video, reachableRange)
-            : float.IsFinite(video.Speed.CurrentValue) && video.Speed.CurrentValue >= 0;
+        float maximumSpeed;
+        if (video.Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
+        {
+            TimeSpan firstClock = GetVideoClockStartAt(video, reachableRange.Start);
+            TimeSpan secondClock = GetVideoClockStartAt(video, reachableRange.End);
+            TimeSpan rangeStart = firstClock <= secondClock ? firstClock : secondClock;
+            TimeSpan rangeEnd = firstClock >= secondClock ? firstClock : secondClock;
+            if (!animation.TryGetOutputRange(
+                    new TimeRange(rangeStart, rangeEnd - rangeStart),
+                    out float minimumSpeed,
+                    out maximumSpeed)
+                || !float.IsFinite(minimumSpeed)
+                || minimumSpeed < 0)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            maximumSpeed = video.Speed.CurrentValue;
+            if (!float.IsFinite(maximumSpeed) || maximumSpeed < 0)
+                return false;
+        }
+
+        double maximumTicks = reachableRange.Duration.Ticks * (maximumSpeed / 100d);
+        return double.IsFinite(maximumTicks) && maximumTicks <= TimeSpan.MaxValue.Ticks;
     }
 
     private static bool HasCompleteSoundState(SourceSound sound)

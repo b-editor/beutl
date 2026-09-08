@@ -181,6 +181,25 @@ public class SourceVideoSpeedTest
         Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
+    [TestCase(-100f)]
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.MaxValue)]
+    public void CalculateVideoDuration_InvalidStaticSpeedReturnsSaturatedConsumption(float speed)
+    {
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(CompositionContext.Default);
+        typeof(SourceVideo.Resource)
+            .GetField("_speed", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(_sourceVideoResource, speed);
+        TimeSpan result = TimeSpan.Zero;
+
+        Assert.DoesNotThrow(() => result = _sourceVideo.CalculateVideoDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            _sourceVideoResource));
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
     [Test]
     public void CalculateTimelineDuration_ZeroSpeedTail_ReturnsUnbounded()
     {

@@ -197,6 +197,21 @@ public class EasingOutputRangeTests
     }
 
     [Test]
+    public void KeyFrameAnimation_OverflowingClockRangeReturnsFalse()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100f });
+        bool result = true;
+
+        Assert.DoesNotThrow(() => result = animation.TryGetOutputRange(
+            new TimeRange(TimeSpan.FromTicks(1), TimeSpan.MaxValue),
+            out _,
+            out _));
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
     public void BounceEaseRanges_ContainFloatingPointExtrema()
     {
         var easeIn = new BounceEaseIn();

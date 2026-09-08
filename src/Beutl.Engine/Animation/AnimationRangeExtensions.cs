@@ -47,6 +47,14 @@ public static class AnimationRangeExtensions
         ArgumentNullException.ThrowIfNull(animation);
         if (clockRange.Duration < TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(clockRange));
+        if (clockRange.Start.Ticks > TimeSpan.MaxValue.Ticks - clockRange.Duration.Ticks)
+        {
+            minimum = default;
+            maximum = default;
+            return false;
+        }
+
+        TimeSpan rangeEnd = clockRange.Start + clockRange.Duration;
 
         if (animation is not KeyFrameAnimation<float> keyFrameAnimation)
             return animation.TryGetOutputRange(out minimum, out maximum);
@@ -60,7 +68,7 @@ public static class AnimationRangeExtensions
         }
 
         float startValue = keyFrameAnimation.Interpolate(clockRange.Start);
-        float endValue = keyFrameAnimation.Interpolate(clockRange.End);
+        float endValue = keyFrameAnimation.Interpolate(rangeEnd);
         if (!float.IsFinite(startValue) || !float.IsFinite(endValue))
         {
             minimum = default;
@@ -73,7 +81,7 @@ public static class AnimationRangeExtensions
         var previous = first;
         for (int i = 1; i < keyFrameAnimation.KeyFrames.Count; i++)
         {
-            if (previous.KeyTime > clockRange.End)
+            if (previous.KeyTime > rangeEnd)
                 break;
 
             if (keyFrameAnimation.KeyFrames[i] is not KeyFrame<float> next)
@@ -83,7 +91,7 @@ public static class AnimationRangeExtensions
                 return false;
             }
 
-            if (clockRange.End >= previous.KeyTime && clockRange.Start <= next.KeyTime)
+            if (rangeEnd >= previous.KeyTime && clockRange.Start <= next.KeyTime)
             {
                 if (!float.IsFinite(previous.Value) || !float.IsFinite(next.Value))
                 {
@@ -103,8 +111,8 @@ public static class AnimationRangeExtensions
                 TimeSpan overlapStart = clockRange.Start >= previous.KeyTime
                     ? clockRange.Start
                     : previous.KeyTime;
-                TimeSpan overlapEnd = clockRange.End <= next.KeyTime
-                    ? clockRange.End
+                TimeSpan overlapEnd = rangeEnd <= next.KeyTime
+                    ? rangeEnd
                     : next.KeyTime;
                 float startProgress = Math.Clamp(
                     (float)((overlapStart - previous.KeyTime).Ticks / (double)intervalTicks),

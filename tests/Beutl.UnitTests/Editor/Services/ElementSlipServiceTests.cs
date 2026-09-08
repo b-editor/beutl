@@ -2011,7 +2011,8 @@ public class ElementSlipServiceTests
     [TestCase(float.NaN)]
     [TestCase(float.PositiveInfinity)]
     [TestCase(float.NegativeInfinity)]
-    public void Slip_NonFiniteAnimatedVideoSpeedFailsClosed(float invalidSpeed)
+    [TestCase(float.MaxValue)]
+    public void Slip_UnrepresentableAnimatedVideoSpeedFailsClosed(float invalidSpeed)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         var source = new VideoSource();
