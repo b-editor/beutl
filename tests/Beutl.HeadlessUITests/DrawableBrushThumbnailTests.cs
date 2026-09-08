@@ -953,15 +953,22 @@ public class DrawableBrushThumbnailTests
     }
 }
 
-internal sealed partial class BlockingThumbnailDrawable(
-    float width,
-    float height,
-    Brush.Resource? fill) : Drawable
+internal sealed partial class BlockingThumbnailDrawable : Drawable
 {
+    private readonly float _width;
+    private readonly float _height;
+    private readonly Brush.Resource? _fill;
     private readonly TaskCompletionSource<bool> _renderEntered =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource<bool> _releaseRender =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public BlockingThumbnailDrawable(float width, float height, Brush.Resource? fill)
+    {
+        _width = width;
+        _height = height;
+        _fill = fill;
+    }
 
     public TaskCompletionSource<bool> RenderEntered => _renderEntered;
 
@@ -969,11 +976,11 @@ internal sealed partial class BlockingThumbnailDrawable(
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (width > 0 && height > 0 && fill is not null)
+        if (_width > 0 && _height > 0 && _fill is not null)
         {
             context.DrawRectangle(
-                new Rect(0, 0, width, height),
-                fill,
+                new Rect(0, 0, _width, _height),
+                _fill,
                 null);
         }
 
@@ -981,7 +988,7 @@ internal sealed partial class BlockingThumbnailDrawable(
         _releaseRender.Task.GetAwaiter().GetResult();
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(width, height);
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(_width, _height);
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {

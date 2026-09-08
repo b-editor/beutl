@@ -175,6 +175,7 @@ public class ResourceDefaultValuesTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(result.CompilationErrors, Is.Empty);
             Assert.That(
                 result.GeneratorDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error),
                 Is.Empty,
