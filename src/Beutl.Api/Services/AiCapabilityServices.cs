@@ -477,19 +477,7 @@ internal sealed class AiImageGenerationService(
         if (partial is null || partial.Index < 0 || string.IsNullOrEmpty(partial.Image))
             return;
 
-        byte[] bytes;
-        try
-        {
-            bytes = System.Convert.FromBase64String(partial.Image);
-        }
-        catch (FormatException)
-        {
-            return;
-        }
-
-        if (bytes.Length > 0
-            && bytes.LongLength <= AiRequestLimits.MaxImageUploadBytes
-            && budget.TryReserve(bytes.LongLength))
+        if (budget.TryDecode(partial.Image, out byte[] bytes))
         {
             progress.Report(new AiImagePreview(partial.Index, bytes));
         }
@@ -500,10 +488,48 @@ internal sealed class AiImageGenerationService(
         private int _count;
         private long _bytes;
 
+        public bool TryDecode(string image, out byte[] bytes)
+        {
+            bytes = [];
+            int length = 0;
+            int padding = 0;
+            foreach (char character in image)
+            {
+                // Match the whitespace accepted by Convert.FromBase64String.
+                if (character is ' ' or '\t' or '\r' or '\n')
+                    continue;
+
+                length++;
+                padding = character == '=' ? padding + 1 : 0;
+            }
+
+            if (length == 0 || length % 4 != 0 || padding > 2)
+                return false;
+
+            long decodedLength = (long)(length / 4) * 3 - padding;
+            if (!CanReserve(decodedLength))
+                return false;
+
+            try
+            {
+                bytes = System.Convert.FromBase64String(image);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+
+            return TryReserve(bytes.LongLength);
+        }
+
+        private bool CanReserve(long bytes)
+            => bytes > 0
+               && _count < MaximumImagePreviewCount
+               && bytes <= MaximumImagePreviewBytes - _bytes;
+
         public bool TryReserve(long bytes)
         {
-            if (_count >= MaximumImagePreviewCount
-                || _bytes > MaximumImagePreviewBytes - bytes)
+            if (!CanReserve(bytes))
             {
                 return false;
             }

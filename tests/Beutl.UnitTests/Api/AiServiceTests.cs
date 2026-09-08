@@ -876,6 +876,68 @@ public sealed class AiCapabilityServiceTests
         }
     }
 
+    [TestCase("AA==", 1)]
+    [TestCase("AAA=", 2)]
+    [TestCase("AAAA", 3)]
+    [TestCase(" A\tA\r=\n= ", 1)]
+    public void ImagePreviewBudget_DecodesPaddingAndWhitespace(string image, int length)
+    {
+        var budget = new AiImageGenerationService.ImagePreviewBudget();
+        Assert.That(budget.TryDecode(image, out byte[] bytes), Is.True);
+        Assert.That(bytes, Has.Length.EqualTo(length));
+    }
+
+    [Test]
+    public void ImagePreviewBudget_RejectsOversizedImageWithoutDecodedAllocation()
+    {
+        var budget = new AiImageGenerationService.ImagePreviewBudget();
+        string image = new('A', checked((int)((AiRequestLimits.MaxImageUploadBytes / 3 + 1) * 4)));
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool accepted = budget.TryDecode(image, out byte[] bytes);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.That(accepted, Is.False);
+        Assert.That(bytes, Is.Empty);
+        Assert.That(allocated, Is.LessThan(1024 * 1024));
+        Assert.That(budget.TryDecode("AA==", out _), Is.True);
+    }
+
+    [Test]
+    public void ImagePreviewBudget_ChecksRemainingBudgetBeforeDecoding()
+    {
+        var budget = new AiImageGenerationService.ImagePreviewBudget();
+        Assert.That(budget.TryReserve(AiRequestLimits.MaxImageUploadBytes - 1), Is.True);
+        Assert.That(budget.TryDecode("AAA=", out _), Is.False);
+        Assert.That(budget.TryDecode("AA==", out _), Is.True);
+        Assert.That(budget.TryDecode("AA==", out _), Is.False);
+    }
+
+    [Test]
+    public void ImagePreviewBudget_InvalidImageDoesNotConsumeBudget()
+    {
+        var budget = new AiImageGenerationService.ImagePreviewBudget();
+        Assert.That(budget.TryDecode("!AAA", out _), Is.False);
+        for (int index = 0; index < 4; index++)
+            Assert.That(budget.TryDecode("AA==", out _), Is.True);
+        Assert.That(budget.TryDecode("AA==", out _), Is.False);
+    }
+
+    [Test]
+    public void ImagePreviewBudget_ExhaustedCountDoesNotAllocateDecodedImage()
+    {
+        var budget = new AiImageGenerationService.ImagePreviewBudget();
+        for (int index = 0; index < 4; index++)
+            Assert.That(budget.TryReserve(1), Is.True);
+        string image = new('A', 4 * 1024 * 1024);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool accepted = budget.TryDecode(image, out byte[] bytes);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.That(accepted, Is.False);
+        Assert.That(bytes, Is.Empty);
+        Assert.That(allocated, Is.LessThan(1024 * 1024));
+    }
+
     [Test]
     public async Task ImageGeneration_MalformedTerminalResultStillFailsClosed()
     {
