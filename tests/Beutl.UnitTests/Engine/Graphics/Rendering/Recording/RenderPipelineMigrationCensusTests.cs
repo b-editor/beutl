@@ -2451,11 +2451,11 @@ public sealed class RenderPipelineMigrationCensusTests
             if (aliasQualified is not null
                 && aliasQualified.Alias.Identifier.ValueText != "global")
             {
-                string aliasName = aliasQualified.Alias.Identifier.ValueText;
-                string prefix = aliasName + ".";
+                string externAliasName = aliasQualified.Alias.Identifier.ValueText;
+                string prefix = externAliasName + ".";
                 return writtenType.StartsWith(prefix, StringComparison.Ordinal)
                        && writtenType[prefix.Length..] == qualifiedTypeName
-                       && ExternAliasTargetsEngine(aliasName, document);
+                       && ExternAliasTargetsEngine(externAliasName, document);
             }
 
             if (IsGloballyQualified(type))
