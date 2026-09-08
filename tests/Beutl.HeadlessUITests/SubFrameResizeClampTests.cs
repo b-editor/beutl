@@ -79,14 +79,15 @@ public class SubFrameResizeClampTests
         soundSource.ReadFrom(new Uri(path));
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        ElementAddResult added = await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(1),
             Layer: 0,
-            EngineObjectFactory: () => new SourceSound
+            Source: new ElementSource.EngineObject(() => new SourceSound
             {
                 Source = { CurrentValue = soundSource },
-            }));
+            }))], CancellationToken.None);
+        Assert.That(added.IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.Single();
@@ -138,11 +139,12 @@ public class SubFrameResizeClampTests
         EditViewModel editor = await OpenEditorForNewScene("resize-zero-width");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        ElementAddResult added = await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.FromSeconds(1),
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => new Beutl.Graphics.Shapes.RectShape()));
+            Source: new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))], CancellationToken.None);
+        Assert.That(added.IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.Single();
