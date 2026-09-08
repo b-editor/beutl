@@ -417,7 +417,7 @@ public sealed class RenderPipelineMigrationCensusTests
                 namespace Compatibility;
                 public static class BlockExtensions
                 {
-                    extension(RenderNodeProcessor processor)
+                    extension(RenderNodeProcessor? processor)
                     {
                         public void Pull() { }
                     }
@@ -980,6 +980,11 @@ public sealed class RenderPipelineMigrationCensusTests
             if (type is null)
             {
                 return false;
+            }
+
+            if (type is NullableTypeSyntax nullable)
+            {
+                type = nullable.ElementType;
             }
 
             string writtenType = type.ToString().Replace("global::", string.Empty, StringComparison.Ordinal);
