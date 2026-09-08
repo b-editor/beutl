@@ -343,7 +343,7 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         KeyFrameAnimation<float>? animation = Speed.Animation as KeyFrameAnimation<float>;
         if (animation is not { KeyFrames.Count: > 0 })
         {
-            if (speed <= 0)
+            if (!double.IsFinite(speed) || speed <= 0)
                 return TimeSpan.MaxValue;
             if (resource.FrameRate <= 0
                 && !resource.HoldFirstFrame

@@ -97,10 +97,30 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
         {
-            return CalculateVideoTime(start + duration, resource) - CalculateVideoTime(start, resource);
+            if (!TryAddTime(start, duration, out TimeSpan end))
+                return duration > TimeSpan.Zero ? TimeSpan.MaxValue : TimeSpan.MinValue;
+
+            return CalculateVideoTime(end, resource) - CalculateVideoTime(start, resource);
         }
 
         return CalculateVideoTime(duration, resource);
+    }
+
+    private static bool TryAddTime(TimeSpan left, TimeSpan right, out TimeSpan result)
+    {
+        if (right > TimeSpan.Zero && left.Ticks > TimeSpan.MaxValue.Ticks - right.Ticks)
+        {
+            result = TimeSpan.MaxValue;
+            return false;
+        }
+        if (right < TimeSpan.Zero && left.Ticks < TimeSpan.MinValue.Ticks - right.Ticks)
+        {
+            result = TimeSpan.MinValue;
+            return false;
+        }
+
+        result = left + right;
+        return true;
     }
 
     /// <summary>

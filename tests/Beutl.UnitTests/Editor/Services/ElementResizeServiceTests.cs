@@ -1396,6 +1396,34 @@ public class ElementResizeServiceTests
         Assert.That(result.TotalSeconds, Is.EqualTo(2 - (Math.Sqrt(2) - 1)).Within(0.005));
     }
 
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    public void CalculateTimelineDuration_NonFiniteStaticControllerSpeedReturnsUnbounded(float speed)
+    {
+        var video = new SourceVideo
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+        };
+        var controller = new DrawableTimeController
+        {
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10)),
+            Target = { CurrentValue = video },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+        typeof(DrawableTimeController.Resource)
+            .GetField("_speed", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(resource, speed);
+        TimeSpan result = TimeSpan.Zero;
+
+        Assert.DoesNotThrow(() => result = controller.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.MaxValue,
+            video,
+            resource));
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
     [Test]
     public void CalculateTimelineDuration_StaticLowSpeedWithFrameRateFindsFiniteBound()
     {

@@ -132,6 +132,23 @@ public class SourceVideoSpeedTest
         Assert.That(consumed.TotalSeconds, Is.EqualTo(1.3667).Within(0.05));
     }
 
+    [Test]
+    public void CalculateVideoDuration_AnimatedEndpointSaturatesAtTimeSpanMaximum()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 0f, KeyTime = TimeSpan.FromSeconds(1) });
+        _sourceVideo!.Speed.Animation = animation;
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        TimeSpan result = TimeSpan.MinValue;
+
+        Assert.DoesNotThrow(() => result = _sourceVideo.CalculateVideoDuration(
+            TimeSpan.FromTicks(1),
+            TimeSpan.MaxValue,
+            _sourceVideoResource));
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
     [TestCase(50f, 4d)]
     [TestCase(200f, 1d)]
     public void CalculateTimelineDuration_StaticSpeedInvertsSourceDuration(float speed, double expected)
