@@ -104,6 +104,20 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
                         textStart + 1,
                         "A WebVTT voice span that does not cover the whole cue cannot be represented by one caption speaker."));
                 }
+                if (parsed.HasMultipleLanguageSpans)
+                {
+                    errors.Add(new CaptionDiagnostic(
+                        CaptionDiagnosticKinds.UnsupportedMarkup,
+                        textStart + 1,
+                        "A WebVTT cue with multiple language spans cannot be represented by one caption language."));
+                }
+                else if (parsed.HasPartialLanguageSpan)
+                {
+                    errors.Add(new CaptionDiagnostic(
+                        CaptionDiagnosticKinds.UnsupportedMarkup,
+                        textStart + 1,
+                        "A WebVTT language span that does not cover the whole cue cannot be represented by one caption language."));
+                }
                 if (parsed.HasUnsupportedInlineMarkup)
                 {
                     errors.Add(new CaptionDiagnostic(
@@ -195,6 +209,9 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         int voiceSpanCount = 0;
         int voiceDepth = 0;
         bool hasTextOutsideVoiceSpan = false;
+        int languageSpanCount = 0;
+        int languageDepth = 0;
+        bool hasTextOutsideLanguageSpan = false;
         bool hasUnsupportedInlineMarkup = false;
         for (int i = 0; i < payload.Length; i++)
         {
@@ -222,6 +239,22 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
                     {
                         voiceDepth--;
                     }
+                    else if (TryGetAnnotation(tag, "lang", out string languageAnnotation))
+                    {
+                        languageSpanCount++;
+                        if (languageSpanCount == 1
+                            && !hasTextOutsideLanguageSpan
+                            && language is null)
+                        {
+                            language = WebUtility.HtmlDecode(
+                                TrimWebVttWhitespace(languageAnnotation));
+                        }
+                        languageDepth++;
+                    }
+                    else if (IsClosingTag(tag, "lang") && languageDepth > 0)
+                    {
+                        languageDepth--;
+                    }
                     i = close;
                     continue;
                 }
@@ -230,6 +263,8 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             plainText.Append(payload[i]);
             if (voiceDepth == 0)
                 hasTextOutsideVoiceSpan = true;
+            if (languageDepth == 0)
+                hasTextOutsideLanguageSpan = true;
         }
 
         return new ParsedWebVttText(
@@ -240,6 +275,9 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             voiceSpanCount > 1,
             voiceSpanCount > 0
                 && (string.IsNullOrEmpty(speaker) || hasTextOutsideVoiceSpan),
+            languageSpanCount > 1,
+            languageSpanCount > 0
+                && (string.IsNullOrEmpty(language) || hasTextOutsideLanguageSpan),
             hasUnsupportedInlineMarkup);
     }
 
@@ -323,7 +361,26 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             return false;
         }
 
+        if (HasCueSettings(line))
+        {
+            errors.Add(new CaptionDiagnostic(
+                CaptionDiagnosticKinds.UnsupportedMarkup,
+                lineNumber,
+                "WebVTT cue settings cannot be represented and were removed."));
+        }
+
         return true;
+    }
+
+    private static bool HasCueSettings(string line)
+    {
+        int separator = line.IndexOf("-->", StringComparison.Ordinal);
+        if (separator < 0)
+            return false;
+
+        ReadOnlySpan<char> right = line.AsSpan(separator + 3).Trim();
+        int whitespace = right.IndexOfAny(' ', '\t');
+        return whitespace >= 0 && !right[(whitespace + 1)..].Trim().IsEmpty;
     }
 
     private static bool IsHeader(string value)
@@ -473,5 +530,7 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         string? Classes,
         bool HasMultipleVoiceSpans,
         bool HasPartialVoiceSpan,
+        bool HasMultipleLanguageSpans,
+        bool HasPartialLanguageSpan,
         bool HasUnsupportedInlineMarkup);
 }

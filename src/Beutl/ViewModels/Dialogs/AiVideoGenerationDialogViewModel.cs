@@ -1688,7 +1688,7 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
                     job = await _videos.GetAsync(jobId, token);
                     transientFailures = 0;
                 }
-                catch (Exception ex) when (IsTransientPollingFailure(ex))
+                catch (Exception ex) when (IsTransientPollingFailure(ex, token))
                 {
                     transientFailures++;
                     operation.TryPublish(() => StatusText.Value = Strings.AiVideoProcessing);
@@ -1891,9 +1891,20 @@ internal sealed class AiVideoGenerationDialogViewModel : IDisposable, IAsyncDisp
         }
     }
 
-    private static bool IsTransientPollingFailure(Exception exception)
-        => exception is HttpRequestException
-            || exception is AiException { IsTransient: true };
+    private static bool IsTransientPollingFailure(
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+            return false;
+
+        return exception is OperationCanceledException
+            or TimeoutException
+            or HttpRequestException
+            or AiException { IsTransient: true }
+            || exception.InnerException is { } inner
+            && IsTransientPollingFailure(inner, cancellationToken);
+    }
 
     private TimeSpan GetTransientPollDelay(int failureCount)
     {

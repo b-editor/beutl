@@ -358,6 +358,43 @@ public class CaptionDocumentSerializerTests
         }
     }
 
+    [TestCase("<lang fr>Bonjour</lang> hello", "fr")]
+    [TestCase("hello <lang fr>Bonjour</lang>", null)]
+    public void ImportWebVtt_PartialLanguageSpanProducesAnExplicitDiagnostic(
+        string payload,
+        string? expectedLanguage)
+    {
+        CaptionImportResult result = Import(
+            $"WEBVTT\n\n00:00.000 --> 00:01.000\n{payload}\n",
+            CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Language, Is.EqualTo(expectedLanguage));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 4));
+        }
+    }
+
+    [Test]
+    public void ImportWebVtt_CueSettingsProduceAnExplicitDiagnostic()
+    {
+        CaptionImportResult result = Import(
+            "WEBVTT\n\n00:00.000 --> 00:01.000 line:0 position:50% align:center\ntext\n",
+            CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Text, Is.EqualTo("text"));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 3));
+        }
+    }
+
     [TestCase("<b>bold</b>", "bold")]
     [TestCase("<ruby>漢<rt>かん</rt></ruby>", "漢かん")]
     [TestCase("before <00:00:00.500>after", "before after")]
@@ -406,7 +443,7 @@ public class CaptionDocumentSerializerTests
                 result.Diagnostics.Where(diagnostic =>
                     diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup)
                     .Select(diagnostic => diagnostic.LineNumber),
-                Is.EqualTo(new int?[] { 3, 6 }));
+                Is.EqualTo(new int?[] { 3, 6, 10 }));
         }
     }
 

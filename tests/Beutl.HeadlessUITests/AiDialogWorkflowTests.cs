@@ -127,6 +127,54 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_ReferenceRemovedDuringSizeProbeIsSkipped()
+    {
+        await TestReset.ResetShellAsync();
+        string removedPath = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "removed-reference.png");
+        string retainedPath = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "retained-reference.png");
+        await File.WriteAllBytesAsync(removedPath, s_png);
+        await File.WriteAllBytesAsync(retainedPath, s_png);
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, ImageCapabilitiesJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
+        viewModel.BeforeReferenceImageSizeProbe = path =>
+        {
+            if (string.Equals(path, removedPath, StringComparison.Ordinal))
+                File.Delete(path);
+        };
+
+        try
+        {
+            Assert.DoesNotThrow(() => viewModel.AddReferenceImages([removedPath, retainedPath]));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(viewModel.ReferenceImages, Has.Count.EqualTo(1));
+                Assert.That(viewModel.ReferenceImages[0].Path, Is.EqualTo(retainedPath));
+                Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiEditSourcePreviewFailed));
+            }
+        }
+        finally
+        {
+            viewModel.BeforeReferenceImageSizeProbe = null;
+            File.Delete(removedPath);
+            File.Delete(retainedPath);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task VideoGeneration_FramePickerResultFromPreviousIdentityIsIgnored()
     {
         await TestReset.ResetShellAsync();
@@ -1612,6 +1660,39 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task ImageGeneration_UnavailableSelectedModelDisablesANewRequest()
+    {
+        await TestReset.ResetShellAsync();
+        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
+        {
+            "/api/v3/user/entitlements" => JsonResponse(
+                HttpStatusCode.OK,
+                EntitlementsWithUnavailableImageModelJson()),
+            "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, ImageCapabilitiesJson()),
+            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using AiImageGenerationDialogViewModel viewModel = CreateImageGenerationDialog(clients);
+        await WaitUntilAsync(() => viewModel.ModelPicker.Options.Count == 3);
+        viewModel.Prompt.Value = "A model availability test";
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-1");
+        await WaitUntilAsync(() => viewModel.CanGenerate.Value);
+
+        viewModel.ModelPicker.Selected.Value = viewModel.ModelPicker.Options
+            .First(option => option.Id.Value == "openai/gpt-image-2");
+        await WaitUntilAsync(() => !viewModel.CanGenerate.Value);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(viewModel.ModelPicker.Selected.Value!.IsAvailable, Is.False);
+            Assert.That(viewModel.Generate.CanExecute(), Is.False);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ComposedPromptLimit_DisablesImageAndVideoCommandsBeforeSubmission()
     {
         await TestReset.ResetShellAsync();
@@ -2090,29 +2171,35 @@ public sealed class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         int polls = 0;
         var delays = new List<TimeSpan>();
+        HttpResponseMessage PollVideo()
+            => Interlocked.Increment(ref polls) switch
+            {
+                1 => JsonResponse(HttpStatusCode.InternalServerError, """
+                    {
+                      "error_code": "aiProviderError",
+                      "message": "Provider status is temporarily unavailable."
+                    }
+                    """),
+                2 => throw new TaskCanceledException("The HTTP status request timed out."),
+                3 => throw new TimeoutException("The video status request timed out."),
+                _ => JsonResponse(HttpStatusCode.OK, """
+                    {
+                      "jobId": "webm-job",
+                      "status": "succeeded",
+                      "fileId": "webm-file",
+                      "url": "https://beutl.beditor.net/api/contents/webm-file",
+                      "fileName": "generated.webm",
+                      "contentType": "video/webm"
+                    }
+                    """),
+            };
         using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, """
                 { "jobId": "webm-job", "status": "queued" }
                 """),
-            "/api/v3/ai/videos/webm-job" when Interlocked.Increment(ref polls) == 1 =>
-                JsonResponse(HttpStatusCode.InternalServerError, """
-                    {
-                      "error_code": "aiProviderError",
-                      "message": "Provider status is temporarily unavailable."
-                    }
-                    """),
-            "/api/v3/ai/videos/webm-job" => JsonResponse(HttpStatusCode.OK, """
-                {
-                  "jobId": "webm-job",
-                  "status": "succeeded",
-                  "fileId": "webm-file",
-                  "url": "https://beutl.beditor.net/api/contents/webm-file",
-                  "fileName": "generated.webm",
-                  "contentType": "video/webm"
-                }
-                """),
+            "/api/v3/ai/videos/webm-job" => PollVideo(),
             "/api/contents/webm-file" => ByteResponse([1, 2, 3, 4], "video/webm"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
         });
@@ -2137,8 +2224,10 @@ public sealed class AiDialogWorkflowTests
         string resultPath = viewModel.ResultVideoPath.Value!;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(polls, Is.EqualTo(2));
+            Assert.That(polls, Is.EqualTo(4));
             Assert.That(delays, Does.Contain(TimeSpan.FromMilliseconds(10)));
+            Assert.That(delays, Does.Contain(TimeSpan.FromMilliseconds(20)));
+            Assert.That(delays, Does.Contain(TimeSpan.FromMilliseconds(25)));
             Assert.That(resultPath, Does.EndWith(".webm"));
             Assert.That(File.Exists(resultPath), Is.True);
             if (!OperatingSystem.IsWindows())
@@ -5654,6 +5743,19 @@ public sealed class AiDialogWorkflowTests
           }
         }
         """;
+
+    private static string EntitlementsWithUnavailableImageModelJson()
+        => EntitlementsJson().Replace(
+            "\"availability\": {",
+            """
+            "modelAvailability": {
+              "image.generate": {
+                "openai/gpt-image-2": false
+              }
+            },
+            "availability": {
+            """,
+            StringComparison.Ordinal);
 
     private static string ImageResponseJson(string jobId, string fileId) => $$"""
         {

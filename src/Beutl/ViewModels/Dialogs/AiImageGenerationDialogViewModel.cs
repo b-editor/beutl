@@ -204,6 +204,13 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
                 // the catalog says now.
                 (can, nothingUsable, outstanding) =>
                     can && (!nothingUsable || outstanding))
+            .CombineLatest(
+                ModelPicker.Selected,
+                _recoveryRevision,
+                // An unavailable choice cannot start new work. An outstanding request remains
+                // collectable on its retained model because the server resolves its name before
+                // checking current affordability.
+                (can, selected, _) => can && CanUseSelectedModel(selected))
             // Until the list has been asked for, a request would name no model
             // and run on the server's default, which may cost more than what
             // this screen was about to offer.
@@ -403,6 +410,8 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
     // Unset in production: the default branches below use Avalonia storage and
     // AiResultImporter exactly as the editor does today.
     internal Func<CancellationToken, Task<IReadOnlyList<string>>>? ReferenceImagePicker { get; set; }
+
+    internal Action<string>? BeforeReferenceImageSizeProbe { get; set; }
 
     internal Func<CancellationToken, Task<AiSaveFileDestination?>>? SaveFilePicker { get; set; }
 
@@ -901,6 +910,20 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         => _selectedRecovery is { } attempt
             ? attempt.Model is { } model ? new AiModelId(model) : null
             : selected;
+
+    private bool CanUseSelectedModel(AiModelPickerOption? selected)
+    {
+        if (selected is null || selected.IsAvailable)
+            return true;
+        if (!_requestKey.HasOutstandingName.Value
+            || _selectedRecovery is not { Model: { } model } recovery
+            || !_requestKey.IsCurrentPending(recovery))
+        {
+            return false;
+        }
+
+        return selected.Id == new AiModelId(model);
+    }
 
     private void ActivateRecovery(AiPendingAttempt attempt)
     {
@@ -1599,16 +1622,17 @@ internal sealed class AiImageGenerationDialogViewModel : IDisposable, IAsyncDisp
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return null;
 
-        // The upload is refused server-side once it is too big, so the file is
-        // measured here instead of after the account has waited for a round trip.
-        if (new FileInfo(path).Length > AiRequestLimits.MaxImageUploadBytes)
-        {
-            Error.Value = Strings.AiFileTooLarge;
-            return null;
-        }
-
         try
         {
+            // The upload is refused server-side once it is too big, so the file is
+            // measured here instead of after the account has waited for a round trip.
+            BeforeReferenceImageSizeProbe?.Invoke(path);
+            if (new FileInfo(path).Length > AiRequestLimits.MaxImageUploadBytes)
+            {
+                Error.Value = Strings.AiFileTooLarge;
+                return null;
+            }
+
             return new AiReferenceImageViewModel(
                 path,
                 Ref<Bitmap>.Create(AiImageDecodeValidator.LoadValidatedBitmap(

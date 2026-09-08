@@ -398,9 +398,58 @@ public sealed class AiModelCatalog
                         + $"{AiRequestLimits.MaxVideoDurationSeconds} seconds.",
                         nameof(operations));
                 }
+                if (model.Video is { } video)
+                {
+                    ValidateCapabilityIdentifiers(video.Resolutions, "video resolution");
+                    ValidateCapabilityIdentifiers(video.AspectRatios, "video aspect ratio");
+                }
+                if (model.Image is { } image)
+                {
+                    ValidateCapabilityIdentifiers(image.AspectRatios, "image aspect ratio");
+                    ValidateCapabilityIdentifiers(image.Backgrounds, "image background");
+                }
             }
 
             return models;
+
+            static void ValidateCapabilityIdentifiers(
+                AiCapabilityDimension<string> dimension,
+                string dimensionName)
+            {
+                if (!dimension.IsSpecified)
+                    return;
+
+                var normalizedValues = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string? value in dimension.Values)
+                {
+                    string normalized;
+                    try
+                    {
+                        normalized = AiIdentifier.Normalize(value!, dimensionName);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        throw new ArgumentException(
+                            $"Every {dimensionName} capability must be a valid identifier.",
+                            nameof(operations),
+                            ex);
+                    }
+
+                    if (!string.Equals(value, normalized, StringComparison.Ordinal))
+                    {
+                        throw new ArgumentException(
+                            $"Every {dimensionName} capability must use its canonical identifier.",
+                            nameof(operations));
+                    }
+
+                    if (!normalizedValues.Add(normalized))
+                    {
+                        throw new ArgumentException(
+                            $"{dimensionName} capabilities must be unique after normalization.",
+                            nameof(operations));
+                    }
+                }
+            }
         }
     }
 

@@ -691,13 +691,21 @@ public sealed class AiFormRecoveryTests
         SetAuthenticatedUser(app);
         using var context = NewContext(store, "test-user");
         await using var generation = CreateGeneration(app, context);
-        await WaitUntilAsync(() => generation.ModelPicker.Options.Count > 0);
+        await WaitUntilAsync(() => generation.ModelPicker.Options.Count > 0
+            && generation.Usage.HasSnapshot.Value);
         Assert.That(generation.SelectedRecoveryAttempt.Value, Is.Null);
-        generation.ModelPicker.Selected.Value = generation.ModelPicker.Options.LastOrDefault();
         AiPendingAttempt saved = store.Find("test-user", "image.generate", "model-a")!;
+        generation.Prompt.Value = "A new request must not borrow another recovery model";
+        generation.ModelPicker.Selected.Value = generation.ModelPicker.Options
+            .First(option => option.Id.Value == "model-a");
+        await WaitUntilAsync(() => !generation.CanGenerate.Value);
+        Assert.That(generation.CanGenerate.Value, Is.False);
+
         Assert.That(generation.TryRecoverPendingAttempt(saved), Is.True);
+        await WaitUntilAsync(() => generation.CanGenerate.Value);
         Assert.That(generation.ModelPicker.SelectedModel?.Value, Is.EqualTo("model-a"));
         Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.False);
+        Assert.That(generation.CanGenerate.Value, Is.True);
         Directory.Delete(root, recursive: true);
     }
 

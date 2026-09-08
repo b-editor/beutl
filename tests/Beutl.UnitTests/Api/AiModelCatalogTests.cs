@@ -210,6 +210,98 @@ public class AiModelCatalogTests
         ]));
     }
 
+    [TestCase("video-resolution")]
+    [TestCase("video-aspect-ratio")]
+    [TestCase("image-aspect-ratio")]
+    [TestCase("image-background")]
+    public void Catalog_RejectsInvalidStringCapabilitiesFromCustomProviders(string dimension)
+    {
+        string? invalidValue = dimension switch
+        {
+            "video-resolution" => null,
+            "video-aspect-ratio" => " ",
+            "image-aspect-ratio" => string.Empty,
+            "image-background" => new string('x', 257),
+            _ => throw new ArgumentOutOfRangeException(nameof(dimension)),
+        };
+        AiVideoModelCapabilities? video = dimension switch
+        {
+            "video-resolution" => AiVideoModelCapabilities.Unrestricted with
+            {
+                Resolutions = AiCapabilityDimension<string>.Supported([invalidValue!]),
+            },
+            "video-aspect-ratio" => AiVideoModelCapabilities.Unrestricted with
+            {
+                AspectRatios = AiCapabilityDimension<string>.Supported([invalidValue!]),
+            },
+            _ => null,
+        };
+        AiImageModelCapabilities? image = dimension switch
+        {
+            "image-aspect-ratio" => AiImageModelCapabilities.Unrestricted with
+            {
+                AspectRatios = AiCapabilityDimension<string>.Supported([invalidValue!]),
+            },
+            "image-background" => AiImageModelCapabilities.Unrestricted with
+            {
+                Backgrounds = AiCapabilityDimension<string>.Supported([invalidValue!]),
+            },
+            _ => null,
+        };
+
+        Assert.Throws<ArgumentException>(() => new AiModelCatalog(
+        [
+            KeyValuePair.Create(
+                new AiOperationId("vendor.invalid-string-capability"),
+                ImmutableArray.Create(new AiModelOption(
+                    new AiModelId("vendor/model"),
+                    "Vendor Model",
+                    AiModelCostTier.Medium,
+                    IsDefault: true,
+                    Video: video,
+                    Image: image))),
+        ]));
+    }
+
+    [Test]
+    public void Catalog_RejectsDuplicateStringCapabilities()
+    {
+        Assert.Throws<ArgumentException>(() => new AiModelCatalog(
+        [
+            KeyValuePair.Create(
+                new AiOperationId("vendor.duplicate-resolution"),
+                ImmutableArray.Create(new AiModelOption(
+                    new AiModelId("vendor/video"),
+                    "Vendor Video",
+                    AiModelCostTier.Medium,
+                    IsDefault: true,
+                    Video: AiVideoModelCapabilities.Unrestricted with
+                    {
+                        Resolutions = AiCapabilityDimension<string>.Supported(
+                            ["720p", "720p"]),
+                    }))),
+        ]));
+    }
+
+    [Test]
+    public void Catalog_RejectsNonCanonicalStringCapabilities()
+    {
+        Assert.Throws<ArgumentException>(() => new AiModelCatalog(
+        [
+            KeyValuePair.Create(
+                new AiOperationId("vendor.noncanonical-resolution"),
+                ImmutableArray.Create(new AiModelOption(
+                    new AiModelId("vendor/video"),
+                    "Vendor Video",
+                    AiModelCostTier.Medium,
+                    IsDefault: true,
+                    Video: AiVideoModelCapabilities.Unrestricted with
+                    {
+                        Resolutions = AiCapabilityDimension<string>.Supported([" 720p "]),
+                    }))),
+        ]));
+    }
+
     [Test]
     public void Catalog_TreatsAFullyFilteredModelListAsExplicitlyUnavailable()
     {
