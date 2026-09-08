@@ -68,7 +68,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         {
             SetValue(typed, replaceEquivalent: true);
         }
-        else if (value is null && !typeof(T).IsValueType)
+        else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
         {
             SetValue(default, replaceEquivalent: true);
         }

@@ -110,7 +110,7 @@ public interface IProperty<T> : IProperty
             {
                 CurrentValue = tValue;
             }
-            else if (value == null && !typeof(T).IsValueType)
+            else if (value == null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
             {
                 CurrentValue = default!;
             }
@@ -127,7 +127,7 @@ public interface IProperty<T> : IProperty
         {
             ReplaceCurrentValue(typed);
         }
-        else if (value is null && !typeof(T).IsValueType)
+        else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
         {
             ReplaceCurrentValue(default!);
         }

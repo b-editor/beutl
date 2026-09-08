@@ -1116,7 +1116,7 @@ public class Scene : ProjectItem, INotifyEdited
         // Scene serializes these collections explicitly, independent of property metadata.
         foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
         {
-            foreach (CoreObject obj in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
+            foreach (CoreObject obj in EnumerateSceneOwnedGraphObjects(sceneObject))
                 yield return obj;
         }
 
@@ -1129,9 +1129,21 @@ public class Scene : ProjectItem, INotifyEdited
                 continue;
             }
 
-            foreach (CoreObject obj in EnumerateSerializedGraphObjects(value).OfType<CoreObject>())
+            foreach (CoreObject obj in EnumerateSceneOwnedGraphObjects(value))
                 yield return obj;
         }
+    }
+
+    private IEnumerable<CoreObject> EnumerateSceneOwnedGraphObjects(object value)
+    {
+        using var capture = new SerializedObjectCapture();
+        CoreSerializer.SerializeToJsonNode(value, new CoreSerializerOptions
+        {
+            BaseUri = Uri,
+            Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+        });
+        return EnumerateSerializedGraphObjects(value).OfType<CoreObject>()
+            .Concat(capture.Objects).Distinct<CoreObject>(ReferenceEqualityComparer.Instance).ToArray();
     }
 
     private static Guid ClaimRecoveredDescendantId(
@@ -1390,58 +1402,6 @@ public class Scene : ProjectItem, INotifyEdited
         return source;
     }
 
-    internal static SuppressedStorageSource? TryResumeElementPersistence(
-        Element element,
-        object? removedValue)
-    {
-        if (element.SuppressedStorageSource is not { } source
-            || !MayContainRemovedRecoveryBlocker(element, removedValue, source))
-        {
-            return null;
-        }
-
-        return TryResumeElementPersistence(element);
-    }
-
-    private static bool MayContainRemovedRecoveryBlocker(
-        Element element,
-        object? removedValue,
-        SuppressedStorageSource source)
-    {
-        if (removedValue is null)
-        {
-            // Some editors cannot retain the removed value; recheck the remaining serialized graph.
-            return true;
-        }
-
-        if (SerializedGraphTraversal.Enumerate(removedValue).Any(static value =>
-                value is IFallback or KeyFrame { HasLossyEasing: true }))
-        {
-            return true;
-        }
-
-        try
-        {
-            using var capture = new LossyEasingSerializationCapture();
-            CoreSerializer.SerializeToJsonNode(
-                removedValue,
-                new CoreSerializerOptions
-                {
-                    BaseUri = element.Uri,
-                    Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
-                });
-            if (capture.HasLossyEasing) return true;
-            if (source.UntraversedFallbacks is not { Length: > 0 } snapshots) return false;
-            JsonNode serializedValue = CoreSerializer.SerializeToJsonNode(
-                removedValue, new CoreSerializerOptions { BaseUri = element.Uri });
-            return snapshots.Any(snapshot => ContainsEquivalentJsonNode(serializedValue, snapshot));
-        }
-        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex))
-        {
-            return true;
-        }
-    }
-
     private static bool HasUnresolvedSerializedRecoveryBlocker(
         Element element,
         SuppressedStorageSource source)
@@ -1683,20 +1643,26 @@ public class Scene : ProjectItem, INotifyEdited
             else if (value is IDictionary dictionary)
             {
                 int rewriteCount = state.RewriteCount;
+                var entries = new List<DictionaryEntry>();
+                bool changed = false;
                 foreach (object key in dictionary.Keys.Cast<object>().ToArray())
                 {
                     object? item = dictionary[key];
                     object? migratedItem = MigrateRecoveredReferenceValue(item, state);
-                    if (HasReferenceRewrite(item, migratedItem))
-                    {
-                        if (dictionary.IsReadOnly)
-                        {
-                            state.RewriteCount = rewriteCount;
-                            return value;
-                        }
+                    entries.Add(new DictionaryEntry(key, migratedItem));
+                    changed |= HasReferenceRewrite(item, migratedItem);
+                }
 
-                        dictionary[key] = migratedItem;
+                if (changed)
+                {
+                    if (!dictionary.IsReadOnly)
+                    {
+                        foreach (DictionaryEntry entry in entries) dictionary[entry.Key] = entry.Value;
                     }
+                    else if (RecoveredCollectionFactory.RebuildDictionary(dictionary, entries.ToArray()) is { } rebuilt)
+                        rewrittenValue = rebuilt;
+                    else
+                        state.RewriteCount = rewriteCount;
                 }
             }
             else if (value is IList list)
@@ -1729,6 +1695,20 @@ public class Scene : ProjectItem, INotifyEdited
                     {
                         state.RewriteCount = rewriteCount;
                     }
+                }
+            }
+
+            else if (value is IEnumerable enumerable)
+            {
+                int rewriteCount = state.RewriteCount;
+                object?[] items = enumerable.Cast<object?>().ToArray();
+                object?[] rewrittenItems = items.Select(item => MigrateRecoveredReferenceValue(item, state)).ToArray();
+                if (items.Where((item, index) => HasReferenceRewrite(item, rewrittenItems[index])).Any())
+                {
+                    if (RecoveredCollectionFactory.RebuildEnumerable(enumerable, rewrittenItems) is { } rebuilt)
+                        rewrittenValue = rebuilt;
+                    else
+                        state.RewriteCount = rewriteCount;
                 }
             }
 

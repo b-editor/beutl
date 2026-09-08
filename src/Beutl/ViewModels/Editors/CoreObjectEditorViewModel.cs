@@ -218,19 +218,19 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public void SetTarget(CoreObject? target)
     {
-        T? previous = null;
+
         if (Value.Value is not IPresenter<T> presenter)
         {
             Type? presenterType = PresenterTypeAttribute.GetPresenterType(PropertyAdapter.PropertyType);
             if (presenterType == null) return;
             if (Activator.CreateInstance(presenterType) is not IPresenter<T> p) return;
-            previous = PropertyAdapter.GetValue();
+
             presenter = p;
             PropertyAdapter.SetValue(presenter);
         }
         else
         {
-            previous = presenter.Target.CurrentValue;
+
         }
 
         if (target is T)
@@ -244,7 +244,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             presenter.Target.CurrentValue = null;
         }
 
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
+        CompleteElementRepair();
         Commit();
     }
 

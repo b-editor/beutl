@@ -136,18 +136,15 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
         EngineObject unrelated = recovered.Objects[0];
         recovered.Objects.Remove(unrelated);
-        Assert.That(Scene.TryResumeElementPersistence(recovered, unrelated), Is.Null);
+        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
 
-        object removed = recoveredHolder.Wrapped.CurrentValue;
         if (removeWrapper)
             recoveredHolder.Wrapped.CurrentValue = [];
         else
             keyFrame.Easing = new LinearEasing();
-        SuppressedStorageSource? suppression = removeWrapper
-            ? Scene.TryResumeElementPersistence(recovered, removed)
-            : Scene.TryResumeElementPersistence(recovered);
+        SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(recovered);
         Assert.That(suppression, Is.Not.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
@@ -159,6 +156,13 @@ public sealed class MalformedElementRecoveryTests
 
     public sealed class PluginScene : Scene
     {
+        public static readonly CoreProperty<StorageWrapper?> WrappedOwnedProperty =
+            ConfigureProperty<StorageWrapper?, PluginScene>(nameof(WrappedOwned)).Register();
+        public StorageWrapper? WrappedOwned
+        {
+            get => GetValue(WrappedOwnedProperty);
+            set => SetValue(WrappedOwnedProperty, value);
+        }
         public static readonly CoreProperty<CoreObject?> OwnedProperty =
             ConfigureProperty<CoreObject?, PluginScene>(nameof(Owned)).Register();
 
@@ -169,9 +173,24 @@ public sealed class MalformedElementRecoveryTests
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void ReassignDuplicateRecoveredIds_RetainsSceneRegisteredPropertyGraph(bool collideWithElement)
+    public sealed class PluginLayer : TimelineLayer
+    {
+        public static readonly CoreProperty<StorageWrapper?> WrappedOwnedProperty =
+            ConfigureProperty<StorageWrapper?, PluginLayer>(nameof(WrappedOwned)).Register();
+        public StorageWrapper? WrappedOwned
+        {
+            get => GetValue(WrappedOwnedProperty);
+            set => SetValue(WrappedOwnedProperty, value);
+        }
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    [TestCase(false, true, true)]
+    [TestCase(true, true, true)]
+    public void ReassignDuplicateRecoveredIds_RetainsSceneRegisteredPropertyGraph(bool collideWithElement, bool wrapped, bool inLayer = false)
     {
         var claimant = new RotationTransform();
         var reference = new TransformReferenceHolder();
@@ -189,8 +208,10 @@ public sealed class MalformedElementRecoveryTests
         var scene = new PluginScene
         {
             Uri = new Uri(Path.Combine(_root, "plugin.scene")),
-            Owned = claimant,
+            Owned = wrapped ? null : claimant,
+            WrappedOwned = wrapped && !inLayer ? new StorageWrapper(claimant) : null,
         };
+        if (inLayer) scene.Layers.Add(new PluginLayer { WrappedOwned = new StorageWrapper(claimant) });
         scene.Children.Add(healthy);
         scene.Children.Add(recovered);
 
@@ -282,6 +303,12 @@ public sealed class MalformedElementRecoveryTests
 
         public IProperty<ReadOnlyCollection<Reference<Element>>> ReadOnlyTargets { get; }
             = Property.Create<ReadOnlyCollection<Reference<Element>>>();
+
+        public IProperty<ReadOnlyDictionary<string, Reference<Element>>> ReadOnlyDictionaryTargets { get; }
+            = Property.Create<ReadOnlyDictionary<string, Reference<Element>>>();
+
+        public IProperty<HashSet<Reference<Element>>> SetTargets { get; }
+            = Property.CreateAnimatable<HashSet<Reference<Element>>>();
 
         public IProperty<Reference<Element>> AnimatedTarget { get; }
             = Property.CreateAnimatable<Reference<Element>>();
@@ -2053,6 +2080,21 @@ public sealed class MalformedElementRecoveryTests
         };
         holder.ReadOnlyTargets.CurrentValue = new ReadOnlyCollection<Reference<Element>>(
             [new Reference<Element>(originalId)]);
+        holder.ReadOnlyDictionaryTargets.CurrentValue = new ReadOnlyDictionary<string, Reference<Element>>(
+            new Dictionary<string, Reference<Element>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["MiGrAtEd"] = new Reference<Element>(originalId),
+            });
+        IEqualityComparer<Reference<Element>> comparer = EqualityComparer<Reference<Element>>.Create(
+            (a, b) => a.Id == b.Id, a => a.Id.GetHashCode());
+        holder.SetTargets.CurrentValue = new HashSet<Reference<Element>>(comparer) { new(originalId) };
+        var setAnimation = new KeyFrameAnimation<HashSet<Reference<Element>>>();
+        var setFrame = new KeyFrame<HashSet<Reference<Element>>>
+        {
+            Value = new HashSet<Reference<Element>>(comparer) { new(originalId) },
+        };
+        setAnimation.KeyFrames.Add(setFrame);
+        holder.SetTargets.Animation = setAnimation;
         var animation = new KeyFrameAnimation<Reference<Element>>();
         animation.KeyFrames.Add(new KeyFrame<Reference<Element>>
         {
@@ -2089,6 +2131,12 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(migratedDictionaryReference.Value, Is.SameAs(migrated));
             Assert.That(migratedReadOnlyReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedReadOnlyReference.Value, Is.SameAs(migrated));
+            Assert.That(holder.ReadOnlyDictionaryTargets.CurrentValue!["MIGRATED"].Id, Is.EqualTo(migrated.Id));
+            Assert.That(holder.ReadOnlyDictionaryTargets.CurrentValue["migrated"].Value, Is.SameAs(migrated));
+            Assert.That(holder.SetTargets.CurrentValue!.Single().Id, Is.EqualTo(migrated.Id));
+            Assert.That(holder.SetTargets.CurrentValue.Comparer, Is.SameAs(comparer));
+            Assert.That(setFrame.Value.Single().Id, Is.EqualTo(migrated.Id));
+            Assert.That(setFrame.Value.Comparer, Is.SameAs(comparer));
             Assert.That(migratedReference.Id, Is.EqualTo(migrated.Id));
             Assert.That(migratedReference.Value, Is.SameAs(migrated));
         });

@@ -11,6 +11,14 @@ namespace Beutl.UnitTests.Engine.Animation;
 
 public class KeyFrameTests
 {
+    [Test]
+    public void ReplaceValue_NullableValueAcceptsNull()
+    {
+        var keyFrame = new KeyFrame<Guid?> { Value = Guid.NewGuid() };
+        ((IKeyFrame)keyFrame).ReplaceValue(null);
+        Assert.That(keyFrame.Value, Is.Null);
+    }
+
     [TestCase("null")]
     [TestCase("\"[Missing.Plugin]Missing:Easing\"")]
     [TestCase("{\"X1\":\"invalid\"}")]

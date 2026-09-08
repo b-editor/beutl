@@ -282,7 +282,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Initialize()
     {
-        TItem?[]? previous = List.Value?.ToArray();
+
         if (List.Value == null)
         {
             Type listType = PropertyAdapter.PropertyType;
@@ -303,7 +303,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             List.Value.Clear();
         }
 
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
+        CompleteElementRepair();
         Commit();
     }
 
@@ -314,9 +314,8 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             if (PropertyAdapter.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
-            IList<TItem?> previous = List.Value;
             PropertyAdapter.SetValue(null);
-            ResumeElementPersistenceAfterFallbackReplacement(previous);
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -348,9 +347,9 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void RemoveItem(int index)
     {
-        TItem? previous = List.Value![index];
+
         List.Value!.RemoveAt(index);
-        ResumeElementPersistenceAfterFallbackReplacement(previous);
+        CompleteElementRepair();
         Commit();
     }
 

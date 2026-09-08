@@ -187,33 +187,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
-    protected void ResumeElementPersistenceAfterFallbackReplacement(object? previous)
+    protected void CompleteElementRepair()
     {
-        if (_element is { SuppressedStorageSource: not null }
-            && Scene.TryResumeElementPersistence(_element, previous) is { } suppression)
+        if (_element is not null)
         {
-            RecordPersistenceResume(_element, suppression);
+            Beutl.Editor.Services.ElementRecoveryService.TryCompleteRepair(
+                _element, this.GetRequiredService<HistoryManager>());
         }
-    }
-
-    protected void ResumeElementPersistenceAfterKnownRecoveryBlockerReplacement()
-    {
-        if (_element is { SuppressedStorageSource: not null }
-            && Scene.TryResumeElementPersistence(_element) is { } suppression)
-        {
-            RecordPersistenceResume(_element, suppression);
-        }
-    }
-
-    private void RecordPersistenceResume(Element element, SuppressedStorageSource suppression)
-    {
-        this.GetRequiredService<HistoryManager>().Record(
-            () => element.SuppressedStorageSource = null,
-            () =>
-            {
-                suppression.WasReinstated = true;
-                element.SuppressedStorageSource = suppression;
-            });
     }
 
     public void Dispose()
@@ -585,7 +565,6 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
-            bool replacesKnownRecoveryBlocker = ReplacesLossyEasing();
             if (EditingKeyFrame.Value is { } kf)
             {
                 kf.Value = newValue!;
@@ -596,50 +575,25 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 prop.SetValue(newValue);
             }
 
-            ResumeElementPersistenceAfterReplacement(oldValue, replacesKnownRecoveryBlocker);
+            CompleteElementRepair();
             Commit(commandName);
         }
     }
 
     public void SetValue(T? newValue)
     {
-        T? oldValue;
-        bool replacesKnownRecoveryBlocker = ReplacesLossyEasing();
         if (EditingKeyFrame.Value is { } kf)
         {
-            oldValue = kf.Value;
             kf.Value = newValue!;
         }
         else
         {
             IPropertyAdapter<T> prop = PropertyAdapter;
-            oldValue = prop.GetValue();
             prop.SetValue(newValue);
         }
 
-        ResumeElementPersistenceAfterReplacement(oldValue, replacesKnownRecoveryBlocker);
+        CompleteElementRepair();
         Commit();
-    }
-
-    private bool ReplacesLossyEasing()
-        => PropertyAdapter.GetCoreProperty() == KeyFrame.EasingProperty
-           && PropertyAdapter is CorePropertyAdapter<T>
-           {
-               Object: KeyFrame { HasLossyEasing: true },
-           };
-
-    private void ResumeElementPersistenceAfterReplacement(
-        object? previous,
-        bool replacesKnownRecoveryBlocker)
-    {
-        if (replacesKnownRecoveryBlocker)
-        {
-            ResumeElementPersistenceAfterKnownRecoveryBlockerReplacement();
-        }
-        else
-        {
-            ResumeElementPersistenceAfterFallbackReplacement(previous);
-        }
     }
 
     public T? SetCurrentValueAndGetCoerced(T? value)
@@ -682,14 +636,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
-        IKeyFrame[] previousKeyFrames = [.. kfAnimation.KeyFrames];
         AnimationOperations.RemoveKeyFrame(
             animation: kfAnimation,
             keyTime: keyTime,
             logger: Logger);
-        IKeyFrame? removedKeyFrame = previousKeyFrames.FirstOrDefault(
-            keyFrame => !kfAnimation.KeyFrames.Contains(keyFrame));
-        ResumeElementPersistenceAfterFallbackReplacement(removedKeyFrame);
+        CompleteElementRepair();
         Commit();
     }
 
@@ -721,9 +672,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
-            IAnimation<T>? previous = animatableProperty.Animation;
             animatableProperty.Animation = null;
-            ResumeElementPersistenceAfterFallbackReplacement(previous);
+            CompleteElementRepair();
             Commit();
         }
     }
@@ -740,9 +690,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             expressionProperty.Expression = newExpression;
             if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
             {
-                IAnimation<T>? previous = ap.Animation;
                 ap.Animation = null;
-                ResumeElementPersistenceAfterFallbackReplacement(previous);
+                CompleteElementRepair();
             }
 
             Commit();

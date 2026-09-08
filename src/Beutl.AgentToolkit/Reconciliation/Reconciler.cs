@@ -382,16 +382,7 @@ public sealed class Reconciler
 
                 foreach (Element element in affectedSuppressedElements)
                 {
-                    if (Scene.TryResumeElementPersistence(element) is { } suppression)
-                    {
-                        session.History.Record(
-                            () => element.SuppressedStorageSource = null,
-                            () =>
-                            {
-                                suppression.WasReinstated = true;
-                                element.SuppressedStorageSource = suppression;
-                            });
-                    }
+                    Beutl.Editor.Services.ElementRecoveryService.TryCompleteRepair(element, session.History);
                 }
             },
             "Agent edit");

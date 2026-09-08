@@ -187,7 +187,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
                 PropertyAdapter.SetValue(newValue);
             }
 
-            ResumeElementPersistenceAfterFallbackReplacement(oldValue);
+            CompleteElementRepair();
             Commit(commandName);
         }
     }
@@ -267,9 +267,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         {
             if (Activator.CreateInstance(type) is Drawable instance)
             {
-                Drawable? previous = drawable.Drawable.CurrentValue;
+
                 drawable.Drawable.CurrentValue = instance;
-                ResumeElementPersistenceAfterFallbackReplacement(previous);
+                CompleteElementRepair();
                 Commit();
             }
         }
@@ -279,7 +279,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     {
         if (Value.Value is IPresenter<Brush> presenter)
         {
-            Brush? previous = presenter.Target.CurrentValue;
+
             if (target != null)
             {
                 presenter.Target.Expression = Expression.CreateReference<Brush>(target.Id);
@@ -289,15 +289,15 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
                 presenter.Target.Expression = null;
                 presenter.Target.CurrentValue = null;
             }
-            ResumeElementPersistenceAfterFallbackReplacement(previous);
+            CompleteElementRepair();
             Commit();
         }
     }
 
     public void SetDrawableTarget(Drawable? target)
     {
-        Brush? previousBrush = Value.Value;
-        Drawable? previousDrawable = (previousBrush as DrawableBrush)?.Drawable.CurrentValue;
+
+
         if (Value.Value is not DrawableBrush drawableBrush)
         {
             drawableBrush = new DrawableBrush();
@@ -320,8 +320,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             presenter.Target.CurrentValue = null;
         }
 
-        ResumeElementPersistenceAfterFallbackReplacement(previousBrush);
-        ResumeElementPersistenceAfterFallbackReplacement(previousDrawable);
+        CompleteElementRepair();
         Commit();
     }
 

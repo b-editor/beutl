@@ -37,6 +37,7 @@ public partial class JsonSerializationContext
     private static JsonNode? SerializeCoreSerializable(
         ICoreSerializable coreSerializable, Type actualType, Type baseType, ICoreSerializationContext? parent)
     {
+        SerializedObjectCapture.Record(coreSerializable);
         // 外部ファイル参照として保存するケース
         if (coreSerializable is CoreObject { Uri: not null } coreObject && parent != null)
         {

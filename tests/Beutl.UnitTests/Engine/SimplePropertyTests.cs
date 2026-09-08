@@ -8,6 +8,18 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class SimplePropertyTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void UntypedNullableValueAcceptsNull(bool replace)
+    {
+        IProperty<Guid?> typed = Property.Create<Guid?>();
+        typed.CurrentValue = Guid.NewGuid();
+        IProperty property = typed;
+        if (replace) property.ReplaceCurrentValue(null);
+        else property.CurrentValue = null;
+        Assert.That(typed.CurrentValue, Is.Null);
+    }
+
     private sealed class EqualityValue(string key, string state)
     {
         public string Key { get; } = key;

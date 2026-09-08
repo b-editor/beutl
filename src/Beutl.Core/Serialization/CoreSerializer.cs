@@ -30,6 +30,7 @@ public static class CoreSerializer
 
     public static JsonObject SerializeToJsonObject(ICoreSerializable obj, CoreSerializerOptions? options = null)
     {
+        SerializedObjectCapture.Record(obj);
         var type = obj.GetType();
         var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, options: options);
         using (ThreadLocalSerializationContext.Enter(context))
@@ -322,6 +323,7 @@ public static class CoreSerializer
 
             if (suppressed.WasReinstated && uri == suppressedObj.Uri)
             {
+                CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
                 RestoreReinstatedBytes(suppressed, uri.LocalPath);
                 return;
             }

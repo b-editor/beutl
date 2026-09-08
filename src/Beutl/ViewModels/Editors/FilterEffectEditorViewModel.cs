@@ -244,7 +244,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         if (Value.Value is IPresenter<FilterEffect> presenter)
         {
-            FilterEffect? previous = presenter.Target.CurrentValue;
+
             if (target != null)
             {
                 var expression = Expression.CreateReference<FilterEffect>(target.Id);
@@ -256,7 +256,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                 presenter.Target.CurrentValue = null;
             }
 
-            ResumeElementPersistenceAfterFallbackReplacement(previous);
+            CompleteElementRepair();
             Commit();
         }
     }
