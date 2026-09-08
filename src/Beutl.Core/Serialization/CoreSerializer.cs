@@ -228,11 +228,15 @@ public static class CoreSerializer
             if (obj is CoreObject coreObj)
             {
                 coreObj.Uri = uri;
-                coreObj.WasTypeDiscriminatorAddedDuringRestore = addedTypeDiscriminator;
             }
 
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
             PopulateFromJsonObject(obj, type, jsonObject, options);
+            if (obj is CoreObject restoredCoreObject)
+            {
+                restoredCoreObject.WasTypeDiscriminatorAddedDuringRestore =
+                    addedTypeDiscriminator;
+            }
 
             if (obj is IFallback fallbackObj)
             {
@@ -264,16 +268,19 @@ public static class CoreSerializer
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) throw new JsonException();
+        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, type);
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
-            coreObj.WasTypeDiscriminatorAddedDuringRestore = AddLegacyTypeDiscriminator(
-                jsonObject,
-                type);
         }
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
         PopulateFromJsonObject(obj, type, jsonObject, options);
+        if (obj is CoreObject populatedCoreObject)
+        {
+            populatedCoreObject.WasTypeDiscriminatorAddedDuringRestore =
+                addedTypeDiscriminator;
+        }
     }
 
     private static bool AddLegacyTypeDiscriminator(JsonObject json, Type type)

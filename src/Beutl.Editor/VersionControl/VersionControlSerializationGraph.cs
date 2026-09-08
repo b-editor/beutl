@@ -1769,8 +1769,9 @@ internal static class VersionControlSerializationGraph
 
         public void ReportPersistedContentMigration(string minAppVersion)
         {
-            throw new InvalidOperationException(
-                "Persisted-content migrations cannot be reported during serialization graph inspection.");
+            // Round-trip inspection deserializes temporary values to discover their resources.
+            // A valid migration report belongs to that temporary graph and must not mutate or
+            // reject the live project being inspected.
         }
 
         public JsonObject GetJsonObject()

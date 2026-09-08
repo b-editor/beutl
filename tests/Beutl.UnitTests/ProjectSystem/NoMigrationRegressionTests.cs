@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -254,6 +255,43 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void Failed_legacy_population_does_not_mark_the_retained_object_as_migrated()
+    {
+        string path = Path.Combine(_tempDirectory, "legacy-failure.scene");
+        JsonObject json = CoreSerializer.SerializeToJsonObject(
+            new ThrowingLegacyProjectItem());
+        json.Remove("$type");
+        json.JsonSave(path);
+        var retained = new ThrowingLegacyProjectItem();
+        var project = new Project();
+        project.RestoreVersionMetadata("3.1.4", "1.0.0");
+        project.Items.Add(retained);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            CoreSerializer.PopulateFromUri(
+                retained,
+                typeof(ProjectItem),
+                new Uri(path)));
+        JsonObject serialized = CoreSerializer.SerializeToJsonObject(project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.AppVersion, Is.EqualTo("3.1.4"));
+            Assert.That(project.MinAppVersion, Is.EqualTo("1.0.0"));
+            Assert.That((string?)serialized["appVersion"], Is.EqualTo("3.1.4"));
+            Assert.That((string?)serialized["minAppVersion"], Is.EqualTo("1.0.0"));
+        });
+    }
+
+    [Test]
+    public void Serialization_graph_accepts_temporary_migration_reports()
+    {
+        Assert.DoesNotThrow(() =>
+            VersionControlSerializationGraph.DiscoverSerializationGraph(
+                new MigrationNodeContainer()));
+    }
+
+    [Test]
     public void PopulateFromUri_reports_a_legacy_discriminator_migration()
     {
         string scenePath = Path.Combine(_tempDirectory, "legacy.scene");
@@ -492,6 +530,31 @@ public class NoMigrationRegressionTests
             base.Deserialize(context);
             context.ReportPersistedContentMigration("9.0.0");
             throw new InvalidOperationException("migration failed");
+        }
+    }
+
+    private sealed class ThrowingLegacyProjectItem : ProjectItem
+    {
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            throw new InvalidOperationException("legacy population failed");
+        }
+    }
+
+    private sealed class MigrationNodeContainer : ProjectItem
+    {
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            var jsonContext = (IJsonSerializationContext)context;
+            JsonObject child = CoreSerializer.SerializeToJsonObject(
+                new MigratingLeaf("7.0.0"));
+            jsonContext.SetNode(
+                "MigrationAwareChild",
+                typeof(MigratingLeaf),
+                typeof(MigratingLeaf),
+                child);
         }
     }
 
