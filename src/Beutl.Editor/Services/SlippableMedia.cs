@@ -210,7 +210,7 @@ internal static class SlippableMedia
             switch (obj)
             {
                 case SourceVideo video:
-                    if (!HasCompleteVideoState(video))
+                    if (!HasCompleteVideoState(video, context.ReachableRange))
                     {
                         isComplete = false;
                         break;
@@ -389,7 +389,7 @@ internal static class SlippableMedia
         }
     }
 
-    private static bool HasCompleteVideoState(SourceVideo video)
+    private static bool HasCompleteVideoState(SourceVideo video, TimeRange reachableRange)
     {
         return !video.OffsetPosition.HasExpression
             && video.OffsetPosition.Animation == null
@@ -399,8 +399,14 @@ internal static class SlippableMedia
             && video.IsLoop.Animation is null or KeyFrameAnimation<bool>
             && !video.Speed.HasExpression
             && video.Speed.Animation is null or KeyFrameAnimation<float>
-            && (video.Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 }
-                || float.IsFinite(video.Speed.CurrentValue) && video.Speed.CurrentValue >= 0);
+            && HasCompleteVideoSpeedState(video, reachableRange);
+    }
+
+    private static bool HasCompleteVideoSpeedState(SourceVideo video, TimeRange reachableRange)
+    {
+        return video.Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 }
+            ? !SpeedMayRunBackward(video, reachableRange)
+            : float.IsFinite(video.Speed.CurrentValue) && video.Speed.CurrentValue >= 0;
     }
 
     private static bool HasCompleteSoundState(SourceSound sound)
@@ -763,7 +769,8 @@ internal static class SlippableMedia
         TimeRange mapped = presenter.CalculateTargetTimeRange(
             new TimeRange(rangeStart, parentDuration),
             target);
-        return TryMoveTime(targetOrigin, mapped.Duration, reverse, out targetTime);
+        bool sampleReverse = reverse ^ (parentTime < parentOrigin);
+        return TryMoveTime(targetOrigin, mapped.Duration, sampleReverse, out targetTime);
     }
 
     private static TimeSpan GetPreviousRootSampleTime(TimeSpan end, TimeSpan frameDuration)

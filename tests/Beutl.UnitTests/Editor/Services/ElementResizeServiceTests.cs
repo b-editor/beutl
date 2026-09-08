@@ -1309,6 +1309,41 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_MappedSubFrameFutureTailRemainsAvailable()
+    {
+        var frontSource = new VideoSource();
+        frontSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 31)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = frontSource },
+            OffsetPosition = { CurrentValue = TimeSpan.FromMilliseconds(10) },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.Zero,
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        using var resource = (VideoSource.Resource)frontSource.ToResource(CompositionContext.Default);
+        TimeSpan expected = resource.Duration - front.Length - video.OffsetPosition.CurrentValue;
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.EqualTo(expected).Within(TimeSpan.FromTicks(1)));
+            Assert.That(max, Is.GreaterThan(TimeSpan.Zero));
+            Assert.That(max, Is.LessThan(TimeSpan.FromSeconds(1d / 30)));
+        });
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_TimeControllerReverseKeepsRemainingTargetRoom()
     {
         var frontSource = new VideoSource();

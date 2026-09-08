@@ -1934,6 +1934,43 @@ public class ElementSlipServiceTests
         });
     }
 
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void Slip_NonFiniteAnimatedVideoSpeedFailsClosed(float invalidSpeed)
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var speed = new KeyFrameAnimation<float>();
+        speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f });
+        speed.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = invalidSpeed,
+        });
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            Speed = { Animation = speed },
+        };
+        element.Objects.Add(video);
+        int before = _history.UndoCount;
+        bool applied = true;
+
+        Assert.DoesNotThrow(() => applied = _service.Slip(
+            _scene,
+            [element],
+            TimeSpan.FromMilliseconds(500)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.False);
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
     [Test]
     public void ResizeBounds_AnimatedSourceSkipsSourceLessStateBeforeNextSource()
     {
