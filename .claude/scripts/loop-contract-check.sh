@@ -298,6 +298,9 @@ printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,
 printf '%s\n' '{"initial_head":"'"$scope_h1"'","previous_remediation_head":"'"$scope_h1"'","intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/rebased.json"
 printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":"'"$scope_h1"'","intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/advanced.json"
 printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/not-advanced.json"
+printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["changed"],"affected_modules":["editor"],"acceptance_tests":["test"]}' > "$scope_tmp/changed-behavior.json"
+printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["changed"],"acceptance_tests":["test"]}' > "$scope_tmp/changed-modules.json"
+printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["editor"],"acceptance_tests":["changed"]}' > "$scope_tmp/changed-tests.json"
 printf '%s\n' '{"initial_head":"'"$scope_h0"'","previous_remediation_head":null,"intended_behavior":["feature"],"affected_modules":["editor"]}' > "$scope_tmp/incomplete.json"
 if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/rebased.json" "$scope_h1" >/dev/null 2>&1; then
   fail "review scope fixture accepted H0 -> H1 re-baselining"
@@ -324,6 +327,13 @@ if "$SCOPE_CHECK" "$scope_tmp/incomplete.json" "$scope_tmp/incomplete.json" >/de
 else
   pass "review scope fixture rejects incomplete frozen records"
 fi
+for changed_scope in changed-behavior changed-modules changed-tests; do
+  if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/$changed_scope.json" >/dev/null 2>&1; then
+    fail "review scope fixture accepted changed frozen array: $changed_scope"
+  else
+    pass "review scope fixture rejects changed frozen array: $changed_scope"
+  fi
+done
 rm -rf "$scope_tmp"
 
 # --- Summary ---------------------------------------------------------------

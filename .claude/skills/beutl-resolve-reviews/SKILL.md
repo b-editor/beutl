@@ -116,10 +116,12 @@ Before classifying severity, freeze the remediation boundary:
    create a new record only after showing all five derived fields to the user and receiving explicit
    confirmation; an unanswered prompt never creates or replaces it.
 4. Classify every finding into exactly one scope class: **original-scope defect**,
-   **latest-remediation regression**, **pre-existing/adjacent issue**, **optional improvement**, or
+   **remediation-cycle regression**, **pre-existing/adjacent issue**, **optional improvement**, or
    **acceptance gap**.
 
-Only original-scope defects and latest-remediation regressions are candidates for changes on the PR.
+Only original-scope defects and regressions introduced by any remediation commit after `initial_head`
+in the current review cycle are candidates for changes on the PR. `previous_remediation_head` remains
+the integrity boundary; it does not narrow the set of remediation commits whose regressions are in scope.
 The other three classes require an explicit user decision to reopen scope or create independent work.
 The repository's "Do not defer work" rule applies only after a finding is inside this frozen boundary;
 it never widens the boundary. A finding that adds a public-API change, project dependency, or newly
@@ -239,7 +241,7 @@ separate work but does not authorize starting that implementation.
 - **Auto-address only the clearly actionable + low-judgment code changes:** bug/correctness, straightforward
   mechanical change-requests, and nits. Make the **smallest** change that resolves the comment; do
   **not** expand scope because a reviewer mused about a broader refactor. The finding must also be an
-  original-scope defect or a latest-remediation regression. Pre-existing/adjacent issues, optional
+  original-scope defect or a remediation-cycle regression. Pre-existing/adjacent issues, optional
   improvements, and acceptance gaps always set `needs_human` and stay open.
 - This scope-class restriction gates edits only. It does not block the no-code handling below for a
   question or a demonstrable bot false positive, even when the cited code is adjacent.
@@ -280,26 +282,26 @@ separate work but does not authorize starting that implementation.
 
 ## Step 6 — Recheck the head and resolve handled threads
 
-Immediately before changing any thread state, verify that the live PR head is still the object that
+Immediately before changing each thread state, verify that the live PR head is still the object that
 was classified and handled. Use the locally created pushed SHA after a code change, otherwise the
-head captured in Step 1. If it differs, resolve nothing, set `needs_human`, and report the race.
+head captured in Step 1. If it differs, stop resolving, set `needs_human`, and report the race.
 
 ```bash
 EXPECTED_HEAD=${pushed_commit_sha:-$PR_HEAD_OID}
-LIVE_HEAD=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)
-test "$LIVE_HEAD" = "$EXPECTED_HEAD" || {
-    echo "PR head changed before thread resolution" >&2
-    exit 1
-}
+for THREAD_ID in "${HANDLED_THREAD_IDS[@]}"; do
+    LIVE_HEAD=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)
+    test "$LIVE_HEAD" = "$EXPECTED_HEAD" || {
+        echo "PR head changed before thread resolution" >&2
+        exit 1
+    }
+    gh api graphql -f query="mutation{resolveReviewThread(input:{threadId:\"$THREAD_ID\"}){thread{isResolved}}}"
+done
 ```
 
 For each thread you addressed (or verified as a no-code resolution), resolve it without posting a
 reply (skip resolution when `no-resolve`):
 
-**Review-thread comments** (inline, from `pulls/<PR>/comments`):
-```bash
-gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"<THREAD_ID>"}){thread{isResolved}}}'
-```
+**Review-thread comments** (inline, from `pulls/<PR>/comments`) use the guarded loop above.
 
 **General PR (issue) comments** (from `issues/<PR>/comments`, Step 2) have **no review thread** — they
 are not line-anchored and have no `THREAD_ID`. Do not reply and do not attempt
@@ -330,6 +332,14 @@ handle-pr-reviews). Note that no merge was performed.
       "reason": "<verified factual refutation>"
     }
   ],
+  "question_resolutions": [
+    {
+      "thread_id": "<graphql-thread-id>",
+      "path": "<repository-relative-path-or-null>",
+      "line": 0,
+      "answer": "<verified factual answer>"
+    }
+  ],
   "unresolved": 0,
   "changes_requested_outstanding": false,
   "human_feedback_present": false,
@@ -355,6 +365,8 @@ handle-pr-reviews). Note that no merge was performed.
 - `false_positive_refutations`: one entry per silently resolved false positive. Record the GraphQL
   thread ID, exact repository-relative path and line checked at the verified head, and the factual
   reason the finding does not apply. Use an empty array when none were resolved.
+- `question_resolutions`: one entry per silently resolved question. Record the thread ID, source
+  location when present, and the verified factual answer. Use an empty array when none were resolved.
 - `pushed_commit_sha`: the exact local commit created and successfully pushed by this resolver, or
   `null` when `new_commits_pushed == 0`. The orchestrator verifies it against a fresh PR-head fetch;
   never reconstruct it from `scope_state` or a moving branch ref.
