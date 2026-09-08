@@ -246,6 +246,24 @@ public class NoMigrationRegressionTests
     }
 
     [Test]
+    public void Concurrent_context_reports_keep_the_highest_migration_version()
+    {
+        var owner = new MigratingContainer();
+        var firstContext = new JsonSerializationContext(typeof(MigratingContainer));
+        var secondContext = new JsonSerializationContext(typeof(MigratingContainer));
+        firstContext.AfterDeserialized(owner);
+        secondContext.AfterDeserialized(owner);
+
+        Parallel.Invoke(
+            () => firstContext.ReportPersistedContentMigration("9.0.0"),
+            () => secondContext.ReportPersistedContentMigration("7.0.0"));
+        var project = new Project();
+        project.Items.Add(owner);
+
+        Assert.That(project.MinAppVersion, Is.EqualTo("9.0.0"));
+    }
+
+    [Test]
     public void PopulateFromJsonObject_aggregates_serialized_child_migrations()
     {
         var source = new MigratingContainer

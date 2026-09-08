@@ -26,9 +26,7 @@ public sealed class PersistedContentMigrationContractTests : PublicApiContractTe
             typeof(ProjectItem));
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
         project.Items.Add(restored);
-        var manualContext = new JsonSerializationContext(
-            typeof(MigratingLeaf),
-            options: new CoreSerializerOptions { Mode = CoreSerializationMode.Read });
+        var manualContext = new JsonSerializationContext(typeof(MigratingLeaf));
 
         Assert.Multiple(() =>
         {

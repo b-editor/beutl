@@ -35,8 +35,7 @@ public partial class JsonSerializationContext(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
         if (!_acceptsPersistedContentMigrationReports
-            && (!Mode.HasFlag(CoreSerializationMode.Read)
-                || Mode.HasFlag(CoreSerializationMode.Write)))
+            && !Mode.HasFlag(CoreSerializationMode.Read))
         {
             throw new InvalidOperationException(
                 "Persisted-content migrations can only be reported while deserializing.");

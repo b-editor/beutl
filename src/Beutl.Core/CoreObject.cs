@@ -33,6 +33,7 @@ public abstract class CoreObject : ICoreObject
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
     private CoreProperty? _forcedReplacementProperty;
+    private readonly object _migrationSync = new();
     private string? _requiredMinAppVersionAfterMigration;
     private bool _wasTypeDiscriminatorAddedDuringRestore;
 
@@ -94,14 +95,25 @@ public abstract class CoreObject : ICoreObject
     }
 
     internal string? RequiredMinAppVersionAfterMigration
-        => _requiredMinAppVersionAfterMigration;
+    {
+        get
+        {
+            lock (_migrationSync)
+            {
+                return _requiredMinAppVersionAfterMigration;
+            }
+        }
+    }
 
     internal void MergePersistedContentMigration(string minAppVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
-        _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
-            _requiredMinAppVersionAfterMigration,
-            minAppVersion);
+        lock (_migrationSync)
+        {
+            _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
+                _requiredMinAppVersionAfterMigration,
+                minAppVersion);
+        }
     }
 
     private Dictionary<int, IEntry> Values => _values ??= [];

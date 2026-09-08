@@ -18,6 +18,7 @@ public sealed class Project : Hierarchical
     public static readonly CoreProperty<string> AppVersionProperty;
     public static readonly CoreProperty<string> MinAppVersionProperty;
     private readonly HierarchicalList<ProjectItem> _items;
+    private readonly object _versionMetadataSync = new();
 
     public const string DefaultMinAppVersion = "2.0.0-preview.1";
 
@@ -101,14 +102,20 @@ public sealed class Project : Hierarchical
     // load/save keeps the version from disk.
     internal void MarkAsMigrated(string requiredMinAppVersion = DefaultMinAppVersion)
     {
-        AppVersion = BeutlApplication.Version;
-        MinAppVersion = GetMaximumVersion(MinAppVersion, requiredMinAppVersion);
+        lock (_versionMetadataSync)
+        {
+            AppVersion = BeutlApplication.Version;
+            MinAppVersion = GetMaximumVersion(MinAppVersion, requiredMinAppVersion);
+        }
     }
 
     internal void RestoreVersionMetadata(string appVersion, string minAppVersion)
     {
-        AppVersion = appVersion;
-        MinAppVersion = minAppVersion;
+        lock (_versionMetadataSync)
+        {
+            AppVersion = appVersion;
+            MinAppVersion = minAppVersion;
+        }
     }
 
     private void PropagateItemMigration(ProjectItem item)
@@ -185,15 +192,23 @@ public sealed class Project : Hierarchical
             PropagateItemMigration(item);
         }
 
+        string appVersion;
+        string minAppVersion;
+        lock (_versionMetadataSync)
+        {
+            appVersion = AppVersion;
+            minAppVersion = MinAppVersion;
+        }
+
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
-        activity?.SetTag("appVersion", AppVersion);
-        activity?.SetTag("minAppVersion", MinAppVersion);
+        activity?.SetTag("appVersion", appVersion);
+        activity?.SetTag("minAppVersion", minAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
 
         base.Serialize(context);
 
-        context.SetValue("appVersion", AppVersion);
-        context.SetValue("minAppVersion", MinAppVersion);
+        context.SetValue("appVersion", appVersion);
+        context.SetValue("minAppVersion", minAppVersion);
 
         context.SetValue("items", Items);
 
