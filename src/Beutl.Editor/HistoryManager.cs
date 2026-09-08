@@ -12,6 +12,7 @@ namespace Beutl.Editor;
 
 public sealed class HistoryManager : IDisposable
 {
+    private const int MaximumPreActionPublicationTransactions = 64;
     private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
     private readonly Stack<HistoryTransaction> _undoStack = new();
     private readonly Stack<HistoryTransaction> _redoStack = new();
@@ -198,6 +199,8 @@ public sealed class HistoryManager : IDisposable
     /// <remarks>
     /// The action is synchronous so every observer it triggers records reentrantly while the
     /// history gate is held. Records from other threads wait until the action commits or rolls back.
+    /// Records produced while earlier pending entries are published are committed as separate
+    /// entries before the callback begins.
     /// <paramref name="cancellationToken"/> is checked before mutation flush and again after the
     /// gate is acquired, before any pending transaction is committed; the callback owns any later
     /// cancellation checks it requires.
@@ -226,6 +229,7 @@ public sealed class HistoryManager : IDisposable
                 try
                 {
                     stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
+                    DrainPreActionPublicationTransactions_NoLock(ref stateChanged);
                     try
                     {
                         action();
@@ -291,6 +295,20 @@ public sealed class HistoryManager : IDisposable
         TruncateEntriesAfter(currentEntryIndex);
         AddEntry(HistoryEntry.FromTransaction(transaction));
         return true;
+    }
+
+    private void DrainPreActionPublicationTransactions_NoLock(ref bool stateChanged)
+    {
+        for (int count = 0; _currentTransaction.HasOperations; count++)
+        {
+            if (count >= MaximumPreActionPublicationTransactions)
+            {
+                throw new InvalidOperationException(
+                    "History entry publication did not reach a stable transaction boundary.");
+            }
+
+            stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
+        }
     }
 
     private void RollbackCurrentTransaction_NoLock()

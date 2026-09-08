@@ -695,6 +695,93 @@ public class HistoryManagerTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ExecuteInTransaction_SeparatesRecordsProducedByPendingEntryPublication(
+        bool useAtomicSubscription)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
+        bool injected = false;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add && !injected)
+            {
+                injected = true;
+                CreateValueOperation(
+                    manager,
+                    targetValue: 2,
+                    previousValue: 1,
+                    description: "Entry publication");
+            }
+        };
+        IDisposable? subscription = null;
+        if (useAtomicSubscription)
+            subscription = manager.SubscribeEntries(handler).Subscription;
+        else
+            entries.CollectionChanged += handler;
+        try
+        {
+            manager.ExecuteInTransaction(() => CreateValueOperation(
+                manager,
+                targetValue: 3,
+                previousValue: 2,
+                description: "Callback"), "Callback");
+        }
+        finally
+        {
+            subscription?.Dispose();
+            if (!useAtomicSubscription)
+                entries.CollectionChanged -= handler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(3));
+            Assert.That(manager.UndoCount, Is.EqualTo(3));
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(2));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(1));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+    }
+
+    [Test]
+    public void ExecuteInTransaction_RejectsNonConvergingEntryPublicationBeforeCallback()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        bool actionInvoked = false;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+                manager.Record(CreateTestOperation());
+        };
+        entries.CollectionChanged += handler;
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(
+                () => actionInvoked = true,
+                "Callback"));
+        }
+        finally
+        {
+            entries.CollectionChanged -= handler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(actionInvoked, Is.False);
+            Assert.That(manager.UndoCount, Is.GreaterThan(1));
+            Assert.That(manager.HasPendingOperations, Is.True);
+        }
+    }
+
     [Test]
     public void ExecuteInTransaction_ContinuesRollbackAfterARevertFailure()
     {
