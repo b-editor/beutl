@@ -11,6 +11,29 @@ namespace Beutl.UnitTests.Engine.Animation;
 
 public class KeyFrameTests
 {
+    [TestCase("null")]
+    [TestCase("\"[Missing.Plugin]Missing:Easing\"")]
+    [TestCase("{\"X1\":\"invalid\"}")]
+    public void Serialize_LossyEasingPreservesOriginalJsonUntilReplaced(string easingJson)
+    {
+        JsonNode? original = JsonNode.Parse(easingJson);
+        KeyFrame<int> keyFrame = Deserialize(original);
+        Easing fallback = keyFrame.Easing;
+        if (original is JsonObject sourceObject) sourceObject["X1"] = "mutated";
+
+        JsonObject serialized = CoreSerializer.SerializeToJsonObject(keyFrame);
+        Assert.That(serialized.ContainsKey("Easing"), Is.True);
+        Assert.That(JsonNode.DeepEquals(serialized["Easing"], JsonNode.Parse(easingJson)), Is.True);
+        if (serialized["Easing"] is JsonObject serializedObject) serializedObject["X1"] = "mutated again";
+        Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"], JsonNode.Parse(easingJson)), Is.True);
+
+        keyFrame.Easing = new LinearEasing();
+        Assert.That(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"]!.GetValue<string>(),
+            Is.EqualTo(TypeFormat.ToString(typeof(LinearEasing))));
+        keyFrame.Easing = fallback;
+        Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"], JsonNode.Parse(easingJson)), Is.True);
+    }
+
     private sealed class EqualityValue(string key, string state)
     {
         public string Key { get; } = key;

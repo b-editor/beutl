@@ -16,6 +16,7 @@ public class KeyFrame : Hierarchical
     public static readonly CoreProperty<TimeSpan> KeyTimeProperty;
     private Easing _easing;
     private Easing? _lossyFallbackEasing;
+    private JsonNode? _lossyFallbackEasingJson;
     private TimeSpan _keyTime;
 
     protected KeyFrame()
@@ -63,6 +64,7 @@ public class KeyFrame : Hierarchical
             if (context.Contains(nameof(Easing)))
             {
                 UseFallbackEasing(
+                    easingNode,
                     FallbackReason.DeserializationFailed,
                     null,
                     "The easing value is null.");
@@ -75,6 +77,7 @@ public class KeyFrame : Hierarchical
             if (type is null)
             {
                 UseFallbackEasing(
+                    easingNode,
                     FallbackReason.TypeNotFound,
                     easingType,
                     $"The easing type '{easingType}' could not be resolved.");
@@ -85,6 +88,7 @@ public class KeyFrame : Hierarchical
                 || type.GetConstructor(Type.EmptyTypes) is null)
             {
                 UseFallbackEasing(
+                    easingNode,
                     FallbackReason.DeserializationFailed,
                     easingType,
                     $"The easing type '{easingType}' cannot be instantiated as an Easing.");
@@ -100,6 +104,7 @@ public class KeyFrame : Hierarchical
                     else
                     {
                         UseFallbackEasing(
+                            easingNode,
                             FallbackReason.DeserializationFailed,
                             easingType,
                             $"The easing type '{easingType}' did not create an Easing instance.");
@@ -123,6 +128,7 @@ public class KeyFrame : Hierarchical
                     }
 
                     UseFallbackEasing(
+                        easingNode,
                         FallbackReason.DeserializationFailed,
                         easingType,
                         $"{ex.GetType().Name}: {ex.Message}");
@@ -145,6 +151,7 @@ public class KeyFrame : Hierarchical
             else
             {
                 UseFallbackEasing(
+                    easingNode,
                     FallbackReason.DeserializationFailed,
                     null,
                     "The spline easing object does not contain four valid control-point values.");
@@ -153,6 +160,7 @@ public class KeyFrame : Hierarchical
         else
         {
             UseFallbackEasing(
+                easingNode,
                 FallbackReason.DeserializationFailed,
                 null,
                 "The easing value has an unsupported JSON representation.");
@@ -160,19 +168,25 @@ public class KeyFrame : Hierarchical
     }
 
     private void UseFallbackEasing(
+        JsonNode? originalJson,
         FallbackReason reason,
         string? typeName,
         string message)
     {
         DeserializationIncidents.RecordFallback(reason, typeName, message);
         _lossyFallbackEasing = new LinearEasing();
+        _lossyFallbackEasingJson = originalJson?.DeepClone();
         Easing = _lossyFallbackEasing;
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        if (Easing is SplineEasing splineEasing)
+        if (HasLossyEasing)
+        {
+            context.SetValue(nameof(Easing), _lossyFallbackEasingJson?.DeepClone());
+        }
+        else if (Easing is SplineEasing splineEasing)
         {
             context.SetValue(nameof(Easing), new JsonObject
             {

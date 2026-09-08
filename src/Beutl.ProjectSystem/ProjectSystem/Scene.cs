@@ -1181,6 +1181,7 @@ public class Scene : ProjectItem, INotifyEdited
     private Element RestoreElementOrFallback(Uri uri)
     {
         using DeserializationIncidents.Capture incidentCapture = DeserializationIncidents.BeginCapture();
+        using var storageCapture = new ReferencedStorageCapture();
         try
         {
             Element element = CoreSerializer.RestoreFromUri<Element>(uri);
@@ -1229,7 +1230,8 @@ public class Scene : ProjectItem, INotifyEdited
                     uri,
                     recoveryIncidents.Length > 0,
                     untraversedFallbacks,
-                    recoveryIncidents);
+                    recoveryIncidents,
+                    storageCapture.Sources);
             }
 
             return element;
@@ -1269,7 +1271,7 @@ public class Scene : ProjectItem, INotifyEdited
             _idlessRecoveredDescendants.GetValue(
                 fallback,
                 static _ => new IdlessRecoveredDescendant());
-            MarkRecoveredElement(element, rawBytes, uri);
+            MarkRecoveredElement(element, rawBytes, uri, referencedSources: storageCapture.Sources);
             return element;
         }
     }
@@ -1293,7 +1295,8 @@ public class Scene : ProjectItem, INotifyEdited
         Uri uri,
         bool hasNonFallbackIncidents = false,
         JsonObject[]? untraversedFallbacks = null,
-        SuppressedRecoveryIncident[]? recoveryIncidents = null)
+        SuppressedRecoveryIncident[]? recoveryIncidents = null,
+        IReadOnlyList<Uri>? referencedSources = null)
     {
         string sourceRootPath = Path.GetDirectoryName(Uri?.LocalPath ?? uri.LocalPath)
                                 ?? throw new JsonException("Recovered element has no source directory.");
@@ -1302,7 +1305,7 @@ public class Scene : ProjectItem, INotifyEdited
             uri,
             hasNonFallbackIncidents,
             untraversedFallbacks,
-            CollectReferencedStorageSources(element, uri, sourceRootPath),
+            CollectReferencedStorageSources(element, uri, sourceRootPath, referencedSources ?? []),
             sourceRootPath,
             recoveryIncidents);
     }
@@ -1328,7 +1331,8 @@ public class Scene : ProjectItem, INotifyEdited
     private static SuppressedReferencedStorageSource[]? CollectReferencedStorageSources(
         Element element,
         Uri elementUri,
-        string sourceRootPath)
+        string sourceRootPath,
+        IReadOnlyList<Uri> referencedSources)
     {
         string sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRootPath));
         string resolvedSourceRoot = Path.TrimEndingDirectorySeparator(
@@ -1346,8 +1350,10 @@ public class Scene : ProjectItem, INotifyEdited
         var result = new List<SuppressedReferencedStorageSource>();
         foreach (string sourcePath in EnumerateSerializedGraphObjects(element)
             .OfType<CoreObject>()
-            .Where(static coreObject => coreObject.Uri is { IsFile: true })
-            .Select(static coreObject => Path.GetFullPath(coreObject.Uri!.LocalPath)))
+            .Select(static coreObject => coreObject.Uri)
+            .Concat(referencedSources)
+            .Where(static uri => uri is { IsFile: true })
+            .Select(static uri => Path.GetFullPath(uri!.LocalPath)))
         {
             string resolvedSourcePath = PathBoundary.ResolveDeepestExistingTarget(sourcePath);
             if (string.Equals(

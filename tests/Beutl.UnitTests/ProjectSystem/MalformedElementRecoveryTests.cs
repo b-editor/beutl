@@ -24,6 +24,87 @@ public sealed class MalformedElementRecoveryTests
 {
     private string _root = null!;
 
+    [SuppressResourceClassGeneration]
+    public sealed class ContentConstructorFailureTransform : Transform
+    {
+        public ContentConstructorFailureTransform() => throw new InvalidOperationException("Invalid plugin content.");
+        public override Matrix CreateMatrix(CompositionContext context) => Matrix.Identity;
+    }
+
+    [SuppressResourceClassGeneration]
+    public sealed class ContentDeserializeFailureTransform : Transform
+    {
+        public override void Deserialize(ICoreSerializationContext context)
+            => throw new InvalidOperationException("Invalid plugin payload.");
+        public override Matrix CreateMatrix(CompositionContext context) => Matrix.Identity;
+    }
+
+    public sealed record StorageWrapper(ICoreSerializable Value);
+
+    [SuppressResourceClassGeneration]
+    public sealed class WrappedStorageHolder : EngineObject
+    {
+        public WrappedStorageHolder() => ScanProperties<WrappedStorageHolder>();
+        public IProperty<List<StorageWrapper>> Wrapped { get; } = Property.Create<List<StorageWrapper>>();
+    }
+
+    [TestCase(typeof(ContentConstructorFailureTransform))]
+    [TestCase(typeof(ContentDeserializeFailureTransform))]
+    public void SaveAs_PreservesKnownTypeFailureSidecarUriAndBytes(Type failedType)
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string referencedPath = Path.Combine(_root, "nested", "transform.json");
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        ((RectShape)source.Objects.Single()).Transform.CurrentValue = new RotationTransform { Uri = new Uri(referencedPath) };
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(referencedPath))!.AsObject();
+        json["$type"] = TypeFormat.ToString(failedType);
+        File.WriteAllText(referencedPath, json.ToJsonString());
+        byte[] retainedBytes = File.ReadAllBytes(referencedPath);
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        var fallback = ((RectShape)recovered.Objects.Single()).Transform.CurrentValue!;
+        Assert.That(fallback.Uri, Is.EqualTo(new Uri(referencedPath)));
+
+        var copyUri = new Uri(Path.Combine(_root, "copy", Path.GetFileName(elementPath)));
+        CoreSerializer.StoreToUri(recovered, copyUri);
+
+        string copiedReference = Path.Combine(_root, "copy", "nested", "transform.json");
+        Assert.That(File.ReadAllBytes(copiedReference), Is.EqualTo(retainedBytes));
+        var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single();
+        Assert.That(reopened.Transform.CurrentValue!.Uri, Is.EqualTo(new Uri(copiedReference)));
+        Assert.That(reopened.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
+    }
+
+    [Test]
+    public void SaveAs_PreservesSidecarInsideRecordWrapper()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        string referencedPath = Path.Combine(_root, "nested", "transform.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(referencedPath)!);
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        var holder = new WrappedStorageHolder();
+        holder.Wrapped.CurrentValue = [new StorageWrapper(new RotationTransform { Uri = new Uri(referencedPath) })];
+        source.AddObject(holder);
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json["Objects"]![0]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingShape";
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] retainedBytes = File.ReadAllBytes(referencedPath);
+        Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+        Assert.That(recovered.Objects.OfType<WrappedStorageHolder>(), Has.Exactly(1).Items,
+            string.Join("; ", recovered.Objects.OfType<IFallback>().Select(x => x.ErrorMessage)));
+        Assert.That(recovered.Objects.OfType<WrappedStorageHolder>().Single().Wrapped.CurrentValue?.Single().Value,
+            Is.InstanceOf<RotationTransform>());
+        var copyUri = new Uri(Path.Combine(_root, "copy", Path.GetFileName(elementPath)));
+
+        CoreSerializer.StoreToUri(recovered, copyUri);
+
+        string copiedReference = Path.Combine(_root, "copy", "nested", "transform.json");
+        Assert.That(File.ReadAllBytes(copiedReference), Is.EqualTo(retainedBytes));
+        var reopened = CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.OfType<WrappedStorageHolder>().Single();
+        Assert.That(((CoreObject)reopened.Wrapped.CurrentValue!.Single().Value).Uri, Is.EqualTo(new Uri(copiedReference)));
+    }
+
     public sealed class PluginScene : Scene
     {
         public static readonly CoreProperty<CoreObject?> OwnedProperty =

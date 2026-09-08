@@ -1,6 +1,10 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -9,6 +13,57 @@ namespace Beutl.AgentToolkit.Tests.Sessions;
 
 public sealed class FileEditingSessionTests
 {
+    [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"")]
+    [TestCase("null")]
+    [TestCase("{\"X1\":\"invalid\"}")]
+    public void ApplyEdit_ExplicitLinearEasingRepairsRecoveredKeyframeAndUndoRestoresBytes(string easingJson)
+    {
+        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string projectPath = Path.Combine(root, "demo.bep");
+        using var source = new FileSessionSource();
+        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2)));
+        string elementPath = Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "clip.belm");
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 10 });
+        var shape = new RectShape();
+        shape.Width.Animation = animation;
+        var element = new Element { Uri = new Uri(elementPath), Length = TimeSpan.FromSeconds(1) };
+        element.AddObject(shape);
+        session.Scene.Children.Add(element);
+        session.Save(skipConflictCheck: true);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!["Easing"]
+            = JsonNode.Parse(easingJson);
+        File.WriteAllText(elementPath, json.ToJsonString());
+        byte[] originalBytes = File.ReadAllBytes(elementPath);
+        FileEditingSession recovered = source.OpenProject(projectPath);
+        var manager = new AgentSessionManager();
+        manager.UseSource(source);
+        var tools = new EditTools(manager);
+        JsonObject desired = recovered.Documents.Read(recovered.Scene);
+        desired["Elements"]![0]!["Name"] = "Unrelated edit";
+        desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!["Value"] = 20;
+        var unrelated = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        Assert.That(unrelated.IsSuccess, Is.True, unrelated.Error?.Message);
+        recovered.Save(skipConflictCheck: true);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+
+        JsonObject patch = recovered.Documents.Read(recovered.Scene);
+        patch["Elements"]![0]!["Objects"]![0]!["Animations"]!["Width"]!["KeyFrames"]![0]!["Easing"]
+            = TypeFormat.ToString(typeof(LinearEasing));
+        var repaired = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        Assert.That(repaired.IsSuccess, Is.True, repaired.Error?.Message);
+        recovered.Save(skipConflictCheck: true);
+        Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
+        var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Objects.Single();
+        Assert.That(((KeyFrameAnimation<float>)reopened.Width.Animation!).KeyFrames.Single().Easing, Is.TypeOf<LinearEasing>());
+        Assert.That(recovered.History.Undo(), Is.True);
+        recovered.Save(skipConflictCheck: true);
+        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+    }
+
     [Test]
     public void SetProjectPath_disambiguates_sidecars_for_scenes_sharing_a_name()
     {

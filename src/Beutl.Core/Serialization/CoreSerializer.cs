@@ -161,6 +161,7 @@ public static class CoreSerializer
     public static object RestoreFromUri(Uri uri, Type type)
     {
         using var stream = UriHelper.ResolveStream(uri);
+        ReferencedStorageCapture.Record(uri);
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) throw new JsonException();
@@ -252,6 +253,8 @@ public static class CoreSerializer
         catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
             type, actualType, jsonObject, ex) is { } fallback)
         {
+            if (fallback is CoreObject coreObject)
+                coreObject.Uri = uri;
             return fallback;
         }
     }
@@ -265,6 +268,7 @@ public static class CoreSerializer
     public static void PopulateFromUri(ICoreSerializable obj, Type type, Uri uri)
     {
         using var stream = UriHelper.ResolveStream(uri);
+        ReferencedStorageCapture.Record(uri);
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) throw new JsonException();
