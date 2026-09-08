@@ -3832,13 +3832,8 @@ internal sealed class VersionControlCoordinator :
 
     private async Task InspectProjectOpeningAsync(string projectFile)
     {
-        using NonTransactionalOperationLease? operation =
-            TryBeginNonTransactionalOperation(CancellationToken.None);
-        if (operation is null)
-        {
-            return;
-        }
-
+        using NonTransactionalOperationLease operation =
+            await BeginNonTransactionalOperationAsync(CancellationToken.None);
         CancellationToken cancellationToken = operation.CancellationToken;
         string? markerFile = await ProjectConflictMarkerScanner.FindFirstAsync(
             projectFile,
