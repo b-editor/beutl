@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using System.Reactive.Linq;
+using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.ProjectSystem;
 
@@ -52,6 +53,31 @@ public sealed class HistoryTransactionContractTests : PublicApiContractTestBase
             Assert.That(value, Is.EqualTo(1));
             Assert.That(manager.UndoCount, Is.EqualTo(1));
             Assert.That(manager.HasPendingOperations, Is.False);
+        }
+    }
+
+    [Test]
+    public void ExecuteInTransaction_CancellationDuringFlushLeavesPendingWorkUncommitted()
+    {
+        AssertDoesNotHaveFriendAccess(typeof(HistoryManager).Assembly);
+        using var manager = new HistoryManager(new Scene(), new OperationSequenceGenerator());
+        int value = 1;
+        manager.Record(() => value = 1, () => value = 0, "Pending");
+        using var cancellation = new CancellationTokenSource();
+        using IDisposable subscription = manager.BeforeMutation.Subscribe(_ => cancellation.Cancel());
+        bool actionInvoked = false;
+
+        Assert.Throws<OperationCanceledException>(() => manager.ExecuteInTransaction(
+            () => actionInvoked = true,
+            "Cancelled",
+            cancellationToken: cancellation.Token));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(actionInvoked, Is.False);
+            Assert.That(value, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.Zero);
+            Assert.That(manager.HasPendingOperations, Is.True);
         }
     }
 }

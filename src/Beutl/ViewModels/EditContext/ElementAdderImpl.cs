@@ -351,7 +351,7 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 {
                     scene.Groups.AddRange(groups);
                 }
-            }, CommandNames.AddElement);
+            }, CommandNames.AddElement, cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {

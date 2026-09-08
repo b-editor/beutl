@@ -2334,6 +2334,21 @@ public class HistoryManagerTests
         Assert.That(completed, Is.True);
     }
 
+    [Test]
+    public void BeforeMutation_ContinuesAfterAnObserverThrows()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using IDisposable throwingSubscription = manager.BeforeMutation.Subscribe(_ =>
+            throw new InvalidOperationException("observer failed"));
+        int laterNotifications = 0;
+        using IDisposable laterSubscription = manager.BeforeMutation.Subscribe(_ =>
+            laterNotifications++);
+
+        Assert.DoesNotThrow(() => manager.FlushPendingMutations());
+
+        Assert.That(laterNotifications, Is.EqualTo(1));
+    }
+
     [TestCase(0, ExpectedResult = true)]
     [TestCase(1, ExpectedResult = true)]
     [TestCase(2, ExpectedResult = false)]

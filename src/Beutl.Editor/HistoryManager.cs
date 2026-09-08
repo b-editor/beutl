@@ -2,7 +2,6 @@
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
@@ -19,7 +18,7 @@ public sealed class HistoryManager : IDisposable
     private readonly OperationExecutionContext _context;
     private readonly OperationSequenceGenerator _sequenceGenerator;
     private readonly FaultIsolatedSubject<HistoryState> _stateChanged;
-    private readonly Subject<System.Reactive.Unit> _beforeMutation = new();
+    private readonly FaultIsolatedSubject<System.Reactive.Unit> _beforeMutation;
     private readonly List<IDisposable> _subscriptions = new();
     private readonly List<NotifyCollectionChangedEventHandler> _entrySubscribers = [];
     private readonly object _lock = new();
@@ -34,6 +33,8 @@ public sealed class HistoryManager : IDisposable
     {
         _stateChanged = new FaultIsolatedSubject<HistoryState>(ex =>
             _logger.LogError(ex, "A history state observer failed; continuing publication."));
+        _beforeMutation = new FaultIsolatedSubject<System.Reactive.Unit>(ex =>
+            _logger.LogError(ex, "A BeforeMutation observer failed; continuing publication."));
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
@@ -197,16 +198,21 @@ public sealed class HistoryManager : IDisposable
     /// <remarks>
     /// The action is synchronous so every observer it triggers records reentrantly while the
     /// history gate is held. Records from other threads wait until the action commits or rolls back.
+    /// <paramref name="cancellationToken"/> is checked before mutation flush and again after the
+    /// gate is acquired, before any pending transaction is committed; the callback owns any later
+    /// cancellation checks it requires.
     /// The action must not call <see cref="Commit"/>, <see cref="Rollback"/>, <see cref="Undo"/>,
     /// <see cref="Redo"/>, <see cref="Clear"/>, <see cref="JumpTo"/>, or this method recursively.
     /// </remarks>
     public void ExecuteInTransaction(
         Action action,
         string? name = null,
-        [CallerArgumentExpression(nameof(name))] string? expression = null)
+        [CallerArgumentExpression(nameof(name))] string? expression = null,
+        CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(action);
+        cancellationToken.ThrowIfCancellationRequested();
         FireBeforeMutation();
 
         bool stateChanged = false;
@@ -215,6 +221,7 @@ public sealed class HistoryManager : IDisposable
             lock (_lock)
             {
                 ThrowIfIsolatedTransactionActive_NoLock();
+                cancellationToken.ThrowIfCancellationRequested();
                 _isolatedTransactionActive = true;
                 try
                 {
