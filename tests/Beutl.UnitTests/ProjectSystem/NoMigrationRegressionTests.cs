@@ -165,10 +165,19 @@ public class NoMigrationRegressionTests
     [Test]
     public void Project_serialization_aggregates_plugin_element_migrations()
     {
-        var project = new Project();
-        var scene = new Scene();
+        var project = new Project
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "project.bep")),
+        };
+        var scene = new Scene
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "scene.scene")),
+        };
         project.Items.Add(scene);
-        scene.AddChild(new MigratedElement("6.0.0"));
+        scene.AddChild(new MigratedElement("6.0.0")
+        {
+            Uri = new Uri(Path.Combine(_tempDirectory, "element.belm")),
+        });
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(project);
 

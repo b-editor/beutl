@@ -1,4 +1,4 @@
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.PublicApiContractTests;
@@ -11,10 +11,19 @@ public sealed class PersistedContentMigrationContractTests : PublicApiContractTe
     {
         AssertDoesNotHaveFriendAccess(typeof(Project).Assembly);
         AssertDoesNotHaveFriendAccess(typeof(Element).Assembly);
-        var project = new Project();
-        var scene = new MigratingSceneItem();
+        string root = Path.Combine(
+            Path.GetTempPath(),
+            $"migration-contract-{Guid.NewGuid():N}");
+        var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
+        var scene = new MigratingSceneItem
+        {
+            Uri = new Uri(Path.Combine(root, "scene.scene")),
+        };
         project.Items.Add(scene);
-        scene.AddChild(new MigratingElement());
+        scene.AddChild(new MigratingElement
+        {
+            Uri = new Uri(Path.Combine(root, "element.belm")),
+        });
 
         CoreSerializer.SerializeToJsonObject(project);
 
