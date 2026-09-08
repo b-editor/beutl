@@ -950,7 +950,7 @@ public class ExportTests
             NotificationService.Handler = previousHandler;
             context.Finish();
             await execution.WaitAsync(TimeSpan.FromSeconds(5));
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
     }
 
@@ -992,7 +992,7 @@ public class ExportTests
         {
             NotificationService.Handler = previousHandler;
             nextItem.Dispose();
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
     }
 
@@ -1037,7 +1037,7 @@ public class ExportTests
         {
             viewModel.Items.CollectionChanged -= observer;
             nextItem.Dispose();
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
     }
 
