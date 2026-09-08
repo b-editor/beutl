@@ -150,6 +150,44 @@ public class ProxyJobQueueTests
         });
     }
 
+    [Test]
+    public async Task Failed_store_bookkeeping_stays_admitted_until_terminal_publication()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var admission = new SequencedAdmission(rejections: 0);
+        int leaseDisposeCountAtRegistration = -1;
+        int leaseDisposeCountAtFailure = -1;
+        store.Changed += (_, args) =>
+        {
+            if (args.Kind == ProxyStoreChangeKind.Registered && admission.Leases.Count == 1)
+            {
+                leaseDisposeCountAtRegistration = admission.Leases[0].DisposeCount;
+            }
+        };
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        queue.JobChanged += (_, args) =>
+        {
+            if (args.Kind == ProxyJobChangeKind.Failed)
+            {
+                leaseDisposeCountAtFailure = admission.Leases.Single().DisposeCount;
+            }
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admitted-failure.mov"),
+            ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(leaseDisposeCountAtRegistration, Is.Zero);
+            Assert.That(leaseDisposeCountAtFailure, Is.EqualTo(1));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+        });
+    }
+
     [TestCase(AdmissionGeneratorOutcome.Success, ProxyJobStatus.Succeeded)]
     [TestCase(AdmissionGeneratorOutcome.Skipped, ProxyJobStatus.Skipped)]
     [TestCase(AdmissionGeneratorOutcome.Failed, ProxyJobStatus.Failed)]

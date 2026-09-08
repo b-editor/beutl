@@ -504,14 +504,17 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     {
                         item.ResetAdmissionRejections();
                         item.Job.StatusMessage = null;
-                        await GenerateWithAdmissionLeaseAsync(generator, item, admissionLease)
+                        bool generated = await GenerateWithAdmissionLeaseAsync(
+                                generator,
+                                item,
+                                admissionLease)
                             .ConfigureAwait(false);
-                        if (item.TryCompleteSuccess())
+                        if (generated && item.TryCompleteSuccess())
                         {
                             Interlocked.Exchange(ref _consecutiveUnavailable, 0);
                             OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
                         }
-                        else
+                        else if (generated)
                         {
                             CompleteCanceled(item);
                         }
@@ -594,7 +597,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
-    private async Task GenerateWithAdmissionLeaseAsync(
+    private async Task<bool> GenerateWithAdmissionLeaseAsync(
         IProxyGenerator generator,
         WorkItem item,
         IDisposable? admissionLease)
@@ -613,15 +616,45 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             generationFailure = ExceptionDispatchInfo.Capture(ex);
         }
 
-        Exception? releaseFailure = null;
-        try
+        if (generationFailure is not null
+            && generationFailure.SourceException is not (OperationCanceledException
+                or ProxyGenerationSkippedException
+                or ProxyGeneratorUnavailableException))
         {
-            admissionLease?.Dispose();
+            if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
+            {
+                Exception? cancellationReleaseFailure = ReleaseAdmissionLease(admissionLease);
+                if (cancellationReleaseFailure is not null)
+                {
+                    throw new AdmissionLeaseReleaseException(cancellationReleaseFailure);
+                }
+
+                CompleteCanceled(item);
+                return false;
+            }
+
+            Exception failure = generationFailure.SourceException;
+            item.Job.Error = failure;
+            // Store bookkeeping is part of terminal cleanup and remains inside admission.
+            RegisterFailure(item.Job, failure.Message);
+
+            Exception? releaseFailure = ReleaseAdmissionLease(admissionLease);
+            if (releaseFailure is not null)
+            {
+                item.Job.Error = new AggregateException(
+                    "Proxy generation and admission-lease release both failed.",
+                    failure,
+                    releaseFailure);
+            }
+
+            // Publish only after admission is released; observers can now safely start conflicting
+            // work and still see the already-recorded Failed store entry.
+            item.Job.Status = ProxyJobStatus.Failed;
+            OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
+            return false;
         }
-        catch (Exception ex)
-        {
-            releaseFailure = ex;
-        }
+
+        Exception? releaseFailure = ReleaseAdmissionLease(admissionLease);
 
         if (generationFailure is not null && releaseFailure is not null)
         {
@@ -638,6 +671,20 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
 
         generationFailure?.Throw();
+        return true;
+    }
+
+    private static Exception? ReleaseAdmissionLease(IDisposable? admissionLease)
+    {
+        try
+        {
+            admissionLease?.Dispose();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex;
+        }
     }
 
     private bool RequeueForRetry(WorkItem item)
