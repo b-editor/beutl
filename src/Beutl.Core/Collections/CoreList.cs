@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System.Buffers;
+using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -329,16 +330,17 @@ public class CoreList<T> : ICoreList<T>
     {
         if (items.Length > 0)
         {
-            T[] snapshot = items.ToArray();
-            EnsureCapacity(Inner.Count + snapshot.Length);
+            EnsureCapacity(Inner.Count + items.Length);
 
+            ReadOnlySpan<T>.Enumerator en = items.GetEnumerator();
             int insertIndex = index;
-            foreach (T item in snapshot)
+
+            while (en.MoveNext())
             {
-                Inner.Insert(insertIndex++, item);
+                Inner.Insert(insertIndex++, en.Current);
             }
 
-            NotifyAdd((IList)snapshot, index);
+            NotifyAdd(items, index);
         }
     }
 
@@ -596,6 +598,33 @@ public class CoreList<T> : ICoreList<T>
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
             CollectionChanged(this, e);
+        }
+
+        NotifyCountChanged();
+    }
+
+    private void NotifyAdd(ReadOnlySpan<T> t, int index)
+    {
+        for (int i = 0; i < t.Length; i++)
+        {
+            Attached?.Invoke(t[i]);
+        }
+
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
+        if (CollectionChanged != null)
+        {
+            T[] array = ArrayPool<T>.Shared.Rent(t.Length);
+            t.CopyTo(array.AsSpan());
+
+            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, array, index);
+            try
+            {
+                CollectionChanged(this, e);
+            }
+            finally
+            {
+                ArrayPool<T>.Shared.Return(array);
+            }
         }
 
         NotifyCountChanged();
