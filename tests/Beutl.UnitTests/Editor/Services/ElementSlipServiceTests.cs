@@ -45,6 +45,54 @@ public class ElementSlipServiceTests
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
+    [TestCase(long.MinValue)]
+    [TestCase(-1L)]
+    public void Slip_NegativeVideoOffsetFailsClosedBeforeCollection(long offsetTicks)
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            OffsetPosition = { CurrentValue = TimeSpan.FromTicks(offsetTicks) },
+        };
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        element.Objects.Add(video);
+        int undoCount = _history.UndoCount;
+        Assert.That(SlippableMedia.Collect(element).IsComplete, Is.False);
+        Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(-1)), Is.False);
+        Assert.That(video.OffsetPosition.CurrentValue.Ticks, Is.EqualTo(offsetTicks));
+        Assert.That(_history.UndoCount, Is.EqualTo(undoCount));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Slip_NegativeSoundOffsetFailsClosedBeforeCollection(bool sceneSound)
+    {
+        Sound sound;
+        if (sceneSound)
+        {
+            sound = new SceneSound
+            {
+                ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(3) } },
+            };
+        }
+        else
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
+            sound = new SourceSound { Source = { CurrentValue = source } };
+        }
+        sound.OffsetPosition.CurrentValue = TimeSpan.MinValue;
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        element.Objects.Add(sound);
+        int undoCount = _history.UndoCount;
+        Assert.That(SlippableMedia.Collect(element).IsComplete, Is.False);
+        Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(-1)), Is.False);
+        Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.MinValue));
+        Assert.That(_history.UndoCount, Is.EqualTo(undoCount));
+    }
+
     private static TimeSpan GetOutPointRoom(Element element)
     {
         TimeSpan maximumRoom = TimeSpan.FromSeconds(30);

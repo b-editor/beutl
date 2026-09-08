@@ -397,6 +397,7 @@ internal static class SlippableMedia
     {
         return !video.OffsetPosition.HasExpression
             && video.OffsetPosition.Animation == null
+            && video.OffsetPosition.CurrentValue >= TimeSpan.Zero
             && !video.Source.HasExpression
             && video.Source.Animation is null or KeyFrameAnimation<VideoSource?>
             && !video.IsLoop.HasExpression
@@ -440,6 +441,7 @@ internal static class SlippableMedia
     {
         return !sound.OffsetPosition.HasExpression
             && sound.OffsetPosition.Animation == null
+            && sound.OffsetPosition.CurrentValue >= TimeSpan.Zero
             && !sound.Source.HasExpression
             && sound.Source.Animation == null
             && !sound.Speed.HasExpression
@@ -452,6 +454,7 @@ internal static class SlippableMedia
     {
         return !sound.OffsetPosition.HasExpression
             && sound.OffsetPosition.Animation == null
+            && sound.OffsetPosition.CurrentValue >= TimeSpan.Zero
             && !sound.ReferencedScene.HasExpression
             && sound.ReferencedScene.Animation == null
             && !sound.Speed.HasExpression

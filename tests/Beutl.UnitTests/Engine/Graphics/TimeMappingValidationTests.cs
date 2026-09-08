@@ -134,6 +134,29 @@ public class TimeMappingValidationTests
         Assert.That(controller.CanProvideCompleteTimeMapping(target.TimeRange, target), Is.False);
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Inverse_ZeroTraversalRoomRejectsBeforeClockMapping(bool reverse, bool suppliedResource)
+    {
+        var target = new SourceVideo { TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) };
+        var controller = new DrawableTimeController
+        {
+            Target = { CurrentValue = target },
+            OffsetPosition = { CurrentValue = TimeSpan.FromTicks(reverse ? -1 : 1) },
+        };
+        using var resource = (DrawableTimeController.Resource)controller.ToResource(CompositionContext.Default);
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f });
+        controller.Speed.Animation = animation;
+        TimeSpan start = reverse ? TimeSpan.MinValue : TimeSpan.MaxValue;
+        TimeSpan result = suppliedResource
+            ? controller.CalculateTimelineDuration(start, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), target, resource, reverse)
+            : controller.CalculateTimelineDuration(start, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), target, reverse);
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
+    }
+
     [Test]
     public void OverflowingRange_IsRejectedBeforeResourceEvaluation()
     {

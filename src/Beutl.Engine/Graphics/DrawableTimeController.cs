@@ -408,6 +408,8 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         TimeSpan traversalLimit = GetMaximumDurationFrom(start, reverse);
         if (maximumTimelineDuration < traversalLimit)
             traversalLimit = maximumTimelineDuration;
+        if (traversalLimit <= TimeSpan.Zero)
+            return TimeSpan.MaxValue;
 
         if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } speedAnimation)
         {
@@ -526,6 +528,12 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
         Drawable targetDrawable,
         bool reverse = false)
     {
+        ArgumentNullException.ThrowIfNull(targetDrawable);
+        if (targetDuration <= TimeSpan.Zero) return TimeSpan.Zero;
+        if (targetDuration == TimeSpan.MaxValue || maximumTimelineDuration <= TimeSpan.Zero
+            || targetDrawable.TimeRange.Duration <= TimeSpan.Zero
+            || GetMaximumDurationFrom(start, reverse) <= TimeSpan.Zero)
+            return TimeSpan.MaxValue;
         using var resource = (Resource)ToResource(new CompositionContext(start));
         return CalculateTimelineDuration(
             start,
