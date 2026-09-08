@@ -29,7 +29,10 @@ public sealed class GplMitBoundaryContractTests
         foreach (string file in EnumerateBuildFiles(repositoryRoot))
         {
             string relativePath = Path.GetRelativePath(repositoryRoot, file).Replace('\\', '/');
-            if (relativePath == "src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj")
+            if (string.Equals(
+                relativePath,
+                "src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj",
+                StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -37,25 +40,34 @@ public sealed class GplMitBoundaryContractTests
             XDocument document = XDocument.Load(file);
             bool isWorkerSideSharedBuildFile = relativePath.StartsWith(
                     "src/Beutl.FFmpegWorker/",
-                    StringComparison.Ordinal)
-                && Path.GetExtension(relativePath) is ".props" or ".targets";
+                    StringComparison.OrdinalIgnoreCase)
+                && IsSharedBuildFile(relativePath);
             bool allowsWorkerSourceLinks = relativePath.StartsWith(
                     "tests/Beutl.FFmpegBenchmarks/",
-                    StringComparison.Ordinal)
+                    StringComparison.OrdinalIgnoreCase)
                 || relativePath.StartsWith(
                     "tests/Beutl.FFmpegWorker.Tests/",
-                    StringComparison.Ordinal);
+                    StringComparison.OrdinalIgnoreCase);
 
             foreach (XElement element in document.Descendants())
             {
                 string elementName = element.Name.LocalName;
-                if (elementName is not ("Compile" or "ProjectReference"))
+                bool isCompile = string.Equals(elementName, "Compile", StringComparison.OrdinalIgnoreCase);
+                bool isProjectReference = string.Equals(
+                    elementName,
+                    "ProjectReference",
+                    StringComparison.OrdinalIgnoreCase);
+                bool isAssemblyReference = string.Equals(
+                    elementName,
+                    "Reference",
+                    StringComparison.OrdinalIgnoreCase);
+                if (!isCompile && !isProjectReference && !isAssemblyReference)
                 {
                     continue;
                 }
 
-                string? include = element.Attribute("Include")?.Value;
-                string? update = element.Attribute("Update")?.Value;
+                string? include = GetAttributeValue(element, "Include");
+                string? update = GetAttributeValue(element, "Update");
                 string? itemSpec = include ?? update;
                 if (itemSpec is null)
                 {
@@ -65,10 +77,15 @@ public sealed class GplMitBoundaryContractTests
                 string resolvedItemSpec = ResolveItemSpec(document, file, itemSpec);
                 if (IsDynamicItemSpec(resolvedItemSpec))
                 {
-                    if (elementName == "ProjectReference")
+                    if (isProjectReference)
                     {
                         violations.Add(
                             $"{relativePath}: contains an unresolved dynamic ProjectReference");
+                    }
+                    else if (isAssemblyReference)
+                    {
+                        violations.Add(
+                            $"{relativePath}: contains an unresolved dynamic assembly Reference");
                     }
                     else if (include is not null)
                     {
@@ -79,12 +96,38 @@ public sealed class GplMitBoundaryContractTests
                     continue;
                 }
 
-                if (elementName == "Compile"
+                if (isCompile
                     && include is not null
                     && isWorkerSideSharedBuildFile)
                 {
                     violations.Add(
                         $"{relativePath}: exposes worker Compile items from a shared build file");
+                    continue;
+                }
+
+                if (isAssemblyReference)
+                {
+                    string? hintPath = element.Elements()
+                        .FirstOrDefault(child => string.Equals(
+                            child.Name.LocalName,
+                            "HintPath",
+                            StringComparison.OrdinalIgnoreCase))
+                        ?.Value;
+                    string? resolvedHintPath = hintPath is null
+                        ? null
+                        : ResolveItemSpec(document, file, hintPath);
+                    if (resolvedItemSpec.Contains(
+                            "Beutl.FFmpegWorker",
+                            StringComparison.OrdinalIgnoreCase)
+                        || resolvedHintPath?.Contains(
+                            "Beutl.FFmpegWorker",
+                            StringComparison.OrdinalIgnoreCase) == true
+                        || (resolvedHintPath is not null && IsDynamicItemSpec(resolvedHintPath)))
+                    {
+                        violations.Add(
+                            $"{relativePath}: directly references the Beutl.FFmpegWorker assembly");
+                    }
+
                     continue;
                 }
 
@@ -95,7 +138,7 @@ public sealed class GplMitBoundaryContractTests
                     continue;
                 }
 
-                if (elementName == "Compile")
+                if (isCompile)
                 {
                     if (include is not null && !allowsWorkerSourceLinks)
                     {
@@ -114,7 +157,10 @@ public sealed class GplMitBoundaryContractTests
                     }
                     else
                     {
-                        bool isBuildOrderOnlyAppReference = relativePath == "src/Beutl/Beutl.csproj"
+                        bool isBuildOrderOnlyAppReference = string.Equals(
+                                relativePath,
+                                "src/Beutl/Beutl.csproj",
+                                StringComparison.OrdinalIgnoreCase)
                             && HasSafeBuildOrderOnlyMetadata(element);
                         if (!isBuildOrderOnlyAppReference)
                         {
@@ -137,11 +183,14 @@ public sealed class GplMitBoundaryContractTests
         var ambiguous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (XElement propertyGroup in document.Descendants()
-                     .Where(element => element.Name.LocalName == "PropertyGroup"
-                         && element.Attribute("Condition") is null))
+                     .Where(element => string.Equals(
+                             element.Name.LocalName,
+                             "PropertyGroup",
+                             StringComparison.OrdinalIgnoreCase)
+                         && GetAttributeValue(element, "Condition") is null))
         {
             foreach (XElement property in propertyGroup.Elements()
-                         .Where(element => element.Attribute("Condition") is null))
+                         .Where(element => GetAttributeValue(element, "Condition") is null))
             {
                 string name = property.Name.LocalName;
                 if (ambiguous.Contains(name))
@@ -188,28 +237,31 @@ public sealed class GplMitBoundaryContractTests
     private static bool HasSafeBuildOrderOnlyMetadata(XElement element)
     {
         const string metadataName = "ReferenceOutputAssembly";
-        if (MetadataListContains(element.Attribute("RemoveMetadata")?.Value, metadataName))
+        if (MetadataListContains(GetAttributeValue(element, "RemoveMetadata"), metadataName))
         {
             return false;
         }
 
-        string? keepMetadata = element.Attribute("KeepMetadata")?.Value;
+        string? keepMetadata = GetAttributeValue(element, "KeepMetadata");
         if (keepMetadata is not null && !MetadataListContains(keepMetadata, metadataName))
         {
             return false;
         }
 
-        string? attributeValue = element.Attribute(metadataName)?.Value;
+        string? attributeValue = GetAttributeValue(element, metadataName);
         if (attributeValue is not null)
         {
             return string.Equals(attributeValue, "false", StringComparison.OrdinalIgnoreCase);
         }
 
         XElement[] childMetadata = element.Elements()
-            .Where(child => child.Name.LocalName == metadataName)
+            .Where(child => string.Equals(
+                child.Name.LocalName,
+                metadataName,
+                StringComparison.OrdinalIgnoreCase))
             .ToArray();
         return childMetadata.Length == 1
-            && childMetadata[0].Attribute("Condition") is null
+            && GetAttributeValue(childMetadata[0], "Condition") is null
             && string.Equals(
                 childMetadata[0].Value,
                 "false",
@@ -220,6 +272,23 @@ public sealed class GplMitBoundaryContractTests
     {
         return value?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Contains(metadataName, StringComparer.OrdinalIgnoreCase) == true;
+    }
+
+    private static string? GetAttributeValue(XElement element, string name)
+    {
+        return element.Attributes()
+            .FirstOrDefault(attribute => string.Equals(
+                attribute.Name.LocalName,
+                name,
+                StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+    }
+
+    private static bool IsSharedBuildFile(string path)
+    {
+        string extension = Path.GetExtension(path);
+        return string.Equals(extension, ".props", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(extension, ".targets", StringComparison.OrdinalIgnoreCase);
     }
 
     [Test]
@@ -495,6 +564,86 @@ public sealed class GplMitBoundaryContractTests
         }
     }
 
+    [Test]
+    public void Boundary_scan_recognizes_mixed_case_item_names_and_build_extensions()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-mixed-case-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "WorkerItems.Props"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <projectreference include="src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj" />
+                    <compile include="src/Beutl.FFmpegWorker/WorkerHost.cs" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "WorkerItems.Props: references Beutl.FFmpegWorker",
+                    "WorkerItems.Props: source-links Beutl.FFmpegWorker",
+                }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
+    public void Boundary_scan_rejects_direct_worker_assembly_references()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-assembly-reference-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Project.csproj"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <Reference Include="WorkerAlias">
+                      <HintPath>lib/Beutl.FFmpegWorker.dll</HintPath>
+                    </Reference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "Project.csproj: directly references the Beutl.FFmpegWorker assembly",
+                }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
     private static IReadOnlyList<string> EnumerateBuildFiles(string repositoryRoot)
     {
         return EnumerateBuildFiles(new DirectoryInfo(repositoryRoot))
@@ -506,7 +655,9 @@ public sealed class GplMitBoundaryContractTests
     {
         foreach (FileInfo file in directory.EnumerateFiles())
         {
-            if (file.Extension is ".csproj" or ".props" or ".targets")
+            if (string.Equals(file.Extension, ".csproj", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(file.Extension, ".props", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(file.Extension, ".targets", StringComparison.OrdinalIgnoreCase))
             {
                 yield return file.FullName;
             }
