@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 using Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
@@ -264,6 +266,43 @@ public sealed class RenderPipelineMigrationCensusTests
 
         AssertNoFindings("Processor pull APIs must be absent.",
             s_corpus.Value.FindMembersDeclaredByType(processorType, pullNames));
+    }
+
+    [Test]
+    public void ProcessorPullRuntimeSurface_IncludesGeneratedEngineMembers()
+    {
+        const string processorTypeName = "Beutl.Graphics.Rendering.RenderNodeProcessor";
+        string[] pullNames = ["Pull", "PullToRoot"];
+        Assembly engine = typeof(Beutl.Graphics.Rendering.RenderNode).Assembly;
+        Type? processor = engine.GetType(processorTypeName);
+        if (processor is null)
+        {
+            Assert.Pass();
+            return;
+        }
+
+        MemberInfo[] directMembers = processor.GetMembers(
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+            .Where(member => pullNames.Contains(member.Name, StringComparer.Ordinal))
+            .ToArray();
+        MethodInfo[] extensionMembers = engine.GetTypes()
+            .SelectMany(type => type.GetMethods(
+                BindingFlags.Public | BindingFlags.Static))
+            .Where(method =>
+                pullNames.Contains(method.Name, StringComparer.Ordinal)
+                && method.IsDefined(typeof(ExtensionAttribute), inherit: false)
+                && method.GetParameters() is [{ ParameterType: var receiver }, ..]
+                && (receiver.IsAssignableFrom(processor)
+                    || receiver.IsGenericParameter
+                    && receiver.GetGenericParameterConstraints()
+                        .Any(constraint => constraint.IsAssignableFrom(processor))))
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(directMembers, Is.Empty);
+            Assert.That(extensionMembers, Is.Empty);
+        });
     }
 
     [Test]
@@ -792,6 +831,125 @@ public sealed class RenderPipelineMigrationCensusTests
                 "Beutl.Graphics.Rendering.RenderNodeProcessor",
                 ["Pull"]),
             Is.Empty);
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Uses_nearest_imported_namespace()
+    {
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            ("src/Compatibility/LocalProcessor.cs",
+                """
+                namespace Beutl.Compatibility.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            ("src/Compatibility/LocalExtensions.cs",
+                """
+                namespace Beutl.Compatibility
+                {
+                    using Graphics.Rendering;
+                    public static class LocalExtensions
+                    {
+                        public static void Pull(this RenderNodeProcessor processor) { }
+                    }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"]),
+            Is.Empty);
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Includes_referenced_receiver_bases()
+    {
+        const string extensionPath = "src/Compatibility/FrameworkBaseExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                using System;
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor : IDisposable
+                {
+                    public void Dispose() { }
+                }
+                """),
+            (extensionPath,
+                """
+                using System;
+                namespace Compatibility;
+                public static class FrameworkBaseExtensions
+                {
+                    public static void Pull(this IDisposable processor) { }
+                    public static void PullToRoot(this object processor) { }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                    "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                    ["Pull", "PullToRoot"])
+                .Select(finding => finding.RelativePath),
+            Is.EqualTo(new[] { extensionPath, extensionPath }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Combines_reachable_nested_directive_symbols()
+    {
+        const string extensionPath = "src/Compatibility/NestedConditionalExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            (extensionPath,
+                """
+                namespace Compatibility;
+                public static class NestedConditionalExtensions
+                {
+                #if WINDOWS
+                #elif FEATURE
+                #if DEBUG
+                    public static void Pull(
+                        this Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
+                #endif
+                #endif
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                    "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                    ["Pull"])
+                .Select(finding => finding.RelativePath),
+            Is.EqualTo(new[] { extensionPath }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Normalizes_escaped_namespace_identifiers()
+    {
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace @Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor
+                {
+                    public void Pull() { }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"]),
+            Has.Count.EqualTo(1));
     }
 
     [Test]
@@ -1627,14 +1785,27 @@ public sealed class RenderPipelineMigrationCensusTests
             AddSymbolVariant(variants, baseSymbols.Concat(projectSymbols));
             AddSymbolVariant(
                 variants,
+                baseSymbols.Concat(projectSymbols).Concat(["DEBUG", "TRACE"]));
+            AddSymbolVariant(
+                variants,
                 baseSymbols.Concat(windowsSymbols).Concat(projectSymbols));
             AddSymbolVariant(variants, baseSymbols.Concat(directiveSymbols));
             AddSymbolVariant(
                 variants,
                 baseSymbols.Concat(windowsSymbols).Concat(directiveSymbols));
+            IEnumerable<string> nonWindowsDirectiveSymbols = directiveSymbols.Except(
+                windowsSymbols,
+                StringComparer.Ordinal);
+            AddSymbolVariant(variants, baseSymbols.Concat(nonWindowsDirectiveSymbols));
+            AddSymbolVariant(
+                variants,
+                baseSymbols.Concat(nonWindowsDirectiveSymbols).Concat(["DEBUG", "TRACE"]));
             foreach (string[] positiveSymbols in directivePositiveSets)
             {
                 AddSymbolVariant(variants, baseSymbols.Concat(positiveSymbols));
+                AddSymbolVariant(
+                    variants,
+                    baseSymbols.Concat(positiveSymbols).Concat(["DEBUG", "TRACE"]));
                 AddSymbolVariant(
                     variants,
                     baseSymbols.Concat(windowsSymbols).Concat(positiveSymbols));
@@ -1731,6 +1902,13 @@ public sealed class RenderPipelineMigrationCensusTests
                     "src/Beutl.Engine/Beutl.Engine.csproj",
                     StringComparison.Ordinal))
                 .ToHashSet(StringComparer.Ordinal);
+            if (result.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "The renderer census could not locate "
+                    + "'src/Beutl.Engine/Beutl.Engine.csproj'.");
+            }
+
             bool changed;
             do
             {
@@ -1785,7 +1963,7 @@ public sealed class RenderPipelineMigrationCensusTests
             IEnumerable<string> namespaces = type.Ancestors()
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
-                .Select(item => item.Name.ToString());
+                .Select(item => GetWrittenTypeIdentity(item.Name));
             IEnumerable<string> containingTypes = type.Ancestors()
                 .OfType<TypeDeclarationSyntax>()
                 .Reverse()
@@ -1860,6 +2038,11 @@ public sealed class RenderPipelineMigrationCensusTests
                          && _productionCompilationIds.Contains(item.Document.CompilationId)
                          && item.QualifiedName == qualifiedTypeName))
             {
+                if (CanReceiveReferencedBase(receiverType, target))
+                {
+                    return true;
+                }
+
                 foreach (DeclaredType baseType in EnumerateTypeHierarchy(target).Skip(1))
                 {
                     if (CouldReferToType(
@@ -1989,10 +2172,11 @@ public sealed class RenderPipelineMigrationCensusTests
 
                 return usings
                     .Where(item => item.Alias is null && item.Name is not null)
-                    .SelectMany(item => GetImportCandidates(
+                    .Any(item => ImportResolvesTo(
                         item,
-                        GetWrittenName(item.Name!)))
-                    .Any(import => import + "." + writtenType == qualifiedTypeName);
+                        writtenType,
+                        qualifiedTypeName,
+                        document));
             }
 
             if (writtenType != typeName)
@@ -2024,8 +2208,67 @@ public sealed class RenderPipelineMigrationCensusTests
             return declaredNamespace == namespaceName
                    || usings.Any(item => item.Alias is null
                        && item.Name is not null
-                       && GetImportCandidates(item, GetWrittenName(item.Name))
-                           .Contains(namespaceName, StringComparer.Ordinal));
+                       && ImportResolvesTo(
+                           item,
+                           string.Empty,
+                           namespaceName,
+                           document));
+        }
+
+        private bool ImportResolvesTo(
+            UsingDirectiveSyntax directive,
+            string suffix,
+            string qualifiedTarget,
+            SourceDocument document)
+        {
+            foreach (string candidate in GetImportCandidates(
+                         directive,
+                         GetWrittenName(directive.Name!)))
+            {
+                string resolved = string.IsNullOrEmpty(suffix)
+                    ? candidate
+                    : candidate + "." + suffix;
+                if (NamespaceExistsInCompilation(candidate, document)
+                    || resolved == qualifiedTarget)
+                {
+                    return resolved == qualifiedTarget;
+                }
+            }
+
+            return false;
+        }
+
+        private bool NamespaceExistsInCompilation(
+            string namespaceName,
+            SourceDocument document)
+        {
+            string prefix = namespaceName + ".";
+            return GetMemberDeclaredTypes(document).Any(item =>
+                item.QualifiedName.StartsWith(prefix, StringComparison.Ordinal));
+        }
+
+        private static bool CanReceiveReferencedBase(
+            TypeSyntax? receiverType,
+            DeclaredType target)
+        {
+            if (receiverType is null)
+            {
+                return false;
+            }
+
+            string receiverIdentity = GetWrittenTypeIdentity(receiverType);
+            if (receiverIdentity is "object" or "System.Object")
+            {
+                return true;
+            }
+
+            string receiverName = receiverIdentity[(receiverIdentity.LastIndexOf('.') + 1)..];
+            return target.Syntax.BaseList?.Types.Any(baseType =>
+            {
+                string baseIdentity = GetWrittenTypeIdentity(baseType.Type);
+                string baseName = baseIdentity[(baseIdentity.LastIndexOf('.') + 1)..];
+                return baseName == receiverName;
+            }) == true;
         }
 
         private IEnumerable<DeclaredType> GetMemberDeclaredTypes(SourceDocument document)
@@ -2067,7 +2310,7 @@ public sealed class RenderPipelineMigrationCensusTests
 
         private static string GetWrittenName(NameSyntax name)
         {
-            return name.ToString().Replace("global::", string.Empty, StringComparison.Ordinal);
+            return GetWrittenTypeIdentity(name);
         }
 
         private static IEnumerable<string> GetImportCandidates(
@@ -2096,7 +2339,7 @@ public sealed class RenderPipelineMigrationCensusTests
             return string.Join('.', node.Ancestors()
                 .OfType<BaseNamespaceDeclarationSyntax>()
                 .Reverse()
-                .Select(item => item.Name.ToString()));
+                .Select(item => GetWrittenTypeIdentity(item.Name)));
         }
 
         private static bool IsVisibleIn(DeclaredType declared, SourceDocument document)
