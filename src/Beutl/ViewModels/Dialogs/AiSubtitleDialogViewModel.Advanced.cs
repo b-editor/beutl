@@ -3389,8 +3389,14 @@ public sealed partial class AiSubtitleDialogViewModel
                 SelectedSourceLanguage.Value.Code,
                 StringComparison.Ordinal))
         {
+            AiModelId? runModel = ModelOfRun(
+                operation.CompletedBatchCount > 0
+                    || operation.RequestKey.HasOutstandingName.Value,
+                operation.RequestKeyModel,
+                TranslationModelPicker.SelectedModel);
             request = CreateTranslationAvailabilityRequest(
                 operation.Batches[operation.CompletedBatchCount],
+                runModel,
                 limits: operation.Limits);
         }
         else if (TryBuildCaptionDocumentCore(out CaptionDocument? document, out _)
@@ -3818,16 +3824,24 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
         TranslationBatch batch,
-        AiModelId? model = null,
-        AiCaptionTranslationLimits? limits = null)
+        AiCaptionTranslationLimits limits)
+        => CreateTranslationAvailabilityRequest(
+            batch,
+            TranslationModelPicker.SelectedModel,
+            limits);
+
+    private static AiOperationAvailabilityRequest.Translation CreateTranslationAvailabilityRequest(
+        TranslationBatch batch,
+        AiModelId? model,
+        AiCaptionTranslationLimits limits)
         // What the batch will actually be sent to. A run in progress is priced
         // against the model its names were built from, not against whichever the
         // picker is showing now.
         => new(
             AiOperations.CaptionTranslation,
             batch.Pieces.Sum(piece => piece.Text.Length),
-            model ?? TranslationModelPicker.SelectedModel,
-            limits ?? TranslationModelPicker.CaptionTranslationLimits);
+            model,
+            limits);
 
     // The model a run is named for. The picker's until the run has named
     // anything, and from then on the run's own — including when the run named

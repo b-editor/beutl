@@ -3355,6 +3355,7 @@ public sealed class AiDialogWorkflowTests
         await TestReset.ResetShellAsync();
         bool firstModelRemoved = false;
         var sentModels = new List<string?>();
+        var availability = new RecordingAvailabilityService();
         int translationRequests = 0;
         using var handler = new StubHandler(request =>
         {
@@ -3385,7 +3386,9 @@ public sealed class AiDialogWorkflowTests
         using var httpClient = new HttpClient(handler);
         await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(clients, httpClient);
-        using var viewModel = CreateSubtitleDialog(clients);
+        using var viewModel = CreateSubtitleDialog(
+            clients,
+            availabilityService: availability);
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.TranslationModelPicker.Options.Count == 2);
         viewModel.ResultSegments.Value = CreateTranslationBatchSegments();
@@ -3410,11 +3413,13 @@ public sealed class AiDialogWorkflowTests
                 Is.False,
                 "The removed model stays visible only because the partial run still owns it.");
         }
+        availability.Clear();
         viewModel.TranslationModelPicker.Selected.Value =
             viewModel.TranslationModelPicker.Options.First(option =>
                 option.Id == new AiModelId("translation-b"));
 
         viewModel.RefreshAvailability();
+        await WaitUntilAsync(() => availability.GetRequestsSnapshot().Count > 0);
         await WaitUntilAsync(() => viewModel.CanTranslate.Value);
         await viewModel.Translate.ExecuteAsync();
 
@@ -3427,8 +3432,82 @@ public sealed class AiDialogWorkflowTests
                 "translation-a",
                 "translation-a",
             }));
+            Assert.That(
+                availability.GetRequestsSnapshot()
+                    .OfType<AiOperationAvailabilityRequest.Translation>()
+                    .Select(request => request.Model?.Value),
+                Is.All.EqualTo("translation-a"));
             Assert.That(viewModel.HasPartialResult.Value, Is.False);
         }
+    }
+
+    [AvaloniaTest]
+    public async Task SubtitleTranslation_PendingNoModelRunRemainsUnmodeledForAvailability()
+    {
+        await TestReset.ResetShellAsync();
+        bool publishModels = false;
+        int translationRequests = 0;
+        var availability = new RecordingAvailabilityService();
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
+            {
+                return JsonResponse(
+                    HttpStatusCode.OK,
+                    CaptionCapabilitiesJson(
+                        removeFirst: true,
+                        omitTranslationModels: !publishModels));
+            }
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/translations")
+            {
+                int requestNumber = ++translationRequests;
+                return requestNumber == 1
+                    ? CreateTranslationResponse(request, "translation-unmodeled")
+                    : JsonResponse(HttpStatusCode.InternalServerError, """
+                        {
+                          "error_code": "aiProviderError",
+                          "message": "Provider failed.",
+                          "documentation_url": null
+                        }
+                        """);
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        using var viewModel = CreateSubtitleDialog(
+            clients,
+            availabilityService: availability);
+        await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
+        viewModel.ResultSegments.Value = CreateTranslationBatchSegments();
+        await WaitUntilAsync(() => viewModel.CanTranslate.Value);
+
+        await viewModel.Translate.ExecuteAsync();
+        viewModel.ApplyPartialResult.Execute();
+        Assert.That(viewModel.HasPartialResult.Value, Is.True);
+
+        publishModels = true;
+        IAiModelCatalogService catalog = clients.GetResource<IAiModelCatalogService>();
+        catalog.Invalidate();
+        await viewModel.TranslationModelPicker.LoadAsync(
+            AiOperations.CaptionTranslation,
+            CancellationToken.None);
+        Assert.That(
+            viewModel.TranslationModelPicker.SelectedModel,
+            Is.EqualTo(new AiModelId("translation-b")));
+
+        availability.Clear();
+        viewModel.RefreshAvailability();
+        await WaitUntilAsync(() => availability.GetRequestsSnapshot().Count > 0);
+
+        Assert.That(
+            availability.GetRequestsSnapshot()
+                .OfType<AiOperationAvailabilityRequest.Translation>()
+                .Select(request => request.Model),
+            Is.All.Null);
     }
 
     [AvaloniaTest]
@@ -5182,10 +5261,11 @@ public sealed class AiDialogWorkflowTests
         BeutlApiApplication clients,
         EditViewModel? editor = null,
         ICaptionDraftStore? draftStore = null,
-        IObservable<CaptionDraftScope?>? draftScopes = null)
+        IObservable<CaptionDraftScope?>? draftScopes = null,
+        IAiOperationAvailabilityService? availabilityService = null)
         => new(
             clients.GetResource<IAiEntitlementService>(),
-            clients.GetResource<IAiOperationAvailabilityService>(),
+            availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
             clients.GetResource<IAiModelCatalogService>(),
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiTranscriptionService>(),
@@ -5194,6 +5274,34 @@ public sealed class AiDialogWorkflowTests
             draftStore ?? CaptionDraftStoreProvider.Current,
             draftScopes ?? Observable.Return<CaptionDraftScope?>(null),
             editor);
+
+    private sealed class RecordingAvailabilityService : IAiOperationAvailabilityService
+    {
+        private readonly object _gate = new();
+        private readonly List<AiOperationAvailabilityRequest> _requests = [];
+
+        public Task<bool> CheckAsync(
+            AiOperationAvailabilityRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            lock (_gate)
+                _requests.Add(request);
+            return Task.FromResult(true);
+        }
+
+        public IReadOnlyList<AiOperationAvailabilityRequest> GetRequestsSnapshot()
+        {
+            lock (_gate)
+                return _requests.ToArray();
+        }
+
+        public void Clear()
+        {
+            lock (_gate)
+                _requests.Clear();
+        }
+    }
 
     private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
         => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());
@@ -5303,7 +5411,8 @@ public sealed class AiDialogWorkflowTests
         bool removeFirst,
         int? maxSegments = null,
         int? maxCharacters = null,
-        int? maxRequestBytes = null)
+        int? maxRequestBytes = null,
+        bool omitTranslationModels = false)
     {
         static object Model(string id, bool isDefault) => new
         {
@@ -5313,9 +5422,11 @@ public sealed class AiDialogWorkflowTests
             isDefault,
         };
 
-        object[] translationModels = removeFirst
-            ? [Model("translation-b", true)]
-            : [Model("translation-a", true), Model("translation-b", false)];
+        object[]? translationModels = omitTranslationModels
+            ? null
+            : removeFirst
+                ? [Model("translation-b", true)]
+                : [Model("translation-a", true), Model("translation-b", false)];
         object[] transcriptionModels = removeFirst
             ? [Model("transcription-b", true)]
             : [Model("transcription-a", true), Model("transcription-b", false)];

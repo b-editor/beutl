@@ -439,7 +439,7 @@ internal abstract class MeteredAiJobRetryHandler(
         // A catalog that could not be fetched says nothing about any model, and
         // the server has the last word regardless.
         if (models.IsDefaultOrEmpty)
-            return true;
+            return !catalog.OffersNoModel(operation);
 
         return models.Any(option => option.Id == model);
     }
@@ -494,6 +494,38 @@ internal abstract class MeteredAiJobRetryHandler(
                 attempt.Dispose();
             return ValueTask.CompletedTask;
         }
+    }
+}
+
+internal static class AiReplayInputValidation
+{
+    public static bool IsStructurallyValidAspectRatio([NotNullWhen(true)] string? value)
+    {
+        if (value is not { Length: > 0 and <= 256 }
+            || !string.Equals(value, value.Trim(), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        int separator = value.IndexOf(':');
+        return separator > 0
+            && separator == value.LastIndexOf(':')
+            && separator < value.Length - 1
+            && IsPositiveDecimal(value.AsSpan(0, separator))
+            && IsPositiveDecimal(value.AsSpan(separator + 1));
+    }
+
+    private static bool IsPositiveDecimal(ReadOnlySpan<char> value)
+    {
+        bool hasNonZeroDigit = false;
+        foreach (char character in value)
+        {
+            if (character is < '0' or > '9')
+                return false;
+            hasNonZeroDigit |= character != '0';
+        }
+
+        return hasNonZeroDigit;
     }
 }
 
@@ -615,7 +647,7 @@ internal sealed class AiImageJobRetryHandler(
                     }
                     : string.Empty
                 : "1:1";
-        if (aspectRatio is not ("1:1" or "16:9" or "9:16" or "4:3" or "3:4" or "3:2" or "2:3"))
+        if (!AiReplayInputValidation.IsStructurallyValidAspectRatio(aspectRatio))
             return false;
 
         string? background = null;
@@ -781,7 +813,7 @@ internal sealed class AiVideoJobRetryHandler(
             string? parsedAspect = aspectElement.ValueKind == JsonValueKind.String
                 ? aspectElement.GetString()
                 : null;
-            if (!IsStructurallyValidAspectRatio(parsedAspect))
+            if (!AiReplayInputValidation.IsStructurallyValidAspectRatio(parsedAspect))
                 return false;
             aspectRatio = parsedAspect;
         }
@@ -813,35 +845,6 @@ internal sealed class AiVideoJobRetryHandler(
             generateAudio,
             seed);
         return true;
-    }
-
-    private static bool IsStructurallyValidAspectRatio([NotNullWhen(true)] string? value)
-    {
-        if (value is not { Length: > 0 and <= 256 }
-            || !string.Equals(value, value.Trim(), StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        int separator = value.IndexOf(':');
-        return separator > 0
-            && separator == value.LastIndexOf(':')
-            && separator < value.Length - 1
-            && IsPositiveDecimal(value.AsSpan(0, separator))
-            && IsPositiveDecimal(value.AsSpan(separator + 1));
-    }
-
-    private static bool IsPositiveDecimal(ReadOnlySpan<char> value)
-    {
-        bool hasNonZeroDigit = false;
-        foreach (char character in value)
-        {
-            if (character is < '0' or > '9')
-                return false;
-            hasNonZeroDigit |= character != '0';
-        }
-
-        return hasNonZeroDigit;
     }
 
     private static AiModelOption? ResolveModel(AiModelCatalog catalog, AiJob job)

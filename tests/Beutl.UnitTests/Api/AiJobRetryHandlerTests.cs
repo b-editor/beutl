@@ -614,6 +614,41 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
+    public async Task ImageRetry_AcceptsAnAspectRatioPublishedByTheCurrentModel()
+    {
+        var catalog = new AiModelCatalog([
+            KeyValuePair.Create(AiOperations.ImageGeneration, ImmutableArray.Create(new AiModelOption(
+                new AiModelId("image/model"), "Image", AiModelCostTier.Low, true,
+                Image: new AiImageModelCapabilities(
+                    AiCapabilityDimension<string>.Supported(["21:9"]),
+                    AiCapabilityDimension<string>.Supported(["auto"]),
+                    SupportsSeed: true,
+                    MaxReferenceImages: 0))))]);
+        var handler = new AiImageJobRetryHandler(
+            Mock.Of<IAiImageGenerationService>(),
+            EntitlementService(),
+            AvailabilityService(available: true),
+            ModelCatalogService(catalog),
+            RetryContext());
+        AiJob job = Job("image", "{\"prompt\":\"panorama\",\"aspectRatio\":\"21:9\"}") with
+        {
+            Model = new AiModelId("image/model"),
+        };
+        AiJobStatusSemantics failed = new(
+            isTerminal: true,
+            shouldPoll: false,
+            outcome: AiJobOutcomes.Failed);
+
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(job, CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(handler.CanRetry(job, failed), Is.True);
+            Assert.That(preflight.CanSubmit, Is.True);
+        }
+    }
+
+    [Test]
     public async Task VideoRetry_PreflightWithdrawsChangedCapabilities()
     {
         var catalog = new AiModelCatalog([

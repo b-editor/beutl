@@ -104,10 +104,18 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
             CaptionMetadata metadata = style is null || hasImplicitStyle
                 ? CaptionMetadata.Empty
                 : CaptionMetadata.Empty.Set(CaptionMetadataKeys.AssStyle, style);
+            string text = DecodeText(fields[textIndex], out bool discardedOverrideBlock);
+            if (discardedOverrideBlock)
+            {
+                errors.Add(new CaptionDiagnostic(
+                    CaptionDiagnosticKinds.UnsupportedMarkup,
+                    i + 1,
+                    "ASS/SSA override blocks cannot be represented and were removed from the cue text."));
+            }
             cues.Add(new CaptionCue(
                 start,
                 end,
-                DecodeText(fields[textIndex]),
+                text,
                 speaker,
                 language,
                 metadata));
@@ -203,8 +211,9 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         return builder.ToString();
     }
 
-    private static string DecodeText(string value)
+    private static string DecodeText(string value, out bool discardedOverrideBlock)
     {
+        discardedOverrideBlock = false;
         var builder = new StringBuilder(value.Length);
         for (int i = 0; i < value.Length; i++)
         {
@@ -239,6 +248,7 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 int close = value.IndexOf('}', i + 1);
                 if (close >= 0)
                 {
+                    discardedOverrideBlock = true;
                     i = close;
                     continue;
                 }

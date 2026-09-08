@@ -1541,7 +1541,7 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         CanAddToScene = canHandleResult;
         KindDisplayName = presentation.KindDisplayName;
         StatusDisplayName = presentation.StatusDisplayName;
-        HasImagePreview = presentation.HasImagePreview && ContentUri is not null && canHandleResult;
+        HasImagePreview = presentation.HasImagePreview && ContentUri is not null;
     }
 
     private static void ValidatePresentation(AiJobPresentation presentation)

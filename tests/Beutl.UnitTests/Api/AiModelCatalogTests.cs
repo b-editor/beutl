@@ -1331,6 +1331,35 @@ public class AiModelCatalogTests
     }
 
     [Test]
+    public async Task Retry_RefusesAModelWhenTheOperationExplicitlyOffersNoModels()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        var catalog = new AiModelCatalog(
+            [],
+            withoutModels: [AiOperations.ImageGeneration]);
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(),
+            ModelCatalogService(catalog),
+            RetryContext());
+        AiJob job = ImageJob("withdrawn/model");
+
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(
+            job,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(preflight.CanSubmit, Is.False);
+            Assert.That(preflight.Explanation, Is.EqualTo(Strings.AiModelUnavailable));
+        }
+        images.Verify(service => service.GenerateAsync(
+            It.IsAny<AiImageGenerationRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
     public void Retry_ProceedsWhenTheCatalogCouldNotBeRead()
     {
         var images = new Mock<IAiImageGenerationService>();

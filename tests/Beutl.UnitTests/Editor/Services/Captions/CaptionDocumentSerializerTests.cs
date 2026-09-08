@@ -425,7 +425,30 @@ public class CaptionDocumentSerializerTests
                 "Alice",
                 "ja-JP",
                 Metadata(CaptionMetadataKeys.AssStyle, "Narration"))));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 6));
         });
+    }
+
+    [TestCase(@"{\an8}Top", "Top")]
+    [TestCase(@"{\k20}lyric", "lyric")]
+    public void ImportAss_OverrideBlocksProduceAnExplicitDiagnostic(
+        string markedUpText,
+        string expectedText)
+    {
+        string source = $"[Events]\nFormat: Start, End, Text\nDialogue: 0:00:00.00,0:00:01.00,{markedUpText}\n";
+
+        CaptionImportResult result = Import(source, CaptionFormats.Ass);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 3));
+        }
     }
 
     [Test]

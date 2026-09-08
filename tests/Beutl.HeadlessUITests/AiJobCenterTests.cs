@@ -169,6 +169,30 @@ public sealed class AiJobCenterTests
     }
 
     [Test]
+    public async Task Item_PresenterCanOfferAPreviewWithoutAResultApplicator()
+    {
+        var kind = new AiJobKindId("vendor.preview-only");
+        await using IAiJobStatusResolverRegistration kindRegistration = _jobKinds.Register(
+            new AiJobStatusResolverRegistration(kind, new AiJobStatusMap([])));
+        await using IAiJobPresentationRegistration presentationRegistration = _resultHandlers.Register(
+            new AiJobPresentationRegistration(kind, new PreviewOnlyPresenter()));
+
+        using var item = new AiJobItemViewModel(
+            CreateJob(
+                kind.Value,
+                "ready",
+                url: "https://beutl.beditor.net/api/contents/preview-only"),
+            _jobKinds,
+            _resultHandlers);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(item.HasImagePreview, Is.True);
+            Assert.That(item.CanAddToScene, Is.False);
+        }
+    }
+
+    [Test]
     public async Task Item_ThrowingRetryHandlerDisablesOnlyThatJobsRetry()
     {
         var kind = new AiJobKindId("vendor.throwing-retry");
@@ -2378,6 +2402,12 @@ public sealed class AiJobCenterTests
     {
         public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
             => new(null!, null!, null!, null!, false);
+    }
+
+    private sealed class PreviewOnlyPresenter : IAiJobPresenter
+    {
+        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
+            => new("Preview only", "Ready", "Preview result", string.Empty, false, HasImagePreview: true);
     }
 
     private sealed class CustomResultCapabilities(EditViewModel expectedEditor) :
