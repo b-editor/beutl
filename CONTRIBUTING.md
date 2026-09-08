@@ -84,3 +84,7 @@ XAML Files
 
 Packaging materials or object templates for the store is described in
 [`docs/data-packages.md`](docs/data-packages.md).
+
+Extension authors should also read the
+[resolution-independent rendering guide](docs/extension-authoring/resolution-independent-rendering.md)
+before implementing custom drawables, filter effects, brushes, or shaders.

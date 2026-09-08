@@ -70,3 +70,6 @@ XAMLファイル
              Text="{Binding Text.Value}" />
 </UserControl>
 ```
+
+カスタム Drawable、フィルター効果、ブラシ、シェーダーを実装する場合は、
+[解像度非依存レンダリングのガイド](docs/extension-authoring/resolution-independent-rendering.md)も参照してください。
