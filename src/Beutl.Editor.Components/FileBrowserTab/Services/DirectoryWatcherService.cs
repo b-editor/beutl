@@ -219,13 +219,16 @@ internal sealed class DirectoryWatcherService : IDisposable
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (!IsCurrentWatcher(sender))
-                return;
-
-            if (TryRearmAfterError())
+            lock (_stateSync)
             {
-                // Resync changes missed while the watcher was down.
-                Changed?.Invoke();
+                if (!IsCurrentWatcher(sender))
+                    return;
+
+                if (TryRearmAfterError())
+                {
+                    // Resync changes missed while the watcher was down.
+                    Changed?.Invoke();
+                }
             }
         });
     }
@@ -680,7 +683,6 @@ internal sealed class DirectoryWatcherService : IDisposable
 
     private void TryDeliver(CancellationTokenSource debounce, long deliveryGeneration)
     {
-        Action? changed;
         lock (_stateSync)
         {
             if (_disposed
@@ -693,11 +695,9 @@ internal sealed class DirectoryWatcherService : IDisposable
             _debounceCts = null;
             _errorRearmCount = 0;
             _failingCanonicalPath = null;
-            changed = Changed;
+            debounce.Dispose();
+            Changed?.Invoke();
         }
-
-        debounce.Dispose();
-        changed?.Invoke();
     }
 
     // A delivered event resets the rearm budget.
@@ -705,6 +705,9 @@ internal sealed class DirectoryWatcherService : IDisposable
     {
         lock (_stateSync)
         {
+            if (_disposed)
+                return;
+
             _errorRearmCount = 0;
             _failingCanonicalPath = null;
         }

@@ -149,6 +149,55 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void An_event_that_arrives_after_disposal_is_dropped()
+    {
+        var service = new DirectoryWatcherService();
+        service.Watch(_scratch);
+        string changed = Path.Combine(_scratch, "late.txt");
+
+        service.NotifyPathChanged(changed);
+        service.Dispose();
+
+        // The OS keeps delivering on the watcher's own thread after Dispose, and the
+        // exception that used to escape there took the whole process with it.
+        Assert.DoesNotThrow(() => service.NotifyPathChanged(changed));
+    }
+
+    [Test]
+    public void Watching_after_disposal_cannot_rearm_the_watcher()
+    {
+        var service = new DirectoryWatcherService();
+        service.Watch(_scratch);
+        service.Dispose();
+        service.Watch(_scratch);
+        Assert.That(service.IsWatching, Is.False);
+        Assert.That(service.TryRearmAfterError(), Is.False);
+    }
+
+    [Test]
+    public async Task Events_watch_and_disposal_can_contend_without_rearming_or_throwing()
+    {
+        for (int iteration = 0; iteration < 100; iteration++)
+        {
+            var service = new DirectoryWatcherService();
+            service.Watch(_scratch);
+            service.NotifyPathChanged(Path.Combine(_scratch, "before.txt"));
+            using var start = new ManualResetEventSlim();
+            Task callbacks = Task.Run(() =>
+            {
+                start.Wait();
+                for (int i = 0; i < 10; i++)
+                    service.NotifyPathChanged(Path.Combine(_scratch, "event.txt"));
+            });
+            Task watch = Task.Run(() => { start.Wait(); service.Watch(_scratch); });
+            Task dispose = Task.Run(() => { start.Wait(); service.Dispose(); });
+            start.Set();
+            await Task.WhenAll(callbacks, watch, dispose).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(service.IsWatching, Is.False);
+        }
+    }
+
+    [Test]
     public void Watching_a_missing_path_leaves_nothing_armed()
     {
         using var service = new DirectoryWatcherService();
