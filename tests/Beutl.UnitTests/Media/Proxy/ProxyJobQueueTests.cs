@@ -249,6 +249,14 @@ public class ProxyJobQueueTests
             leaseFactory: () => new CountingLease(
                 disposeStarted: releaseStarted,
                 disposeRelease: releaseLease.Task));
+        bool leaseReleasedAtRollback = true;
+        store.Changed += (_, args) =>
+        {
+            if (args.Kind == ProxyStoreChangeKind.Deleted)
+            {
+                leaseReleasedAtRollback = admission.Leases.Single().ReleaseCompleted;
+            }
+        };
         await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
         ProxyFingerprint source = CreateFingerprint("failure-cleanup-cancel.mov");
 
@@ -264,6 +272,37 @@ public class ProxyJobQueueTests
             Assert.That(job.Error, Is.Null);
             Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
             Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+            Assert.That(leaseReleasedAtRollback, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Failure_rollback_error_prevents_clean_cancellation_publication()
+    {
+        var store = new ThrowingDeleteStore();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("failure-rollback-error.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(job.Error, Is.TypeOf<AggregateException>());
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter)?.State, Is.EqualTo(ProxyState.Failed));
         });
     }
 
@@ -1694,11 +1733,14 @@ public class ProxyJobQueueTests
 
         public int DisposeCount => Volatile.Read(ref _disposeCount);
 
+        public bool ReleaseCompleted { get; private set; }
+
         public void Dispose()
         {
             Interlocked.Increment(ref _disposeCount);
             disposeStarted?.TrySetResult();
             disposeRelease?.GetAwaiter().GetResult();
+            ReleaseCompleted = true;
             if (disposeFailure is not null)
             {
                 ExceptionDispatchInfo.Capture(disposeFailure).Throw();
@@ -1985,6 +2027,37 @@ public class ProxyJobQueueTests
 #pragma warning disable CS0067 // Not exercised by these tests.
         public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
 #pragma warning restore CS0067
+    }
+
+    private sealed class ThrowingDeleteStore : IProxyStore
+    {
+        private ProxyEntry? _entry;
+
+        public string StoreRootPath => Path.GetTempPath();
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
+
+        public void Register(ProxyEntry entry) => _entry = entry;
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => throw new IOException("delete failed");
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
     }
 
     private sealed class ControlledBlockingGenerator : IProxyGenerator

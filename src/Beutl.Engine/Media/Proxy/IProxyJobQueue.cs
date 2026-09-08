@@ -78,11 +78,11 @@ public sealed class ProxyJobChangedEventArgs : EventArgs
 public enum ProxyJobChangeKind
 {
     Enqueued,
-    WaitingForAdmission,
     Started,
     Progressed,
     Succeeded,
     Failed,
     Canceled,
     Skipped,
+    WaitingForAdmission,
 }

@@ -639,7 +639,32 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 item.Job,
                 failure.Message);
 
-            Exception? terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
+            Exception? rollbackFailure = null;
+            var rollbackSync = new object();
+            Exception? terminalReleaseFailure;
+            using (item.Token.Register(() =>
+                   {
+                       Exception? currentRollbackFailure = RollBackFailure(
+                           item.Job,
+                           failureRegistration);
+                       if (currentRollbackFailure is not null)
+                       {
+                           lock (rollbackSync)
+                           {
+                               rollbackFailure = currentRollbackFailure;
+                           }
+                       }
+                   }))
+            {
+                terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
+            }
+
+            Exception? synchronizedRollbackFailure;
+            lock (rollbackSync)
+            {
+                synchronizedRollbackFailure = rollbackFailure;
+            }
+
             if (terminalReleaseFailure is not null)
             {
                 item.TryClaimNonCancellationTerminal(cancellationWins: false);
@@ -647,14 +672,26 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     "Proxy generation and admission-lease release both failed.",
                     failure,
                     terminalReleaseFailure);
+                if (item.Token.IsCancellationRequested && failureRegistration.Changed)
+                {
+                    RegisterFailure(item.Job, item.Job.Error.Message);
+                }
             }
             else if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
             {
-                RollBackFailure(item.Job, failureRegistration);
-                item.Job.Error = null;
-                item.Job.Status = ProxyJobStatus.Canceled;
-                OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
-                return false;
+                if (synchronizedRollbackFailure is null)
+                {
+                    item.Job.Error = null;
+                    item.Job.Status = ProxyJobStatus.Canceled;
+                    OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
+                    return false;
+                }
+
+                item.TryClaimNonCancellationTerminal(cancellationWins: false);
+                item.Job.Error = new AggregateException(
+                    "Proxy generation failed and cancellation rollback did not complete.",
+                    failure,
+                    synchronizedRollbackFailure);
             }
 
             // Publish only after admission is released; observers can now safely start conflicting
@@ -958,11 +995,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
     }
 
-    private void RollBackFailure(ProxyJob job, FailureRegistration registration)
+    private Exception? RollBackFailure(ProxyJob job, FailureRegistration registration)
     {
         if (_store is null || !registration.Changed)
         {
-            return;
+            return null;
         }
 
         try
@@ -975,6 +1012,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 _store.Delete(job.Source, job.Preset);
             }
+
+            return null;
         }
         catch (Exception ex)
         {
@@ -986,6 +1025,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 "Failed to roll back the proxy failure entry after cancellation for {Source} ({Preset}).",
                 job.Source.AbsolutePath,
                 job.Preset);
+            return ex;
         }
     }
 

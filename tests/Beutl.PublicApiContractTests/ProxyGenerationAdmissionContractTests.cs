@@ -6,6 +6,22 @@ namespace Beutl.PublicApiContractTests;
 public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTestBase
 {
     [Test]
+    public void Waiting_change_kind_preserves_existing_public_ordinals()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That((int)ProxyJobChangeKind.Enqueued, Is.EqualTo(0));
+            Assert.That((int)ProxyJobChangeKind.Started, Is.EqualTo(1));
+            Assert.That((int)ProxyJobChangeKind.Progressed, Is.EqualTo(2));
+            Assert.That((int)ProxyJobChangeKind.Succeeded, Is.EqualTo(3));
+            Assert.That((int)ProxyJobChangeKind.Failed, Is.EqualTo(4));
+            Assert.That((int)ProxyJobChangeKind.Canceled, Is.EqualTo(5));
+            Assert.That((int)ProxyJobChangeKind.Skipped, Is.EqualTo(6));
+            Assert.That((int)ProxyJobChangeKind.WaitingForAdmission, Is.EqualTo(7));
+        });
+    }
+
+    [Test]
     public async Task ExternalHost_CanImplementAndUseProxyGenerationAdmission()
     {
         AssertDoesNotHaveFriendAccess(typeof(ProxyJobQueue).Assembly);

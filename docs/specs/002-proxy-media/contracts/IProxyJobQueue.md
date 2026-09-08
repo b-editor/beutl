@@ -46,7 +46,7 @@ public sealed class ProxyJobChangedEventArgs : EventArgs
     public required ProxyJobChangeKind Kind { get; init; }
 }
 
-public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Failed, Canceled, Skipped }
+public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Failed, Canceled, Skipped, WaitingForAdmission }
 
 public interface IProxyGenerator
 {
@@ -64,6 +64,12 @@ public interface IProxyGenerationAdmission
     /// the queue until generation and terminal cleanup finish.
     /// </summary>
     IDisposable? TryAcquireLease(ProxyJob job);
+
+    /// <summary>
+    /// Signals that host resources may be available. The queue re-runs TryAcquireLease for every
+    /// deferred job and retains bounded retry as a missed-signal fallback.
+    /// </summary>
+    event EventHandler? AvailabilityChanged;
 }
 ```
 
@@ -75,7 +81,7 @@ public interface IProxyGenerationAdmission
 4. **Cancellation semantics**: `Cancel` propagates the queue-level token to the in-flight generator. On cancel, the generator MUST delete any `*.tmp` files it created before completing the job. The job's terminal state is `Canceled`, not `Failed`; cancel never records `ProxyState.Failed` or a failure reason.
 5. **Skipped semantics**: ineligible sources (audio-only, procedural/generative, still images) complete as `ProxyJobStatus.Skipped` and raise `ProxyJobChangeKind.Skipped` with a human-readable `StatusMessage`. Skipped jobs do not call `IProxyStore.Register`, do not create a proxy entry, and leave any existing proxy entry unchanged.
 6. **Generator unavailable → bounded retry or terminal skip**: if the registered `IProxyGenerator` throws `ProxyGeneratorUnavailableException` (the FFmpeg implementation uses this for "FFmpeg not installed"), the behavior depends on whether the generator exposes an availability signal (`IProxyGeneratorAvailability`). With a signal, the job stays `Queued` and the drain loop re-probes after a bounded exponential backoff, resuming immediately when the generator reports availability — the job (and its install prompt) stays alive. Without a signal the queue can never learn the generator recovered, so the job completes as a terminal `Skipped` with the generator's message. The concrete FFmpeg generator, not `Beutl.Engine`, surfaces `FFmpegInstallNotifier`.
-7. **Optional host admission**: constructors that receive `IProxyGenerationAdmission` call its non-blocking `TryAcquireLease` immediately before generator execution. A `null` result keeps the job `Queued`, emits no `Started` event, and defers only that item with exponential backoff capped by the queue's configured maximum; another admissible job at the same priority remains dispatchable. The generator is never entered for a rejected attempt. An accepted lease is held across the complete `GenerateAsync` call and released exactly once before any terminal event, including success, skip, failure, cancellation, and queue disposal. Once cancellation is requested it wins over concurrent admission and generator exceptions, so no failed store entry is recorded. A lease-release failure takes precedence and remains `Failed`, because terminal cleanup could not be proved. Hosts can compose multiple resource policies behind one admission implementation; this primitive does not assume any specific workspace transition or version-control integration.
+7. **Optional host admission**: constructors that receive `IProxyGenerationAdmission` call its non-blocking `TryAcquireLease` immediately before generator execution. A `null` result keeps the job `Queued`, emits one `WaitingForAdmission` event on entry to the wait episode, and defers only that item with exponential backoff capped by the queue's configured maximum; another admissible job at the same priority remains dispatchable. `AvailabilityChanged` wakes every deferred item immediately, while the timer remains a missed-signal fallback. The generator is never entered for a rejected attempt. An accepted lease is held across the complete `GenerateAsync` call and released exactly once before any terminal event, including success, skip, failure, cancellation, and queue disposal. Once cancellation is requested it wins over concurrent admission and generator exceptions, so no failed store entry is recorded. A lease-release or failure-rollback error takes precedence and remains `Failed`, because terminal cleanup could not be proved. Hosts can compose multiple resource policies behind one admission implementation; this primitive does not assume any specific workspace transition or version-control integration.
 8. **Bounded queue**: `EnqueueAsync` awaits once the backing channel is full (capacity 256). UI can pass a short cancellation token to surface "queue full" or "try again" without blocking the UI thread. If the enqueue write itself fails (caller cancellation, queue disposal), the job transitions to a terminal `Canceled` state and raises `JobChanged` before the exception propagates — a deduplicated caller holding the same `ProxyJob` never sees it stuck at `Queued` forever.
 9. **Subscriber isolation**: `JobChanged` handlers are invoked individually; a throwing subscriber is logged and neither faults the queue's drain loop nor starves the remaining subscribers of the notification.
 10. **`AsyncDispose` semantics**: disposing waits for the active job to reach a terminal state (after cancelling it) — never abandons in-flight encoder processes. Every job ever surfaced (returned from `EnqueueAsync` or observed via `JobChanged`) is terminal by the time `DisposeAsync` completes.
