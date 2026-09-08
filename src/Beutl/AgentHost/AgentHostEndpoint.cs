@@ -260,13 +260,13 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _ = ObserveBackgroundStartAsync(startup);
     }
 
-    private static async Task ObserveBackgroundStartAsync(Task startup)
+    private async Task ObserveBackgroundStartAsync(Task startup)
     {
         try
         {
             await startup.ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_startupCancellation.IsCancellationRequested)
         {
         }
         catch (Exception ex)
@@ -323,7 +323,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             {
                 await startup.WaitAsync(s_shutdownTimeout).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (_startupCancellation.IsCancellationRequested)
             {
             }
             catch (TimeoutException)
