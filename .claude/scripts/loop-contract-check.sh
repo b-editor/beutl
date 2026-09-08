@@ -276,6 +276,8 @@ if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
    grep -q 'Before waiting for any review' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'REVIEWED_DRAFT_HEAD' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'new_commits_pushed == 0' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'EXPECTED_SCOPE_HEAD' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'authoritative in-memory and journaled' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'review-scope-state-check.sh' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'tests never become the source of truth' "$DOC" 2>/dev/null && \
    have "$SCOPE_CHECK"; then

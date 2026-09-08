@@ -276,6 +276,14 @@ then use **`origin/$DRAFT_BRANCH`** as the head everywhere in 2.5 (diffs `origin
 **before** the PR exists, so the self-review axes and bot-likely findings are cleared upfront and
 the post-PR settle window stays short. Up to **two** rework iterations; then the PR opens.
 
+Before 2.5a, freeze `intended_behavior`, `affected_modules`, and `acceptance_tests` from the claimed
+board item and any approved spec in orchestrator-owned memory. This pre-PR scope is authoritative for
+both reviewer passes and every rework dispatch; never derive or expand it from a reviewer suggestion
+or an already-remediated draft. Classify findings with the same original-scope / remediation-regression
+/ adjacent / optional / acceptance-gap taxonomy used after PR creation. Only original-scope defects
+and regressions introduced by the immediately preceding draft remediation may be sent to the runner;
+anything else leaves the draft for a human instead of being folded into the baseline.
+
 **2.5a. Orchestrator machine-verify (independent of the runner's self-report — do not trust
 `self_review_passed`).** On `git diff origin/main...origin/$DRAFT_BRANCH`, grep for the self-review gate's
 mechanical axes:
@@ -434,11 +442,14 @@ and resolve threads. Compare the returned `scope_state` with the authoritative i
 `previous_remediation_head` may advance to a commit the resolver actually pushed. Materialize the
 authoritative in-memory value and returned value as separate temporary JSON files. When
 `new_commits_pushed == 0`, run the two-argument form
-`.claude/scripts/review-scope-state-check.sh <authoritative> <returned>` so
+`bash .claude/scripts/review-scope-state-check.sh <authoritative> <returned>` so
 `previous_remediation_head` must remain unchanged. Only when `new_commits_pushed > 0`, run
-`.claude/scripts/review-scope-state-check.sh <authoritative> <returned> <pushed-head>` so the verified
+`bash .claude/scripts/review-scope-state-check.sh <authoritative> <returned> <pushed-head>` so the verified
 push is required as the new `previous_remediation_head`. A nonzero exit forces `needs_human`. Delete the temporary
-copy after the result is validated. If the authoritative record is absent, inconsistent, or changes
+copy after the result is validated. After a successful three-argument check, replace the
+authoritative in-memory and journaled `review_scope` with the validated returned record before the
+next poll. A no-push result leaves the authoritative record byte-for-byte unchanged. If the
+authoritative record is absent, inconsistent, or changes
 unexpectedly, set `needs_human` and leave the PR unchanged; never recover a full scope from a review
 commit ID alone. "**Settled**" = CI complete+green · zero unresolved threads · no
 outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **Re-fetch CI
@@ -458,6 +469,10 @@ set, the settle window elapses, or CI is red → the PR is **left for human** (d
 **First, re-verify the final PR head — Step 3 (`beutl-resolve-reviews --auto`) may have pushed
 review-fix commits after the runner reported.** `git fetch origin "$DRAFT_BRANCH"`, then on
 `git diff origin/main...origin/$DRAFT_BRANCH`:
+- Resolve `EXPECTED_SCOPE_HEAD` from the authoritative record as
+  `previous_remediation_head ?? initial_head`, resolve `FINAL_HEAD` from
+  `origin/$DRAFT_BRANCH`, and require exact equality before using any prior quiet-period, review, or
+  CI result. A mismatch is an unreviewed push: do not approve or merge, and leave the PR for a human.
 - **Re-run the ENTIRE 2.5a machine-verify** on the final head — not just the diff size: all axes
   (`[Obsolete]`, `V2`/compat-shim, `// TODO`/Follow-ups, XAML compiled bindings, the GPL/MIT scan, and
   the `.github/workflows/*` hard guardrail). A small review fix can introduce any of these after the
@@ -555,6 +570,8 @@ recorded as `left_for_human`, never forced or bypassed.
 
 ```bash
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
+# Must still equal EXPECTED_SCOPE_HEAD from the authoritative review_scope immediately above.
+[ "$HEAD_SHA" = "$EXPECTED_SCOPE_HEAD" ] || { echo "PR head changed after review"; exit 1; }
 
 # --- Self-gate: fail-closed checks BEFORE approve/merge (defense-in-depth) ---
 # The loop only proceeds if ALL hold; any failure ⇒ left_for_human (no retry/force/bypass).

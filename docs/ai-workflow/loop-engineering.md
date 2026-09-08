@@ -233,7 +233,9 @@ tests never become the source of truth: the orchestrator keeps the authoritative
 context and journal, rejects changes to the initial head or frozen arrays, and deletes the temporary
 copy after validation. A clean resolver result with no pushed commit uses the two-argument scope
 check and must leave the previous remediation head unchanged; the allowed-head argument is supplied
-only after a verified push. A missing exact full record always leaves the PR for a human; review commit IDs
+only after a verified push. A validated pushed state replaces the authoritative journal record before
+the next poll. The final risk/merge gate again requires the live PR head to equal the authoritative
+previous-remediation-or-initial head, so a push after settling cannot inherit stale approval. A missing exact full record always leaves the PR for a human; review commit IDs
 alone cannot reconstruct the agreed behavior or acceptance tests.
 
 ## In-session execution + safety
