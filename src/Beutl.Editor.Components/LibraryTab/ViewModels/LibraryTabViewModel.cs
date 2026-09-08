@@ -19,6 +19,7 @@ public sealed class LibraryTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly SemaphoreSlim _asyncLock = new(1, 1);
+    private int _disposed;
 
     public LibraryTabViewModel(IEditorContext editorContext)
     {
@@ -102,9 +103,11 @@ public sealed class LibraryTabViewModel : IToolContext
         await _asyncLock.WaitAsync(cancellationToken);
         try
         {
-            SearchResult.ClearOnScheduler();
-            await Task.Run(() =>
+            if (Volatile.Read(ref _disposed) != 0)
+                return;
+            var results = await Task.Run(() =>
             {
+                var matches = new List<KeyValuePair<int, LibraryItemViewModel>>();
                 Regex[] regices = RegexHelper.CreateRegexes(str);
                 for (int i = 0; i < AllItems.Count; i++)
                 {
@@ -112,16 +115,25 @@ public sealed class LibraryTabViewModel : IToolContext
                     int score = item.Value.Match(regices);
                     if (score > 0)
                     {
-                        SearchResult.OrderedAddDescendingOnScheduler(new(score, item.Value), x => x.Key);
+                        matches.Add(new(score, item.Value));
                     }
 
                     cancellationToken.ThrowIfCancellationRequested();
                 }
+                return matches.OrderByDescending(static item => item.Key).ToArray();
             }, cancellationToken);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (Volatile.Read(ref _disposed) != 0)
+                    return;
+                SearchResult.Clear();
+                foreach (var result in results)
+                    SearchResult.Add(result);
+            });
         }
         catch (OperationCanceledException)
         {
-            SearchResult.ClearOnScheduler();
+            await Dispatcher.UIThread.InvokeAsync(SearchResult.Clear);
         }
         finally
         {
@@ -129,15 +141,23 @@ public sealed class LibraryTabViewModel : IToolContext
         }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        _disposables.Dispose();
-        Easings.Clear();
-        LibraryItems.Clear();
-        Nodes.Clear();
-        AllItems.Clear();
-        SearchResult.Clear();
-        return ValueTask.CompletedTask;
+        Interlocked.Exchange(ref _disposed, 1);
+        await _asyncLock.WaitAsync();
+        try
+        {
+            _disposables.Dispose();
+            Easings.Clear();
+            LibraryItems.Clear();
+            Nodes.Clear();
+            AllItems.Clear();
+            SearchResult.Clear();
+        }
+        finally
+        {
+            _asyncLock.Release();
+        }
     }
 
 

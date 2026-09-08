@@ -22,6 +22,10 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     private readonly IEditorClock _clock;
     private readonly AudioVisualizerTabExtension _extension;
     private int _composeInFlight;
+    private readonly object _lifetimeGate = new();
+    private readonly CancellationTokenSource _composeCancellation = new();
+    private Task _composeTask = Task.CompletedTask;
+    private bool _disposed;
 
     public AudioVisualizerTabViewModel(IEditorContext editorContext, AudioVisualizerTabExtension extension)
     {
@@ -51,7 +55,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
                 (time, playing, selected, mode) => (time, playing, selected, mode))
             .Where(t => t.selected)
             .Throttle(TimeSpan.FromMilliseconds(40))
-            .Subscribe(t => _ = ComposeSnapshotOnIdleAsync())
+            .Subscribe(t => _ = ToolTabCallback.RunAsync(ComposeSnapshotOnIdleAsync))
             .DisposeWith(_disposables);
 
         // Use Strings.Audio: the localized full name plus mode is too wide for the tab.
@@ -101,12 +105,17 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     private void OnAudioFrameReceived(AudioFrameSnapshot snapshot)
     {
-        RingBuffer.WriteInterleaved(
-            snapshot.Interleaved,
-            snapshot.ChannelCount,
-            snapshot.SampleRate,
-            snapshot.StartTime);
-        SnapshotUpdated?.Invoke(this, EventArgs.Empty);
+        lock (_lifetimeGate)
+        {
+            if (_disposed)
+                return;
+            RingBuffer.WriteInterleaved(
+                snapshot.Interleaved,
+                snapshot.ChannelCount,
+                snapshot.SampleRate,
+                snapshot.StartTime);
+            SnapshotUpdated?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     // Per-mode compose length. Spectrogram needs the full WindowSeconds (default 4s)
@@ -124,8 +133,16 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     private async Task ComposeSnapshotOnIdleAsync()
     {
-        if (_player.IsPlaying.Value) return;
-        if (Interlocked.Exchange(ref _composeInFlight, 1) != 0) return;
+        TaskCompletionSource completion;
+        lock (_lifetimeGate)
+        {
+            if (_disposed)
+                return;
+            if (_player.IsPlaying.Value) return;
+            if (Interlocked.Exchange(ref _composeInFlight, 1) != 0) return;
+            completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _composeTask = completion.Task;
+        }
         try
         {
             // Bounded retry loop: a long compose (e.g. 4s for Spectrogram) can
@@ -136,6 +153,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             // once the user actually pauses for 40ms.
             for (int attempt = 0; attempt < 3; attempt++)
             {
+                _composeCancellation.Token.ThrowIfCancellationRequested();
                 if (_player.IsPlaying.Value) break;
 
                 TimeSpan targetTime = _clock.CurrentTime.Value;
@@ -149,7 +167,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
                 if (duration <= TimeSpan.Zero) duration = window;
 
                 AudioFrameSnapshot? snapshot = await _player
-                    .ComposeAudioAsync(windowStart, duration)
+                    .ComposeAudioAsync(windowStart, duration, _composeCancellation.Token)
                     .ConfigureAwait(false);
                 if (snapshot != null)
                 {
@@ -167,14 +185,36 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         finally
         {
             Interlocked.Exchange(ref _composeInFlight, 0);
+            completion.TrySetResult();
         }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        _disposables.Dispose();
-        RingBuffer.Clear();
-        return ValueTask.CompletedTask;
+        Task pending;
+        bool first;
+        lock (_lifetimeGate)
+        {
+            first = !_disposed;
+            _disposed = true;
+            pending = _composeTask;
+        }
+        try
+        {
+            if (first)
+            {
+                _composeCancellation.Cancel();
+                _disposables.Dispose();
+            }
+        }
+        finally
+        {
+            await pending;
+            lock (_lifetimeGate)
+                RingBuffer.Clear();
+            if (first)
+                _composeCancellation.Dispose();
+        }
     }
 
 

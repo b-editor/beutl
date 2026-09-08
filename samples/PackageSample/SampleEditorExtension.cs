@@ -71,9 +71,14 @@ public sealed class TextEditorContext : IEditorContext
 
     public async ValueTask<bool> OpenToolTabAsync(IToolContext item)
     {
-        await item.DisposeAsync();
+        if (!_toolHost.TryAcquireContext(item, out ToolContextOwnershipLease? lease))
+            return false;
+        try { await item.DisposeAsync(); }
+        finally { lease.Dispose(); }
         return false;
     }
+
+    private readonly ToolContextHostToken _toolHost = new();
 
     private sealed class CommandsImpl(TextEditorContext context) : IKnownEditorCommands
     {

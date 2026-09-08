@@ -433,7 +433,7 @@ internal class BeutlDockFactory(EditViewModel editViewModel) : Factory
         TryCleanup(() =>
         {
             if (owner?.ActiveDockable == dockable)
-                owner.ActiveDockable = owner.VisibleDockables?.FirstOrDefault();
+                owner.ActiveDockable = owner.VisibleDockables?.FirstOrDefault(static item => item is not ISplitter);
         });
         TryCleanup(() =>
         {

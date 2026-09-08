@@ -288,6 +288,7 @@ public sealed partial class ProjectService
 
         TaskCompletionSource completion;
         Task initialization;
+        Task predecessor;
         while (true)
         {
             Task? admission;
@@ -299,6 +300,7 @@ public sealed partial class ProjectService
                 if (admission is null)
                 {
                     completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    predecessor = _projectOperationTask;
                     _projectOperationTask = _projectOperationTask.IsCompleted
                         ? completion.Task
                         : Task.WhenAll(_projectOperationTask, completion.Task);
@@ -314,6 +316,7 @@ public sealed partial class ProjectService
         CancelPendingOpenAttemptExcept(openAttemptOwner);
         try
         {
+            await predecessor.WaitAsync(cancellationToken);
             await initialization.WaitAsync(cancellationToken);
             await _transitionGate.WaitAsync(cancellationToken);
         }
@@ -555,6 +558,9 @@ public sealed partial class ProjectService
         activity?.SetTag(nameof(height), height);
         activity?.SetTag(nameof(framerate), framerate);
         activity?.SetTag(nameof(samplerate), samplerate);
+        Project? preparedProject = null;
+        var createdFiles = new List<string>();
+        var createdDirectories = new List<string>();
         try
         {
             if (BeforeCreateProjectPreparation is { } beforePreparation)
@@ -575,16 +581,24 @@ public sealed partial class ProjectService
                 }
             };
 
+            preparedProject = project;
+            foreach (string directory in new[] { Path.GetDirectoryName(scene.Uri.LocalPath)!, location })
+                if (!Directory.Exists(directory))
+                    createdDirectories.Add(directory);
+            foreach (string file in new[] { scene.Uri.LocalPath, project.Uri.LocalPath })
+                if (!File.Exists(file))
+                    createdFiles.Add(file);
             CoreSerializer.StoreToUri(scene, scene.Uri);
             ProjectPersistence.PersistOrRollback(
                 () => CoreSerializer.StoreToUri(project, project.Uri),
                 () =>
                 {
-                    // The project write failed, so the scene file just saved is orphaned. Delete it
-                    // (best-effort); any directories created are left in place.
+                    // The project write failed. Remove only a scene created by this attempt;
+                    // the outer failure path also removes its empty prepared directories.
                     try
                     {
-                        File.Delete(scene.Uri.LocalPath);
+                        if (createdFiles.Contains(scene.Uri.LocalPath))
+                            File.Delete(scene.Uri.LocalPath);
                     }
                     catch (Exception deleteEx)
                     {
@@ -605,6 +619,29 @@ public sealed partial class ProjectService
         }
         catch (Exception ex)
         {
+            if (preparedProject is not null && !ReferenceEquals(_app.Project, preparedProject))
+            {
+                foreach (string file in createdFiles)
+                {
+                    try { File.Delete(file); }
+                    catch (Exception cleanupError)
+                    {
+                        _logger.LogWarning(cleanupError, "Failed to remove prepared project file {Path}.", file);
+                    }
+                }
+                foreach (string directory in createdDirectories)
+                {
+                    try
+                    {
+                        if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
+                            Directory.Delete(directory);
+                    }
+                    catch (Exception cleanupError)
+                    {
+                        _logger.LogWarning(cleanupError, "Failed to remove empty prepared project directory {Path}.", directory);
+                    }
+                }
+            }
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.

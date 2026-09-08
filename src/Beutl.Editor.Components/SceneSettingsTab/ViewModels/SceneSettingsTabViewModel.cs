@@ -18,6 +18,10 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     private IEditorContext _editorContext;
     private Scene _scene;
     private ITimelineOptionsProvider _optionsProvider;
+    private readonly object _lifetimeGate = new();
+    private Task _activeApply = Task.CompletedTask;
+    private bool _disposed;
+    private bool _cleaned;
 
     public SceneSettingsTabViewModel(IEditorContext editorContext)
     {
@@ -69,37 +73,52 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Apply = new AsyncReactiveCommand(CanApply)
             .WithSubscribe(async () =>
             {
-                if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
+                TaskCompletionSource completion;
+                lock (_lifetimeGate)
                 {
-                    // Pause playback before rebuilding the renderer to avoid UI freeze.
-                    if ((frameSize != _scene.FrameSize
-                            || start != _scene.Start
-                            || duration != _scene.Duration)
-                        && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+                    if (_disposed)
+                        return;
+                    completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    _activeApply = completion.Task;
+                }
+                try
+                {
+                    if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
                     {
-                        await player.Pause();
-
-                        if (!TryReadSceneSettings(out frameSize, out start, out duration))
+                        // Pause playback before rebuilding the renderer to avoid UI freeze.
+                        if ((frameSize != _scene.FrameSize
+                                || start != _scene.Start
+                                || duration != _scene.Duration)
+                            && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
                         {
-                            // Pausing yielded to the UI thread, so the user may have invalidated an
-                            // input meanwhile. Warn instead of returning silently.
-                            NotificationService.ShowWarning(
-                                Strings.SceneSettings,
-                                MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);
-                            return;
+                            await player.Pause();
+
+                            if (!TryReadSceneSettings(out frameSize, out start, out duration))
+                            {
+                                // Pausing yielded to the UI thread, so the user may have invalidated an
+                                // input meanwhile. Warn instead of returning silently.
+                                NotificationService.ShowWarning(
+                                    Strings.SceneSettings,
+                                    MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);
+                                return;
+                            }
                         }
+
+                        _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
+                            _scene,
+                            frameSize,
+                            start,
+                            duration);
+
+                        _optionsProvider.Options.Value = _optionsProvider.Options.Value with
+                        {
+                            MaxLayerCount = LayerCount.Value
+                        };
                     }
-
-                    _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
-                        _scene,
-                        frameSize,
-                        start,
-                        duration);
-
-                    _optionsProvider.Options.Value = _optionsProvider.Options.Value with
-                    {
-                        MaxLayerCount = LayerCount.Value
-                    };
+                }
+                finally
+                {
+                    completion.TrySetResult();
                 }
             })
             .DisposeWith(_disposable);
@@ -192,13 +211,25 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             && hasDuration && duration > TimeSpan.Zero;
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
+        Task pending;
+        lock (_lifetimeGate)
+        {
+            _disposed = true;
+            pending = _activeApply;
+        }
+        await pending;
+        lock (_lifetimeGate)
+        {
+            if (_cleaned)
+                return;
+            _cleaned = true;
+        }
         _disposable.Dispose();
         _editorContext = null!;
         _scene = null!;
         _optionsProvider = null!;
-        return ValueTask.CompletedTask;
     }
 
 

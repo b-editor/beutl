@@ -124,7 +124,7 @@ internal class DockHostViewModel : IAsyncDisposable
                 if (!rejected)
                     opened = OpenToolTabCore(item, target);
                 if (opened)
-                    _layoutEpoch++;
+                    Interlocked.Increment(ref _layoutEpoch);
             }
         }
         finally
@@ -295,7 +295,7 @@ internal class DockHostViewModel : IAsyncDisposable
                     {
                         disposal = PrepareDockableDisposal(dockable);
                         Factory.DetachDockable(dockable);
-                        _layoutEpoch++;
+                        Interlocked.Increment(ref _layoutEpoch);
                     }
                 }
                 catch (Exception ex)
@@ -515,7 +515,7 @@ internal class DockHostViewModel : IAsyncDisposable
                     {
                         opened = !_ownerShutdownRequested && !_disposing && OpenToolTabCore(tab, target);
                         if (opened)
-                            _layoutEpoch++;
+                            Interlocked.Increment(ref _layoutEpoch);
                     }
                 }
                 finally
@@ -547,7 +547,7 @@ internal class DockHostViewModel : IAsyncDisposable
         Factory.InitLayout(layout);
         Layout.Value = layout;
         _layoutInitialized = true;
-        _layoutEpoch++;
+        Interlocked.Increment(ref _layoutEpoch);
     }
 
     public ValueTask DisposeAsync() => new(GetDisposeTask());
@@ -683,7 +683,7 @@ internal class DockHostViewModel : IAsyncDisposable
             if (_layoutTransitioning)
                 throw new InvalidOperationException("Dock layout transition is in progress.");
             layout = Layout.Value;
-            epoch = _layoutEpoch;
+            epoch = Interlocked.Read(ref _layoutEpoch);
         }
         var snapshot = new JsonObject
         {
@@ -693,10 +693,9 @@ internal class DockHostViewModel : IAsyncDisposable
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(_disposing, this);
-            if (_layoutTransitioning || epoch != _layoutEpoch)
+            if (_layoutTransitioning || epoch != Interlocked.Read(ref _layoutEpoch))
                 throw new InvalidOperationException("Dock layout changed while it was being serialized.");
         }
-        json.Clear();
         foreach ((string key, JsonNode? value) in snapshot)
             json[key] = value?.DeepClone();
     }
@@ -741,7 +740,7 @@ internal class DockHostViewModel : IAsyncDisposable
                 if (_ownerShutdownRequested || _disposing || _layoutTransitioning)
                     return;
                 _layoutTransitioning = true;
-                _layoutEpoch++;
+                Interlocked.Increment(ref _layoutEpoch);
                 transitionCompletion = new TaskCompletionSource(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 _layoutTransitionCompletion = transitionCompletion;
@@ -813,7 +812,7 @@ internal class DockHostViewModel : IAsyncDisposable
             if (_layoutTransitioning)
                 throw new InvalidOperationException("Dock layout transition is in progress.");
             layout = Layout.Value;
-            epoch = _layoutEpoch;
+            epoch = Interlocked.Read(ref _layoutEpoch);
         }
         var snapshot = new JsonObject
         {
@@ -823,7 +822,7 @@ internal class DockHostViewModel : IAsyncDisposable
         lock (_disposeGate)
         {
             ObjectDisposedException.ThrowIf(_disposing, this);
-            if (_layoutTransitioning || epoch != _layoutEpoch)
+            if (_layoutTransitioning || epoch != Interlocked.Read(ref _layoutEpoch))
                 throw new InvalidOperationException("Dock layout changed while it was being captured.");
         }
         return snapshot;
@@ -866,7 +865,7 @@ internal class DockHostViewModel : IAsyncDisposable
                 if (_ownerShutdownRequested || _disposing || _layoutTransitioning)
                     return false;
                 _layoutTransitioning = true;
-                _layoutEpoch++;
+                Interlocked.Increment(ref _layoutEpoch);
                 transitionActive = true;
                 transitionCompletion = new TaskCompletionSource(
                     TaskCreationOptions.RunContinuationsAsynchronously);
@@ -944,7 +943,7 @@ internal class DockHostViewModel : IAsyncDisposable
                 Layout.Value = restored!;
                 _layoutInitialized = true;
                 restoredPublished = true;
-                _layoutEpoch++;
+                Interlocked.Increment(ref _layoutEpoch);
             }
             finally
             {
@@ -1099,6 +1098,25 @@ internal class DockHostViewModel : IAsyncDisposable
     private bool TryCreateLayoutPlan(JsonObject layout, out LayoutPlan? plan)
     {
         plan = null;
+        var pending = new Stack<(JsonNode Node, int Depth)>();
+        pending.Push((layout, 0));
+        while (pending.TryPop(out var entry))
+        {
+            if (entry.Depth >= 64)
+                return false;
+            if (entry.Node is JsonObject obj)
+            {
+                foreach (JsonNode? child in obj.Select(static pair => pair.Value))
+                    if (child is not null)
+                        pending.Push((child, entry.Depth + 1));
+            }
+            else if (entry.Node is JsonArray array)
+            {
+                foreach (JsonNode? child in array)
+                    if (child is not null)
+                        pending.Push((child, entry.Depth + 1));
+            }
+        }
         JsonObject snapshot = (JsonObject)layout.DeepClone();
         if (!IsCurrentVersion(snapshot)
             || !snapshot.TryGetPropertyValue("DockLayout", out JsonNode? node)
@@ -1319,7 +1337,7 @@ internal class DockHostViewModel : IAsyncDisposable
     private Task TrackDockableDisposal(BeutlToolDockable dockable)
     {
         lock (_disposeGate)
-            _layoutEpoch++;
+            Interlocked.Increment(ref _layoutEpoch);
         Task disposal = DisposeDockableOnceAsync(dockable);
         _ = disposal.ContinueWith(
             t => _logger.LogWarning(

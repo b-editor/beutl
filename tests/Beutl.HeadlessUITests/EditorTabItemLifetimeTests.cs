@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using Avalonia.Controls;
+using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Collections;
@@ -3307,6 +3308,53 @@ public sealed class EditorTabItemLifetimeTests
             Assert.That(service.TabItems, Is.Empty);
             Assert.That(firstReentrantClose.Status, Is.EqualTo(EditorContextCloseRequestStatus.AlreadyClosing));
         });
+    }
+
+    [AvaloniaTest]
+    public async Task Concurrent_activation_publishes_one_tab_and_disposes_losing_context()
+    {
+        await TestReset.ResetShellAsync();
+        var provider = new ExtensionProvider();
+        var service = new EditorService(provider);
+        var extension = new ConcurrentActivationExtension();
+        provider.AddExtensions(-2324, [extension]);
+        var scene = new Scene(16, 16, string.Empty) { Uri = new Uri("file:///activation.concurrent") };
+        Task first = service.ActivateTabItemAsync(scene);
+        Task second = service.ActivateTabItemAsync(scene);
+        await extension.BothEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        extension.Release.TrySetResult();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(service.TabItems, Has.Count.EqualTo(1));
+        BlockingEditorContext loser = extension.Contexts.Single(context =>
+            !ReferenceEquals(context, service.TabItems.Single().Context.Value));
+        await loser.Disposed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(extension.Contexts.Sum(context => context.DisposeCount), Is.EqualTo(1));
+        await service.CloseTabItem(service.TabItems.Single());
+    }
+
+    private sealed class ConcurrentActivationExtension : EditorExtension
+    {
+        public readonly TaskCompletionSource BothEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly List<BlockingEditorContext> Contexts = [];
+        public override FilePickerFileType GetFilePickerFileType() => new("Concurrent");
+        public override IconSource? GetIcon() => null;
+        public override bool MatchFileExtension(string ext) => ext == ".concurrent";
+        public override bool TryCreateEditor(CoreObject obj,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Control? editor)
+        {
+            editor = null;
+            return false;
+        }
+        public override async ValueTask<IEditorContext?> CreateContextAsync(CoreObject obj, IEditorContextServices services)
+        {
+            var context = new BlockingEditorContext(false, obj, services.CloseService);
+            Contexts.Add(context);
+            if (Contexts.Count == 2)
+                BothEntered.TrySetResult();
+            await Release.Task;
+            return context;
+        }
     }
 
     private class BlockingEditorContext : IEditorContext

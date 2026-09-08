@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <Compile Include="../../samples/PackageSample/SampleEditorExtension.cs" Link="Samples/SampleEditorExtension.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +31,7 @@
     <ProjectReference Include="..\..\src\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     <!-- Match the analyzer reference used by out-of-tree plugins. -->
     <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>

@@ -34,7 +34,7 @@ public partial class InlineAnimationLayerHeader : UserControl
                 ?? new GraphEditorTabViewModel(editorContext);
             anmTimelineViewModel.Element.Value = viewModel.Element.Model;
             anmTimelineViewModel.Select(kfAnimation);
-            await editorContext.OpenToolTabAsync(anmTimelineViewModel);
+            await Beutl.Editor.Components.Helpers.ToolTabCallback.OpenAsync(editorContext, anmTimelineViewModel);
         }
     }
 

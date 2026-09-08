@@ -50,6 +50,62 @@ public class DockLayoutPresetTests
         return new DockLayoutPresetService(path);
     }
 
+    [AvaloniaTest]
+    public async Task Dock_serialization_preserves_non_dock_editor_state()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-state-preservation");
+        var json = new JsonObject
+        {
+            ["selected-object"] = "selection",
+            ["scale"] = 2,
+            ["bpm"] = 140,
+        };
+        editor.DockHost.WriteToJson(json);
+        Assert.Multiple(() =>
+        {
+            Assert.That(json["selected-object"]!.GetValue<string>(), Is.EqualTo("selection"));
+            Assert.That(json["scale"]!.GetValue<int>(), Is.EqualTo(2));
+            Assert.That(json["bpm"]!.GetValue<int>(), Is.EqualTo(140));
+            Assert.That(json.ContainsKey("DockLayout"), Is.True);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Detached_dock_cleanup_never_activates_a_splitter()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-splitter-selection");
+        BeutlDockFactory factory = editor.DockHost.Factory;
+        IProportionalDock owner = factory.CreateProportionalDock();
+        IProportionalDock removed = factory.CreateProportionalDock();
+        IProportionalDock retained = factory.CreateProportionalDock();
+        owner.VisibleDockables = factory.CreateList<IDockable>(
+            factory.CreateProportionalDockSplitter(), retained);
+        owner.ActiveDockable = removed;
+        removed.Owner = owner;
+        typeof(BeutlDockFactory).GetMethod("CleanupDetachedState",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(factory, [removed, owner, null]);
+        Assert.That(owner.ActiveDockable, Is.SameAs(retained));
+    }
+
+    [AvaloniaTest]
+    public async Task Excessively_nested_in_memory_layout_is_rejected_before_cloning()
+    {
+        await ResetProjectAsync();
+        EditViewModel editor = await OpenEditorForNewScene("dock-depth-limit");
+        JsonObject layout = editor.DockHost.CaptureLayout();
+        JsonObject current = layout;
+        for (int i = 0; i < 256; i++)
+        {
+            var child = new JsonObject();
+            current["nested"] = child;
+            current = child;
+        }
+        Assert.That(await editor.DockHost.ApplyLayoutAsync(layout), Is.False);
+    }
+
     private static string[] ToolExtensionNames(EditViewModel editor)
     {
         return editor.DockHost.Factory.EnumerateTools()

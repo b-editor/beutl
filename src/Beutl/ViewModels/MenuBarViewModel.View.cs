@@ -12,14 +12,14 @@ public partial class MenuBarViewModel
     private void InitializeViewCommands(IObservable<bool> isSceneOpened)
     {
         ResetDockLayout = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(async () => await OnResetDockLayoutAsync());
+            .WithSubscribe(async () => await Beutl.Editor.Components.Helpers.ToolTabCallback.RunAsync(OnResetDockLayoutAsync));
 
         ApplyDockLayout = new ReactiveCommandSlim<DockLayoutPresetItem>(isSceneOpened)
-            .WithSubscribe(async preset => await OnApplyDockLayoutAsync(preset));
+            .WithSubscribe(async preset => await Beutl.Editor.Components.Helpers.ToolTabCallback.RunAsync(() => OnApplyDockLayoutAsync(preset)));
 
         // Saving, renaming and deleting live in the dock layout tool tab.
         OpenDockLayoutTab = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(async () => await OnOpenDockLayoutTabAsync());
+            .WithSubscribe(async () => await Beutl.Editor.Components.Helpers.ToolTabCallback.RunAsync(OnOpenDockLayoutTabAsync));
     }
 
     // View
@@ -53,7 +53,7 @@ public partial class MenuBarViewModel
         }
 
         if (DockLayoutTabExtension.Instance.TryCreateContext(viewModel, out IToolContext? context)
-            )
+            && context is not null)
             await viewModel.DockHost.OpenToolTabAsync(context);
     }
 

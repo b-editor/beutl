@@ -148,7 +148,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
         Dispatcher.UIThread.Post(async void () =>
         {
             if (!_disposed)
-                await _editorContext.CloseToolTabAsync(this);
+                await Beutl.Editor.Components.Helpers.ToolTabCallback.CloseAsync(_editorContext, this);
         });
     }
 
@@ -175,7 +175,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
             if (Items.Count == 0)
             {
-                await _editorContext.CloseToolTabAsync(this);
+                await Beutl.Editor.Components.Helpers.ToolTabCallback.CloseAsync(_editorContext, this);
             }
         });
     }

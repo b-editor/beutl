@@ -127,6 +127,19 @@ public sealed class SceneEditorExtension : EditorExtension
             && ReferenceEquals(editorService.HostToken, closeService.HostToken))
         {
             var editViewModel = new EditViewModel(scene, editorService, closeService);
+            try
+            {
+                await editViewModel.Initialization;
+            }
+            catch (Exception initializationError)
+            {
+                try { await editViewModel.DisposeAsync(); }
+                catch (Exception disposalError)
+                {
+                    throw new AggregateException(initializationError, disposalError);
+                }
+                throw;
+            }
             if (editViewModel.IsDisposeRequested)
             {
                 await editViewModel.DisposeAsync();

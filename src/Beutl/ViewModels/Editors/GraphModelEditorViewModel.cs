@@ -83,7 +83,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         }
     }
 
-    public async void OpenNodeGraphTab()
+    public async Task OpenNodeGraphTabAsync()
     {
         if (this.GetService<IEditorContext>() is not { } editorContext) return;
         if (Value.Value == null) return;

@@ -40,8 +40,8 @@ public partial class DockLayoutView : UserControl
 
         if (ItemFrom(e.Source) is not { } item) return;
 
-        await viewModel.ApplyAsync(item);
         e.Handled = true;
+        await Beutl.Editor.Components.Helpers.ToolTabCallback.RunAsync(() => viewModel.ApplyAsync(item));
     }
 
     private async void OnApplyClick(object? sender, RoutedEventArgs e)

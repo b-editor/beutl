@@ -61,7 +61,7 @@ public partial class MenuBarViewModel
             item => RecentProjectItems.Remove(item),
             RecentProjectItems.Clear);
 
-        OpenRecentFile.Subscribe(async file => await OpenFileCore(file));
+        OpenRecentFile.Subscribe(file => { _ = OpenFileCore(file); });
 
         OpenRecentProject.Subscribe(async file =>
         {

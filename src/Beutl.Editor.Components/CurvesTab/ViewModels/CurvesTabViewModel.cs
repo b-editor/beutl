@@ -356,7 +356,7 @@ public sealed class CurvesTabViewModel : IToolContext
 
     private async void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        await _editorContext.CloseToolTabAsync(this);
+        await Beutl.Editor.Components.Helpers.ToolTabCallback.CloseAsync(_editorContext, this);
     }
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)

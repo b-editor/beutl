@@ -73,6 +73,7 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
     private TaskCompletionSource? _publicationDrain;
     private int _activePublications;
     private readonly Task _restoreTask;
+    internal Task Initialization => _restoreTask;
     private readonly TaskCompletionSource _constructionCompleted = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
 

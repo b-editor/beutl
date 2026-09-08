@@ -264,8 +264,16 @@ public class ToolTabHeaderTests
         editor.DockHost.Factory.CloseDockable(dockable);
 
         Assert.That(tracked, Is.Not.Null);
-        Assert.CatchAsync<Exception>(async () =>
-            await tracked!.WaitAsync(TimeSpan.FromSeconds(5)));
+        Exception? failure = null;
+        try
+        {
+            await tracked!.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex) when (ex is not TimeoutException)
+        {
+            failure = ex;
+        }
+        Assert.That(failure, Is.Not.Null);
         Assert.That(context.DisposeCount, Is.EqualTo(1));
     }
 
@@ -795,6 +803,44 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
+    public async Task Scene_activation_waits_for_restored_tool_teardown()
+    {
+        await TestReset.ResetShellAsync();
+        var extension = new RestoreReentryToolExtension();
+        TestShell.Extensions.AddExtensions(RestoreReentryExtensionPackageId, [extension]);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            EditViewModel editor = await OpenEditorForNewScene("scene-restore-drain");
+            Scene scene = editor.Scene;
+            Assert.That(await editor.DockHost.OpenToolTabFromExtensionAsync(
+                extension, editor.DockHost.Factory.FindFirstToolDock()), Is.True);
+            await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
+            extension.CloseInRead = true;
+            extension.OnDispose = async () =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+            };
+            Task activation = TestShell.Editor.ActivateTabItemAsync(scene);
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(activation.IsCompleted, Is.False);
+            Assert.That(TestShell.Editor.TryGetTabItem(scene, out _), Is.False);
+            release.TrySetResult();
+            await activation.WaitAsync(TimeSpan.FromSeconds(5));
+            var restored = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
+            Assert.That(restored.Initialization.IsCompletedSuccessfully, Is.True);
+            Assert.That(restored.DockHost.FindToolContext(extension.GetType()), Is.Null);
+        }
+        finally
+        {
+            release.TrySetResult();
+            _ = TestShell.Extensions.RemoveExtensions(RestoreReentryExtensionPackageId);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task PublicationCloseCallbackDoesNotDeadlockOrPublishDisposedTool()
     {
         await TestReset.ResetShellAsync();
@@ -1210,6 +1256,7 @@ public class ToolTabHeaderTests
 
     private sealed class RestoreReentryToolExtension : ToolTabExtension
     {
+        public Func<ValueTask>? OnDispose { get; set; }
         public bool DisposeInCreate { get; set; }
         public bool DisposeInRead { get; set; }
         public bool CloseInRead { get; set; }
@@ -1243,6 +1290,7 @@ public class ToolTabHeaderTests
             if (DisposeInCreate)
                 RequestEditorClose(editorContext);
             var created = new FakeToolContext("restore reentry", this);
+            created.OnDispose = OnDispose;
             CreatedContexts.Add(created);
             if (ThrowOnDispose)
             {

@@ -229,7 +229,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     private async void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        await _editorContext.CloseToolTabAsync(this);
+        await Beutl.Editor.Components.Helpers.ToolTabCallback.CloseAsync(_editorContext, this);
     }
 
     private void ClearEditors()

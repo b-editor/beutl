@@ -217,10 +217,9 @@ public sealed partial class MainView : UserControl
             menuItem.Click += async (s, e) =>
             {
                 if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-                    && s is MenuItem { DataContext: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                    && s is MenuItem { DataContext: ToolTabExtension ext })
                 {
-                    await editorContext.OpenToolTabAsync(toolContext);
+                    await Beutl.Editor.Components.Helpers.ToolTabCallback.OpenFromExtensionAsync(editorContext, ext);
                 }
             };
 

@@ -15,11 +15,11 @@ public partial class GraphModelEditor : UserControl
         InitializeComponent();
     }
 
-    private void OpenNodeGraphTab_Click(object? sender, RoutedEventArgs e)
+    private async void OpenNodeGraphTab_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is GraphModelEditorViewModel { IsDisposed: false } viewModel)
         {
-            viewModel.OpenNodeGraphTab();
+            await Beutl.Editor.Components.Helpers.ToolTabCallback.RunAsync(viewModel.OpenNodeGraphTabAsync);
         }
     }
 }

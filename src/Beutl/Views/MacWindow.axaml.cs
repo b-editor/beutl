@@ -173,10 +173,9 @@ public sealed partial class MacWindow : Window
             menuItem.Click += async (s, e) =>
             {
                 if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-                    && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                    && s is NativeMenuItem { CommandParameter: ToolTabExtension ext })
                 {
-                    await editorContext.OpenToolTabAsync(toolContext);
+                    await Beutl.Editor.Components.Helpers.ToolTabCallback.OpenFromExtensionAsync(editorContext, ext);
                 }
             };
 

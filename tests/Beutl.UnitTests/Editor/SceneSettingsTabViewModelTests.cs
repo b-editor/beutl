@@ -101,6 +101,29 @@ public class SceneSettingsTabViewModelTests
         });
     }
 
+    [Test]
+    public async Task Disposal_waits_for_apply_paused_before_scene_mutation()
+    {
+        var scene = new Scene(640, 480, string.Empty);
+        var settings = new CaptureSceneSettingsService();
+        var player = new BlockingPreviewPlayer();
+        var context = new TestEditorContext(scene);
+        context.AddService(scene);
+        context.AddService<ISceneSettingsService>(settings);
+        context.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
+        context.AddService<IPreviewPlayer>(player);
+        var viewModel = new SceneSettingsTabViewModel(context);
+        viewModel.Width.Value = 800;
+        viewModel.DurationInput.Value = "00:00:05";
+        Task apply = viewModel.Apply.ExecuteAsync();
+        await player.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task disposal = viewModel.DisposeAsync().AsTask();
+        Assert.That(disposal.IsCompleted, Is.False);
+        player.CompletePause();
+        await Task.WhenAll(apply, disposal).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(settings.CallCount, Is.EqualTo(1));
+    }
+
     [TestCase(0, 600, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenWidthBecomesZeroWhilePausing")]
     [TestCase(800, 0, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenHeightBecomesZeroWhilePausing")]
     [TestCase(800, 600, "-00:00:01", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenStartBecomesNegativeWhilePausing")]

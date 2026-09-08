@@ -117,7 +117,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         Next = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(async () =>
+            .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
                 UpdateCurrentFrame(_editorClock.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
@@ -125,7 +125,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         Previous = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(async () =>
+            .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
                 UpdateCurrentFrame(_editorClock.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
@@ -133,7 +133,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(async () =>
+            .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
@@ -244,7 +244,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             })
             .DisposeWith(_disposables);
 
-        OpenPreviewSettings = new ReactiveCommand()
+        OpenPreviewSettings = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
                 if (_editViewModel.FindToolTab<PreviewSettingsTabViewModel>() is { } tab)
@@ -253,7 +253,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 }
                 else
                 {
-                    await _editViewModel.OpenToolTabAsync(new PreviewSettingsTabViewModel(_editViewModel));
+                    await Beutl.Editor.Components.Helpers.ToolTabCallback.OpenAsync(
+                        _editViewModel, new PreviewSettingsTabViewModel(_editViewModel));
                 }
             })
             .DisposeWith(_disposables);
@@ -467,7 +468,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public ReactiveProperty<float> ToneMappingExposure { get; }
 
-    public ReactiveCommand OpenPreviewSettings { get; }
+    public AsyncReactiveCommand OpenPreviewSettings { get; }
 
     public event EventHandler? PreviewInvalidated;
 

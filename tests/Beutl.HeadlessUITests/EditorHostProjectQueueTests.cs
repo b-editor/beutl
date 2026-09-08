@@ -59,6 +59,60 @@ public sealed class EditorHostProjectQueueTests
     }
 
     [AvaloniaTest]
+    public async Task Failed_close_removes_prepared_project_files_and_allows_retry()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        var (projects, editors, host) = CreateComposition(contexts);
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> reject =
+            (_, _) => Task.FromException(new ProjectCloseAbortedException("close rejected"));
+        string location = NewWorkspace("create-retry-cleanup");
+        try
+        {
+            Project? original = await projects.CreateProject(16, 16, 30, 44100, "original", location);
+            projects.ClosingPreparing += reject;
+            Assert.That(await projects.CreateProject(16, 16, 30, 44100, "retry", location), Is.Null);
+            Assert.That(projects.CurrentProject.Value, Is.SameAs(original));
+            Assert.That(Directory.Exists(Path.Combine(location, "retry")), Is.False);
+            projects.ClosingPreparing -= reject;
+            Assert.That(await projects.CreateProject(16, 16, 30, 44100, "retry", location), Is.Not.Null);
+        }
+        finally
+        {
+            projects.ClosingPreparing -= reject;
+            await DisposeCompositionAsync(projects, editors, host);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Requests_queued_during_host_initialization_preserve_invocation_order()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        EditorService editors = CreateEditorService(contexts);
+        var projects = new ProjectService();
+        var initialization = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        projects.BeforeProjectChangeHandlerInitialization = () => initialization.Task;
+        var host = new EditorHostViewModel(projects, editors);
+        var order = new List<string>();
+        projects.AfterCreateProjectPreparation = order.Add;
+        Task<Project?> first = projects.CreateProject(16, 16, 30, 44100, "first", NewWorkspace("ordered-init"));
+        Task<Project?> second = projects.CreateProject(16, 16, 30, 44100, "second", NewWorkspace("ordered-init"));
+        try
+        {
+            initialization.TrySetResult();
+            await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(order, Is.EqualTo(new[] { "first", "second" }));
+            Assert.That(projects.CurrentProject.Value, Is.SameAs(await second));
+        }
+        finally
+        {
+            initialization.TrySetResult();
+            await DisposeCompositionAsync(projects, editors, host);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task CreateProject_waits_for_old_context_teardown_and_keeps_new_tab()
     {
         await TestReset.ResetShellAsync();

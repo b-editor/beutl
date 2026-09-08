@@ -968,6 +968,9 @@ public sealed class EditorTabItem : IAsyncDisposable
 
 public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContextCloseService
 {
+    private readonly object _activationPublicationGate = new();
+    private readonly HashSet<CoreObject> _activationPublications = new(ReferenceEqualityComparer.Instance);
+
     private sealed class ReadOnlyCoreListView<T> : ICoreReadOnlyList<T>
     {
         private readonly ICoreReadOnlyList<T> _source;
@@ -2697,8 +2700,23 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
 
                 EditorTabItem? tabItem2 = null;
                 bool added = false;
+                bool reserved = false;
                 try
                 {
+                    EditorTabItem? existing;
+                    lock (_activationPublicationGate)
+                    {
+                        TryGetTabItem(obj, out existing);
+                        if (existing is null)
+                            reserved = _activationPublications.Add(obj);
+                    }
+                    if (existing is not null)
+                    {
+                        TrySelectTabItem(existing);
+                        return;
+                    }
+                    if (!reserved)
+                        return;
                     BeforeActivationTabConstruction?.Invoke(context);
                     tabItem2 = new EditorTabItem(context);
                     tabItem2.SetIsSelected(true);
@@ -2711,6 +2729,11 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
                 }
                 finally
                 {
+                    if (reserved)
+                    {
+                        lock (_activationPublicationGate)
+                            _activationPublications.Remove(obj);
+                    }
                     if (!added)
                     {
                         if (tabItem2 is not null)
