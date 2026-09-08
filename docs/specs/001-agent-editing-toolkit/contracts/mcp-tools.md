@@ -195,7 +195,8 @@ Every tool in this section that exposes `renderScale` normalizes non-finite or n
 Host-controlled rendering admission applies to `render_still`, `render_storyboard`,
 `evaluate_motion_variation`, rendered `evaluate_edit_quality` / `suggest_quality_fixes` /
 `final_preflight` passes, `compare_revisions`, and `export_video`. Each can return the stable typed
-error `workspace_busy` when another output or workspace replacement holds the shared lease.
+error `workspace_busy` while a workspace replacement holds the exclusion boundary. Output leases
+may coexist; collectively they prevent a workspace replacement until every output finishes.
 
 ### `render_still`
 Render one frame to an image without the GUI (FR-016).
