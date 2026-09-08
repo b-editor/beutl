@@ -15,7 +15,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class ProjectService
+public sealed partial class ProjectService
 {
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
     private readonly IObservable<(Project? New, Project? Old)> _safeProjectObservable;
@@ -104,6 +104,8 @@ public sealed class ProjectService
 
     public async Task OpenProject(string file)
     {
+        if (EditorService.IsTabLifecycleOperationActive)
+            throw new InvalidOperationException("A project transition cannot start from an active editor tab operation.");
         ArgumentException.ThrowIfNullOrWhiteSpace(file);
         ProjectOpenAttempt attempt = BeginOpenAttempt(file);
         try
@@ -192,40 +194,26 @@ public sealed class ProjectService
         }
     }
 
-    public void CloseProject()
+    public Task CloseProjectAsync()
     {
-        TryCloseProject();
-    }
-
-    internal bool TryCloseProject()
-    {
-        try
+        if (EditorService.IsTabLifecycleOperationActive)
+            return Task.FromException(new InvalidOperationException(
+                "A project transition cannot start from an active editor tab operation."));
+        lock (_closeGate)
         {
-            CloseProjectOrThrow();
-            return true;
-        }
-        catch (ProjectCloseAbortedException)
-        {
-            return false;
-        }
-    }
-
-    internal void CloseProjectOrThrow()
-    {
-        Task close = CloseProjectAsync();
-        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-        {
-            while (!close.IsCompleted)
+            lock (_projectOperationGate)
             {
-                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-                Thread.Sleep(1);
+                if (_activeCloseTask is { IsCompleted: false }
+                    && ReferenceEquals(_activeCloseOperationTail, _projectOperationTask))
+                    return _activeCloseTask;
+                _activeCloseTask = CloseProjectAsync(CancellationToken.None);
+                _activeCloseOperationTail = _projectOperationTask;
+                return _activeCloseTask;
             }
         }
-
-        close.GetAwaiter().GetResult();
     }
 
-    internal async Task CloseProjectAsync(CancellationToken cancellationToken = default)
+    internal async Task CloseProjectAsync(CancellationToken cancellationToken)
     {
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
             ProjectTransitionPurpose.Normal,
@@ -295,13 +283,50 @@ public sealed class ProjectService
         CancellationToken cancellationToken,
         ProjectOpenAttempt? preservedOpenAttempt = null)
     {
+        if (EditorService.IsTabLifecycleOperationActive)
+            throw new InvalidOperationException("A project transition cannot start from an active editor tab operation.");
+
+        TaskCompletionSource completion;
+        Task initialization;
+        while (true)
+        {
+            Task? admission;
+            lock (_projectOperationGate)
+            {
+                admission = _projectTransitionAdmissionClosed
+                    ? _projectTransitionAdmission?.Task
+                    : null;
+                if (admission is null)
+                {
+                    completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    _projectOperationTask = _projectOperationTask.IsCompleted
+                        ? completion.Task
+                        : Task.WhenAll(_projectOperationTask, completion.Task);
+                    lock (_projectChangeGate)
+                        initialization = _lastProjectChangeTask;
+                    break;
+                }
+            }
+            await admission.WaitAsync(cancellationToken);
+        }
+
         object openAttemptOwner = preservedOpenAttempt ?? owner;
         CancelPendingOpenAttemptExcept(openAttemptOwner);
-        await _transitionGate.WaitAsync(cancellationToken);
+        try
+        {
+            await initialization.WaitAsync(cancellationToken);
+            await _transitionGate.WaitAsync(cancellationToken);
+        }
+        catch
+        {
+            completion.TrySetResult();
+            throw;
+        }
         CancelPendingOpenAttemptExcept(openAttemptOwner);
         if (cancellationToken.IsCancellationRequested)
         {
             _transitionGate.Release();
+            completion.TrySetResult();
             cancellationToken.ThrowIfCancellationRequested();
         }
 
@@ -312,6 +337,7 @@ public sealed class ProjectService
         lock (_transitionSync)
         {
             _currentTransition = context;
+            _transitionCompletions.Add(context, completion);
         }
 
         return new ProjectTransitionScope(this, context);
@@ -430,8 +456,6 @@ public sealed class ProjectService
                 return;
             }
 
-            await CloseProjectCoreAsync(transition, CancellationToken.None);
-
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
             activity?.SetTag(nameof(minVersion), minVersion.ToString());
@@ -450,9 +474,10 @@ public sealed class ProjectService
 
             var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
 
+            await CloseProjectCoreAsync(transition, CancellationToken.None);
             await ActivateProjectAsync(project);
 
-            TryAddToRecentProjects(file);
+            await TryAddToRecentProjectsAsync(file);
             _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
             PublishProjectChange((New: project, null));
             PublishTransitionCommitted(project);
@@ -473,6 +498,7 @@ public sealed class ProjectService
         VerifyTransition(transition);
         if (_app.Project is not { } closingProject)
         {
+            await ApplyProjectChangeAsync(null, null);
             return;
         }
 
@@ -531,8 +557,8 @@ public sealed class ProjectService
         activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
-            await CloseProjectCoreAsync(transition, CancellationToken.None);
-
+            if (BeforeCreateProjectPreparation is { } beforePreparation)
+                await beforePreparation(name);
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)
             {
@@ -566,10 +592,12 @@ public sealed class ProjectService
                     }
                 });
 
-            PublishProjectChange((New: project, null));
+            AfterCreateProjectPreparation?.Invoke(name);
+            await CloseProjectCoreAsync(transition, CancellationToken.None);
             await ActivateProjectAsync(project);
 
-            TryAddToRecentProjects(project.Uri.LocalPath);
+            await TryAddToRecentProjectsAsync(project.Uri.LocalPath);
+            PublishProjectChange((New: project, null));
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
             PublishTransitionCommitted(project);
 
@@ -585,10 +613,12 @@ public sealed class ProjectService
         }
     }
 
-    private void TryAddToRecentProjects(string file)
+    private async Task TryAddToRecentProjectsAsync(string file)
     {
         try
         {
+            if (BeforeRecentProjectUpdate is { } beforeUpdate)
+                await beforeUpdate(file);
             ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
             viewConfig.UpdateRecentProject(file);
             viewConfig.UpdateRecentFile(file);
@@ -613,6 +643,7 @@ public sealed class ProjectService
 
     private async Task ActivateProjectAsync(Project project)
     {
+        await ApplyProjectChangeAsync(project, null);
         _app.Project = project;
         try
         {
@@ -676,6 +707,12 @@ public sealed class ProjectService
             }
         }
 
+        IProjectChangeHandler? editorHandler;
+        lock (_projectChangeGate)
+            editorHandler = _projectChangeHandler;
+        if (editorHandler is not null)
+            yield return (context, _) => editorHandler.ApplyProjectCloseAsync(context);
+
         if (Closing is { } closing)
         {
             foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
@@ -704,6 +741,7 @@ public sealed class ProjectService
         ProjectCloseContext closeContext,
         CancellationToken cancellationToken)
     {
+        await PublishProjectClosingAsync(closeContext);
         if (Closing is { } closing)
         {
             foreach (Func<ProjectCloseContext, CancellationToken, Task> handler
@@ -734,6 +772,17 @@ public sealed class ProjectService
     }
 
     private void PublishProjectChange((Project? New, Project? Old) change)
+    {
+        Task completion;
+        lock (_transitionSync)
+            completion = _currentTransition is { } transition
+                         && _transitionCompletions.TryGetValue(transition, out TaskCompletionSource? source)
+                ? source.Task
+                : Task.CompletedTask;
+        QueueProjectNotification(change.New, change.Old, completion);
+    }
+
+    private void PublishProjectObservers((Project? New, Project? Old) change)
     {
         try
         {
@@ -780,6 +829,7 @@ public sealed class ProjectService
 
     private void EndTransition(ProjectTransitionContext transition)
     {
+        TaskCompletionSource? completion;
         lock (_transitionSync)
         {
             if (!ReferenceEquals(_currentTransition, transition))
@@ -788,9 +838,11 @@ public sealed class ProjectService
             }
 
             _currentTransition = null;
+            _transitionCompletions.Remove(transition, out completion);
         }
 
         _transitionGate.Release();
+        completion?.TrySetResult();
     }
 
     internal enum ProjectCloseIntent

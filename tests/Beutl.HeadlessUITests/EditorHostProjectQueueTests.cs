@@ -23,6 +23,42 @@ public sealed class EditorHostProjectQueueTests
     private const int ExtensionPackageId = 930001;
 
     [AvaloniaTest]
+    public async Task Host_unregister_waits_for_an_admitted_git_transition_scope()
+    {
+        await TestReset.ResetShellAsync();
+        var contexts = new TestContextFactory();
+        (ProjectService projectService, EditorService editorService, EditorHostViewModel host) =
+            CreateComposition(contexts);
+        ProjectService.ProjectTransitionScope? transition = null;
+        Task? disposal = null;
+        try
+        {
+            await projectService.CreateProject(
+                320, 180, 30, 44100, "git-admitted", NewWorkspace("git-admitted"));
+            transition = await projectService.BeginVersionControlTransitionAsync(
+                new object(), CancellationToken.None);
+            disposal = host.DisposeAsync().AsTask();
+            Assert.That(disposal.IsCompleted, Is.False);
+
+            await transition.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(editorService.TabItems, Is.Empty);
+            Assert.That(disposal.IsCompleted, Is.False);
+            await transition.DisposeAsync();
+            transition = null;
+            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            if (transition is not null)
+                await transition.DisposeAsync();
+            if (disposal is not null)
+                await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+            else
+                await host.DisposeAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task CreateProject_waits_for_old_context_teardown_and_keeps_new_tab()
     {
         await TestReset.ResetShellAsync();

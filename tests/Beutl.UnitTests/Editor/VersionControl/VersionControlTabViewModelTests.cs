@@ -18,7 +18,7 @@ public class VersionControlTabViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(GitAvailability.NotInstalled);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
 
         await viewModel.Initialization;
 
@@ -54,7 +54,7 @@ public class VersionControlTabViewModelTests
                 "/usr/bin/git",
                 new Version(2, 22, 1),
                 LfsInstalled: false));
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
 
         await viewModel.Initialization;
 
@@ -74,7 +74,7 @@ public class VersionControlTabViewModelTests
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.SetupGet(x => x.Repository).Returns((RepositoryInfo?)null);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
 
         await viewModel.Initialization;
 
@@ -103,7 +103,7 @@ public class VersionControlTabViewModelTests
             .ReturnsAsync([commit]);
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(null);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,
@@ -154,7 +154,7 @@ public class VersionControlTabViewModelTests
             .ReturnsAsync([commitB]);
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(serviceA.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,
@@ -214,7 +214,7 @@ public class VersionControlTabViewModelTests
         RepositoryInfo? repository = null;
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.SetupGet(x => x.Repository).Returns(() => repository);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         int requestCount = 0;
         viewModel.RequestEnableVersionControlAsync = () =>
         {
@@ -241,7 +241,7 @@ public class VersionControlTabViewModelTests
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.SetupGet(x => x.Repository).Returns(() => null);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         bool runningWhileRequested = false;
         string? labelWhileRequested = null;
@@ -278,7 +278,7 @@ public class VersionControlTabViewModelTests
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.SetupGet(x => x.Repository).Returns(() => null);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         viewModel.RequestEnableVersionControlAsync = () =>
             Task.FromException(new InvalidOperationException("simulated failure"));
         await viewModel.Initialization;
@@ -298,7 +298,7 @@ public class VersionControlTabViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(GitAvailability.NotInstalled);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         Uri? launchedUri = null;
         viewModel.LaunchUriAsync = uri =>
         {
@@ -325,7 +325,7 @@ public class VersionControlTabViewModelTests
                 0,
                 [new FileChange("project.bep", FileChangeStatus.Modified)],
                 HasConflicts: true));
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
 
         await viewModel.Initialization;
 
@@ -362,7 +362,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((int skip, int take, CancellationToken _) =>
                 commits.Skip(skip).Take(take).ToArray());
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
 
         await viewModel.Initialization;
 
@@ -408,7 +408,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         await viewModel.LoadMoreAsync();
         VersionControlCommitViewModel[] loadedCommits = [.. viewModel.Commits];
@@ -463,7 +463,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         VersionControlCommitViewModel originalSelection = viewModel.Commits[1];
         await viewModel.OpenCommitDetailAsync(originalSelection);
@@ -539,7 +539,7 @@ public class VersionControlTabViewModelTests
 
                 return Task.FromResult<IReadOnlyList<RemoteInfo>>([latestRemote]);
             });
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         service.Raise(
@@ -703,7 +703,7 @@ public class VersionControlTabViewModelTests
                 .ReturnsAsync(testCase.HasRemote
                     ? [new RemoteInfo("origin", "https://example.invalid/repo.git")]
                     : []);
-            using VersionControlTabViewModel viewModel = CreateViewModel(
+            await using VersionControlTabViewModel viewModel = CreateViewModel(
                 service.Object,
                 Mock.Of<IProjectVersionControlCoordinator>());
             await viewModel.Initialization;
@@ -757,7 +757,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         Action? pendingUiAction = null;
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -815,7 +815,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         Action? pendingUiAction = null;
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -872,7 +872,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -912,7 +912,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .Callback(() => currentRecoveries = [])
             .ReturnsAsync(new ProjectRecoveryResult.RestoredOriginal());
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         await viewModel.Initialization;
@@ -965,7 +965,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProjectRecoveryResult.FailedPreserved(
                 "refs/beutl/safety/test-checkpoint"));
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         await viewModel.Initialization;
@@ -985,7 +985,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
                 It.IsAny<CancellationToken>()))
             .Returns(() => query());
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         await viewModel.Initialization;
@@ -1026,7 +1026,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.GetPendingPullRecoveriesAsync(
                 It.IsAny<CancellationToken>()))
             .Returns(() => query());
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         await viewModel.Initialization;
@@ -1068,7 +1068,7 @@ public class VersionControlTabViewModelTests
                 file.Path,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync("--- a/project.bep\n+++ b/project.bep\n-old\n+new\n unchanged\n");
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         VersionControlCommitViewModel commitViewModel = viewModel.Commits.Single();
@@ -1169,7 +1169,7 @@ public class VersionControlTabViewModelTests
                 secondCommit.Sha,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([secondFile]);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         Task firstSelection = viewModel.SelectCommitAsync(viewModel.Commits[0]);
@@ -1201,7 +1201,7 @@ public class VersionControlTabViewModelTests
                 commit.Sha,
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync([file]);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         VersionControlCommitViewModel selected = viewModel.Commits.Single();
 
@@ -1258,7 +1258,7 @@ public class VersionControlTabViewModelTests
                 restoreStarted.TrySetResult();
                 return restoreCompletion.Task;
             });
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         await viewModel.Initialization;
@@ -1327,7 +1327,7 @@ public class VersionControlTabViewModelTests
             Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,
@@ -1340,7 +1340,7 @@ public class VersionControlTabViewModelTests
             .WaitAsync(TimeSpan.FromSeconds(2));
         if (disposeViewModel)
         {
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
         else
         {
@@ -1384,7 +1384,7 @@ public class VersionControlTabViewModelTests
             .ReturnsAsync(true);
         coordinator.SetReturnsDefault(
             Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -1448,7 +1448,7 @@ public class VersionControlTabViewModelTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,
@@ -1467,7 +1467,7 @@ public class VersionControlTabViewModelTests
         await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         if (disposeViewModel)
         {
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
         else
         {
@@ -1527,7 +1527,7 @@ public class VersionControlTabViewModelTests
             Task.FromResult<IReadOnlyList<ProjectRecoveryInfo>>([]));
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,
@@ -1569,7 +1569,7 @@ public class VersionControlTabViewModelTests
                 "rough cut",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CommitResult.NoChanges());
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = " rough cut ";
 
@@ -1603,7 +1603,7 @@ public class VersionControlTabViewModelTests
                 submissionStarted.TrySetResult();
                 return submissionCompletion.Task;
             });
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = " submitted message ";
 
@@ -1637,7 +1637,7 @@ public class VersionControlTabViewModelTests
                 "rough cut",
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("hook rejected the commit"));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = "rough cut";
 
@@ -1654,7 +1654,7 @@ public class VersionControlTabViewModelTests
                 "milestone",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CommitResult.Committed(new CommitRevision.Unavailable()));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = "milestone";
 
@@ -1685,7 +1685,7 @@ public class VersionControlTabViewModelTests
                 "milestone",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CommitResult.Committed(new CommitRevision.Known(manual.Sha)));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = "milestone";
 
@@ -1722,7 +1722,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(kinds.Select((kind, index) => CreateCommit(index, kind)).ToArray());
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
+        await using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
 
         await viewModel.Initialization;
 
@@ -1797,7 +1797,7 @@ public class VersionControlTabViewModelTests
                 return Task.FromResult<RemoteOpResult>(new RemoteOpResult.Offline());
             });
         RemoteOpResult? shownResult = null;
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         viewModel.ShowRemoteResultAsync = result =>
         {
             shownResult = result;
@@ -1828,7 +1828,7 @@ public class VersionControlTabViewModelTests
             .ReturnsAsync(new RemoteOpResult.Offline());
         int notificationCalls = 0;
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             source,
@@ -1866,7 +1866,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Offline());
         int notificationCalls = 0;
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -1883,7 +1883,7 @@ public class VersionControlTabViewModelTests
 
         Task push = viewModel.PushAsync();
         Assert.That(queuedUiActions, Has.Count.EqualTo(1));
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
         await push.WaitAsync(TimeSpan.FromSeconds(2));
         await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
         queuedUiActions[0]();
@@ -1902,7 +1902,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Offline());
         int notificationCalls = 0;
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -1957,7 +1957,7 @@ public class VersionControlTabViewModelTests
 
                 return new RemoteOpResult.Offline();
             });
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -2001,7 +2001,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new VersionControlConflictedException(Strings.VersionControl_ConflictGuidance));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
 
         viewModel.PushCommand.Execute(null);
@@ -2025,7 +2025,7 @@ public class VersionControlTabViewModelTests
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.PullAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("backend fault"));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
 
         viewModel.PullCommand.Execute(null);
@@ -2051,7 +2051,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Success());
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
 
         viewModel.PushCommand.Execute(null);
@@ -2082,7 +2082,7 @@ public class VersionControlTabViewModelTests
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Success());
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
 
         viewModel.PushCommand.Execute(null);
@@ -2116,7 +2116,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.PushAsync(It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Success());
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             source,
@@ -2155,7 +2155,7 @@ public class VersionControlTabViewModelTests
                 return new RemoteOpResult.Success();
             });
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(), source,
             coordinator.Object, action => action());
         await viewModel.Initialization;
@@ -2181,7 +2181,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.PushAsync(
                 It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("push fault"));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         viewModel.RequestRemoteUrlAsync = (_, _) =>
             Task.FromResult<string?>("https://example.invalid/repo.git");
         await viewModel.Initialization;
@@ -2204,7 +2204,7 @@ public class VersionControlTabViewModelTests
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", "https://example.invalid/old.git")]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         string? prefilledUrl = null;
@@ -2251,7 +2251,7 @@ public class VersionControlTabViewModelTests
                 Interlocked.Increment(ref setRemoteCalls);
                 return Task.CompletedTask;
             });
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             CreateServiceSource(service.Object),
@@ -2306,7 +2306,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.PushAsync(
                 It.IsAny<IProgress<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Success());
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         viewModel.RequestRemoteUrlAsync = (_, _) =>
             Task.FromResult<string?>("https://example.invalid/new.git");
         await viewModel.Initialization;
@@ -2347,7 +2347,7 @@ public class VersionControlTabViewModelTests
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", remoteUrl)]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         string? prefilledUrl = "not requested";
@@ -2381,7 +2381,7 @@ public class VersionControlTabViewModelTests
         service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteInfo("origin", RemoteUrl)]);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         string? prefilledUrl = null;
@@ -2421,7 +2421,7 @@ public class VersionControlTabViewModelTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,
@@ -2440,7 +2440,7 @@ public class VersionControlTabViewModelTests
         await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         if (disposeViewModel)
         {
-            viewModel.Dispose();
+            await viewModel.DisposeAsync();
         }
         else
         {
@@ -2474,7 +2474,7 @@ public class VersionControlTabViewModelTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var prompt = new TaskCompletionSource<string?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         viewModel.RequestRemoteUrlAsync = (_, cancellationToken) =>
         {
             promptStarted.TrySetResult();
@@ -2489,7 +2489,7 @@ public class VersionControlTabViewModelTests
 
         Task configure = viewModel.SetRemoteAsync();
         await promptStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        viewModel.Dispose();
+        await viewModel.DisposeAsync();
 
         await promptCanceled.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await configure.WaitAsync(TimeSpan.FromSeconds(2));
@@ -2519,7 +2519,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             source,
@@ -2578,7 +2578,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             source,
@@ -2636,7 +2636,7 @@ public class VersionControlTabViewModelTests
                 await setRemoteCompletion.Task;
             });
         using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             source,
@@ -2672,7 +2672,7 @@ public class VersionControlTabViewModelTests
                 It.IsAny<IProgress<string>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RemoteOpResult.Success());
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         string? prefilledUrl = "not requested";
@@ -2753,7 +2753,7 @@ public class VersionControlTabViewModelTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return new RemoteOpResult.Success();
             });
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
+        await using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
 
         Task pull = viewModel.PullAsync();
@@ -2786,7 +2786,7 @@ public class VersionControlTabViewModelTests
                 return Task.FromException(new ArgumentException(
                     "Remote URLs must not embed credentials."));
             });
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         viewModel.RequestRemoteUrlAsync = (_, _) => Task.FromResult<string?>(remoteUrl);
@@ -2822,7 +2822,7 @@ public class VersionControlTabViewModelTests
                 setRemoteInvoked.TrySetResult();
                 return Task.CompletedTask;
             });
-        using VersionControlTabViewModel viewModel = CreateViewModel(
+        await using VersionControlTabViewModel viewModel = CreateViewModel(
             service.Object,
             coordinator.Object);
         viewModel.RequestRemoteUrlAsync = (_, _) =>
@@ -2865,7 +2865,7 @@ public class VersionControlTabViewModelTests
             .Returns(Task.CompletedTask);
         using var serviceSource =
             new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new VersionControlTabViewModel(
+        await using var viewModel = new VersionControlTabViewModel(
             Mock.Of<ToolTabExtension>(),
             Mock.Of<IEditorContext>(),
             serviceSource,

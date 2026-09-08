@@ -805,11 +805,11 @@ internal sealed class VersionControlTabViewModel : IToolContext
     {
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
         if (_disposed)
         {
-            return;
+            return ValueTask.CompletedTask;
         }
 
         _disposed = true;
@@ -845,6 +845,7 @@ internal sealed class VersionControlTabViewModel : IToolContext
         DiffLines.Clear();
         IsSelected.Dispose();
         _disposables.Dispose();
+        return ValueTask.CompletedTask;
     }
 
     internal Task<bool> RestoreAsync(CommitInfo commit)

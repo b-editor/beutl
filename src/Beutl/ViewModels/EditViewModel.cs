@@ -756,13 +756,19 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
+        Try(_autoSaveCancellation.Cancel);
         Try(() => GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged);
 
         await TryAsync(async () => await _constructionCompleted.Task.ConfigureAwait(false));
         await TryAsync(async () => await _restoreTask.ConfigureAwait(false));
         await TryAsync(async () => await DockHost.WaitForLayoutTransitionAsync().ConfigureAwait(false));
         if (scene.Uri is not null)
-            Try(() => SaveState());
+            await TryAsync(async () =>
+            {
+                using IDisposable? write = await EditorService.BeginFinalProjectFileWriteAsync();
+                if (write is not null)
+                    SaveState();
+            });
         Try(() => _editorSelection.SelectedObject.Value = null);
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         Try(DisposeCommandStateNotifier);

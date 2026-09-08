@@ -91,10 +91,7 @@ public sealed partial class MainWindow : AppWindow
         if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
         {
             e.Cancel = true;
-            if (_viewModelDisposeTask is null && viewModel.TryDisposeForWindowClose())
-            {
-                _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
-            }
+            _viewModelDisposeTask ??= DisposeViewModelAndCloseAsync(viewModel);
             return;
         }
 
@@ -107,14 +104,24 @@ public sealed partial class MainWindow : AppWindow
 
     private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
     {
+        await Task.Yield();
         try
         {
-            await viewModel.WaitForDisposalAsync();
+            if (await viewModel.TryDisposeForWindowCloseAsync())
+            {
+                _viewModelDisposed = true;
+                Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+            _viewModelDisposed = true;
+            Close();
         }
         finally
         {
-            _viewModelDisposed = true;
-            Close();
+            _viewModelDisposeTask = null;
         }
     }
 

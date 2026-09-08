@@ -277,7 +277,7 @@ public class VersionControlRestoreTests
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            TestShell.Editor.TabItems.Add(new EditorTabItem(
+            TestShell.Editor.TryAddTabItem(new EditorTabItem(
                 new BlockingDisposeEditorContext(
                     new Scene { Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")) },
                     disposeStarted,
@@ -927,7 +927,7 @@ public class VersionControlRestoreTests
                 serviceFactory: candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
 
-            TestShell.Editor.TabItems.Add(new EditorTabItem(
+            TestShell.Editor.TryAddTabItem(new EditorTabItem(
                 new BlockingDisposeEditorContext(
                     new Scene { Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")) },
                     disposeStarted,
@@ -1257,7 +1257,8 @@ public class VersionControlRestoreTests
             var commands = new PassiveSaveCommands();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
+            context.CloseService = editorService;
+            editorService.TryAddTabItem(new EditorTabItem(context));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -1334,7 +1335,8 @@ public class VersionControlRestoreTests
             var commands = new PassiveSaveCommands();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
+            context.CloseService = editorService;
+            editorService.TryAddTabItem(new EditorTabItem(context));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -1409,7 +1411,8 @@ public class VersionControlRestoreTests
             var commands = new PassiveSaveCommands();
             var context = new PassiveEditorContext(project, commands);
             var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
+            context.CloseService = editorService;
+            editorService.TryAddTabItem(new EditorTabItem(context));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -5508,8 +5511,8 @@ public class VersionControlRestoreTests
             };
             var editorService = new EditorService(new ExtensionProvider());
             var failedCommands = new FailedSaveCommands();
-            editorService.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(project, failedCommands)));
+            editorService.TryAddTabItem(new EditorTabItem(
+                new FailedSaveEditorContext(project, failedCommands) { CloseService = editorService }));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -5780,8 +5783,8 @@ public class VersionControlRestoreTests
             var backend = new PullCycleTestBackend(repository, repository, tip);
             var editorService = new EditorService(new ExtensionProvider());
             var failedCommands = new FailedSaveCommands();
-            editorService.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(project, failedCommands)));
+            editorService.TryAddTabItem(new EditorTabItem(
+                new FailedSaveEditorContext(project, failedCommands) { CloseService = editorService }));
             coordinator = new VersionControlCoordinator(
                 TestShell.Project,
                 editorService,
@@ -10652,7 +10655,7 @@ public class VersionControlRestoreTests
         Assert.That(initialized, Is.True);
 
         Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
+        await TestShell.Editor.ActivateTabItemAsync(scene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         return (project, editor);
@@ -10912,6 +10915,10 @@ public class VersionControlRestoreTests
         CoreObject obj,
         PassiveSaveCommands commands) : IEditorContext
     {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public IEditorContextCloseService CloseService { get; set; } = TestShell.Editor;
+
         public CoreObject Object { get; } = obj;
 
         public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -10931,10 +10938,11 @@ public class VersionControlRestoreTests
             where T : IToolContext
             => default;
 
-        public bool OpenToolTab(IToolContext item) => false;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => ValueTask.FromResult(false);
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -10943,6 +10951,8 @@ public class VersionControlRestoreTests
         TaskCompletionSource disposeStarted,
         Task releaseDispose) : IEditorContext
     {
+        public IEditorContextCloseService CloseService { get; set; } = TestShell.Editor;
+
         public CoreObject Object { get; } = obj;
 
         public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -10962,10 +10972,11 @@ public class VersionControlRestoreTests
             where T : IToolContext
             => default;
 
-        public bool OpenToolTab(IToolContext item) => false;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => ValueTask.FromResult(false);
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
 
         public async ValueTask DisposeAsync()
@@ -10990,6 +11001,10 @@ public class VersionControlRestoreTests
         CoreObject obj,
         FailedSaveCommands commands) : IEditorContext
     {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public IEditorContextCloseService CloseService { get; set; } = TestShell.Editor;
+
         public CoreObject Object { get; } = obj;
 
         public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -11009,10 +11024,11 @@ public class VersionControlRestoreTests
             where T : IToolContext
             => default;
 
-        public bool OpenToolTab(IToolContext item) => false;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => ValueTask.FromResult(false);
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
     }
 

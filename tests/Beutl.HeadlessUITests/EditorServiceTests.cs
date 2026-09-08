@@ -17,6 +17,43 @@ namespace Beutl.HeadlessUITests;
 public sealed class EditorServiceTests
 {
     [Test]
+    public async Task Final_save_skips_an_active_worktree_mutation()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        using IDisposable? mutation = service.TryBeginWorktreeMutation();
+        Assert.That(mutation, Is.Not.Null);
+        using IProjectFileWriteLease? write = await service.BeginFinalProjectFileWriteAsync()
+            .AsTask().WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(write, Is.Null);
+    }
+
+    [Test]
+    public async Task Final_save_waits_for_an_ordinary_writer_then_reserves_the_workspace()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        using IProjectFileWriteLease ordinary = await service.BeginProjectFileWriteAsync(CancellationToken.None);
+        Task<IProjectFileWriteLease?> pending = service.BeginFinalProjectFileWriteAsync().AsTask();
+        Assert.That(pending.IsCompleted, Is.False);
+        ordinary.Dispose();
+        using IProjectFileWriteLease? final = await pending.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(final, Is.Not.Null);
+        Assert.That(service.TryBeginWorktreeMutation(), Is.Null);
+    }
+
+    [Test]
+    public async Task Final_save_skips_when_a_writer_hands_its_reservation_to_git()
+    {
+        var service = new EditorService(new ExtensionProvider());
+        using IProjectFileWriteLease ordinary = await service.BeginProjectFileWriteAsync(CancellationToken.None);
+        Task<IProjectFileWriteLease?> pending = service.BeginFinalProjectFileWriteAsync().AsTask();
+        Assert.That(pending.IsCompleted, Is.False);
+        using IDisposable? mutation = service.TryBeginWorktreeMutation(ordinary);
+        Assert.That(mutation, Is.Not.Null);
+        using IProjectFileWriteLease? final = await pending.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(final, Is.Null);
+    }
+
+    [Test]
     public async Task Project_file_writes_and_worktree_mutations_are_mutually_exclusive()
     {
         var editorService = new EditorService(new ExtensionProvider());
@@ -246,8 +283,8 @@ public sealed class EditorServiceTests
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
         var project = new Project { Uri = new Uri("file:///project.bep") };
-        var tabItem = new EditorTabItem(new StubEditorContext());
-        editorService.TabItems.Add(tabItem);
+        var tabItem = new EditorTabItem(new StubEditorContext(editorService));
+        editorService.TryAddTabItem(tabItem);
         await tabItem.DisposeAsync();
 
         Assert.That(
@@ -259,8 +296,8 @@ public sealed class EditorServiceTests
     public void SuspendEditors_keeps_editors_disabled_until_the_outermost_handle_is_disposed()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var context = new StubEditorContext();
-        editorService.TabItems.Add(new EditorTabItem(context));
+        var context = new StubEditorContext(editorService);
+        editorService.TryAddTabItem(new EditorTabItem(context));
 
         using (IDisposable outer = editorService.SuspendEditors())
         {
@@ -283,8 +320,8 @@ public sealed class EditorServiceTests
     public void SuspendEditors_supports_out_of_order_disposal()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var context = new StubEditorContext();
-        editorService.TabItems.Add(new EditorTabItem(context));
+        var context = new StubEditorContext(editorService);
+        editorService.TryAddTabItem(new EditorTabItem(context));
 
         IDisposable first = editorService.SuspendEditors();
         IDisposable second = editorService.SuspendEditors();
@@ -300,10 +337,10 @@ public sealed class EditorServiceTests
     public void SuspendEditors_releases_every_context_when_one_restore_observer_fails()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var first = new StubEditorContext();
-        var second = new StubEditorContext();
-        editorService.TabItems.Add(new EditorTabItem(first));
-        editorService.TabItems.Add(new EditorTabItem(second));
+        var first = new StubEditorContext(editorService);
+        var second = new StubEditorContext(editorService);
+        editorService.TryAddTabItem(new EditorTabItem(first));
+        editorService.TryAddTabItem(new EditorTabItem(second));
         IDisposable suspension = editorService.SuspendEditors();
         using IDisposable subscription = first.IsEnabled.Subscribe(value =>
         {
@@ -336,8 +373,8 @@ public sealed class EditorServiceTests
                 allowSerialization.Wait();
             });
         var project = new Project { Uri = new Uri("file:///project.bep") };
-        var context = new StubEditorContext();
-        editorService.TabItems.Add(new EditorTabItem(context));
+        var context = new StubEditorContext(editorService);
+        editorService.TryAddTabItem(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
         using var output = new OutputProfileItem(outputContext, context, editorService);
         Assert.That(output.TryStart(out Task? execution), Is.True);
@@ -374,8 +411,8 @@ public sealed class EditorServiceTests
     public async Task Output_dispose_defers_workspace_release_until_execution_finishes()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var context = new StubEditorContext();
-        editorService.TabItems.Add(new EditorTabItem(context));
+        var context = new StubEditorContext(editorService);
+        editorService.TryAddTabItem(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
         var output = new OutputProfileItem(outputContext, context, editorService);
         Assert.That(output.TryStart(out Task? execution), Is.True);
@@ -406,8 +443,8 @@ public sealed class EditorServiceTests
     public void Output_started_during_a_worktree_mutation_is_rejected_without_leaking_a_lease()
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
-        var context = new StubEditorContext();
-        editorService.TabItems.Add(new EditorTabItem(context));
+        var context = new StubEditorContext(editorService);
+        editorService.TryAddTabItem(new EditorTabItem(context));
         var outputContext = new StubOutputContext(context.Object);
         using var output = new OutputProfileItem(outputContext, context, editorService);
 
@@ -468,8 +505,10 @@ public sealed class EditorServiceTests
         }
     }
 
-    private sealed class StubEditorContext : IEditorContext
+    private sealed class StubEditorContext(IEditorContextCloseService closeService) : IEditorContext
     {
+        public IEditorContextCloseService CloseService => closeService;
+
         public int AsyncDisposeCount { get; private set; }
 
         public ValueTask DisposeAsync()
@@ -496,10 +535,11 @@ public sealed class EditorServiceTests
             where T : IToolContext
             => default;
 
-        public bool OpenToolTab(IToolContext item) => false;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => ValueTask.FromResult(false);
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
     }
 

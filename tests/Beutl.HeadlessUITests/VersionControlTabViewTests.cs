@@ -303,7 +303,7 @@ public class VersionControlTabViewTests
                 TestShell.VersionControl.CurrentService!;
             TestShell.Editor.PublishProjectVersionControlService(null);
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             IEditorContext editorContext =
                 TestShell.Editor.SelectedTabItem.Value!.Context.Value;
@@ -312,7 +312,7 @@ public class VersionControlTabViewTests
                     editorContext,
                     out IToolContext? context),
                 Is.True);
-            using var viewModel = (VersionControlTabViewModel)context!;
+            await using var viewModel = (VersionControlTabViewModel)context!;
             var view = new VersionControlTabView { DataContext = viewModel };
             window.Content = view;
             window.Show();
@@ -376,7 +376,7 @@ public class VersionControlTabViewTests
                 "untracked",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             IEditorContext editorContext = TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
@@ -385,7 +385,7 @@ public class VersionControlTabViewTests
                     editorContext,
                     out IToolContext? context),
                 Is.True);
-            using var viewModel = (VersionControlTabViewModel)context!;
+            await using var viewModel = (VersionControlTabViewModel)context!;
             var view = new VersionControlTabView { DataContext = viewModel };
             var handler = new RecordingCommandHandler();
             window.DataContext = handler;
@@ -876,12 +876,12 @@ public class VersionControlTabViewTests
                         "headless@example.invalid"))),
                 Is.True);
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             IEditorContext editorContext =
                 TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var coordinator = new PendingRecoveryCoordinator();
-            using var viewModel = new VersionControlTabViewModel(
+            await using var viewModel = new VersionControlTabViewModel(
                 VersionControlTabExtension.Instance,
                 editorContext,
                 TestShell.Editor.ProjectVersionControlService,

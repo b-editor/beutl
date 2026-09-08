@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using Avalonia.Threading;
 using System.Threading;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -2406,6 +2406,29 @@ public sealed class EditorService : IOutputOperationLeaseProvider, IEditorContex
             }
         }
 
+        _projectFileWriteGate.Release();
+        return null;
+    }
+
+    internal async ValueTask<IProjectFileWriteLease?> BeginFinalProjectFileWriteAsync()
+    {
+        lock (_workspaceOperationSync)
+        {
+            if (_worktreeMutationActive)
+                return null;
+        }
+
+        await _projectFileWriteGate.WaitAsync();
+        lock (_workspaceOperationSync)
+        {
+            if (!_worktreeMutationActive)
+            {
+                _activeProjectFileWrites++;
+                return new WorkspaceOperationLease(this, WorkspaceOperationKind.ProjectFileWrite);
+            }
+        }
+
+        // A Git close may be waiting for this editor's teardown. Never wait for that mutation.
         _projectFileWriteGate.Release();
         return null;
     }

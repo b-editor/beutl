@@ -339,6 +339,25 @@ public class EditorHostViewModel : IAsyncDisposable
 
     private sealed class ProjectChangeHandler(EditorHostViewModel owner) : IProjectChangeHandler
     {
+        public async Task ApplyProjectCloseAsync(ProjectService.ProjectCloseContext context)
+        {
+            Project? project = owner._projectService.CurrentProject.Value;
+            CoreObject? selected = owner._editorService.SelectedTabItem.Value?.Context.Value?.Object;
+            if (project is not null)
+            {
+                context.RegisterCompletion(async closed =>
+                {
+                    if (!closed && ReferenceEquals(owner._projectService.CurrentProject.Value, project))
+                    {
+                        await owner.QueueProjectChange(project, null);
+                        if (selected is ProjectItem item && project.Items.Contains(item))
+                            await RunOnUiThreadAsync(async () => await owner._editorService.ActivateTabItemAsync(item));
+                    }
+                });
+            }
+            await owner.QueueProjectChange(null, project);
+        }
+
         public Task ApplyProjectChangeAsync(Project? @new, Project? old)
             => owner.QueueProjectChange(@new, old);
 

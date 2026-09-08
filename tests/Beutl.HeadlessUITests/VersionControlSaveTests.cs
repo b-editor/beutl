@@ -103,7 +103,7 @@ public class VersionControlSaveTests
             {
                 Uri = new Uri(Path.Combine(projectRoot, "failed.scene")),
             };
-            TestShell.Editor.TabItems.Add(new EditorTabItem(
+            TestShell.Editor.TryAddTabItem(new EditorTabItem(
                 new FailedSaveEditorContext(failedItem, failedCommands)));
             project.Variables["partially-saved"] = "true";
 
@@ -154,7 +154,7 @@ public class VersionControlSaveTests
                 "explicit-save",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -214,7 +214,7 @@ public class VersionControlSaveTests
             Assert.That(await CountCommitsAsync(gitPath, projectRoot), Is.EqualTo(1));
 
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             Assert.That(
@@ -242,7 +242,7 @@ public class VersionControlSaveTests
             });
 
             await File.WriteAllTextAsync(Path.Combine(projectRoot, "close-marker.txt"), "close\n");
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
             int afterClose = await CountCommitsAsync(gitPath, projectRoot);
             int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
 
@@ -308,7 +308,7 @@ public class VersionControlSaveTests
 
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -474,7 +474,7 @@ public class VersionControlSaveTests
             string projectFile = project.Uri!.LocalPath;
             string projectRoot = Path.GetDirectoryName(projectFile)!;
             int initialCommitCount = await CountCommitsAsync(gitPath, projectRoot);
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
             File.Delete(Path.Combine(projectRoot, ".gitignore"));
             File.Delete(Path.Combine(projectRoot, ".gitattributes"));
 
@@ -621,8 +621,8 @@ public class VersionControlSaveTests
             Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")),
         };
         var tabItem = new EditorTabItem(new FailedSaveEditorContext(blockingItem, blocking));
-        TestShell.Editor.TabItems.Add(tabItem);
-        TestShell.Editor.SelectedTabItem.Value = tabItem;
+        TestShell.Editor.TryAddTabItem(tabItem);
+        TestShell.Editor.ActivateTabItem(tabItem);
         HeadlessTestHelpers.Settle();
         return (project, blocking);
     }
@@ -779,7 +779,7 @@ public class VersionControlSaveTests
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
 
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -859,14 +859,14 @@ public class VersionControlSaveTests
             string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             Scene scene = project.Items.OfType<Scene>().Single();
             string scenePath = ToRepositoryPath(projectRoot, scene.Uri!.LocalPath);
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
             await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
-            TestShell.MainViewModel.MenuBar.CloseProject.Execute();
+            await TestShell.MainViewModel.MenuBar.CloseProject.ExecuteAsync();
 
             string committedScene = await RunGitAsync(
                 gitPath,
@@ -1174,9 +1174,9 @@ public class VersionControlSaveTests
             };
             var failedContext = new FailedSaveEditorContext(failedItem, failedCommands);
             var failedTab = new EditorTabItem(failedContext);
-            TestShell.Editor.TabItems.Add(failedTab);
+            TestShell.Editor.TryAddTabItem(failedTab);
 
-            bool disposed = TestShell.MainViewModel.TryDisposeForWindowClose();
+            bool disposed = await TestShell.MainViewModel.TryDisposeForWindowCloseAsync();
 
             int closeSnapshots = await CountCloseSnapshotsAsync(gitPath, projectRoot);
             int commitsAfterClose = await CountCommitsAsync(gitPath, projectRoot);
@@ -1204,7 +1204,7 @@ public class VersionControlSaveTests
                 Is.False);
             int commitsAfterFailedPackageSave = await CountCommitsAsync(gitPath, projectRoot);
             config.AutoCommitOnClose = true;
-            Assert.DoesNotThrow(TestShell.Project.CloseProject);
+            Assert.That(await TestShell.MainViewModel.TryDisposeForWindowCloseAsync(), Is.False);
             Assert.Multiple(() =>
             {
                 Assert.That(failedCommands.SaveCalls, Is.EqualTo(3));
@@ -1347,6 +1347,10 @@ public class VersionControlSaveTests
         CoreObject obj,
         IKnownEditorCommands commands) : IEditorContext
     {
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public IEditorContextCloseService CloseService { get; set; } = TestShell.Editor;
+
         public CoreObject Object { get; } = obj;
 
         public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -1369,10 +1373,11 @@ public class VersionControlSaveTests
             return default;
         }
 
-        public bool OpenToolTab(IToolContext item) => false;
+        public ValueTask<bool> OpenToolTabAsync(IToolContext item) => ValueTask.FromResult(false);
 
-        public void CloseToolTab(IToolContext item)
+        public ValueTask CloseToolTabAsync(IToolContext item)
         {
+            return ValueTask.CompletedTask;
         }
     }
 

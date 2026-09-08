@@ -323,6 +323,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             await DisposeCoreAsync();
             completion.TrySetResult();
         }
+        catch (ProjectCloseAbortedException ex)
+        {
+            lock (_disposeGate)
+            {
+                if (ReferenceEquals(_disposeTask, completion.Task))
+                    _disposeTask = null;
+            }
+            completion.TrySetException(ex);
+        }
         catch (Exception ex)
         {
             completion.TrySetException(ex);
@@ -392,6 +401,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     private async Task DisposeCoreAsync()
     {
+        await _projectService.CloseProjectAsync();
         try
         {
             PackageInstaller packageInstaller = _beutlClients.GetResource<PackageInstaller>();

@@ -75,7 +75,7 @@ public class CreateNewProjectDialogTests
             Assert.That(menuBarSessionConstructor, Is.Not.Null);
             Assert.That(
                 typeof(MenuBarViewModel).GetProperty(nameof(MenuBarViewModel.CloseProject))!.PropertyType,
-                Is.EqualTo(typeof(ReactiveCommandSlim)));
+                Is.EqualTo(typeof(AsyncReactiveCommand)));
         });
 
         var projectService = new ProjectService();
