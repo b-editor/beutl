@@ -1499,7 +1499,11 @@ public class Scene : ProjectItem, INotifyEdited
                     property.ReplaceCurrentValue(migratedValue);
                 }
 
-                if (property.Expression is IReferenceExpression referenceExpression
+                if (property.Expression is IReferenceRewritable)
+                {
+                    property.Expression = (IExpression?)MigrateRecoveredReferenceValue(property.Expression, rewriteState);
+                }
+                else if (property.Expression is IReferenceExpression referenceExpression
                     && TryGetMigratedId(referenceExpression.ObjectId, out Guid migratedExpressionId)
                     && referenceExpression.Rebind(migratedExpressionId) is { } reboundExpression)
                 {
@@ -1572,7 +1576,8 @@ public class Scene : ProjectItem, INotifyEdited
                     ConstructorInfo? constructor = value.GetType().GetConstructor([optional.GetValueType()]);
                     return constructor?.Invoke([migratedItem]) ?? value;
                 }
-                catch (Exception ex) when (ex is TargetInvocationException
+                catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex)
+                                          && ex is TargetInvocationException
                                                    or ArgumentException
                                                    or MemberAccessException)
                 {
@@ -1688,7 +1693,8 @@ public class Scene : ProjectItem, INotifyEdited
                             list[i] = rewrittenItems[i];
                         }
                     }
-                    else if (TryRebuildReadOnlyList(list, rewrittenItems) is { } rebuilt)
+                    else if ((RecoveredCollectionFactory.RebuildEnumerable(list, rewrittenItems)
+                              ?? TryRebuildReadOnlyList(list, rewrittenItems)) is { } rebuilt)
                     {
                         rewrittenValue = rebuilt;
                     }
@@ -1766,7 +1772,8 @@ public class Scene : ProjectItem, INotifyEdited
                 }
             }
         }
-        catch (Exception ex) when (ex is ArgumentException
+        catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex)
+                                  && ex is ArgumentException
                                        or TargetInvocationException
                                        or MemberAccessException)
         {

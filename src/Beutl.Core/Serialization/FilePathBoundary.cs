@@ -2,13 +2,11 @@
 
 internal static class PathBoundary
 {
-    private static readonly StringComparison s_comparison = OperatingSystem.IsWindows()
-        ? StringComparison.OrdinalIgnoreCase
-        : StringComparison.Ordinal;
+    private static readonly StringComparison s_comparison = FilePathComparison.Comparison;
 
     public static StringComparison Comparison => s_comparison;
 
-    public static StringComparer Comparer { get; } = OperatingSystem.IsWindows()
+    public static StringComparer Comparer { get; } = s_comparison == StringComparison.OrdinalIgnoreCase
         ? StringComparer.OrdinalIgnoreCase
         : StringComparer.Ordinal;
 

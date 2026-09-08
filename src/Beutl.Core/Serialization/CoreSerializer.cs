@@ -351,8 +351,8 @@ public static class CoreSerializer
                     throw;
                 }
 
-                suppressed.WasReinstated = false;
                 CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
+                suppressed.WasReinstated = false;
                 suppressedObj.Uri = uri;
                 return;
             }

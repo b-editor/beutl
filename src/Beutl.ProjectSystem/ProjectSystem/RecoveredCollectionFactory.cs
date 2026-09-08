@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Reflection;
 
@@ -9,6 +10,14 @@ internal static class RecoveredCollectionFactory
     public static object? RebuildDictionary(IDictionary source, DictionaryEntry[] entries)
     {
         Type wrapperType = source.GetType();
+        if (wrapperType.IsGenericType
+            && (wrapperType.GetGenericTypeDefinition() == typeof(ImmutableDictionary<,>)
+                || wrapperType.GetGenericTypeDefinition() == typeof(ImmutableSortedDictionary<,>)))
+        {
+            return typeof(RecoveredCollectionFactory)
+                .GetMethod(nameof(RebuildImmutableDictionary), BindingFlags.Static | BindingFlags.NonPublic)!
+                .MakeGenericMethod(wrapperType.GetGenericArguments()).Invoke(null, [source, entries]);
+        }
         if (!wrapperType.IsGenericType || wrapperType.GetGenericTypeDefinition() != typeof(ReadOnlyDictionary<,>))
             return null;
 
@@ -39,6 +48,14 @@ internal static class RecoveredCollectionFactory
         // Arbitrary collection constructors may discard plugin state; those types opt in via IReferenceRewritable.
         if (!sourceType.IsGenericType) return null;
         Type definition = sourceType.GetGenericTypeDefinition();
+        if (definition == typeof(ImmutableArray<>) || definition == typeof(ImmutableList<>)
+            || definition == typeof(ImmutableHashSet<>) || definition == typeof(ImmutableSortedSet<>)
+            || definition == typeof(ImmutableQueue<>) || definition == typeof(ImmutableStack<>))
+        {
+            return typeof(RecoveredCollectionFactory)
+                .GetMethod(nameof(RebuildImmutableEnumerable), BindingFlags.Static | BindingFlags.NonPublic)!
+                .MakeGenericMethod(sourceType.GetGenericArguments()).Invoke(null, [source, items]);
+        }
         if (definition != typeof(HashSet<>) && definition != typeof(SortedSet<>)
             && definition != typeof(Queue<>) && definition != typeof(Stack<>)) return null;
         Type? elementType = sourceType.GetInterfaces()
@@ -62,5 +79,34 @@ internal static class RecoveredCollectionFactory
         }
 
         return null;
+    }
+
+    private static object? RebuildImmutableEnumerable<T>(IEnumerable source, object?[] items)
+    {
+        IEnumerable<T> values = items.Cast<T>();
+        return source switch
+        {
+            ImmutableArray<T> => ImmutableArray.CreateRange(values),
+            ImmutableList<T> => ImmutableList.CreateRange(values),
+            ImmutableHashSet<T> set => ImmutableHashSet.CreateRange(set.KeyComparer, values),
+            ImmutableSortedSet<T> set => ImmutableSortedSet.CreateRange(set.KeyComparer, values),
+            ImmutableQueue<T> => ImmutableQueue.CreateRange(values),
+            ImmutableStack<T> => ImmutableStack.CreateRange(values.Reverse()),
+            _ => null,
+        };
+    }
+
+    private static object? RebuildImmutableDictionary<TKey, TValue>(IDictionary source, DictionaryEntry[] entries)
+        where TKey : notnull
+    {
+        var values = entries.Select(entry => new KeyValuePair<TKey, TValue>((TKey)entry.Key, (TValue)entry.Value!));
+        return source switch
+        {
+            ImmutableDictionary<TKey, TValue> dictionary => ImmutableDictionary.CreateRange(
+                dictionary.KeyComparer, dictionary.ValueComparer, values),
+            ImmutableSortedDictionary<TKey, TValue> dictionary => ImmutableSortedDictionary.CreateRange(
+                dictionary.KeyComparer, dictionary.ValueComparer, values),
+            _ => null,
+        };
     }
 }

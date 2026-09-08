@@ -3586,6 +3586,16 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(File.Exists(normalPath), Is.False);
             Assert.That(scene.Children, Is.Empty);
         });
+
+        CoreSerializer.StoreToUri(scene, sceneUri);
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children, Is.Empty);
+
+        // Undoing removal re-adds the original object and removes its persisted exclusion.
+        scene.Children.Add(recovered);
+        CoreSerializer.StoreToUri(scene, sceneUri);
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Assert.That(restored.Children.Single().Id, Is.EqualTo(recovered.Id));
+        Assert.That(File.ReadAllBytes(recoveredPath), Is.EqualTo(corruptBytes));
     }
 
     [Test]

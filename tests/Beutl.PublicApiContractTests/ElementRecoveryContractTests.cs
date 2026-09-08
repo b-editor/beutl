@@ -62,9 +62,13 @@ public class ElementRecoveryContractTests
         string unrelatedSidecar = Path.Combine(unrelatedRoot, "nested", "transform.json");
         Directory.CreateDirectory(Path.GetDirectoryName(unrelatedSidecar)!);
         File.WriteAllText(unrelatedSidecar, "Unrelated existing data");
+        // The matching main file must not consume Undo's restoration flag if a nested file collides.
+        File.WriteAllBytes(Path.Combine(unrelatedRoot, "element.belm"), originalElement);
+        Uri? uriBeforeFailedSave = recovered.Uri;
         Assert.Throws<IOException>(() => CoreSerializer.StoreToUri(
             recovered, new Uri(Path.Combine(unrelatedRoot, "element.belm"))));
         Assert.That(File.ReadAllText(unrelatedSidecar), Is.EqualTo("Unrelated existing data"));
+        Assert.That(recovered.Uri, Is.EqualTo(uriBeforeFailedSave));
         CoreSerializer.StoreToUri(recovered, copyUri);
         Assert.That(File.ReadAllBytes(copyUri.LocalPath), Is.EqualTo(originalElement));
         Assert.That(File.ReadAllBytes(copiedTransform), Is.EqualTo(originalTransform));

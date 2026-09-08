@@ -15,6 +15,9 @@ public sealed class PathBoundaryTests
 
         Assert.That(
             PathBoundary.IsPathInsideRoot(root, differentlyCasedPath),
-            Is.EqualTo(OperatingSystem.IsWindows()));
+            Is.EqualTo(!OperatingSystem.IsLinux()));
+        Assert.That(PathBoundary.Comparison, Is.EqualTo(FilePathComparison.Comparison));
+        Assert.That(PathBoundary.Comparer.Equals(root, root.ToUpperInvariant()),
+            Is.EqualTo(!OperatingSystem.IsLinux()));
     }
 }

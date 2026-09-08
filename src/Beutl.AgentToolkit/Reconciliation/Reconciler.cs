@@ -626,7 +626,8 @@ public sealed class Reconciler
                 continue;
             }
 
-            var occurrence = new FallbackOccurrence("$", identity.TypeName, identity.Reason, identity.Message);
+            var occurrence = new FallbackOccurrence("$", identity.TypeName, identity.Reason,
+                incident.Fallback?.ErrorMessage ?? incident.Message);
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
                 $"Desired document produced a fallback object for {identity.TypeName ?? "unknown serialized type"}.",
@@ -640,15 +641,15 @@ public sealed class Reconciler
         if (incident.Fallback is { } fallback)
         {
             fallback.TryGetTypeName(out string? typeName);
-            return new IncidentIdentity(typeName, fallback.Reason.ToString(), fallback.ErrorMessage,
+            return new IncidentIdentity(typeName, fallback.Reason.ToString(),
                 fallback.Json?.ToJsonString());
         }
 
         return new IncidentIdentity(incident.TypeName,
-            incident.Reason?.ToString() ?? nameof(FallbackReason.DeserializationFailed), incident.Message, null);
+            incident.Reason?.ToString() ?? nameof(FallbackReason.DeserializationFailed), null);
     }
 
-    private readonly record struct IncidentIdentity(string? TypeName, string Reason, string? Message, string? Json);
+    private readonly record struct IncidentIdentity(string? TypeName, string Reason, string? Json);
 
     private static bool ExpandAnimationShorthand(CoreObject sandboxRoot, JsonNode? node)
     {

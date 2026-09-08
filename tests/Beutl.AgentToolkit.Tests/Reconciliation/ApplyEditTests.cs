@@ -114,15 +114,26 @@ public sealed class ApplyEditTests
         });
     }
 
-    [Test]
-    public void Apply_edit_preserves_existing_fallback_inside_record_wrapper()
+    [SuppressResourceClassGeneration]
+    public sealed class VariableFailureTransform : Transform
+    {
+        public override Matrix CreateMatrix(Beutl.Composition.CompositionContext context) => Matrix.Identity;
+        public override void Deserialize(ICoreSerializationContext context)
+            => throw new InvalidOperationException($"Plugin failed at {Guid.NewGuid()}");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Apply_edit_preserves_existing_fallback_inside_record_wrapper(bool variableMessage)
     {
         Scene scene = CreateSceneWithElement(out Element element);
-        var fallback = (Transform)CoreSerializer.DeserializeFromJsonObject(new JsonObject
+        var fallbackJson = new JsonObject
         {
             ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform",
             ["Id"] = Guid.NewGuid().ToString(),
-        }, typeof(Transform));
+        };
+        if (variableMessage) fallbackJson.WriteDiscriminator(typeof(VariableFailureTransform));
+        var fallback = (Transform)CoreSerializer.DeserializeFromJsonObject(fallbackJson, typeof(Transform));
         var group = new TransformGroup();
         group.Children.Add(fallback);
         var holder = new WrappedTransformHolder();
