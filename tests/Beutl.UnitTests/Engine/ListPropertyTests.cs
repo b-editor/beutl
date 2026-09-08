@@ -24,6 +24,7 @@ public class ListPropertyTests
         Assert.That(property.HasLocalValue, Is.True);
         Assert.That(property.HasExpression, Is.False);
         Assert.That(property.HasValidator, Is.False);
+        Assert.That(property.GetValidator(), Is.Null);
         Assert.That(property.ElementType, Is.EqualTo(typeof(int)));
         Assert.That(property.ValueType.GetGenericTypeDefinition(), Is.EqualTo(typeof(Beutl.Collections.ICoreList<>)));
         Assert.That(property.DefaultValue, Is.Null);

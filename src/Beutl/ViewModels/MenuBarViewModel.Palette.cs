@@ -30,6 +30,8 @@ public partial class MenuBarViewModel
         "OpenFile" => OpenFile,
         "Save" => Save,
         "SaveAll" => SaveAll,
+        "EnableVersionControl" => EnableVersionControl,
+        "CommitVersion" => CommitVersion,
         "CloseProject" => CloseProject,
         "Undo" => Undo,
         "Redo" => Redo,

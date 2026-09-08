@@ -29,7 +29,7 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
         "Call read_document when you need the normalized declarative scene.",
         "Call apply_edit with a patch or desired document.",
         "Use apply_edit.createdIds or read_document to get new Ids before follow-up edits.",
-        "Use preview_quality_risks during authoring, final_preflight before export, and export_video only after critical/major quality blockers are resolved."
+        "Use evaluate_edit_quality(staticLayout:true) during authoring, final_preflight before export, and export_video only after critical/major quality blockers are resolved."
     ];
 }
 

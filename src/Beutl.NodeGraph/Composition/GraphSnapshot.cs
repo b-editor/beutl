@@ -172,6 +172,7 @@ public sealed class GraphSnapshot : IDisposable
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,
                 PreferredProxyPreset = context.PreferredProxyPreset,
+                TargetDomain = context.TargetDomain,
             };
         }
 
@@ -249,7 +250,7 @@ public sealed class GraphSnapshot : IDisposable
         // 各 ListInputPort について、Connections の順序で登録
         for (int resourceIdx = 0; resourceIdx < _resources.Length; resourceIdx++)
         {
-            var node = _resources[resourceIdx].GetOriginal();
+            GraphNode node = _resources[resourceIdx].RequireOriginal();
             for (int itemIdx = 0; itemIdx < node.Items.Count; itemIdx++)
             {
                 var item = node.Items[itemIdx];
@@ -294,6 +295,7 @@ public sealed class GraphSnapshot : IDisposable
             ctx.DisableResourceShare = context.DisableResourceShare;
             ctx.PreferProxy = context.PreferProxy;
             ctx.PreferredProxyPreset = context.PreferredProxyPreset;
+            ctx.TargetDomain = context.TargetDomain;
 
             // アニメーション/プロパティ値をロード
             LoadAnimatedValues(ctx.Resource, ctx.Time);
@@ -362,7 +364,7 @@ public sealed class GraphSnapshot : IDisposable
 
     private void LoadAnimatedValues(GraphNode.Resource resource, TimeSpan time)
     {
-        var node = resource.GetOriginal();
+        GraphNode node = resource.RequireOriginal();
         for (int i = 0; i < node.Items.Count; i++)
         {
             INodeMember item = node.Items[i];
@@ -390,7 +392,7 @@ public sealed class GraphSnapshot : IDisposable
 
     private void PropagateOutputs(GraphNode.Resource resource)
     {
-        var node = resource.GetOriginal();
+        GraphNode node = resource.RequireOriginal();
         for (int itemIdx = 0; itemIdx < node.Items.Count; itemIdx++)
         {
             if (!_outputConnectionMap.TryGetValue((resource.SlotIndex, itemIdx), out var connIndices))

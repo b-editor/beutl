@@ -68,7 +68,7 @@ public class EditorConfigPreviewSourceModeTests
     }
 
     [Test]
-    public void LegacyJsonWithoutPreviewSourceMode_DefaultsToPreferProxy()
+    public void EffectItemJsonWithoutPreviewSourceMode_DefaultsToPreferProxy()
     {
         var config = new EditorConfig { PreviewSourceMode = PreviewSourceMode.ForceOriginal };
         JsonObject json = CoreSerializer.SerializeToJsonObject(config);

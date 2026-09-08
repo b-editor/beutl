@@ -28,14 +28,15 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
         private SKPaint? _paint;
         private SKPath? _path;
 
-        internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill)
+        protected internal override void Render(in WaveformRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> mins = context.Mins;
+            ReadOnlySpan<float> maxs = context.Maxs;
+            float gain = context.Gain;
+            Brush.Resource fill = context.Fill;
+
             int barCount = mins.Length;
             if (barCount == 0) return;
 
@@ -44,8 +45,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             float centerY = (float)bounds.Y + height * 0.5f;
             float halfHeight = height * 0.5f;
             float slotWidth = width / barCount;
-            float requested = BarWidth;
-            float barWidth = requested > 0f ? MathF.Max(0.5f, requested) : MathF.Max(1f, slotWidth - 0.5f);
+            float barWidth = BarGeometry.ResolveWidth(BarWidth, slotWidth);
             float offsetX = (slotWidth - barWidth) * 0.5f;
 
             CornerRadius cr = CornerRadius;
@@ -54,8 +54,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             if (round)
             {
                 _paint ??= new SKPaint();
-                new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
-                _paint.Style = SKPaintStyle.Fill;
+                VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
                 _path ??= new SKPath();
                 _path.Reset();
             }
@@ -71,23 +70,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
 
                 if (round)
                 {
-                    float maxRadius = MathF.Min(barWidth, barHeight) * 0.5f;
-                    float tl = MathF.Min(cr.TopLeft, maxRadius);
-                    float tr = MathF.Min(cr.TopRight, maxRadius);
-                    float br = MathF.Min(cr.BottomRight, maxRadius);
-                    float bl = MathF.Min(cr.BottomLeft, maxRadius);
-
-                    var rect = new SKRect(x, topY, x + barWidth, topY + barHeight);
-                    var radii = new SKPoint[4]
-                    {
-                        new SKPoint(tl, tl),
-                        new SKPoint(tr, tr),
-                        new SKPoint(br, br),
-                        new SKPoint(bl, bl),
-                    };
-                    using var roundRect = new SKRoundRect();
-                    roundRect.SetRectRadii(rect, radii);
-                    _path!.AddRoundRect(roundRect);
+                    BarGeometry.AddRoundedBar(_path!, x, topY, barWidth, barHeight, cr);
                 }
                 else
                 {

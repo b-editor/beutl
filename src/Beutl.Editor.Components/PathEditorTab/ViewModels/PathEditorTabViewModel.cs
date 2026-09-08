@@ -47,11 +47,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
             .DisposeWith(_disposables);
 
         GeometryResource = PathGeometry
-            .Select(d =>
-                d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(t => ((PathGeometry.Resource, int)?)t) ??
-                Observable.ReturnThenNever<(PathGeometry.Resource, int)?>(null))
-            .Switch()
+            .SwitchToEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -86,7 +82,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public ReadOnlyReactivePropertySlim<Geometry?> Geometry { get; }
 
-    public ReadOnlyReactivePropertySlim<(PathGeometry.Resource, int)?> GeometryResource { get; }
+    public ReadOnlyReactivePropertySlim<EngineResourceHandle<PathGeometry.Resource>?> GeometryResource { get; }
 
     public IReadOnlyReactiveProperty<PathGeometry?> PathGeometry { get; }
 
@@ -110,7 +106,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.PathEditor;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PathEditor);
 
     // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(IPathFigureEditorContext context)

@@ -79,8 +79,8 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                         {
                             activity?.AddEvent(new("Entered_AsyncLock"));
 
-                            await user.RefreshAsync();
-                            await user.Profile.RefreshAsync();
+                            await user.RefreshAsync(CancellationToken.None);
+                            await user.Profile.RefreshAsync(CancellationToken.None);
                         }
                     }
                 }

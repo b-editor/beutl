@@ -15,6 +15,8 @@ public partial class ImmediateCanvas
             }
         }
 
+        internal sealed record LayerPushedState(int Count) : SKCanvasPushedState(Count);
+
         // No-op pop for PushDeviceSpace when the canvas is already in device space.
         internal sealed record NoOpPushedState : CanvasPushedState
         {
@@ -57,31 +59,41 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record BlendModePushedState(BlendMode BlendMode, int Count, SKPaint Paint) : CanvasPushedState
+        internal record BlendModePushedState(
+            BlendMode BlendMode,
+            bool ProductRectangleCoverage,
+            int Count,
+            SKPaint Paint) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.BlendMode = BlendMode;
+                canvas._productRectangleCoverage = ProductRectangleCoverage;
                 Paint.Dispose();
             }
         }
 
-        internal record OpacityPushedState(float Opacity, int Count, SKPaint Paint) : CanvasPushedState
+        internal record DirectBlendModePushedState(
+            BlendMode BlendMode,
+            BlendMode? DirectBlendMode,
+            int Count) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
-                canvas._sharedFillPaint.Reset();
-                canvas._sharedFillPaint.BlendMode = SKBlendMode.DstIn;
+                canvas.Canvas.RestoreToCount(Count);
+                canvas._currentTransform = canvas.Canvas.TotalMatrix.ToMatrix();
+                canvas.BlendMode = BlendMode;
+                canvas._directBlendMode = DirectBlendMode;
+            }
+        }
 
-                canvas.Canvas.SaveLayer(canvas._sharedFillPaint);
-                using (SKPaint maskPaint = Paint)
-                {
-                    canvas.Canvas.DrawPaint(maskPaint);
-                }
-
-                canvas.Canvas.Restore();
-
+        internal record OpacityPushedState(float Opacity, int Count) : CanvasPushedState
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                // The opacity rides on the layer paint's color filter, so restoring the layer applies it.
+                // No mask draw and no retained paint are needed on pop.
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.Opacity = Opacity;
             }

@@ -95,8 +95,8 @@ public class DownloadTaskModel : IProgress<double>
             IsProgressBarVisible.Value = true;
             IsIndeterminate.Value = true;
 
-            Package package = await discover.GetPackage(_model.Id);
-            Release release = await package.GetReleaseAsync(_model.Version.ToString());
+            Package package = await discover.GetPackage(_model.Id, token);
+            Release release = await package.GetReleaseAsync(_model.Version.ToString(), token);
 
             Context = await installer.PrepareForInstall(release, true, token);
             DownloadMessage.Value = string.Format(Strings.Downloading_XXX, PackageFileName);

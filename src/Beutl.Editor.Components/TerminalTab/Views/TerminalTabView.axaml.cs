@@ -19,6 +19,16 @@ public partial class TerminalTabView : UserControl
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Terminal.AddHandler(TerminalView.TitleChangedEvent, OnTerminalTitleChanged);
+    }
+
+    // The view is recycled; update the view-model that owns the PTY.
+    private void OnTerminalTitleChanged(object? sender, TitleChangedEventArgs e)
+    {
+        if (!_disposed && _launchedViewModel is { } viewModel)
+        {
+            viewModel.TerminalTitle.Value = e.Title;
+        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -86,6 +96,8 @@ public partial class TerminalTabView : UserControl
         // rebind through null and still tears the PTY down when that view-model is disposed.
         SetLaunchedViewModel(viewModel);
         viewModel.IsProcessExited.Value = false;
+        // Clear the previous session title; the new shell may not emit OSC 0/2.
+        viewModel.TerminalTitle.Value = null;
 
         // Suppress detach-cleanup before spawning so switching away mid-launch re-docks the tab
         // instead of killing the just-spawned PTY. Kept on for the tab's life; disposal calls

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Animation;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.NodeGraph;
@@ -46,9 +47,23 @@ public sealed class GraphEditorTabViewModel : IToolContext
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        Header = Element
+            .Select(ToolTabHeaderHelper.ObserveElementLabel)
+            .Switch()
+            .CombineLatest(SelectedItem, (element, item) => (element, property: item?.Name))
+            .Select(t => (t.element, t.property) switch
+            {
+                ({ Length: > 0 } e, { Length: > 0 } p) => ToolTabHeaderHelper.Compose(e, p),
+                ({ Length: > 0 } e, _) => ToolTabHeaderHelper.Compose(Strings.GraphEditor, e),
+                (_, { Length: > 0 } p) => ToolTabHeaderHelper.Compose(Strings.GraphEditor, p),
+                _ => Strings.GraphEditor,
+            })
+            .ToReadOnlyReactivePropertySlim(Strings.GraphEditor)
+            .DisposeWith(_disposables)!;
     }
 
-    public string Header => Strings.GraphEditor;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => GraphEditorTabExtension.Instance;
 
@@ -161,6 +176,22 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 _editorContext.CloseToolTab(this);
             }
         });
+    }
+
+    /// <summary>
+    /// Finds a matching or idle graph-editor tab for <paramref name="animation"/>.
+    /// </summary>
+    /// <remarks>
+    /// Occupied tabs are not retargeted; callers create a new tab when needed.
+    /// </remarks>
+    public static GraphEditorTabViewModel? FindReusable(
+        IEditorContext editorContext, Element? element, KeyFrameAnimation? animation)
+    {
+        return ToolTabReuse.Find<GraphEditorTabViewModel>(
+            editorContext,
+            t => t.Element.Value == element && t.SelectedItem.Value?.Object == animation,
+            t => t.Element.Value is null,
+            retargetAnyOpen: false);
     }
 
     public void Select(KeyFrameAnimation? animation)

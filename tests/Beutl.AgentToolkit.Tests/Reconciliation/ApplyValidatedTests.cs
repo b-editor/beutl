@@ -85,5 +85,22 @@ public sealed class ApplyValidatedTests
             InvokeCount++;
             action();
         }
+
+        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+            Func<HistoryManager, bool> shouldPause,
+            Func<HistoryManager, TResult> operation,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            TResult result = default!;
+            Invoke(() =>
+            {
+                HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
+                _ = shouldPause(activeHistory);
+                activeHistory.FlushPendingMutations();
+                result = operation(activeHistory);
+            });
+            return ValueTask.FromResult(result);
+        }
     }
 }

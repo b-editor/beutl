@@ -65,7 +65,7 @@ public sealed class HistoryViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.History;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.History);
 
     public ReadOnlyObservableCollection<HistoryEntry> Entries { get; }
 

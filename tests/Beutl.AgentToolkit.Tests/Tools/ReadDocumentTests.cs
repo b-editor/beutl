@@ -15,6 +15,9 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Utilities;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -28,37 +31,88 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(new AgentSessionManager());
 
         ToolResult<GettingStartedResponse> result = tools.GetStarted();
+        GettingStartedResponse guidance = tools.GetStarted(includeGuidance: true).Value!;
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.RecommendedCalls, Has.Some.Contains("attach_active_editor for an open editor scene"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("create_project or open_project"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("file-backed session"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("measure_object_bounds"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_creative_directions"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("custom declarative patch"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("avoid overused orbit/radar/map/signal/dashboard motifs"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("objective, audience"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("one primary focal point"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("read time"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("effect purpose"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_compositions"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("explicitly asks for a reusable template"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("specific returned name"));
-            Assert.That(result.Value.RecommendedCalls, Has.None.Contains("first returned composition"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("planId"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effects"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("list_effect_recipes"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("full-scene starters are hidden by default"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("insert-new-element-skeleton"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
-            Assert.That(result.Value.RecommendedCalls, Has.Some.Contains("evaluate_motion_variation"));
+            // The craft notes cost most of the payload, so first contact must not carry them.
+            Assert.That(result.Value!.Guidance, Is.Empty);
+            Assert.That(guidance.Guidance, Is.Not.Empty);
+            Assert.That(result.Value!.Essentials, Has.Some.Contains("attach_active_editor for an open editor scene"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("create_project or open_project"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("file-backed session"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("measure_object_bounds"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("list_creative_directions"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("custom declarative patch"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("Orbit, radar, map, signal, and dashboard motifs"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("objective, audience"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("what a viewer looks at first"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("read time"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("effect purpose"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("list_compositions"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("explicitly asks for a reusable template"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("specific returned name"));
+            Assert.That(guidance.Guidance, Has.None.Contains("first returned composition"));
+            Assert.That(guidance.Guidance, Has.Some.Contains("planId"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("list_effects"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("list_effect_recipes"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("full-scene starters are hidden by default"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("[Beutl.ProjectSystem]:Element"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("insert-new-element-skeleton"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("SKSLScriptEffect"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
+            Assert.That(result.Value.Essentials, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.CategoryAliases["visualEffect"], Is.EqualTo("FilterEffect"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("Server-Sent Events"));
             Assert.That(result.Value.RawHttpNote, Does.Contain("content[0].text"));
+        });
+    }
+
+    [Test]
+    public void Measure_object_bounds_reports_an_off_frame_drawable_where_it_actually_is()
+    {
+        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var scene = new Scene(320, 180, "off-frame-measure")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
+        };
+        var plate = new RectShape
+        {
+            Name = "OffFrame",
+            Width = { CurrentValue = 40 },
+            Height = { CurrentValue = 20 },
+            Fill = { CurrentValue = Brushes.White },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            Transform = { CurrentValue = new TranslateTransform(600, 400) },
+        };
+        var element = new Element
+        {
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(dir, "element.belm"))
+        };
+        element.AddObject(plate);
+        scene.Children.Add(element);
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
+            objectId: plate.Id.ToString(),
+            timeSeconds: 0.0);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        ObjectBoundsMeasurement measured = result.Value!.Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(measured.TransformedBounds.Width, Is.EqualTo(40).Within(0.5));
+            Assert.That(measured.TransformedBounds.Height, Is.EqualTo(20).Within(0.5));
+            Assert.That(measured.TransformedBounds.Left, Is.EqualTo(600).Within(0.5));
+            Assert.That(measured.TransformedBounds.Top, Is.EqualTo(400).Within(0.5));
         });
     }
 
@@ -163,28 +217,28 @@ public sealed class ReadDocumentTests
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("typography"));
             Assert.That(result.Value.InspirationSeeds.Select(seed => seed.Category), Does.Contain("procedural surface"));
             Assert.That(result.Value.InspirationSeeds.SelectMany(seed => seed.UsefulTools), Does.Contain("SKSLScriptEffect"));
-            Assert.That(result.Value.CombinationRules, Has.Some.Contains("Author the concept"));
-            Assert.That(result.Value.CombinationRules, Has.Some.Contains("direction contract"));
-            Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not implement any returned seed as a complete scene"));
-            Assert.That(result.Value.OriginalityConstraints, Has.Some.Contains("Do not use returned seed names"));
+            Assert.That(result.Value.CombinationNotes, Has.Some.Contains("Seeds combine better"));
+            Assert.That(result.Value.CombinationNotes, Has.Some.Contains("direction contract"));
+            Assert.That(result.Value.OriginalityNotes, Has.Some.Contains("A seed implemented whole"));
+            Assert.That(result.Value.OriginalityNotes, Has.Some.Contains("Seed names as the concept name"));
             Assert.That(result.Value.VariationPrompts, Has.Some.Contains("Invert the seed relationship"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("orbit rings"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("radar sweeps"));
             Assert.That(result.Value.OverusedMotifs, Has.Some.Contains("dark teal background with cyan/magenta neon"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Do not pick a returned seed"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("Seeds read as stimulus"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("record_creative_direction"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("evaluate_motion_variation"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("SKSLScriptEffect"));
-            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("one primary focal point"));
+            Assert.That(result.Value.WorkflowHints, Has.Some.Contains("visible and readable"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("effect chain"));
             Assert.That(result.Value.WorkflowHints, Has.Some.Contains("UseGlobalClock=false uses Element-local KeyTime values"));
             Assert.That(result.Value.DirectionAxes, Has.Some.Contains("procedural surface"));
-            Assert.That(result.Value.SelectionHint, Does.Contain("author your own direction"));
+            Assert.That(result.Value.SelectionHint, Does.Contain("the direction is yours"));
             Assert.That(result.Value.SelectionHint, Does.Contain("make a short motion graphic"));
             Assert.That(result.Value.SelectionTrace, Is.Not.Null);
             Assert.That(result.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
             Assert.That(result.Value.SelectionTrace.ReturnedSeedOrder, Is.EqualTo(result.Value.InspirationSeeds.Select(seed => seed.Name)));
-            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("recentToAvoid"));
+            Assert.That(result.Value.SelectionTrace.RecordHint, Does.Contain("structural signature"));
         });
     }
 
@@ -212,9 +266,9 @@ public sealed class ReadDocumentTests
             Assert.That(first.Value!.InspirationSeeds.Select(seed => seed.Name), Is.Not.EqualTo(second.Value!.InspirationSeeds.Select(seed => seed.Name)));
             Assert.That(first.Value.SelectionTrace!.RequestIndex, Is.EqualTo(0));
             Assert.That(second.Value!.SelectionTrace!.RequestIndex, Is.EqualTo(1));
-            Assert.That(first.Value.RecentToAvoid, Has.Count.EqualTo(1));
-            Assert.That(first.Value.RecentToAvoid[0].ConceptLabel, Is.EqualTo("Paper archive resolve"));
-            Assert.That(first.Value.SelectionHint, Does.Contain("recentToAvoid"));
+            Assert.That(first.Value.RecentDirections, Has.Count.EqualTo(1));
+            Assert.That(first.Value.RecentDirections[0].ConceptLabel, Is.EqualTo("Paper archive resolve"));
+            Assert.That(first.Value.SelectionHint, Does.Contain("recentDirections"));
         });
     }
 
@@ -847,14 +901,14 @@ public sealed class ReadDocumentTests
             Assert.That(all.Value.FrameCenter.X, Is.EqualTo(960));
             Assert.That(all.Value.FrameCenter.Y, Is.EqualTo(540));
             Assert.That(all.Value.TimeFiltered, Is.True);
-            Assert.That(titleBounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(titleBounds.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
             Assert.That(titleBounds.LocalBounds.Width, Is.GreaterThan(0));
             Assert.That(titleBounds.LocalBounds.Height, Is.GreaterThan(0));
             Assert.That(titleBounds.TransformedBounds.Left, Is.LessThan(960));
             Assert.That(titleBounds.TransformedBounds.Right, Is.GreaterThan(960));
             Assert.That(titleBounds.TransformedBounds.Top, Is.LessThan(540));
             Assert.That(titleBounds.TransformedBounds.Bottom, Is.GreaterThan(540));
-            Assert.That(plateBounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(plateBounds.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
             Assert.That(plateBounds.LocalBounds.Width, Is.EqualTo(200).Within(0.01));
             Assert.That(plateBounds.LocalBounds.Height, Is.EqualTo(80).Within(0.01));
             Assert.That(plateBounds.UserTranslate!.X, Is.EqualTo(120).Within(0.01));
@@ -913,7 +967,7 @@ public sealed class ReadDocumentTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(bounds.MeasurementKind, Is.EqualTo("render-node-operation-bounds"));
+            Assert.That(bounds.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
             Assert.That(bounds.TransformedBounds.Left, Is.EqualTo(50).Within(0.01));
             Assert.That(bounds.TransformedBounds.Top, Is.LessThan(75));
             Assert.That(bounds.TransformedBounds.Right, Is.GreaterThan(150));
@@ -922,6 +976,86 @@ public sealed class ReadDocumentTests
             Assert.That(bounds.LocalBounds.Height, Is.EqualTo(bounds.TransformedBounds.Height).Within(0.01));
             Assert.That(bounds.Note, Does.Contain("DrawableRenderNode"));
         });
+    }
+
+    [Test]
+    public void Measure_object_bounds_measures_a_node_graph_whose_measure_node_needs_a_target_domain()
+    {
+        var scene = new Scene(320, 180, "graph-measure-node")
+        {
+            Duration = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
+        };
+        NodeGraphDrawable drawable = BuildMeasureNodeGraphDrawable();
+        var element = new Element
+        {
+            Name = "Graph element",
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        };
+        element.AddObject(drawable);
+        scene.Children.Add(element);
+
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        var tools = new QueryTools(manager);
+
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
+            objectId: drawable.Id.ToString(),
+            timeSeconds: 0.0);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        ObjectBoundsMeasurement measured = result.Value!.Objects.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(measured.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
+
+            // The effect's own extent is symbolic, so it resolves to the owning target domain: the frame.
+            // The reported bounds are the frame rather than the 40x20 source, and that is the answer, not
+            // a degraded one - the effect really can write anywhere in the domain it was given.
+            Assert.That(measured.TransformedBounds.Left, Is.EqualTo(0).Within(0.5));
+            Assert.That(measured.TransformedBounds.Top, Is.EqualTo(0).Within(0.5));
+            Assert.That(measured.TransformedBounds.Width, Is.EqualTo(320).Within(0.5));
+            Assert.That(measured.TransformedBounds.Height, Is.EqualTo(180).Within(0.5));
+        });
+    }
+
+    // GeometryShape -> ShakeEffect -> Output, with a MeasureNode reading the same effect output.
+    // ShakeEffect records a CustomEffect with no transformBounds, so the effect segment's extent stays
+    // symbolic and only an owning target domain can resolve it.
+    private static NodeGraphDrawable BuildMeasureNodeGraphDrawable()
+    {
+        var drawable = new NodeGraphDrawable { Name = "Graph" };
+        GraphModel model = drawable.Model.CurrentValue!;
+
+        var geometryNode = new RectGeometryNode();
+        geometryNode.Object.Width.CurrentValue = 40;
+        geometryNode.Object.Height.CurrentValue = 20;
+        var shapeNode = new GeometryShapeNode();
+        SetUnconnectedInput(shapeNode.Fill, Brushes.White);
+        var shakeNode = new FilterEffectNode<ShakeEffect>();
+        var outputNode = new OutputNode();
+        var measureNode = new MeasureNode();
+        model.Nodes.Add(geometryNode);
+        model.Nodes.Add(shapeNode);
+        model.Nodes.Add(shakeNode);
+        model.Nodes.Add(outputNode);
+        model.Nodes.Add(measureNode);
+
+        // ConfigureNode keeps its render-chain ports unexposed: Items[0] = Output, Items[1] = list Input.
+        var shakeChainInput = (IInputPort)shakeNode.Items[1];
+        var shakeChainOutput = (IOutputPort)shakeNode.Items[0];
+        model.Connect(shapeNode.Geometry, geometryNode.OutputPort);
+        model.Connect(shakeChainInput, shapeNode.Output);
+        model.Connect(outputNode.InputPort, shakeChainOutput);
+        model.Connect(measureNode.Input, shakeChainOutput);
+        return drawable;
+    }
+
+    private static void SetUnconnectedInput<T>(InputPort<T> port, T value)
+    {
+        ((DefaultInputPort<T>)port).GetProperty()!.SetValue(value);
     }
 
     [Test]

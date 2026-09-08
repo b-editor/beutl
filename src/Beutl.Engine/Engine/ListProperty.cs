@@ -187,6 +187,7 @@ public class ListProperty<T> : IListProperty<T>
     {
     }
 
+    public IValidator? GetValidator() => null;
 
     #region ICoreList<T> Members
 

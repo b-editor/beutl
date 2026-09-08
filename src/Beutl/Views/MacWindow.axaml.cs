@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Language;
 using Beutl.Services;
 using Beutl.ViewModels;
 using DynamicData;
@@ -128,25 +129,41 @@ public sealed partial class MacWindow : Window
         }
     }
 
-    private void InitExtMenuItems(MainViewModel viewModel)
+    // Resolved by header rather than position: a menu edit used to shift these silently, and the
+    // catch below then dropped every extension entry instead of surfacing anything.
+    internal static NativeMenuItem? FindMenuItem(NativeMenu? menu, string header)
+    {
+        return menu?.Items
+            .OfType<NativeMenuItem>()
+            .FirstOrDefault(item => string.Equals(item.Header, header, StringComparison.Ordinal));
+    }
+
+    internal void InitExtMenuItems(MainViewModel viewModel)
     {
         NativeMenuItem? viewMenuItem = null;
         NativeMenu? editorTabMenu = null;
         NativeMenu? toolTabMenu = null;
         NativeMenu? toolWindowMenu = null;
+        NativeMenu? dockLayoutPresetMenu = null;
         try
         {
-            var rootMenu = NativeMenu.GetMenu(this)!;
-            viewMenuItem = (NativeMenuItem)rootMenu.Items[2];
-            editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
-            toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
-            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
+            NativeMenu rootMenu = NativeMenu.GetMenu(this)!;
+            viewMenuItem = FindMenuItem(rootMenu, Strings.View);
+            editorTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Editors)?.Menu;
+            toolTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Tools)?.Menu;
+            toolWindowMenu = FindMenuItem(rootMenu, Strings.Tools)?.Menu;
+            dockLayoutPresetMenu = FindMenuItem(viewMenuItem?.Menu, Strings.ApplyDockLayout)?.Menu;
         }
         catch
         {
         }
 
         if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
+
+        if (dockLayoutPresetMenu != null)
+        {
+            InitDockLayoutPresetMenu(viewModel, dockLayoutPresetMenu);
+        }
 
         // ToolTabExtensionをメニューに表示する
         NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
@@ -287,6 +304,54 @@ public sealed partial class MacWindow : Window
             toolWindowMenu.Items.Clear);
     }
 
+    private static void InitDockLayoutPresetMenu(MainViewModel viewModel, NativeMenu menu)
+    {
+        // Renaming mutates Name.Value in place without a collection change, so each item's header
+        // follows its name observable. The subscriptions are keyed by menu item so removal and
+        // clear can dispose them.
+        var nameSubscriptions = new Dictionary<NativeMenuItem, IDisposable>();
+
+        void AddItem(int index, DockLayoutPresetItem item)
+        {
+            var menuItem = new NativeMenuItem
+            {
+                Header = item.Name.Value,
+                Command = viewModel.MenuBar.ApplyDockLayout,
+                CommandParameter = item
+            };
+
+            nameSubscriptions[menuItem] = item.Name.Subscribe(name => menuItem.Header = name);
+            menu.Items.Insert(index, menuItem);
+        }
+
+        void RemoveAt(int index)
+        {
+            if (menu.Items[index] is NativeMenuItem menuItem
+                && nameSubscriptions.Remove(menuItem, out IDisposable? subscription))
+            {
+                subscription.Dispose();
+            }
+
+            menu.Items.RemoveAt(index);
+        }
+
+        void Clear()
+        {
+            foreach (IDisposable subscription in nameSubscriptions.Values)
+            {
+                subscription.Dispose();
+            }
+
+            nameSubscriptions.Clear();
+            menu.Items.Clear();
+        }
+
+        viewModel.MenuBar.DockLayoutPresets.ForEachItem(
+            AddItem,
+            (i, _) => RemoveAt(i),
+            Clear);
+    }
+
     private async Task OpenToolWindowAsync(ToolWindowExtension extension)
     {
         try
@@ -378,16 +443,20 @@ public sealed partial class MacWindow : Window
             }
         }
 
+        if (DataContext is MainViewModel viewModel)
+        {
+            if (!viewModel.TryDisposeForWindowClose())
+            {
+                e.Cancel = true;
+                return;
+            }
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
-
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.Dispose();
-        }
     }
 
     private async Task StopCaptureAndCloseAsync(MainView mv)

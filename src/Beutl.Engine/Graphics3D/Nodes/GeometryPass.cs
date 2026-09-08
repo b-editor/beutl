@@ -69,14 +69,7 @@ public sealed class GeometryPass : GraphicsNode3D
 
     private void CreateGBuffer(int width, int height)
     {
-        // Dispose old resources
-        Framebuffer?.Dispose();
-        RenderPass?.Dispose();
-        PositionTexture?.Dispose();
-        NormalMetallicTexture?.Dispose();
-        AlbedoRoughnessTexture?.Dispose();
-        EmissionAOTexture?.Dispose();
-        DepthTexture?.Dispose();
+        DisposeGBuffer();
 
         // Create G-Buffer textures
         PositionTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
@@ -132,15 +125,13 @@ public sealed class GeometryPass : GraphicsNode3D
         ];
 
         // Begin geometry pass
-        BeginPass(clearColors);
-
-        // Render each object
-        foreach (var obj in objects)
+        using (UsePass(clearColors))
         {
-            RenderObject(renderContext3D, obj, Matrix4x4.Identity);
+            foreach (var obj in objects)
+            {
+                RenderObject(renderContext3D, obj, Matrix4x4.Identity);
+            }
         }
-
-        EndPass();
     }
 
     private void RenderObject(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 parentMatrix)
@@ -159,45 +150,11 @@ public sealed class GeometryPass : GraphicsNode3D
         }
 
         // Render this object's mesh if any
-        RenderMesh(renderContext3D, obj, worldMatrix);
+        MeshDrawHelper.DrawWithMaterial(renderContext3D, obj, worldMatrix, _defaultMaterialResource);
     }
 
-    private void RenderMesh(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 worldMatrix)
+    private void DisposeGBuffer()
     {
-        // Get mesh resource from object
-        var meshResource = obj.GetMesh();
-        if (meshResource == null)
-            return;
-
-        // Ensure GPU buffers are created/updated
-        MeshBufferUploadHelper.Ensure(Context, meshResource);
-
-        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
-            return;
-
-        // Get material resource (use default if not set)
-        var materialResource = obj.Material ?? _defaultMaterialResource;
-        if (materialResource == null)
-            return;
-
-        // Ensure material pipeline is created
-        materialResource.EnsurePipeline(renderContext3D);
-
-        // Bind material (pipeline, uniforms, descriptor sets) with combined matrix
-        materialResource.Bind(renderContext3D, obj, worldMatrix);
-
-        // Bind vertex and index buffers
-        RenderPass!.BindVertexBuffer(meshResource.VertexBuffer);
-        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-        // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
-    }
-
-    protected override void OnDispose()
-    {
-        _defaultMaterialResource?.Dispose();
-
         Framebuffer?.Dispose();
         RenderPass?.Dispose();
         PositionTexture?.Dispose();
@@ -205,5 +162,12 @@ public sealed class GeometryPass : GraphicsNode3D
         AlbedoRoughnessTexture?.Dispose();
         EmissionAOTexture?.Dispose();
         DepthTexture?.Dispose();
+    }
+
+    protected override void OnDispose()
+    {
+        _defaultMaterialResource?.Dispose();
+
+        DisposeGBuffer();
     }
 }

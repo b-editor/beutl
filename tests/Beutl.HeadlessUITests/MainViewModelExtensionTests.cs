@@ -32,6 +32,17 @@ public class MainViewModelExtensionTests
     }
 
     [AvaloniaTest]
+    public async Task ToolTabExtensions_include_the_dock_layout_tab()
+    {
+        await ResetProjectAsync();
+        MainViewModel vm = SharedMainViewModel;
+
+        // The tab is how the user saves and applies dock layouts, so it has to be listed in
+        // the tool tab menu.
+        Assert.That(vm.ToolTabExtensions, Does.Contain(DockLayoutTabExtension.Instance));
+    }
+
+    [AvaloniaTest]
     public async Task EditorExtensions_include_the_scene_editor()
     {
         await ResetProjectAsync();

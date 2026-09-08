@@ -18,7 +18,7 @@ public sealed class FileBrowserTabExtension : ToolTabExtension
 
     public override string? Header => Strings.FileBrowser;
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override DockAnchor DefaultAnchor => DockAnchor.Left;
 

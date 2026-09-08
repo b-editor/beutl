@@ -99,6 +99,7 @@ public class DarkBorderThemeExtensionTests
         ClearRegistry();
         FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
         IResourceProvider[] mergedOnEntry = [.. Application.Current.Resources.MergedDictionaries];
+        ThemeVariant? variantOnEntry = Application.Current.RequestedThemeVariant;
         var config = new ViewConfig();
         var service = new ThemeService(theme, config);
         try
@@ -137,7 +138,7 @@ public class DarkBorderThemeExtensionTests
 
             theme.CustomAccentColor = null;
             AccentResolution.ApplyTextOnAccent(Application.Current.Resources, null);
-            Application.Current.RequestedThemeVariant = ThemeVariant.Dark;
+            Application.Current.RequestedThemeVariant = variantOnEntry;
         }
     }
 
@@ -146,6 +147,7 @@ public class DarkBorderThemeExtensionTests
     {
         ClearRegistry();
         FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
+        ThemeVariant? variantOnEntry = Application.Current.RequestedThemeVariant;
         var config = new ViewConfig { Theme = BuiltinThemeIds.Light };
         var service = new ThemeService(theme, config);
         var extension = new DarkBorderThemeExtension();
@@ -178,7 +180,7 @@ public class DarkBorderThemeExtensionTests
             extension.Unload();
             ClearRegistry();
             Dispatcher.UIThread.RunJobs();
-            Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+            Application.Current!.RequestedThemeVariant = variantOnEntry;
         }
     }
 

@@ -98,6 +98,15 @@ public class AnimatablePropertyTests
     }
 
     [Test]
+    public void GetValidator_ReturnsTheAttachedValidator()
+    {
+        var validator = new MultipleValidator<int>([]);
+        var property = new AnimatableProperty<int>(0, validator);
+
+        Assert.That(property.GetValidator(), Is.SameAs(validator));
+    }
+
+    [Test]
     public void CurrentValue_NewValue_RaisesValueChangedAndEdited()
     {
         var property = Make(0);

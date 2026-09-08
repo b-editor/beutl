@@ -3,112 +3,13 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
-
-public sealed record RenderStillResponse(
-    string OutputPath,
-    int Width,
-    int Height,
-    string Time,
-    IReadOnlyList<string> Warnings,
-    StillFrameVisibilityAnalysis? VisibilityAnalysis = null,
-    IReadOnlyList<RenderStillActiveElement>? ActiveElements = null);
-
-public sealed record StillFrameVisibilityAnalysis(
-    int TotalPixels,
-    int VisiblePixels,
-    double VisiblePixelRatio,
-    int ForegroundPixels,
-    double ForegroundPixelRatio,
-    double OccupiedBoundsRatio,
-    double MaxQuadrantForegroundRatio,
-    int Left,
-    int Top,
-    int Right,
-    int Bottom,
-    int MinLuma,
-    int MaxLuma,
-    double MeanLuma,
-    double LumaStandardDeviation,
-    double BackgroundLuma,
-    int VisibilityThreshold,
-    int ForegroundDeltaThreshold,
-    IReadOnlyList<string> Warnings);
-
-public sealed record RenderStillActiveElement(
-    string Id,
-    string Name,
-    string Start,
-    string Length,
-    int ZIndex,
-    int ObjectCount);
-
-public sealed record RenderedTextBounds(
-    Element Element,
-    TextBlock TextBlock,
-    Rect Bounds);
-
-public sealed class RenderedFrameAnalysis : IDisposable
-{
-    public RenderedFrameAnalysis(TimeSpan time, Bitmap bitmap, IReadOnlyList<RenderedTextBounds> textBounds)
-    {
-        Time = time;
-        Bitmap = bitmap;
-        TextBounds = textBounds;
-    }
-
-    public TimeSpan Time { get; }
-
-    public Bitmap Bitmap { get; }
-
-    public IReadOnlyList<RenderedTextBounds> TextBounds { get; }
-
-    public void Dispose()
-    {
-        Bitmap.Dispose();
-    }
-}
-
-public sealed record RenderStoryboardResponse(
-    string ContactSheetPath,
-    IReadOnlyList<RenderStoryboardShot> Shots,
-    IReadOnlyList<CutEyeTrace> CutEyeTrace,
-    IReadOnlyList<string> ReviewNotes);
-
-public sealed record RenderStoryboardShot(
-    string Name,
-    double TimeSeconds,
-    string StillPath,
-    StillFrameVisibilityAnalysis? VisibilityAnalysis,
-    string Kind = "shot",
-    int SubdivisionLevel = 0);
-
-public sealed record StoryboardShotInput(
-    string Name,
-    double TimeSeconds);
-
-public sealed record NormalizedFocalPoint(
-    double X,
-    double Y);
-
-public sealed record CutEyeTrace(
-    string LeftFrame,
-    string RightFrame,
-    NormalizedFocalPoint LeftFocalPoint,
-    NormalizedFocalPoint RightFocalPoint,
-    double DisplacementRatio,
-    bool ExceedsEyeTraceBudget);
-
-public sealed record RenderStoryboardResult(
-    string Status,
-    string? JobId,
-    RenderStoryboardResponse? Result);
 
 public sealed class StillRenderer
 {
@@ -128,11 +29,10 @@ public sealed class StillRenderer
             Directory.CreateDirectory(directory);
         }
 
-        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         using Bitmap snapshot = await RenderBitmapAsync(
             scene,
             time,
-            normalizedScale,
+            renderScale,
             cancellationToken).ConfigureAwait(false);
 
         if (!snapshot.Save(outputPath, EncodedImageFormat.Png))
@@ -151,40 +51,44 @@ public sealed class StillRenderer
             CreateActiveElementSummaries(scene, time));
     }
 
-    public async ValueTask<Bitmap> RenderBitmapAsync(
+    public ValueTask<Bitmap> RenderBitmapAsync(
         Scene scene,
         TimeSpan time,
         float renderScale,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(scene);
-        if (ContainsGpuOnlyContent(scene, time)
-            && !await Has3DGraphicsContextAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new RenderingUnavailableException(
-                "The scene contains 3D content, but no GPU context with 3D rendering support is available.");
-        }
-
-        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
-        return await RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            // Agent still render is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would decode cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
-
-            ThrowIfSourcesMissing(scene, time + scene.Start);
-            var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
-            renderer.Render(frame);
-            return renderer.Snapshot();
-        }, ct: cancellationToken).ConfigureAwait(false);
+        return RenderRenderedFrameAsync(
+            scene,
+            time,
+            renderScale,
+            static (_, renderer, _) => renderer.Snapshot(),
+            cancellationToken);
     }
 
-    public async ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
+    public ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
         Scene scene,
         TimeSpan time,
         float renderScale,
+        CancellationToken cancellationToken)
+    {
+        return RenderRenderedFrameAsync(
+            scene,
+            time,
+            renderScale,
+            static (renderedScene, renderer, renderedTime) =>
+            {
+                IReadOnlyList<RenderedTextBounds> textBounds =
+                    CreateRenderedTextBounds(renderedScene, renderer, renderedTime);
+                return new RenderedFrameAnalysis(renderedTime, renderer.Snapshot(), textBounds);
+            },
+            cancellationToken);
+    }
+
+    private static async ValueTask<TResult> RenderRenderedFrameAsync<TResult>(
+        Scene scene,
+        TimeSpan time,
+        float renderScale,
+        Func<Scene, SceneRenderer, TimeSpan, TResult> project,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -198,17 +102,12 @@ public sealed class StillRenderer
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            // Agent still render is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would decode cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
 
             ThrowIfSourcesMissing(scene, time + scene.Start);
             var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
             renderer.Render(frame);
-            IReadOnlyList<RenderedTextBounds> textBounds = CreateRenderedTextBounds(scene, renderer, time);
-            return new RenderedFrameAnalysis(time, renderer.Snapshot(), textBounds);
+            return project(scene, renderer, time);
         }, ct: cancellationToken).ConfigureAwait(false);
     }
 
@@ -326,11 +225,10 @@ public sealed class StillRenderer
             return EmptyAnalysis("Rendered frame has no pixels.", nearBlackThreshold, maxForegroundDeltaThreshold);
         }
 
-        int colorByteCount = GetColorByteCount(bitmap.ColorType, bitmap.BytesPerPixel);
-        if (colorByteCount <= 0)
+        if (GetLumaPixelReader(bitmap) is not { } reader)
         {
             return EmptyAnalysis(
-                "Rendered frame uses a pixel format that could not be analyzed for visibility.",
+                $"Rendered frame uses pixel format {bitmap.ColorType}, which the visibility analyzer cannot decode.",
                 nearBlackThreshold,
                 maxForegroundDeltaThreshold);
         }
@@ -348,16 +246,9 @@ public sealed class StillRenderer
             for (int x = 0; x < bitmap.Width; x++)
             {
                 int pixelOffset = x * bitmap.BytesPerPixel;
-                int maxColorByte = 0;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    byte value = row[pixelOffset + channel];
-                    maxColorByte = Math.Max(maxColorByte, value);
-                    luma += value;
-                }
-
-                luma /= colorByteCount;
+                reader.Read(row, pixelOffset, out byte red, out byte green, out byte blue);
+                int maxColorByte = Math.Max(red, Math.Max(green, blue));
+                int luma = Rec709Luma(red, green, blue);
                 if (maxColorByte > nearBlackThreshold)
                 {
                     visiblePixels++;
@@ -395,13 +286,8 @@ public sealed class StillRenderer
             for (int x = 0; x < bitmap.Width; x++)
             {
                 int pixelOffset = x * bitmap.BytesPerPixel;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    luma += row[pixelOffset + channel];
-                }
-
-                luma /= colorByteCount;
+                reader.Read(row, pixelOffset, out byte fr, out byte fg, out byte fb);
+                int luma = Rec709Luma(fr, fg, fb);
                 if (Math.Abs(luma - backgroundLuma) <= foregroundDeltaThreshold)
                 {
                     continue;
@@ -557,8 +443,7 @@ public sealed class StillRenderer
             return new NormalizedFocalPoint(0.5, 0.5);
         }
 
-        int colorByteCount = GetColorByteCount(bitmap.ColorType, bitmap.BytesPerPixel);
-        if (colorByteCount <= 0)
+        if (GetLumaPixelReader(bitmap) is not { } reader)
         {
             return FocalFromVisibilityBounds(bitmap, visibility);
         }
@@ -577,13 +462,8 @@ public sealed class StillRenderer
             {
                 int index = (y * bitmap.Width) + x;
                 int offset = x * bitmap.BytesPerPixel;
-                int luma = 0;
-                for (int channel = 0; channel < colorByteCount; channel++)
-                {
-                    luma += row[offset + channel];
-                }
-
-                luma /= colorByteCount;
+                reader.Read(row, offset, out byte pr, out byte pg, out byte pb);
+                int luma = Rec709Luma(pr, pg, pb);
                 lumaByPixel[index] = (byte)Math.Clamp(luma, 0, byte.MaxValue);
                 double delta = Math.Abs(luma - visibility.BackgroundLuma);
                 if (delta <= visibility.ForegroundDeltaThreshold)
@@ -782,34 +662,114 @@ public sealed class StillRenderer
         }
     }
 
-    private static int GetColorByteCount(BitmapColorType colorType, int bytesPerPixel)
+    private enum LumaPixelLayout
     {
-        return colorType switch
-        {
-            BitmapColorType.Alpha8 => bytesPerPixel,
-            BitmapColorType.Rgb565 => bytesPerPixel,
-            BitmapColorType.Argb4444 => bytesPerPixel,
-            BitmapColorType.Rgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Rgb888x => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Bgra8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.Rgba1010102 => bytesPerPixel,
-            BitmapColorType.Bgra1010102 => bytesPerPixel,
-            BitmapColorType.Rgb101010x => bytesPerPixel,
-            BitmapColorType.Bgr101010x => bytesPerPixel,
-            BitmapColorType.Bgr101010xXR => bytesPerPixel,
-            BitmapColorType.Gray8 => Math.Min(1, bytesPerPixel),
-            BitmapColorType.RgbaF16 => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbaF16Clamped => Math.Min(6, bytesPerPixel),
-            BitmapColorType.RgbaF32 => Math.Min(12, bytesPerPixel),
-            BitmapColorType.Rg88 => bytesPerPixel,
-            BitmapColorType.AlphaF16 => bytesPerPixel,
-            BitmapColorType.RgF16 => bytesPerPixel,
-            BitmapColorType.Alpha16 => bytesPerPixel,
-            BitmapColorType.Rg1616 => bytesPerPixel,
-            BitmapColorType.Rgba16161616 => Math.Min(6, bytesPerPixel),
-            BitmapColorType.Srgba8888 => Math.Min(3, bytesPerPixel),
-            BitmapColorType.R8Unorm => Math.Min(1, bytesPerPixel),
-            _ => Math.Min(3, bytesPerPixel)
-        };
+        None,
+        Rgb8,
+        Bgr8,
+        Gray8,
+        RgbaHalf
     }
+
+    // The renderer hands back RgbaF16 — linear, premultiplied half-floats — so reading bytes
+    // positionally yields a number that looks like a luma and is not one. Every layout decodes to
+    // sRGB-encoded 0..255 so reported values match the PNG a human looks at.
+    private readonly record struct LumaPixelReader(LumaPixelLayout Layout, bool Premultiplied)
+    {
+        public void Read(Span<byte> row, int pixelOffset, out byte r, out byte g, out byte b)
+        {
+            switch (Layout)
+            {
+                case LumaPixelLayout.Rgb8:
+                    r = row[pixelOffset];
+                    g = row[pixelOffset + 1];
+                    b = row[pixelOffset + 2];
+                    return;
+                case LumaPixelLayout.Bgr8:
+                    r = row[pixelOffset + 2];
+                    g = row[pixelOffset + 1];
+                    b = row[pixelOffset];
+                    return;
+                case LumaPixelLayout.Gray8:
+                    r = g = b = row[pixelOffset];
+                    return;
+                default:
+                    ushort redBits = BitConverter.ToUInt16(row.Slice(pixelOffset, 2));
+                    ushort greenBits = BitConverter.ToUInt16(row.Slice(pixelOffset + 2, 2));
+                    ushort blueBits = BitConverter.ToUInt16(row.Slice(pixelOffset + 4, 2));
+                    if (Premultiplied)
+                    {
+                        byte[] table = LinearHalfEncodeTable;
+                        r = table[redBits];
+                        g = table[greenBits];
+                        b = table[blueBits];
+                    }
+                    else
+                    {
+                        // Straight alpha: weight by coverage so a barely-visible pixel does not
+                        // register as fully lit. Premultiplied values already carry that weight,
+                        // which is what compositing the frame over black produces.
+                        float alpha = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 6, 2));
+                        r = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(redBits) * alpha);
+                        g = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(greenBits) * alpha);
+                        b = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(blueBits) * alpha);
+                    }
+
+                    return;
+            }
+        }
+    }
+
+    private static byte LinearToSrgbByte(float linear)
+    {
+        if (!float.IsFinite(linear))
+        {
+            return 0;
+        }
+
+        double c = Math.Clamp(linear, 0, 1);
+        double encoded = c <= 0.0031308 ? c * 12.92 : (1.055 * Math.Pow(c, 1 / 2.4)) - 0.055;
+        return (byte)Math.Clamp(Math.Round(encoded * 255), 0, 255);
+    }
+
+    // Normal render snapshots are linear RgbaF16. Cache the transfer function by raw half bits so
+    // each full-frame visibility/focal pass performs table reads instead of millions of Math.Pow calls.
+    private static byte[]? s_linearHalfEncodeTable;
+
+    private static byte[] LinearHalfEncodeTable => s_linearHalfEncodeTable ??= BuildLinearHalfEncodeTable();
+
+    private static byte[] BuildLinearHalfEncodeTable()
+    {
+        var table = new byte[ushort.MaxValue + 1];
+        for (int bits = 0; bits <= ushort.MaxValue; bits++)
+        {
+            table[bits] = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf((ushort)bits));
+        }
+
+        return table;
+    }
+
+    private static int Rec709Luma(byte r, byte g, byte b)
+    {
+        return (int)Math.Round((0.2126 * r) + (0.7152 * g) + (0.0722 * b));
+    }
+
+    private static LumaPixelReader? GetLumaPixelReader(Bitmap bitmap)
+    {
+        LumaPixelLayout layout = bitmap.ColorType switch
+        {
+            BitmapColorType.Rgba8888 or BitmapColorType.Rgb888x or BitmapColorType.Srgba8888
+                when bitmap.BytesPerPixel >= 3 => LumaPixelLayout.Rgb8,
+            BitmapColorType.Bgra8888 when bitmap.BytesPerPixel >= 3 => LumaPixelLayout.Bgr8,
+            BitmapColorType.Gray8 or BitmapColorType.R8Unorm when bitmap.BytesPerPixel >= 1 => LumaPixelLayout.Gray8,
+            BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
+                when bitmap.BytesPerPixel >= 8 => LumaPixelLayout.RgbaHalf,
+            _ => LumaPixelLayout.None
+        };
+
+        return layout == LumaPixelLayout.None
+            ? null
+            : new LumaPixelReader(layout, bitmap.AlphaType == BitmapAlphaType.Premul);
+    }
+
 }

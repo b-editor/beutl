@@ -360,6 +360,7 @@ internal sealed class Renderer3D : IRenderer3D
 
     public SKSurface? CreateSkiaSurface()
     {
+        _outputTexture?.PrepareForSkiaSampling(requireCompletion: false);
         return _outputTexture?.CreateSkiaSurface();
     }
 

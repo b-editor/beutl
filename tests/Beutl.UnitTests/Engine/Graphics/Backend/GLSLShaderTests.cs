@@ -1,8 +1,13 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using Beutl.Media.Pixel;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -29,6 +34,20 @@ public class GLSLShaderTests
         layout(location = 0) out vec4 outColor;
         void main() {
             outColor = NOT_A_VALID_GLSL_TOKEN;
+        }
+        """;
+
+    private const string DiscardLeftHalfFragment = """
+        #version 450
+        layout(location = 0) in vec2 fragCoord;
+        layout(location = 0) out vec4 outColor;
+        layout(set = 0, binding = 0) uniform sampler2D srcTexture;
+        layout(push_constant) uniform PC { float dummy; } pc;
+        void main() {
+            if (fragCoord.x < 0.5) {
+                discard;
+            }
+            outColor = vec4(0.0, 1.0, 0.0, 1.0);
         }
         """;
 
@@ -125,7 +144,7 @@ public class GLSLShaderTests
             // Set up a 4x4 red EffectTarget so we can detect the shader's blue overwrite.
             using var sourceRenderTarget = RenderTarget.Create(4, 4);
             Assume.That(sourceRenderTarget, Is.Not.Null);
-            using (var canvas = new ImmediateCanvas(sourceRenderTarget!))
+            using (var canvas = new ImmediateCanvas(sourceRenderTarget!, RenderIntent.Preview))
             {
                 canvas.Clear(Colors.Red);
             }
@@ -160,6 +179,279 @@ public class GLSLShaderTests
         });
     }
 
-    private static CustomFilterEffectContext CreateCustomContext(EffectTargets targets)
-        => new CustomFilterEffectContext(targets);
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary()
+    {
+        IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var targets = new EffectTargets();
+            using RenderTarget source = RenderTarget.Create(4, 4)
+                ?? throw new InvalidOperationException("Could not create the GLSL source target.");
+            using (var canvas = new ImmediateCanvas(source, RenderIntent.Preview))
+            {
+                canvas.Clear(Colors.Red);
+            }
+
+            targets.Add(new EffectTarget(source, new Rect(0, 0, 4, 4)));
+            var customContext = CreateCustomContext(targets);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+
+            // Exclude setup transitions and shader creation from the measured chain.
+            graphicsContext.WaitIdle();
+            var events = new List<VulkanCommandPoolEvent>();
+            var allocations = new List<TextureFormat>();
+            Bitmap result;
+            using (VulkanContext.ObserveTextureAllocations(allocations.Add))
+            using (VulkanCommandPool.Observe(events.Add))
+            {
+                shader.Apply<DummyPush>(customContext, new DummyPush());
+                shader.Apply<DummyPush>(customContext, static _ => new DummyPush());
+                shader.ApplyMultiPass<DummyPush>(customContext, 3, static (_, _) => new DummyPush());
+                result = targets[0].RenderTarget!.Snapshot();
+            }
+            using (result)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(
+                        events.Count(static item => item == VulkanCommandPoolEvent.Submission),
+                        Is.EqualTo(3),
+                        "Each native effect must submit its output, while multi-pass work stays in one batch.");
+                    Assert.That(
+                        events.Count(static item => item == VulkanCommandPoolEvent.FenceWait),
+                        Is.EqualTo(1),
+                        "Only the CPU readback boundary may wait for the native effect chain.");
+                    Assert.That(
+                        allocations,
+                        Does.Contain(TextureFormat.RGBA16Float),
+                        "The allocation observer must see the filter destinations.");
+                    Assert.That(
+                        allocations,
+                        Has.None.EqualTo(TextureFormat.Depth32Float),
+                        "Fullscreen filter passes must not allocate unused depth textures.");
+
+                    RgbaF16 pixel = result.GetPixelSpan<RgbaF16>()[0];
+                    Assert.That((float)pixel.R, Is.EqualTo(0).Within(0.01f));
+                    Assert.That((float)pixel.G, Is.EqualTo(0).Within(0.01f));
+                    Assert.That((float)pixel.B, Is.EqualTo(1).Within(0.01f));
+                    Assert.That((float)pixel.A, Is.EqualTo(1).Within(0.01f));
+                });
+            }
+        });
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void ApplyMultiPass_DeclinedPreviewScratchKeepsTheSourceAndReleasesEarlierLeases(
+        int declineAt)
+    {
+        IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = RenderTarget.Create(4, 4)
+                ?? throw new InvalidOperationException("Could not create the GLSL source target.");
+            var factory = new FailAtTargetFactory(declineAt);
+            using var pool = new RenderTargetPool(factory);
+            using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview, source);
+            using var targets = new EffectTargets
+            {
+                new EffectTarget(source, new Rect(0, 0, 4, 4)),
+            };
+            EffectTarget original = targets[0];
+            var context = new CustomFilterEffectContext(
+                targets,
+                RenderIntent.Preview,
+                RenderRequestPurpose.Auxiliary,
+                renderTargetLeaseSession: session);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+
+            Assert.That(
+                () => shader.ApplyMultiPass<DummyPush>(context, 3, static (_, _) => new DummyPush()),
+                Throws.Nothing);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(targets[0], Is.SameAs(original));
+                Assert.That(session.ContentDropObserved, Is.True);
+                Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
+                Assert.That(factory.CreateCalls, Is.EqualTo(declineAt + 1));
+            });
+            graphicsContext.WaitIdle();
+            shader.Dispose();
+            targets.Dispose();
+            session.Dispose();
+            pool.Dispose();
+            source.Dispose();
+            GpuResourceReclaimQueue.FlushAndDrain();
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void RepeatedNativeEffectChain_AllocatesOnlyWhileWarmingTheTargetPool()
+    {
+        IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            GpuResourceReclaimQueue.FlushAndDrain();
+            using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
+            using var registry = new RenderTargetPool(factory: null);
+            using var shader = GLSLShader.Create(ConstantBlueFragment);
+
+            graphicsContext.WaitIdle();
+            List<TextureFormat> firstAllocations = RunPooledEffectChain(source, registry, shader);
+            Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0));
+            GpuResourceReclaimQueue.FlushAndDrain();
+            List<TextureFormat> secondAllocations = RunPooledEffectChain(source, registry, shader);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    firstAllocations.Count(static format => format == TextureFormat.RGBA16Float),
+                    Is.EqualTo(4),
+                    "The first chain must allocate its two destinations, two ping-pong buffers, and final destination with one intra-chain reuse.");
+                Assert.That(
+                    secondAllocations,
+                    Has.None.EqualTo(TextureFormat.RGBA16Float),
+                    "An identical warmed chain must use only retained pool slots.");
+                Assert.That(registry.Statistics.Creates, Is.EqualTo(4));
+                Assert.That(registry.Statistics.Reuses, Is.GreaterThanOrEqualTo(4));
+            });
+            GpuResourceReclaimQueue.FlushAndDrain();
+        });
+    }
+
+    [Test]
+    [Category("GpuPassFusionGpu")]
+    [Category(TestCategories.KnownVulkanSkiaLayoutInterop)]
+    public void DiscardingShader_ClearsAReusedTargetBeforeRendering()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
+            using var registry = new RenderTargetPool(factory: null);
+            using var warmupShader = GLSLShader.Create(ConstantBlueFragment);
+            using var discardingShader = GLSLShader.Create(DiscardLeftHalfFragment);
+
+            using (RenderTargetLeaseSession warmup = registry.BeginSession(
+                       RenderIntent.Delivery,
+                       source))
+            using (var warmupTargets = new EffectTargets
+                   {
+                       new EffectTarget(source, new Rect(0, 0, 4, 4)),
+                   })
+            {
+                var warmupContext = CreateCustomContext(warmupTargets, warmup);
+                warmupShader.Apply<DummyPush>(warmupContext, new DummyPush());
+                using Bitmap completedWarmup = warmupTargets[0].RenderTarget!.Snapshot();
+            }
+            Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0));
+            GpuResourceReclaimQueue.FlushAndDrain();
+
+            var reuseAllocations = new List<TextureFormat>();
+            using RenderTargetLeaseSession reuse = registry.BeginSession(
+                RenderIntent.Delivery,
+                source);
+            using var targets = new EffectTargets
+            {
+                new EffectTarget(source, new Rect(0, 0, 4, 4)),
+            };
+            var context = CreateCustomContext(targets, reuse);
+            using (VulkanContext.ObserveTextureAllocations(reuseAllocations.Add))
+                discardingShader.Apply<DummyPush>(context, new DummyPush());
+            using Bitmap result = targets[0].RenderTarget!.Snapshot();
+
+            ReadOnlySpan<RgbaF16> pixels = result.GetPixelSpan<RgbaF16>();
+            RgbaF16 discarded = pixels[0];
+            RgbaF16 written = pixels[3];
+            Assert.Multiple(() =>
+            {
+                Assert.That(reuseAllocations, Is.Empty, "The discard pass must reuse the warmed slot.");
+                Assert.That(registry.Statistics.Reuses, Is.EqualTo(1));
+                Assert.That((float)discarded.R, Is.EqualTo(0).Within(0.01f));
+                Assert.That((float)discarded.G, Is.EqualTo(0).Within(0.01f));
+                Assert.That((float)discarded.B, Is.EqualTo(0).Within(0.01f));
+                Assert.That((float)discarded.A, Is.EqualTo(0).Within(0.01f));
+                Assert.That((float)written.R, Is.EqualTo(0).Within(0.01f));
+                Assert.That((float)written.G, Is.EqualTo(1).Within(0.01f));
+                Assert.That((float)written.B, Is.EqualTo(0).Within(0.01f));
+                Assert.That((float)written.A, Is.EqualTo(1).Within(0.01f));
+            });
+            targets.Dispose();
+            reuse.Dispose();
+            GpuResourceReclaimQueue.FlushAndDrain();
+        });
+    }
+
+    private static List<TextureFormat> RunPooledEffectChain(
+        RenderTarget source,
+        RenderTargetPool registry,
+        GLSLShader shader)
+    {
+        using RenderTargetLeaseSession session = registry.BeginSession(
+            RenderIntent.Delivery,
+            source);
+        using var targets = new EffectTargets
+        {
+            new EffectTarget(source, new Rect(0, 0, 4, 4)),
+        };
+        var context = CreateCustomContext(targets, session);
+        var allocations = new List<TextureFormat>();
+        using (VulkanContext.ObserveTextureAllocations(allocations.Add))
+        {
+            shader.Apply<DummyPush>(context, new DummyPush());
+            shader.Apply<DummyPush>(context, static _ => new DummyPush());
+            shader.ApplyMultiPass<DummyPush>(context, 3, static (_, _) => new DummyPush());
+            using Bitmap result = targets[0].RenderTarget!.Snapshot();
+        }
+
+        return allocations;
+    }
+
+    private static RenderTarget CreateSolidTarget(int width, int height, Color color)
+    {
+        RenderTarget target = RenderTarget.Create(width, height)
+            ?? throw new InvalidOperationException("Could not create the GLSL source target.");
+        using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
+        {
+            canvas.Clear(color);
+        }
+
+        return target;
+    }
+
+    private sealed class FailAtTargetFactory(int failAt) : IRenderTargetFactory
+    {
+        public int CreateCalls { get; private set; }
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            int index = CreateCalls++;
+            if (index == failAt)
+                return null;
+
+            return RenderTarget.Create(allocation.DeviceSize.Width, allocation.DeviceSize.Height)
+                ?? throw new InvalidOperationException("Could not create a GLSL scratch target.");
+        }
+    }
+
+    private static CustomFilterEffectContext CreateCustomContext(
+        EffectTargets targets,
+        RenderTargetLeaseSession? session = null)
+        => new CustomFilterEffectContext(
+            targets,
+            RenderIntent.Delivery,
+            RenderRequestPurpose.Auxiliary,
+            renderTargetLeaseSession: session);
 }

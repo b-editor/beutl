@@ -1,8 +1,8 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Logging;
-using Beutl.Serialization;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
@@ -37,38 +37,74 @@ internal class PackageOperationHandler
 
     public PackageChangesQueue Queue => _queue;
 
-    public async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
+    public async Task DownloadAndLoadPackage(
+        Release release,
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
     {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        {
+            PackageInstallContext context = await _packageInstaller.PrepareForInstall(
+                release,
+                force: true,
+                cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
-        _installedPackageRepository.UpgradePackages(packageId);
-
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
-                           ?? throw new InvalidOperationException(
-                               $"Package '{packageId}' was not found under the install directory after installation.");
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+            cancellationToken.ThrowIfCancellationRequested();
+            // Plugin activation may touch the UI; run it on the UI thread.
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _installedPackageRepository.UpgradePackages(packageId);
+                ActivateInstalledPackage(packageId);
+            });
+        }).ConfigureAwait(false);
     }
 
-    public async Task DownloadAndLoadPackage(PackageIdentity packageId)
+    public async Task DownloadAndLoadPackage(
+        PackageIdentity packageId,
+        CancellationToken cancellationToken)
     {
-        PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
+        await _packageInstaller.TrackInstallOperationAsync(async () =>
+        {
+            PackageInstallContext context = _packageInstaller.PrepareForInstall(
+                packageId.Id,
+                packageId.Version.ToString(),
+                force: true,
+                cancellationToken);
+            await _packageInstaller.DownloadPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.VerifyPackageFile(context, cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _packageInstaller.ResolveDependencies(context, null, cancellationToken).ConfigureAwait(false);
 
-        _installedPackageRepository.UpgradePackages(packageId);
+            cancellationToken.ThrowIfCancellationRequested();
+            // Plugin activation may touch the UI; run it on the UI thread.
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                _installedPackageRepository.UpgradePackages(packageId);
+                ActivateInstalledPackage(packageId);
+            });
+        }).ConfigureAwait(false);
+    }
 
+    private void ActivateInstalledPackage(PackageIdentity packageId)
+    {
         string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
                            ?? throw new InvalidOperationException(
                                $"Package '{packageId}' was not found under the install directory after installation.");
         PackageFolderReader reader = new(directory);
         var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
+
+        if (localPackage.Tags.GetPackageKind() != PackageKind.Extension)
+        {
+            _packageInstaller.InstallDataPackage(localPackage);
+        }
+        else
+        {
+            _packageManager.Load(localPackage);
+        }
     }
 
     public async ValueTask<bool> UnloadPackages(string packageName)
@@ -118,6 +154,20 @@ internal class PackageOperationHandler
                         hasFallback = true;
                     }
                 }
+                else
+                {
+                    // The extracted package is already gone, but a data package's payload
+                    // lives outside it and still has to be removed.
+                    if (!_packageInstaller.UninstallDataPackage(item.Id))
+                    {
+                        _queue.UninstallQueue(item);
+                        hasFallback = true;
+                    }
+                    else
+                    {
+                        _installedPackageRepository.RemovePackage(item);
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -158,7 +208,8 @@ internal class PackageOperationHandler
 
     public async Task<bool> EnsureProjectClosed()
     {
-        if (!_projectService.IsOpened.Value)
+        Project? expectedProject = _projectService.CurrentProject.Value;
+        if (expectedProject is null)
             return true;
 
         var dialog = new ContentDialog
@@ -171,38 +222,90 @@ internal class PackageOperationHandler
             DefaultButton = ContentDialogButton.Secondary
         };
 
-        ContentDialogResult result = await dialog.ShowAsync();
+        return await HandleProjectCloseChoice(await dialog.ShowAsync(), expectedProject);
+    }
 
+    internal async Task<bool> HandleProjectCloseChoice(
+        ContentDialogResult result,
+        Project expectedProject)
+    {
+        ArgumentNullException.ThrowIfNull(expectedProject);
         if (result == ContentDialogResult.Secondary)
         {
-            await SaveAll();
-            _projectService.CloseProject();
-            return true;
+            IProjectFileWriteLease? fileWrite = null;
+            IDisposable? editorSuspension = null;
+            try
+            {
+                fileWrite = await _editorService.BeginProjectFileWriteAsync(CancellationToken.None);
+                if (!ReferenceEquals(
+                        _projectService.CurrentProject.Value,
+                        expectedProject))
+                {
+                    return false;
+                }
+
+                editorSuspension = _editorService.SuspendEditors();
+                if (!await SaveAll(expectedProject, fileWrite))
+                {
+                    return false;
+                }
+
+                fileWrite.Dispose();
+                fileWrite = null;
+                return await _projectService.TryCloseProjectAsync(
+                    expectedProject,
+                    ProjectService.ProjectCloseIntent.SaveChanges);
+            }
+            finally
+            {
+                fileWrite?.Dispose();
+                editorSuspension?.Dispose();
+            }
         }
 
         if (result == ContentDialogResult.Primary)
         {
-            _projectService.CloseProject();
-            return true;
+            return await _projectService.TryCloseProjectAsync(
+                expectedProject,
+                ProjectService.ProjectCloseIntent.DiscardChanges);
         }
 
         return false;
     }
 
-    private async Task SaveAll()
+    private async Task<bool> SaveAll(Project project, IProjectFileWriteLease fileWrite)
     {
-        Project? project = _projectService.CurrentProject.Value;
-        if (project != null)
+        try
         {
-            CoreSerializer.StoreToUri(project, project.Uri!);
-        }
-
-        foreach (EditorTabItem item in _editorService.TabItems)
-        {
-            if (item.Commands.Value != null)
+            IProjectVersionControlSession? versionControlSession
+                = _editorService.ProjectVersionControlSession;
+            if (!await _editorService.SaveProjectFilesAsync(project, CancellationToken.None))
             {
-                await item.Commands.Value.OnSave();
+                return false;
             }
+
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
+                || !ReferenceEquals(
+                    _editorService.ProjectVersionControlSession,
+                    versionControlSession))
+            {
+                return false;
+            }
+
+            if (versionControlSession is not null)
+            {
+                await versionControlSession.NotifySavedAsync(fileWrite);
+            }
+
+            return ReferenceEquals(_projectService.CurrentProject.Value, project)
+                   && ReferenceEquals(
+                       _editorService.ProjectVersionControlSession,
+                       versionControlSession);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            s_logger.LogError(ex, "Failed to save the project before a package operation.");
+            return false;
         }
     }
 

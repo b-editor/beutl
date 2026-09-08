@@ -193,6 +193,40 @@ public class HistoryMutationPlaybackGuardTests
     }
 
     [Test]
+    public async Task RunAsync_WhenQueuedWaitIsCanceled_DoesNotMutate()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        using var player = new PreviewPlayerStub(isPlaying: true)
+        {
+            CompletePauseManually = true
+        };
+        using var cts = new CancellationTokenSource();
+        bool firstMutated = false;
+        bool canceledMutated = false;
+
+        Task<bool> first = guard.RunAsync(player, () => { }, () => true, () =>
+        {
+            firstMutated = true;
+            return true;
+        }).AsTask();
+        await player.WaitForPauseStartedAsync();
+
+        Task<bool> canceled = guard.RunAsync(null, () => { }, () => false, () =>
+        {
+            canceledMutated = true;
+            return true;
+        }, cts.Token).AsTask();
+        cts.Cancel();
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () => await canceled);
+        Assert.That(canceledMutated, Is.False);
+
+        player.CompleteDrain();
+        Assert.That(await first, Is.True);
+        Assert.That(firstMutated, Is.True);
+    }
+
+    [Test]
     public async Task RunAsync_WhenPlayerStoppedMidDrain_AwaitsDrainBeforeMutation()
     {
         using var guard = new HistoryMutationPlaybackGuard();

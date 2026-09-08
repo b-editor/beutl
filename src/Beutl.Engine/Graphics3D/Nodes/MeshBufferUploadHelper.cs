@@ -15,7 +15,17 @@ internal static class MeshBufferUploadHelper
         var indices = meshResource.GetIndices();
 
         if (vertices.Length == 0 || indices.Length == 0)
+        {
+            // Leaving the previous topology's buffers in place would let a later draw bind them for a mesh
+            // that no longer has them.
+            meshResource.VertexBuffer?.Dispose();
+            meshResource.VertexBuffer = null;
+            meshResource.IndexBuffer?.Dispose();
+            meshResource.IndexBuffer = null;
+            meshResource.UploadedIndexCount = 0;
+            meshResource.BuffersDirty = false;
             return;
+        }
 
         ulong vertexSize = (ulong)(vertices.Length * Marshal.SizeOf<Vertex3D>());
         ulong indexSize = (ulong)(indices.Length * sizeof(uint));
@@ -51,6 +61,7 @@ internal static class MeshBufferUploadHelper
 
         meshResource.VertexBuffer = vertexBuffer;
         meshResource.IndexBuffer = indexBuffer;
+        meshResource.UploadedIndexCount = indices.Length;
         meshResource.BuffersDirty = false;
     }
 }

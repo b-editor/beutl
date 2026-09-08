@@ -22,29 +22,14 @@ namespace Beutl.Api;
 public sealed class MyAsyncLock
 {
     private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private readonly Task<IDisposable> _releaser;
 
-    public MyAsyncLock()
+    public async Task<IDisposable> LockAsync(CancellationToken cancellationToken = default)
     {
-        _releaser = Task.FromResult<IDisposable>(new Releaser(this));
-    }
-
-    public Task<IDisposable> LockAsync(CancellationToken cancellationToken = default)
-    {
-        Task wait = _semaphore.WaitAsync(cancellationToken);
-        if (wait.IsCompleted)
-        {
-            return _releaser;
-        }
-        else
-        {
-            return wait.ContinueWith(
-                continuationFunction: (_, state) => (IDisposable)state!,
-                state: _releaser.Result,
-                cancellationToken: cancellationToken,
-                continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
-                scheduler: TaskScheduler.Default);
-        }
+        // Awaiting the semaphore propagates cancellation and never returns a releaser for
+        // an acquisition that did not happen; there is no continuation that could be
+        // canceled after the semaphore was acquired.
+        await _semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new Releaser(this);
     }
 
     private sealed class Releaser(MyAsyncLock toRelease) : IDisposable

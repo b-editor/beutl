@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Collections.Pooled;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,22 +90,26 @@ public sealed class NodeGraphTabViewModel : IToolContext
                 {
                     NodeGraph.Value = new NodeGraphViewModel(newModel, editorContext);
                     var element = newModel.FindHierarchicalParent<Element>();
-                    IObservable<string> name = element?.GetObservable(CoreObject.NameProperty) ?? Observable.ReturnThenNever(string.Empty);
-                    string? fileName = Path.GetFileNameWithoutExtension(element?.Uri!.LocalPath);
 
                     Items.Add(new NodeGraphNavigationItem(
                         viewModel: NodeGraph.Value,
                         nodeGraph: newModel,
-                        name: name
-                            .Select(x => string.IsNullOrWhiteSpace(x) ? fileName : x)
+                        name: ToolTabHeaderHelper.ObserveElementLabel(element)
                             .ToReadOnlyReactivePropertySlim()!));
 
                     RestoreState(newModel);
                 }
             }).DisposeWith(_disposables);
+
+        Header = Model
+            .Select(m => ToolTabHeaderHelper.ObserveElementLabel(m?.FindHierarchicalParent<Element>()))
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.NodeGraph, label))
+            .ToReadOnlyReactivePropertySlim(Strings.NodeGraph)
+            .DisposeWith(_disposables)!;
     }
 
-    public string Header => Strings.NodeGraph;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => NodeGraphTabExtension.Instance;
 

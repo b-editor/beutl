@@ -73,7 +73,7 @@ internal static class CanonicalTransformLayout
         var translate = (TranslateTransform)tg.Children[tIdx];
 
         // Matrix applied after T in application order — composition of children to the left of T in the
-        // list. Identity for canonical [T, R, S] layouts; non-identity only for legacy [R, S, T] data.
+        // list. Identity for canonical [T, R, S] layouts; non-identity only for effect-item [R, S, T] data.
         Matrix postMatrixOfT = Matrix.Identity;
         for (int i = 0; i < tIdx; i++)
         {

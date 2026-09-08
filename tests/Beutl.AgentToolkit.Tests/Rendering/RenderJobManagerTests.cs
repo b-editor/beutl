@@ -18,7 +18,7 @@ public sealed class RenderJobManagerTests
         using var manager = new RenderJobManager();
         var gate = new TaskCompletionSource();
 
-        string jobId = manager.Enqueue("test", async _ =>
+        string jobId = manager.Enqueue("test", async (_, _) =>
         {
             await gate.Task;
             return new JsonObject { ["ok"] = true };
@@ -45,7 +45,7 @@ public sealed class RenderJobManagerTests
     {
         using var manager = new RenderJobManager();
 
-        string jobId = manager.Enqueue("test", _ =>
+        string jobId = manager.Enqueue("test", (_, _) =>
             throw new InvalidOperationException("boom"));
 
         RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
@@ -66,7 +66,7 @@ public sealed class RenderJobManagerTests
     {
         using var manager = new RenderJobManager();
 
-        string jobId = manager.Enqueue("test", async token =>
+        string jobId = manager.Enqueue("test", async (_, token) =>
         {
             await Task.Delay(Timeout.Infinite, token);
             return (JsonNode)new JsonObject();
@@ -95,7 +95,7 @@ public sealed class RenderJobManagerTests
         bool startedA = false;
         bool startedB = false;
 
-        string jobA = manager.Enqueue("test", async _ =>
+        string jobA = manager.Enqueue("test", async (_, _) =>
         {
             startedA = true;
             await gateA.Task;
@@ -103,7 +103,7 @@ public sealed class RenderJobManagerTests
         });
         Assert.That(SpinWait.SpinUntil(() => startedA, 2000), Is.True);
 
-        string jobB = manager.Enqueue("test", async _ =>
+        string jobB = manager.Enqueue("test", async (_, _) =>
         {
             startedB = true;
             await gateB.Task;
@@ -139,4 +139,54 @@ public sealed class RenderJobManagerTests
         Assert.Fail($"Job '{jobId}' did not reach a terminal state in time.");
         throw new InvalidOperationException("unreachable");
     }
+    [Test]
+    public void A_running_job_reports_progress_so_slow_is_distinguishable_from_hung()
+    {
+        using var manager = new RenderJobManager();
+        var gate = new TaskCompletionSource();
+
+        string jobId = manager.Enqueue("test", async (progress, _) =>
+        {
+            progress.Report(3, 12, "rendering shots");
+            await gate.Task;
+            return (JsonNode)new JsonObject();
+        });
+
+        Assert.That(SpinWait.SpinUntil(() => manager.Get(jobId)?.Progress?.Completed == 3, 2000), Is.True);
+        RenderJobSnapshot running = manager.Get(jobId)!;
+
+        gate.SetResult();
+        Assert.That(SpinWait.SpinUntil(() => manager.Get(jobId)?.State == "completed", 2000), Is.True);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(running.State, Is.EqualTo("running"));
+            Assert.That(running.Progress!.Completed, Is.EqualTo(3));
+            Assert.That(running.Progress.Total, Is.EqualTo(12));
+            Assert.That(running.Progress.Stage, Is.EqualTo("rendering shots"));
+            Assert.That(running.Progress.Ratio, Is.EqualTo(0.25).Within(0.001));
+        });
+    }
+
+    [Test]
+    public void A_job_waiting_behind_another_reports_that_it_is_queued()
+    {
+        using var manager = new RenderJobManager();
+        var gate = new TaskCompletionSource();
+        bool startedFirst = false;
+
+        manager.Enqueue("test", async (_, _) =>
+        {
+            startedFirst = true;
+            await gate.Task;
+            return (JsonNode)new JsonObject();
+        });
+        Assert.That(SpinWait.SpinUntil(() => startedFirst, 2000), Is.True);
+
+        string queued = manager.Enqueue("test", (_, _) => Task.FromResult((JsonNode)new JsonObject()));
+
+        Assert.That(SpinWait.SpinUntil(() => manager.Get(queued)?.Progress?.Stage == "queued", 2000), Is.True);
+        gate.SetResult();
+    }
+
 }

@@ -15,6 +15,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
     private readonly Queue _graphicsQueue;
     private readonly uint _graphicsQueueFamilyIndex;
     private readonly string[] _enabledExtensions;
+    private readonly PhysicalDeviceFeatures _enabledFeatures;
     private bool _disposed;
 
     public VulkanDevice(Vk vk, Instance instance, PhysicalDevice physicalDevice)
@@ -25,7 +26,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
         _graphicsQueueFamilyIndex = FindGraphicsQueueFamily();
         _enabledExtensions = GetRequiredDeviceExtensions();
-        _device = CreateDevice(_enabledExtensions);
+        _device = CreateDevice(_enabledExtensions, out _enabledFeatures);
 
         _vk.GetDeviceQueue(_device, _graphicsQueueFamilyIndex, 0, out _graphicsQueue);
 
@@ -33,7 +34,17 @@ internal sealed unsafe class VulkanDevice : IDisposable
         _vk.GetPhysicalDeviceProperties(_physicalDevice, &properties);
         var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName);
         s_logger.LogInformation("Using GPU: {DeviceName}", deviceName);
+
+        // An intermediate is sampled and drawn into, so it has to satisfy both the image limit and the
+        // framebuffer one. These are not the same number: a device can sample an image wider than it can
+        // attach, and attaching is what a render target is for.
+        MaxAttachmentDimension = (int)Math.Min(
+            properties.Limits.MaxImageDimension2D,
+            Math.Min(properties.Limits.MaxFramebufferWidth, properties.Limits.MaxFramebufferHeight));
     }
+
+    /// <summary>Gets the largest square this device can both sample and attach.</summary>
+    public int MaxAttachmentDimension { get; }
 
     public Vk Vk => _vk;
 
@@ -43,11 +54,24 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     public Device Device => _device;
 
+    /// <summary>Whether <see cref="Device"/> has been destroyed and can no longer be called.</summary>
+    /// <remarks>The handle keeps its old value after destruction, so consult this before issuing work.</remarks>
+    public bool IsDisposed => _disposed;
+
     public Queue GraphicsQueue => _graphicsQueue;
 
     public uint GraphicsQueueFamilyIndex => _graphicsQueueFamilyIndex;
 
     public string[] EnabledExtensions => _enabledExtensions;
+
+    /// <summary>Whether the logical device enabled 64-bit integer arithmetic in shaders.</summary>
+    public bool SupportsShaderInt64 => _enabledFeatures.ShaderInt64;
+
+    /// <summary>Whether the logical device enabled 64-bit floating-point arithmetic in shaders.</summary>
+    public bool SupportsShaderFloat64 => _enabledFeatures.ShaderFloat64;
+
+    /// <summary>Whether the logical device enabled cube-array image views and sampling.</summary>
+    public bool SupportsImageCubeArray => _enabledFeatures.ImageCubeArray;
 
 
     private uint FindGraphicsQueueFamily()
@@ -108,7 +132,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
         return extensions.ToArray();
     }
 
-    private Device CreateDevice(string[] extensions)
+    private Device CreateDevice(string[] extensions, out PhysicalDeviceFeatures enabledFeatures)
     {
         float queuePriority = 1.0f;
         var queueCreateInfo = new DeviceQueueCreateInfo
@@ -119,7 +143,17 @@ internal sealed unsafe class VulkanDevice : IDisposable
             PQueuePriorities = &queuePriority
         };
 
-        var features = new PhysicalDeviceFeatures();
+        // Vulkan features must be enabled before use even when the physical device advertises them.
+        // 64-bit specialization constants need shaderInt64/shaderFloat64; point shadows need imageCubeArray.
+        PhysicalDeviceFeatures available;
+        _vk.GetPhysicalDeviceFeatures(_physicalDevice, &available);
+        var features = new PhysicalDeviceFeatures
+        {
+            ShaderInt64 = available.ShaderInt64,
+            ShaderFloat64 = available.ShaderFloat64,
+            ImageCubeArray = available.ImageCubeArray,
+        };
+        enabledFeatures = features;
 
         var createInfo = new DeviceCreateInfo
         {

@@ -58,7 +58,6 @@ public class ElementViewLayoutTests
     private static async Task<(Window Window, ElementView Element)> InflateFirstElementView(string name)
     {
         await TestReset.ResetShellAsync();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         EditViewModel editor = await OpenEditorForNewScene(name);
         AddRectangle(editor);
 
@@ -74,6 +73,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Label_is_inset_clear_of_the_rounded_corner()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-inset");
         try
         {
@@ -96,6 +96,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Locked_clip_keeps_the_label_clear_of_the_lock_glyph()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-locked");
         try
         {
@@ -126,6 +127,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Rename_textbox_text_starts_where_the_label_does()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-rename");
         try
         {
@@ -162,6 +164,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Renaming_does_not_paint_into_the_rounded_corner()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-corner");
         try
         {
@@ -248,6 +251,7 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Media_host_rounds_and_clips_the_thumbnail_and_waveform()
     {
+        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
         (Window window, ElementView element) = await InflateFirstElementView("elementview-rounded");
         try
         {

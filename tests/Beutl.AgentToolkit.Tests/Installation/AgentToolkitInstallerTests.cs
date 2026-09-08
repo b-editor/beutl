@@ -49,19 +49,19 @@ public sealed class AgentToolkitInstallerTests
             Does.Contain("derive_palette"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("Contrast Exemplars - derive, don't copy"));
+            Does.Contain("Contrast relationships worth deriving"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
             Does.Contain("subdivisionLevel: 1"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-from-shotlist/SKILL.md").Content,
-            Does.Contain("cutContinuityActuals"));
+            Does.Contain("cutEyeTrace"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
             Does.Contain("get_background_grammar"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-look-effect-chain/SKILL.md").Content,
-            Does.Contain("Unjustified choices are disallowed"));
+            Does.Contain("Hand-picking colors is equally valid"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-asset-sourcing/SKILL.md").Content,
             Does.Contain("assets/manifest.json"));
@@ -79,7 +79,7 @@ public sealed class AgentToolkitInstallerTests
             Does.Contain("subdivisionLevel:1"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-visual-review/SKILL.md").Content,
-            Does.Contain("Convergence Loop Mode"));
+            Does.Contain("Convergence loop mode"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
             Does.Contain("expandedBrief"));
@@ -88,7 +88,7 @@ public sealed class AgentToolkitInstallerTests
             Does.Contain("direction-only"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-brief-expansion/SKILL.md").Content,
-            Does.Contain("recentToAvoid"));
+            Does.Contain("recentDirections"));
         Assert.That(
             assets.Single(x => x.RelativePath == "beutl-agent-timeline-builder.md").Content,
             Does.Contain("evaluate_motion_variation"));

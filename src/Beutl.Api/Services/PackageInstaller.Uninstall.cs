@@ -12,47 +12,50 @@ public partial class PackageInstaller
         bool clean = true,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        _logger.LogInformation("Preparing for uninstall. Installed path: {InstalledPath}, Clean: {Clean}", installedPath, clean);
-
-        PackageIdentity uninstallPackage = new PackageFolderReader(installedPath).GetIdentity();
-        PackageIdentity[] unnecessaryPackages = [uninstallPackage];
-
-        if (clean)
+        return TrackSyncOperation(() =>
         {
-            _logger.LogInformation("Cleaning unnecessary packages.");
+            cancellationToken.ThrowIfCancellationRequested();
 
-            PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
-                .Except(unnecessaryPackages, PackageIdentityComparer.Default)
-                .ToArray();
+            _logger.LogInformation("Preparing for uninstall. Installed path: {InstalledPath}, Clean: {Clean}", installedPath, clean);
 
-            unnecessaryPackages = UnnecessaryPackages(installedPackages);
-        }
+            PackageIdentity uninstallPackage = new PackageFolderReader(installedPath).GetIdentity();
+            PackageIdentity[] unnecessaryPackages = [uninstallPackage];
 
-        long size = 0;
-        foreach (PackageIdentity package in unnecessaryPackages)
-        {
-            string directory = Helper.ResolveInstalledDirectory(package);
-            if (!Directory.Exists(directory))
+            if (clean)
             {
-                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                continue;
+                _logger.LogInformation("Cleaning unnecessary packages.");
+
+                PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
+                    .Except(unnecessaryPackages, PackageIdentityComparer.Default)
+                    .ToArray();
+
+                unnecessaryPackages = UnnecessaryPackages(installedPackages);
             }
 
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            long size = 0;
+            foreach (PackageIdentity package in unnecessaryPackages)
             {
-                size += new FileInfo(file).Length;
+                string directory = Helper.ResolveInstalledDirectory(package);
+                if (!Directory.Exists(directory))
+                {
+                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                    continue;
+                }
+
+                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+                {
+                    size += new FileInfo(file).Length;
+                }
             }
-        }
 
-        _logger.LogInformation("Prepared uninstall context. Uninstall package: {UninstallPackage}, Size to be released: {SizeToBeReleased}", uninstallPackage, size);
+            _logger.LogInformation("Prepared uninstall context. Uninstall package: {UninstallPackage}, Size to be released: {SizeToBeReleased}", uninstallPackage, size);
 
-        return new PackageUninstallContext(uninstallPackage, installedPath)
-        {
-            UnnecessaryPackages = unnecessaryPackages,
-            SizeToBeReleased = size
-        };
+            return new PackageUninstallContext(uninstallPackage, installedPath)
+            {
+                UnnecessaryPackages = unnecessaryPackages,
+                SizeToBeReleased = size
+            };
+        });
     }
 
     public void Uninstall(
@@ -60,64 +63,76 @@ public partial class PackageInstaller
         IProgress<double> progress,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var failedPackages = new List<string>();
-        long totalSize = 0;
-        foreach (PackageIdentity package in context.UnnecessaryPackages)
+        TrackSyncOperation(() =>
         {
-            string directory = Helper.ResolveInstalledDirectory(package);
-            if (!Directory.Exists(directory))
-            {
-                // The files are already gone, so the repository entry would outlive them.
-                _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                _installedPackageRepository.RemovePackage(package);
-                continue;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
 
-            bool hasAnyFailures = false;
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            var failedPackages = new List<string>();
+            long totalSize = 0;
+            foreach (PackageIdentity package in context.UnnecessaryPackages)
             {
+                // A data package's payload lives outside the install directory, and it has to
+                // go even when the extracted package itself is already missing.
+                bool dataRemoved = UninstallDataPackage(package.Id);
+
+                string directory = Helper.ResolveInstalledDirectory(package);
+                if (!Directory.Exists(directory))
+                {
+                    // The files are already gone, so the repository entry would outlive them.
+                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
+                    _installedPackageRepository.RemovePackage(package);
+                    if (!dataRemoved)
+                    {
+                        failedPackages.Add(directory);
+                    }
+
+                    continue;
+                }
+
+                bool hasAnyFailures = !dataRemoved;
+                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        var fi = new FileInfo(file);
+                        totalSize += fi.Length;
+                        fi.Delete();
+                        _logger.LogInformation("Deleted file: {FileName}", file);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to delete file: {FileName}", file);
+                        hasAnyFailures = true;
+                    }
+
+                    progress.Report(totalSize / (double)context.SizeToBeReleased);
+                }
+
                 try
                 {
-                    var fi = new FileInfo(file);
-                    totalSize += fi.Length;
-                    fi.Delete();
-                    _logger.LogInformation("Deleted file: {FileName}", file);
+                    Directory.Delete(directory, true);
+                    _logger.LogInformation("Deleted directory: {Directory}", directory);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to delete file: {FileName}", file);
+                    _logger.LogError(ex, "Failed to delete directory: {Directory}", directory);
                     hasAnyFailures = true;
                 }
 
-                progress.Report(totalSize / (double)context.SizeToBeReleased);
+                if (hasAnyFailures)
+                {
+                    failedPackages.Add(directory);
+                    _logger.LogWarning("Package uninstallation had failures: {PackageId}", package.Id);
+                }
+                else
+                {
+                    _logger.LogInformation("Successfully uninstalled package: {PackageId}", package.Id);
+                }
+
+                _installedPackageRepository.RemovePackage(package);
             }
 
-            try
-            {
-                Directory.Delete(directory, true);
-                _logger.LogInformation("Deleted directory: {Directory}", directory);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete directory: {Directory}", directory);
-                hasAnyFailures = true;
-            }
-
-            if (hasAnyFailures)
-            {
-                failedPackages.Add(directory);
-                _logger.LogWarning("Package uninstallation had failures: {PackageId}", package.Id);
-            }
-            else
-            {
-                _logger.LogInformation("Successfully uninstalled package: {PackageId}", package.Id);
-            }
-
-            _installedPackageRepository.RemovePackage(package);
-        }
-
-        context.FailedPackages = failedPackages;
+            context.FailedPackages = failedPackages;
+        });
     }
 }

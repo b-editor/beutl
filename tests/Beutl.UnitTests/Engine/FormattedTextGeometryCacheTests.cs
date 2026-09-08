@@ -44,12 +44,12 @@ public class FormattedTextGeometryCacheTests
         using FormattedText text = CreateText("I");
 
         // Populate the cache for the narrow glyph 'I'.
-        Geometry.Resource glyph = text.ToGeometies()[0];
+        Geometry.Resource glyph = text.ToGeometries()[0];
         Rect narrowBounds = glyph.Bounds;
 
         // A single-codepoint re-measure reuses slot 0 in place; the outline is now the much wider 'W'.
         text.Text = "W";
-        Geometry.Resource reused = text.ToGeometies()[0];
+        Geometry.Resource reused = text.ToGeometries()[0];
         Assert.That(reused, Is.SameAs(glyph),
             "single-codepoint re-measure should reuse the slot in place (the stale-cache precondition).");
 
@@ -57,7 +57,7 @@ public class FormattedTextGeometryCacheTests
 
         // Ground truth: a freshly built FormattedText for 'W' has no stale cache to confuse it.
         using FormattedText reference = CreateText("W");
-        Rect referenceBounds = reference.ToGeometies()[0].Bounds;
+        Rect referenceBounds = reference.ToGeometries()[0].Bounds;
 
         Assert.That(wideBounds.Width, Is.GreaterThan(narrowBounds.Width),
             "after re-measure the cached path must reflect the wider 'W', not the stale 'I'.");
@@ -65,6 +65,30 @@ public class FormattedTextGeometryCacheTests
             "the reused slot's cached path must match a freshly measured 'W'.");
         Assert.That(wideBounds.Height, Is.EqualTo(referenceBounds.Height).Within(0.01),
             "the reused slot's cached path must match a freshly measured 'W'.");
+    }
+
+    // Version keys the render nodes' (resource, Version) snapshots as well as the path cache, so the bump
+    // SetSKPath performs has to stay one per reassignment.
+    [Test]
+    public void ReMeasure_ReusingGlyphSlot_BumpsVersionExactlyOncePerReassignment()
+    {
+        using FormattedText text = CreateText("I");
+        Geometry.Resource glyph = text.ToGeometries()[0];
+        int before = glyph.Version;
+
+        text.Text = "W";
+        Geometry.Resource reused = text.ToGeometries()[0];
+        int afterFirst = reused.Version;
+
+        text.Text = "I";
+        int afterSecond = text.ToGeometries()[0].Version;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reused, Is.SameAs(glyph));
+            Assert.That(afterFirst, Is.EqualTo(before + 1));
+            Assert.That(afterSecond, Is.EqualTo(before + 2));
+        }
     }
 
     // The stroke-path cache shares the same Version gate; invalidation must clear it too.
@@ -78,18 +102,18 @@ public class FormattedTextGeometryCacheTests
             Brush = { CurrentValue = Brushes.White }
         }.ToResource(CompositionContext.Default);
 
-        Geometry.Resource glyph = text.ToGeometies()[0];
+        Geometry.Resource glyph = text.ToGeometries()[0];
         Rect narrowStroke = glyph.GetRenderBounds(pen);
 
         text.Text = "W";
-        Geometry.Resource reused = text.ToGeometies()[0];
+        Geometry.Resource reused = text.ToGeometries()[0];
         Assert.That(reused, Is.SameAs(glyph),
             "single-codepoint re-measure should reuse the slot in place (the stale-cache precondition).");
 
         Rect wideStroke = reused.GetRenderBounds(pen);
 
         using FormattedText reference = CreateText("W");
-        Rect referenceStroke = reference.ToGeometies()[0].GetRenderBounds(pen);
+        Rect referenceStroke = reference.ToGeometries()[0].GetRenderBounds(pen);
 
         Assert.That(wideStroke.Width, Is.GreaterThan(narrowStroke.Width),
             "the stroked render bounds must follow the new glyph, not the stale cached stroke path.");
@@ -104,14 +128,14 @@ public class FormattedTextGeometryCacheTests
     public void ReMeasure_ReusingGlyphSlot_MarksGeometryRenderNodeChanged()
     {
         using FormattedText text = CreateText("I");
-        Geometry.Resource glyph = text.ToGeometies()[0];
+        Geometry.Resource glyph = text.ToGeometries()[0];
 
         using var node = new GeometryRenderNode(glyph, null, null);
         Assert.That(node.Update(glyph, null, null), Is.False,
             "an unchanged geometry must not mark the render node dirty (baseline).");
 
         text.Text = "W";
-        Geometry.Resource reused = text.ToGeometies()[0];
+        Geometry.Resource reused = text.ToGeometries()[0];
         Assert.That(reused, Is.SameAs(glyph),
             "single-codepoint re-measure should reuse the slot in place (the stale-cache precondition).");
 

@@ -25,45 +25,56 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
             Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            MarkChanged();
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        if (!Source.HasValue) return [];
+        if (Source is not { } sourceSnapshot)
+            return;
 
-        return
-        [
-            RenderNodeOperation.CreateLambda(
-                bounds: Bounds,
-                render: canvas =>
-                {
-                    canvas.DrawImageSource(Source.Value.Resource, Fill?.Resource, Pen?.Resource);
-                },
-                hitTest: HitTest,
-                // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
-                effectiveScale: EffectiveScale.At(1f)
-            )
-        ];
+        Rect bounds = Bounds;
+        if (bounds.Width == 0 || bounds.Height == 0)
+            return;
+
+        ImageSource.Resource source = sourceSnapshot.Resource;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
+        RenderResource<ImageSource.Resource> sourceResource = context.Borrow(source);
+
+        context.Publish(context.PaintedSource(
+            state: source,
+            draw: static (canvas, fill, pen, state) =>
+                canvas.DrawImageSource(state, fill, pen),
+            fill: fill,
+            pen: pen,
+            outputBounds: bounds,
+            hitTest: RenderHitTestContract.Custom(HitTest),
+            scale: RenderScaleContract.Custom(static _ => 1f),
+            directReplayAtExactIntegerReduction: true,
+            resources: [sourceResource]));
     }
 
-    private bool HitTest(Point point)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Inside;
-        float thickness = Pen?.Resource.Thickness ?? 0;
-        thickness = PenHelper.GetRealThickness(alignment, thickness);
+        Rect bounds = Bounds;
+        Pen.Resource? pen = Pen?.Resource;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
+            pen?.Thickness ?? 0);
 
-        if (Fill != null)
+        if (Fill?.Resource is not null)
         {
-            Rect rect = Bounds.Inflate(thickness);
-            return rect.ContainsExclusive(point);
+            return bounds.Inflate(realThickness).ContainsExclusive(point);
         }
-        else
-        {
-            Rect borderRect = Bounds.Inflate(thickness);
-            Rect emptyRect = Bounds.Deflate(thickness);
-            return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
-        }
+
+        Rect borderRect = bounds.Inflate(realThickness);
+        Rect emptyRect = bounds.Deflate(realThickness);
+        return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
     }
 }

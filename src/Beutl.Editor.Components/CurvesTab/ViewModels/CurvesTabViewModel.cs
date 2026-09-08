@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Controls.Curves;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -159,9 +160,16 @@ public sealed class CurvesTabViewModel : IToolContext
             .Select(x => x == CurveGroup.SaturationVsSaturation)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
+
+        Header = Effect
+            .Select(ToolTabHeaderHelper.ObserveEffectLabel)
+            .Switch()
+            .Select(label => ToolTabHeaderHelper.Compose(Strings.Curves, label))
+            .ToReadOnlyReactivePropertySlim(Strings.Curves)
+            .DisposeWith(_disposables)!;
     }
 
-    public string Header => Strings.Curves;
+    public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension Extension => CurvesTabExtension.Instance;
 

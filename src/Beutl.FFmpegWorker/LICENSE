@@ -14,5 +14,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-The full text of the GNU General Public License v3 can be found in
-the LICENSE.GPL file in the root directory of this repository.
+In the source tree, the full text of the GNU General Public License v3 is in
+LICENSE.GPL at the repository root. Binary distributions place LICENSE.GPL
+next to this notice, which is named LICENSE.FFmpegWorker.
+
+The Corresponding Source and build scripts for the distributed
+Beutl.FFmpegWorker are available from the matching release tag at:
+https://github.com/b-editor/beutl/releases
+
+Bundled managed dependencies and their source locations are identified in
+THIRD_PARTY_NOTICES.md. Native FFmpeg libraries are not included in Beutl
+release artifacts; they are installed separately by the user or the app.

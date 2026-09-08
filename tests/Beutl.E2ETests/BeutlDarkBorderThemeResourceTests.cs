@@ -14,6 +14,9 @@ namespace Beutl.E2ETests;
 [TestFixture]
 public class BeutlDarkBorderThemeResourceTests
 {
+    private static readonly Uri s_graphEditorResourceUri =
+        new("avares://Beutl.Editor.Components/GraphEditorTab/Resources/GraphEditorResources.axaml");
+
     [AvaloniaTest]
     public void ResourceDictionary_MergesStandalone_AndOverridesTheDarkPalette()
     {
@@ -50,22 +53,33 @@ public class BeutlDarkBorderThemeResourceTests
         Assert.That(BeutlDarkBorderTheme.AccentColor, Is.EqualTo(Color.FromRgb(0x25, 0x63, 0xEB)));
     }
 
-    // The theme is a flat value-swap over the classic dark dictionaries, so a key it defines that they
-    // do not is an override of nothing: it reads as a real design decision but changes no pixel. The
-    // dictionary is deliberately left unmerged — resolution must succeed on the classic keys alone.
+    // The theme is a flat value-swap over the classic dark resources, so a key it defines that they do
+    // not is an override of nothing: it reads as a real design decision but changes no pixel. This test
+    // app loads only the shared Controls styles, so add the GraphEditor component's classic resources
+    // while keeping the theme dictionary itself unmerged.
     [AvaloniaTest]
     public void EveryKeyItOverrides_ResolvesWithoutIt()
     {
         var resources = (IResourceDictionary)AvaloniaXamlLoader.Load(BeutlDarkBorderTheme.ResourceUri, null)!;
-        object[] dangling = resources.Keys
-            .Where(key => !Application.Current!.TryGetResource(key, ThemeVariant.Dark, out _))
-            .ToArray();
-
-        Assert.Multiple(() =>
+        var graphEditorResources = (IResourceProvider)AvaloniaXamlLoader.Load(s_graphEditorResourceUri, null)!;
+        IList<IResourceProvider> merged = Application.Current!.Resources.MergedDictionaries;
+        try
         {
-            Assert.That(resources.Keys, Is.Not.Empty, "precondition: the theme defines keys");
-            Assert.That(dangling, Is.Empty,
-                "the border theme must override an existing key, never introduce a dangling one");
-        });
+            merged.Add(graphEditorResources);
+            object[] dangling = resources.Keys
+                .Where(key => !Application.Current.TryGetResource(key, ThemeVariant.Dark, out _))
+                .ToArray();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(resources.Keys, Is.Not.Empty, "precondition: the theme defines keys");
+                Assert.That(dangling, Is.Empty,
+                    "the border theme must override an existing key, never introduce a dangling one");
+            });
+        }
+        finally
+        {
+            merged.Remove(graphEditorResources);
+        }
     }
 }

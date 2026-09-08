@@ -23,4 +23,18 @@ internal static class LimiterParameters
     public const float MinMakeupGainDb = -24f;
     public const float MaxMakeupGainDb = 24f;
     public const float DefaultMakeupGainDb = 0f;
+
+    // Recompute the clamped maximum before node initialization; keep it consistent with Derive.
+    public static int ToLatencySamples(float lookaheadMs, int sampleRate)
+    {
+        if (sampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+
+        int maxLookaheadSamples = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
+        if (!float.IsFinite(lookaheadMs))
+            lookaheadMs = MinLookaheadMs;
+
+        lookaheadMs = Math.Clamp(lookaheadMs, MinLookaheadMs, MaxLookaheadMs);
+        return Math.Clamp((int)(lookaheadMs / 1000f * sampleRate), 0, maxLookaheadSamples - 1);
+    }
 }

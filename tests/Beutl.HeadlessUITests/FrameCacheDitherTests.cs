@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Reactive.Linq;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Models;
 
@@ -59,7 +60,8 @@ public class FrameCacheDitherTests
     {
         using var manager = new FrameCacheManager(
             new PixelSize(Width, Height),
-            new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA))
+            new FrameCacheOptions(FrameCacheScale.Original, FrameCacheColorType.BGRA),
+            Observable.Return(long.MaxValue))
         {
             IsEnabled = true
         };
@@ -108,7 +110,8 @@ public class FrameCacheDitherTests
             new FrameCacheOptions(FrameCacheScale.Manual, FrameCacheColorType.BGRA)
             {
                 Size = new PixelSize(Width / 4, Width / 4)
-            })
+            },
+            Observable.Return(long.MaxValue))
         { IsEnabled = true };
 
         using (Ref<Bitmap> source = Ref<Bitmap>.Create(CreateCheckerboard()))

@@ -5,11 +5,30 @@ using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
 public class ComposerTests
 {
+    [Test]
+    public void Compose_EligibilityNotCaptured_Throws()
+    {
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            null);
+        using var composer = new Composer();
+
+        var exception = Assert.Throws<InvalidOperationException>(() => composer.Compose(range, frame));
+
+        Assert.That(exception!.Message, Does.Contain("eligibility snapshot"));
+        Assert.That(composer.IsAudioRendering, Is.False);
+    }
+
     [Test]
     public void Compose_EmptyFrame_ReturnsSilentBufferWithCeilingSampleCount()
     {
@@ -21,7 +40,11 @@ public class ComposerTests
         const int sampleRate = 44100;
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / sampleRate;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            CompositionEligibility.Empty);
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);
@@ -38,7 +61,11 @@ public class ComposerTests
     {
         const int sampleRate = 48000;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default,
+            CompositionEligibility.Empty);
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);
@@ -47,5 +74,47 @@ public class ComposerTests
         // ヘルパー経由で取得した値とそのまま比較し、Composer の silence fallback がヘルパーと
         // 乖離した場合 (整数秒入力でも) に検出できるようにする。
         Assert.That(buffer!.SampleCount, Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate)));
+    }
+
+    // Regression for #2183: a SourceSound whose media has no audio track (video-only file) loads as an
+    // unreadable source (SampleRate == 0). Sound.Compose must emit silence instead of throwing from
+    // CreateResampleNode(0) / AudioProcessContext.
+    [Test]
+    public void Compose_SourceSoundWithNoAudioTrack_ReturnsSilenceInsteadOfThrowing()
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        string videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(videoPath));
+        var sound = new SourceSound();
+        sound.Source.CurrentValue = source;
+
+        using var resource = (SourceSound.Resource)sound.ToResource(CompositionContext.Default);
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var frame = new CompositionFrame(
+            ImmutableArray.Create((EngineObject.Resource)resource),
+            range,
+            default,
+            new CompositionEligibility([sound]));
+
+        const int sampleRate = 44100;
+        using var composer = new Composer { SampleRate = sampleRate };
+
+        AudioBuffer? buffer = null;
+        Assert.DoesNotThrow(() => buffer = composer.Compose(range, frame));
+
+        using (buffer)
+        {
+            Assert.That(buffer, Is.Not.Null);
+            Assert.That(buffer!.SampleRate, Is.EqualTo(sampleRate));
+            Assert.That(buffer.ChannelCount, Is.EqualTo(2));
+            Assert.That(buffer.SampleCount, Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate)));
+            Assert.Multiple(() =>
+            {
+                Assert.That(buffer.GetChannelData(0).ToArray(), Is.All.EqualTo(0f),
+                    "音声トラックのないソースは無音を出力する (#2183)");
+                Assert.That(buffer.GetChannelData(1).ToArray(), Is.All.EqualTo(0f));
+            });
+        }
     }
 }

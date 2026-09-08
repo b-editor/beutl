@@ -160,6 +160,27 @@ public class SourceSoundThumbnailTests
             Is.EqualTo(totalSamples));
     }
 
+    // Regression for #2183: a video-only source (no audio track) loads as an unreadable resource
+    // (Duration == 0). TryGetOriginalDuration must return false instead of reporting a zero duration,
+    // so timeline resize/trim code does not act on it (or crash dereferencing AudioInfo).
+    [Test]
+    public void TryGetOriginalDuration_VideoOnlySource_ReturnsFalse()
+    {
+        string path = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource }
+        };
+
+        bool result = sound.TryGetOriginalDuration(out TimeSpan duration);
+
+        Assert.That(result, Is.False,
+            "音声トラックのないソースは元の長さを持たない (#2183)");
+        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+    }
+
     private static async Task<List<WaveformChunk>> CollectAsync(
         SourceSound sound, int chunkCount, int samplesPerChunk, IThumbnailCacheService cache)
     {

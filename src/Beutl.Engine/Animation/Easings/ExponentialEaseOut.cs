@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Animation.Easings;
 
-public sealed class ExponentialEaseOut : Easing
+public sealed class ExponentialEaseOut : UnitRangeEasing
 {
     public override float Ease(float progress)
     {

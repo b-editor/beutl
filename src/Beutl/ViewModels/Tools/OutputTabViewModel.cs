@@ -31,7 +31,7 @@ public class OutputTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.Output;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.Output);
 
     public ICoreList<OutputProfileItem> Items => _outputService.Items;
 

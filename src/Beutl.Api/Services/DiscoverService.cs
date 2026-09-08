@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 
@@ -10,47 +8,76 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
 {
     public MyAsyncLock Lock => clients.Lock;
 
-    public async Task<Package> GetPackage(string name)
+    public async Task<Package> GetPackage(string name, CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetPackage", ActivityKind.Client);
 
-        PackageResponse package = await clients.Packages.GetPackage(name).ConfigureAwait(false);
+        PackageResponse package = await clients.Packages.GetPackage(name, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         var owner = new Profile(package.Owner, clients);
 
         return new Package(owner, package, clients);
     }
 
-    public async Task<Profile> GetProfile(string name)
+    public async Task<Profile> GetProfile(string name, CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetProfile", ActivityKind.Client);
 
-        ProfileResponse response = await clients.Users.GetUser(name).ConfigureAwait(false);
+        ProfileResponse response = await clients.Users.GetUser(name, token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
         return new Profile(response, clients);
     }
 
-    public async Task<Package[]> GetFeatured(int start = 0, int count = 30)
+    public async Task<Package[]> GetFeatured(
+        CancellationToken cancellationToken,
+        int start = 0,
+        int count = 30,
+        PackageKindFilter type = PackageKindFilter.All)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetDailyRanking", ActivityKind.Client);
+        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
+        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetFeatured", ActivityKind.Client);
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
+        activity?.SetTag("type", type.ToString());
 
-        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await clients.Discover.GetFeatured(start, count).ConfigureAwait(false))
-            .ToObservable()
-            .SelectMany(async x => await GetPackage(x.Name).ConfigureAwait(false))
-            .ToArray()
-            .ToTask()
+        SimplePackageResponse[] packages = await clients.Discover
+            .GetFeatured(token, start, count, type.ToQueryValue())
             .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        Package[] result = await Task.WhenAll(
+                packages.Select(package => GetPackage(package.Name, token)))
+            .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return result;
     }
 
-    public async Task<Package[]> Search(string query, int start = 0, int count = 30)
+    public async Task<Package[]> Search(
+        string query,
+        CancellationToken cancellationToken,
+        int start = 0,
+        int count = 30,
+        PackageKindFilter type = PackageKindFilter.All)
     {
-        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
-        return await (await clients.Discover.Search(query, start, count).ConfigureAwait(false))
-            .ToObservable()
-            .SelectMany(async x => await GetPackage(x.Name).ConfigureAwait(false))
-            .ToArray()
-            .ToTask()
+        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
+
+        SimplePackageResponse[] packages = await clients.Discover
+            .Search(query, token, start, count, type.ToQueryValue())
             .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        Package[] result = await Task.WhenAll(
+                packages.Select(package => GetPackage(package.Name, token)))
+            .ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return result;
     }
 }

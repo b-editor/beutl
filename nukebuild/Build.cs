@@ -68,6 +68,11 @@ class Build : NukeBuild
         return proc.Output.First().Text.Split(';')[0];
     }
 
+    private void CopyDistributionLicenses(AbsolutePath destination)
+    {
+        ReleaseLegalFiles.CopyTo(RootDirectory.ToString(), destination.ToString());
+    }
+
     Target Publish => _ => _
         //.DependsOn(Compile)
         .DependsOn(Restore)
@@ -191,6 +196,8 @@ class Build : NukeBuild
             mcpServerOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: mainOutput / mcpServerOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+
+            CopyDistributionLicenses(mainOutput);
         });
 
     Target Zip => _ => _
@@ -305,6 +312,8 @@ class Build : NukeBuild
             mcpOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: bundleContents / mcpOutput.GetRelativePathTo(p)))
                 .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
+
+            CopyDistributionLicenses(output / "Beutl.app" / "Contents" / "Resources");
         });
 
     Target NuGetPack => _ => _

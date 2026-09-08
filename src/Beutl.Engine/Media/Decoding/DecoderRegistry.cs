@@ -25,9 +25,21 @@ public static class DecoderRegistry
         set => Volatile.Write(ref s_proxyResolver, value);
     }
 
+    /// <summary>
+    /// Raised after the set or priority of registered decoders changed.
+    /// </summary>
+    /// <remarks>
+    /// Raised outside <c>s_lock</c> so a handler may call back into the registry.
+    /// </remarks>
+    public static event EventHandler? DecodersChanged;
+
     static DecoderRegistry()
     {
-        GlobalConfiguration.Instance.ExtensionConfig.DecoderPriority.CollectionChanged += (_, _) => InvalidateCache();
+        GlobalConfiguration.Instance.ExtensionConfig.DecoderPriority.CollectionChanged += (_, _) =>
+        {
+            InvalidateCache();
+            DecodersChanged?.Invoke(null, EventArgs.Empty);
+        };
     }
 
     private static void InvalidateCache()
@@ -56,7 +68,9 @@ public static class DecoderRegistry
                 s_ordered.AddRange(s_registered.Except(preferred));
             }
 
-            return s_ordered;
+            // Snapshot: callers enumerate after the lock is released, and InvalidateCache clears
+            // s_ordered from another thread.
+            return s_ordered.ToArray();
         }
     }
 
@@ -138,18 +152,27 @@ public static class DecoderRegistry
             InvalidateCache();
             s_registered.Add(decoder);
         }
+
+        DecodersChanged?.Invoke(null, EventArgs.Empty);
     }
 
     public static bool Unregister(IDecoderInfo decoder)
     {
+        bool removed;
         lock (s_lock)
         {
-            bool removed = s_registered.Remove(decoder);
+            removed = s_registered.Remove(decoder);
             if (removed)
             {
                 InvalidateCache();
             }
-            return removed;
         }
+
+        if (removed)
+        {
+            DecodersChanged?.Invoke(null, EventArgs.Empty);
+        }
+
+        return removed;
     }
 }

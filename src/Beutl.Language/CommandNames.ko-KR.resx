@@ -1,0 +1,203 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AddElement" xml:space="preserve">
+    <value>요소 추가</value>
+  </data>
+  <data name="RemoveElement" xml:space="preserve">
+    <value>요소 제거</value>
+  </data>
+  <data name="CutElement" xml:space="preserve">
+    <value>요소 잘라내기</value>
+  </data>
+  <data name="DeleteElement" xml:space="preserve">
+    <value>요소 삭제</value>
+  </data>
+  <data name="PasteElement" xml:space="preserve">
+    <value>요소 붙여넣기</value>
+  </data>
+  <data name="MoveElement" xml:space="preserve">
+    <value>요소 이동</value>
+  </data>
+  <data name="SlipElement" xml:space="preserve">
+    <value>요소 슬립</value>
+  </data>
+  <data name="RollElements" xml:space="preserve">
+    <value>요소 롤</value>
+  </data>
+  <data name="SlideElements" xml:space="preserve">
+    <value>요소 슬라이드</value>
+  </data>
+  <data name="SplitElement" xml:space="preserve">
+    <value>요소 분할</value>
+  </data>
+  <data name="DuplicateElement" xml:space="preserve">
+    <value>요소 복제</value>
+  </data>
+  <data name="ChangeElementColor" xml:space="preserve">
+    <value>요소 색상 변경</value>
+  </data>
+  <data name="ChangeElementEnabled" xml:space="preserve">
+    <value>요소 활성화 변경</value>
+  </data>
+  <data name="ChangeElementUseNode" xml:space="preserve">
+    <value>요소 노드 사용 변경</value>
+  </data>
+  <data name="GroupElements" xml:space="preserve">
+    <value>요소 그룹화</value>
+  </data>
+  <data name="UngroupElements" xml:space="preserve">
+    <value>요소 그룹 해제</value>
+  </data>
+  <data name="CloseGap" xml:space="preserve">
+    <value>간격 닫기</value>
+  </data>
+  <data name="CloseAllGaps" xml:space="preserve">
+    <value>모든 간격 닫기</value>
+  </data>
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>장면 길이 변경</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>장면 시작 변경</value>
+  </data>
+  <data name="MoveMarker" xml:space="preserve">
+    <value>마커 이동</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>마커 편집</value>
+  </data>
+  <data name="RemoveMarker" xml:space="preserve">
+    <value>마커 제거</value>
+  </data>
+  <data name="MoveLayer" xml:space="preserve">
+    <value>레이어 이동</value>
+  </data>
+  <data name="ChangeLayerColor" xml:space="preserve">
+    <value>레이어 색상 변경</value>
+  </data>
+  <data name="ChangeLayerLocked" xml:space="preserve">
+    <value>레이어 잠금 변경</value>
+  </data>
+  <data name="ChangeLayerAudioMuted" xml:space="preserve">
+    <value>레이어 오디오 음소거 변경</value>
+  </data>
+  <data name="ChangeLayerVideoMuted" xml:space="preserve">
+    <value>레이어 비디오 음소거 변경</value>
+  </data>
+  <data name="ChangeLayerSolo" xml:space="preserve">
+    <value>레이어 솔로 변경</value>
+  </data>
+  <data name="ChangeElementLocked" xml:space="preserve">
+    <value>요소 잠금 변경</value>
+  </data>
+  <data name="InsertKeyFrame" xml:space="preserve">
+    <value>키프레임 삽입</value>
+  </data>
+  <data name="RemoveKeyFrame" xml:space="preserve">
+    <value>키프레임 제거</value>
+  </data>
+  <data name="EditKeyFrame" xml:space="preserve">
+    <value>키프레임 편집</value>
+  </data>
+  <data name="MoveKeyFrame" xml:space="preserve">
+    <value>키프레임 이동</value>
+  </data>
+  <data name="ChangeEasing" xml:space="preserve">
+    <value>이징 변경</value>
+  </data>
+  <data name="PasteKeyFrame" xml:space="preserve">
+    <value>키프레임 붙여넣기</value>
+  </data>
+  <data name="PasteAnimation" xml:space="preserve">
+    <value>애니메이션 붙여넣기</value>
+  </data>
+  <data name="ChangeUseGlobalClock" xml:space="preserve">
+    <value>전역 클록 사용 변경</value>
+  </data>
+  <data name="DeleteAnimation" xml:space="preserve">
+    <value>애니메이션 삭제</value>
+  </data>
+  <data name="AddNode" xml:space="preserve">
+    <value>노드 추가</value>
+  </data>
+  <data name="RemoveNode" xml:space="preserve">
+    <value>노드 제거</value>
+  </data>
+  <data name="MoveNode" xml:space="preserve">
+    <value>노드 이동</value>
+  </data>
+  <data name="RenameNode" xml:space="preserve">
+    <value>노드 이름 변경</value>
+  </data>
+  <data name="ConnectPort" xml:space="preserve">
+    <value>포트 연결</value>
+  </data>
+  <data name="DisconnectPort" xml:space="preserve">
+    <value>포트 연결 끊기</value>
+  </data>
+  <data name="MoveConnection" xml:space="preserve">
+    <value>연결 이동</value>
+  </data>
+  <data name="AddPort" xml:space="preserve">
+    <value>포트 추가</value>
+  </data>
+  <data name="RemovePort" xml:space="preserve">
+    <value>포트 제거</value>
+  </data>
+  <data name="RenamePort" xml:space="preserve">
+    <value>포트 이름 변경</value>
+  </data>
+  <data name="ChangeUseNode" xml:space="preserve">
+    <value>노드 사용 변경</value>
+  </data>
+  <data name="AddObject" xml:space="preserve">
+    <value>개체 추가</value>
+  </data>
+  <data name="RemoveObject" xml:space="preserve">
+    <value>개체 제거</value>
+  </data>
+  <data name="ChangeObjectEnabled" xml:space="preserve">
+    <value>개체 활성화 변경</value>
+  </data>
+  <data name="PasteObject" xml:space="preserve">
+    <value>개체 붙여넣기</value>
+  </data>
+  <data name="MoveObject" xml:space="preserve">
+    <value>개체 이동</value>
+  </data>
+  <data name="ChangeSceneSettings" xml:space="preserve">
+    <value>장면 설정 변경</value>
+  </data>
+  <data name="EditPathPoint" xml:space="preserve">
+    <value>경로 점 편집</value>
+  </data>
+  <data name="TransformElement" xml:space="preserve">
+    <value>요소 변형</value>
+  </data>
+  <data name="EditProperty" xml:space="preserve">
+    <value>속성 편집</value>
+  </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>템플릿 적용</value>
+  </data>
+  <data name="AddElementFromTemplate" xml:space="preserve">
+    <value>템플릿에서 요소 추가</value>
+  </data>
+</root>

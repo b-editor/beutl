@@ -37,58 +37,60 @@ public sealed class VideoSourceRenderNode(
             changed = true;
         }
 
-        HasChanges = changed;
+        if (changed)
+        {
+            MarkChanged();
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        if (!Source.HasValue) return [];
+        if (Source is not { } sourceSnapshot)
+            return;
 
-        return
-        [
-            RenderNodeOperation.CreateLambda(
-                bounds: Bounds,
-                render: canvas =>
-                {
-                    if (Source.Value.Resource.Read(Frame, out var bitmapRef))
-                    {
-                        using (bitmapRef)
-                        {
-                            if (Source.Value.Resource.ProxyResolution == null)
-                            {
-                                canvas.DrawBitmap(bitmapRef.Value, Fill?.Resource, Pen?.Resource);
-                            }
-                            else
-                            {
-                                var dest = new Rect(default, Source.Value.Resource.LogicalFrameSize.ToSize(1));
-                                canvas.DrawBitmapScaled(bitmapRef.Value, dest, Fill?.Resource);
-                            }
-                        }
-                    }
-                },
-                hitTest: HitTest,
-                effectiveScale: EffectiveScale.At(Source.Value.Resource.SupplyDensity)
-            )
-        ];
+        Rect bounds = Bounds;
+        if (bounds.Width == 0 || bounds.Height == 0)
+            return;
+
+        int frame = Frame;
+        VideoSource.Resource source = sourceSnapshot.Resource;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
+        float supplyDensity = source.SupplyDensity;
+        RenderResource<VideoSource.Resource> sourceResource = context.Borrow(source);
+
+        context.Publish(context.PaintedSource(
+            state: (source, frame),
+            draw: static (canvas, fill, pen, state) =>
+                canvas.DrawVideoSource(state.source, state.frame, fill, pen),
+            fill: fill,
+            pen: pen,
+            outputBounds: bounds,
+            hitTest: RenderHitTestContract.Custom(HitTest),
+            scale: RenderScaleContract.Custom(
+                supplyDensity,
+                static (density, _) => density),
+            directReplayAtExactIntegerReduction: false,
+            resources: [sourceResource]));
     }
 
-    private bool HitTest(Point point)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Inside;
-        float thickness = Pen?.Resource.Thickness ?? 0;
-        thickness = PenHelper.GetRealThickness(alignment, thickness);
+        Rect bounds = Bounds;
+        Pen.Resource? pen = Pen?.Resource;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Inside,
+            pen?.Thickness ?? 0);
 
-        if (Fill != null)
+        if (Fill?.Resource is not null)
         {
-            Rect rect = Bounds.Inflate(thickness);
-            return rect.ContainsExclusive(point);
+            return bounds.Inflate(realThickness).ContainsExclusive(point);
         }
-        else
-        {
-            Rect borderRect = Bounds.Inflate(thickness);
-            Rect emptyRect = Bounds.Deflate(thickness);
-            return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
-        }
+
+        Rect borderRect = bounds.Inflate(realThickness);
+        Rect emptyRect = bounds.Deflate(realThickness);
+        return borderRect.ContainsExclusive(point) && !emptyRect.ContainsExclusive(point);
     }
 }

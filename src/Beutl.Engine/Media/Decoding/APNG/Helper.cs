@@ -1,36 +1,16 @@
-﻿namespace Beutl.Media.Decoding.APNG;
+﻿using System.Buffers.Binary;
+
+namespace Beutl.Media.Decoding.APNG;
 
 internal static class Helper
 {
-    private static byte[] ConvertEndian(byte[] i)
-    {
-        if (i.Length % 2 != 0)
-            throw new Exception("byte array length must multiply of 2");
+    internal static int ConvertEndian(int i) => BinaryPrimitives.ReverseEndianness(i);
 
-        Array.Reverse(i);
+    internal static uint ConvertEndian(uint i) => BinaryPrimitives.ReverseEndianness(i);
 
-        return i;
-    }
+    internal static short ConvertEndian(short i) => BinaryPrimitives.ReverseEndianness(i);
 
-    internal static int ConvertEndian(int i)
-    {
-        return BitConverter.ToInt32(ConvertEndian(BitConverter.GetBytes(i)), 0);
-    }
-
-    internal static uint ConvertEndian(uint i)
-    {
-        return BitConverter.ToUInt32(ConvertEndian(BitConverter.GetBytes(i)), 0);
-    }
-
-    internal static short ConvertEndian(short i)
-    {
-        return BitConverter.ToInt16(ConvertEndian(BitConverter.GetBytes(i)), 0);
-    }
-
-    internal static ushort ConvertEndian(ushort i)
-    {
-        return BitConverter.ToUInt16(ConvertEndian(BitConverter.GetBytes(i)), 0);
-    }
+    internal static ushort ConvertEndian(ushort i) => BinaryPrimitives.ReverseEndianness(i);
 
     public static bool IsBytesEqual(byte[] byte1, byte[] byte2)
     {

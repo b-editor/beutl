@@ -97,7 +97,7 @@ public sealed class SpeedIntegrator : IDisposable
     /// <summary>
     /// Integrates the speed animation and returns the transformed time corresponding to the specified time.
     /// </summary>
-    public TimeSpan Integrate(TimeSpan timeSpan, KeyFrameAnimation<float> animation)
+    public TimeSpan Integrate(TimeSpan timeSpan, IAnimation<float> animation)
     {
         int targetSec = (int)timeSpan.TotalSeconds;
         (int cachedSec, double cachedSum) = TryGetCache(targetSec);

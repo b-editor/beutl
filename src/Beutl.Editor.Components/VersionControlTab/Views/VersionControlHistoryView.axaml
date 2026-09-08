@@ -1,0 +1,84 @@
+<UserControl x:Class="Beutl.Editor.Components.VersionControlTab.Views.VersionControlHistoryView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.Editor.Components.VersionControlTab.ViewModels"
+             d:DesignHeight="480"
+             d:DesignWidth="320"
+             x:CompileBindings="True"
+             x:DataType="vm:VersionControlTabViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="6">
+        <TextBlock Margin="8,8,8,0"
+                   Classes="sectionHeader"
+                   Text="{x:Static lang:Strings.VersionControl_History}" />
+        <Grid Grid.Row="1">
+            <ListBox x:Name="CommitList"
+                     ItemsSource="{Binding Commits}"
+                     Padding="8"
+                     SelectedItem="{Binding SelectedCommit.Value, Mode=TwoWay}"
+                     SelectionChanged="OnCommitSelectionChanged"
+                     Tapped="OnCommitListTapped">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:VersionControlCommitViewModel">
+                        <Border Padding="8,6">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Command="{Binding RestoreCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_Restore}" />
+                                    <MenuItem Command="{Binding RestoreToNewBranchCommand}"
+                                              Header="{x:Static lang:Strings.VersionControl_RestoreToNewBranch}" />
+                                </ContextMenu>
+                            </Border.ContextMenu>
+                            <Grid ColumnDefinitions="*,Auto"
+                                  RowDefinitions="Auto,Auto,Auto"
+                                  ColumnSpacing="6">
+                                <TextBlock FontWeight="SemiBold"
+                                           Text="{Binding DisplayMessage}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <Border Grid.Column="1"
+                                        Classes="kindBadge"
+                                        Classes.close="{Binding IsClose}"
+                                        Classes.init="{Binding IsInit}"
+                                        Classes.manual="{Binding IsManual}"
+                                        Classes.restore="{Binding IsRestore}"
+                                        Classes.safety="{Binding IsSafety}"
+                                        Classes.save="{Binding IsSave}">
+                                    <TextBlock FontSize="10" Text="{Binding KindText}" />
+                                </Border>
+                                <TextBlock Grid.Row="1"
+                                           Grid.ColumnSpan="2"
+                                           Margin="0,3,0,0"
+                                           Classes="secondary"
+                                           Text="{Binding AuthorAndRelativeDate}"
+                                           ToolTip.Tip="{Binding AbsoluteLocalDate}" />
+                                <TextBlock Grid.Row="2"
+                                           Grid.ColumnSpan="2"
+                                           Classes="secondary"
+                                           Text="{Binding Commit.ShortSha}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="HistoryEmptyHint"
+                       Margin="12"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Classes="secondary"
+                       IsVisible="{Binding IsHistoryEmpty.Value}"
+                       Text="{x:Static lang:Strings.VersionControl_HistoryEmptyHint}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </Grid>
+        <Button Grid.Row="2"
+                Margin="8,0,8,8"
+                HorizontalAlignment="Stretch"
+                Command="{Binding LoadMoreCommand}"
+                Content="{x:Static lang:Strings.VersionControl_LoadMore}"
+                IsEnabled="{Binding !IsLoading.Value}"
+                IsVisible="{Binding HasMoreHistory.Value}" />
+    </Grid>
+</UserControl>

@@ -92,7 +92,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public string Header => Strings.PreviewSettings;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PreviewSettings);
 
     private ReactiveProperty<bool> BindToggle(EditorConfig config, CoreProperty<bool> property, Action<bool> setter)
     {

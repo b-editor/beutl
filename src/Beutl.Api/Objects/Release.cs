@@ -45,23 +45,35 @@ public class Release
 
     public ReadOnlyReactivePropertySlim<string?> AssetUrl { get; set; }
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         using Activity? activity = _clients.ActivitySource.StartActivity("Release.Refresh", ActivityKind.Client);
 
-        _response.Value = await _clients.Releases.GetRelease(Package.Name, _response.Value.Version);
+        ReleaseResponse response = await _clients.Releases.GetRelease(
+            Package.Name,
+            _response.Value.Version,
+            token);
 
+        token.ThrowIfCancellationRequested();
+        _response.Value = response;
         _isDeleted.Value = false;
     }
 
-    public async Task<FileResponse> GetAssetAsync()
+    public async Task<FileResponse> GetAssetAsync(CancellationToken cancellationToken)
     {
+        using CancellationTokenSource lifetimeCts = _clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
+        token.ThrowIfCancellationRequested();
         using Activity? activity = _clients.ActivitySource.StartActivity("Release.GetAsset", ActivityKind.Client);
 
         if (AssetId.Value == null)
             throw new InvalidOperationException("This release has no assets.");
 
-        return await _clients.Files.GetFile(AssetId.Value!);
+        FileResponse response = await _clients.Files.GetFile(AssetId.Value!, token);
+        token.ThrowIfCancellationRequested();
+        return response;
     }
 }
-

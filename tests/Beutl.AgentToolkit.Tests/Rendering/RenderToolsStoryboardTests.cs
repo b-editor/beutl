@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Reflection;
+using System.Text.Json;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
@@ -10,6 +12,7 @@ using Beutl.AgentToolkit.Workspace;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -772,6 +775,162 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
+    public async Task Render_still_rejects_output_extent_above_device_limit_before_rendering()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(1920, 1080, "oversized-still")
+        {
+            Duration = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+        string existingOutput = Path.Combine(workspace, "oversized.png");
+        File.WriteAllText(existingOutput, "overwrite guard prevents the pre-fix renderer from running");
+
+        ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(
+            await tools.RenderStill(
+                existingOutput,
+                renderScale: 9f,
+                confirmOverwrite: false,
+                cancellationToken: CancellationToken.None));
+
+        AssertRenderScaleLimitError(result.Error, "17280x9720");
+    }
+
+    [Test]
+    public async Task Export_video_rejects_output_extent_above_device_limit_before_encoder_preflight()
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(1920, 1080, "oversized-export")
+        {
+            Duration = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        using var session = new AgentToolkitTestSession(scene);
+        RenderTools tools = CreateTools(workspace, session);
+        string existingOutput = Path.Combine(workspace, "oversized.webm");
+        File.WriteAllText(existingOutput, "encoder and overwrite guards prevent the pre-fix exporter from running");
+
+        ToolResult<ExportVideoResult> result = await tools.ExportVideo(
+            existingOutput,
+            renderScale: 9f,
+            confirmOverwrite: false,
+            cancellationToken: CancellationToken.None);
+
+        AssertRenderScaleLimitError(result.Error, "17280x9720");
+    }
+
+    [Test]
+    public void Every_render_scale_tool_parameter_documents_the_device_axis_limit()
+    {
+        ParameterInfo[] renderScaleParameters = typeof(RenderTools)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .SelectMany(static method => method.GetParameters())
+            .Where(static parameter => parameter.Name == "renderScale")
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderScaleParameters, Has.Length.EqualTo(7));
+            foreach (ParameterInfo parameter in renderScaleParameters)
+            {
+                string? description = parameter.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
+                Assert.That(
+                    description,
+                    Does.Contain("16384"),
+                    $"{parameter.Member.Name}.renderScale does not document the device-axis limit.");
+            }
+        });
+    }
+
+    [TestCase("render_storyboard")]
+    [TestCase("evaluate_motion_variation")]
+    [TestCase("evaluate_edit_quality")]
+    [TestCase("suggest_quality_fixes")]
+    [TestCase("final_preflight")]
+    [TestCase("compare_revisions")]
+    public async Task Every_remaining_render_scale_tool_rejects_over_limit_extent_before_rendering(
+        string toolName)
+    {
+        string workspace = CreateWorkspace();
+        var scene = new Scene(1920, 1080, $"oversized-{toolName}")
+        {
+            Duration = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
+        };
+        using var session = new AgentToolkitTestSession(scene);
+        (RenderTools tools, AgentSessionManager manager) = CreateToolsWithManager(workspace, session);
+
+        ToolError? error;
+        switch (toolName)
+        {
+            case "render_storyboard":
+                error = ReadToolResult<RenderStoryboardResult>(
+                    await tools.RenderStoryboard(
+                        timeSeconds: [0],
+                        outputDirectory: "oversized-storyboard",
+                        renderScale: 9,
+                        cancellationToken: CancellationToken.None)).Error;
+                break;
+            case "evaluate_motion_variation":
+                error = (await tools.EvaluateMotionVariation(
+                    timeSeconds: [0, 0.5],
+                    renderScale: 9,
+                    cancellationToken: CancellationToken.None)).Error;
+                break;
+            case "evaluate_edit_quality":
+                error = (await tools.EvaluateEditQuality(
+                    timeSeconds: [0],
+                    renderScale: 9,
+                    staticLayout: true,
+                    cancellationToken: CancellationToken.None)).Error;
+                break;
+            case "suggest_quality_fixes":
+                error = (await tools.SuggestQualityFixes(
+                    renderScale: 9,
+                    cancellationToken: CancellationToken.None)).Error;
+                break;
+            case "final_preflight":
+                error = (await tools.FinalPreflight(
+                    timeSeconds: [0],
+                    renderScale: 9,
+                    staticLayout: true,
+                    cancellationToken: CancellationToken.None)).Error;
+                break;
+            case "compare_revisions":
+                string sessionKey = manager.GetSessionKey(session);
+                manager.StoreQualityReviewBaseline(new QualityReviewBaseline(
+                    sessionKey,
+                    DateTimeOffset.UtcNow,
+                    [TimeSpan.Zero],
+                    new QualityAnalysisOptions(
+                        VideoType: null,
+                        StyleProfile: null,
+                        RenderScale: 9,
+                        AllowAllCaps: false,
+                        AllowHardCuts: false,
+                        RelaxAesthetics: false,
+                        AllowStillness: false,
+                        AllowDenseText: false,
+                        AllowMultiObjectElements: false,
+                        AllowMinimalDensity: false,
+                        PlannedForegroundElementsPerShot: 0,
+                        BeatTimesSeconds: null,
+                        PaletteRoleColors: null),
+                    null!,
+                    []));
+                error = ReadToolResult<CompareRevisionsResponse>(
+                    await tools.CompareRevisions(cancellationToken: CancellationToken.None)).Error;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(toolName), toolName, null);
+        }
+
+        AssertRenderScaleLimitError(error, "17280x9720");
+    }
+
+    [Test]
     public async Task Render_storyboard_rejects_image_content_for_background_job()
     {
         string workspace = CreateWorkspace();
@@ -891,7 +1050,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Evaluate_edit_quality_static_layout_false_reports_major_motion_continuity_blocker()
+    public async Task Evaluate_edit_quality_static_layout_false_reports_motion_continuity_as_advisory()
     {
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
@@ -905,9 +1064,9 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.PassesQualityGate, Is.False);
+            Assert.That(result.Value!.PassesQualityGate, Is.True);
             Assert.That(result.Value.Issues, Has.Some.Matches<QualityIssue>(issue =>
-                issue.Category == "motionContinuity" && issue.Severity == "major"));
+                issue.Category == "motionContinuity" && issue.Severity == "minor"));
         });
     }
 
@@ -937,7 +1096,7 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Final_preflight_static_layout_false_is_not_ready_and_reports_motion_blockers()
+    public async Task Final_preflight_reports_low_motion_as_advisory_and_blocks_only_on_the_requested_check()
     {
         string workspace = CreateWorkspace();
         using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
@@ -956,8 +1115,34 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.Value!.ReadyForExport, Is.False);
             Assert.That(result.Value.ReadyForStoryboard, Is.False);
             Assert.That(result.Value.Motion, Is.Not.Null);
-            Assert.That(result.Value.Blockers, Has.Some.Contains("Motion variation did not pass"));
+            Assert.That(result.Value.Advisories, Has.Some.Contains("Motion variation did not pass"));
+            Assert.That(result.Value.Blockers, Has.None.Contains("Motion variation did not pass"));
             Assert.That(result.Value.Blockers, Has.Some.Contains("animatedPropertyCount is 0"));
+        });
+    }
+
+    [Test]
+    public async Task Final_preflight_includes_non_blocking_quality_issues_in_advisories()
+    {
+        string workspace = CreateWorkspace();
+        using var session = new AgentToolkitTestSession(CreateStaticQualityScene(workspace));
+        RenderTools tools = CreateTools(workspace, session);
+
+        ToolResult<FinalPreflightResponse> result = await tools.FinalPreflight(
+            outputPrefix: "preflight/quality-advisories",
+            sampleCount: 2,
+            staticLayout: true,
+            styleProfile: "motion-graphics",
+            plannedForegroundElementsPerShot: 10,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value!.Quality.Issues, Has.Some.Matches<QualityIssue>(issue =>
+                issue.Category == "layerDensity" && issue.Severity == "minor"));
+            Assert.That(result.Value.Advisories, Has.Some.Contains("[layerDensity]"));
+            Assert.That(result.Value.Blockers, Has.None.Contains("layerDensity"));
         });
     }
 
@@ -1007,7 +1192,7 @@ public sealed class RenderToolsStoryboardTests
             allowStillness: true,
             paletteRoleColors: CreateRevisionPaletteRolesJson(),
             cancellationToken: CancellationToken.None);
-        SetRevisionTextColor(scene, Colors.White);
+        FixRevisionElementStructure(scene);
         AddRevisionAccentFlood(scene, workspace);
 
         CallToolResult call = await tools.CompareRevisions(returnImageContent: true, cancellationToken: CancellationToken.None);
@@ -1016,9 +1201,9 @@ public sealed class RenderToolsStoryboardTests
         Assert.Multiple(() =>
         {
             Assert.That(baseline.IsSuccess, Is.True, baseline.Error?.Message);
-            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(baseline.Value!.Issues, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "typographyContrast"));
+            Assert.That(result.Value!.IssuesResolved, Has.Some.Matches<QualityIssue>(issue => issue.Category == "elementStructure"));
             Assert.That(result.Value.IssuesIntroduced, Has.Some.Matches<QualityIssue>(issue => issue.Category == "paletteBalance"));
             Assert.That(result.Value.Regression, Is.True);
             Assert.That(result.Value.MetricDeltas.Select(delta => delta.Metric), Does.Contain("paletteBalance.roleShare.accent"));
@@ -1081,12 +1266,17 @@ public sealed class RenderToolsStoryboardTests
     }
 
     private static RenderTools CreateTools(string workspace, AgentToolkitTestSession session)
+        => CreateToolsWithManager(workspace, session).Tools;
+
+    private static (RenderTools Tools, AgentSessionManager Manager) CreateToolsWithManager(
+        string workspace,
+        AgentToolkitTestSession session)
     {
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         var stillRenderer = new StillRenderer();
         var motionVariationAnalyzer = new MotionVariationAnalyzer(stillRenderer);
-        return new RenderTools(
+        var tools = new RenderTools(
             manager,
             new WorkspaceGuard(workspace),
             new DestructiveGuard(),
@@ -1097,6 +1287,7 @@ public sealed class RenderToolsStoryboardTests
             new QualityAnalyzer(motionVariationAnalyzer, stillRenderer),
             new VideoExporter(new EncoderRegistration()),
             new RenderJobManager());
+        return (tools, manager);
     }
 
     private sealed class DispatchGuardedLiveSession : IEditingSession, IEditingSessionDispatcher, IDisposable
@@ -1172,6 +1363,9 @@ public sealed class RenderToolsStoryboardTests
             Fill = { CurrentValue = new SolidColorBrush(Color.Parse("#ff1a2028")) }
         };
         AddElement(scene, workspace, "revision text", TimeSpan.Zero, TimeSpan.FromSeconds(2), 10, block);
+        // A multi-object Element with no flow operator: the revision fixes this while the
+        // accent flood worsens palette balance, which is what the regression flag detects.
+        scene.Children[^1].AddObject(new EllipseShape { Name = "stray accent" });
         return scene;
     }
 
@@ -1201,6 +1395,12 @@ public sealed class RenderToolsStoryboardTests
             }
         };
         AddElement(scene, workspace, "accent flood", TimeSpan.Zero, TimeSpan.FromSeconds(2), 5, rect);
+    }
+
+    private static void FixRevisionElementStructure(Scene scene)
+    {
+        Element element = scene.Children.Single(item => item.Objects.Count > 1);
+        element.RemoveObject(element.Objects.OfType<EllipseShape>().Single());
     }
 
     private static PaletteRoleColor[] CreateRevisionPaletteRoles()
@@ -1395,6 +1595,30 @@ public sealed class RenderToolsStoryboardTests
         TextContentBlock text = result.Content.OfType<TextContentBlock>().Single();
         return JsonSerializer.Deserialize<ToolResult<T>>(text.Text, s_jsonOptions)
                ?? throw new InvalidOperationException("Tool result JSON could not be deserialized.");
+    }
+
+    /// <remarks>
+    /// The limit the rejection names is the one the render thread will resolve, so it moves with the machine:
+    /// a fixed 16384 only holds on a device that attaches at least the engine ceiling. Both the limit and the
+    /// maximum usable scale derived from it are therefore read here rather than written down. The truncated
+    /// three-decimal prefix survives the exact float the validator lands on, which is bit-adjusted to the
+    /// largest scale whose ceil() still fits.
+    /// </remarks>
+    private static void AssertRenderScaleLimitError(ToolError? error, string requestedExtent)
+    {
+        int limit = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        string maximumScalePrefix = (Math.Truncate(limit / 1920.0 * 1000) / 1000)
+            .ToString("0.000", CultureInfo.InvariantCulture);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(error.Target, Is.EqualTo("renderScale"));
+            Assert.That(error.Message, Does.Contain(limit.ToString(CultureInfo.InvariantCulture)));
+            Assert.That(error.Message, Does.Contain(requestedExtent));
+            Assert.That(error.Message, Does.Contain(maximumScalePrefix));
+        });
     }
 
     private static void AssertTimes(

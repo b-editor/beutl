@@ -162,6 +162,137 @@ public class SpeedNodeTests
         }
     }
 
+    [Test]
+    public void ProcessAnimatedSpeed_At44100Hz_RequestsEverySourceSampleExactlyOnce()
+    {
+        const int sampleRate = 44100;
+        var input = new SourceRequestRecordingNode(sampleRate);
+        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 100f, 10.0) };
+        node.AddInput(input);
+
+        using AudioBuffer _ = node.Process(
+            new AudioProcessContext(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                sampleRate,
+                new AnimationSampler(),
+                null));
+
+        Assert.That(input.Requests.Count, Is.GreaterThan(128),
+            "The render must cross the fractional-tick drift boundary.");
+
+        long expectedStart = 0;
+        for (int i = 0; i < input.Requests.Count; i++)
+        {
+            (long start, int count) = input.Requests[i];
+            Assert.That(start, Is.EqualTo(expectedStart),
+                $"Source request {i} repeated or skipped a sample.");
+            expectedStart += count;
+        }
+    }
+
+    [Test]
+    public void ProcessStaticSpeed_At48000Hz_BiasesExactSourceBoundariesForward()
+    {
+        const int sampleRate = 48000;
+        var input = new SourceRequestRecordingNode(sampleRate);
+        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 100f, 10.0) };
+        node.AddInput(input);
+
+        using AudioBuffer _ = node.Process(
+            new AudioProcessContext(
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                sampleRate,
+                new AnimationSampler(),
+                null));
+
+        Assert.That(input.Requests.Count, Is.GreaterThan(1));
+        long expectedStart = 0;
+        for (int i = 0; i < input.Requests.Count; i++)
+        {
+            (long start, int count) = input.Requests[i];
+            Assert.That(start, Is.EqualTo(expectedStart),
+                $"Source request {i} repeated or skipped a sample at the exact 48 kHz boundary.");
+            expectedStart += count;
+        }
+    }
+
+    [Test]
+    public void KeyFrameAnimation_ReportsBuiltInFloatBoundsThroughRangeContract()
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = 200f,
+            Easing = new LinearEasing()
+        });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(1),
+            Value = 50f,
+            Easing = new LinearEasing()
+        });
+
+        IAnimation<float> source = animation;
+        Assert.That(source.TryGetOutputRange(out float minimum, out float maximum), Is.True);
+        Assert.That(minimum, Is.EqualTo(50f));
+        Assert.That(maximum, Is.EqualTo(200f));
+    }
+
+    [Test]
+    public void ProcessAnimatedSpeed_FlushUsesTerminalSpeedAfterAnimationContinues()
+    {
+        const int sampleRate = 1000;
+        const int sampleCount = 256;
+        var speed = Property.CreateAnimatable(50f);
+        speed.SetAttributes("Speed", []);
+        speed.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.Zero,
+                    Value = 50f,
+                    Easing = new LinearEasing()
+                },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate),
+                    Value = 50f,
+                    Easing = new LinearEasing()
+                },
+                new KeyFrame<float>
+                {
+                    KeyTime = TimeSpan.FromSeconds(1),
+                    Value = 200f,
+                    Easing = new LinearEasing()
+                }
+            }
+        };
+
+        using var node = new SpeedNode { Speed = speed };
+        node.AddInput(new FlushRampInputNode(sampleRate));
+        var sampler = new AnimationSampler();
+        var duration = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
+
+        using AudioBuffer _ = node.Process(
+            new AudioProcessContext(new TimeRange(TimeSpan.Zero, duration), sampleRate, sampler, null));
+        using AudioBuffer tail = node.Flush(
+            new AudioProcessContext(new TimeRange(duration, duration), sampleRate, sampler, null));
+
+        Span<float> left = tail.GetChannelData(0);
+        double totalSlope = 0;
+        for (int i = 64; i < left.Length; i++)
+        {
+            float slope = left[i] - left[i - 1];
+            totalSlope += slope;
+        }
+
+        Assert.That(totalSlope / (left.Length - 64), Is.EqualTo(0.005).Within(0.0005),
+            "Animated drain must use the terminal speed on average instead of future automation.");
+    }
+
     // Deterministic finite stereo source: a ramp for the first _length samples, silence beyond. Models
     // SourceNode zero-filling past end-of-source.
     private sealed class FiniteRampInputNode : AudioNode
@@ -191,6 +322,42 @@ public class SpeedNodeTests
             }
 
             return buffer;
+        }
+    }
+
+    private sealed class FlushRampInputNode(int sampleRate) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context) => CreateRamp(context);
+
+        public override AudioBuffer Flush(AudioProcessContext context) => CreateRamp(context);
+
+        private AudioBuffer CreateRamp(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            var buffer = new AudioBuffer(sampleRate, 2, count);
+            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+            Span<float> left = buffer.GetChannelData(0);
+            Span<float> right = buffer.GetChannelData(1);
+            for (int i = 0; i < count; i++)
+            {
+                float value = (startIndex + i) * 0.01f;
+                left[i] = value;
+                right[i] = -value;
+            }
+
+            return buffer;
+        }
+    }
+
+    private sealed class SourceRequestRecordingNode(int sampleRate) : AudioNode
+    {
+        public List<(long Start, int Count)> Requests { get; } = [];
+
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            Requests.Add((AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate), count));
+            return new AudioBuffer(sampleRate, 2, count);
         }
     }
 

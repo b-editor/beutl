@@ -28,4 +28,16 @@ public static class BeutlEnvironment
     {
         return Path.Combine(GetHomeDirectoryPath(), "sideloads");
     }
+
+    // $BEUTL_HOME/templates
+    public static string GetTemplatesDirectoryPath()
+    {
+        return Path.Combine(GetHomeDirectoryPath(), "templates");
+    }
+
+    // $BEUTL_HOME/materials
+    public static string GetMaterialsDirectoryPath()
+    {
+        return Path.Combine(GetHomeDirectoryPath(), "materials");
+    }
 }

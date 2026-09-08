@@ -19,7 +19,7 @@ public abstract partial class MatrixNode : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            var node = GetOriginal();
+            var node = RequireOriginal();
             Matrix matrix = GetMatrix(context, node);
 
             if (context.HasConnection(node.Input))

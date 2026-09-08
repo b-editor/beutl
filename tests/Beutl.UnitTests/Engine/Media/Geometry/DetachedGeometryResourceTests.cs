@@ -1,0 +1,214 @@
+﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
+using Beutl.Media;
+
+namespace Beutl.UnitTests.Engine.Media.Geometry;
+
+using Geometry = Beutl.Media.Geometry;
+
+[TestFixture]
+public sealed class DetachedGeometryResourceTests
+{
+    [Test]
+    public void ADetachedEllipse_ProducesTheSameBoundsAsItsAttachedCounterpart()
+    {
+        using var detached = new EllipseGeometry.Resource { Width = 100, Height = 50 };
+        using Geometry.Resource attached = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 50 },
+        }.ToResource(CompositionContext.Default);
+
+        Assert.That(detached.Bounds, Is.EqualTo(attached.Bounds));
+    }
+
+    [Test]
+    public void ADetachedRect_ProducesTheSameBoundsAsItsAttachedCounterpart()
+    {
+        using var detached = new RectGeometry.Resource { Width = 30, Height = 40 };
+        using Geometry.Resource attached = new RectGeometry
+        {
+            Width = { CurrentValue = 30 },
+            Height = { CurrentValue = 40 },
+        }.ToResource(CompositionContext.Default);
+
+        Assert.That(detached.Bounds, Is.EqualTo(attached.Bounds));
+    }
+
+    [Test]
+    public void EveryPublicEntryPointOfADetachedEllipse_Answers()
+    {
+        using var pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 4 },
+        }.ToResource(CompositionContext.Default);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Fresh().Bounds, Is.EqualTo(new Rect(0, 0, 100, 50)));
+            Assert.That(Fresh().GetRenderBounds(null), Is.EqualTo(new Rect(0, 0, 100, 50)));
+            Assert.That(Fresh().GetRenderBounds(pen), Is.EqualTo(new Rect(-2, -2, 104, 54)));
+            Assert.That(Fresh().FillContains(new Point(50, 25)), Is.True);
+            Assert.That(Fresh().StrokeContains(null, new Point(0, 25)), Is.False);
+            Assert.That(Fresh().StrokeContains(pen, new Point(0, 25)), Is.True);
+        }
+
+        static EllipseGeometry.Resource Fresh() => new() { Width = 100, Height = 50 };
+    }
+
+    [Test]
+    public void ADetachedPathGeometryWithDetachedFiguresAndSegments_BuildsThatPath()
+    {
+        using var detached = new PathGeometry.Resource
+        {
+            Figures =
+            {
+                new PathFigure.Resource
+                {
+                    StartPoint = new Point(0, 0),
+                    IsClosed = true,
+                    Segments =
+                    {
+                        new LineSegment.Resource { Point = new Point(60, 0) },
+                        new LineSegment.Resource { Point = new Point(60, 20) },
+                    },
+                },
+            },
+        };
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 60, 20)));
+    }
+
+    [Test]
+    public void AnAttachedPathGeometryHoldingADetachedFigure_BuildsThatFigure()
+    {
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(new PathFigure
+        {
+            StartPoint = { CurrentValue = new Point(0, 0) },
+            Segments = { new LineSegment(new Point(10, 0)) },
+        });
+        using PathGeometry.Resource resource =
+            (PathGeometry.Resource)geometry.ToResource(CompositionContext.Default);
+        resource.Figures.Add(new PathFigure.Resource
+        {
+            StartPoint = new Point(0, 0),
+            Segments = { new LineSegment.Resource { Point = new Point(80, 40) } },
+        });
+        resource.InvalidateCachedPaths();
+
+        Assert.That(resource.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)));
+    }
+
+    [Test]
+    public void MutatingADetachedEllipse_RebuildsItsCachedPathOnceTheAuthorBumpsTheVersion()
+    {
+        using var detached = new EllipseGeometry.Resource { Width = 100, Height = 50 };
+        Rect beforeMutation = detached.Bounds;
+
+        detached.Width = 200;
+        detached.Height = 80;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Width, Is.EqualTo(200), "the setters still store what they were given");
+            Assert.That(detached.Bounds, Is.EqualTo(beforeMutation),
+                "they moved no version, so the path built before the assignments still stands");
+        }
+
+        detached.Version++;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 200, 80)));
+            Assert.That(detached.FillContains(new Point(150, 40)), Is.True);
+        }
+    }
+
+    [Test]
+    public void ReplacingASegmentOfADetachedPathGeometry_RebuildsItsCachedPathOnceTheCallerBumpsTheVersion()
+    {
+        using var figure = new PathFigure.Resource
+        {
+            StartPoint = new Point(0, 0),
+            Segments = { new LineSegment.Resource { Point = new Point(10, 0) } },
+        };
+        using var detached = new PathGeometry.Resource { Figures = { figure } };
+        Rect beforeReplacement = detached.Bounds;
+
+        figure.Segments[0] = new LineSegment.Resource { Point = new Point(80, 40) };
+
+        Assert.That(detached.Bounds, Is.EqualTo(beforeReplacement),
+            "reaching into the list moves no version, so the path built before the edit still stands");
+
+        detached.Version++;
+
+        Assert.That(detached.Bounds, Is.EqualTo(new Rect(0, 0, 80, 40)),
+            "bumping the version is what invalidates the path, and the rebuild reads the segment in place");
+    }
+
+    [Test]
+    public void GeometryRenderNode_WithADetachedGeometry_RecordsAndRasterizes()
+    {
+        using var detached = new EllipseGeometry.Resource { Width = 40, Height = 30 };
+        using var node = new GeometryRenderNode(detached, Brushes.Resource.White, null);
+
+        using var owner = new RenderRequestOwner();
+        using var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            outputScale: 1,
+            maxWorkingScale: 1,
+            targetDomain: new Rect(0, 0, 64, 64),
+            cachePolicy: RenderCacheOptions.Disabled,
+            owner: owner));
+        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled
+        });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap
+            ?? throw new AssertionException("Detached geometry rasterization returned no bitmap.");
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int center = ((bitmap.Height / 2 * bitmap.Width) + (bitmap.Width / 2)) * 4;
+        float red = (float)BitConverter.UInt16BitsToHalf(pixels[center]);
+        float green = (float)BitConverter.UInt16BitsToHalf(pixels[center + 1]);
+        float blue = (float)BitConverter.UInt16BitsToHalf(pixels[center + 2]);
+        float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[center + 3]);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(graph.PublicationRoots.Count(), Is.EqualTo(1));
+            Assert.That(rasterization.Bounds, Is.EqualTo(new Rect(0, 0, 40, 30)));
+            Assert.That(rasterization.Bitmap, Is.Not.Null);
+            Assert.That(alpha, Is.GreaterThan(0.9f), "the detached ellipse center must be opaque");
+            Assert.That(red, Is.GreaterThan(0.9f), "the detached ellipse center must retain its white fill");
+            Assert.That(green, Is.GreaterThan(0.9f), "the detached ellipse center must retain its white fill");
+            Assert.That(blue, Is.GreaterThan(0.9f), "the detached ellipse center must retain its white fill");
+        }
+    }
+
+    [Test]
+    public void GeometryClipRenderNode_WithADetachedGeometry_Measures()
+    {
+        using var detached = new RectGeometry.Resource { Width = 30, Height = 40 };
+        using var node = new GeometryClipRenderNode(detached, ClipOperation.Intersect);
+        node.AddChild(new RectangleRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            CacheOptions = RenderCacheOptions.Disabled
+        });
+
+        RenderNodeMeasurement measurement = renderer.Measure();
+
+        Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 30, 40)));
+    }
+}

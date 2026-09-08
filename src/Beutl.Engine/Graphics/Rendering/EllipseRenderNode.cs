@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -21,32 +22,48 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
             changed = true;
         }
 
+        if (changed)
+        {
+            MarkChanged();
+        }
+
         return changed;
     }
 
-    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    public override void Process(RenderNodeContext context)
     {
-        return
-        [
-            RenderNodeOperation.CreateLambda(
-                PenHelper.GetBounds(Rect, Pen?.Resource),
-                canvas => canvas.DrawEllipse(Rect, Fill?.Resource, Pen?.Resource),
-                HitTest
-            )
-        ];
+        Rect rect = Rect;
+        Brush.Resource? fill = Fill?.Resource;
+        Pen.Resource? pen = Pen?.Resource;
+        Rect bounds = PenHelper.GetBounds(rect, pen);
+        if (bounds.Width == 0 || bounds.Height == 0)
+            return;
+
+        context.Publish(context.PaintedSource(
+            rect,
+            draw: static (canvas, fill, pen, rect) =>
+                canvas.DrawEllipse(rect, fill, pen),
+            fill: fill,
+            pen: pen,
+            outputBounds: bounds,
+            hitTest: RenderHitTestContract.Custom(HitTest),
+            scale: RenderScaleContract.Vector));
     }
 
     //https://github.com/AvaloniaUI/Avalonia/blob/release/0.10.21/src/Avalonia.Visuals/Rendering/SceneGraph/EllipseNode.cs
-    private bool HitTest(Point point)
+    private bool HitTest(RenderHitTestContext _, Point point)
     {
-        Point center = Rect.Center;
+        Rect rect = Rect;
+        Pen.Resource? pen = Pen?.Resource;
+        float thickness = pen?.Thickness ?? 0;
+        float realThickness = PenHelper.GetRealThickness(
+            pen?.StrokeAlignment ?? StrokeAlignment.Center,
+            thickness);
 
-        float thickness = Pen?.Resource.Thickness ?? 0;
-        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Center;
-        float realThickness = PenHelper.GetRealThickness(alignment, thickness);
+        Point center = rect.Center;
 
-        float rx = Rect.Width / 2 + realThickness;
-        float ry = Rect.Height / 2 + realThickness;
+        float rx = rect.Width / 2 + realThickness;
+        float ry = rect.Height / 2 + realThickness;
 
         float dx = point.X - center.X;
         float dy = point.Y - center.Y;
@@ -56,7 +73,7 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
             return false;
         }
 
-        if (Fill != null)
+        if (Fill?.Resource is not null)
         {
             return Contains(rx, ry);
         }
@@ -64,8 +81,8 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
         {
             bool inStroke = Contains(rx, ry);
 
-            rx = Rect.Width / 2 - realThickness;
-            ry = Rect.Height / 2 - realThickness;
+            rx = rect.Width / 2 - realThickness;
+            ry = rect.Height / 2 - realThickness;
 
             bool inInner = Contains(rx, ry);
 

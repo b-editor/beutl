@@ -25,4 +25,29 @@ public sealed class EditViewModelLiveBinding(EditViewModel editViewModel) : ILiv
             Dispatcher.UIThread.Invoke(action);
         }
     }
+
+    public async ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
+        Func<HistoryManager, bool> shouldPause,
+        Func<HistoryManager, TResult> operation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(shouldPause);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        async ValueTask<TResult> ExecuteCoreAsync()
+        {
+            HistoryManager history = editViewModel.HistoryManager;
+            return await editViewModel.ExecuteGuardedHistoryMutationAsync(
+                () => shouldPause(history),
+                () => operation(history),
+                cancellationToken);
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return await ExecuteCoreAsync();
+        }
+
+        return await Dispatcher.UIThread.InvokeAsync(async () => await ExecuteCoreAsync());
+    }
 }

@@ -330,20 +330,21 @@ void main() {
         // Begin pass with this face's framebuffer
         Span<Color> clearColors = [new Color(255, 255, 255, 255)];
         RenderPass!.Begin(framebuffer, clearColors);
-
-        // Bind shadow pipeline
-        RenderPass.BindPipeline(_shadowPipeline!);
-
-        // Bind descriptor set with light data
-        RenderPass.BindDescriptorSet(_shadowPipeline!, _descriptorSet!);
-
-        // Render each object
-        foreach (var obj in objects)
+        try
         {
-            RenderObject(obj, lightVP, Matrix4x4.Identity);
-        }
+            RenderPass.BindPipeline(_shadowPipeline!);
 
-        RenderPass.End();
+            RenderPass.BindDescriptorSet(_shadowPipeline!, _descriptorSet!);
+
+            foreach (var obj in objects)
+            {
+                RenderObject(obj, lightVP, Matrix4x4.Identity);
+            }
+        }
+        finally
+        {
+            RenderPass.End();
+        }
 
         // Copy the rendered depth to the cube map face
         Context.CopyTextureToCubeFace(depthTexture, ShadowCubeTexture, faceIndex);
@@ -370,13 +371,8 @@ void main() {
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
     {
-        var meshResource = obj.GetMesh();
+        var meshResource = MeshDrawHelper.Prepare(Context, obj);
         if (meshResource == null)
-            return;
-
-        MeshBufferUploadHelper.Ensure(Context, meshResource);
-
-        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
             return;
 
         // Set push constants (128 bytes: Model + LightViewProjection)
@@ -387,12 +383,7 @@ void main() {
         };
         RenderPass!.SetPushConstants(pushConstants);
 
-        // Bind vertex and index buffers
-        RenderPass.BindVertexBuffer(meshResource.VertexBuffer);
-        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-        // Draw the mesh
-        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+        MeshDrawHelper.Draw(RenderPass, meshResource);
     }
 
     protected override void OnDispose()

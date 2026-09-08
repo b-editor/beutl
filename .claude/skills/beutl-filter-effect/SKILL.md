@@ -235,7 +235,79 @@ Create your own resource files inside the extension project, or pass a literal s
 
 ### SKSL (SkiaShaderLanguage) pattern
 
-Compile the shader in the static constructor and apply it through `CustomEffect`:
+> **Prefer `context.Shader(...)` for per-pixel work.** A `ShaderDescription` recorded through
+> `FilterEffectContext.Shader` is a typed fragment the planner can fuse with neighbouring shader stages
+> into one GPU pass. `SKSLScriptEffect` also records supported scripts declaratively and exposes them to
+> the fusion planner: `half4 main(float2 fragCoord)` becomes `WholeSource`, which can head a fusion run
+> and absorb later per-pixel work but not upstream operations, while `half4 apply(half4 color)` becomes
+> fully fusable `CurrentPixel` work. Scripts
+> that cannot be represented declaratively—including reserved `__beutl*`/`fe*_*` names, multi-declarator
+> uniforms, non-literal array lengths, or uniform types without a canonical zero value—automatically fall
+> back to the legacy `CustomEffect` path, so existing scripts do not break. Using `CustomEffect`
+> directly remains the right tool for raw-target allocation, sampling, or drawing, but it is opaque to the
+> planner and forms a fusion boundary.
+
+| Authoring construct | Fusion behavior | Limit or boundary |
+|---|---|---|
+| `CurrentPixel` shaders; immutable opacity | Fusable | May join a compatible fusion run. |
+| `WholeSource` shaders | Can be the head of a fusion run | May absorb later per-pixel work; upstream work cannot fold into it. |
+| Skia image filters (`Blur`, `DropShadow`, `Dilate`, `Erode`); `CustomEffect`; Geometry; 3D; raw canvas access | Not fusable | Forms a fusion boundary. |
+| Sampler/child budget | Portable: 12; Vulkan/Metal: 12 | The implicit `src` sampler consumes one slot; exceeding the cap falls back to a standalone pass. |
+
+Build a `ShaderDescription` per recording and hand it to `context.Shader(...)`. The description holds
+everything about the stage — source, uniform and resource bindings, and this recording's values — so the
+planner sees a typed fragment it can fuse. Parse the source once into a `static readonly SkslSource` so
+rebuilding the description costs no re-tokenization:
+
+```csharp
+public partial class MosaicEffect : FilterEffect
+{
+    private static readonly SkslSource s_source = SkslSource.WholeSource(
+        """
+        uniform shader src;
+        uniform float2 tileSize;
+
+        half4 main(float2 fragCoord) {
+            float2 blockIndex = floor(fragCoord / tileSize);
+            float2 sampleCoord = blockIndex * tileSize + tileSize * 0.5;
+            return src.eval(sampleCoord);
+        }
+        """);
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        context.Shader(ShaderDescription.WholeSource(
+            s_source,
+            RenderBoundsContract.Identity,
+            bindings => bindings.Uniform(
+                "tileSize",
+                new Vector2(r.TileSize.Width, r.TileSize.Height),
+                static (writer, tileSize, context) => writer.Set(tileSize * context.WorkingScale)),
+            SKShaderTileMode.Decal));
+    }
+}
+```
+
+The binder callback must be pure and non-capturing: its `MethodInfo` is the shader's structural identity,
+so two frames that differ only in `tileSize` reuse one compiled program. The uniform's *value* is not part
+of that identity, which is why rebuilding the description every recording costs no second plan. Passing the
+raw string instead of a parsed `SkslSource` also works, at the cost of re-parsing it on every recording.
+
+Note the third argument to `Uniform`. A `WholeSource` shader reads `fragCoord` in **output-device pixels**,
+while every property an author types — a tile size, a radius, an offset — is a **logical** length. Binding
+one straight through makes the effect's appearance track the render density: the same mosaic shows coarser
+tiles in a 2x preview than in the exported frame. Any uniform the shader compares against `fragCoord` has to
+be multiplied by `ShaderExecutionContext.WorkingScale` in a binder, which is why the built-in `MosaicEffect`
+scales both its tile size and its origin. A uniform that never meets `fragCoord` — a colour, a blend
+amount — needs no binder and takes the two-argument overload. Getting this wrong is invisible at scale 1,
+so it survives to export.
+
+### The `CustomEffect` fallback
+
+Reach for this only when the work cannot be expressed declaratively — raw target allocation, sampling
+outside the declared input, or drawing onto the target. It is opaque to the planner and forms a fusion
+boundary. The same mosaic, written the imperative way:
 
 ```csharp
 public partial class MosaicEffect : FilterEffect

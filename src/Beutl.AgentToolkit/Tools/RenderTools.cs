@@ -11,6 +11,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -43,6 +44,8 @@ public sealed class RenderTools(
     VideoExporter videoExporter,
     RenderJobManager renderJobs) : ToolBase
 {
+    private static readonly RenderJobProgressReporter NullProgress = RenderJobProgressReporter.Ignored;
+
     private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly string s_processOutputToken = CreateProcessOutputToken();
@@ -51,6 +54,34 @@ public sealed class RenderTools(
     private const int MaxStoryboardSubdivisionLevel = 3;
     private const string StoryboardFrameKindShot = "shot";
     private const string StoryboardFrameKindInbetween = "inbetween";
+    private const string RenderScaleDescription =
+        "Supersampling render scale. Non-finite values and values <= 0 use 1. The ceil(frame size * renderScale) output extent must not exceed 16384 pixels on either axis, and less than that on a graphics device that attaches less; the rejection names the limit that applied.";
+    private const string VideoTypeDescription =
+        "Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the default motion-graphics behavior.";
+    private const string AllowAllCapsDescription =
+        "When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.";
+    private const string AllowHardCutsDescription =
+        "When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.";
+    private const string RelaxAestheticsDescription =
+        "When true, drops the remaining pacing advisories in one switch (repeated hard cuts, transition-vocabulary inconsistency, and high-tempo long-hold/short-segment pacing) to keep the response focused. They do not affect the gate either way; the blocking checks (text read time, rendered text contrast, Element structure) are unchanged. The shape, card-look, and rect-dominance advisories this flag used to cover no longer exist — those judgments are yours to make from a rendered still.";
+    private const string AllowStillnessDescription =
+        "When true, records that stillness / a held frame / negative space is deliberate, so the motion-continuity finding reads as expected rather than as a warning. Motion never fails the gate either way. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.";
+    private const string AllowDenseTextDescription =
+        "When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.";
+    private const string AllowMultiObjectElementsDescription =
+        "When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.";
+    private const string AllowMinimalDensityDescription =
+        "When true, records that minimal / sparse / negative-space density is deliberate, so the density findings read as expected rather than as omissions. Density never fails the gate either way. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.";
+    private const string PlannedForegroundElementsPerShotDescription =
+        "Optional target for planned foreground elements per shot. When > 0, layerDensity reports which measured time bands author fewer than half this foreground layer count, so you can tell an omission from an intended sparser cut. Advisory only; it never fails the gate.";
+    private const string SampleCountDescription =
+        "Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.";
+    private const string BeatTimesSecondsDescription =
+        "Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.";
+    private const string PaletteRoleColorsDescription =
+        "Optional colors from derive_palette as a JSON array of role/color pairs or a JSON string containing that array, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.";
+    private const string ConfirmOverwriteDescription =
+        "Required when outputPath already exists.";
 
     [McpServerTool(Name = "render_still")]
     [Description("Renders a still PNG from the current scene to a workspace-relative output path and returns visibility warnings for blank or near-black frames. Bare filenames are written under agent-output/. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
@@ -59,9 +90,9 @@ public sealed class RenderTools(
         string outputPath,
         [Description("Scene time in seconds. Use this exact parameter name; time is not a render_still parameter.")]
         double timeSeconds = 0,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
-        [Description("Required when outputPath already exists.")]
+        [Description(ConfirmOverwriteDescription)]
         bool confirmOverwrite = false,
         [Description("When true, append a downscaled image/png MCP content block with a long edge of about 768 px. Default false preserves the path-only JSON response.")]
         bool returnImageContent = false,
@@ -70,6 +101,7 @@ public sealed class RenderTools(
         return ExecuteMcpAsync<RenderStillResponse>(async () =>
         {
             Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "render_still");
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             RenderStillResponse response = await stillRenderer.RenderAsync(
@@ -98,7 +130,7 @@ public sealed class RenderTools(
         string outputDirectory = "agent-output",
         [Description("Basename used for generated still PNGs and the contact sheet. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
         string? basename = null,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Required when generated output paths already exist.")]
         bool confirmOverwrite = false,
@@ -124,6 +156,7 @@ public sealed class RenderTools(
             // Project-detached clone whose own frame-rate lookup would always miss.
             IEditingSession session = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(session);
+            renderScale = ValidateRenderScale(scene, renderScale, "render_storyboard");
             int frameRate = ReadSessionFrameRate(session);
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
@@ -155,7 +188,7 @@ public sealed class RenderTools(
             string resolvedContactSheetPath = workspace.ResolveForWrite(contactSheetPath);
             destructiveGuard.EnsureOverwriteAllowed(resolvedContactSheetPath, confirmOverwrite);
 
-            async Task<RenderStoryboardResponse> RunStoryboardAsync(CancellationToken token)
+            async Task<RenderStoryboardResponse> RunStoryboardAsync(RenderJobProgressReporter progress, CancellationToken token)
             {
                 // Re-verify the overwrite guards at write time: background jobs are serialized, so a
                 // preceding job may have created these files after the pre-flight check passed.
@@ -169,8 +202,10 @@ public sealed class RenderTools(
                 var renderedShots = new List<RenderStoryboardShot>(plannedShots.Count);
                 var contactSheetFrames = new List<StoryboardContactSheetFrame>(plannedShots.Count);
                 var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plannedShots.Count);
+                progress.Report(0, plannedShots.Count, "rendering shots");
                 foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plannedShots)
                 {
+                    progress.Report(renderedShots.Count, plannedShots.Count, "rendering shots");
                     using RenderedFrameAnalysis frame = await stillRenderer.RenderFrameAnalysisAsync(
                         scene,
                         shot.Time,
@@ -202,6 +237,7 @@ public sealed class RenderTools(
                     }
                 }
 
+                progress.Report(plannedShots.Count, plannedShots.Count, "contact sheet");
                 storyboardRenderer.RenderContactSheet(contactSheetFrames, resolvedContactSheetPath);
                 CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
                 List<string> reviewNotes = [];
@@ -217,13 +253,13 @@ public sealed class RenderTools(
             {
                 string jobId = renderJobs.Enqueue(
                     "storyboard",
-                    async token => JsonSerializer.SerializeToNode(
-                        await RunStoryboardAsync(token).ConfigureAwait(false),
+                    async (progress, token) => JsonSerializer.SerializeToNode(
+                        await RunStoryboardAsync(progress, token).ConfigureAwait(false),
                         s_jobResultOptions)!);
                 return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
-            RenderStoryboardResponse response = await RunStoryboardAsync(cancellationToken).ConfigureAwait(false);
+            RenderStoryboardResponse response = await RunStoryboardAsync(NullProgress, cancellationToken).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
                     storyboardRenderer.RenderContactSheetPng(
@@ -247,9 +283,9 @@ public sealed class RenderTools(
     public ValueTask<ToolResult<MotionVariationResponse>> EvaluateMotionVariation(
         [Description("Optional explicit scene times in seconds. When omitted, the tool samples evenly across the scene duration.")]
         double[]? timeSeconds = null,
-        [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
+        [Description(SampleCountDescription)]
         int sampleCount = 5,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Minimum changed-pixel ratio required for every adjacent sample pair. Defaults to 0.02.")]
         double minChangedPixelRatio = 0.02,
@@ -266,6 +302,7 @@ public sealed class RenderTools(
         return ExecuteAsync(async () =>
         {
             Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "evaluate_motion_variation");
             IReadOnlyList<TimeSpan> sampleTimes = ResolveSampleTimes(scene, timeSeconds, sampleCount);
             return await motionVariationAnalyzer.AnalyzeAsync(
                 scene,
@@ -322,41 +359,37 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "evaluate_edit_quality")]
-    [Description("Reviews the current scene for deterministic AI-editing quality risks: all-caps typography, visual hierarchy overload, short text read time, rendered text contrast, RectShape overuse, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear foreground shapes, missing motion intent, invalid multi-object Element structure, layer density/depth coverage, high-tempo rhythm density/gaps, audio beat sync, text backing alignment, palette harmony, arbitrary dense effect stacks, dated card/shadow styling, all-linear easing monotony, uniform motion clusters, logo-intro motion-arc gaps, low motion continuity, chopped-up cut rhythm, and video-type timeline coverage. Run after render_still and evaluate_motion_variation; resolve critical/major issues before export_video. Gate-failing checks are limited to the typography blocker family (short read time and rendered text contrast), multi-object Element structure, low motion continuity, and motion-graphics layer density below half of a supplied quantitative plan. A deliberate, brief-justified deviation is allowed and downgraded to advisory via its intent flag (allowStillness, allowDenseText, allowMultiObjectElements, allowMonochrome, allowMinimalDensity), videoType profile, or an equivalent [role:...] tag on the element, so the gate blocks likely accidents, not intentional creative choices.")]
+    [Description("Measures the current scene and reports what it finds: all-caps typography, text read time, rendered text contrast, multi-object Element structure, layer density/depth coverage, rhythm density/gaps, cut rhythm, audio beat sync, text backing alignment, rendered palette balance, easing variety, motion clusters, motion continuity, and timeline coverage. Pass staticLayout:true for the document-only pass: it skips rendering plus rendered-motion and rendered-contrast checks, while document-based easing and motion-uniformity analysis still runs. Only two families fail the gate, because only they mark a result nobody can use: text a viewer cannot read (short read time, rendered contrast below the large-text floor) and malformed multi-object Element structure. Everything else is advisory: it describes the scene, it does not prescribe one. Judgments about palette harmony, background richness, shape clarity, gradient falloff, and motion arc are deliberately not made here — read a render_still and decide those yourself. The intent flags (allowStillness, allowDenseText, allowMultiObjectElements, allowMinimalDensity) and [role:...] tags reword findings as expected rather than unexpected, and downgrade the two gate families where the choice is deliberate.")]
     public ValueTask<ToolResult<QualityReviewResponse>> EvaluateEditQuality(
-        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        [Description(VideoTypeDescription)]
         string? videoType = null,
         [Description("Optional explicit scene times in seconds for rendered motion checks. When omitted, samples evenly across the scene duration.")]
         double[]? timeSeconds = null,
-        [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
+        [Description(SampleCountDescription)]
         int sampleCount = 5,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Optional profile label recorded in the review notes, such as draft, editorial, kinetic-type, or minimal.")]
         string? styleProfile = null,
-        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
+        [Description(AllowAllCapsDescription)]
         bool allowAllCaps = false,
-        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
+        [Description(AllowHardCutsDescription)]
         bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
-        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion, and supplied-plan density violation) are unaffected.")]
+        [Description(RelaxAestheticsDescription)]
         bool relaxAesthetics = false,
-        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        [Description(AllowStillnessDescription)]
         bool allowStillness = false,
-        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        [Description(AllowDenseTextDescription)]
         bool allowDenseText = false,
-        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        [Description(AllowMultiObjectElementsDescription)]
         bool allowMultiObjectElements = false,
-        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
-        bool allowMonochrome = false,
-        [Description("When true, deliberate minimal / sparse / negative-space density is allowed: a motion-graphics density plan violation is downgraded from major to advisory. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.")]
+        [Description(AllowMinimalDensityDescription)]
         bool allowMinimalDensity = false,
-        [Description("Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.")]
+        [Description(PlannedForegroundElementsPerShotDescription)]
         double plannedForegroundElementsPerShot = 0,
-        [Description("Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.")]
+        [Description(BeatTimesSecondsDescription)]
         double[]? beatTimesSeconds = null,
-        [Description("Optional colors from derive_palette as a JSON array of role/color pairs or a JSON string containing that array, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.")]
+        [Description(PaletteRoleColorsDescription)]
         JsonElement? paletteRoleColors = null,
         [Description("When true, treats the scene as a static layout and skips rendered motion checks.")]
         bool staticLayout = false,
@@ -367,6 +400,7 @@ public sealed class RenderTools(
             ValidateVideoType(videoType);
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
+            renderScale = ValidateRenderScale(scene, renderScale, "evaluate_edit_quality");
             // Derive the baseline key from the SAME session the snapshot came from: a session switch
             // between two active-session reads must not file the baseline under another project's key.
             string sessionKey = sessions.GetSessionKey(snapshotSession);
@@ -380,37 +414,21 @@ public sealed class RenderTools(
                 renderScale,
                 allowAllCaps,
                 allowHardCuts,
-                allowRectDominance,
                 relaxAesthetics,
                 allowStillness,
                 allowDenseText,
                 allowMultiObjectElements,
-                allowMonochrome,
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
                 beatTimesSeconds,
                 parsedPaletteRoleColors);
-            QualityReviewResponse review = await qualityAnalyzer.AnalyzeAsync(
+            QualityReviewResponse review = await AnalyzeQualityAsync(
                 scene,
                 sampleTimes,
                 sampleCount,
-                options.RenderScale,
-                options.StyleProfile,
-                options.AllowAllCaps,
-                options.AllowHardCuts,
-                options.AllowRectDominance,
-                options.RelaxAesthetics,
-                options.AllowStillness,
-                options.AllowDenseText,
-                options.AllowMultiObjectElements,
-                options.AllowMonochrome,
-                options.AllowMinimalDensity,
-                options.PlannedForegroundElementsPerShot,
                 evaluateMotion: !staticLayout,
-                videoType: options.VideoType,
-                beatTimesSeconds: options.BeatTimesSeconds,
-                paletteRoleColors: options.PaletteRoleColors,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                options,
+                cancellationToken).ConfigureAwait(false);
             if (!staticLayout && sampleTimes is not null)
             {
                 IReadOnlyList<string> stillPaths = await RenderBaselineStillsAsync(
@@ -426,65 +444,10 @@ public sealed class RenderTools(
         });
     }
 
-    [McpServerTool(Name = "preview_quality_risks")]
-    [Description("Runs document-only deterministic quality risk checks without rendering. Use before or immediately after authoring a large apply_edit patch to catch text-density, RectShape, ambiguous decorative light shapes, hard gradient falloff, flat background richness, unclear-shape, missing-motion-intent, layer-density/depth, multi-object Element, high-tempo rhythm/gaps, backing-plate, palette, effect-stack, easing/motion-uniformity, logo-intro motion-arc, video-type timeline coverage, and timeline-structure risks early.")]
-    public ValueTask<ToolResult<QualityReviewResponse>> PreviewQualityRisks(
-        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
-        string? videoType = null,
-        [Description("Optional profile label recorded in the review notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
-        string? styleProfile = "preview-risks",
-        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
-        bool allowAllCaps = false,
-        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
-        bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
-        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion, and supplied-plan density violation) are unaffected.")]
-        bool relaxAesthetics = false,
-        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
-        bool allowStillness = false,
-        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
-        bool allowDenseText = false,
-        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
-        bool allowMultiObjectElements = false,
-        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
-        bool allowMonochrome = false,
-        [Description("When true, deliberate minimal / sparse / negative-space density is allowed: a motion-graphics density plan violation is downgraded from major to advisory. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.")]
-        bool allowMinimalDensity = false,
-        [Description("Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.")]
-        double plannedForegroundElementsPerShot = 0,
-        CancellationToken cancellationToken = default)
-    {
-        return ExecuteAsync(async () =>
-        {
-            ValidateVideoType(videoType);
-            Scene scene = RequireSceneSnapshot();
-            return await qualityAnalyzer.AnalyzeAsync(
-                scene,
-                timeSeconds: null,
-                sampleCount: 2,
-                renderScale: 1,
-                styleProfile,
-                allowAllCaps,
-                allowHardCuts,
-                allowRectDominance,
-                relaxAesthetics,
-                allowStillness,
-                allowDenseText,
-                allowMultiObjectElements,
-                allowMonochrome,
-                allowMinimalDensity,
-                plannedForegroundElementsPerShot,
-                evaluateMotion: false,
-                videoType: videoType,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        });
-    }
-
     [McpServerTool(Name = "suggest_quality_fixes")]
-    [Description("Groups current quality issues into minimal, patch-oriented fix suggestions. Use after preview_quality_risks or evaluate_edit_quality when an agent needs the smallest repair plan instead of raw issue rows.")]
+    [Description("Groups current quality issues into minimal, patch-oriented fix suggestions. Use after evaluate_edit_quality(staticLayout:true) or evaluate_edit_quality when an agent needs the smallest repair plan instead of raw issue rows.")]
     public ValueTask<ToolResult<QualityFixSuggestionsResponse>> SuggestQualityFixes(
-        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        [Description(VideoTypeDescription)]
         string? videoType = null,
         [Description("When true, include rendered motion checks; otherwise the tool stays document-only and faster.")]
         bool includeMotion = false,
@@ -492,31 +455,27 @@ public sealed class RenderTools(
         double[]? timeSeconds = null,
         [Description("Number of evenly spaced samples when timeSeconds is omitted and includeMotion is true. Clamped to 2..8.")]
         int sampleCount = 5,
-        [Description("Supersampling render scale for rendered motion checks. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Optional profile label such as kinetic-type or high-tempo-promo.")]
         string? styleProfile = null,
         [Description("When true, an animatedPropertyCount of 0 is returned as a fix suggestion even if the quality gate otherwise passes.")]
         bool requireAnimatedProperties = false,
-        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
+        [Description(AllowAllCapsDescription)]
         bool allowAllCaps = false,
-        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
+        [Description(AllowHardCutsDescription)]
         bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
-        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion, and supplied-plan density violation) are unaffected.")]
+        [Description(RelaxAestheticsDescription)]
         bool relaxAesthetics = false,
-        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        [Description(AllowStillnessDescription)]
         bool allowStillness = false,
-        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        [Description(AllowDenseTextDescription)]
         bool allowDenseText = false,
-        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        [Description(AllowMultiObjectElementsDescription)]
         bool allowMultiObjectElements = false,
-        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
-        bool allowMonochrome = false,
-        [Description("When true, deliberate minimal / sparse / negative-space density is allowed: a motion-graphics density plan violation is downgraded from major to advisory. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.")]
+        [Description(AllowMinimalDensityDescription)]
         bool allowMinimalDensity = false,
-        [Description("Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.")]
+        [Description(PlannedForegroundElementsPerShotDescription)]
         double plannedForegroundElementsPerShot = 0,
         CancellationToken cancellationToken = default)
     {
@@ -524,28 +483,28 @@ public sealed class RenderTools(
         {
             ValidateVideoType(videoType);
             Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "suggest_quality_fixes");
             IReadOnlyList<TimeSpan>? sampleTimes = includeMotion
                 ? ResolveSampleTimes(scene, timeSeconds, sampleCount)
                 : null;
-            QualityReviewResponse review = await qualityAnalyzer.AnalyzeAsync(
+            QualityReviewResponse review = await AnalyzeQualityAsync(
                 scene,
                 sampleTimes,
                 sampleCount,
-                renderScale,
-                styleProfile,
-                allowAllCaps,
-                allowHardCuts,
-                allowRectDominance,
-                relaxAesthetics,
-                allowStillness,
-                allowDenseText,
-                allowMultiObjectElements,
-                allowMonochrome,
-                allowMinimalDensity,
-                plannedForegroundElementsPerShot,
                 includeMotion,
-                videoType: videoType,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                CreateQualityAnalysisOptions(
+                    videoType,
+                    styleProfile,
+                    renderScale,
+                    allowAllCaps,
+                    allowHardCuts,
+                    relaxAesthetics,
+                    allowStillness,
+                    allowDenseText,
+                    allowMultiObjectElements,
+                    allowMinimalDensity,
+                    plannedForegroundElementsPerShot),
+                cancellationToken).ConfigureAwait(false);
 
             IReadOnlyList<QualityFixSuggestion> suggestions = BuildFixSuggestions(review, requireAnimatedProperties);
             bool passes = review.PassesQualityGate
@@ -561,45 +520,41 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "final_preflight")]
-    [Description("Runs the normal final verification bundle before export_video: representative render_still files, evaluate_motion_variation, and evaluate_edit_quality. Returns ReadyForExport plus blockers and still paths.")]
+    [Description("Runs the final verification bundle before export_video: representative render_still files, evaluate_motion_variation, and evaluate_edit_quality. Returns ReadyForExport plus blockers, advisories, and still paths. Blockers are limited to unreadable text, malformed Element structure, and any check you explicitly requested (requireAnimatedProperties). Low motion, sparse density, and still-visibility warnings arrive as advisories, so a deliberately still or minimal piece still reports ReadyForExport. export_video never consults this result; it is a report, not a permission check.")]
     public ValueTask<ToolResult<FinalPreflightResponse>> FinalPreflight(
-        [Description("Optional video workflow profile. Supported values: motion-graphics, footage-cut, slideshow, lyric-captions, logo-intro. Omit for exactly the legacy motion-graphics behavior.")]
+        [Description(VideoTypeDescription)]
         string? videoType = null,
         [Description("Output prefix for still frames. Bare prefixes are written under agent-output/. Omit for a collision-free default containing the active session id; explicit values preserve exact filenames.")]
         string? outputPrefix = null,
         [Description("Optional explicit scene times in seconds. When omitted, samples are evenly spaced across the scene duration.")]
         double[]? timeSeconds = null,
-        [Description("Number of evenly spaced samples when timeSeconds is omitted. Clamped to 2..8.")]
+        [Description(SampleCountDescription)]
         int sampleCount = 5,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
         [Description("Optional profile label recorded in quality notes, such as kinetic-type, high-tempo-promo, editorial, or minimal.")]
         string? styleProfile = null,
         [Description("When true, animatedPropertyCount=0 blocks ReadyForExport even if rendered motion changed.")]
         bool requireAnimatedProperties = false,
-        [Description("When true, tailors the intentional all-caps suggested fix. All-caps typography is already advisory (it never blocks the gate); this flag adjusts guidance, not severity.")]
+        [Description(AllowAllCapsDescription)]
         bool allowAllCaps = false,
-        [Description("When true, suppresses the repeated hard-cut cadence advisory. Hard cuts are already advisory (they never block the gate); this flag removes the note.")]
+        [Description(AllowHardCutsDescription)]
         bool allowHardCuts = false,
-        [Description("When true, suppresses the non-background RectShape-dominance advisory. Rect dominance is already advisory (it never blocks the gate).")]
-        bool allowRectDominance = false,
-        [Description("When true, relax the non-blocking aesthetic and pacing advisories in one switch (ambiguous decorative shapes, Material-UI card look, RectShape dominance, hard cuts, and high-tempo long-hold/short-segment pacing), so expressive shape-rich or kinetic-typography briefs are not nudged toward a plainer look. Blocking checks (read time, element structure, motion, and supplied-plan density violation) are unaffected.")]
+        [Description(RelaxAestheticsDescription)]
         bool relaxAesthetics = false,
-        [Description("When true, deliberate stillness / held-frame / negative-space composition is allowed: the low motion-continuity blocker is downgraded from major to advisory instead of failing the gate. Tagging an element/object [role:still] (or naming it 'hold frame', 'negative space', etc.) opts in the same way without this flag.")]
+        [Description(AllowStillnessDescription)]
         bool allowStillness = false,
-        [Description("When true, brief-justified dense or long copy on a short-lived text element is allowed: the read-time blocker is downgraded from major to advisory. Tagging the text [role:reading]/[role:manifesto]/[role:credits] (or so naming it) opts in the same way without this flag.")]
+        [Description(AllowDenseTextDescription)]
         bool allowDenseText = false,
-        [Description("When true, an intentional composite Element holding multiple EngineObjects without an IFlowOperator is allowed: the element-structure blocker is downgraded from major to advisory. Tagging the Element [role:composite] opts in the same way without this flag.")]
+        [Description(AllowMultiObjectElementsDescription)]
         bool allowMultiObjectElements = false,
-        [Description("When true, an intentional monochrome / low-contrast palette is allowed: the low luma-separation advisory is suppressed. Tagging an element/object [role:monochrome]/[role:low-contrast] (or so naming it) opts in the same way without this flag.")]
-        bool allowMonochrome = false,
-        [Description("When true, deliberate minimal / sparse / negative-space density is allowed: a motion-graphics density plan violation is downgraded from major to advisory. Tagging an element/object [role:minimal] or [role:negative-space] opts in the same way without this flag.")]
+        [Description(AllowMinimalDensityDescription)]
         bool allowMinimalDensity = false,
-        [Description("Optional quantitativePlanSheet target for planned foreground elements per shot. When > 0 and a motion-graphics scene authors fewer than half this foreground layer count in any measured time band, layerDensity can fail the gate unless allowMinimalDensity or a minimal role tag is present.")]
+        [Description(PlannedForegroundElementsPerShotDescription)]
         double plannedForegroundElementsPerShot = 0,
-        [Description("Optional beat grid from analyze_audio_rhythm. When supplied, audioSync reports advisory-only visible cut boundaries 40-120 ms from the nearest beat.")]
+        [Description(BeatTimesSecondsDescription)]
         double[]? beatTimesSeconds = null,
-        [Description("Optional colors from derive_palette as a JSON array of role/color pairs or a JSON string containing that array, for rendered 60-30-10 palette-balance metrics. Each item is { role: string, color: \"#RRGGBB\" }. Skipped for footage-cut.")]
+        [Description(PaletteRoleColorsDescription)]
         JsonElement? paletteRoleColors = null,
         [Description("When true, treats the scene as a static storyboard layout and skips motion blockers.")]
         bool staticLayout = false,
@@ -612,6 +567,7 @@ public sealed class RenderTools(
             ValidateVideoType(videoType);
             IEditingSession snapshotSession = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(snapshotSession);
+            renderScale = ValidateRenderScale(scene, renderScale, "final_preflight");
             // Derive the baseline key from the SAME session the snapshot came from: a session switch
             // between two active-session reads must not file the baseline under another project's key.
             string sessionKey = sessions.GetSessionKey(snapshotSession);
@@ -655,72 +611,64 @@ public sealed class RenderTools(
                     cancellationToken).ConfigureAwait(false);
             }
 
-            QualityReviewResponse quality = await qualityAnalyzer.AnalyzeAsync(
-                scene,
-                sampleTimes,
-                sampleTimes.Count,
-                renderScale,
+            QualityAnalysisOptions options = CreateQualityAnalysisOptions(
+                videoType,
                 styleProfile,
+                renderScale,
                 allowAllCaps,
                 allowHardCuts,
-                allowRectDominance,
                 relaxAesthetics,
                 allowStillness,
                 allowDenseText,
                 allowMultiObjectElements,
-                allowMonochrome,
                 allowMinimalDensity,
                 plannedForegroundElementsPerShot,
+                beatTimesSeconds,
+                parsedPaletteRoleColors);
+            QualityReviewResponse quality = await AnalyzeQualityAsync(
+                scene,
+                sampleTimes,
+                sampleTimes.Count,
                 evaluateMotion: !staticLayout,
-                videoType: videoType,
-                beatTimesSeconds: beatTimesSeconds,
-                paletteRoleColors: parsedPaletteRoleColors,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                options,
+                cancellationToken).ConfigureAwait(false);
 
             if (!staticLayout)
             {
                 StoreQualityBaseline(
                     sessionKey,
                     sampleTimes,
-                    CreateQualityAnalysisOptions(
-                        videoType,
-                        styleProfile,
-                        renderScale,
-                        allowAllCaps,
-                        allowHardCuts,
-                        allowRectDominance,
-                        relaxAesthetics,
-                        allowStillness,
-                        allowDenseText,
-                        allowMultiObjectElements,
-                        allowMonochrome,
-                        allowMinimalDensity,
-                        plannedForegroundElementsPerShot,
-                        beatTimesSeconds,
-                        parsedPaletteRoleColors),
+                    options,
                     quality,
                     stills.Select(still => still.OutputPath).ToArray());
             }
 
             List<string> blockers = [];
+            List<string> advisories = [];
             if (!staticLayout && motion is not null && !motion.PassesMinimumMotion)
             {
-                blockers.Add($"Motion variation did not pass: {motion.Verdict}.");
+                advisories.Add($"Motion variation did not pass: {motion.Verdict}. A deliberate held frame or slow piece is a valid result; revise only if the stillness is unintended.");
             }
 
             if (!quality.PassesQualityGate)
             {
-                blockers.Add("evaluate_edit_quality reported critical or major issues.");
+                blockers.Add("evaluate_edit_quality reported critical or major issues (unreadable text or malformed Element structure).");
             }
 
+            advisories.AddRange(quality.Issues
+                .Where(issue => string.Equals(issue.Severity, "minor", StringComparison.OrdinalIgnoreCase))
+                .Select(issue => $"[{issue.Category}] {issue.Message}"));
+
+            // The caller opted into this check by passing requireAnimatedProperties, so it
+            // blocks on their own terms rather than the toolkit's.
             if (!staticLayout && requireAnimatedProperties && quality.Metrics.MotionContinuity.AnimatedPropertyCount == 0)
             {
-                blockers.Add("animatedPropertyCount is 0; add explicit transform, opacity, brush, effect, or typography animation before exporting motion graphics.");
+                blockers.Add("animatedPropertyCount is 0 and requireAnimatedProperties was requested; add explicit transform, opacity, brush, effect, or typography animation, or drop the flag.");
             }
 
             if (stills.Any(item => item.Warnings.Count > 0))
             {
-                blockers.Add("One or more representative still renders returned visibility warnings.");
+                advisories.Add("One or more representative still renders returned visibility warnings. Check whether the affected objects are off-frame by intent.");
             }
 
             bool ready = blockers.Count == 0;
@@ -732,7 +680,8 @@ public sealed class RenderTools(
                 quality,
                 ready ? (staticLayout ? "render_storyboard" : "export_video") : "suggest_quality_fixes")
             {
-                ReadyForStoryboard = staticLayout && ready
+                ReadyForStoryboard = staticLayout && ready,
+                Advisories = advisories
             };
         });
     }
@@ -759,27 +708,13 @@ public sealed class RenderTools(
                 baseline.Options.RenderScale,
                 "revision-current",
                 cancellationToken).ConfigureAwait(false);
-            QualityReviewResponse current = await qualityAnalyzer.AnalyzeAsync(
+            QualityReviewResponse current = await AnalyzeQualityAsync(
                 scene,
                 baseline.SampleTimes,
                 baseline.SampleTimes.Count,
-                baseline.Options.RenderScale,
-                baseline.Options.StyleProfile,
-                baseline.Options.AllowAllCaps,
-                baseline.Options.AllowHardCuts,
-                baseline.Options.AllowRectDominance,
-                baseline.Options.RelaxAesthetics,
-                baseline.Options.AllowStillness,
-                baseline.Options.AllowDenseText,
-                baseline.Options.AllowMultiObjectElements,
-                baseline.Options.AllowMonochrome,
-                baseline.Options.AllowMinimalDensity,
-                baseline.Options.PlannedForegroundElementsPerShot,
                 evaluateMotion: true,
-                videoType: baseline.Options.VideoType,
-                beatTimesSeconds: baseline.Options.BeatTimesSeconds,
-                paletteRoleColors: baseline.Options.PaletteRoleColors,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                baseline.Options,
+                cancellationToken).ConfigureAwait(false);
 
             RevisionStillPair[] pairs = baseline.SampleTimes
                 .Select((time, index) => new RevisionStillPair(
@@ -808,7 +743,7 @@ public sealed class RenderTools(
     }
 
     [McpServerTool(Name = "export_video")]
-    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. Pass background:true to run as a job and poll read_render_job(jobId).")]
+    [Description("Exports the current scene through a registered headless encoder to a workspace-relative output path. Bare filenames are written under agent-output/. Control size/quality with crf or bitrate. If AVFoundation is selected, a requested crf is ignored and reported in the successful result warnings. Pass background:true to run as a job and poll read_render_job(jobId).")]
     public ValueTask<ToolResult<ExportVideoResult>> ExportVideo(
         [Description("Workspace-relative or in-workspace absolute output path. Render outputs use outputPath/outputDirectory; project file tools use path. Bare filenames are written under agent-output/. Existing files require confirmOverwrite.")]
         string outputPath,
@@ -818,13 +753,13 @@ public sealed class RenderTools(
         int frameRateDenominator = 1,
         [Description("Audio sample rate.")]
         int sampleRate = 44100,
-        [Description("Supersampling render scale. Values <= 0 use 1.")]
+        [Description(RenderScaleDescription)]
         float renderScale = 1,
-        [Description("Constant Rate Factor for the H.264/x265 encoder (0-51, lower is higher quality/larger file; libx264 default is 23). Mutually exclusive with bitrate. Raise it (e.g. 28-30) to shrink hard-to-compress content such as full-frame grain.")]
+        [Description("Constant Rate Factor for the FFmpeg H.264/x265 encoder (0-51, lower is higher quality/larger file; libx264 default is 23). Mutually exclusive with bitrate. AVFoundation has no CRF control; when it is selected, the successful result contains a warning that crf was ignored. Raise it (e.g. 28-30) to shrink hard-to-compress content such as full-frame grain.")]
         int? crf = null,
-        [Description("Target average video bitrate in bits per second (e.g. 4000000). Mutually exclusive with crf; forces ABR by dropping the crf option.")]
+        [Description("Target average video bitrate in bits per second (e.g. 4000000). Mutually exclusive with crf; forces ABR by dropping the crf option. AVFoundation treats this as a target; the successful result includes a warning when the estimated video bitrate is below 50% of the request. The estimate subtracts configured audio bitrate when known and otherwise identifies its container-wide audio/muxing approximation.")]
         int? bitrate = null,
-        [Description("Required when outputPath already exists.")]
+        [Description(ConfirmOverwriteDescription)]
         bool confirmOverwrite = false,
         [Description("When true, run the export as a background job and return {status:running, jobId} immediately; poll read_render_job(jobId) for completion. Do not issue apply_edit while a background export is running.")]
         bool background = false,
@@ -832,6 +767,9 @@ public sealed class RenderTools(
     {
         return ExecuteAsync<ExportVideoResult>(async () =>
         {
+            Scene scene = RequireSceneSnapshot();
+            renderScale = ValidateRenderScale(scene, renderScale, "export_video");
+
             // Only preflight-reject when FFmpeg is the sole encoder for this container; a non-FFmpeg
             // encoder (e.g. AVFoundation for macOS .mp4/.mov) can export without the worker.
             if (videoExporter.RequiresFFmpegWorker(NormalizeOutputPath(outputPath))
@@ -872,11 +810,10 @@ public sealed class RenderTools(
                     "Provide either crf or bitrate, not both."));
             }
 
-            Scene scene = RequireSceneSnapshot();
             string resolvedPath = workspace.ResolveForWrite(NormalizeOutputPath(outputPath));
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
 
-            async Task<ExportVideoResponse> RunExportAsync(CancellationToken token)
+            async Task<ExportVideoResponse> RunExportAsync(RenderJobProgressReporter progress, CancellationToken token)
             {
                 // Re-verify at write time: background jobs are serialized, so a preceding job may
                 // have created this file after the pre-flight overwrite check passed.
@@ -889,7 +826,8 @@ public sealed class RenderTools(
                     renderScale,
                     token,
                     crf,
-                    bitrate).ConfigureAwait(false);
+                    bitrate,
+                    (encoded, total) => progress.Report((int)Math.Min(encoded, int.MaxValue), (int)Math.Min(total, int.MaxValue), "encoding")).ConfigureAwait(false);
                 sessions.RecordCreativeDirection(CreateExportCreativeFingerprint(scene, resolvedPath));
                 return exported;
             }
@@ -898,19 +836,19 @@ public sealed class RenderTools(
             {
                 string jobId = renderJobs.Enqueue(
                     "export",
-                    async token => JsonSerializer.SerializeToNode(
-                        await RunExportAsync(token).ConfigureAwait(false),
+                    async (progress, token) => JsonSerializer.SerializeToNode(
+                        await RunExportAsync(progress, token).ConfigureAwait(false),
                         s_jobResultOptions)!);
                 return new ExportVideoResult("running", jobId, null);
             }
 
-            ExportVideoResponse response = await RunExportAsync(cancellationToken).ConfigureAwait(false);
+            ExportVideoResponse response = await RunExportAsync(NullProgress, cancellationToken).ConfigureAwait(false);
             return new ExportVideoResult("completed", null, response);
         });
     }
 
     [McpServerTool(Name = "read_render_job")]
-    [Description("Reports the status of a background render/export job started with background:true on render_storyboard or export_video. Poll until state is 'completed' (result holds the render_storyboard/export_video payload), 'failed' (error explains why), or 'cancelled'.")]
+    [Description("Reports the status of a background render/export job started with background:true on render_storyboard or export_video. Poll until state is 'completed' (result holds the render_storyboard/export_video payload), 'failed' (error explains why), or 'cancelled'. While it runs, progress carries {completed, total, ratio, stage} — shots rendered for a storyboard, frames encoded for an export — so a slow job can be told apart from a hung one without watching the output file grow. stage is 'queued' while another job holds the single render slot.")]
     public ToolResult<RenderJobSnapshot> ReadRenderJob(
         [Description("Job id returned by a background render_storyboard/export_video call.")]
         string jobId)
@@ -1190,16 +1128,14 @@ public sealed class RenderTools(
         float renderScale,
         bool allowAllCaps,
         bool allowHardCuts,
-        bool allowRectDominance,
         bool relaxAesthetics,
         bool allowStillness,
         bool allowDenseText,
         bool allowMultiObjectElements,
-        bool allowMonochrome,
         bool allowMinimalDensity,
         double plannedForegroundElementsPerShot,
-        double[]? beatTimesSeconds,
-        PaletteRoleColor[]? paletteRoleColors)
+        double[]? beatTimesSeconds = null,
+        PaletteRoleColor[]? paletteRoleColors = null)
     {
         return new QualityAnalysisOptions(
             videoType,
@@ -1207,16 +1143,43 @@ public sealed class RenderTools(
             float.IsFinite(renderScale) && renderScale > 0 ? renderScale : 1,
             allowAllCaps,
             allowHardCuts,
-            allowRectDominance,
             relaxAesthetics,
             allowStillness,
             allowDenseText,
             allowMultiObjectElements,
-            allowMonochrome,
             allowMinimalDensity,
             plannedForegroundElementsPerShot,
             beatTimesSeconds?.Where(double.IsFinite).ToArray(),
             paletteRoleColors?.ToArray());
+    }
+
+    private ValueTask<QualityReviewResponse> AnalyzeQualityAsync(
+        Scene scene,
+        IReadOnlyList<TimeSpan>? sampleTimes,
+        int sampleCount,
+        bool evaluateMotion,
+        QualityAnalysisOptions options,
+        CancellationToken cancellationToken)
+    {
+        return qualityAnalyzer.AnalyzeAsync(
+            scene,
+            sampleTimes,
+            sampleCount,
+            options.RenderScale,
+            options.StyleProfile,
+            options.AllowAllCaps,
+            options.AllowHardCuts,
+            options.RelaxAesthetics,
+            options.AllowStillness,
+            options.AllowDenseText,
+            options.AllowMultiObjectElements,
+            options.AllowMinimalDensity,
+            options.PlannedForegroundElementsPerShot,
+            evaluateMotion,
+            videoType: options.VideoType,
+            beatTimesSeconds: options.BeatTimesSeconds,
+            paletteRoleColors: options.PaletteRoleColors,
+            cancellationToken: cancellationToken);
     }
 
     private async ValueTask<IReadOnlyList<string>> RenderBaselineStillsAsync(
@@ -1226,6 +1189,7 @@ public sealed class RenderTools(
         string prefix,
         CancellationToken cancellationToken)
     {
+        renderScale = ValidateRenderScale(scene, renderScale, "compare_revisions");
         string batchId = Guid.NewGuid().ToString("N")[..8];
         var stillPaths = new List<string>(sampleTimes.Count);
         for (int i = 0; i < sampleTimes.Count; i++)
@@ -1298,10 +1262,6 @@ public sealed class RenderTools(
         var deltas = new List<QualityMetricDelta>();
         AddDelta(deltas, "typography.textObjectCount", previous.Metrics.Typography.TextObjectCount, current.Metrics.Typography.TextObjectCount);
         AddDelta(deltas, "typography.lowContrastTextCount", previous.Metrics.Typography.LowContrastTextCount, current.Metrics.Typography.LowContrastTextCount);
-        AddDelta(deltas, "palette.harmonyScore", previous.Metrics.Palette.HarmonyScore, current.Metrics.Palette.HarmonyScore);
-        AddDelta(deltas, "palette.hueRelationshipScore", previous.Metrics.Palette.HueRelationshipScore, current.Metrics.Palette.HueRelationshipScore);
-        AddDelta(deltas, "backgroundRichness.fullFrameBackgroundLayerCount", previous.Metrics.BackgroundRichness.FullFrameBackgroundLayerCount, current.Metrics.BackgroundRichness.FullFrameBackgroundLayerCount);
-        AddDelta(deltas, "backgroundRichness.flatSingleLayerBackgroundCount", previous.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount, current.Metrics.BackgroundRichness.FlatSingleLayerBackgroundCount);
         AddDelta(deltas, "layerDensity.averageVisibleLayerCount", previous.Metrics.LayerDensity.AverageVisibleLayerCount, current.Metrics.LayerDensity.AverageVisibleLayerCount);
         AddDelta(deltas, "layerDensity.averageForegroundLayerCount", previous.Metrics.LayerDensity.AverageForegroundLayerCount, current.Metrics.LayerDensity.AverageForegroundLayerCount);
         AddDelta(deltas, "tempo.timelineEventsPerSecond", previous.Metrics.Tempo.TimelineEventsPerSecond, current.Metrics.Tempo.TimelineEventsPerSecond);
@@ -2060,20 +2020,11 @@ public sealed class RenderTools(
         return category switch
         {
             "typographyReadTime" => "For 1.5s beats, replace sentences with 1-3 word hero text and 2-4 word supporting tokens, or split copy into separate Elements.",
-            "shapeDiversity" => "Delete or replace foreground RectShape accents with EllipseShape, RoundedRectShape, GeometryShape, strokes, media, or procedural texture; keep RectShape for full-frame [role:background] surfaces.",
-            "decorativeShapeClarity" => "Replace abstract glint/glow/aperture ellipses with concrete, parseable visual systems such as strokes, particles, letter fragments, editor/timeline marks, masks, media, or procedural texture; move pure atmosphere to [role:background].",
-            "gradientFalloff" => "For ambient/aperture/glow gradients, use at least three falloff stops, widen abrupt stop offsets, add Blur/SKSL texture when appropriate, or replace the shape with procedural surface texture.",
-            "backgroundRichness" => "Replace the flat single-layer background with a 3+ stop gradient or shader base, then add a midground texture/depth layer and subtle drift/parallax.",
-            "shapeIntent" => "Rename/tag each large or animated foreground shape with a clear role and purpose, or remove it if it does not serve the shot.",
-            "motionIntent" => "Rename/tag animated foreground shapes with a concrete motion job such as beat slide, scan sweep, pulse reveal, wipe transition, or impact burst.",
             "elementStructure" => "Split ordinary content into one Element per EngineObject; keep multi-object Elements only for IFlowOperator chains such as DrawableGroup, DrawableDecorator, SoundGroup, or Scene3D.",
-            "layerDensity" => "Use metrics.layerDensity to find the sparse time bands, then add missing background/midground/foreground layers or revise the quantitativePlanSheet when the brief intentionally calls for minimal density.",
+            "layerDensity" => "Use metrics.layerDensity to find the sparse time bands, then add missing background/midground/foreground layers, or revise the density target when the sparser cut is the intended one.",
             "tempoRhythm" => "Convert the BPM target into a beat grid, add visible foreground boundaries every 1-2 beats, close long foreground event gaps, and keep normal foreground holds near 2-4 beats.",
             "textBackgroundFit" => "Use an explicit [role:text-backing] shape only for real text plates, match its Start/Length to the text Element, then verify with measure_object_bounds.",
-            "visualHierarchy" => "Keep one hero-scale text object per beat and reduce supporting labels below hero size and contrast.",
-            "paletteHarmony" => "Re-derive the palette from one base hue with derive_palette; use a recognized harmony scheme, one saturated accent, and clear text/background luma separation.",
             "paletteBalance" => "Pass derive_palette role colors as paletteRoleColors, then reduce large accent-colored areas and restore the bg-base/background dominant role to carry most of the frame.",
-            "effectIntent" => "Remove repeated decorative effect stacks or rename and keep only chains with one job: texture, hierarchy, transition energy, grade, or legibility.",
             "motionContinuity" => "Add bridged opacity/transform/spacing/brush/effect keyframes across cut boundaries and keep animatedPropertyCount above zero for motion graphics.",
             "cutRhythm" => "Bridge adjacent Elements with short overlaps, opacity fades, or transform continuation instead of pure hard boundaries.",
             "transitionVocabulary" => "Choose one continuity-editing transition vocabulary for the sequence, then revise outlier boundaries so dissolves, sweeps, dips, or hard cuts do not alternate without a clear reason.",
@@ -2086,6 +2037,72 @@ public sealed class RenderTools(
     {
         IEditingSession session = sessions.RequireSession();
         return CreateSceneSnapshot(session);
+    }
+
+    internal static float ValidateRenderScale(Scene scene, float renderScale, string toolName)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
+
+        float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
+        PixelSize frameSize = scene.FrameSize;
+
+        // Validate against the allocator reached by StillRenderer or VideoExporter, not the engine ceiling.
+        int maxDimension = RenderScaleUtilities.PredictRenderThreadMaxBufferDimension();
+        double requestedWidth = GetRootDeviceExtent(frameSize.Width, normalizedScale);
+        double requestedHeight = GetRootDeviceExtent(frameSize.Height, normalizedScale);
+        if (requestedWidth <= maxDimension && requestedHeight <= maxDimension)
+        {
+            return normalizedScale;
+        }
+
+        double maximumScaleLimit = Math.Min(
+            frameSize.Width > 0
+                ? maxDimension / (double)frameSize.Width
+                : double.PositiveInfinity,
+            frameSize.Height > 0
+                ? maxDimension / (double)frameSize.Height
+                : double.PositiveInfinity);
+        float maximumScale = (float)maximumScaleLimit;
+        while (!RootOutputExtentFits(frameSize, maximumScale, maxDimension))
+        {
+            maximumScale = MathF.BitDecrement(maximumScale);
+        }
+
+        float nextScale = MathF.BitIncrement(maximumScale);
+        while (float.IsFinite(nextScale) && RootOutputExtentFits(frameSize, nextScale, maxDimension))
+        {
+            maximumScale = nextScale;
+            nextScale = MathF.BitIncrement(maximumScale);
+        }
+
+        string requestedExtent = $"{FormatDeviceExtent(requestedWidth)}x{FormatDeviceExtent(requestedHeight)}";
+        string maximumScaleText = maximumScale.ToString("G9", CultureInfo.InvariantCulture);
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"{toolName} renderScale {normalizedScale.ToString("G9", CultureInfo.InvariantCulture)} requests an output extent of {requestedExtent} pixels. "
+            + $"Each output axis is limited to {maxDimension} pixels; "
+            + $"the maximum usable renderScale for frame {frameSize.Width}x{frameSize.Height} is {maximumScaleText}.",
+            "renderScale",
+            $"Use renderScale <= {maximumScaleText} for this frame size."));
+    }
+
+    private static bool RootOutputExtentFits(PixelSize frameSize, float renderScale, int maxDimension)
+    {
+        return GetRootDeviceExtent(frameSize.Width, renderScale) <= maxDimension
+               && GetRootDeviceExtent(frameSize.Height, renderScale) <= maxDimension;
+    }
+
+    private static float GetRootDeviceExtent(int logicalExtent, float renderScale)
+    {
+        return MathF.Ceiling(logicalExtent * renderScale);
+    }
+
+    private static string FormatDeviceExtent(double extent)
+    {
+        return extent >= long.MinValue && extent <= long.MaxValue
+            ? ((long)extent).ToString(CultureInfo.InvariantCulture)
+            : extent.ToString("G17", CultureInfo.InvariantCulture);
     }
 
     // Reads the frame rate from the given session's live, Project-attached scene; CreateSceneSnapshot

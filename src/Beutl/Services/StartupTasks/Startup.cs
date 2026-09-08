@@ -77,7 +77,7 @@ public sealed class Startup
         Register(() => new AfterLoadingExtensionsTask(this));
         Register(() => new RestoreLastProjectTask(this, _projectService));
         Register(() => new CheckForUpdatesTask(_apiApp));
-        Register(() => new CheckForPackageUpdatesTask(this, _apiApp.GetResource<PackageManager>()));
+        Register(() => new CheckForPackageUpdatesTask(this, _apiApp.GetResource<PackageManager>(), _apiApp));
     }
 
     private void Register<T>(Func<T> factory)

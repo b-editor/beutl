@@ -15,25 +15,6 @@
              x:DataType="viewModels:TitleBreadcrumbBarViewModel"
              mc:Ignorable="d">
 
-    <UserControl.Resources>
-        <ControlTheme x:Key="SmallPaddingFlyoutPresenterStyle"
-                      BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
-                      TargetType="FlyoutPresenter">
-            <Setter Property="Padding" Value="4" />
-            <Setter Property="MinWidth" Value="240" />
-        </ControlTheme>
-        <ControlTheme x:Key="ProjectItemFlyoutButton"
-                      BasedOn="{StaticResource TransparentButton}"
-                      TargetType="Button">
-            <Setter Property="Margin" Value="2,0" />
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="Padding" Value="16,0,12,0" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </ControlTheme>
-    </UserControl.Resources>
-
     <StackPanel Name="Stack"
                 Orientation="Horizontal"
                 Spacing="8">
@@ -50,16 +31,16 @@
                 Content="{Binding FileName.Value}"
                 Theme="{StaticResource LiteButtonStyle}">
             <Button.Flyout>
-                <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
+                <Flyout FlyoutPresenterTheme="{StaticResource CompactFlyoutPresenterTheme}">
                     <StackPanel Spacing="4">
                         <Button Click="OnButtonClick"
                                 Content="{x:Static lang:Strings.Open}"
                                 Tag="OpenFile"
-                                Theme="{StaticResource ProjectItemFlyoutButton}" />
+                                Theme="{StaticResource CompactFlyoutItemButtonTheme}" />
                         <Button Click="OnButtonClick"
                                 Content="{x:Static lang:Strings.CreateNew}"
                                 Tag="NewScene"
-                                Theme="{StaticResource ProjectItemFlyoutButton}" />
+                                Theme="{StaticResource CompactFlyoutItemButtonTheme}" />
                         <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
                         <ListBox ItemsSource="{Binding TabItems}"
                                  SelectedItem="{Binding SelectedTabItem.Value}"
