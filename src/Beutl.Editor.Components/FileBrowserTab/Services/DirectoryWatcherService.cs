@@ -12,14 +12,19 @@ internal sealed class DirectoryWatcherService : IDisposable
 {
     private sealed record DirectoryIdentity(string LinkFingerprint, string CanonicalPath);
 
+    private readonly record struct SpecialDirectoryMembershipKey(
+        string TemplatesDirectory,
+        string MaterialsDirectory,
+        string CandidateDirectory);
+
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     private readonly object _stateSync = new();
     private readonly TimeSpan _debounceInterval;
     private readonly Action<Action> _postDelivery;
     private readonly Action<FileSystemWatcher> _startWatcher;
-    private readonly ConcurrentDictionary<string, bool> _templateOrMaterialDirectories =
-        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<SpecialDirectoryMembershipKey, bool>
+        _templateOrMaterialDirectories = new();
     private readonly ConcurrentDictionary<string, DirectoryIdentity> _directoryIdentities =
         new(StringComparer.Ordinal);
     // Limit consecutive rearm attempts because persistent failures recur immediately.
@@ -305,11 +310,25 @@ internal sealed class DirectoryWatcherService : IDisposable
     // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外
     internal bool ShouldExcludePath(string path)
     {
+        return ShouldExcludePath(
+            path,
+            BeutlEnvironment.GetTemplatesDirectoryPath(),
+            BeutlEnvironment.GetMaterialsDirectoryPath());
+    }
+
+    internal bool ShouldExcludePath(
+        string path,
+        string templatesDirectoryPath,
+        string materialsDirectoryPath)
+    {
         // Templates and materials live below BEUTL_HOME/.beutl by default, so their explicit
         // exception must win over the reserved-metadata rule. Cache by containing directory: a
         // watcher burst commonly reports hundreds of sibling files, and canonical resolution only
         // needs to run once for that directory identity.
-        if (IsTemplateOrMaterialPath(path))
+        if (IsTemplateOrMaterialPath(
+                path,
+                templatesDirectoryPath,
+                materialsDirectoryPath))
         {
             return false;
         }
@@ -324,9 +343,15 @@ internal sealed class DirectoryWatcherService : IDisposable
                path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool IsTemplateOrMaterialPath(string path)
+    private bool IsTemplateOrMaterialPath(
+        string path,
+        string templatesDirectoryPath,
+        string materialsDirectoryPath)
     {
-        if (IsConfiguredSpecialDirectory(path))
+        if (IsConfiguredSpecialDirectory(
+                path,
+                templatesDirectoryPath,
+                materialsDirectoryPath))
         {
             return true;
         }
@@ -353,6 +378,8 @@ internal sealed class DirectoryWatcherService : IDisposable
         }
 
         string canonicalDirectory;
+        string canonicalTemplatesDirectory;
+        string canonicalMaterialsDirectory;
         if (_directoryIdentities.TryGetValue(fullDirectory, out DirectoryIdentity? identity)
             && string.Equals(
                 identity.LinkFingerprint,
@@ -380,18 +407,44 @@ internal sealed class DirectoryWatcherService : IDisposable
                 canonicalDirectory);
         }
 
+        try
+        {
+            canonicalTemplatesDirectory = FilePathComparison.ResolveCanonicalPath(
+                templatesDirectoryPath);
+            canonicalMaterialsDirectory = FilePathComparison.ResolveCanonicalPath(
+                materialsDirectoryPath);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
+
         if (_templateOrMaterialDirectories.Count >= 512)
         {
             _templateOrMaterialDirectories.Clear();
             _directoryIdentities.Clear();
         }
 
-        return _templateOrMaterialDirectories.GetOrAdd(canonicalDirectory, static candidate =>
-            PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetTemplatesDirectoryPath())
-            || PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetMaterialsDirectoryPath()));
+        return _templateOrMaterialDirectories.GetOrAdd(
+            new SpecialDirectoryMembershipKey(
+                canonicalTemplatesDirectory,
+                canonicalMaterialsDirectory,
+                canonicalDirectory),
+            static key => FilePathComparison.IsSameOrDescendant(
+                              key.TemplatesDirectory,
+                              key.CandidateDirectory)
+                          || FilePathComparison.IsSameOrDescendant(
+                              key.MaterialsDirectory,
+                              key.CandidateDirectory));
     }
 
-    private static bool IsConfiguredSpecialDirectory(string path)
+    private static bool IsConfiguredSpecialDirectory(
+        string path,
+        string templatesDirectoryPath,
+        string materialsDirectoryPath)
     {
         try
         {
@@ -399,12 +452,12 @@ internal sealed class DirectoryWatcherService : IDisposable
             return string.Equals(
                        fullPath,
                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-                           BeutlEnvironment.GetTemplatesDirectoryPath())),
+                           templatesDirectoryPath)),
                        StringComparison.Ordinal)
                    || string.Equals(
                        fullPath,
                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-                           BeutlEnvironment.GetMaterialsDirectoryPath())),
+                           materialsDirectoryPath)),
                        StringComparison.Ordinal);
         }
         catch (Exception ex) when (ex is IOException

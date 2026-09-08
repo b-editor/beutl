@@ -307,6 +307,38 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void Watcher_template_root_retarget_invalidates_cached_directory_membership()
+    {
+        string firstTarget = Path.Combine(_projectRoot, "watcher-template-root-first");
+        string secondTarget = Path.Combine(_projectRoot, "watcher-template-root-second");
+        string templateAlias = Path.Combine(_projectRoot, "watcher-template-root-alias");
+        string materialsRoot = Path.Combine(_projectRoot, "watcher-materials-root");
+        Directory.CreateDirectory(firstTarget);
+        Directory.CreateDirectory(secondTarget);
+        Directory.CreateDirectory(materialsRoot);
+        try
+        {
+            CreateDirectorySymlinkOrIgnore(templateAlias, firstTarget);
+            string candidate = Path.Combine(secondTarget, "template.bep");
+            using var service = new DirectoryWatcherService();
+            Assert.That(
+                service.ShouldExcludePath(candidate, templateAlias, materialsRoot),
+                Is.True);
+
+            Directory.Delete(templateAlias);
+            CreateDirectorySymlinkOrIgnore(templateAlias, secondTarget);
+
+            Assert.That(
+                service.ShouldExcludePath(candidate, templateAlias, materialsRoot),
+                Is.False);
+        }
+        finally
+        {
+            if (Directory.Exists(templateAlias)) Directory.Delete(templateAlias);
+        }
+    }
+
+    [Test]
     public void Retargeted_directory_alias_recomputes_template_and_watcher_membership()
     {
         string templatesRoot = BeutlEnvironment.GetTemplatesDirectoryPath();
