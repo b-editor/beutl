@@ -100,18 +100,16 @@ internal sealed partial class VersionControlTabView : UserControl
         return true;
     }
 
-    private Task ExecuteEnableVersionControlAsync()
+    private async Task ExecuteEnableVersionControlAsync()
     {
         if (TopLevel.GetTopLevel(this)?.DataContext is IContextCommandHandler handler)
         {
             var execution = new ContextCommandExecution("EnableVersionControl");
             if (handler.CanExecute(execution))
             {
-                handler.Execute(execution);
+                await handler.ExecuteAsync(execution);
             }
         }
-
-        return Task.CompletedTask;
     }
 
     private Task<bool> LaunchUriAsync(Uri uri)
