@@ -410,6 +410,21 @@ public class CaptionDocumentSerializerTests
         }
     }
 
+    [TestCase("STYLE\n::cue { color: lime; }")]
+    [TestCase("REGION\nid:top\nwidth:40%")]
+    public void ImportWebVtt_BlockOnlyDocumentRemainsAValidEmptyImport(string block)
+    {
+        CaptionImportResult result = Import($"WEBVTT\n\n{block}\n", CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document!.Cues, Is.Empty);
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup));
+        }
+    }
+
     [TestCase(" Alice")]
     [TestCase("Alice ")]
     [TestCase("Alice\tBob")]

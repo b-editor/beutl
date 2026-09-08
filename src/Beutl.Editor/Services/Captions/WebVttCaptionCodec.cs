@@ -125,7 +125,8 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         }
 
         var document = new CaptionDocument(cues);
-        return errors.Count == 0 || cues.Count > 0
+        return cues.Count > 0
+            || errors.All(error => error.Kind == CaptionDiagnosticKinds.UnsupportedMarkup)
             ? CaptionImportResult.Imported(document, errors)
             : CaptionImportResult.Failure(errors);
     }

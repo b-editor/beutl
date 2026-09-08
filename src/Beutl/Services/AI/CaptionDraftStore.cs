@@ -368,11 +368,26 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
                     return CaptionDraftReadResult.Absent;
                 }
 
+                bool recordsNamePending = RecordsNamePending(bytes, envelope.Version);
                 CaptionDraft draft = Migrate(
                     envelope.Draft,
                     envelope.Version,
-                    RecordsNamePending(bytes, envelope.Version));
-                CaptionDraftEntry[] recoveries = envelope.Recoveries ?? [];
+                    recordsNamePending);
+                CaptionDraftEntry[] storedRecoveries = envelope.Recoveries ?? [];
+                var recoveries = new CaptionDraftEntry[storedRecoveries.Length];
+                for (int index = 0; index < storedRecoveries.Length; index++)
+                {
+                    CaptionDraftEntry? recovery = storedRecoveries[index];
+                    if (recovery is null)
+                    {
+                        DeleteInvalidFile(storagePath);
+                        return CaptionDraftReadResult.Absent;
+                    }
+                    recoveries[index] = new CaptionDraftEntry(
+                        recovery.JobId,
+                        Migrate(recovery.Draft, envelope.Version, recordsNamePending),
+                        recovery.Recoveries);
+                }
                 var entry = new CaptionDraftEntry(envelope.JobId, draft, recoveries);
                 if (!IsValid(entry))
                 {

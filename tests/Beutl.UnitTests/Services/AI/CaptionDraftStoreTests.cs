@@ -62,6 +62,51 @@ public sealed class CaptionDraftStoreTests
     }
 
     [Test]
+    public void Load_MigratesEveryRetainedRecoveryBeforeValidation()
+    {
+        var store = new FileCaptionDraftStore(_storageDirectory);
+        CaptionDraftScope scope = CreateScope();
+        var retained = new CaptionDraftEntry("job-a", CreateResumableSourceDraft());
+        var current = new CaptionDraftEntry(
+            "job-b",
+            CreateResumableSourceDraft(),
+            [retained]);
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
+        using (session)
+        {
+            session!.Save(current);
+        }
+        string path = store.GetStoragePath(scope);
+        File.WriteAllText(
+            path,
+            File.ReadAllText(path).Replace(
+                $"\"version\":{FileCaptionDraftStore.CurrentVersion}",
+                "\"version\":4",
+                StringComparison.Ordinal));
+
+        Assert.That(store.TryOpen(scope, out ICaptionDraftSession? reopened), Is.True);
+        using (reopened)
+        {
+            CaptionDraftEntry? restored = reopened!.Read().Entry;
+
+            Assert.That(restored, Is.Not.Null);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(restored!.Draft.Version, Is.EqualTo(FileCaptionDraftStore.CurrentVersion));
+                Assert.That(restored.Recoveries, Has.Length.EqualTo(1));
+                Assert.That(
+                    restored.Recoveries[0].Draft.Version,
+                    Is.EqualTo(FileCaptionDraftStore.CurrentVersion));
+                Assert.That(restored.Recoveries[0].JobId, Is.EqualTo("job-a"));
+                Assert.That(
+                    restored.Recoveries[0].Draft.SourceTranscriptionResume!.RequestKeySeed,
+                    Is.EqualTo("seed-of-the-run"));
+                Assert.That(File.Exists(path), Is.True);
+            }
+        }
+    }
+
+    [Test]
     public void Save_RejectsMoreRecoveriesBeforeReplacingTheDurableEntry()
     {
         var store = new FileCaptionDraftStore(_storageDirectory);
