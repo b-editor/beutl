@@ -102,8 +102,86 @@ public sealed partial class DrawableTimeController : Drawable, ITimeMappingPrese
             return false;
         }
 
-        return !HasUnsupportedSpeedState(timeRange, target);
+        return HasRepresentableSpeedMapping(timeRange, target)
+            && !HasUnsupportedSpeedState(timeRange, target);
     }
+
+    private bool HasRepresentableSpeedMapping(TimeRange range, Drawable target)
+    {
+        if (!IsValidRange(target.TimeRange) || Speed.HasExpression) return false;
+        decimal first = (decimal)range.Start.Ticks - TimeRange.Start.Ticks;
+        decimal last = (decimal)range.End.Ticks - TimeRange.Start.Ticks;
+        if (!FitsTicks(first) || !FitsTicks(last)) return false;
+        if (AdjustTimeRange.CurrentValue)
+        {
+            first = (decimal)range.Start.Ticks - target.TimeRange.Start.Ticks;
+            last = (decimal)range.End.Ticks - target.TimeRange.Start.Ticks;
+            if (!FitsTicks(first) || !FitsTicks(last)) return false;
+        }
+        first += OffsetPosition.CurrentValue.Ticks;
+        last += OffsetPosition.CurrentValue.Ticks;
+        if (!FitsTicks(first) || !FitsTicks(last)) return false;
+
+        double lower;
+        double upper;
+        if (Speed.Animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } animation)
+        {
+            decimal origin = animation.UseGlobalClock ? TimeRange.Start.Ticks : 0;
+            first += origin;
+            last += origin;
+            if (!FitsTicks(first) || !FitsTicks(last)) return false;
+            decimal minimumClock = Math.Min(0, Math.Min(origin, Math.Min(first, last)));
+            decimal maximumClock = Math.Max(0, Math.Max(origin, Math.Max(first, last)));
+            if (maximumClock - minimumClock > long.MaxValue) return false;
+            var clocks = new TimeRange(TimeSpan.FromTicks((long)minimumClock),
+                TimeSpan.FromTicks((long)(maximumClock - minimumClock)));
+            if (!animation.TryGetOutputRange(clocks, out float minimum, out float maximum)
+                || !float.IsFinite(minimum) || !float.IsFinite(maximum)) return false;
+            double scale = Math.Max(Math.Abs((double)minimum), Math.Abs((double)maximum)) / 100d;
+            double bound = (double)Math.Max(Math.Abs(first), Math.Abs(last)) * scale;
+            if (!FitsScaledTicks(bound)) return false;
+            lower = minimum < 0 ? -bound : 0;
+            upper = bound;
+            if (animation.UseGlobalClock)
+            {
+                double anchorBound = (double)Math.Abs(origin) * scale;
+                if (!FitsScaledTicks(anchorBound)) return false;
+                lower -= anchorBound;
+                if (minimum < 0) upper += anchorBound;
+            }
+        }
+        else
+        {
+            double scale = Speed.CurrentValue / 100d;
+            if (!double.IsFinite(scale) || scale < 0) return false;
+            lower = (double)first * scale;
+            upper = (double)last * scale;
+        }
+        if (!FitsScaledTicks(lower) || !FitsScaledTicks(upper)) return false;
+        if (Reverse.CurrentValue)
+            (lower, upper) = (target.TimeRange.Duration.Ticks - upper, target.TimeRange.Duration.Ticks - lower);
+        if (!FitsScaledTicks(lower) || !FitsScaledTicks(upper)) return false;
+        if (Loop.CurrentValue && target.TimeRange.Duration > TimeSpan.Zero)
+            (lower, upper) = (0, target.TimeRange.Duration.Ticks);
+        if (HoldFirstFrame.CurrentValue)
+            (lower, upper) = (Math.Max(0, lower), Math.Max(0, upper));
+        if (HoldLastFrame.CurrentValue)
+            (lower, upper) = (Math.Min(target.TimeRange.Duration.Ticks, lower), Math.Min(target.TimeRange.Duration.Ticks, upper));
+        if (FrameRate.CurrentValue > 0)
+        {
+            double frameTicks = TimeSpan.TicksPerSecond / (double)FrameRate.CurrentValue;
+            lower = Math.Floor(lower / frameTicks) * frameTicks;
+            upper = Math.Floor(upper / frameTicks) * frameTicks;
+        }
+        return FitsScaledTicks(lower) && FitsScaledTicks(upper)
+            && FitsScaledTicks(lower + target.TimeRange.Start.Ticks)
+            && FitsScaledTicks(upper + target.TimeRange.Start.Ticks);
+    }
+
+    private static bool FitsTicks(decimal ticks) => ticks >= long.MinValue && ticks <= long.MaxValue;
+
+    private static bool FitsScaledTicks(double ticks)
+        => double.IsFinite(ticks) && ticks > long.MinValue && ticks < long.MaxValue;
 
     private bool HasUnsupportedSpeedState(TimeRange timeRange, Drawable target)
     {

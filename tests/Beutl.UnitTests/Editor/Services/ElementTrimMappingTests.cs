@@ -281,6 +281,29 @@ public class ElementTrimMappingTests
         Assert.That(_harness.History.UndoCount, Is.EqualTo(undoCount));
     }
 
+    [Test]
+    public void SharedFrontBackOffset_HasNoPreviewWindow()
+    {
+        var (front, _, back) = AddClips(false);
+        var video = new SourceVideo();
+        front.Objects.Add(video);
+        back.Objects.Add(new DrawablePresenter { Target = { CurrentValue = video } });
+        Assert.That(_service.GetTrimDeltaBounds(_harness.Scene, [new ElementTrimPair(front, back)]),
+            Is.EqualTo((TimeSpan.Zero, TimeSpan.Zero)));
+    }
+
+    [Test]
+    public void UnreachableLocalAnimationBoundary_DoesNotOverflowCollection()
+    {
+        var (_, _, back) = AddClips(false);
+        var animation = new KeyFrameAnimation<bool>();
+        animation.KeyFrames.Add(new KeyFrame<bool> { Value = false });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.MaxValue, Value = true });
+        var video = new SourceVideo { IsLoop = { Animation = animation } };
+        back.Objects.Add(video);
+        Assert.That(SlippableMedia.Collect(back).IsComplete, Is.True);
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void AnimatedSource_RejectsWithoutWrites(bool slide)

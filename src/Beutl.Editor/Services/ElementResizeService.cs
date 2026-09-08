@@ -306,12 +306,18 @@ public sealed class ElementResizeService : IElementResizeService
             return (TimeSpan.Zero, TimeSpan.Zero);
 
         (TimeSpan min, TimeSpan max) = (TimeSpan.Zero, TimeSpan.Zero);
+        var frontOffsets = new HashSet<IProperty<TimeSpan>>();
+        var backOffsets = new HashSet<IProperty<TimeSpan>>();
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
             TimeSpan forwardExtension = GetForwardExtension(scene, front, back);
+            var frontTargets = SlippableMedia.Collect(front, forwardExtension);
+            var backTargets = SlippableMedia.Collect(back);
+            frontOffsets.UnionWith(frontTargets.Select(target => target.Offset));
+            backOffsets.UnionWith(backTargets.Select(target => target.Offset));
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
-                SlippableMedia.Collect(front, forwardExtension), SlippableMedia.Collect(back), offsetPlan);
+                frontTargets, backTargets, offsetPlan);
             if (i == 0)
             {
                 (min, max) = (pairMin, pairMax);
@@ -323,7 +329,7 @@ public sealed class ElementResizeService : IElementResizeService
             }
         }
 
-        return (min, max);
+        return frontOffsets.Overlaps(backOffsets) ? (TimeSpan.Zero, TimeSpan.Zero) : (min, max);
     }
 
     public bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, TimeSpan delta)

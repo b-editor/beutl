@@ -944,10 +944,11 @@ internal static class SlippableMedia
 
         foreach (IKeyFrame keyFrame in keyFrameAnimation.KeyFrames)
         {
-            TimeSpan time = keyFrameAnimation.UseGlobalClock
-                ? keyFrame.KeyTime
-                : video.TimeRange.Start + keyFrame.KeyTime;
-            times.Add(time);
+            decimal ticks = keyFrameAnimation.UseGlobalClock
+                ? keyFrame.KeyTime.Ticks
+                : (decimal)video.TimeRange.Start.Ticks + keyFrame.KeyTime.Ticks;
+            if (ticks >= long.MinValue && ticks <= long.MaxValue)
+                times.Add(TimeSpan.FromTicks((long)ticks));
         }
     }
 

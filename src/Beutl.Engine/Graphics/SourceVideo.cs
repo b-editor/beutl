@@ -87,6 +87,20 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         resource._speedIntegrator.EnsureCache(anm);
         try
         {
+            if (keyFrameAnimation.KeyFrames[^1] is KeyFrame<float> last)
+            {
+                TimeSpan prefix = last.KeyTime > TimeSpan.Zero ? last.KeyTime : TimeSpan.Zero;
+                if (timeSpan > prefix)
+                {
+                    TimeSpan tail = ScaleStaticVideoTime(timeSpan - prefix, last.Value);
+                    if (tail == TimeSpan.MaxValue) return tail;
+                    TimeSpan prefixValue = prefix == TimeSpan.Zero
+                        ? TimeSpan.Zero
+                        : resource._speedIntegrator.Integrate(prefix, keyFrameAnimation);
+                    TryAddTime(prefixValue, tail, out TimeSpan result);
+                    return result;
+                }
+            }
             return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
         }
         catch (OverflowException)
@@ -125,6 +139,18 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             if ((decimal)latest.Ticks - earliest.Ticks > long.MaxValue
                 || SpeedIntegrator.HasInvalidSpeed(animation, new TimeRange(earliest, latest - earliest)))
                 return TimeSpan.MaxValue;
+
+            if (animation.TryGetOutputRange(new TimeRange(earliest, latest - earliest),
+                    out float minimum, out float maximum) && minimum == maximum)
+            {
+                long elapsedTicks = Math.Max(0, end.Ticks) - Math.Max(0, start.Ticks);
+                return ScaleStaticVideoTime(TimeSpan.FromTicks(elapsedTicks), minimum);
+            }
+
+            if (animation.KeyFrames[^1] is KeyFrame<float> last
+                && start >= TimeSpan.Zero && end >= TimeSpan.Zero
+                && start >= last.KeyTime && end >= last.KeyTime)
+                return ScaleStaticVideoTime(duration, last.Value);
 
             TimeSpan endTime = CalculateVideoTime(end, resource);
             TimeSpan startTime = CalculateVideoTime(start, resource);
@@ -245,6 +271,8 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         float terminalSpeed = last.Value;
 
         TimeSpan terminal = last.KeyTime > start ? last.KeyTime : start;
+        if ((decimal)terminal.Ticks - start.Ticks > long.MaxValue)
+            return false;
         TimeSpan terminalDuration = terminal - start;
         TimeSpan elapsed = GetInitialProbe(sourceDuration, start, animation, terminalDuration);
         TimeSpan consumed = CalculateVideoDuration(start, elapsed, resource);
