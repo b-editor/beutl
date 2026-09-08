@@ -20,10 +20,11 @@ public static class FilePathComparison
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(left);
         ArgumentException.ThrowIfNullOrWhiteSpace(right);
+        ResolutionContext context = CreateResolutionContext();
 
         return string.Equals(
-            ResolveCanonicalPath(left),
-            ResolveCanonicalPath(right),
+            context.ResolveCanonicalPath(left),
+            context.ResolveCanonicalPath(right),
             StringComparison.Ordinal);
     }
 
@@ -33,8 +34,11 @@ public static class FilePathComparison
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        string canonicalRoot = Path.TrimEndingDirectorySeparator(ResolveCanonicalPath(root));
-        string canonicalPath = Path.TrimEndingDirectorySeparator(ResolveCanonicalPath(path));
+        ResolutionContext context = CreateResolutionContext();
+        string canonicalRoot = Path.TrimEndingDirectorySeparator(
+            context.ResolveCanonicalPath(root));
+        string canonicalPath = Path.TrimEndingDirectorySeparator(
+            context.ResolveCanonicalPath(path));
         if (string.Equals(canonicalRoot, canonicalPath, StringComparison.Ordinal))
         {
             return true;
@@ -106,6 +110,16 @@ public static class FilePathComparison
     /// <remarks>Any nonexistent suffix is retained exactly as supplied.</remarks>
     public static string ResolveCanonicalPath(string path)
     {
+        return CreateResolutionContext().ResolveCanonicalPath(path);
+    }
+
+    internal static ResolutionContext CreateResolutionContext()
+    {
+        return new ResolutionContext();
+    }
+
+    private static string ResolveCanonicalPath(string path, ResolutionContext context)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         (string root, IEnumerable<string> unresolvedComponents) =
@@ -132,7 +146,11 @@ public static class FilePathComparison
             }
 
             string candidate = Path.GetFullPath(Path.Combine(resolved, component));
-            candidate = NormalizeExistingEntrySpelling(resolved, component, candidate);
+            candidate = NormalizeExistingEntrySpelling(
+                resolved,
+                component,
+                candidate,
+                context);
             string? target = TryGetLinkTarget(candidate);
             if (target is null)
             {
@@ -290,7 +308,8 @@ public static class FilePathComparison
     private static string NormalizeExistingEntrySpelling(
         string parent,
         string component,
-        string candidate)
+        string candidate,
+        ResolutionContext context)
     {
         if (!Path.Exists(candidate))
         {
@@ -302,7 +321,7 @@ public static class FilePathComparison
             return SelectCanonicalExistingEntry(
                 component,
                 candidate,
-                Directory.EnumerateFileSystemEntries(parent));
+                context.GetEntries(parent));
         }
         catch (Exception ex)
             when (ex is IOException
@@ -381,6 +400,28 @@ public static class FilePathComparison
         else if (!string.Equals(match, entry, StringComparison.Ordinal))
         {
             ambiguous = true;
+        }
+    }
+
+    internal sealed class ResolutionContext
+    {
+        private readonly Dictionary<string, string[]> _directoryEntries =
+            new(StringComparer.Ordinal);
+
+        public string ResolveCanonicalPath(string path)
+        {
+            return FilePathComparison.ResolveCanonicalPath(path, this);
+        }
+
+        internal IReadOnlyList<string> GetEntries(string directory)
+        {
+            if (!_directoryEntries.TryGetValue(directory, out string[]? entries))
+            {
+                entries = Directory.GetFileSystemEntries(directory);
+                _directoryEntries.Add(directory, entries);
+            }
+
+            return entries;
         }
     }
 

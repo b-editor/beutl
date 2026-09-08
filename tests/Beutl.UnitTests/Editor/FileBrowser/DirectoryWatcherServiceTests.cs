@@ -231,6 +231,45 @@ public class DirectoryWatcherServiceTests
         }
     }
 
+    [Test]
+    public void Retargeted_directory_alias_recomputes_template_and_watcher_membership()
+    {
+        string templatesRoot = BeutlEnvironment.GetTemplatesDirectoryPath();
+        string templateTarget = Path.Combine(templatesRoot, $"retarget-{Guid.NewGuid():N}");
+        string outsideTarget = Path.Combine(_projectRoot, "outside");
+        string alias = Path.Combine(_projectRoot, "alias");
+        Directory.CreateDirectory(templateTarget);
+        Directory.CreateDirectory(outsideTarget);
+        CreateDirectorySymlinkOrIgnore(alias, templateTarget);
+        FileThumbnailService thumbnails = FileThumbnailService.Instance;
+        thumbnails.ClearCache();
+        using var watcher = new DirectoryWatcherService();
+
+        try
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(watcher.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.False);
+                Assert.That(thumbnails.IsObjectTemplateFile(Path.Combine(alias, "item.json")), Is.True);
+            });
+
+            Directory.Delete(alias);
+            CreateDirectorySymlinkOrIgnore(alias, outsideTarget);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(watcher.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.True);
+                Assert.That(thumbnails.IsObjectTemplateFile(Path.Combine(alias, "item.json")), Is.False);
+            });
+        }
+        finally
+        {
+            thumbnails.ClearCache();
+            if (Directory.Exists(alias)) Directory.Delete(alias);
+            Directory.Delete(templateTarget, recursive: true);
+        }
+    }
+
     private string CreateFile(string relativePath)
     {
         string path = Path.Combine(
@@ -239,6 +278,20 @@ public class DirectoryWatcherServiceTests
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "content");
         return path;
+    }
+
+    private static void CreateDirectorySymlinkOrIgnore(string alias, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(alias, target);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or PlatformNotSupportedException)
+        {
+            Assert.Ignore($"Directory symbolic links are unavailable: {ex.Message}");
+        }
     }
 
     private static Action TakePostedAction(

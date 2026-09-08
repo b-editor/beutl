@@ -313,12 +313,25 @@ internal sealed class DirectoryWatcherService : IDisposable
             return false;
         }
 
+        string canonicalDirectory;
+        try
+        {
+            canonicalDirectory = FilePathComparison.ResolveCanonicalPath(directory);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
+
         if (_templateOrMaterialDirectories.Count >= 512)
         {
             _templateOrMaterialDirectories.Clear();
         }
 
-        return _templateOrMaterialDirectories.GetOrAdd(directory, static candidate =>
+        return _templateOrMaterialDirectories.GetOrAdd(canonicalDirectory, static candidate =>
             PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetTemplatesDirectoryPath())
             || PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetMaterialsDirectoryPath()));
     }

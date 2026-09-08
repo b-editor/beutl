@@ -315,12 +315,25 @@ public sealed class FileThumbnailService : IDisposable
             return false;
         }
 
+        string canonicalDirectory;
+        try
+        {
+            canonicalDirectory = FilePathComparison.ResolveCanonicalPath(directory);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
+
         if (_templateDirectoryMembership.Count >= 512)
         {
             _templateDirectoryMembership.Clear();
         }
 
-        return _templateDirectoryMembership.GetOrAdd(directory, static candidate =>
+        return _templateDirectoryMembership.GetOrAdd(canonicalDirectory, static candidate =>
             PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetTemplatesDirectoryPath()));
     }
 

@@ -31,6 +31,8 @@ public sealed class ObjectTemplateItem(
 
     public DateTime LastWriteTimeUtc { get; internal set; }
 
+    internal string? CanonicalFilePath { get; set; }
+
     // Base64 of 1 MiB, four times what ObjectTemplatePreviewRenderer will ever write — headroom for
     // a package authored elsewhere, without letting one file dictate the allocation.
     private const int MaxEncodedPreviewLength = 1_398_104;

@@ -178,4 +178,61 @@ public class ObjectTemplateServicePreviewTests
             service.RestoreItems();
         }
     }
+
+    [Test]
+    public void RefreshFromFileSystem_reloads_a_retargeted_alias_even_when_target_is_older()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        string templates = BeutlEnvironment.GetTemplatesDirectoryPath();
+        string tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            $"template-retarget-{Guid.NewGuid():N}");
+        string firstTarget = Path.Combine(tempRoot, "first.json");
+        string secondTarget = Path.Combine(tempRoot, "second.json");
+        string alias = Path.Combine(templates, $"retarget-{Guid.NewGuid():N}.json");
+        Directory.CreateDirectory(tempRoot);
+        Directory.CreateDirectory(templates);
+        ObjectTemplateItem first = ObjectTemplateItem.CreateFromInstance(
+            new Audio.Effects.AudioEffectGroup(),
+            "first");
+        ObjectTemplateItem second = ObjectTemplateItem.CreateFromInstance(
+            new Audio.Effects.AudioEffectGroup(),
+            "second");
+        File.WriteAllText(firstTarget, ObjectTemplateItem.ToJson(first).ToJsonString());
+        File.WriteAllText(secondTarget, ObjectTemplateItem.ToJson(second).ToJsonString());
+        File.SetLastWriteTimeUtc(firstTarget, DateTime.UtcNow);
+        File.SetLastWriteTimeUtc(secondTarget, DateTime.UtcNow.AddMinutes(-10));
+        try
+        {
+            try
+            {
+                File.CreateSymbolicLink(alias, firstTarget);
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
+            }
+
+            service.RestoreItems();
+            ObjectTemplateItem loadedFirst = service.FindByBaseType(first.BaseType)
+                .Single(item => string.Equals(item.FilePath, alias, StringComparison.Ordinal));
+            Assert.That(loadedFirst.Id, Is.EqualTo(first.Id));
+
+            File.Delete(alias);
+            File.CreateSymbolicLink(alias, secondTarget);
+            service.RefreshFromFileSystem();
+
+            ObjectTemplateItem loadedSecond = service.FindByBaseType(first.BaseType)
+                .Single(item => string.Equals(item.FilePath, alias, StringComparison.Ordinal));
+            Assert.That(loadedSecond.Id, Is.EqualTo(second.Id));
+        }
+        finally
+        {
+            File.Delete(alias);
+            Directory.Delete(tempRoot, recursive: true);
+            service.RestoreItems();
+        }
+    }
 }
