@@ -107,7 +107,9 @@ public class SaveRoundTripTests
     }
 
     [AvaloniaTest]
-    public async Task Saving_a_migrated_scene_persists_project_version_metadata()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Saving_a_migrated_scene_persists_project_version_metadata(bool failProjectWrite)
     {
         await ResetProjectAsync();
 
@@ -119,11 +121,12 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
         var sourceEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         var adder = (IElementAdder)sourceEditor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(1),
             Layer: 0,
-            EngineObjectFactory: () => new RectShape()));
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
         Assert.That(await sourceEditor.Commands!.OnSave(), Is.True);
         string elementFile = sourceScene.Children.Single().Uri!.LocalPath;
@@ -162,6 +165,39 @@ public class SaveRoundTripTests
         TestShell.Editor.ActivateTabItem(migratedScene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+
+        if (failProjectWrite)
+        {
+            Project currentProject = TestShell.Project.CurrentProject.Value!;
+            Uri originalUri = currentProject.Uri!;
+            byte[] projectBefore = File.ReadAllBytes(projectFile);
+            byte[] sceneBefore = File.ReadAllBytes(migratedScene.Uri!.LocalPath);
+            byte[] elementBefore = File.ReadAllBytes(elementFile);
+            // An existing file cannot serve as the destination's parent directory.
+            currentProject.Uri = new Uri(Path.Combine(projectFile, "blocked.bep"));
+            Exception? failure = null;
+            try
+            {
+                await editor.Commands!.OnSave();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+            finally
+            {
+                currentProject.Uri = originalUri;
+            }
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure, Is.Not.Null);
+                Assert.That(File.ReadAllBytes(projectFile), Is.EqualTo(projectBefore));
+                Assert.That(File.ReadAllBytes(migratedScene.Uri.LocalPath), Is.EqualTo(sceneBefore));
+                Assert.That(File.ReadAllBytes(elementFile), Is.EqualTo(elementBefore));
+            });
+            return;
+        }
 
         Assert.That(await editor.Commands!.OnSave(), Is.True);
         JsonObject savedProject = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
