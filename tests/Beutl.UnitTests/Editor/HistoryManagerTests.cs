@@ -169,6 +169,42 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void Rollback_WhenRevertFails_RetainsThePendingTransactionForRetry()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        bool failFirstRevert = true;
+        var operation = CustomOperation.Create(
+            () => _root.Value = 100,
+            () =>
+            {
+                if (failFirstRevert)
+                {
+                    failFirstRevert = false;
+                    throw new InvalidOperationException("Injected revert failure");
+                }
+                _root.Value = 0;
+            },
+            _sequenceGenerator,
+            "Retryable revert");
+        operation.Apply(new OperationExecutionContext(_root));
+        manager.Record(operation);
+
+        Assert.Throws<InvalidOperationException>(() => manager.Rollback());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(100));
+            Assert.That(manager.HasPendingOperations, Is.True);
+        }
+
+        Assert.DoesNotThrow(() => manager.Rollback());
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.Zero);
+            Assert.That(manager.HasPendingOperations, Is.False);
+        }
+    }
+
+    [Test]
     public void Undo_ShouldRevertLastCommittedTransaction()
     {
         // Arrange
@@ -396,12 +432,12 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_CommitsPendingOperationsSeparately()
+    public void ExecuteInTransaction_CommitsPendingOperationsSeparately()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
 
-        manager.ExecuteInIsolatedTransaction(
+        manager.ExecuteInTransaction(
             () => CreateValueOperation(
                 manager,
                 targetValue: 2,
@@ -424,12 +460,12 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_RollsBackOnlyItsOwnFailedOperations()
+    public void ExecuteInTransaction_RollsBackOnlyItsOwnFailedOperations()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
 
-        Assert.Throws<InvalidOperationException>(() => manager.ExecuteInIsolatedTransaction(() =>
+        Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
         {
             CreateValueOperation(
                 manager,
@@ -450,14 +486,14 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public async Task ExecuteInIsolatedTransaction_QueuesConcurrentRecordsForTheNextTransaction()
+    public async Task ExecuteInTransaction_QueuesConcurrentRecordsForTheNextTransaction()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         using var isolatedEntered = new ManualResetEventSlim();
         using var releaseIsolated = new ManualResetEventSlim();
         using var concurrentStarted = new ManualResetEventSlim();
         using var concurrentReturned = new ManualResetEventSlim();
-        Task isolated = Task.Run(() => manager.ExecuteInIsolatedTransaction(() =>
+        Task isolated = Task.Run(() => manager.ExecuteInTransaction(() =>
         {
             manager.Record(CreateTestOperation());
             isolatedEntered.Set();
@@ -494,11 +530,11 @@ public class HistoryManagerTests
 
     [TestCase(true)]
     [TestCase(false)]
-    public void ExecuteInIsolatedTransaction_RejectsReentrantTransactionControl(bool commit)
+    public void ExecuteInTransaction_RejectsReentrantTransactionControl(bool commit)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        Assert.Throws<InvalidOperationException>(() => manager.ExecuteInIsolatedTransaction(() =>
+        Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
         {
             CreateValueOperation(
                 manager,
@@ -520,13 +556,13 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_ContainsPostCommitStateObserverFailure()
+    public void ExecuteInTransaction_ContainsPostCommitStateObserverFailure()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         using IDisposable subscription = manager.StateChanged.Subscribe(_ =>
             throw new InvalidOperationException("observer failed"));
 
-        Assert.DoesNotThrow(() => manager.ExecuteInIsolatedTransaction(
+        Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
             () => CreateValueOperation(
                 manager,
                 targetValue: 1,
@@ -543,7 +579,7 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_DetachesAFailedRollbackTransaction()
+    public void ExecuteInTransaction_DetachesAFailedRollbackTransaction()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         var operation = CustomOperation.Create(
@@ -553,7 +589,7 @@ public class HistoryManagerTests
             "Throwing revert");
 
         AggregateException? exception = Assert.Throws<AggregateException>(() =>
-            manager.ExecuteInIsolatedTransaction(() =>
+            manager.ExecuteInTransaction(() =>
             {
                 operation.Apply(new OperationExecutionContext(_root));
                 manager.Record(operation);
@@ -575,16 +611,21 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_ContainsHistoryEntryObserverFailure()
+    public void ExecuteInTransaction_ContainsHistoryEntryObserverFailure()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int laterSubscriberNotifications = 0;
         INotifyCollectionChanged entries = manager.Entries;
         NotifyCollectionChangedEventHandler handler = (_, _) =>
             throw new InvalidOperationException("entry observer failed");
         entries.CollectionChanged += handler;
+        IDisposable throwingSubscription = manager.SubscribeEntries((_, _) =>
+            throw new InvalidOperationException("managed entry observer failed")).Subscription;
+        IDisposable laterSubscription = manager.SubscribeEntries((_, _) =>
+            laterSubscriberNotifications++).Subscription;
         try
         {
-            Assert.DoesNotThrow(() => manager.ExecuteInIsolatedTransaction(
+            Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
                 () => CreateValueOperation(
                     manager,
                     targetValue: 1,
@@ -594,6 +635,8 @@ public class HistoryManagerTests
         }
         finally
         {
+            laterSubscription.Dispose();
+            throwingSubscription.Dispose();
             entries.CollectionChanged -= handler;
         }
 
@@ -603,11 +646,12 @@ public class HistoryManagerTests
             Assert.That(manager.UndoCount, Is.EqualTo(1));
             Assert.That(manager.Entries, Has.Count.EqualTo(2));
             Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(laterSubscriberNotifications, Is.EqualTo(1));
         }
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_GuardsPendingEntryPublication()
+    public void ExecuteInTransaction_GuardsPendingEntryPublication()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0, description: "Pending");
@@ -624,7 +668,7 @@ public class HistoryManagerTests
         entries.CollectionChanged += handler;
         try
         {
-            Assert.DoesNotThrow(() => manager.ExecuteInIsolatedTransaction(
+            Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
                 () => CreateValueOperation(
                     manager,
                     targetValue: 2,
@@ -648,14 +692,14 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void ExecuteInIsolatedTransaction_ContinuesRollbackAfterARevertFailure()
+    public void ExecuteInTransaction_ContinuesRollbackAfterARevertFailure()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int firstValue = 0;
         int secondValue = 0;
 
         AggregateException? exception = Assert.Throws<AggregateException>(() =>
-            manager.ExecuteInIsolatedTransaction(() =>
+            manager.ExecuteInTransaction(() =>
             {
                 var first = CustomOperation.Create(
                     () => firstValue = 1,
@@ -817,7 +861,7 @@ public class HistoryManagerTests
         Assert.Throws<ObjectDisposedException>(() => manager.Redo());
         Assert.Throws<ObjectDisposedException>(() => manager.Clear());
         Assert.Throws<ObjectDisposedException>(() =>
-            manager.ExecuteInIsolatedTransaction(static () => { }, "Test"));
+            manager.ExecuteInTransaction(static () => { }, "Test"));
     }
 
     [Test]

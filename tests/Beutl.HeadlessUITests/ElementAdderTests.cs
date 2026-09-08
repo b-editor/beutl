@@ -538,6 +538,69 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
+    public async Task AddAsync_CancelledWhileWaitingForHistoryGateDoesNotCommit()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-history-cancellation");
+        var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
+        using var historyGateEntered = new ManualResetEventSlim();
+        using var releaseHistoryGate = new ManualResetEventSlim();
+        using var beforeHistoryTransaction = new ManualResetEventSlim();
+        using var cancellation = new CancellationTokenSource();
+        Task blocker = Task.Run(() => editor.HistoryManager.ExecuteInTransaction(() =>
+        {
+            historyGateEntered.Set();
+            if (!releaseHistoryGate.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("The blocking history transaction was not released.");
+        }, "Block history"));
+        Assert.That(historyGateEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        adder.BeforeHistoryTransaction = beforeHistoryTransaction.Set;
+        Task cancelAndRelease = Task.Run(() =>
+        {
+            if (!beforeHistoryTransaction.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("ElementAdder did not reach the history boundary.");
+            cancellation.Cancel();
+            releaseHistoryGate.Set();
+        });
+
+        OperationCanceledException? thrown = null;
+        try
+        {
+            try
+            {
+                await adder.AddAsync(
+                [
+                    new ElementDescription(
+                        TimeSpan.Zero,
+                        TimeSpan.FromSeconds(1),
+                        0,
+                        new ElementSource.EngineObject(() => new RectShape())),
+                ], cancellation.Token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                thrown = ex;
+            }
+
+            await Task.WhenAll(blocker, cancelAndRelease).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            adder.BeforeHistoryTransaction = null;
+            releaseHistoryGate.Set();
+            await Task.WhenAll(blocker, cancelAndRelease).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(thrown, Is.Not.Null);
+            Assert.That(editor.Scene.Children, Is.Empty);
+            Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task EditorDispose_OnUiThreadCancelsAwaitingHandlerAndDrainsItsLease()
     {
         await TestReset.ResetShellAsync();

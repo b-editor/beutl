@@ -31,6 +31,8 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
     internal Action? BeforeCompanionAudioMaterialization { get; set; }
 
+    internal Action? BeforeHistoryTransaction { get; set; }
+
     public ElementAdderImpl(EditViewModel context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -327,8 +329,10 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
         try
         {
-            _context.HistoryManager.ExecuteInIsolatedTransaction(() =>
+            BeforeHistoryTransaction?.Invoke();
+            _context.HistoryManager.ExecuteInTransaction(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 foreach (Element element in preparedElements)
                 {
                     scene.AddChild(element);
@@ -340,17 +344,14 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 }
             }, CommandNames.AddElement);
         }
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
+            throw;
+        }
         catch (Exception ex)
         {
-            var retainedPaths = preparedElements
-                .Where(scene.Children.Contains)
-                .Select(element => element.Uri?.LocalPath)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Select(path => path!)
-                .ToHashSet(StringComparer.Ordinal);
-            CleanupStagedFiles(
-                stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
-                ex);
+            CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
             return ElementAddResult.Failed(new ElementSceneMutationFailure(ex));
         }
 
@@ -615,6 +616,23 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     originalException.Message);
             }
         }
+    }
+
+    private void CleanupDetachedStagedFiles(
+        Scene scene,
+        IEnumerable<Element> preparedElements,
+        IEnumerable<string?> stagedFiles,
+        Exception originalException)
+    {
+        var retainedPaths = preparedElements
+            .Where(scene.Children.Contains)
+            .Select(element => element.Uri?.LocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path!)
+            .ToHashSet(StringComparer.Ordinal);
+        CleanupStagedFiles(
+            stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
+            originalException);
     }
 
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
