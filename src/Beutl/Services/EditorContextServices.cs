@@ -15,9 +15,11 @@ internal sealed class EditorContextServices(EditorService editorService, Extensi
     public bool TryGetService<T>([NotNullWhen(true)] out T? service)
         where T : class
     {
-        // Resolve by assignability so both the concrete ExtensionProvider and its IExtensionProvider
-        // interface (and the host-internal EditorService) are reachable by type.
-        service = editorService as T ?? extensionProvider as T;
+        // The concrete provider exposes host-only package instances. Extensions receive only the
+        // lease-backed public interface, so TryGetService cannot be used to downcast around it.
+        service = editorService as T;
+        if (service is null && typeof(T) == typeof(IExtensionProvider))
+            service = (T)(object)(IExtensionProvider)extensionProvider;
         return service is not null;
     }
 }

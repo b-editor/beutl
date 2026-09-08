@@ -4,7 +4,9 @@ namespace Beutl.Api.Clients;
 
 public class ApiErrorResponse
 {
-    [JsonPropertyName("error_code")] public required ApiErrorCode ErrorCode { get; init; }
+    [JsonPropertyName("error_code")]
+    [JsonConverter(typeof(ApiErrorCodeConverter))]
+    public required ApiErrorCode ErrorCode { get; init; }
 
     [JsonPropertyName("message")] public required string? Message { get; init; }
 

@@ -5,6 +5,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.Services;
 
 namespace Beutl.UnitTests.Api;
 
@@ -23,12 +24,6 @@ public sealed class PublicApiCancellationTests
     private static readonly string[] s_releaseOperations =
         ["RefreshAsync", "GetAssetAsync"];
 
-    private static readonly string[] s_profileOperations =
-        ["RefreshAsync", "GetPackagesAsync"];
-
-    private static readonly string[] s_authenticatedUserOperations =
-        ["RefreshAsync"];
-
     [Test]
     public void HighLevelOperations_RequireCancellationTokens()
     {
@@ -36,23 +31,8 @@ public sealed class PublicApiCancellationTests
         AssertRequiredCancellationTokens(typeof(LibraryService), s_libraryOperations);
         AssertRequiredCancellationTokens(typeof(Package), s_packageOperations);
         AssertRequiredCancellationTokens(typeof(Release), s_releaseOperations);
-        AssertRequiredCancellationTokens(typeof(Profile), s_profileOperations);
-        AssertRequiredCancellationTokens(typeof(AuthenticatedUser), s_authenticatedUserOperations);
-        AssertRequiredCancellationTokens(typeof(BeutlApiApplication), ["CheckForUpdatesAsync"]);
         AssertRequiredCancellationTokens(typeof(IFilesClient), ["GetFile"]);
-    }
-
-    [Test]
-    public void ClientInterfaces_RequireCancellationTokens()
-    {
-        AssertRequiredCancellationTokens(typeof(IAccountClient), ["CreateAuthUri", "Refresh", "Exchange"]);
-        AssertRequiredCancellationTokens(typeof(IDiscoverClient), ["Search", "GetFeatured"]);
-        AssertRequiredCancellationTokens(typeof(IFilesClient), ["GetFile"]);
-        AssertRequiredCancellationTokens(typeof(ILibraryClient), ["AcquirePackage", "GetLibrary", "DeleteLibraryPackage"]);
-        AssertRequiredCancellationTokens(typeof(IPackagesClient), ["GetPackage"]);
-        AssertRequiredCancellationTokens(typeof(IReleasesClient), ["GetReleases", "GetRelease"]);
-        AssertRequiredCancellationTokens(typeof(IUsersClient), ["GetUser", "GetSelf", "GetUserPackages"]);
-        AssertRequiredCancellationTokens(typeof(IAppClient), ["CheckForUpdates", "GetUpdate"]);
+        AssertRequiredCancellationTokens(typeof(IElementAdder), ["AddAsync"]);
     }
 
     [Test]
@@ -73,11 +53,11 @@ public sealed class PublicApiCancellationTests
             Assert.That(
                 cancellationTokens,
                 Has.Length.EqualTo(1),
-                $"{method.Name} must require a CancellationToken.");
+                $"PackageManager.{method.Name} must require a CancellationToken.");
             Assert.That(
                 cancellationTokens[0].HasDefaultValue,
                 Is.False,
-                $"{method.Name} must not default its CancellationToken.");
+                $"PackageManager.{method.Name} must not default its CancellationToken.");
         }
     }
 
@@ -94,23 +74,6 @@ public sealed class PublicApiCancellationTests
             await manager.CheckUpdate(cancellationTokenSource.Token));
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await manager.CheckUpdate("package-name", cancellationTokenSource.Token));
-    }
-
-    [Test]
-    public async Task PackageManagerCheckUpdate_RejectsAdmissionAfterDisposal()
-    {
-        using var httpClient = new HttpClient();
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        PackageManager manager = app.GetResource<PackageManager>();
-        await app.DisposeAsync();
-
-        // The resource lookup and the lifetime lease both take the dispose gate, so a
-        // disposed application must reject the update check at admission instead of
-        // failing halfway through with an unexpected error.
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
-            await manager.CheckUpdate(CancellationToken.None));
-        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
-            await manager.CheckUpdate("package-name", CancellationToken.None));
     }
 
     [TestCaseSource(nameof(s_discoverOperations))]
@@ -218,68 +181,36 @@ public sealed class PublicApiCancellationTests
         await handler.CancellationObserved.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task ProfileRefreshAsync_PropagatesCancellationToTransport(bool self)
+    [Test]
+    public async Task DiscoverFeatured_PropagatesCancellationToPackageDetailRequests()
     {
-        using var handler = new BlockingHandler();
+        using var handler = new BlockingHandler(request =>
+            request.RequestUri?.AbsolutePath == "/api/v3/discover/featured"
+                ? JsonResponse(HttpStatusCode.OK, $"[{SimplePackageJson}]")
+                : null);
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var cancellationTokenSource = new CancellationTokenSource();
-        Profile profile = CreateProfile(app);
+        var service = new DiscoverService(app);
 
-        Task operation = profile.RefreshAsync(cancellationTokenSource.Token, self);
+        Task operation = service.GetFeatured(cancellationTokenSource.Token);
 
         await AssertTransportCancellation(operation, handler, cancellationTokenSource);
     }
 
     [Test]
-    public async Task ProfileGetPackagesAsync_PropagatesCancellationToTransport()
+    public async Task LibraryPackages_PropagatesCancellationToPackageDetailRequests()
     {
-        using var handler = new BlockingHandler();
+        using var handler = new BlockingHandler(request =>
+            request.RequestUri?.AbsolutePath == "/api/v3/account/library"
+                ? JsonResponse(HttpStatusCode.OK, $"[{{\"package\":{SimplePackageJson},\"latestRelease\":null}}]")
+                : null);
         using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         using var cancellationTokenSource = new CancellationTokenSource();
-        Profile profile = CreateProfile(app);
+        var service = new LibraryService(app);
 
-        Task operation = profile.GetPackagesAsync(cancellationTokenSource.Token);
-
-        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
-    }
-
-    [Test]
-    public async Task AuthenticatedUserRefreshAsync_PropagatesCancellationToTransport()
-    {
-        using var handler = new BlockingHandler();
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        using var cancellationTokenSource = new CancellationTokenSource();
-        var user = new AuthenticatedUser(
-            CreateProfile(app),
-            new AuthResponse
-            {
-                Token = "token",
-                RefreshToken = "refresh-token",
-                Expiration = DateTime.UtcNow.AddMinutes(-1),
-            },
-            app,
-            httpClient,
-            DateTime.UtcNow);
-
-        Task operation = user.RefreshAsync(cancellationTokenSource.Token, force: true).AsTask();
-
-        await AssertTransportCancellation(operation, handler, cancellationTokenSource);
-    }
-
-    [Test]
-    public async Task CheckForUpdatesAsync_PropagatesCancellationToTransport()
-    {
-        using var handler = new BlockingHandler();
-        using var httpClient = new HttpClient(handler);
-        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        using var cancellationTokenSource = new CancellationTokenSource();
-
-        Task operation = app.CheckForUpdatesAsync("1.0.0", cancellationTokenSource.Token);
+        Task operation = service.GetPackages(cancellationTokenSource.Token);
 
         await AssertTransportCancellation(operation, handler, cancellationTokenSource);
     }
@@ -374,20 +305,6 @@ public sealed class PublicApiCancellationTests
             Owned = false,
         };
         return new Package(owner, packageResponse, app);
-    }
-
-    private static Profile CreateProfile(BeutlApiApplication app)
-    {
-        ProfileResponse response = new()
-        {
-            Id = "profile-id",
-            Name = "profile-name",
-            DisplayName = "Profile",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
-        return new Profile(response, app);
     }
 
     private static Release CreateRelease(BeutlApiApplication app)

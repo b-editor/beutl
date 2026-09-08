@@ -43,8 +43,8 @@ public class SceneEditorContextServicesTests
             Assert.That(services.TryGetService<EditorService>(out EditorService? resolvedEditor), Is.True);
             Assert.That(resolvedEditor, Is.SameAs(editorService));
 
-            Assert.That(services.TryGetService<ExtensionProvider>(out ExtensionProvider? resolvedProvider), Is.True);
-            Assert.That(resolvedProvider, Is.SameAs(extensionProvider));
+            Assert.That(services.TryGetService<ExtensionProvider>(out ExtensionProvider? resolvedProvider), Is.False);
+            Assert.That(resolvedProvider, Is.Null);
 
             Assert.That(services.TryGetService<IExtensionProvider>(out IExtensionProvider? resolvedInterface), Is.True);
             Assert.That(resolvedInterface, Is.SameAs(extensionProvider));

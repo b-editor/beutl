@@ -33,12 +33,15 @@ public sealed partial class MenuBarViewModel
         IsProjectOpened = _projectService.IsOpened;
 
         IObservable<bool> isSceneOpened = _editorService.SelectedTabItem
-            .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
-            .Select(v => v is EditViewModel);
+            .Select(item => item?.Context.Select(context => context is EditViewModel)
+                ?? Observable.Return(false))
+            .Switch()
+            .DistinctUntilChanged();
 
         InitializeFilesCommands();
         InitializeSceneCommands(isSceneOpened);
         InitializeViewCommands(isSceneOpened);
+        InitializeAiCommands(isSceneOpened);
 
         Undo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnUndo);

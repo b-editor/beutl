@@ -1576,4 +1576,55 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Materials" xml:space="preserve">
     <value>Materiales</value>
   </data>
+  <data name="AiPromptRequired" xml:space="preserve">
+    <value>Escribe una indicación.</value>
+  </data>
+  <data name="AiPromptTooLongFormat" xml:space="preserve">
+    <value>La indicación final no puede superar los {0} caracteres.</value>
+  </data>
+  <data name="AiImageGenerationIdle" xml:space="preserve">
+    <value>Describe la imagen y haz clic en Generar.</value>
+  </data>
+  <data name="AiImageEditIdle" xml:space="preserve">
+    <value>Elige una imagen y una tarea, y haz clic en Ejecutar.</value>
+  </data>
+  <data name="AiEditSourceImage" xml:space="preserve">
+    <value>Imagen de origen</value>
+  </data>
+  <data name="AiEditNoSourceSelected" xml:space="preserve">
+    <value>Sin seleccionar</value>
+  </data>
+  <data name="AiReferenceImageHeader" xml:space="preserve">
+    <value>Imágenes de referencia (opcional)</value>
+  </data>
+  <data name="AiVideoFrameGuidanceHeader" xml:space="preserve">
+    <value>Guía de fotogramas (opcional)</value>
+  </data>
+  <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
+    <value>Transcribe o importa subtítulos y las entradas aparecerán aquí.</value>
+  </data>
+  <data name="AiSubtitle_LineWrapping" xml:space="preserve">
+    <value>Ajuste de línea</value>
+  </data>
+  <data name="AiSubtitle_CueEditing" xml:space="preserve">
+    <value>Entradas</value>
+  </data>
+  <data name="AiSubtitle_CaptionsFile" xml:space="preserve">
+    <value>Archivo de subtítulos</value>
+  </data>
+  <data name="AiJobCenter_DeleteTitleFormat" xml:space="preserve">
+    <value>¿Eliminar «{0}»?</value>
+  </data>
+  <data name="TimeAgoJustNow" xml:space="preserve">
+    <value>Ahora mismo</value>
+  </data>
+  <data name="TimeAgoMinutesFormat" xml:space="preserve">
+    <value>hace {0} min</value>
+  </data>
+  <data name="TimeAgoHoursFormat" xml:space="preserve">
+    <value>hace {0} h</value>
+  </data>
+  <data name="TimeAgoDaysFormat" xml:space="preserve">
+    <value>hace {0} d</value>
+  </data>
 </root>

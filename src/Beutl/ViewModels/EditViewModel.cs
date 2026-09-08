@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.Services.AI;
 using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -21,7 +22,9 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Beutl.Services.AI;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -29,7 +32,7 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
+public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -173,8 +176,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
-        DockHost = new DockHostViewModel(SceneId, this)
-            .DisposeWith(_disposables);
+        DockHost = new DockHostViewModel(SceneId, this);
 
         _elementAdder = new ElementAdderImpl(this);
         _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
@@ -559,6 +561,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public Scene Scene { get; private set; }
 
+    Scene IAiJobResultEditorContext.Scene => Scene;
+
+    TimeSpan IAiJobResultEditorContext.CurrentTime => Player.CurrentFrame.Value;
+
+    IElementAdder IAiJobResultEditorContext.ElementAdder => _elementAdder;
+
+    int IAiJobResultEditorContext.GetNextLayer(TimeSpan start)
+    {
+        return Scene.Children
+            .Where(item => item.Start <= start && start < item.Range.End)
+            .Select(item => item.ZIndex)
+            .DefaultIfEmpty(-1)
+            .Max() + 1;
+    }
+
     // Host services injected from the composition root via EditorExtension.TryCreateContext;
     // exposed so editor-scoped view models (DockHost, output, property editors) can reach them.
     public Beutl.Api.Services.ExtensionProvider ExtensionProvider { get; }
@@ -605,19 +622,20 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
+        Scene scene = Scene;
 
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
         _autoSaveCancellation.Cancel();
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        if (!EditorService.IsWorktreeMutationActive)
+        if (scene.Uri is not null && !EditorService.IsWorktreeMutationActive)
         {
             using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
                 CancellationToken.None);
             SaveState();
         }
-        else
+        else if (scene.Uri is not null)
         {
             _logger.LogDebug(
                 "Skipping the final view-state save during a worktree mutation ({SceneId}).",
@@ -626,6 +644,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         _editorSelection.SelectedObject.Value = null;
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
+        // Tool contexts can own paid-AI operations that still publish through the editor.
+        // Cancel and drain them before retiring element handlers and the player.
+        AiWorkspaceViewModel[] aiWorkspaces = DockHost.Factory.EnumerateTools()
+            .Select(static tool => tool.ToolContext)
+            .OfType<AiWorkspaceViewModel>()
+            .ToArray();
+        DockHost.Dispose();
+        await Task.WhenAll(aiWorkspaces.Select(static workspace => workspace.DisposeAsync().AsTask()));
+        // Retire and cancel UI-initiated element operations before waiting for handler leases.
+        // Awaiting yields the UI thread so cancellation continuations can release those leases.
+        await _elementAdder.DisposeAsync();
         await Player.DisposeAsync();
         _elementNudgeService?.Dispose();
         _historyMutationPlaybackGuard.Dispose();
@@ -634,6 +663,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         Player = null!;
         BufferStatus = null!;
 
+        // Closing the editor discards every live and redoable owner of unsaved sidecars and AI
+        // resources, so its scene-scoped temporary directory must not survive the tab.
+        UnsavedSceneStorage.Cleanup(scene.Id);
         Scene = null!;
         Commands = null!;
         HistoryManager.Clear();
@@ -1165,8 +1197,25 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         public ValueTask<bool> OnSave()
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
-            CoreSerializer.StoreToUri(scene, scene.Uri!);
-            Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+            Uri sceneUri = scene.Uri
+                ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
+            UnsavedSceneStorage.SaveRelocation relocation =
+                UnsavedSceneStorage.PrepareSave(scene, sceneUri);
+            try
+            {
+                relocation.Apply();
+                Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
+                // The scene is the commit record for every child/resource URI. Persist it only
+                // after every referenced file is durable at its new location.
+                CoreSerializer.StoreToUri(scene, sceneUri, CoreSerializationMode.Write);
+            }
+            catch
+            {
+                relocation.Rollback();
+                throw;
+            }
+
+            relocation.Commit();
             viewModel.SaveState(isExplicitUserSave: true);
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 

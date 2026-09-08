@@ -1,0 +1,23 @@
+<UserControl x:Class="Beutl.Views.Tools.AiUsageEstimateView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             d:DesignWidth="340"
+             x:CompileBindings="True"
+             x:DataType="vm:AiUsageEstimateViewModel"
+             mc:Ignorable="d">
+    <StackPanel Spacing="2">
+        <TextBlock FontSize="11"
+                   FontWeight="SemiBold"
+                   IsVisible="{CompiledBinding HasSummary.Value}"
+                   Text="{CompiledBinding Summary.Value}"
+                   TextWrapping="Wrap" />
+        <TextBlock FontSize="11"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsVisible="{CompiledBinding HasExplanation.Value}"
+                   Text="{CompiledBinding Explanation.Value}"
+                   TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>

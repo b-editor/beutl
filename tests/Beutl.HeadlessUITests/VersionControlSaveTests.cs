@@ -158,11 +158,7 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(1),
-                Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+            await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
             Element element = scene.Children.Single();
             element.Name = "saved-without-auto-save";
@@ -226,11 +222,7 @@ public class VersionControlSaveTests
                 Is.SameAs(TestShell.VersionControl.CurrentService));
 
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(1),
-                Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+            await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
             await TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
@@ -320,11 +312,7 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(1),
-                Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+            await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
             string hookPath = Path.Combine(projectRoot, ".git", "hooks", "pre-commit");
@@ -795,11 +783,7 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(1),
-                Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+            await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
             bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
@@ -879,11 +863,7 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(1),
-                Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+            await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
 
             TestShell.MainViewModel.MenuBar.CloseProject.Execute();
@@ -1288,6 +1268,17 @@ public class VersionControlSaveTests
             config.GitExecutablePath = oldGitPath;
             config.UseLfsWhenAvailable = oldUseLfs;
         }
+    }
+
+    private static async Task AddRectangleAsync(IElementAdder adder)
+    {
+        ElementAddResult result = await adder.AddAsync([new ElementDescription(
+            Start: TimeSpan.Zero,
+            Length: TimeSpan.FromSeconds(1),
+            Layer: 0,
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
     }
 
     private static string ProbeGitOrIgnore()

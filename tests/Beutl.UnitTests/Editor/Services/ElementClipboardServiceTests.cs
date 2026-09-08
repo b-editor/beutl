@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor;
+using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -25,11 +26,17 @@ public class ElementClipboardServiceTests
         _history = _harness.History;
         _clipboard = new InMemoryClipboardGateway();
         _duplicateService = new ElementDuplicateService(_history);
-        _service = new ElementClipboardService(
+        _service = CreateService();
+    }
+
+    private ElementClipboardService CreateService(IElementAdder? elementAdder = null)
+    {
+        return new ElementClipboardService(
             _history,
             _clipboard,
             _duplicateService,
-            imageAccentColorFactory: () => Colors.Magenta);
+            imageAccentColorFactory: () => Colors.Magenta,
+            elementAdder);
     }
 
     [TearDown]
@@ -192,6 +199,69 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task PasteAsync_FilesFormat_WhenElementAdderRefuses_ReturnsEmpty()
+    {
+        var elementAdder = new StubElementAdder([]);
+        ElementClipboardService service = CreateService(elementAdder);
+        _clipboard.SetFiles(["first.png", "second.png"]);
+
+        ElementPasteOutcome outcome = await service.PasteAsync(
+            _scene,
+            TimeSpan.FromSeconds(12),
+            4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(outcome.AddFailure, Is.TypeOf<ElementMaterializationFailure>());
+            Assert.That(elementAdder.CallCount, Is.EqualTo(1));
+            Assert.That(elementAdder.Descriptions, Has.Count.EqualTo(2));
+            Assert.That(elementAdder.Descriptions, Has.All.Matches<ElementDescription>(description =>
+                description.Start == TimeSpan.FromSeconds(12)
+                && description.Length == TimeSpan.FromSeconds(5)
+                && description.Layer == 4
+                && description.Source is ElementSource.File));
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_FilesFormat_WhenElementAdderSucceeds_ReturnsCreatedElements()
+    {
+        Element[] created =
+        [
+            new Element
+            {
+                Start = TimeSpan.FromSeconds(12),
+                Length = TimeSpan.FromSeconds(5),
+                ZIndex = 4,
+            },
+            new Element
+            {
+                Start = TimeSpan.FromSeconds(12),
+                Length = TimeSpan.FromSeconds(7),
+                ZIndex = 5,
+            },
+        ];
+        var elementAdder = new StubElementAdder(created);
+        ElementClipboardService service = CreateService(elementAdder);
+        _clipboard.SetFiles(["video.mp4"]);
+
+        ElementPasteOutcome outcome = await service.PasteAsync(
+            _scene,
+            TimeSpan.FromSeconds(12),
+            4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(outcome.NewElements, Is.EqualTo(created));
+            Assert.That(outcome.ScrollTo, Is.EqualTo(created[^1].Range));
+            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(created[^1].ZIndex));
+            Assert.That(elementAdder.CallCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task PasteAsync_SingleElementFormat_AddsClonedElement()
     {
         Element original = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
@@ -311,5 +381,37 @@ public class ElementClipboardServiceTests
             Assert.That(formats, Contains.Item(BeutlClipboardFormats.Element));
             Assert.That(formats, Contains.Item(BeutlClipboardFormats.Text));
         });
+    }
+
+    private sealed class StubElementAdder(IReadOnlyList<Element> result) : IElementAdder
+    {
+        public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
+
+        public int CallCount { get; private set; }
+
+        public IReadOnlyList<ElementDescription> Descriptions { get; private set; } = [];
+
+        public ValueTask<ElementAddResult> AddAsync(
+            IReadOnlyList<ElementDescription> descriptions,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            Descriptions = descriptions;
+            if (result.Count == 0)
+            {
+                return ValueTask.FromResult(ElementAddResult.Failed(
+                    new ElementMaterializationFailure("The test element could not be materialized.")));
+            }
+
+            ElementAddItemResult[] items = result
+                .Select((element, index) =>
+                {
+                    ElementDescription description = descriptions[Math.Min(index, descriptions.Count - 1)];
+                    return new ElementAddItemResult(description, element, []);
+                })
+                .ToArray();
+            return ValueTask.FromResult(ElementAddResult.Succeeded(items));
+        }
     }
 }

@@ -44,14 +44,15 @@ public class ElementViewLayoutTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    private static void AddRectangle(EditViewModel editor)
+    private static async Task AddRectangle(EditViewModel editor)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(2),
             Layer: 0,
-            EngineObjectFactory: () => new RectShape()));
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
     }
 
@@ -59,7 +60,7 @@ public class ElementViewLayoutTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene(name);
-        AddRectangle(editor);
+        await AddRectangle(editor);
 
         var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 800 };
         window.Show();

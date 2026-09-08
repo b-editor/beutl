@@ -422,6 +422,8 @@ public sealed partial class MacWindow : Window
 
     private bool _captureStopped;
     private Task? _captureStopTask;
+    private bool _viewModelDisposed;
+    private Task? _viewModelDisposeTask;
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
@@ -443,13 +445,14 @@ public sealed partial class MacWindow : Window
             }
         }
 
-        if (DataContext is MainViewModel viewModel)
+        if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
         {
-            if (!viewModel.TryDisposeForWindowClose())
+            e.Cancel = true;
+            if (_viewModelDisposeTask is null && viewModel.TryDisposeForWindowClose())
             {
-                e.Cancel = true;
-                return;
+                _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
             }
+            return;
         }
 
         base.OnClosing(e);
@@ -459,11 +462,34 @@ public sealed partial class MacWindow : Window
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
     }
 
+    private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
+    {
+        try
+        {
+            await viewModel.WaitForDisposalAsync();
+        }
+        finally
+        {
+            _viewModelDisposed = true;
+            Close();
+        }
+    }
+
     private async Task StopCaptureAndCloseAsync(MainView mv)
     {
-        await mv.EnsureCaptureStoppedAsync();
-        _captureStopped = true;
-        Close();
+        try
+        {
+            await mv.EnsureCaptureStoppedAsync();
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+        finally
+        {
+            _captureStopped = true;
+            Close();
+        }
     }
 
     private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();

@@ -112,6 +112,8 @@ public sealed class EditorService : IOutputOperationLeaseProvider
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
+    internal ExtensionProvider ExtensionProvider => _extensionProvider;
+
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
     internal IReadOnlyReactiveProperty<IProjectVersionControlService?>

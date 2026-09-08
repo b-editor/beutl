@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.Net.Http.Headers;
-using Beutl.Api.Clients;
-using Beutl.Api.Services;
+﻿using Beutl.Api.Clients;
 
 namespace Beutl.Api.Objects;
 
@@ -9,74 +6,69 @@ public class AuthenticatedUser(
     Profile profile,
     AuthResponse response,
     BeutlApiApplication clients,
-    HttpClient httpClient,
     DateTime writeTime)
 {
+    private readonly object _stateGate = new();
     private AuthResponse _response = response;
-
-    // user.jsonに書き込まれた時間
-    internal DateTime _writeTime = writeTime;
+    private DateTime _writeTime = writeTime;
 
     public Profile Profile { get; } = profile;
 
-    public string Token => _response.Token;
+    public string Token
+    {
+        get
+        {
+            lock (_stateGate)
+                return _response.Token;
+        }
+    }
 
-    public string RefreshToken => _response.RefreshToken;
+    public string RefreshToken
+    {
+        get
+        {
+            lock (_stateGate)
+                return _response.RefreshToken;
+        }
+    }
 
-    public DateTimeOffset Expiration => _response.Expiration;
+    public DateTimeOffset Expiration
+    {
+        get
+        {
+            lock (_stateGate)
+                return _response.Expiration;
+        }
+    }
 
     public bool IsExpired => Expiration < DateTimeOffset.UtcNow;
 
     public MyAsyncLock Lock => clients.Lock;
 
-    public async ValueTask RefreshAsync(CancellationToken cancellationToken, bool force = false)
+    public ValueTask RefreshAsync(
+        CancellationToken cancellationToken,
+        bool force = false)
+        => clients.RefreshAuthenticatedUserAsync(this, force, cancellationToken);
+
+    internal (AuthResponse Response, DateTime WriteTime) GetAuthenticationState()
     {
-        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
-        CancellationToken token = lifetimeCts.Token;
-        using Activity? activity = clients.ActivitySource.StartActivity("AuthenticatedUser.Refresh", ActivityKind.Client);
+        lock (_stateGate)
+            return (_response, _writeTime);
+    }
 
-        string fileName = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
-        if (File.Exists(fileName))
+    internal void CommitAuthenticationState(AuthResponse nextResponse, DateTime nextWriteTime)
+    {
+        ArgumentNullException.ThrowIfNull(nextResponse);
+        lock (_stateGate)
         {
-            DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
-            if (_writeTime < lastWriteTime)
-            {
-                AuthenticatedUser? fileUser = await clients.ReadUserAsync(token);
-                token.ThrowIfCancellationRequested();
-                if (fileUser?.Profile?.Id == Profile.Id)
-                {
-                    _response = fileUser._response;
-                    _writeTime = lastWriteTime;
-                }
-                else if (fileUser != null)
-                {
-                    clients.SignOut(false);
-                    throw new InvalidOperationException("The user may have been changed in another process.");
-                }
-            }
+            _response = nextResponse;
+            _writeTime = nextWriteTime;
         }
+    }
 
-        activity?.SetTag("force", force);
-        activity?.SetTag("is_expired", IsExpired);
-
-        if (force || IsExpired)
-        {
-            AuthResponse response = await clients.Account.Refresh(new RefreshTokenRequest
-            {
-                RefreshToken = RefreshToken,
-                Token = Token
-            }, token)
-                .ConfigureAwait(false);
-            token.ThrowIfCancellationRequested();
-            _response = response;
-            activity?.AddEvent(new("Refreshed"));
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
-
-            if (clients.AuthenticatedUser.Value == this)
-            {
-                clients.SaveUser();
-                activity?.AddEvent(new("Saved"));
-            }
-        }
+    internal void SetWriteTime(DateTime value)
+    {
+        lock (_stateGate)
+            _writeTime = value;
     }
 }

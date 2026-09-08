@@ -9,6 +9,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Refit" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <!-- Match the analyzer reference used by out-of-tree plugins. -->

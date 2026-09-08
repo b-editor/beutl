@@ -2,6 +2,7 @@
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Services;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;
@@ -21,9 +22,11 @@ public sealed class SettingsDialogViewModel : IDisposable
     public SettingsDialogViewModel(
         BeutlApiApplication clients,
         ExtensionProvider extensionProvider,
-        AgentHostEndpoint agentHostEndpoint)
+        AgentHostEndpoint agentHostEndpoint,
+        IAiPlanCoordinator aiPlanCoordinator)
     {
-        _account = new(() => new AccountSettingsPageViewModel(clients));
+        ArgumentNullException.ThrowIfNull(aiPlanCoordinator);
+        _account = new(() => new AccountSettingsPageViewModel(clients, aiPlanCoordinator));
         _editor = new(() => new EditorSettingsPageViewModel());
         _view = new(() => new ViewSettingsPageViewModel(_editor));
         _font = new(() => new FontSettingsPageViewModel());

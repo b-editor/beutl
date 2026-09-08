@@ -143,7 +143,7 @@ public sealed class ProfileLifetimeTests
                 RefreshToken = "stale-refresh",
                 Expiration = DateTime.UtcNow.AddDays(1)
             };
-            var user = new AuthenticatedUser(profile, authResponse, app, httpClient, DateTime.UtcNow.AddDays(-1));
+            var user = new AuthenticatedUser(profile, authResponse, app, DateTime.UtcNow.AddDays(-1));
 
             // A stale write-time forces the persisted-file branch; a pre-canceled token
             // makes the cancellation point deterministic instead of racing the file read.

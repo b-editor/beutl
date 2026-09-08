@@ -39,14 +39,15 @@ public class PlayerViewModelDisposalTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    private static Element AddRectangle(EditViewModel editor)
+    private static async Task<Element> AddRectangleAsync(EditViewModel editor)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        adder.AddElement(new ElementDescription(
+        await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(4),
             Layer: 0,
-            EngineObjectFactory: () => new RectShape()));
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
         HeadlessTestHelpers.Settle();
         return editor.Scene.Children[^1];
     }
@@ -81,7 +82,7 @@ public class PlayerViewModelDisposalTests
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("player-timer-dispose");
         PlayerViewModel player = editor.Player;
-        AddRectangle(editor);
+        await AddRectangleAsync(editor);
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
         var frameApplied = new TaskCompletionSource<bool>(
