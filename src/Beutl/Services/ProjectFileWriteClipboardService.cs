@@ -22,12 +22,18 @@ internal sealed class ProjectFileWriteClipboardService(
         return inner.CopyAsync(elements);
     }
 
-    public Task<bool> CutAsync(
+    public async Task<bool> CutAsync(
         Scene scene,
         IReadOnlyList<Element> elements,
         bool ripple = false)
     {
-        return inner.CutAsync(scene, elements, ripple);
+        using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();
+        if (fileWrite is null)
+        {
+            return false;
+        }
+
+        return await inner.CutAsync(scene, elements, ripple);
     }
 
     public async Task<ElementPasteOutcome> PasteAsync(

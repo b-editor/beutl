@@ -163,6 +163,49 @@ public sealed class EditorServiceTests
         });
     }
 
+    [Test]
+    public async Task Clipboard_cut_reserves_the_workspace_through_the_model_update()
+    {
+        var editorService = new EditorService(new ExtensionProvider());
+        var cutStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCut = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var inner = new BlockingClipboardService(cutStarted, releaseCut.Task);
+        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
+
+        Task<bool> cut = clipboard.CutAsync(scene, []);
+        await cutStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(editorService.TryBeginWorktreeMutation(), Is.Null);
+
+        releaseCut.TrySetResult();
+        Assert.That(await cut.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
+        using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
+        Assert.That(mutation, Is.Not.Null);
+    }
+
+    [Test]
+    public async Task Clipboard_cut_is_rejected_while_the_worktree_is_mutating()
+    {
+        var editorService = new EditorService(new ExtensionProvider());
+        var inner = new BlockingClipboardService(
+            new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+            Task.CompletedTask);
+        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
+
+        using IDisposable mutation = editorService.TryBeginWorktreeMutation()!;
+        bool cut = await clipboard.CutAsync(scene, []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cut, Is.False);
+            Assert.That(inner.CutCalls, Is.Zero);
+        });
+    }
+
     [AvaloniaTest]
     public async Task SaveProjectFilesAsync_requires_a_project_uri()
     {
@@ -391,6 +434,8 @@ public sealed class EditorServiceTests
         TaskCompletionSource pasteStarted,
         Task releasePaste) : IElementClipboardService
     {
+        public int CutCalls { get; private set; }
+
         public int PasteCalls { get; private set; }
 
         public Task<bool> CopyAsync(IReadOnlyList<Element> elements)
@@ -398,12 +443,15 @@ public sealed class EditorServiceTests
             return Task.FromResult(true);
         }
 
-        public Task<bool> CutAsync(
+        public async Task<bool> CutAsync(
             Scene scene,
             IReadOnlyList<Element> elements,
             bool ripple = false)
         {
-            return Task.FromResult(true);
+            CutCalls++;
+            pasteStarted.TrySetResult();
+            await releasePaste;
+            return true;
         }
 
         public async Task<ElementPasteOutcome> PasteAsync(
