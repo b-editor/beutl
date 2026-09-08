@@ -25,6 +25,8 @@ internal sealed class DirectoryWatcherService : IDisposable
     private readonly Action<FileSystemWatcher> _startWatcher;
     private readonly ConcurrentDictionary<SpecialDirectoryMembershipKey, bool>
         _templateOrMaterialDirectories = new();
+    private readonly ConcurrentDictionary<string, string> _configuredSpecialDirectoryIdentities =
+        new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DirectoryIdentity> _directoryIdentities =
         new(StringComparer.Ordinal);
     // Limit consecutive rearm attempts because persistent failures recur immediately.
@@ -253,6 +255,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         CancelAndDispose(debounce);
         watcher?.Dispose();
         _templateOrMaterialDirectories.Clear();
+        _configuredSpecialDirectoryIdentities.Clear();
         _directoryIdentities.Clear();
 
         if (requestedPath is null || canonicalPath is null)
@@ -409,9 +412,9 @@ internal sealed class DirectoryWatcherService : IDisposable
 
         try
         {
-            canonicalTemplatesDirectory = FilePathComparison.ResolveCanonicalPath(
+            canonicalTemplatesDirectory = ResolveConfiguredDirectoryIdentity(
                 templatesDirectoryPath);
-            canonicalMaterialsDirectory = FilePathComparison.ResolveCanonicalPath(
+            canonicalMaterialsDirectory = ResolveConfiguredDirectoryIdentity(
                 materialsDirectoryPath);
         }
         catch (Exception ex) when (ex is IOException
@@ -441,7 +444,7 @@ internal sealed class DirectoryWatcherService : IDisposable
                               key.CandidateDirectory));
     }
 
-    private static bool IsConfiguredSpecialDirectory(
+    private bool IsConfiguredSpecialDirectory(
         string path,
         string templatesDirectoryPath,
         string materialsDirectoryPath)
@@ -449,15 +452,26 @@ internal sealed class DirectoryWatcherService : IDisposable
         try
         {
             string fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            string canonicalPath = FilePathComparison.ResolveCanonicalPath(fullPath);
+            string fullTemplatesDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
+                templatesDirectoryPath));
+            string fullMaterialsDirectory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(
+                materialsDirectoryPath));
             return string.Equals(
                        fullPath,
-                       Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-                           templatesDirectoryPath)),
+                       fullTemplatesDirectory,
+                       StringComparison.Ordinal)
+                   || string.Equals(
+                       canonicalPath,
+                       ResolveConfiguredDirectoryIdentity(templatesDirectoryPath),
                        StringComparison.Ordinal)
                    || string.Equals(
                        fullPath,
-                       Path.TrimEndingDirectorySeparator(Path.GetFullPath(
-                           materialsDirectoryPath)),
+                       fullMaterialsDirectory,
+                       StringComparison.Ordinal)
+                   || string.Equals(
+                       canonicalPath,
+                       ResolveConfiguredDirectoryIdentity(materialsDirectoryPath),
                        StringComparison.Ordinal);
         }
         catch (Exception ex) when (ex is IOException
@@ -467,6 +481,23 @@ internal sealed class DirectoryWatcherService : IDisposable
         {
             return false;
         }
+    }
+
+    private string ResolveConfiguredDirectoryIdentity(string directory)
+    {
+        string fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        if (Directory.Exists(fullPath))
+        {
+            string canonicalPath = FilePathComparison.ResolveCanonicalPath(fullPath);
+            _configuredSpecialDirectoryIdentities[fullPath] = canonicalPath;
+            return canonicalPath;
+        }
+
+        return _configuredSpecialDirectoryIdentities.TryGetValue(
+            fullPath,
+            out string? previousIdentity)
+            ? previousIdentity
+            : FilePathComparison.ResolveCanonicalPath(fullPath);
     }
 
     private static string CreateLinkFingerprint(string directory)

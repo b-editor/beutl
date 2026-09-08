@@ -339,6 +339,37 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public void Deleted_special_root_keeps_its_last_live_filesystem_identity()
+    {
+        string target = Path.Combine(_projectRoot, "configured-template-target");
+        string templateAlias = Path.Combine(_projectRoot, "configured-template-alias");
+        string materialsRoot = Path.Combine(_projectRoot, "configured-materials-root");
+        Directory.CreateDirectory(target);
+        Directory.CreateDirectory(materialsRoot);
+        try
+        {
+            CreateDirectorySymlinkOrIgnore(templateAlias, target);
+            using var service = new DirectoryWatcherService();
+            Assert.That(
+                service.ShouldExcludePath(
+                    Path.Combine(templateAlias, "template.bep"),
+                    templateAlias,
+                    materialsRoot),
+                Is.False);
+
+            Directory.Delete(templateAlias);
+
+            Assert.That(
+                service.ShouldExcludePath(target, templateAlias, materialsRoot),
+                Is.False);
+        }
+        finally
+        {
+            if (Directory.Exists(templateAlias)) Directory.Delete(templateAlias);
+        }
+    }
+
+    [Test]
     public void Retargeted_directory_alias_recomputes_template_and_watcher_membership()
     {
         string templatesRoot = BeutlEnvironment.GetTemplatesDirectoryPath();
