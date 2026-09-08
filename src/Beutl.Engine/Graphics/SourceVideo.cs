@@ -39,7 +39,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         using var resource = ToResource(CompositionContext.Default);
         var ts = CalculateOriginalTime((Resource)resource);
-        if (ts.HasValue)
+        if (ts.HasValue && ts.Value - OffsetPosition.CurrentValue > TimeSpan.Zero)
         {
             timeSpan = ts.Value - OffsetPosition.CurrentValue;
             return true;
