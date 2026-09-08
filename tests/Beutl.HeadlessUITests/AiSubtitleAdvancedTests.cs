@@ -729,6 +729,12 @@ public sealed class AiSubtitleAdvancedTests
 
     private sealed class SubtitleStubPlanCoordinator : IAiPlanCoordinator
     {
+        public event EventHandler? Refreshed
+        {
+            add { }
+            remove { }
+        }
+
         public void OpenAccountSettings()
         {
         }
@@ -737,8 +743,8 @@ public sealed class AiSubtitleAdvancedTests
         {
         }
 
-        public Task RefreshIfPendingAsync(CancellationToken cancellationToken)
-            => Task.CompletedTask;
+        public Task<bool> RefreshIfPendingAsync(CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 
     private sealed class SubtitleStubTranscription : IAiTranscriptionService

@@ -970,11 +970,17 @@ public sealed class AiFormRecoveryTests
 
     private sealed class TestPlanCoordinator : IAiPlanCoordinator
     {
+        public event EventHandler? Refreshed
+        {
+            add { }
+            remove { }
+        }
+
         public void OpenAccountSettings() { }
 
         public void OpenAiPlan() { }
 
-        public Task RefreshIfPendingAsync(CancellationToken cancellationToken)
-            => Task.CompletedTask;
+        public Task<bool> RefreshIfPendingAsync(CancellationToken cancellationToken)
+            => Task.FromResult(false);
     }
 }

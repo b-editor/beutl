@@ -437,8 +437,15 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             || name.Equals("u", StringComparison.OrdinalIgnoreCase)
             || name.Equals("ruby", StringComparison.OrdinalIgnoreCase)
             || name.Equals("rt", StringComparison.OrdinalIgnoreCase)
+            || HasTagClasses(tag, "lang")
+            || HasTagClasses(tag, "v")
             || CaptionCodecUtilities.TryParseWebVttTime(tag.ToString(), out _);
     }
+
+    private static bool HasTagClasses(ReadOnlySpan<char> tag, string name)
+        => tag.Length > name.Length
+            && tag.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+            && tag[name.Length] == '.';
 
     private static bool IsLanguageCharacter(char value)
         => value is >= 'a' and <= 'z'
@@ -499,16 +506,36 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         string name,
         out string annotation)
     {
-        if (tag.Length > name.Length
-            && tag.StartsWith(name, StringComparison.OrdinalIgnoreCase)
-            && IsWebVttWhitespace(tag[name.Length]))
+        if (tag.Length <= name.Length
+            || !tag.StartsWith(name, StringComparison.OrdinalIgnoreCase))
         {
-            annotation = tag[(name.Length + 1)..];
-            return true;
+            annotation = string.Empty;
+            return false;
         }
 
-        annotation = string.Empty;
-        return false;
+        int annotationStart;
+        if (IsWebVttWhitespace(tag[name.Length]))
+        {
+            annotationStart = name.Length + 1;
+        }
+        else if (tag[name.Length] == '.')
+        {
+            int whitespace = tag.AsSpan(name.Length + 1).IndexOfAny("\t\n\f\r ".AsSpan());
+            if (whitespace < 0)
+            {
+                annotation = string.Empty;
+                return false;
+            }
+            annotationStart = name.Length + 1 + whitespace + 1;
+        }
+        else
+        {
+            annotation = string.Empty;
+            return false;
+        }
+
+        annotation = tag[annotationStart..];
+        return true;
     }
 
     private static bool IsClosingTag(string tag, string name)

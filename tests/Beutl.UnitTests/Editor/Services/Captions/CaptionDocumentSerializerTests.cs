@@ -379,6 +379,42 @@ public class CaptionDocumentSerializerTests
     }
 
     [Test]
+    public void ImportWebVtt_ClassBearingLanguageSpanPreservesLanguageAndDiagnosesClass()
+    {
+        CaptionImportResult result = Import(
+            "WEBVTT\n\n00:00.000 --> 00:01.000\n<lang.foreign fr>Bonjour</lang>\n",
+            CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Text, Is.EqualTo("Bonjour"));
+            Assert.That(result.Document[0].Language, Is.EqualTo("fr"));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 4));
+        }
+    }
+
+    [Test]
+    public void ImportWebVtt_ClassBearingVoiceSpanPreservesSpeakerAndDiagnosesClass()
+    {
+        CaptionImportResult result = Import(
+            "WEBVTT\n\n00:00.000 --> 00:01.000\n<v.role Alice>Hello</v>\n",
+            CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Text, Is.EqualTo("Hello"));
+            Assert.That(result.Document[0].Speaker, Is.EqualTo("Alice"));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 4));
+        }
+    }
+
+    [Test]
     public void ImportWebVtt_CueSettingsProduceAnExplicitDiagnostic()
     {
         CaptionImportResult result = Import(

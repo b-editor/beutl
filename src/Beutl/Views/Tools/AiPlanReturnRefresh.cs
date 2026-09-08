@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -76,6 +77,7 @@ internal static class AiPlanReturnRefresh
             {
                 _window = window;
                 window.Activated += OnActivated;
+                _coordinator.Refreshed += OnRefreshed;
             }
         }
 
@@ -85,6 +87,7 @@ internal static class AiPlanReturnRefresh
                 return;
 
             _window.Activated -= OnActivated;
+            _coordinator.Refreshed -= OnRefreshed;
             _window = null;
         }
 
@@ -97,8 +100,6 @@ internal static class AiPlanReturnRefresh
             try
             {
                 await _coordinator.RefreshIfPendingAsync(_cts.Token);
-                if (!_disposed)
-                    _refreshed?.Invoke();
             }
             catch (OperationCanceledException)
             {
@@ -110,6 +111,32 @@ internal static class AiPlanReturnRefresh
             finally
             {
                 _refreshInProgress = false;
+            }
+        }
+
+        private void OnRefreshed(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(InvokeRefreshed);
+                return;
+            }
+
+            InvokeRefreshed();
+        }
+
+        private void InvokeRefreshed()
+        {
+            if (_disposed || _window is null)
+                return;
+
+            try
+            {
+                _refreshed?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogError(ex, "Failed to update an AI view after refreshing entitlements.");
             }
         }
     }

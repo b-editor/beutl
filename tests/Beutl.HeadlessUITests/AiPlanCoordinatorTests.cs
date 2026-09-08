@@ -22,11 +22,13 @@ public sealed class AiPlanCoordinatorTests
             opened.Add,
             () => "ja",
             new Uri("https://beutl.beditor.net/"));
+        int refreshedEvents = 0;
+        coordinator.Refreshed += (_, _) => refreshedEvents++;
 
         coordinator.OpenAiPlan();
         coordinator.OpenAccountSettings();
-        await coordinator.RefreshIfPendingAsync(CancellationToken.None);
-        await coordinator.RefreshIfPendingAsync(CancellationToken.None);
+        bool refreshed = await coordinator.RefreshIfPendingAsync(CancellationToken.None);
+        bool noPendingRefresh = await coordinator.RefreshIfPendingAsync(CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -36,6 +38,9 @@ public sealed class AiPlanCoordinatorTests
                 new Uri("https://beutl.beditor.net/account/manage"),
             }));
             Assert.That(entitlements.RefreshCount, Is.EqualTo(1));
+            Assert.That(refreshed, Is.True);
+            Assert.That(noPendingRefresh, Is.False);
+            Assert.That(refreshedEvents, Is.EqualTo(1));
         }
     }
 
@@ -72,14 +77,44 @@ public sealed class AiPlanCoordinatorTests
             entitlements,
             _ => { },
             () => "en");
+        int refreshedEvents = 0;
+        coordinator.Refreshed += (_, _) => refreshedEvents++;
         coordinator.OpenAiPlan();
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await coordinator.RefreshIfPendingAsync(CancellationToken.None));
         entitlements.Failure = null;
+        bool refreshed = false;
         Assert.DoesNotThrowAsync(async () =>
-            await coordinator.RefreshIfPendingAsync(CancellationToken.None));
+        {
+            refreshed = await coordinator.RefreshIfPendingAsync(CancellationToken.None);
+        });
         Assert.That(entitlements.RefreshCount, Is.EqualTo(2));
+        Assert.That(refreshed, Is.True);
+        Assert.That(refreshedEvents, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task SuccessfulRefresh_ContinuesAfterAnEventSubscriberThrows()
+    {
+        var entitlements = new StubEntitlementService();
+        var coordinator = new AiPlanCoordinator(
+            entitlements,
+            _ => { },
+            () => "en");
+        int laterEvents = 0;
+        coordinator.Refreshed += (_, _) => throw new InvalidOperationException("observer failed");
+        coordinator.Refreshed += (_, _) => laterEvents++;
+        coordinator.OpenAiPlan();
+
+        bool refreshed = await coordinator.RefreshIfPendingAsync(CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(refreshed, Is.True);
+            Assert.That(entitlements.RefreshCount, Is.EqualTo(1));
+            Assert.That(laterEvents, Is.EqualTo(1));
+        }
     }
 
     [AvaloniaTest]
@@ -101,18 +136,29 @@ public sealed class AiPlanCoordinatorTests
             HeadlessTestHelpers.Settle();
 
             int initialCount = coordinator.RefreshCount;
+            coordinator.HasPendingRefresh = true;
             other.Activate();
             host.Activate();
             await WaitUntilAsync(() => coordinator.RefreshCount == initialCount + 1);
+            await WaitUntilAsync(() => refreshCallbacks == 1);
+
+            int callbacksBeforeUnrelatedActivation = refreshCallbacks;
+            int refreshesBeforeUnrelatedActivation = coordinator.RefreshCount;
+            other.Activate();
+            host.Activate();
+            await WaitUntilAsync(() => coordinator.RefreshCount == refreshesBeforeUnrelatedActivation + 1);
+            Assert.That(refreshCallbacks, Is.EqualTo(callbacksBeforeUnrelatedActivation));
 
             host.Content = null;
             HeadlessTestHelpers.Settle();
             host.Content = control;
             HeadlessTestHelpers.Settle();
             int callbacksBeforeSecondActivation = refreshCallbacks;
+            int refreshesBeforeSecondActivation = coordinator.RefreshCount;
+            coordinator.HasPendingRefresh = true;
             other.Activate();
             host.Activate();
-            await WaitUntilAsync(() => coordinator.RefreshCount == initialCount + 2);
+            await WaitUntilAsync(() => coordinator.RefreshCount == refreshesBeforeSecondActivation + 1);
             await WaitUntilAsync(() => refreshCallbacks == callbacksBeforeSecondActivation + 1);
 
             subscription.Dispose();
@@ -126,6 +172,51 @@ public sealed class AiPlanCoordinatorTests
         finally
         {
             subscription.Dispose();
+            other.Close();
+            host.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ReturnRefresh_BroadcastsOneSuccessfulRefreshToAllLoadedControls()
+    {
+        var coordinator = new RecordingPlanCoordinator();
+        var first = new Border();
+        var second = new Border();
+        var host = new Window
+        {
+            Content = new StackPanel { Children = { first, second } },
+        };
+        var other = new Window();
+        int firstCallbacks = 0;
+        int secondCallbacks = 0;
+        using IDisposable firstSubscription = AiPlanReturnRefresh.Attach(
+            first,
+            coordinator,
+            () => firstCallbacks++);
+        using IDisposable secondSubscription = AiPlanReturnRefresh.Attach(
+            second,
+            coordinator,
+            () => secondCallbacks++);
+        try
+        {
+            host.Show();
+            other.Show();
+            HeadlessTestHelpers.Settle();
+            coordinator.HasPendingRefresh = true;
+
+            other.Activate();
+            host.Activate();
+            await WaitUntilAsync(() => firstCallbacks == 1 && secondCallbacks == 1);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(firstCallbacks, Is.EqualTo(1));
+                Assert.That(secondCallbacks, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
             other.Close();
             host.Close();
         }
@@ -166,6 +257,10 @@ public sealed class AiPlanCoordinatorTests
     {
         public int RefreshCount { get; private set; }
 
+        public bool HasPendingRefresh { get; set; }
+
+        public event EventHandler? Refreshed;
+
         public void OpenAccountSettings()
         {
         }
@@ -174,11 +269,15 @@ public sealed class AiPlanCoordinatorTests
         {
         }
 
-        public Task RefreshIfPendingAsync(CancellationToken cancellationToken)
+        public Task<bool> RefreshIfPendingAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             RefreshCount++;
-            return Task.CompletedTask;
+            bool result = HasPendingRefresh;
+            HasPendingRefresh = false;
+            if (result)
+                Refreshed?.Invoke(this, EventArgs.Empty);
+            return Task.FromResult(result);
         }
     }
 }

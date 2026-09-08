@@ -2,20 +2,34 @@
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
 
 public interface IAiPlanCoordinator
 {
+    /// <summary>Raised once after a pending entitlement refresh completes successfully.</summary>
+    event EventHandler? Refreshed;
+
     void OpenAccountSettings();
 
     void OpenAiPlan();
 
-    Task RefreshIfPendingAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Refreshes entitlements after a plan page was opened by this coordinator.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> when this call consumed and completed a pending refresh;
+    /// <see langword="false"/> when no plan refresh was pending.
+    /// </returns>
+    /// <remarks>A failed or cancelled refresh is restored as pending before the exception propagates.</remarks>
+    Task<bool> RefreshIfPendingAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class AiPlanCoordinator : IAiPlanCoordinator
 {
+    private readonly ILogger _logger = Log.CreateLogger<AiPlanCoordinator>();
     private readonly IAiEntitlementService _entitlements;
     private readonly Action<Uri> _openUri;
     private readonly Func<string> _language;
@@ -38,6 +52,8 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
         _portalBaseUri = portalBaseUri ?? new Uri(BeutlApiApplication.BaseUrl, UriKind.Absolute);
     }
 
+    public event EventHandler? Refreshed;
+
     public void OpenAccountSettings()
     {
         _openUri(new Uri(_portalBaseUri, "account/manage"));
@@ -56,10 +72,10 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
         Interlocked.Exchange(ref _refreshPending, 1);
     }
 
-    public async Task RefreshIfPendingAsync(CancellationToken cancellationToken)
+    public async Task<bool> RefreshIfPendingAsync(CancellationToken cancellationToken)
     {
         if (Interlocked.Exchange(ref _refreshPending, 0) == 0)
-            return;
+            return false;
 
         try
         {
@@ -69,6 +85,25 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
         {
             Interlocked.Exchange(ref _refreshPending, 1);
             throw;
+        }
+
+        NotifyRefreshedSafely();
+        return true;
+    }
+
+    private void NotifyRefreshedSafely()
+    {
+        Delegate[] handlers = Refreshed?.GetInvocationList() ?? [];
+        foreach (EventHandler handler in handlers.Cast<EventHandler>())
+        {
+            try
+            {
+                handler(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An AI plan refresh subscriber failed; continuing publication.");
+            }
         }
     }
 
