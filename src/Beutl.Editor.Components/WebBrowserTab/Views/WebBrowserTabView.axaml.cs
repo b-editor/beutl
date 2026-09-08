@@ -101,6 +101,33 @@ internal partial class WebBrowserTabView : UserControl, IDisposable
 
         _reparentingScope ??= _webView.BeginReparenting(yieldOnLayoutBeforeExiting: false);
         UpdateHistoryState();
+        ScheduleLinuxSizeRefresh(_webView);
+    }
+
+    private void ScheduleLinuxSizeRefresh(NativeWebView webView)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        // The GTK adapter is created after the first layout pass. Toggling visibility on the next
+        // background tick makes NativeWebView forward its already-arranged bounds to the native
+        // X11 child instead of waiting for a window resize or dock reparent.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed && ReferenceEquals(_webView, webView))
+            {
+                RefreshWebViewBounds(webView);
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    internal static void RefreshWebViewBounds(NativeWebView webView)
+    {
+        bool wasVisible = webView.IsVisible;
+        webView.IsVisible = !wasVisible;
+        webView.IsVisible = wasVisible;
     }
 
     private void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)

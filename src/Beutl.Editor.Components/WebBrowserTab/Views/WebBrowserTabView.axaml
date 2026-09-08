@@ -97,6 +97,9 @@
             </StackPanel>
         </Border>
 
-        <ContentControl x:Name="WebViewHost" Grid.Row="2" />
+        <ContentControl x:Name="WebViewHost"
+                        Grid.Row="2"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" />
     </Grid>
 </UserControl>

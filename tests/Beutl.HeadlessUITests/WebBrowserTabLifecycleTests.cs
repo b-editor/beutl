@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 
 using Beutl.Controls;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -42,6 +44,8 @@ public class WebBrowserTabLifecycleTests
         Assert.Multiple(() =>
         {
             Assert.That(host.Content, Is.SameAs(nativeWebView));
+            Assert.That(host.HorizontalContentAlignment, Is.EqualTo(HorizontalAlignment.Stretch));
+            Assert.That(host.VerticalContentAlignment, Is.EqualTo(VerticalAlignment.Stretch));
             Assert.That(TextBoxAttachment.GetEnterDownBehavior(addressTextBox),
                 Is.EqualTo(TextBoxAttachment.EnterBehaviorMode.None));
             Assert.That(menuButton.Flyout, Is.TypeOf<FAMenuFlyout>());
@@ -50,6 +54,25 @@ public class WebBrowserTabLifecycleTests
         view.Dispose();
 
         Assert.That(host.Content, Is.Null);
+    }
+
+    [AvaloniaTest]
+    public void LinuxSizeRefresh_TogglesVisibilityAndRestoresItsValue()
+    {
+        var nativeWebView = new NativeWebView { IsVisible = true };
+        var visibilityChanges = new List<bool>();
+        using IDisposable subscription = nativeWebView
+            .GetObservable(Visual.IsVisibleProperty)
+            .Subscribe(visibilityChanges.Add);
+
+        WebBrowserTabView.RefreshWebViewBounds(nativeWebView);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(nativeWebView.IsVisible, Is.True);
+            Assert.That(visibilityChanges, Does.Contain(false));
+            Assert.That(visibilityChanges[^1], Is.True);
+        });
     }
 
     [AvaloniaTest]
