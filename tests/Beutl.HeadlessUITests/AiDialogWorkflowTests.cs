@@ -3175,23 +3175,23 @@ public sealed class AiDialogWorkflowTests
     public void SubtitleTranslation_ChunkBoundaryKeepsCombiningCharactersTogether()
     {
         const string text = "A\u0301 B";
-        int[] boundaries = AiSubtitleDialogViewModel.CreateTranslationTextElementBoundaries(text);
+        int[] boundaries = CaptionTranslationBatcher.CreateTranslationTextElementBoundaries(text);
 
         Assert.Multiple(() =>
         {
             Assert.That(
-                AiSubtitleDialogViewModel.KeepTranslationBoundaryTogether(text, boundaries, 0, 1),
+                CaptionTranslationBatcher.KeepTranslationBoundaryTogether(text, boundaries, 0, 1),
                 Is.EqualTo(0),
                 "A combining sequence must not be split after its base character.");
             Assert.That(
-                text.Substring(0, AiSubtitleDialogViewModel.KeepTranslationBoundaryTogether(
+                text.Substring(0, CaptionTranslationBatcher.KeepTranslationBoundaryTogether(
                     text,
                     boundaries,
                     0,
                     2)),
                 Is.EqualTo("A\u0301"));
             Assert.That(
-                text.Substring(0, AiSubtitleDialogViewModel.KeepTranslationBoundaryTogether(
+                text.Substring(0, CaptionTranslationBatcher.KeepTranslationBoundaryTogether(
                     text,
                     boundaries,
                     0,
@@ -3205,9 +3205,9 @@ public sealed class AiDialogWorkflowTests
     public void SubtitleTranslation_WhitespaceBoundaryCannotSplitItsCombiningMark()
     {
         const string text = "A \u0301B";
-        int[] boundaries = AiSubtitleDialogViewModel.CreateTranslationTextElementBoundaries(text);
+        int[] boundaries = CaptionTranslationBatcher.CreateTranslationTextElementBoundaries(text);
 
-        int length = AiSubtitleDialogViewModel.KeepTranslationBoundaryTogether(
+        int length = CaptionTranslationBatcher.KeepTranslationBoundaryTogether(
             text,
             boundaries,
             0,
@@ -3225,7 +3225,7 @@ public sealed class AiDialogWorkflowTests
     public async Task SubtitleTranslation_CachedTextBoundariesScaleWithSmallLimits()
     {
         string text = new('界', 20_000);
-        int[] boundaries = AiSubtitleDialogViewModel.CreateTranslationTextElementBoundaries(text);
+        int[] boundaries = CaptionTranslationBatcher.CreateTranslationTextElementBoundaries(text);
 
         Task<int> split = Task.Run(() =>
         {
@@ -3233,7 +3233,7 @@ public sealed class AiDialogWorkflowTests
             int pieces = 0;
             while (offset < text.Length)
             {
-                int length = AiSubtitleDialogViewModel.KeepTranslationBoundaryTogether(
+                int length = CaptionTranslationBatcher.KeepTranslationBoundaryTogether(
                     text,
                     boundaries,
                     offset,

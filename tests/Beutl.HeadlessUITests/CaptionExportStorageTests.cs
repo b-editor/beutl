@@ -1,4 +1,5 @@
 ﻿using Avalonia.Platform.Storage;
+using Beutl.Services.AI;
 using Beutl.ViewModels.Dialogs;
 using Moq;
 
@@ -33,7 +34,7 @@ public sealed class CaptionExportStorageTests
             var destination = new Mock<IStorageFile>(MockBehavior.Strict);
             destination.SetupGet(file => file.Path).Returns(new Uri(destinationPath));
 
-            await AiSubtitleDialogViewModel.WriteCaptionExportAsync(
+            await CaptionExportStorage.WriteAsync(
                 destination.Object,
                 "new captions"u8.ToArray(),
                 CancellationToken.None);
@@ -59,7 +60,7 @@ public sealed class CaptionExportStorageTests
             .Setup(file => file.OpenWriteAsync())
             .ReturnsAsync(() => new NonSeekableCommitStream(bytes => stagedBytes = bytes));
 
-        await AiSubtitleDialogViewModel.WriteCaptionExportAsync(
+        await CaptionExportStorage.WriteAsync(
             storage.Destination.Object,
             "new captions"u8.ToArray(),
             CancellationToken.None);
@@ -88,7 +89,7 @@ public sealed class CaptionExportStorageTests
                 new IOException("Injected staged write failure.")));
 
         Assert.ThrowsAsync<IOException>(async () =>
-            await AiSubtitleDialogViewModel.WriteCaptionExportAsync(
+            await CaptionExportStorage.WriteAsync(
                 storage.Destination.Object,
                 "new captions"u8.ToArray(),
                 CancellationToken.None));
@@ -110,7 +111,7 @@ public sealed class CaptionExportStorageTests
             .ThrowsAsync(new IOException("Injected staged publish failure."));
 
         Assert.ThrowsAsync<IOException>(async () =>
-            await AiSubtitleDialogViewModel.WriteCaptionExportAsync(
+            await CaptionExportStorage.WriteAsync(
                 storage.Destination.Object,
                 "new captions"u8.ToArray(),
                 CancellationToken.None));

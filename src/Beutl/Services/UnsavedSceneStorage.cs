@@ -22,15 +22,7 @@ internal static class UnsavedSceneStorage
         => Path.Combine(GetDirectory(sceneId), "elements");
 
     public static bool OwnsPath(Guid sceneId, string path)
-    {
-        string root = Path.GetFullPath(GetDirectory(sceneId));
-        string candidate = Path.GetFullPath(path);
-        string relative = Path.GetRelativePath(root, candidate);
-        return !Path.IsPathRooted(relative)
-            && !string.Equals(relative, "..", StringComparison.Ordinal)
-            && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-            && !relative.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal);
-    }
+        => FilePathComparison.IsSameOrDescendant(GetDirectory(sceneId), path);
 
     public static void Cleanup(Guid sceneId)
     {
@@ -63,8 +55,12 @@ internal static class UnsavedSceneStorage
         public SaveRelocation(Scene scene, Uri sceneUri)
         {
             _scene = scene;
-            _elements = CreateElementRehomes(scene, sceneUri);
-            _resources = CreateResourceRehomes(scene, sceneUri);
+            // Share directory indexes only while preparing this save; the next save needs
+            // a fresh snapshot to observe filesystem changes.
+            var paths = FilePathComparison.CreateResolutionContext();
+            string ownedRoot = paths.ResolveCanonicalPath(GetDirectory(scene.Id));
+            _elements = CreateElementRehomes(scene, sceneUri, paths, ownedRoot);
+            _resources = CreateResourceRehomes(scene, sceneUri, paths, ownedRoot);
         }
 
         public void Apply()
@@ -117,14 +113,18 @@ internal static class UnsavedSceneStorage
             TryPruneDirectories(GetDirectory(_scene.Id));
         }
 
-        private static List<ElementRehome> CreateElementRehomes(Scene scene, Uri sceneUri)
+        private static List<ElementRehome> CreateElementRehomes(
+            Scene scene,
+            Uri sceneUri,
+            FilePathComparison.ResolutionContext paths,
+            string ownedRoot)
         {
             var result = new List<ElementRehome>();
-            var destinations = new HashSet<string>(GetPathComparer());
+            var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (Element element in scene.Children)
             {
                 if (element.Uri is not { IsFile: true } original
-                    || !OwnsPath(scene.Id, original.LocalPath))
+                    || !TryResolveOwnedPath(paths, ownedRoot, original.LocalPath, out _))
                 {
                     continue;
                 }
@@ -143,13 +143,17 @@ internal static class UnsavedSceneStorage
             return result;
         }
 
-        private static List<ResourceRehome> CreateResourceRehomes(Scene scene, Uri sceneUri)
+        private static List<ResourceRehome> CreateResourceRehomes(
+            Scene scene,
+            Uri sceneUri,
+            FilePathComparison.ResolutionContext paths,
+            string ownedRoot)
         {
             string destinationDirectory = Path.Combine(
                 Path.GetDirectoryName(sceneUri.LocalPath)!,
                 "resources",
                 "ai");
-            var groups = new Dictionary<string, List<IFileSource>>(GetPathComparer());
+            var groups = new Dictionary<string, List<IFileSource>>(StringComparer.Ordinal);
             var seen = new HashSet<IFileSource>(ReferenceEqualityComparer.Instance);
             foreach (IFileSource source in scene.Children
                          .SelectMany(element => ProxySourceEnumerator.EnumerateFileSources(element)))
@@ -167,18 +171,21 @@ internal static class UnsavedSceneStorage
                     continue;
                 }
 
-                if (!original.IsFile || !OwnsPath(scene.Id, original.LocalPath))
+                if (!original.IsFile
+                    || !TryResolveOwnedPath(paths, ownedRoot, original.LocalPath, out string identity))
                     continue;
 
-                if (!groups.TryGetValue(original.LocalPath, out List<IFileSource>? sources))
+                if (!groups.TryGetValue(identity, out List<IFileSource>? sources))
                 {
                     sources = [];
-                    groups.Add(original.LocalPath, sources);
+                    groups.Add(identity, sources);
                 }
                 sources.Add(source);
             }
 
-            var destinations = new HashSet<string>(GetPathComparer());
+            // Reserve new names conservatively; unlike existing sources, these files have no
+            // filesystem identity yet. An extra suffix is safe on case-sensitive volumes too.
+            var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var result = new List<ResourceRehome>(groups.Count);
             foreach ((string sourcePath, List<IFileSource> sources) in groups)
             {
@@ -196,6 +203,16 @@ internal static class UnsavedSceneStorage
                     sources));
             }
             return result;
+        }
+
+        private static bool TryResolveOwnedPath(
+            FilePathComparison.ResolutionContext paths,
+            string ownedRoot,
+            string path,
+            out string identity)
+        {
+            identity = paths.ResolveCanonicalPath(path);
+            return FilePathComparison.IsSameOrDescendantCanonicalPath(ownedRoot, identity);
         }
 
         private static string GetUniqueDestination(
@@ -266,11 +283,6 @@ internal static class UnsavedSceneStorage
                 s_logger.LogWarning(ex, "Failed to prune unsaved-scene storage {Path}.", root);
             }
         }
-
-        private static StringComparer GetPathComparer()
-            => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
-                ? StringComparer.OrdinalIgnoreCase
-                : StringComparer.Ordinal;
 
         private sealed record ElementRehome(Element Element, Uri Original, Uri Destination);
 

@@ -276,10 +276,10 @@ public sealed class MalformedElementRecoveryTests
         scene.Children.Add(healthy);
         scene.Children.Add(recovered);
 
-        typeof(Scene).GetMethod("ReassignDuplicateRecoveredIds", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(scene, null);
-        typeof(Scene).GetMethod("MigrateRecoveredElementReferences", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(scene, null);
+        typeof(SceneRecovery).GetMethod("ReassignDuplicateRecoveredIds", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(scene.Recovery, null);
+        typeof(SceneRecovery).GetMethod("MigrateRecoveredElementReferences", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(scene.Recovery, null);
 
         Assert.Multiple(() =>
         {
@@ -2087,9 +2087,9 @@ public sealed class MalformedElementRecoveryTests
             json,
             new CoreSerializerOptions { BaseUri = scene.Uri, Mode = CoreSerializationMode.Read });
 
-        var identities = (Dictionary<string, Guid>)typeof(Scene)
+        var identities = (Dictionary<string, Guid>)typeof(SceneRecovery)
             .GetField("_recoveredDescendantIdentities", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(restored)!;
+            .GetValue(restored.Recovery)!;
         Assert.That(identities, Contains.Key(IdentityKey).WithValue(identityId));
     }
 
@@ -2111,15 +2111,15 @@ public sealed class MalformedElementRecoveryTests
         var owner = new Element { Uri = new Uri(Path.Combine(_root, "owner.belm")) };
         owner.AddObject(holder);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migratedId;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.DoesNotThrow(() => method.Invoke(scene, null));
+        Assert.DoesNotThrow(() => method.Invoke(scene.Recovery, null));
 
         Assert.That(holder.Target.CurrentValue, Is.SameAs(reference));
     }
@@ -2168,15 +2168,15 @@ public sealed class MalformedElementRecoveryTests
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         Reference<Element> migratedReference
             = ((KeyFrame<Reference<Element>>)animation.KeyFrames.Single()).Value;
@@ -2267,15 +2267,15 @@ public sealed class MalformedElementRecoveryTests
         scene.Children.Add(migrated);
         scene.Children.Add(owner);
         scene.Children.Add(registeredOwner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         ReferenceEnvelope rewritten = holder.Target.CurrentValue!;
         Assert.Multiple(() =>
@@ -2328,15 +2328,15 @@ public sealed class MalformedElementRecoveryTests
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[Guid.NewGuid()] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         Assert.Multiple(() =>
         {
@@ -2366,15 +2366,15 @@ public sealed class MalformedElementRecoveryTests
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         OrderedCyclicReferenceEnvelope rewritten = holder.OrderedCycleTarget.CurrentValue!;
         Assert.Multiple(() =>
@@ -2408,15 +2408,15 @@ public sealed class MalformedElementRecoveryTests
         scene.Children.Add(migrated);
         scene.Layers.Add(layer);
         scene.Markers.Add(marker);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         Assert.Multiple(() =>
         {
@@ -2444,15 +2444,15 @@ public sealed class MalformedElementRecoveryTests
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Children.Add(holder);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         Assert.Multiple(() =>
         {
@@ -2476,15 +2476,15 @@ public sealed class MalformedElementRecoveryTests
             PluginTarget = new Reference<Element>(originalId),
         };
         scene.Children.Add(migrated);
-        var migrations = (Dictionary<Guid, Guid>)typeof(Scene)
+        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
             .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene)!;
+            .GetValue(scene.Recovery)!;
         migrations[originalId] = migrated.Id;
-        MethodInfo method = typeof(Scene).GetMethod(
+        MethodInfo method = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        method.Invoke(scene, null);
+        method.Invoke(scene.Recovery, null);
 
         Assert.Multiple(() =>
         {
@@ -3023,15 +3023,15 @@ public sealed class MalformedElementRecoveryTests
         File.WriteAllText(elementPath, "{ malformed element");
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         var sentinelId = Guid.NewGuid();
-        var elementIds = (Dictionary<string, Guid>)typeof(Scene)
+        var elementIds = (Dictionary<string, Guid>)typeof(SceneRecovery)
             .GetField("_recoveredElementIds", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(recovered)!;
-        var descendantIds = (Dictionary<string, Guid>)typeof(Scene)
+            .GetValue(recovered.Recovery)!;
+        var descendantIds = (Dictionary<string, Guid>)typeof(SceneRecovery)
             .GetField("_recoveredDescendantIds", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(recovered)!;
-        var descendantIdentities = (Dictionary<string, Guid>)typeof(Scene)
+            .GetValue(recovered.Recovery)!;
+        var descendantIdentities = (Dictionary<string, Guid>)typeof(SceneRecovery)
             .GetField("_recoveredDescendantIdentities", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(recovered)!;
+            .GetValue(recovered.Recovery)!;
         elementIds["sentinel-element"] = sentinelId;
         descendantIds["sentinel-descendant"] = sentinelId;
         descendantIdentities["sentinel-identity"] = sentinelId;
@@ -3248,15 +3248,15 @@ public sealed class MalformedElementRecoveryTests
         scene.Markers.Add(marker);
         scene.Children.Add(healthy);
         scene.Children.Add(recovered);
-        MethodInfo reassign = typeof(Scene).GetMethod(
+        MethodInfo reassign = typeof(SceneRecovery).GetMethod(
             "ReassignDuplicateRecoveredIds",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        MethodInfo migrate = typeof(Scene).GetMethod(
+        MethodInfo migrate = typeof(SceneRecovery).GetMethod(
             "MigrateRecoveredElementReferences",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        reassign.Invoke(scene, null);
-        migrate.Invoke(scene, null);
+        reassign.Invoke(scene.Recovery, null);
+        migrate.Invoke(scene.Recovery, null);
 
         Assert.Multiple(() =>
         {
