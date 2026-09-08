@@ -188,6 +188,48 @@ public class NoMigrationRegressionTests
         });
     }
 
+    [Test]
+    public void Deserialization_aggregates_non_hierarchical_serialized_child_migrations()
+    {
+        var source = new MigratingContainer
+        {
+            Child = new MigratingLeaf(),
+        };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+
+        var restored = (MigratingContainer)CoreSerializer.DeserializeFromJsonObject(
+            json,
+            typeof(ProjectItem));
+        var project = new Project();
+        project.Items.Add(restored);
+
+        Assert.That(project.MinAppVersion, Is.EqualTo("7.0.0"));
+    }
+
+    [Test]
+    public void PopulateFromUri_reports_a_legacy_discriminator_migration()
+    {
+        string scenePath = Path.Combine(_tempDirectory, "legacy.scene");
+        var source = new Scene { Uri = new Uri(scenePath) };
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+        json.Remove("$type");
+        json.JsonSave(scenePath);
+        JsonObject projectJson = CoreSerializer.SerializeToJsonObject(new Project());
+        projectJson["appVersion"] = "1.0.0";
+        projectJson["minAppVersion"] = "1.0.0";
+        var project = (Project)CoreSerializer.DeserializeFromJsonObject(
+            projectJson,
+            typeof(Project));
+        ProjectItem scene = new Scene { Uri = new Uri(scenePath) };
+        project.Items.Add(scene);
+
+        CoreSerializer.PopulateFromUri(scene, new Uri(scenePath));
+        CoreSerializer.SerializeToJsonObject(project);
+
+        Assert.That(project.AppVersion, Is.EqualTo(BeutlApplication.Version));
+        Assert.That(project.MinAppVersion, Is.EqualTo(Project.DefaultMinAppVersion));
+    }
+
     [TestCase(true, false)]
     [TestCase(false, true)]
     public void Project_with_legacy_sidecar_discriminator_advances_app_version(
@@ -309,6 +351,32 @@ public class NoMigrationRegressionTests
         public MigratedElement(string requiredVersion)
         {
             ReportPersistedContentMigration(requiredVersion);
+        }
+    }
+
+    private sealed class MigratingContainer : ProjectItem
+    {
+        public MigratingLeaf? Child { get; set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Child), Child);
+        }
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            Child = context.GetValue<MigratingLeaf>(nameof(Child));
+        }
+    }
+
+    private sealed class MigratingLeaf : CoreObject
+    {
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            base.Deserialize(context);
+            ReportPersistedContentMigration("7.0.0");
         }
     }
 }

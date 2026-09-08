@@ -9,6 +9,14 @@ public class ProjectMutateAndPersistTests
     {
     }
 
+    private sealed class MigratingProjectItem : ProjectItem
+    {
+        public MigratingProjectItem()
+        {
+            ReportPersistedContentMigration("9.0.0");
+        }
+    }
+
     [Test]
     public void AddItemAndPersist_NewItemPersistSucceeds_ItemAdded()
     {
@@ -36,6 +44,28 @@ public class ProjectMutateAndPersistTests
         Assert.That(project.Items, Does.Not.Contain(item));
         // Rolling back must also detach the parent.
         Assert.That(item.HierarchicalParent, Is.Null);
+    }
+
+    [Test]
+    public void AddItemAndPersist_MigratedItemPersistThrows_VersionMetadataRolledBack()
+    {
+        var project = new Project();
+        string appVersion = project.AppVersion;
+        string minAppVersion = project.MinAppVersion;
+        var item = new MigratingProjectItem();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            ProjectPersistence.AddItemAndPersist(
+                project,
+                item,
+                () => throw new InvalidOperationException("disk full")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.Items, Does.Not.Contain(item));
+            Assert.That(project.AppVersion, Is.EqualTo(appVersion));
+            Assert.That(project.MinAppVersion, Is.EqualTo(minAppVersion));
+        });
     }
 
     [Test]

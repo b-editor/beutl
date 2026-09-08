@@ -105,6 +105,12 @@ public sealed class Project : Hierarchical
         MinAppVersion = GetMaximumVersion(MinAppVersion, requiredMinAppVersion);
     }
 
+    internal void RestoreVersionMetadata(string appVersion, string minAppVersion)
+    {
+        AppVersion = appVersion;
+        MinAppVersion = minAppVersion;
+    }
+
     private void PropagateItemMigration(ProjectItem item)
     {
         string? requiredVersion = null;

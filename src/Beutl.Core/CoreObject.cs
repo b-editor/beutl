@@ -27,6 +27,8 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyDataErrorInfo, ICo
 
 public abstract class CoreObject : ICoreObject
 {
+    private static readonly AsyncLocal<MigrationCollector?> s_migrationCollector = new();
+
     public static readonly CoreProperty<Guid> IdProperty;
 
     public static readonly CoreProperty<string> NameProperty;
@@ -112,6 +114,72 @@ public abstract class CoreObject : ICoreObject
         _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
             _requiredMinAppVersionAfterMigration,
             minAppVersion);
+        s_migrationCollector.Value?.Report(minAppVersion);
+    }
+
+    internal static IDisposable BeginPersistedContentMigrationCollection(CoreObject? root)
+    {
+        if (s_migrationCollector.Value is not null)
+        {
+            return EmptyDisposable.Instance;
+        }
+
+        var collector = new MigrationCollector();
+        s_migrationCollector.Value = collector;
+        return new MigrationCollectionScope(root, collector);
+    }
+
+    private void MergePersistedContentMigration(string minAppVersion)
+    {
+        _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
+            _requiredMinAppVersionAfterMigration,
+            minAppVersion);
+    }
+
+    private sealed class MigrationCollector
+    {
+        public string? RequiredMinAppVersion { get; private set; }
+
+        public void Report(string minAppVersion)
+        {
+            RequiredMinAppVersion = Project.GetMaximumMigrationVersion(
+                RequiredMinAppVersion,
+                minAppVersion);
+        }
+    }
+
+    private sealed class MigrationCollectionScope(
+        CoreObject? root,
+        MigrationCollector collector) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            s_migrationCollector.Value = null;
+            if (collector.RequiredMinAppVersion is { } requiredVersion)
+            {
+                root?.MergePersistedContentMigration(requiredVersion);
+                if (root is Project project)
+                {
+                    project.MarkAsMigrated(requiredVersion);
+                }
+            }
+        }
+    }
+
+    private sealed class EmptyDisposable : IDisposable
+    {
+        public static EmptyDisposable Instance { get; } = new();
+
+        public void Dispose()
+        {
+        }
     }
 
     private Dictionary<int, IEntry> Values => _values ??= [];

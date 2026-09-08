@@ -146,6 +146,8 @@ public static class CoreSerializer
         ReflectUri(json, obj, parentContext, ref options);
 
         var context = new JsonSerializationContext(type, parentContext, json, options);
+        using IDisposable migrationScope = CoreObject.BeginPersistedContentMigrationCollection(
+            obj as CoreObject);
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
@@ -170,23 +172,7 @@ public static class CoreSerializer
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
-        bool addedTypeDiscriminator = false;
-        // Presence is checked on the property key alone: a present-but-unparsable or non-string
-        // discriminator must fail as an unknown type, not silently deserialize as the legacy
-        // default and overwrite the original data on the next save.
-        if (!jsonObject.ContainsKey("$type") && !jsonObject.ContainsKey("@type"))
-        {
-            if (type == typeof(ProjectItem))
-            {
-                node["$type"] = LegacyTypeNames.SceneDiscriminator;
-                addedTypeDiscriminator = true;
-            }
-            else if (type.FullName == LegacyTypeNames.ElementFullName)
-            {
-                node["$type"] = LegacyTypeNames.ElementDiscriminator;
-                addedTypeDiscriminator = true;
-            }
-        }
+        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, type);
 
         bool hasDiscriminator = jsonObject.ContainsKey("$type") || jsonObject.ContainsKey("@type");
         Type? actualType = hasDiscriminator
@@ -280,10 +266,36 @@ public static class CoreSerializer
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
+            coreObj.WasTypeDiscriminatorAddedDuringRestore = AddLegacyTypeDiscriminator(
+                jsonObject,
+                type);
         }
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
         PopulateFromJsonObject(obj, type, jsonObject, options);
+    }
+
+    private static bool AddLegacyTypeDiscriminator(JsonObject json, Type type)
+    {
+        // Preserve present but invalid discriminators for unknown-type recovery.
+        if (json.ContainsKey("$type") || json.ContainsKey("@type"))
+        {
+            return false;
+        }
+
+        if (type == typeof(ProjectItem))
+        {
+            json["$type"] = LegacyTypeNames.SceneDiscriminator;
+            return true;
+        }
+
+        if (type.FullName == LegacyTypeNames.ElementFullName)
+        {
+            json["$type"] = LegacyTypeNames.ElementDiscriminator;
+            return true;
+        }
+
+        return false;
     }
 
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
