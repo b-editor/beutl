@@ -953,6 +953,124 @@ public sealed class RenderPipelineMigrationCensusTests
     }
 
     [Test]
+    public void ProcessorPullApiCensus_Does_not_inherit_interface_default_members()
+    {
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public interface IProcessor
+                {
+                    public void Pull() { }
+                }
+                public sealed class RenderNodeProcessor : IProcessor { }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                ["Pull"]),
+            Is.Empty);
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Resolves_engine_extern_alias_receivers()
+    {
+        const string extensionPath = "src/Compatibility/ExternAliasExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public sealed class RenderNodeProcessor { }
+                """),
+            (extensionPath,
+                """
+                extern alias Engine;
+                namespace Compatibility;
+                public static class ExternAliasExtensions
+                {
+                    public static void Pull(
+                        this Engine::Beutl.Graphics.Rendering.RenderNodeProcessor processor) { }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                    "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                    ["Pull"])
+                .Select(finding => finding.RelativePath),
+            Is.EqualTo(new[] { extensionPath }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Uses_active_variant_receiver_hierarchy()
+    {
+        const string extensionPath = "src/Compatibility/WindowsBaseExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                namespace Beutl.Graphics.Rendering;
+                public interface IProcessorBase { }
+                public sealed class RenderNodeProcessor
+                #if WINDOWS
+                    : IProcessorBase
+                #endif
+                { }
+                """),
+            (extensionPath,
+                """
+                using Beutl.Graphics.Rendering;
+                namespace Compatibility;
+                public static class WindowsBaseExtensions
+                {
+                #if WINDOWS
+                    public static void Pull(this IProcessorBase processor) { }
+                #endif
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                    "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                    ["Pull"])
+                .Select(finding => finding.RelativePath),
+            Is.EqualTo(new[] { extensionPath }));
+    }
+
+    [Test]
+    public void ProcessorPullApiCensus_Follows_indirect_referenced_base_receivers()
+    {
+        const string extensionPath = "src/Compatibility/IndirectBaseExtensions.cs";
+        SourceCorpus corpus = SourceCorpus.Create(
+            ("src/Beutl.Engine/Graphics/Rendering/RenderNodeProcessor.cs",
+                """
+                using System;
+                namespace Beutl.Graphics.Rendering;
+                public class ProcessorBase : IDisposable
+                {
+                    public void Dispose() { }
+                }
+                public sealed class RenderNodeProcessor : ProcessorBase { }
+                """),
+            (extensionPath,
+                """
+                using System;
+                namespace Compatibility;
+                public static class IndirectBaseExtensions
+                {
+                    public static void Pull(this IDisposable processor) { }
+                }
+                """));
+
+        Assert.That(
+            corpus.FindMembersDeclaredByType(
+                    "Beutl.Graphics.Rendering.RenderNodeProcessor",
+                    ["Pull"])
+                .Select(finding => finding.RelativePath),
+            Is.EqualTo(new[] { extensionPath }));
+    }
+
+    [Test]
     public void ProcessorPullApiCensus_Scopes_global_usings_to_their_compilation()
     {
         const string visiblePath = "src/A/VisibleExtensions.cs";
@@ -1569,6 +1687,12 @@ public sealed class RenderPipelineMigrationCensusTests
                 {
                     foreach (DeclaredType visibleType in EnumerateTypeHierarchy(declared))
                     {
+                        if (!ReferenceEquals(visibleType.Syntax, declared.Syntax)
+                            && visibleType.Syntax is InterfaceDeclarationSyntax)
+                        {
+                            continue;
+                        }
+
                         foreach (MemberDeclarationSyntax member in visibleType.Syntax.Members)
                         {
                             if (!IsExternallyAccessible(member, visibleType.Syntax))
@@ -1686,7 +1810,14 @@ public sealed class RenderPipelineMigrationCensusTests
             IReadOnlySet<string> productionCompilationIds)
         {
             var result = new List<SourceDocument>();
-            foreach (IGrouping<string, SourceDocument> compilation in documents
+            IEnumerable<SourceDocument> memberDocuments = documents;
+            if (repositoryRoot != "synthetic")
+            {
+                memberDocuments = memberDocuments.Concat(
+                    GetLinkedSourceDocuments(repositoryRoot, documents));
+            }
+
+            foreach (IGrouping<string, SourceDocument> compilation in memberDocuments
                          .Where(document =>
                              document.RelativePath.StartsWith("src/", StringComparison.Ordinal)
                              && productionCompilationIds.Contains(document.CompilationId))
@@ -1717,6 +1848,88 @@ public sealed class RenderPipelineMigrationCensusTests
             }
 
             return [.. result];
+        }
+
+        private static IEnumerable<SourceDocument> GetLinkedSourceDocuments(
+            string repositoryRoot,
+            IReadOnlyList<SourceDocument> documents)
+        {
+            var byPath = documents
+                .GroupBy(document => document.RelativePath, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            string sourceRoot = Path.Combine(repositoryRoot, "src");
+            foreach (string projectPath in Directory.EnumerateFiles(
+                         sourceRoot,
+                         "*.csproj",
+                         SearchOption.AllDirectories))
+            {
+                string compilationId = NormalizePath(Path.GetRelativePath(
+                    repositoryRoot,
+                    projectPath));
+                XDocument project;
+                try
+                {
+                    project = XDocument.Load(projectPath);
+                }
+                catch (Exception ex) when (ex is IOException
+                                           or UnauthorizedAccessException
+                                           or System.Xml.XmlException)
+                {
+                    continue;
+                }
+
+                foreach (string include in project.Descendants()
+                             .Where(element => element.Name.LocalName == "Compile")
+                             .Select(element => (string?)element.Attribute("Include"))
+                             .OfType<string>()
+                             .Where(include =>
+                                 !include.Contains('*', StringComparison.Ordinal)
+                                 && !include.Contains("$(", StringComparison.Ordinal)))
+                {
+                    string fullPath;
+                    try
+                    {
+                        fullPath = Path.GetFullPath(
+                            include.Replace('\\', Path.DirectorySeparatorChar),
+                            Path.GetDirectoryName(projectPath)!);
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+                    {
+                        continue;
+                    }
+
+                    if (!File.Exists(fullPath))
+                    {
+                        continue;
+                    }
+
+                    string relativePath = NormalizePath(Path.GetRelativePath(
+                        repositoryRoot,
+                        fullPath));
+                    if (!relativePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                        || documents.Any(document =>
+                            document.RelativePath == relativePath
+                            && document.CompilationId == compilationId))
+                    {
+                        continue;
+                    }
+
+                    SourceText text = byPath.TryGetValue(relativePath, out SourceDocument? existing)
+                        ? existing.Text
+                        : SourceText.From(File.ReadAllText(fullPath));
+                    var tree = CSharpSyntaxTree.ParseText(
+                        text,
+                        CSharpParseOptions.Default
+                            .WithLanguageVersion(LanguageVersion.Preview)
+                            .WithDocumentationMode(DocumentationMode.Parse),
+                        relativePath);
+                    yield return new SourceDocument(
+                        relativePath,
+                        text,
+                        tree.GetCompilationUnitRoot(),
+                        compilationId);
+                }
+            }
         }
 
         private static IReadOnlyList<string[]> GetCompilationSymbolSets(
@@ -2032,18 +2245,21 @@ public sealed class RenderPipelineMigrationCensusTests
                 return true;
             }
 
-            foreach (DeclaredType target in _declaredTypes.Where(item =>
+            foreach (DeclaredType target in _memberDeclaredTypes.Value.Where(item =>
                          !item.IsFileLocal
                          && item.Document.RelativePath.StartsWith("src/", StringComparison.Ordinal)
                          && _productionCompilationIds.Contains(item.Document.CompilationId)
+                         && item.Document.VariantId == document.VariantId
                          && item.QualifiedName == qualifiedTypeName))
             {
-                if (CanReceiveReferencedBase(receiverType, target))
+                DeclaredType[] hierarchy = EnumerateTypeHierarchy(target).ToArray();
+                if (hierarchy.Any(candidate =>
+                        CanReceiveReferencedBase(receiverType, candidate)))
                 {
                     return true;
                 }
 
-                foreach (DeclaredType baseType in EnumerateTypeHierarchy(target).Skip(1))
+                foreach (DeclaredType baseType in hierarchy.Skip(1))
                 {
                     if (CouldReferToType(
                             receiverType,
@@ -2105,6 +2321,19 @@ public sealed class RenderPipelineMigrationCensusTests
             if (writtenType == qualifiedTypeName)
             {
                 return true;
+            }
+
+            AliasQualifiedNameSyntax? aliasQualified = type.DescendantNodesAndSelf()
+                .OfType<AliasQualifiedNameSyntax>()
+                .FirstOrDefault();
+            if (aliasQualified is not null
+                && aliasQualified.Alias.Identifier.ValueText != "global")
+            {
+                string aliasName = aliasQualified.Alias.Identifier.ValueText;
+                string prefix = aliasName + ".";
+                return writtenType.StartsWith(prefix, StringComparison.Ordinal)
+                       && writtenType[prefix.Length..] == qualifiedTypeName
+                       && ExternAliasTargetsEngine(aliasName, document);
             }
 
             if (IsGloballyQualified(type))
@@ -2233,6 +2462,65 @@ public sealed class RenderPipelineMigrationCensusTests
                 {
                     return resolved == qualifiedTarget;
                 }
+            }
+
+            return false;
+        }
+
+        private bool ExternAliasTargetsEngine(
+            string aliasName,
+            SourceDocument document)
+        {
+            bool declared = document.Root.DescendantNodes()
+                .OfType<ExternAliasDirectiveSyntax>()
+                .Any(directive => directive.Identifier.ValueText == aliasName);
+            if (!declared)
+            {
+                return false;
+            }
+
+            if (RepositoryRoot == "synthetic")
+            {
+                return aliasName == "Engine";
+            }
+
+            string projectPath = Path.Combine(
+                RepositoryRoot,
+                document.CompilationId.Replace('/', Path.DirectorySeparatorChar));
+            try
+            {
+                XDocument project = XDocument.Load(projectPath);
+                foreach (XElement reference in project.Descendants()
+                             .Where(element => element.Name.LocalName == "ProjectReference"))
+                {
+                    string? include = (string?)reference.Attribute("Include");
+                    string? aliases = reference.Elements()
+                        .FirstOrDefault(element => element.Name.LocalName == "Aliases")?
+                        .Value;
+                    if (include is null
+                        || aliases is null
+                        || !aliases.Split(
+                                [';', ',', ' '],
+                                StringSplitOptions.RemoveEmptyEntries)
+                            .Contains(aliasName, StringComparer.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    string referencedProject = NormalizePath(Path.GetRelativePath(
+                        RepositoryRoot,
+                        Path.GetFullPath(
+                            include.Replace('\\', Path.DirectorySeparatorChar),
+                            Path.GetDirectoryName(projectPath)!)));
+                    return referencedProject == "src/Beutl.Engine/Beutl.Engine.csproj";
+                }
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException
+                                       or System.Xml.XmlException)
+            {
             }
 
             return false;
