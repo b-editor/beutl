@@ -60,11 +60,10 @@ public sealed class GplMitBoundaryContractTests
                     string? referenceOutputAssembly = GetMetadata(element, "ReferenceOutputAssembly");
                     if (update is not null)
                     {
-                        if (referenceOutputAssembly is not null
-                            && !string.Equals(
-                                referenceOutputAssembly,
-                                "false",
-                                StringComparison.OrdinalIgnoreCase))
+                        if (!string.Equals(
+                            referenceOutputAssembly,
+                            "false",
+                            StringComparison.OrdinalIgnoreCase))
                         {
                             violations.Add(
                                 $"{relativePath}: updates Beutl.FFmpegWorker into the compile closure");
@@ -146,6 +145,45 @@ public sealed class GplMitBoundaryContractTests
                     <ProjectReference Update="src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj">
                       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
                     </ProjectReference>
+                  </ItemGroup>
+                </Project>
+                """);
+
+            IReadOnlyList<string> violations = FindBoundaryViolations(testRoot);
+
+            Assert.That(
+                violations,
+                Is.EqualTo(new[]
+                {
+                    "Directory.Build.targets: updates Beutl.FFmpegWorker into the compile closure",
+                }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
+    [Test]
+    public void Boundary_scan_rejects_an_update_that_removes_build_order_only_metadata()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-remove-metadata-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Directory.CreateDirectory(testRoot);
+            File.WriteAllText(
+                Path.Combine(testRoot, "Directory.Build.targets"),
+                """
+                <Project>
+                  <ItemGroup>
+                    <ProjectReference Update="src/Beutl.FFmpegWorker/Beutl.FFmpegWorker.csproj"
+                                      RemoveMetadata="ReferenceOutputAssembly" />
                   </ItemGroup>
                 </Project>
                 """);
