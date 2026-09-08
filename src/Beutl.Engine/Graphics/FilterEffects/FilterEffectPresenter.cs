@@ -20,6 +20,7 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
     {
         var r = (Resource)resource;
 
-        r.Target?.RequireOriginal().ApplyTo(context, r.Target);
+        if (r.Target is { } target)
+            context.ApplyTransactional(target.RequireOriginal(), target);
     }
 }

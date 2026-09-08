@@ -55,7 +55,7 @@
                                   SelectedItem="{CompiledBinding SelectedLanguage.Value}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="glob:CultureInfo">
-                                    <TextBlock Text="{CompiledBinding DisplayName}" />
+                                    <TextBlock Text="{CompiledBinding NativeName}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>

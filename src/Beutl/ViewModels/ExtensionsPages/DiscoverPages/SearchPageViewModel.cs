@@ -12,6 +12,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 {
     private readonly ILogger _logger = Log.CreateLogger<SearchPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly LifetimeCancellationSource _lifetimeCts = new();
     private readonly DiscoverService _discoverService;
 
     public SearchPageViewModel(DiscoverService discoverService, string keyword)
@@ -27,7 +28,10 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                 try
                 {
                     IsBusy.Value = true;
-                    await RefreshPackages();
+                    await RefreshPackages(_lifetimeCts.Token);
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -50,7 +54,10 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                 try
                 {
                     IsBusy.Value = true;
-                    await MoreLoadPackages();
+                    await MoreLoadPackages(_lifetimeCts.Token);
+                }
+                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
+                {
                 }
                 catch (Exception e)
                 {
@@ -64,9 +71,14 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                 }
             })
             .DisposeWith(_disposables);
+
+        Kind = new PackageKindFilterViewModel(() => Refresh.Execute())
+            .DisposeWith(_disposables);
     }
 
     public string Keyword { get; }
+
+    public PackageKindFilterViewModel Kind { get; }
 
     public AvaloniaList<object> Packages { get; } = [];
 
@@ -78,22 +90,34 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     public override void Dispose()
     {
-        _disposables.Dispose();
+        try
+        {
+            _lifetimeCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cancel the lifetime token during disposal.");
+        }
+        finally
+        {
+            _disposables.Dispose();
+            _lifetimeCts.Dispose();
+        }
     }
 
-    private async Task<Package[]> SearchPackages(int start, int count)
+    private async Task<Package[]> SearchPackages(int start, int count, CancellationToken cancellationToken)
     {
-        return await _discoverService.Search(Keyword, start, count);
+        return await _discoverService.Search(Keyword, cancellationToken, start, count, Kind.Selected);
     }
 
-    private async Task RefreshPackages()
+    private async Task RefreshPackages(CancellationToken cancellationToken)
     {
         Packages.Clear();
         Packages.AddRange(Enumerable.Repeat(new DummyItem(), 6));
 
-        using (await _discoverService.Lock.LockAsync())
+        using (await _discoverService.Lock.LockAsync(cancellationToken))
         {
-            Package[] array = await SearchPackages(0, 30);
+            Package[] array = await SearchPackages(0, 30, cancellationToken);
             Packages.Clear();
             Packages.AddRange(array);
 
@@ -104,12 +128,12 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
         }
     }
 
-    private async Task MoreLoadPackages()
+    private async Task MoreLoadPackages(CancellationToken cancellationToken)
     {
-        using (await _discoverService.Lock.LockAsync())
+        using (await _discoverService.Lock.LockAsync(cancellationToken))
         {
             Packages.RemoveAt(Packages.Count - 1);
-            Package[] array = await SearchPackages(Packages.Count, 30);
+            Package[] array = await SearchPackages(Packages.Count, 30, cancellationToken);
             Packages.AddRange(array);
 
             if (array.Length == 30)

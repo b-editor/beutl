@@ -517,14 +517,14 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (list.Count == 1)
             {
-                jobject[jsonName] = JsonValue.Create(list[0]);
+                jobject[jsonName] = JsonValue.Create(NormalizeElementPatternForStorage(list[0]));
             }
             else if (list.Count >= 2)
             {
                 var jarray = new JsonArray();
                 foreach (string item in list)
                 {
-                    jarray.Add(JsonValue.Create(item));
+                    jarray.Add(JsonValue.Create(NormalizeElementPatternForStorage(item)));
                 }
 
                 jobject[jsonName] = jarray;
@@ -575,6 +575,7 @@ public class Scene : ProjectItem, INotifyEdited
             if (node is JsonValue jvalue &&
                 jvalue.TryGetValue(out string? pattern))
             {
+                pattern = NormalizeElementPatternForRead(pattern);
                 list.Add(pattern);
                 add(pattern);
             }
@@ -584,6 +585,7 @@ public class Scene : ProjectItem, INotifyEdited
                 {
                     if (item.TryGetValue(out pattern))
                     {
+                        pattern = NormalizeElementPatternForRead(pattern);
                         list.Add(pattern);
                         add(pattern);
                     }
@@ -689,7 +691,8 @@ public class Scene : ProjectItem, INotifyEdited
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
         foreach (Element item in Children)
         {
-            string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
+            string rel = NormalizeElementPatternForStorage(
+                Path.GetRelativePath(dirPath, item.Uri!.LocalPath));
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -715,7 +718,8 @@ public class Scene : ProjectItem, INotifyEdited
             foreach (Element item in e.OldItems.OfType<Element>())
             {
                 string itemPath = item.Uri!.LocalPath;
-                string rel = Path.GetRelativePath(dirPath, itemPath);
+                string rel = NormalizeElementPatternForStorage(
+                    Path.GetRelativePath(dirPath, itemPath));
 
                 if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
@@ -731,7 +735,8 @@ public class Scene : ProjectItem, INotifyEdited
             foreach (Element item in e.NewItems.OfType<Element>())
             {
                 string itemPath = item.Uri!.LocalPath;
-                string rel = Path.GetRelativePath(dirPath, itemPath);
+                string rel = NormalizeElementPatternForStorage(
+                    Path.GetRelativePath(dirPath, itemPath));
 
                 if (_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
@@ -743,6 +748,16 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
+    }
+
+    private static string NormalizeElementPatternForRead(string pattern)
+    {
+        return pattern.Replace('\\', '/');
+    }
+
+    private static string NormalizeElementPatternForStorage(string pattern)
+    {
+        return pattern.Replace('\\', '/');
     }
 
     private void Layers_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

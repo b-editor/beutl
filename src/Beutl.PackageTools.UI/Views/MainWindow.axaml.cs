@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 
+using Beutl.Logging;
 using Beutl.PackageTools.UI.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -18,6 +19,32 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         var viewmodel = new MainViewModel();
+        bool disposeStarted = false;
+        bool disposeCompleted = false;
+        Closing += async (_, e) =>
+        {
+            if (disposeCompleted)
+                return;
+
+            e.Cancel = true;
+            if (disposeStarted)
+                return;
+
+            disposeStarted = true;
+            try
+            {
+                await viewmodel.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                Log.CreateLogger<MainWindow>().LogWarning(ex, "Failed to dispose the main view model during shutdown.");
+            }
+            finally
+            {
+                disposeCompleted = true;
+                Close();
+            }
+        };
 
         DataContext = viewmodel;
         frame.NavigationPageFactory = new MyNavigationPageFactory();

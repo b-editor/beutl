@@ -397,8 +397,17 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         if (items != null)
         {
+            // A tab introduced after this config was written has no saved entry, and the
+            // view binds per tab id — without the default carried over it resolves nothing.
+            var defaults = new Dictionary<string, LibraryTabDisplayMode>(LibraryTabDisplayModes);
+
             LibraryTabDisplayModes.Clear();
             foreach (KeyValuePair<string, LibraryTabDisplayMode> item in items)
+            {
+                LibraryTabDisplayModes.TryAdd(item.Key, item.Value);
+            }
+
+            foreach (KeyValuePair<string, LibraryTabDisplayMode> item in defaults)
             {
                 LibraryTabDisplayModes.TryAdd(item.Key, item.Value);
             }

@@ -1,0 +1,137 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  
+  <xs:schema id="root">
+    <xs:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xs:element name="root" ns1:IsDataSet="true">
+      <xs:complexType>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element name="metadata">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" />
+              </xs:sequence>
+              <xs:attribute name="name" use="required" type="xsd:string" />
+              <xs:attribute name="type" type="xsd:string" />
+              <xs:attribute name="mimetype" type="xsd:string" />
+              <xs:attribute ref="xml:space" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="assembly">
+            <xs:complexType>
+              <xs:attribute name="alias" type="xsd:string" />
+              <xs:attribute name="name" type="xsd:string" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="data">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+                <xs:element name="comment" type="xsd:string" minOccurs="0" ns1:Ordinal="2" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" use="required" ns1:Ordinal="1" />
+              <xs:attribute name="type" type="xsd:string" ns1:Ordinal="3" />
+              <xs:attribute name="mimetype" type="xsd:string" ns1:Ordinal="4" />
+              <xs:attribute ref="xml:space" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="resheader">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" use="required" />
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="FFmpegError" xml:space="preserve">
+    <value>FFmpeg 错误</value>
+  </data>
+  <data name="Make_sure_you_have_FFmpeg_installed" xml:space="preserve">
+    <value>请确保已安装 FFmpeg。</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>安装</value>
+  </data>
+  <data name="Install_FFmpeg" xml:space="preserve">
+    <value>安装 FFmpeg</value>
+  </data>
+  <data name="Preparing" xml:space="preserve">
+    <value>准备中...</value>
+  </data>
+  <data name="Fetching_release_information" xml:space="preserve">
+    <value>正在获取发布信息...</value>
+  </data>
+  <data name="Failed_to_find_FFmpeg_release" xml:space="preserve">
+    <value>找不到 FFmpeg 发布版本。平台不受支持或网络错误。</value>
+  </data>
+  <data name="Installation_complete" xml:space="preserve">
+    <value>安装完成。</value>
+  </data>
+  <data name="Installing_FFmpeg_via_Homebrew" xml:space="preserve">
+    <value>正在通过 Homebrew 安装 FFmpeg...</value>
+  </data>
+  <data name="Homebrew_not_found" xml:space="preserve">
+    <value>未找到 Homebrew。请先安装 Homebrew: https://brew.sh</value>
+  </data>
+  <data name="Installation_failed" xml:space="preserve">
+    <value>安装失败: {0}</value>
+  </data>
+  <data name="Failed_to_run_Homebrew" xml:space="preserve">
+    <value>运行 Homebrew 失败: {0}</value>
+  </data>
+  <data name="Download_FFmpeg_from_BtbN" xml:space="preserve">
+    <value>从 BtbN/FFmpeg-Builds (GitHub) 下载 FFmpeg 8.0</value>
+  </data>
+  <data name="Install_FFmpeg_using_Homebrew" xml:space="preserve">
+    <value>使用 Homebrew 安装 FFmpeg 8.0 (brew install ffmpeg@8)</value>
+  </data>
+  <data name="Unknown_method" xml:space="preserve">
+    <value>未知方法</value>
+  </data>
+  <data name="Verifying_FFmpeg_installation" xml:space="preserve">
+    <value>正在验证 FFmpeg 安装...</value>
+  </data>
+  <data name="FFmpeg_installation_successful" xml:space="preserve">
+    <value>FFmpeg 已成功安装。</value>
+  </data>
+  <data name="FFmpeg_verification_failed" xml:space="preserve">
+    <value>FFmpeg 安装已完成，但验证失败。请重新启动应用程序。</value>
+  </data>
+  <data name="Installing_Homebrew" xml:space="preserve">
+    <value>正在安装 Homebrew...</value>
+  </data>
+  <data name="Homebrew_not_found_installing" xml:space="preserve">
+    <value>未找到 Homebrew。正在安装 Homebrew...</value>
+  </data>
+  <data name="Homebrew_installation_failed" xml:space="preserve">
+    <value>Homebrew 安装失败: {0}</value>
+  </data>
+  <data name="Homebrew_not_found_after_installation" xml:space="preserve">
+    <value>安装后未找到 Homebrew。</value>
+  </data>
+  <data name="Failed_to_install_Homebrew" xml:space="preserve">
+    <value>安装 Homebrew 失败: {0}</value>
+  </data>
+  <data name="FFmpegEncoder" xml:space="preserve">
+    <value>FFmpeg 编码器</value>
+  </data>
+  <data name="FFmpegDecoder" xml:space="preserve">
+    <value>FFmpeg 解码器</value>
+  </data>
+</root>

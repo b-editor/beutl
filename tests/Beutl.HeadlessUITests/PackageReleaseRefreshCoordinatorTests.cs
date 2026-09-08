@@ -22,9 +22,16 @@ public class PackageReleaseRefreshCoordinatorTests
     }
 
     [OneTimeTearDown]
-    public void OneTimeTearDown()
+    public async Task OneTimeTearDown()
     {
-        _httpClient.Dispose();
+        try
+        {
+            await _clients.DisposeAsync();
+        }
+        finally
+        {
+            _httpClient.Dispose();
+        }
     }
 
     [TestCase(true)]

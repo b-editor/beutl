@@ -111,7 +111,12 @@ internal sealed class EncodingHandler : IDisposable
         {
             WorkerLog.Error("Encoding failed", ex);
             return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
-                new EncodeCompleteMessage { Success = false, Error = ex.Message });
+                new EncodeCompleteMessage
+                {
+                    Success = false,
+                    Error = ex.Message,
+                    FFmpegErrorCode = FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex),
+                });
         }
     }
 

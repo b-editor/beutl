@@ -49,7 +49,14 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         set
         {
             if (value is T t)
+            {
                 Value = t;
+            }
+            else if (value is null
+                     && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
+            {
+                Value = default;
+            }
         }
     }
 

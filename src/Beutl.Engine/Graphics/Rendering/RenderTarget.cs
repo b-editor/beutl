@@ -1,16 +1,25 @@
 ﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 using Beutl.Threading;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
+internal enum RenderTargetSamplingIntentKind : byte
+{
+    CpuReadback,
+    BackendInterop,
+    SameContextTextureSampling,
+}
+
 public class RenderTarget : IDisposable
 {
+    private static Func<IGraphicsContext?> s_allocationContext = GraphicsContextFactory.GetOrCreateShared;
+
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
+    private bool _hasTransparentContents;
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
         SKSurfaceCounter<ITexture2D>? texture = null)
@@ -36,7 +45,24 @@ public class RenderTarget : IDisposable
         Dispose(disposing: false);
     }
 
-    internal SKSurface Value =>
+    internal SKSurface Value
+    {
+        get
+        {
+            SKSurface surface = RawValue;
+            ITexture2D? texture = _texture?.Value;
+            if (texture is ITransparentClearableTexture { HasTransparentContents: true })
+            {
+                // Value exposes the mutable Skia surface directly. Submit a pending transparent
+                // initialization before an unwrapped Canvas operation can overtake that clear.
+                texture.PrepareForSkiaRendering();
+            }
+            _hasTransparentContents = false;
+            return surface;
+        }
+    }
+
+    internal SKSurface RawValue =>
         !IsDisposed ? _surface.Value! : throw new ObjectDisposedException(nameof(RenderTarget));
 
     public int Width { get; }
@@ -45,43 +71,213 @@ public class RenderTarget : IDisposable
 
     public bool IsDisposed { get; protected set; }
 
+    /// <summary>
+    /// Whether another live holder shares this instance's backing-surface reference count, so
+    /// <see cref="Dispose()"/> drops only this reference instead of releasing the surface.
+    /// </summary>
+    internal bool SharesSurfaceOwnership => _surface.RefCount > 1;
+
     internal ITexture2D? Texture => _texture?.Value;
 
+    /// <summary>
+    /// Whether <see cref="Create"/> would attach a new target to a graphics context rather than raster it on
+    /// the CPU.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Create"/> attaches only on the render thread: Skia's GPU context is thread-affine, and
+    /// <c>GetOrCreateShared</c> refuses to build the shared one anywhere else. Everywhere else - another of
+    /// Beutl's dispatchers as much as no dispatcher at all - <see cref="Create"/> rasters on the CPU, and no
+    /// device's attachment limit bounds what it allocates there. <see cref="ResolveCreationContext"/>,
+    /// <see cref="ResolveCreationContextForAllocation"/> and <see cref="Create"/> all read this one property
+    /// rather than each deciding for itself, so a budget and the allocation it covers cannot disagree about
+    /// which path runs.
+    /// </remarks>
+    internal static bool CreateAttachesToGraphicsContext => RenderThread.Dispatcher.CheckAccess();
+
+    /// <summary>
+    /// The context <see cref="Create"/> would attach a new target to out of <paramref name="sharedContext"/>,
+    /// or <see langword="null"/> when it would raster that target on the CPU instead.
+    /// </summary>
+    /// <param name="sharedContext">The shared context that applies where one is reached at all.</param>
+    internal static IGraphicsContext? ResolveCreationContext(IGraphicsContext? sharedContext)
+        => CreateAttachesToGraphicsContext ? sharedContext : null;
+
+    /// <summary>
+    /// The context <see cref="Create"/> would attach a new target to, building one where none is installed
+    /// yet, or <see langword="null"/> when it would raster that target on the CPU instead.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ResolveCreationContext"/> answers out of a context a caller already holds, which before any
+    /// GPU work has happened is none at all - and a budget taken from that measures against the engine
+    /// ceiling while the allocation right behind it builds a device that may attach less. This asks the same
+    /// question <see cref="Create"/> does, so the two cannot answer differently.
+    /// </remarks>
+    internal static IGraphicsContext? ResolveCreationContextForAllocation()
+        => CreateAttachesToGraphicsContext ? s_allocationContext() : null;
+
+    /// <summary>Installs <paramref name="replacement"/> as the context creator, reporting what it replaced.</summary>
+    /// <remarks>
+    /// The production creator builds a real device on whatever GPU the suite runs on, so standing in for it
+    /// is the only way to pin a sub-ceiling device - and a refusal taken before the allocator is reached
+    /// cannot be observed any other way, because nothing allocates for it to have refused.
+    /// </remarks>
+    internal static Func<IGraphicsContext?> ExchangeAllocationContext(Func<IGraphicsContext?> replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        Func<IGraphicsContext?> previous = s_allocationContext;
+        s_allocationContext = replacement;
+        return previous;
+    }
+
+    /// <summary>
+    /// Allocates a render target, or answers <see langword="null"/> when it cannot be made.
+    /// </summary>
+    /// <remarks>
+    /// Which allocation runs is decided by the calling thread. On the render thread the target attaches to
+    /// the shared graphics context and is bounded by what that device can attach; on any other thread it is
+    /// rastered on the CPU, which no device's limit bounds. A caller that wants the limit named rather than
+    /// a bare refusal measures against <see cref="RenderScaleUtilities.FitsBufferBudget"/> itself first, as
+    /// the renderer and the target pool do.
+    /// </remarks>
+    /// <returns>
+    /// The allocated target, or <see langword="null"/> where the extent, the device or the backend refused
+    /// it. Every refusal is reported that one way, because a lost device surfaces as whatever the driver
+    /// and the Skia binding happen to raise and so cannot be separated by type.
+    /// </returns>
+    /// <exception cref="OperationCanceledException">
+    /// The render this allocation belongs to was cancelled. This is the one failure not answered with
+    /// <see langword="null"/>, and it propagates deliberately: a cancellation is not a refusal, so
+    /// reporting it as one would hand a caller that has already abandoned its request an unallocated
+    /// target to carry on with instead of unwinding.
+    /// </exception>
     public static RenderTarget? Create(int width, int height)
     {
         try
         {
-            SKSurface? surface;
             ITexture2D? sharedTexture = null;
-            if (Dispatcher.Current == null)
+
+            // Asking for the shared context is itself render-thread-bound, so which path runs has to be
+            // settled before GetOrCreateShared is reached rather than by what it answers.
+            IGraphicsContext? context = CreateAttachesToGraphicsContext ? s_allocationContext() : null;
+
+            SKSurface? surface;
+            if (context != null)
             {
-                surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+                // A driver does not report an over-limit attachment as a failed allocation: SwiftShader
+                // builds a framebuffer past its own limit and answers success, MoltenVK aborts the process
+                // on a Metal assertion. Neither reaches the catch below, so the extent has to be refused
+                // before the allocator is asked. The budget is taken from this context rather than from
+                // ResolveMaxBufferDimension(), which would resolve a second one that may answer differently.
+                var deviceSize = new PixelSize(width, height);
+                int maxDimension = RenderScaleUtilities.ResolveMaxBufferDimension(context);
+                if (!RenderScaleUtilities.FitsBufferBudget(deviceSize, maxDimension))
+                    return null;
+
+                surface = CreateSharedSurface(context, width, height, out sharedTexture);
             }
             else
             {
-                RenderThread.Dispatcher.VerifyAccess();
-                IGraphicsContext? context = GraphicsContextFactory.GetOrCreateShared();
-
-                if (context != null)
-                {
-                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-                    surface = sharedTexture.CreateSkiaSurface();
-                }
-                else
-                {
-                    surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16,
-                        SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
-                }
+                surface = SKSurface.Create(new SKImageInfo(
+                    width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
             }
 
-            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
-            return surface == null
-                ? null
-                : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
+            if (surface == null)
+                return null;
+
+            // Skia refcounts the surface itself and only borrows the image behind it, so the
+            // backend texture is the one resource that can outlive its last managed reference.
+            var textureRef = sharedTexture != null
+                ? new SKSurfaceCounter<ITexture2D>(
+                    sharedTexture,
+                    deferRelease: true,
+                    approximateBytes: (long)width * height * 8)
+                : null;
+
+            var result = new RenderTarget(
+                new SKSurfaceCounter<SKSurface>(surface),
+                width,
+                height,
+                textureRef);
+            try
+            {
+                if (!result.HasTransparentContents)
+                    result.ClearToTransparent();
+            }
+            catch
+            {
+                // The clear submits to the device, so it is the step that fails when the device is
+                // already lost - the one time a caller retries every frame. Degrading to null without
+                // releasing what the target owns strands a surface and an image per attempt until a
+                // finalizer runs, which is the worst moment to be leaking device memory.
+                result.Dispose();
+                throw;
+            }
+
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A device that is lost, or one that declines the allocation, surfaces as whatever the driver
+            // and the Skia binding raise, so the refusal cannot be caught by type. A cancelled render is
+            // not a refusal: reporting it as one would hand the caller an unallocated target to carry on
+            // with instead of unwinding the request the caller already abandoned.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates the backend texture and its Skia surface, releasing both when initialization fails.
+    /// </summary>
+    /// <remarks>
+    /// The backend texture has no finalizer, so escaping this method before the texture reaches a
+    /// <see cref="RenderTarget"/> strands its image, view and device memory for the life of the process.
+    /// </remarks>
+    /// <returns>
+    /// The surface wrapping a new backend texture, or <see langword="null"/> when the backend declined to
+    /// wrap it, in which case the texture has already been released.
+    /// </returns>
+    internal static SKSurface? CreateSharedSurface(
+        IGraphicsContext context,
+        int width,
+        int height,
+        out ITexture2D? texture)
+    {
+        ITexture2D createdTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        texture = createdTexture;
+        SKSurface? surface = null;
+        try
+        {
+            surface = createdTexture.CreateSkiaSurface();
+            if (surface is null)
+            {
+                // The backend texture is the one resource here that outlives its last managed reference, so
+                // a wrap the driver declined has to release it rather than leave it to a finalizer.
+                createdTexture.Dispose();
+                texture = null;
+                return null;
+            }
+
+            // Surface wrapping marks Skia access. Record initialization afterwards so an
+            // untouched snapshot still observes and submits the backend clear.
+            if (createdTexture is ITransparentClearableTexture clearableTexture)
+                clearableTexture.ClearToTransparent();
+
+            return surface;
         }
         catch
         {
-            return null;
+            // The surface only borrows the backend image, so it has to go first — the same order
+            // Release uses.
+            try
+            {
+                surface?.Dispose();
+            }
+            finally
+            {
+                createdTexture.Dispose();
+            }
+
+            throw;
         }
     }
 
@@ -100,9 +296,53 @@ public class RenderTarget : IDisposable
     public Bitmap Snapshot()
     {
         VerifyAccess();
-        PrepareForSampling();
+        PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
         var result = CreateSnapshotBitmap();
-        ReadPixelsInto(result);
+        return ReadInto(result);
+    }
+
+    /// <summary>
+    /// Reads the current surface directly into a one-byte-per-pixel alpha bitmap.
+    /// </summary>
+    /// <remarks>
+    /// The GPU backend converts the render target's RgbaF16 pixels to Alpha8 during readback, so
+    /// callers that inspect only coverage avoid transferring and converting the color channels.
+    /// This is a synchronous CPU readback and waits for submitted rendering to complete.
+    /// </remarks>
+    public Bitmap SnapshotAlpha()
+    {
+        VerifyAccess();
+        PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
+        var result = new Bitmap(
+            Width,
+            Height,
+            BitmapColorType.Alpha8,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb);
+        return ReadInto(result);
+    }
+
+    /// <summary>
+    /// Fills a bitmap this method owns, releasing it if the readback fails.
+    /// </summary>
+    /// <remarks>
+    /// A failed readback is a device-loss symptom, and a caller that snapshots per frame retries it per
+    /// frame. Propagating without releasing leaves one full-frame native bitmap behind per attempt for a
+    /// finalizer to find, which is the worst moment to be holding them. <see cref="SnapshotInto(Bitmap)"/>
+    /// does not go through here: its destination belongs to the caller, who keeps it either way.
+    /// </remarks>
+    private Bitmap ReadInto(Bitmap result)
+    {
+        try
+        {
+            ReadPixelsInto(result);
+        }
+        catch
+        {
+            result.Dispose();
+            throw;
+        }
+
         return result;
     }
 
@@ -132,8 +372,8 @@ public class RenderTarget : IDisposable
                 nameof(destination));
         }
 
-        // ReadPixels does not convert formats or color spaces, so require the exact format that
-        // Snapshot() allocates (RgbaF16 / Premul / LinearSrgb).
+        // Keep the reusable full-color snapshot contract exact even though Skia can convert during
+        // ReadPixels; alpha-only callers use SnapshotAlpha instead.
         if (destination.ColorType != BitmapColorType.RgbaF16
             || destination.AlphaType != BitmapAlphaType.Premul
             || !destination.ColorSpace.Equals(BitmapColorSpace.LinearSrgb))
@@ -143,7 +383,7 @@ public class RenderTarget : IDisposable
                 nameof(destination));
         }
 
-        PrepareForSampling();
+        PrepareForSampling(RenderTargetSamplingIntent.CpuReadback);
         ReadPixelsInto(destination);
     }
 
@@ -163,7 +403,10 @@ public class RenderTarget : IDisposable
     {
         _surface.AddRef();
         _texture?.AddRef();
-        return new RenderTarget(_surface, Width, Height, _texture);
+        return new RenderTarget(_surface, Width, Height, _texture)
+        {
+            _hasTransparentContents = _hasTransparentContents,
+        };
     }
 
     public void VerifyAccess()
@@ -197,10 +440,9 @@ public class RenderTarget : IDisposable
         SKSurfaceCounter<SKSurface> surface = _surface;
         SKSurfaceCounter<ITexture2D>? texture = _texture;
 
-        if (!disposing && _dispatcher is { HasShutdownFinished: false } dispatcher && !dispatcher.CheckAccess())
+        if (!disposing)
         {
-            // A finalizer must not block on another thread, so it cannot use the bounded wait below.
-            dispatcher.Dispatch(() => Release(surface, texture));
+            GpuResourceRelease.DispatchFinalizer(_dispatcher, () => Release(surface, texture));
             return;
         }
 
@@ -223,18 +465,100 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
 
-        _texture?.Value?.PrepareForRender();
+        _hasTransparentContents = false;
+        _texture?.Value?.PrepareForSkiaRendering();
     }
 
-    internal void PrepareForSampling()
+    internal void PrepareBackendForSkiaSampling()
+    {
+        VerifyAccess();
+        _texture?.Value?.PrepareForSkiaSampling(requireCompletion: false);
+    }
+
+    internal bool HasTransparentContents
+        => _texture?.Value is ITransparentClearableTexture clearableTexture
+            ? clearableTexture.HasTransparentContents
+            : _hasTransparentContents;
+
+    internal void ClearToTransparent()
+    {
+        VerifyAccess();
+        BeginDraw();
+        _surface.Value!.Canvas.Clear(SKColors.Transparent);
+
+        // A canvas clear is a deferred Skia draw, and a custom effect that writes this image through
+        // the Vulkan backend does so outside Skia's task graph. PrepareForSampling only covers a
+        // target used as a source, so a write destination would keep the clear pending until after
+        // the native writer had already filled it. Submitting it here, without the sampling
+        // bookkeeping, keeps the clear ahead of any such writer.
+        _surface.Value.Flush(true, false);
+        _hasTransparentContents = true;
+
+        // HasTransparentContents prefers the backend's record when there is one, and the clear above went
+        // through Skia, which the backend cannot observe. Telling it here is what keeps a reused pooled
+        // target from being cleared a second time by the next caller that wants a blank one.
+        if (_texture?.Value is ITransparentClearableTexture clearableTexture)
+            clearableTexture.MarkContentsTransparent();
+    }
+
+    internal void PrepareForSampling(RenderTargetSamplingIntent intent)
     {
         VerifyAccess();
 
-        _surface.Value!.Flush(true, true);
-        _texture?.Value?.PrepareForSampling();
+        bool waitForCompletion = !intent.CanSubmitWithoutCompletion(_surface.Value!.Context);
+        ITexture2D? texture = _texture?.Value;
+
+        if (intent.RequiresBackendInterop
+            && texture is { RequiresSkiaFlushForBackendInterop: false })
+        {
+            // A backend-produced target can remain in the same recording batch. There is no Skia
+            // work to submit between consecutive native passes.
+            texture.PrepareForSampling();
+
+            if (texture is ITransparentClearableTexture { HasTransparentContents: true })
+            {
+                // A clear-only target can be exposed directly, with no following native pass to
+                // submit its initialization. Preserve the completion boundary for that exposure,
+                // then restore Vulkan ownership without consuming a second recording batch.
+                texture.PrepareForSkiaSampling(requireCompletion: true);
+                texture.PrepareForSampling();
+                ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.PrepareForSampling);
+            }
+            return;
+        }
+
+        if (!intent.RequiresBackendInterop)
+        {
+            // Submit backend writes before Skia records a dependent read. CPU readback waits here;
+            // same-context GPU sampling relies on queue order and does not stall the CPU.
+            texture?.PrepareForSkiaSampling(waitForCompletion);
+        }
+
+        // A context-wide flush is a superset of this surface's, so reclaiming deferred targets here
+        // replaces the surface flush instead of adding a second submit - but only when it flushed this
+        // surface's own context. A target from a caller-supplied factory can live on another one.
+        if (GpuResourceReclaimQueue.FlushAndDrain(_surface.Value!.Context))
+        {
+            waitForCompletion = true;
+        }
+        else
+        {
+            _surface.Value.Flush(true, waitForCompletion);
+        }
+
+        ImmediateCanvas.RecordFlush(waitForCompletion
+            ? ImmediateCanvasFlushKind.PrepareForSampling
+            : ImmediateCanvasFlushKind.PrepareForSamplingSubmit);
+        if (intent.RequiresBackendInterop)
+        {
+            // The caller is about to touch the texture through the backend, which does not route
+            // through BeginDraw, so the transparency tracking cannot survive it.
+            _hasTransparentContents = false;
+            texture?.PrepareForSampling();
+        }
     }
 
-    private sealed class SKSurfaceCounter<T>(T value)
+    private sealed class SKSurfaceCounter<T>(T value, bool deferRelease = false, long approximateBytes = 0)
         where T : class, IDisposable
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
@@ -282,11 +606,11 @@ public class RenderTarget : IDisposable
                             if (_dispatcher is { HasShutdownFinished: false } dispatcher
                                 && !dispatcher.CheckAccess())
                             {
-                                dispatcher.Dispatch(value.Dispose);
+                                dispatcher.Dispatch(() => ReleaseValue(value));
                             }
                             else
                             {
-                                value.Dispose();
+                                ReleaseValue(value);
                             }
                         }
                     }
@@ -296,6 +620,16 @@ public class RenderTarget : IDisposable
 
                 old = current;
             }
+        }
+
+        private void ReleaseValue(T value)
+        {
+            if (deferRelease && GpuResourceReclaimQueue.TryDefer(value, approximateBytes))
+            {
+                return;
+            }
+
+            value.Dispose();
         }
     }
 }

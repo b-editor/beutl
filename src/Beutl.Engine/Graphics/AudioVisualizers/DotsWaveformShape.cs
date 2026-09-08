@@ -6,12 +6,6 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-public enum DotsWaveformMode
-{
-    MinMax,
-    Center,
-}
-
 [Display(Name = nameof(GraphicsStrings.WaveformShape_Dots), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DotsWaveformShape : WaveformShape
 {
@@ -32,14 +26,15 @@ public sealed partial class DotsWaveformShape : WaveformShape
         private SKPath? _path;
         private SKPaint? _paint;
 
-        internal override void Render(
-            ImmediateCanvas canvas,
-            Rect bounds,
-            ReadOnlySpan<float> mins,
-            ReadOnlySpan<float> maxs,
-            float gain,
-            Brush.Resource fill)
+        protected internal override void Render(in WaveformRenderContext context)
         {
+            ImmediateCanvas canvas = context.Canvas;
+            Rect bounds = context.Bounds;
+            ReadOnlySpan<float> mins = context.Mins;
+            ReadOnlySpan<float> maxs = context.Maxs;
+            float gain = context.Gain;
+            Brush.Resource fill = context.Fill;
+
             int barCount = mins.Length;
             if (barCount == 0) return;
 
@@ -52,8 +47,7 @@ public sealed partial class DotsWaveformShape : WaveformShape
             bool minmax = Mode == DotsWaveformMode.MinMax;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
-            _paint.Style = SKPaintStyle.Fill;
+            VisualizerPaint.ConfigureFill(_paint, canvas, bounds, fill);
             _paint.IsAntialias = true;
             _path ??= new SKPath();
             _path.Reset();

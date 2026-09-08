@@ -11,7 +11,7 @@ public class DrawableRenderNode(Drawable.Resource drawable) : ContainerRenderNod
         if (!drawable.Compare(Drawable))
         {
             Drawable = drawable.Capture();
-            HasChanges = true;
+            MarkChanged();
             return true;
         }
 

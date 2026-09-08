@@ -1,16 +1,16 @@
 ---
 description: |
   Reproduce and root-cause a NATIVE crash (SIGSEGV / "Test host process crashed" with no managed stack)
-  that fails only on CI's Linux + SwiftShader GPU test job and NOT on the dev Mac. Use when the `.NET` CI
-  job aborts in the GPU golden / effect-scale tests, when a crash mentions SwiftShader / Vulkan / Skia, or
+  in CI's Linux + SwiftShader GPU tests or at process exit after native shader compilation. Use when the `.NET`
+  job aborts in GPU golden / effect-scale tests, when a crash mentions SwiftShader / Vulkan / Skia / shaderc, or
   when the user says "CIのGPUクラッシュを再現して", "SwiftShaderで落ちる", "reproduce the CI native crash",
   "ネイティブスタックを取って", "get a native stack". Covers the arm64-native Docker repro, kernel core
-  capture, gdb/eu-stack native stacks, the managed-call-site file-trace, intermittent-crash looping, and
-  fix verification. Delegates the noisy build+loop to the `beutl-gpu-crash-reproducer` subagent.
+  capture, gdb/eu-stack native stacks, shader-compiler unload diagnosis, the managed-call-site file-trace,
+  intermittent-crash looping, and fix verification. Delegates noisy runs to `beutl-gpu-crash-reproducer`.
 argument-hint: "[TestFilter FQN-substring]"
 ---
 
-# Reproduce & debug a Beutl Linux/SwiftShader GPU native crash
+# Reproduce & debug a Beutl Linux native crash
 
 A long, multi-step investigation. **Confirm direction with the user at the decision
 points below** — a wrong fix costs a full ~25-minute verify cycle.
@@ -18,10 +18,25 @@ points below** — a wrong fix costs a full ~25-minute verify cycle.
 ## When this applies
 - CI `.NET` job aborts with "Test host process crashed" / SIGSEGV and NO managed stack, in the GPU golden /
   effect tests. That job sets `BEUTL_REQUIRE_GPU=1` and uses `Silk.NET.Vulkan.SwiftShader.Native`.
-- It does NOT reproduce on the dev Mac: macOS render-target surfaces are raster (no imported `VkImage`), so
-  GPU-path native faults never happen locally. You MUST reproduce in a Linux container.
+- Managed tests or a render harness print their successful completion, then the process exits with SIGSEGV
+  after loading shaderc / glslang.
+- Imported-`VkImage` faults do NOT reproduce on the dev Mac: macOS render-target surfaces are raster. Reproduce
+  that class in a Linux container; compiler-unload faults use the separate branch below.
 
-## The one load-bearing lesson: reproduce ARM64-NATIVE, not qemu x64
+## First classify the crash timing
+
+- A fault during GPU work or on `Beutl.RenderThr` follows the imported-image / render-lifetime procedure below.
+- A fault after `Passed!` / `done:` on the main thread, with libc exit handling directly below the fault, is a
+  process-exit compiler-unload candidate. For shaderc / glslang, use a native matching-architecture process
+  (never QEMU), `LD_DEBUG=libs`, and a core to check whether the PC belongs to a DSO unloaded earlier.
+- Reproduce that exit class with a child process that creates a compiler, compiles, disposes it, creates and
+  compiles again, and exits normally. No Vulkan device is required. Verify about 30 clean child exits per
+  architecture. Keep only the `Shaderc.GetApi()` wrapper loaded for the process lifetime; compiler, options,
+  and result handles must still be released per use. Do not start imported-image instrumentation unless the
+  stack or timing actually points back to GPU work. For this signature, finish with the child-process gate
+  and skip the GPU-specific sections below.
+
+## For GPU-path Docker repro: use ARM64-NATIVE, not qemu x64
 On Apple silicon a `--platform linux/amd64` container runs x64 via qemu-user; the kernel core is the **qemu
 emulator's arm64 core** (`readelf -n` shows `NT_ARM_*`), useless for the guest stack, and every ptrace tool
 (createdump, gdb attach, `--blame-crash`) fails under qemu. SwiftShader ships `runtimes/linux-arm64`, so the
@@ -59,8 +74,8 @@ call, run one loop pass; `/dumps/lastrestore.txt` keeps the crashing site's tag.
 `references/native-stack-and-file-trace.md`.
 
 ## 4. Intermittent crashes
-These are usually GC/teardown-timing races on `Beutl.RenderThr` — the `--blame` "current test" is then
-coincidental. Loop until it crashes; **prove a fix with ~30 consecutive clean runs PER ARCH**
+GPU-path intermittent crashes are usually GC/teardown-timing races on `Beutl.RenderThr` — the `--blame`
+"current test" is then coincidental. Loop until it crashes; **prove a fix with ~30 consecutive clean runs PER ARCH**
 (`$DRUN env RUNS=30 /scripts/verify-fix.sh`). A pre-fix repro rate of ~1-in-6 means a few clean runs prove
 nothing. If the bug could be arch-sensitive, also verify with `--platform linux/amd64` (image
 `beutl-ss:10.0-amd64` from the same Dockerfile).

@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Animation.Easings;
 
-public sealed class QuinticEaseInOut : Easing
+public sealed class QuinticEaseInOut : UnitRangeEasing
 {
     public override float Ease(float progress)
     {

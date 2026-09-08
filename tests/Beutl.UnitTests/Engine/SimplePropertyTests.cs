@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Validation;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -158,6 +159,15 @@ public class SimplePropertyTests
 
         Assert.That(property.GetAttributes(), Is.SameAs(attrs));
         Assert.That(property.Name, Is.EqualTo("Foo"));
+    }
+
+    [Test]
+    public void GetValidator_ReturnsTheAttachedValidator()
+    {
+        var validator = new MultipleValidator<int>([]);
+        var property = new SimpleProperty<int>(0, validator);
+
+        Assert.That(property.GetValidator(), Is.SameAs(validator));
     }
 
     [Test]

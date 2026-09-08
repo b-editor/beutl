@@ -50,27 +50,35 @@ public sealed partial class LibraryPage : UserControl
         Frame frame)
     {
         button.IsEnabled = false;
-        var package = await viewModel.TryFindPackage(localPackage.Package);
-        button.IsEnabled = true;
-        if (package != null)
+        try
         {
-            frame.Navigate(typeof(PackageDetailsPage), package);
-        }
-        else
-        {
-            var dialog = new ContentDialog
+            var package = await viewModel.TryFindPackage(localPackage.Package);
+            button.IsEnabled = true;
+            if (package != null)
             {
-                Title = ExtensionsStrings.LocalPackage,
-                Content = $"{string.Format(ExtensionsStrings.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +
-                $"Name: {localPackage.Name}\n" +
-                $"DisplayName: {localPackage.DisplayName}\n" +
-                $"Publisher: {localPackage.Publisher}\n" +
-                $"Description: {localPackage.Package.Description}\n" +
-                $"Version: {localPackage.Package.Version}\n" +
-                $"WebSite: {localPackage.Package.WebSite}",
-                CloseButtonText = Strings.Close
-            };
-            await dialog.ShowAsync();
+                frame.Navigate(typeof(PackageDetailsPage), package);
+            }
+            else
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = ExtensionsStrings.LocalPackage,
+                    Content = $"{string.Format(ExtensionsStrings.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +
+                    $"Name: {localPackage.Name}\n" +
+                    $"DisplayName: {localPackage.DisplayName}\n" +
+                    $"Publisher: {localPackage.Publisher}\n" +
+                    $"Description: {localPackage.Package.Description}\n" +
+                    $"Version: {localPackage.Package.Version}\n" +
+                    $"WebSite: {localPackage.Package.WebSite}",
+                    CloseButtonText = Strings.Close
+                };
+                await dialog.ShowAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The page was disposed while the remote lookup was pending; end navigation
+            // normally instead of letting the cancellation escape the async void handler.
         }
     }
 

@@ -31,8 +31,6 @@ public class SearchPageCardLayoutTests
         + "ellipsized rather than expanding the card height without bound, going on and on and on and on.";
     private const string LongOwner = "AnExtremelyLongAuthorAccountNameThatShouldNotPushTheCardWider";
 
-    private static BeutlApiApplication CreateClients() => new(new HttpClient(), new ExtensionProvider());
-
     private static Package CreatePackage(BeutlApiApplication clients)
     {
         var ownerResponse = new ProfileResponse
@@ -67,9 +65,10 @@ public class SearchPageCardLayoutTests
     }
 
     [AvaloniaTest]
-    public void Long_card_text_ellipsizes_wraps_and_stays_bounded()
+    public async Task Long_card_text_ellipsizes_wraps_and_stays_bounded()
     {
-        BeutlApiApplication clients = CreateClients();
+        using var httpClient = new HttpClient();
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var viewModel = new SearchPageViewModel(new DiscoverService(clients), "search");
         viewModel.Packages.Add(CreatePackage(clients));
 

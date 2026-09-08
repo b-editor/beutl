@@ -136,28 +136,14 @@ public partial class GroupNode : GraphNode
             Items.RemoveRange(index, items.Count);
         }
 
-        switch (e.Action)
+        void Reset()
         {
-            case NotifyCollectionChangedAction.Add:
-                Add(e.NewStartingIndex, e.NewItems!);
-                break;
-
-            case NotifyCollectionChangedAction.Move:
-            case NotifyCollectionChangedAction.Replace:
-                Remove(e.OldStartingIndex, e.OldItems!);
-                Add(e.NewStartingIndex, e.NewItems!);
-                break;
-
-            case NotifyCollectionChangedAction.Remove:
-                Remove(e.OldStartingIndex, e.OldItems!);
-                break;
-
-            case NotifyCollectionChangedAction.Reset:
-                var outputNodePortCount = Group.Output?.Items.Count ?? 0;
-                Items.RemoveRange(0, outputNodePortCount);
-                // _outputNodePortCount = 0;
-                break;
+            var outputNodePortCount = Group.Output?.Items.Count ?? 0;
+            Items.RemoveRange(0, outputNodePortCount);
+            // _outputNodePortCount = 0;
         }
+
+        ApplyItemsCollectionChange(e, Add, Remove, Reset);
     }
 
     private void OnInputChanged(GroupInput? newObj, GroupInput? oldObj)
@@ -228,26 +214,42 @@ public partial class GroupNode : GraphNode
             Items.RemoveRange(outputNodePortCount + index, items.Count);
         }
 
+        void Reset()
+        {
+            var outputNodePortCount = Group.Output?.Items.Count ?? 0;
+            var inputNodePortCount = Group.Input?.Items.Count ?? 0;
+            Items.RemoveRange(outputNodePortCount, inputNodePortCount);
+        }
+
+        ApplyItemsCollectionChange(e, Add, Remove, Reset);
+    }
+
+    // Move and Replace remove before adding: Items is one flat list indexed by a running port
+    // count, so inserting first would shift the indices the removal still needs.
+    private static void ApplyItemsCollectionChange(
+        NotifyCollectionChangedEventArgs e,
+        Action<int, IList> add,
+        Action<int, IList> remove,
+        Action reset)
+    {
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:
-                Add(e.NewStartingIndex, e.NewItems!);
+                add(e.NewStartingIndex, e.NewItems!);
                 break;
 
             case NotifyCollectionChangedAction.Move:
             case NotifyCollectionChangedAction.Replace:
-                Remove(e.OldStartingIndex, e.OldItems!);
-                Add(e.NewStartingIndex, e.NewItems!);
+                remove(e.OldStartingIndex, e.OldItems!);
+                add(e.NewStartingIndex, e.NewItems!);
                 break;
 
             case NotifyCollectionChangedAction.Remove:
-                Remove(e.OldStartingIndex, e.OldItems!);
+                remove(e.OldStartingIndex, e.OldItems!);
                 break;
 
             case NotifyCollectionChangedAction.Reset:
-                var outputNodePortCount = Group.Output?.Items.Count ?? 0;
-                var inputNodePortCount = Group.Input?.Items.Count ?? 0;
-                Items.RemoveRange(outputNodePortCount, inputNodePortCount);
+                reset();
                 break;
         }
     }

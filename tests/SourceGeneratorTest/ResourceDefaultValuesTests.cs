@@ -4,7 +4,7 @@ namespace SourceGeneratorTest;
 
 /// <summary>
 /// Covers the detached-resource defaults contract: the generated constructor chain, the
-/// <c>[ResourceDefaultValuesProvider]</c> escape hatch, and the BESG003-BESG006 diagnostics that
+/// <c>[ResourceDefaultValuesProvider]</c> escape hatch, and the BESG006-BESG009 diagnostics that
 /// reject declaration shapes whose defaults cannot be read without running a user constructor.
 /// </summary>
 [TestFixture]
@@ -51,7 +51,7 @@ public class ResourceDefaultValuesTests
     }
 
     [Test]
-    public void PropertyAssignedInAConstructor_ReportsBESG003()
+    public void PropertyAssignedInAConstructor_ReportsBESG006()
     {
         const string Scenario = """
             using Beutl.Engine;
@@ -72,13 +72,13 @@ public class ResourceDefaultValuesTests
         GeneratorHarnessResult result = GeneratorDriverHarness.Run(Scenario);
 
         Assert.That(
-            DiagnosticsWithId(result, "BESG003"),
+            DiagnosticsWithId(result, "BESG006"),
             Is.Not.Empty,
             "A property whose IProperty is replaced in a constructor has no declaration-time default.");
     }
 
     [Test]
-    public void PrimaryConstructor_ReportsBESG004()
+    public void PrimaryConstructor_ReportsBESG007()
     {
         const string Scenario = """
             using Beutl.Engine;
@@ -94,13 +94,13 @@ public class ResourceDefaultValuesTests
         GeneratorHarnessResult result = GeneratorDriverHarness.Run(Scenario);
 
         Assert.That(
-            DiagnosticsWithId(result, "BESG004"),
+            DiagnosticsWithId(result, "BESG007"),
             Is.Not.Empty,
             "A primary constructor cannot run on the initializer-only defaults path.");
     }
 
     [Test]
-    public void InvalidProviderSignature_ReportsBESG005()
+    public void InvalidProviderSignature_ReportsBESG008()
     {
         const string Scenario = """
             using Beutl.Engine;
@@ -119,13 +119,13 @@ public class ResourceDefaultValuesTests
         GeneratorHarnessResult result = GeneratorDriverHarness.Run(Scenario);
 
         Assert.That(
-            DiagnosticsWithId(result, "BESG005"),
+            DiagnosticsWithId(result, "BESG008"),
             Is.Not.Empty,
             "A provider must return the declaring owner type exactly.");
     }
 
     [Test]
-    public void DerivedTypeWithoutItsOwnProvider_ReportsBESG006()
+    public void DerivedTypeWithoutItsOwnProvider_ReportsBESG009()
     {
         const string Scenario = """
             using Beutl.Engine;
@@ -149,7 +149,7 @@ public class ResourceDefaultValuesTests
         GeneratorHarnessResult result = GeneratorDriverHarness.Run(Scenario);
 
         Assert.That(
-            DiagnosticsWithId(result, "BESG006"),
+            DiagnosticsWithId(result, "BESG009"),
             Is.Not.Empty,
             "Inheriting a provider would evaluate the base owner's defaults for the derived type.");
     }

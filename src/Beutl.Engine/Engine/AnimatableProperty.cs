@@ -212,6 +212,8 @@ public class AnimatableProperty<T> : IProperty<T>
         }
     }
 
+    public IValidator? GetValidator() => _validator;
+
     public void SetOwnerObject(EngineObject? owner)
     {
         if (_owner == owner) return;

@@ -29,8 +29,10 @@ public class AuthenticatedUser(
 
     public MyAsyncLock Lock => clients.Lock;
 
-    public async ValueTask RefreshAsync(bool force = false)
+    public async ValueTask RefreshAsync(CancellationToken cancellationToken, bool force = false)
     {
+        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
+        CancellationToken token = lifetimeCts.Token;
         using Activity? activity = clients.ActivitySource.StartActivity("AuthenticatedUser.Refresh", ActivityKind.Client);
 
         string fileName = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
@@ -39,7 +41,8 @@ public class AuthenticatedUser(
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
             if (_writeTime < lastWriteTime)
             {
-                AuthenticatedUser? fileUser = await clients.ReadUserAsync();
+                AuthenticatedUser? fileUser = await clients.ReadUserAsync(token);
+                token.ThrowIfCancellationRequested();
                 if (fileUser?.Profile?.Id == Profile.Id)
                 {
                     _response = fileUser._response;
@@ -58,12 +61,14 @@ public class AuthenticatedUser(
 
         if (force || IsExpired)
         {
-            _response = await clients.Account.Refresh(new RefreshTokenRequest
+            AuthResponse response = await clients.Account.Refresh(new RefreshTokenRequest
             {
                 RefreshToken = RefreshToken,
                 Token = Token
-            })
+            }, token)
                 .ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            _response = response;
             activity?.AddEvent(new("Refreshed"));
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 

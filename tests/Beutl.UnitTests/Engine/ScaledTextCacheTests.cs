@@ -1,4 +1,5 @@
-﻿using Beutl.Media.TextFormatting;
+﻿using Beutl.Graphics;
+using Beutl.Media.TextFormatting;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine;
@@ -26,9 +27,9 @@ public class ScaledTextCacheTests
 
     // A fresh, live (blob, stroke) pair per density so disposing one entry can't disturb another;
     // both are real Skia handles so Handle == IntPtr.Zero observes actual native disposal.
-    private (SKTextBlob? TextBlob, SKPath? StrokePath) CreateScaledText(float density)
+    private (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds) CreateScaledText(float density)
     {
-        return (SKTextBlob.Create("A", _font), new SKPath());
+        return (SKTextBlob.Create("A", _font), new SKPath(), new Rect(0, 0, density, density));
     }
 
     [Test]
@@ -74,7 +75,7 @@ public class ScaledTextCacheTests
 
         // A later access at the same density still succeeds and produces a fresh, live blob.
         cache.CommitFaultHook = null;
-        (SKTextBlob? blob, _) = cache.Get(2f);
+        (SKTextBlob? blob, _, _) = cache.Get(2f);
         Assert.That(blob, Is.Not.Null);
         Assert.That(blob!.Handle, Is.Not.EqualTo(IntPtr.Zero));
     }
@@ -89,7 +90,7 @@ public class ScaledTextCacheTests
         for (int i = 1; i <= 12; i++)
         {
             float density = 1f + i * 0.25f;
-            (SKTextBlob? blob, _) = cache.Get(density);
+            (SKTextBlob? blob, _, _) = cache.Get(density);
             Assert.That(blob, Is.Not.Null, $"density {density} should produce a scaled blob");
             Assert.That(blob!.Handle, Is.Not.EqualTo(IntPtr.Zero));
         }

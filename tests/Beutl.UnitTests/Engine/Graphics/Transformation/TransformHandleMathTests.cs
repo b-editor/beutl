@@ -460,6 +460,81 @@ public class TransformHandleMathTests
         Assert.That(result, Is.EqualTo(userMatrix));
     }
 
+    // The shape of transforms.rot3d.depth-0050 at editor scale: a layer centred in a 256x144 frame whose
+    // Y rotation carries a perspective divisor, so part of it sits behind the camera plane.
+    private static Matrix ComposeCenteredRotation(float width, float height, float rotationY, float depth)
+    {
+        float radians = MathF.PI * rotationY / 180f;
+        var rotation = new Matrix(
+            MathF.Cos(radians), 0, MathF.Sin(radians) / depth,
+            0, 1, 0,
+            0, 0, 1);
+        return Matrix.CreateTranslation(-width / 2, -height / 2)
+               * rotation
+               * Matrix.CreateTranslation(128, 72);
+    }
+
+    [TestCase(1200f, 54f, 60.0f, 500f)]
+    [TestCase(1200f, 54f, 89.5f, 500f)]
+    [TestCase(124f, 58f, 60.0f, 10f)]
+    public void AlignUserMatrixToRenderedBounds_PerspectiveCrossingTheCameraPlane_NeedsNoCorrection(
+        float width, float height, float rotationY, float depth)
+    {
+        Matrix userMatrix = ComposeCenteredRotation(width, height, rotationY, depth);
+        var localSize = new Size(width, height);
+        var local = new Rect(localSize);
+        Rect renderedBounds = local.TransformToAABB(userMatrix);
+
+        // Without the clip the reference centre lands on the far side of the image, which is the
+        // difference this alignment would otherwise read as an effect offset.
+        float mirroredGap = MathF.Abs(
+            local.TransformToMappedCornerAABB(userMatrix).Center.X - renderedBounds.Center.X);
+        TestContext.WriteLine($"unclipped reference centre is off by {mirroredGap}px");
+        Assert.That(mirroredGap, Is.GreaterThan(0.5f), "the fixture must move the centre past the alignment epsilon");
+
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds);
+
+        Assert.That(result, Is.EqualTo(userMatrix));
+    }
+
+    [Test]
+    public void AlignUserMatrixToRenderedBounds_PerspectiveWithAnEffectOffset_AppliesOnlyThatOffset()
+    {
+        Matrix userMatrix = ComposeCenteredRotation(1200, 54, 60f, 500f);
+        var localSize = new Size(1200, 54);
+        var local = new Rect(localSize);
+        Rect renderedBounds = local.TransformToAABB(userMatrix).Translate(new Vector(10, 5));
+
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds);
+
+        Matrix expected = userMatrix * Matrix.CreateTranslation(10, 5);
+        Assert.Multiple(() =>
+        {
+            foreach (Point corner in new[] { local.TopLeft, local.TopRight, local.BottomRight, local.BottomLeft })
+            {
+                Point actualCorner = result.Transform(corner);
+                Point expectedCorner = expected.Transform(corner);
+                Assert.That(actualCorner.X, Is.EqualTo(expectedCorner.X).Within(0.05f));
+                Assert.That(actualCorner.Y, Is.EqualTo(expectedCorner.Y).Within(0.05f));
+            }
+        });
+    }
+
+    [Test]
+    public void AlignUserMatrixToRenderedBounds_WhenNothingReachesTheNearPlane_ReturnsUserMatrix()
+    {
+        // w(x) = 0.02 - 0.0004x over a 100-wide rect: it crosses zero, and the part still in front of
+        // the camera is nearer than the near plane, so there is no reference box to align against.
+        var userMatrix = new Matrix(1, 0, -0.0004f, 0, 1, 0, 0, 0, 0.02f);
+        var localSize = new Size(100, 50);
+        Assert.That(new Rect(localSize).TransformToAABB(userMatrix).IsEmpty, Is.True);
+
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(
+            userMatrix, localSize, new Rect(-500, -500, 1000, 1000));
+
+        Assert.That(result, Is.EqualTo(userMatrix));
+    }
+
     // ===== LockAspect =====
 
     [Test]

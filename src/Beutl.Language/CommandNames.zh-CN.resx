@@ -1,0 +1,203 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AddElement" xml:space="preserve">
+    <value>添加元素</value>
+  </data>
+  <data name="RemoveElement" xml:space="preserve">
+    <value>移除元素</value>
+  </data>
+  <data name="CutElement" xml:space="preserve">
+    <value>剪切元素</value>
+  </data>
+  <data name="DeleteElement" xml:space="preserve">
+    <value>删除元素</value>
+  </data>
+  <data name="PasteElement" xml:space="preserve">
+    <value>粘贴元素</value>
+  </data>
+  <data name="MoveElement" xml:space="preserve">
+    <value>移动元素</value>
+  </data>
+  <data name="SlipElement" xml:space="preserve">
+    <value>滑移元素</value>
+  </data>
+  <data name="RollElements" xml:space="preserve">
+    <value>滚动元素</value>
+  </data>
+  <data name="SlideElements" xml:space="preserve">
+    <value>滑动元素</value>
+  </data>
+  <data name="SplitElement" xml:space="preserve">
+    <value>分割元素</value>
+  </data>
+  <data name="DuplicateElement" xml:space="preserve">
+    <value>复制元素</value>
+  </data>
+  <data name="ChangeElementColor" xml:space="preserve">
+    <value>更改元素颜色</value>
+  </data>
+  <data name="ChangeElementEnabled" xml:space="preserve">
+    <value>更改元素启用状态</value>
+  </data>
+  <data name="ChangeElementUseNode" xml:space="preserve">
+    <value>更改元素使用节点</value>
+  </data>
+  <data name="GroupElements" xml:space="preserve">
+    <value>元素分组</value>
+  </data>
+  <data name="UngroupElements" xml:space="preserve">
+    <value>取消元素分组</value>
+  </data>
+  <data name="CloseGap" xml:space="preserve">
+    <value>关闭间隙</value>
+  </data>
+  <data name="CloseAllGaps" xml:space="preserve">
+    <value>关闭所有间隙</value>
+  </data>
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>更改场景时长</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>更改场景开始</value>
+  </data>
+  <data name="MoveMarker" xml:space="preserve">
+    <value>移动标记</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>编辑标记</value>
+  </data>
+  <data name="RemoveMarker" xml:space="preserve">
+    <value>移除标记</value>
+  </data>
+  <data name="MoveLayer" xml:space="preserve">
+    <value>移动图层</value>
+  </data>
+  <data name="ChangeLayerColor" xml:space="preserve">
+    <value>更改图层颜色</value>
+  </data>
+  <data name="ChangeLayerLocked" xml:space="preserve">
+    <value>更改图层锁定</value>
+  </data>
+  <data name="ChangeLayerAudioMuted" xml:space="preserve">
+    <value>更改图层音频静音</value>
+  </data>
+  <data name="ChangeLayerVideoMuted" xml:space="preserve">
+    <value>更改图层视频静音</value>
+  </data>
+  <data name="ChangeLayerSolo" xml:space="preserve">
+    <value>更改图层独奏</value>
+  </data>
+  <data name="ChangeElementLocked" xml:space="preserve">
+    <value>更改元素锁定</value>
+  </data>
+  <data name="InsertKeyFrame" xml:space="preserve">
+    <value>插入关键帧</value>
+  </data>
+  <data name="RemoveKeyFrame" xml:space="preserve">
+    <value>移除关键帧</value>
+  </data>
+  <data name="EditKeyFrame" xml:space="preserve">
+    <value>编辑关键帧</value>
+  </data>
+  <data name="MoveKeyFrame" xml:space="preserve">
+    <value>移动关键帧</value>
+  </data>
+  <data name="ChangeEasing" xml:space="preserve">
+    <value>更改缓动</value>
+  </data>
+  <data name="PasteKeyFrame" xml:space="preserve">
+    <value>粘贴关键帧</value>
+  </data>
+  <data name="PasteAnimation" xml:space="preserve">
+    <value>粘贴动画</value>
+  </data>
+  <data name="ChangeUseGlobalClock" xml:space="preserve">
+    <value>更改使用全局时钟</value>
+  </data>
+  <data name="DeleteAnimation" xml:space="preserve">
+    <value>删除动画</value>
+  </data>
+  <data name="AddNode" xml:space="preserve">
+    <value>添加节点</value>
+  </data>
+  <data name="RemoveNode" xml:space="preserve">
+    <value>移除节点</value>
+  </data>
+  <data name="MoveNode" xml:space="preserve">
+    <value>移动节点</value>
+  </data>
+  <data name="RenameNode" xml:space="preserve">
+    <value>重命名节点</value>
+  </data>
+  <data name="ConnectPort" xml:space="preserve">
+    <value>连接端口</value>
+  </data>
+  <data name="DisconnectPort" xml:space="preserve">
+    <value>断开端口</value>
+  </data>
+  <data name="MoveConnection" xml:space="preserve">
+    <value>移动连接</value>
+  </data>
+  <data name="AddPort" xml:space="preserve">
+    <value>添加端口</value>
+  </data>
+  <data name="RemovePort" xml:space="preserve">
+    <value>移除端口</value>
+  </data>
+  <data name="RenamePort" xml:space="preserve">
+    <value>重命名端口</value>
+  </data>
+  <data name="ChangeUseNode" xml:space="preserve">
+    <value>更改使用节点</value>
+  </data>
+  <data name="AddObject" xml:space="preserve">
+    <value>添加对象</value>
+  </data>
+  <data name="RemoveObject" xml:space="preserve">
+    <value>移除对象</value>
+  </data>
+  <data name="ChangeObjectEnabled" xml:space="preserve">
+    <value>更改对象启用状态</value>
+  </data>
+  <data name="PasteObject" xml:space="preserve">
+    <value>粘贴对象</value>
+  </data>
+  <data name="MoveObject" xml:space="preserve">
+    <value>移动对象</value>
+  </data>
+  <data name="ChangeSceneSettings" xml:space="preserve">
+    <value>更改场景设置</value>
+  </data>
+  <data name="EditPathPoint" xml:space="preserve">
+    <value>编辑路径点</value>
+  </data>
+  <data name="TransformElement" xml:space="preserve">
+    <value>变换元素</value>
+  </data>
+  <data name="EditProperty" xml:space="preserve">
+    <value>编辑属性</value>
+  </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>应用模板</value>
+  </data>
+  <data name="AddElementFromTemplate" xml:space="preserve">
+    <value>从模板添加元素</value>
+  </data>
+</root>

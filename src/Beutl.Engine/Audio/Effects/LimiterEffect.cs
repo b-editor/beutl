@@ -16,11 +16,11 @@ namespace Beutl.Audio.Effects;
 /// <remarks>
 /// <para>
 /// <see cref="Lookahead"/> above 0 ms delays the whole signal by that amount so gain
-/// reduction can precede a peak. Beutl's audio graph runs effects inline (output length
-/// equals input length) with no latency compensation, so at a contiguous-run boundary
-/// (clip end, seek, loop, edit) the limiter resets and the buffered tail is dropped. The
-/// default 0 ms keeps audio sample-accurate and A/V-synchronized; raise it to trade a
-/// fixed delay for better transient transparency.
+/// reduction can precede a peak. Beutl's audio graph reports this latency and drains the
+/// buffered tail at a natural contiguous clip end. Seeks, loops, edits, and other
+/// discontinuities reset the limiter and can still drop buffered samples. The default 0 ms
+/// keeps audio sample-accurate and A/V-synchronized; raise it to trade a fixed delay for
+/// better transient transparency.
 /// </para>
 /// <para>
 /// A master limiter (<see cref="Beutl.Audio.Composing.Composer"/>) always re-limits the
@@ -62,8 +62,8 @@ public sealed partial class LimiterEffect : AudioEffect
     /// <summary>
     /// Lookahead window in milliseconds. The output is delayed by this amount
     /// so that gain reduction can begin before a peak arrives. See the type-level
-    /// remarks for the latency trade-off — non-zero values shift the clip later
-    /// and drop the same number of samples from the tail.
+    /// remarks for the latency trade-off and the distinction between natural clip
+    /// ends and discontinuities.
     /// </summary>
     [Range(MinLookaheadMs, MaxLookaheadMs)]
     [Display(Name = nameof(AudioStrings.LimiterEffect_Lookahead), Description = nameof(AudioStrings.LimiterEffect_Lookahead_Description), ResourceType = typeof(AudioStrings))]
@@ -93,5 +93,17 @@ public sealed partial class LimiterEffect : AudioEffect
 
         context.Connect(inputNode, limiterNode);
         return limiterNode;
+    }
+
+    public override int GetLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        if (!IsEnabled)
+            return 0;
+
+        // Reserve the worst-case lookahead when automation is present.
+        return Lookahead.Animation != null
+            ? ToLatencySamples(MaxLookaheadMs, sampleRate)
+            : ToLatencySamples(Lookahead.CurrentValue, sampleRate);
     }
 }

@@ -1,4 +1,4 @@
-# tests/ — local context
+﻿# tests/ — local context
 
 Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are the two BenchmarkDotNet projects (`Beutl.Benchmarks`, `Beutl.FFmpegBenchmarks`). Use this index when picking the right project for a new test.
 
@@ -24,6 +24,75 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 `tests/Beutl.FFmpegWorker.Tests/` covers the GPL worker's direct in-process FFmpeg-calling types (e.g. `FFmpegEncodingController`). Because the worker is GPL-3.0 and MIT projects must not `ProjectReference` it, this project reaches those types by **source-linking** them (`<Compile Include>` under `BEUTL_FFMPEG_WORKER`), the same firewall-preserving pattern `Beutl.FFmpegBenchmarks` uses — never a `ProjectReference`. It is `IsPackable=false` (never distributed), and its native tests self-skip (`Assert.Ignore`) when the FFmpeg shared libraries are not available.
 
 The interactive Avalonia previewers / sample apps no longer live here. The sample extension package `PackageSample` was moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build it) and now lives under `samples/`. Running it launches a window; it is not a test harness.
+
+## Vulkan validation gate
+
+Vulkan validation is off by default and enabled with `BEUTL_VULKAN_VALIDATION=1`, which requires
+`VK_LAYER_KHRONOS_validation` to be installed. When it is on, `VulkanTestEnvironment.InvokeOnRenderThread`
+and its `GpuTestEnvironment` twin read `VulkanValidationErrorLog.Shared` before and after every
+render-thread invocation and fail the test that reported an error, so API misuse the driver is not required
+to diagnose — a nested render pass instance, a handle from another device — cannot pass as green.
+
+CI runs `Beutl.UnitTests` and `Beutl.Graphics3DTests` a second time with the layer installed (`GPU tests
+under Vulkan validation` in `.github/workflows/dotnet.yml`). Neither run filters by category: a category has
+to be remembered, and a GPU test that forgets one is exactly the test the gate would then not cover. A test
+that never reaches the render thread costs only its own runtime on that second pass. Locally:
+
+```bash
+BEUTL_REQUIRE_GPU=1 BEUTL_VULKAN_VALIDATION=1 \
+  dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
+```
+
+`VulkanValidationGateTests.WhenTheJobAsksForValidation_TheInstanceEnabledIt` fails when the variable is set
+but the layer did not load, because a gate that observes nothing must not report success. Without the
+Vulkan SDK it will fail for that reason — install the layer before enabling the variable.
+
+One category is held back: `TestCategories.KnownVulkanSkiaLayoutInterop`, declared in both
+`Beutl.UnitTests` and `Beutl.Graphics3DTests` under the same name because the validation job filters both
+assemblies on it. `RenderTarget` builds its
+`SKSurface` once and Skia tracks that image's layout from there, while `VulkanTexture2D` tracks the same
+image separately as the backend transitions it — so the two records drift and a barrier eventually names an
+`oldLayout` the image has left. Closing that needs a way to read back or command the layout Skia holds, and
+no SkiaSharp release exposes one: `GRBackendRenderTarget` takes a `GRVkImageInfo` in its constructor and
+never gives it back, and the native C ABI has no Vulkan layout or mutable-state entry point at all — it
+carries a GL framebuffer-info getter with no Vulkan counterpart. Native Skia does have
+`GrBackendRenderTargets::GetVkImageInfo` and `SetVkImageLayout`, so closing this means contributing the C
+ABI and the binding upstream, not upgrading the package. Those tests run normally in the ordinary suite;
+only the validation job skips them, so the gate still covers everything else. Tracked as
+[#2263](https://github.com/b-editor/beutl/issues/2263); drop the exclusion from
+`.github/workflows/dotnet.yml` once the interop keeps one record.
+
+Do not "fix" a member of this category by narrowing what the wrap declares. `GRVkImageInfo.ImageLayout`
+describes the moment Skia's commands *run*, not the moment the wrap is built: a render target reaches
+`VulkanTexture2D.SkiaInteropLayout` through `PrepareForSkiaRendering`, which also submits the backend work
+recorded before it. A sampling-only hand-off (`PrepareForSkiaSampling`) submits without transitioning, so
+the backend can leave the image elsewhere — that residue is this drift, and it is what these tests report.
+Declaring the layout found at the wrap instead silences them, because a transition out of `Undefined` is
+always legal, while licensing the driver to discard the allocation clear: that is what returned non-finite
+pixels for 266 shots of the differential corpus on Mesa.
+`SkiaImageInfo_DeclaresTheHandOffLayout_NotTheLayoutAtTheMomentOfTheWrap` pins it.
+
+Two members of the category do not merely stay excluded — they went from passing to failing when the
+declaration stopped hiding the drift: `ConsecutiveEffects_SubmitEachEffectAndWaitOnlyAtTheReadbackBoundary`
+(reports `SHADER_READ_ONLY_OPTIMAL`) and `NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot`
+(reports `TRANSFER_DST_OPTIMAL`). They are recorded here so the exclusion is not read as covering only
+what it covered before: the category now absorbs live regressions, not just a known limitation, and #2263
+is what removes both. Measured on Intel/Mesa: 12 tests pass with the drift masked and fail with it
+reported, and none of the 12 fails a pixel assertion.
+
+The same missing API caps what `VulkanContext`'s Skia image allocation hook can promise, on a path that is
+*not* in that category. Ganesh allocates its own filter and scratch images through the intercepted
+`vkCreateImage` / `vkBindImageMemory` pair, and the hook clears them to transparent at bind time, leaving
+them in `TransferDstOptimal` while Ganesh still holds `Undefined` for them. Its first use may therefore
+transition out of `Undefined`, which Vulkan permits to discard the contents. Nothing can be reconciled
+here: Skia never hands out a backend handle for an image it allocated itself, so the
+`GRVkImageInfo.ImageLayout` route `VulkanTexture2D` uses does not apply, and SkiaSharp 3.119.4's
+`GRContextOptions` — `AvoidStencilBuffers`, `RuntimeProgramCacheSize`, `GlyphCacheTextureMaximumBytes`,
+`AllowPathMaskCaching`, `DoManualMipmapping`, `BufferMapThreshold` — has no clear-on-allocate switch that
+would hand the clear back to Skia. The clear still zeroes the backing allocation, which is what stops
+SwiftShader from handing a recycled allocation's bytes to a caller; it is not a Vulkan-level guarantee that
+those zeros survive the first transition. The path raises no validation message — a transition out of
+`Undefined` is always legal — so its tests stay in the validation job.
 
 ## Headless E2E tests
 

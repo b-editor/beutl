@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,8 +21,12 @@ public partial class CurveMapEditor : UserControl
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.TryGetCurves() is { } curves)
         {
-            CurvesTabViewModel context = editViewModel.FindToolTab<CurvesTabViewModel>()
-                ?? new CurvesTabViewModel(editViewModel);
+            CurvesTabViewModel context = ToolTabReuse.Find<CurvesTabViewModel>(
+                                             editViewModel,
+                                             t => t.Effect.Value == curves,
+                                             t => t.Effect.Value is null,
+                                             retargetAnyOpen: true)
+                                         ?? new CurvesTabViewModel(editViewModel);
 
             context.Effect.Value = curves;
             var prop = viewModel.PropertyAdapter.GetEngineProperty();

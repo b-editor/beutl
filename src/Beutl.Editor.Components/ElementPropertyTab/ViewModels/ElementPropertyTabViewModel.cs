@@ -99,7 +99,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         });
     }
 
-    public string Header => Strings.ElementProperty;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.ElementProperty);
 
     public Action<EngineObject>? RequestScroll { get; set; }
 

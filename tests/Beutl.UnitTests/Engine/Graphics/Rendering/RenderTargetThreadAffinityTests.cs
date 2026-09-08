@@ -1,5 +1,8 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
+using Beutl.Threading;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -102,13 +105,59 @@ public class RenderTargetThreadAffinityTests
             "the queued release should still run once the render thread drains it");
     }
 
+    [Test]
+    public void A_timed_out_release_completes_when_the_busy_dispatcher_shuts_down()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        int executions = 0;
+        Task? caller = null;
+        bool dispatcherJoined;
+
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(30));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+            caller = Task.Run(() => GpuResourceRelease.Run(
+                dispatcher,
+                () => Interlocked.Increment(ref executions)));
+            Assert.That(
+                SpinWait.SpinUntil(() => caller.IsCompleted, TimeSpan.FromSeconds(10)),
+                Is.True,
+                "Run did not return after its bounded wait");
+            Assert.That(executions, Is.Zero);
+
+            dispatcher.Shutdown();
+        }
+        finally
+        {
+            release.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            dispatcherJoined = dispatcher.Thread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(caller!.IsCompletedSuccessfully, Is.True);
+            Assert.That(dispatcherJoined, Is.True);
+            Assert.That(executions, Is.EqualTo(1));
+        });
+    }
+
     // Giving up leaves the cleanup queued with IsDisposed still false, so the second Dispose has to
     // be turned away by something claimed before the queue, or the shared paints get disposed twice.
     [Test]
     public void Repeated_canvas_dispose_behind_a_busy_owning_thread_queues_one_cleanup()
     {
         ImmediateCanvas canvas = RenderThread.Dispatcher.Invoke(() =>
-            new ImmediateCanvas(RenderTarget.CreateNull(4, 4), 1f, 1f, new Size(4, 4)));
+            new ImmediateCanvas(RenderTarget.CreateNull(4, 4), RenderIntent.Preview, 1f, 1f, new Size(4, 4)));
         using var occupied = new ManualResetEventSlim(false);
         using var release = new ManualResetEventSlim(false);
 
@@ -174,6 +223,37 @@ public class RenderTargetThreadAffinityTests
     }
 
     [Test]
+    public void Required_operation_keeps_waiting_while_the_dispatcher_is_live()
+    {
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        int result = 0;
+
+        try
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(60));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(30)), Is.True);
+
+            Task caller = Task.Run(() =>
+                result = GpuResourceRelease.RunRequired(RenderThread.Dispatcher, static () => 42));
+
+            Assert.That(caller.Wait(TimeSpan.FromSeconds(6)), Is.False,
+                "a live but busy dispatcher must not turn a valid queued operation into a timeout");
+            release.Set();
+            Assert.That(caller.Wait(TimeSpan.FromSeconds(30)), Is.True);
+            Assert.That(result, Is.EqualTo(42));
+        }
+        finally
+        {
+            release.Set();
+        }
+    }
+
+    [Test]
     public void A_release_that_throws_after_the_wait_was_given_up_leaves_the_dispatcher_usable()
     {
         using var occupied = new ManualResetEventSlim(false);
@@ -202,6 +282,108 @@ public class RenderTargetThreadAffinityTests
     }
 
     [Test]
+    public void A_required_operation_queued_before_shutdown_is_rejected_once()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        using var occupied = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        using var callerEntered = new ManualResetEventSlim(false);
+        Exception? failure = null;
+        int executions = 0;
+        var caller = new Thread(() =>
+        {
+            callerEntered.Set();
+            try
+            {
+                GpuResourceRelease.RunRequired(dispatcher, () => Interlocked.Increment(ref executions));
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+        })
+        { IsBackground = true };
+
+        try
+        {
+            dispatcher.Dispatch(() =>
+            {
+                occupied.Set();
+                release.Wait(TimeSpan.FromSeconds(30));
+            });
+            Assert.That(occupied.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            caller.Start();
+            Assert.That(callerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(WaitUntilBlocked(caller), Is.True);
+
+            dispatcher.Shutdown();
+            Assert.That(caller.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
+        finally
+        {
+            release.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            dispatcher.Thread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(failure, Is.TypeOf<InvalidOperationException>());
+            Assert.That(executions, Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task A_required_operation_that_started_before_shutdown_completes_once()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        using var started = new ManualResetEventSlim(false);
+        using var finish = new ManualResetEventSlim(false);
+        int executions = 0;
+        Task<int> caller = Task.Run(() => GpuResourceRelease.RunRequired(dispatcher, () =>
+        {
+            started.Set();
+            finish.Wait(TimeSpan.FromSeconds(30));
+            return Interlocked.Increment(ref executions);
+        }));
+        int result;
+        bool dispatcherJoined;
+
+        try
+        {
+            Assert.That(started.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            dispatcher.Shutdown();
+            Assert.That(caller.IsCompleted, Is.False);
+            finish.Set();
+            result = await caller.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            finish.Set();
+            if (!dispatcher.HasShutdownStarted)
+                dispatcher.Shutdown();
+            dispatcherJoined = dispatcher.Thread.Join(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(1));
+            Assert.That(dispatcherJoined, Is.True);
+            Assert.That(executions, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void A_required_operation_preserves_its_exception_type()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            GpuResourceRelease.RunRequired(
+                RenderThread.Dispatcher,
+                static () => throw new InvalidOperationException("required operation failed")));
+    }
+
+    [Test]
     public void Dispose_on_the_owning_thread_releases_inline()
     {
         RenderThread.Dispatcher.Invoke(() =>
@@ -214,6 +396,50 @@ public class RenderTargetThreadAffinityTests
             Assert.That(surface.Handle, Is.EqualTo(IntPtr.Zero),
                 "disposal on the owning thread must release the surface before it returns, not queue it");
             Assert.That(target.IsDisposed, Is.True);
+        });
+    }
+
+    // Create documents a CPU raster wherever it cannot reach a graphics context, and only the render
+    // thread can. Beutl runs several dispatchers - the compose thread and the MediaFoundation thread among
+    // them - so "is any dispatcher current" is not that question, and answering it there sends Create into
+    // a render-thread-only allocation whose refusal it would report as a failed allocation.
+    [Test]
+    public void Create_on_a_non_render_dispatcher_rasters_on_the_cpu()
+    {
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        bool onADispatcher = false;
+        bool onTheRenderThread = true;
+        bool created = false;
+        bool attached = false;
+
+        try
+        {
+            dispatcher.Invoke(() =>
+            {
+                onADispatcher = ReferenceEquals(Dispatcher.Current, dispatcher);
+                onTheRenderThread = RenderThread.Dispatcher.CheckAccess();
+
+                using RenderTarget? target = RenderTarget.Create(4, 4);
+                created = target is not null;
+                attached = target?.Texture is not null;
+            });
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+            dispatcher.Thread.Join(TimeSpan.FromSeconds(30));
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(onADispatcher, Is.True, "the fixture must run on a Beutl dispatcher");
+            Assert.That(onTheRenderThread, Is.False, "and that dispatcher must not be the render thread's");
+            Assert.That(
+                created,
+                Is.True,
+                "off the render thread Create rasters on the CPU; refusing there reports a failed allocation "
+                + "for a target nothing tried to attach");
+            Assert.That(attached, Is.False, "a CPU raster carries no backend texture");
         });
     }
 

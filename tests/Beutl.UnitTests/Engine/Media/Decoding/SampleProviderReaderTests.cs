@@ -29,15 +29,15 @@ public class SampleProviderReaderTests
 
         public WaveFormat WaveFormat { get; }
 
-        public int Read(float[] buffer, int offset, int count)
+        public int Read(Span<float> buffer)
         {
             int available = Math.Max(0, _totalFrames - _position);
-            int frames = Math.Min(Math.Min(count / 2, available), _maxReturnFrames);
+            int frames = Math.Min(Math.Min(buffer.Length / 2, available), _maxReturnFrames);
             for (int i = 0; i < frames; i++)
             {
                 int idx = _position + i;
-                buffer[offset + i * 2] = idx;
-                buffer[offset + i * 2 + 1] = -idx;
+                buffer[i * 2] = idx;
+                buffer[i * 2 + 1] = -idx;
             }
             _position += frames;
             return frames * 2;
@@ -52,11 +52,11 @@ public class SampleProviderReaderTests
     {
         public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(SampleRate, 2);
 
-        public int Read(float[] buffer, int offset, int count)
+        public int Read(Span<float> buffer)
         {
-            int floats = Math.Min(count, 3); // always 3 floats = 1.5 frames
+            int floats = Math.Min(buffer.Length, 3); // always 3 floats = 1.5 frames
             for (int i = 0; i < floats; i++)
-                buffer[offset + i] = i;
+                buffer[i] = i;
             return floats;
         }
     }

@@ -10,6 +10,11 @@ namespace Beutl.Editor.Components.TerminalTab.ViewModels;
 
 public sealed class TerminalTabViewModel : IToolContext
 {
+    // Number instances; shell and working directory are not unique, so numbers are not persisted.
+    private static int s_lastInstanceNumber;
+
+    private readonly ReadOnlyReactivePropertySlim<string> _header;
+
     public TerminalTabViewModel(IEditorContext editorContext)
     {
         WorkingDirectory = ResolveWorkingDirectory(editorContext);
@@ -21,13 +26,24 @@ public sealed class TerminalTabViewModel : IToolContext
             Environment.GetEnvironmentVariable,
             CultureInfo.CurrentCulture.Name,
             OperatingSystem.IsWindows());
+        InstanceNumber = Interlocked.Increment(ref s_lastInstanceNumber);
+
+        _header = TerminalTitle
+            .Select(BuildHeader)
+            .ToReadOnlyReactivePropertySlim(BuildHeader(TerminalTitle.Value))!;
     }
 
     public ToolTabExtension Extension => TerminalTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => Strings.Terminal;
+    public int InstanceNumber { get; }
+
+    /// <summary>Gets the title reported by the shell through OSC 0/2.</summary>
+    /// <remarks>macOS shells may omit it, so the numbered title is the fallback.</remarks>
+    public ReactivePropertySlim<string?> TerminalTitle { get; } = new();
+
+    public IReadOnlyReactiveProperty<string> Header => _header;
 
     public string ShellPath { get; }
 
@@ -114,6 +130,16 @@ public sealed class TerminalTabViewModel : IToolContext
         IsSelected.Dispose();
         IsProcessExited.Dispose();
         ExitCode.Dispose();
+        _header.Dispose();
+        TerminalTitle.Dispose();
+    }
+
+    private string BuildHeader(string? reportedTitle)
+    {
+        string numbered = $"{Strings.Terminal} {InstanceNumber.ToString(CultureInfo.CurrentCulture)}";
+        return string.IsNullOrWhiteSpace(reportedTitle)
+            ? numbered
+            : $"{numbered}: {reportedTitle.Trim()}";
     }
 
     public void ReadFromJson(JsonObject json)

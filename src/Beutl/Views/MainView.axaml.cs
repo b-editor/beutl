@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
 using Beutl.Language;
@@ -56,6 +57,13 @@ public sealed partial class MainView : UserControl
 
             Titlebar.PointerPressed += (s, e) =>
             {
+                if (e.Source is Visual source
+                    && source.FindAncestorOfType<TitleBarBranchView>(
+                        includeSelf: true) is not null)
+                {
+                    return;
+                }
+
                 if (TopLevel.GetTopLevel(this) is Window window && window.WindowState != WindowState.FullScreen)
                 {
                     if (e.ClickCount == 2)
@@ -110,6 +118,7 @@ public sealed partial class MainView : UserControl
 
                 Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
                 AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
+                AppWindow.SetAllowInteractionInTitleBar(TitleBarBranchWidget, true);
                 AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
                 NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }
@@ -456,8 +465,8 @@ public sealed partial class MainView : UserControl
         if (_captureSession is not null)
         {
             NotificationService.ShowWarning(
-                "Window Capture",
-                "A capture session is already running. Stop it before starting a new one.");
+                Strings.WindowCapture,
+                MessageStrings.WindowCapture_AlreadyRunning);
             return;
         }
 
@@ -470,8 +479,8 @@ public sealed partial class MainView : UserControl
         if (ffmpegPath is null)
         {
             NotificationService.ShowError(
-                "Window Capture",
-                "ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH.");
+                Strings.WindowCapture,
+                MessageStrings.WindowCapture_FfmpegNotFound);
             return;
         }
 
@@ -494,18 +503,20 @@ public sealed partial class MainView : UserControl
             _captureSession = session;
 
             NotificationService.ShowInformation(
-                "Window Capture",
-                $"Recording started: {session.Width}x{session.Height} @ {session.FrameRate}fps");
+                Strings.WindowCapture,
+                string.Format(MessageStrings.WindowCapture_RecordingStarted, session.Width, session.Height, session.FrameRate));
         }
         catch (Exception ex)
         {
+            // The throw can occur after _captureSession was published, which would wedge every later Start.
+            _captureSession = null;
             _logger.LogError(ex, "Failed to start window capture.");
             if (session is not null)
             {
                 try { await session.DisposeAsync(); }
                 catch (Exception disposeEx) { _logger.LogWarning(disposeEx, "Failed to dispose capture session after start failure."); }
             }
-            NotificationService.ShowError("Window Capture", ex.Message);
+            NotificationService.ShowError(Strings.WindowCapture, ex.Message);
         }
     }
 
@@ -520,7 +531,7 @@ public sealed partial class MainView : UserControl
             WindowCaptureSession? session = _captureSession;
             if (session is null)
             {
-                NotificationService.ShowWarning("Window Capture", "No active capture session.");
+                NotificationService.ShowWarning(Strings.WindowCapture, MessageStrings.WindowCapture_NoActiveSession);
                 return;
             }
 
@@ -529,14 +540,14 @@ public sealed partial class MainView : UserControl
                 await session.StopAsync();
                 _captureSession = null;
                 NotificationService.ShowSuccess(
-                    "Window Capture",
-                    $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
+                    Strings.WindowCapture,
+                    string.Format(MessageStrings.WindowCapture_Saved, session.OutputPath, session.CapturedFrameCount, session.DroppedFrameCount));
             }
             catch (Exception ex)
             {
                 _captureSession = null;
                 _logger.LogError(ex, "Failed to stop window capture.");
-                NotificationService.ShowError("Window Capture", ex.Message);
+                NotificationService.ShowError(Strings.WindowCapture, ex.Message);
             }
         });
     }

@@ -5,29 +5,6 @@ using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Effects;
 
-public readonly struct Contours(PooledList<PooledList<PixelPoint>> contours) : IDisposable
-{
-    public int Count => List.Count;
-
-    public ReadOnlySpan<PixelPoint> this[int index] => List[index].Span;
-
-    public PooledList<PooledList<PixelPoint>> List { get; } = contours;
-
-    public PooledList<PooledList<PixelPoint>>.Enumerator GetEnumerator()
-    {
-        return List.GetEnumerator();
-    }
-
-    public void Dispose()
-    {
-        foreach (var contour in List)
-        {
-            contour.Dispose();
-        }
-        List.Dispose();
-    }
-}
-
 /// <summary>
 /// Finds contours in the alpha channel of a BGRA bitmap using Moore boundary tracing.
 /// Produces results equivalent to OpenCV's findContours with RetrievalModes.List
@@ -66,8 +43,17 @@ public static class ContourTracer
         out Contours contours,
         out PooledList<int> parentIndices)
     {
-        using var alphaBitmap = bitmap.Convert(BitmapColorType.Alpha8);
-        FindContoursCore(alphaBitmap, out var contoursList, out parentIndices);
+        PooledList<PooledList<PixelPoint>> contoursList;
+        if (bitmap.ColorType == BitmapColorType.Alpha8)
+        {
+            FindContoursCore(bitmap, out contoursList, out parentIndices);
+        }
+        else
+        {
+            using var alphaBitmap = bitmap.Convert(BitmapColorType.Alpha8);
+            FindContoursCore(alphaBitmap, out contoursList, out parentIndices);
+        }
+
         contours = new Contours(contoursList);
     }
 

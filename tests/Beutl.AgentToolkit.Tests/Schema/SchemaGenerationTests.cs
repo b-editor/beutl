@@ -10,6 +10,7 @@ using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Shaders;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -369,8 +370,9 @@ public sealed class SchemaGenerationTests
         });
 
         using SKSLShader shader = CompileSkslOrSkip(script);
+        using SKSLShaderBuilder builder = shader.CreateBuilder();
 
-        Assert.That(shader.Effect.Children.Contains("src"), Is.True);
+        Assert.That(builder.Children.Contains("src"), Is.True);
     }
 
     [Test]
@@ -383,6 +385,7 @@ public sealed class SchemaGenerationTests
         string script = FindRequiredStringProperty(scaffoldRecipe.Patch, nameof(SKSLScriptEffect.Script));
 
         using SKSLShader shader = CompileSkslOrSkip(script);
+        using SKSLShaderBuilder builder = shader.CreateBuilder();
 
         Assert.Multiple(() =>
         {
@@ -390,7 +393,7 @@ public sealed class SchemaGenerationTests
             Assert.That(scaffold, Does.Not.Contain("sin(uv.x * 14.0"));
             Assert.That(script, Does.Contain("src.eval(fragCoord)"));
             Assert.That(script, Does.Not.Contain("sin(uv.x * 14.0"));
-            Assert.That(shader.Effect.Children.Contains("src"), Is.True);
+            Assert.That(builder.Children.Contains("src"), Is.True);
             Assert.That(scaffoldRecipe.Description, Does.Contain("blank pass-through scaffold"));
             Assert.That(scaffoldRecipe.Description, Does.Contain("organic-shader-field"));
             Assert.That(scaffoldRecipe.Description, Does.Contain("fine-film-grain-field"));

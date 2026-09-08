@@ -1,4 +1,6 @@
 ﻿using System.Reflection;
+using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
 using ModelContextProtocol.Server;
 
@@ -12,6 +14,7 @@ public sealed class ToolSurfaceTests
         typeof(DesignTools),
         typeof(SessionTools),
         typeof(EditTools),
+        typeof(HistoryTools),
         typeof(RenderTools)
     ];
 
@@ -31,6 +34,7 @@ public sealed class ToolSurfaceTests
                 "get_background_grammar",
                 "plan_original_scaffold",
                 "get_schema",
+                "list_fonts",
                 "list_effects",
                 "list_effect_recipes",
                 "get_effect_recipe",
@@ -45,6 +49,9 @@ public sealed class ToolSurfaceTests
                 "add_scene",
                 "save_project",
                 "read_operation_status",
+                "undo",
+                "redo",
+                "read_history",
                 "read_document_summary",
                 "measure_object_bounds",
                 "read_document",
@@ -57,7 +64,6 @@ public sealed class ToolSurfaceTests
                 "evaluate_motion_variation",
                 "analyze_audio_rhythm",
                 "evaluate_edit_quality",
-                "preview_quality_risks",
                 "suggest_quality_fixes",
                 "final_preflight",
                 "compare_revisions",
@@ -69,8 +75,6 @@ public sealed class ToolSurfaceTests
             Assert.That(names, Does.Not.Contain("update_keyframe"));
             Assert.That(names, Does.Not.Contain("remove_keyframe"));
             Assert.That(names, Does.Not.Contain("set_property"));
-            Assert.That(names, Does.Not.Contain("undo"));
-            Assert.That(names, Does.Not.Contain("redo"));
         });
     }
 
@@ -84,6 +88,34 @@ public sealed class ToolSurfaceTests
         {
             Assert.That(internalElementNames, Does.Contain("add_element"));
             Assert.That(publicNames.Intersect(internalElementNames), Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Quality_surfaces_expose_only_active_intent_flags()
+    {
+        MethodBase[] methods =
+        [
+            typeof(RenderTools).GetMethod(nameof(RenderTools.EvaluateEditQuality))!,
+            typeof(RenderTools).GetMethod(nameof(RenderTools.SuggestQualityFixes))!,
+            typeof(RenderTools).GetMethod(nameof(RenderTools.FinalPreflight))!,
+            typeof(QualityAnalyzer).GetMethod(nameof(QualityAnalyzer.AnalyzeAsync))!,
+            typeof(QualityAnalysisOptions).GetConstructors().Single()
+        ];
+
+        Assert.Multiple(() =>
+        {
+            foreach (MethodBase method in methods)
+            {
+                string[] parameterNames = method.GetParameters().Select(parameter => parameter.Name!).ToArray();
+                int multiObjectIndex = Array.FindIndex(parameterNames, name =>
+                    string.Equals(name, "allowMultiObjectElements", StringComparison.OrdinalIgnoreCase));
+                Assert.That(multiObjectIndex, Is.GreaterThanOrEqualTo(0), method.Name);
+                Assert.That(
+                    parameterNames[multiObjectIndex + 1],
+                    Is.EqualTo("allowMinimalDensity").IgnoreCase,
+                    method.Name);
+            }
         });
     }
 

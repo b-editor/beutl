@@ -64,7 +64,7 @@ public class PreviewRenderTests
 
         Bitmap snapshot = RenderThread.Dispatcher.Invoke(() =>
         {
-            using var renderer = new SceneRenderer(scene);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             CompositionFrame frame = renderer.Compositor.EvaluateGraphics(TimeSpan.Zero);
             renderer.Render(frame);
             return renderer.Snapshot();

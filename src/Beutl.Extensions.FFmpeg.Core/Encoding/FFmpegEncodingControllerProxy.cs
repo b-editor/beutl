@@ -154,7 +154,9 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                             var complete = msg.GetPayload<EncodeCompleteMessage>();
                             if (complete != null && !complete.Success)
                             {
-                                throw new FFmpegWorkerException(complete.Error ?? "Encoding failed");
+                                throw new FFmpegWorkerException(
+                                    complete.Error ?? "Encoding failed",
+                                    ffmpegErrorCode: complete.FFmpegErrorCode);
                             }
                             return;
                         }

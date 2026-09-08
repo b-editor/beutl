@@ -20,7 +20,14 @@ public sealed class AuthenticationTask : StartupTask
             {
                 try
                 {
-                    await _beutlApiApplication.RestoreUserAsync(activity);
+                    await _beutlApiApplication.RestoreUserAsync(activity, CancellationToken.None);
+                }
+                catch (Exception ex) when (_beutlApiApplication.IsDisposed
+                    && ex is OperationCanceledException or ObjectDisposedException)
+                {
+                    // Shutdown cancellation is a normal exit, not a failed authentication:
+                    // the lifetime token is canceled when the application is disposed, so
+                    // skip the error telemetry and the sign-in prompts.
                 }
                 catch (Exception e)
                 {

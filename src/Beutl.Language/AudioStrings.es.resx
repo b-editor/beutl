@@ -1,0 +1,188 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SourceSound" xml:space="preserve">
+    <value>Sonido</value>
+  </data>
+  <data name="SourceSound_Source" xml:space="preserve">
+    <value>Fuente</value>
+  </data>
+  <data name="SoundGroup" xml:space="preserve">
+    <value>Grupo de sonido</value>
+  </data>
+  <data name="Sound_OffsetPosition" xml:space="preserve">
+    <value>Posición de desplazamiento</value>
+  </data>
+  <data name="Sound_Gain" xml:space="preserve">
+    <value>Ganancia</value>
+  </data>
+  <data name="Sound_Speed" xml:space="preserve">
+    <value>Velocidad</value>
+  </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>Efecto de audio</value>
+  </data>
+  <data name="DelayEffect" xml:space="preserve">
+    <value>Retardo</value>
+  </data>
+  <data name="DelayEffect_DelayTime" xml:space="preserve">
+    <value>Tiempo de retardo (ms)</value>
+  </data>
+  <data name="DelayEffect_Feedback" xml:space="preserve">
+    <value>Retroalimentación (%)</value>
+  </data>
+  <data name="DelayEffect_DryMix" xml:space="preserve">
+    <value>Mezcla seca (%)</value>
+  </data>
+  <data name="DelayEffect_WetMix" xml:space="preserve">
+    <value>Mezcla húmeda (%)</value>
+  </data>
+  <data name="AudioEffectGroup" xml:space="preserve">
+    <value>Grupo</value>
+  </data>
+  <data name="SceneSound" xml:space="preserve">
+    <value>Referencia de escena (audio)</value>
+  </data>
+  <data name="SceneSound_ReferencedScene" xml:space="preserve">
+    <value>Escena referenciada</value>
+  </data>
+  <data name="Equalizer" xml:space="preserve">
+    <value>Ecualizador</value>
+  </data>
+  <data name="Equalizer_Band" xml:space="preserve">
+    <value>Banda del ecualizador</value>
+  </data>
+  <data name="Equalizer_FilterType" xml:space="preserve">
+    <value>Tipo de filtro</value>
+  </data>
+  <data name="Equalizer_Frequency" xml:space="preserve">
+    <value>Frecuencia (Hz)</value>
+  </data>
+  <data name="Equalizer_Q" xml:space="preserve">
+    <value>Q</value>
+  </data>
+  <data name="Equalizer_BandCount" xml:space="preserve">
+    <value>Número de bandas</value>
+  </data>
+  <data name="Equalizer_Bands" xml:space="preserve">
+    <value>Bandas</value>
+  </data>
+  <data name="Equalizer_Gain" xml:space="preserve">
+    <value>Ganancia</value>
+  </data>
+  <data name="CompressorEffect" xml:space="preserve">
+    <value>Compresor</value>
+  </data>
+  <data name="CompressorEffect_Threshold" xml:space="preserve">
+    <value>Umbral (dB)</value>
+  </data>
+  <data name="CompressorEffect_Ratio" xml:space="preserve">
+    <value>Relación</value>
+  </data>
+  <data name="CompressorEffect_Attack" xml:space="preserve">
+    <value>Ataque (ms)</value>
+  </data>
+  <data name="CompressorEffect_Release" xml:space="preserve">
+    <value>Liberación (ms)</value>
+  </data>
+  <data name="CompressorEffect_Knee" xml:space="preserve">
+    <value>Rodilla (dB)</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain" xml:space="preserve">
+    <value>Ganancia de compensación (dB)</value>
+  </data>
+  <data name="CompressorEffect_Threshold_Description" xml:space="preserve">
+    <value>El nivel por encima del cual se comprime la señal.</value>
+  </data>
+  <data name="CompressorEffect_Ratio_Description" xml:space="preserve">
+    <value>La cantidad de compresión aplicada por encima del umbral. Los valores más altos comprimen con más fuerza.</value>
+  </data>
+  <data name="CompressorEffect_Attack_Description" xml:space="preserve">
+    <value>La rapidez con la que la compresión se activa después de que la señal cruza el umbral.</value>
+  </data>
+  <data name="CompressorEffect_Release_Description" xml:space="preserve">
+    <value>La rapidez con la que la compresión se libera después de que la señal cae por debajo del umbral.</value>
+  </data>
+  <data name="CompressorEffect_Knee_Description" xml:space="preserve">
+    <value>La gradualidad con la que la compresión se activa alrededor del umbral. 0 es una rodilla dura; los valores más grandes son más suaves.</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
+    <value>Ganancia aplicada después de la compresión para compensar el nivel reducido.</value>
+  </data>
+  <data name="LimiterEffect" xml:space="preserve">
+    <value>Limitador</value>
+  </data>
+  <data name="LimiterEffect_Threshold" xml:space="preserve">
+    <value>Umbral (dB)</value>
+  </data>
+  <data name="LimiterEffect_Release" xml:space="preserve">
+    <value>Liberación (ms)</value>
+  </data>
+  <data name="LimiterEffect_Lookahead" xml:space="preserve">
+    <value>Anticipación (ms)</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain" xml:space="preserve">
+    <value>Ganancia de compensación (dB)</value>
+  </data>
+  <data name="LimiterEffect_Threshold_Description" xml:space="preserve">
+    <value>El techo de salida. Los picos dentro de la ventana de anticipación se reducen para que la salida se mantenga en o por debajo de este nivel.</value>
+  </data>
+  <data name="LimiterEffect_Release_Description" xml:space="preserve">
+    <value>La rapidez con la que la ganancia se recupera después de que pasa un pico.</value>
+  </data>
+  <data name="LimiterEffect_Lookahead_Description" xml:space="preserve">
+    <value>Cuánto mira hacia adelante el limitador para capturar los picos antes de que lleguen. 0 ms mantiene la precisión de muestra de audio; los valores más altos intercambian un retardo fijo por una limitación más suave.</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
+    <value>Ganancia aplicada después de la limitación. El pico final puede alcanzar Umbral + Ganancia de compensación.</value>
+  </data>
+  <data name="GateEffect" xml:space="preserve">
+    <value>Puerta</value>
+  </data>
+  <data name="GateEffect_Threshold" xml:space="preserve">
+    <value>Umbral (dB)</value>
+  </data>
+  <data name="GateEffect_Attack" xml:space="preserve">
+    <value>Ataque (ms)</value>
+  </data>
+  <data name="GateEffect_Hold" xml:space="preserve">
+    <value>Retención (ms)</value>
+  </data>
+  <data name="GateEffect_Release" xml:space="preserve">
+    <value>Liberación (ms)</value>
+  </data>
+  <data name="GateEffect_Range" xml:space="preserve">
+    <value>Rango (dB)</value>
+  </data>
+  <data name="GateEffect_Threshold_Description" xml:space="preserve">
+    <value>El nivel por debajo del cual la puerta se cierra y atenúa la señal.</value>
+  </data>
+  <data name="GateEffect_Attack_Description" xml:space="preserve">
+    <value>La rapidez con la que la puerta se abre una vez que la señal supera el umbral.</value>
+  </data>
+  <data name="GateEffect_Hold_Description" xml:space="preserve">
+    <value>Cuánto tiempo permanece abierta la puerta después de que la señal cae por debajo del umbral, antes de liberarse.</value>
+  </data>
+  <data name="GateEffect_Release_Description" xml:space="preserve">
+    <value>La rapidez con la que la puerta se cierra después de que transcurre el tiempo de retención.</value>
+  </data>
+  <data name="GateEffect_Range_Description" xml:space="preserve">
+    <value>Atenuación aplicada mientras la puerta está cerrada. 0 desactiva la puerta; los valores más negativos atenúan con más fuerza.</value>
+  </data>
+</root>

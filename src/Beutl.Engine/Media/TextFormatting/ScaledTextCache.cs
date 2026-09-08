@@ -1,4 +1,6 @@
-﻿using SkiaSharp;
+﻿using Beutl.Graphics;
+
+using SkiaSharp;
 
 namespace Beutl.Media.TextFormatting;
 
@@ -10,14 +12,14 @@ internal sealed class ScaledTextCache : IDisposable
     private const int MaxEntries = 8;
     private readonly Dictionary<float, Entry> _cache = [];
     private readonly LinkedList<float> _lru = new();
-    private readonly Func<float, (SKTextBlob? TextBlob, SKPath? StrokePath)> _factory;
+    private readonly Func<float, (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds)> _factory;
 
     // Test seam (Beutl.UnitTests): fires after the density-scaled blob/stroke are produced and the
     // LRU node is added, but before the entry is committed to _cache, so the leak-cleanup and
     // LRU-rollback path can be driven deterministically. Null in production.
     internal Action<SKTextBlob?, SKPath?>? CommitFaultHook;
 
-    public ScaledTextCache(Func<float, (SKTextBlob? TextBlob, SKPath? StrokePath)> factory)
+    public ScaledTextCache(Func<float, (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds)> factory)
     {
         _factory = factory;
     }
@@ -28,16 +30,16 @@ internal sealed class ScaledTextCache : IDisposable
 
     // Returns borrowed handles owned by the cache; the caller must not dispose them or hold them
     // past a subsequent Get that may evict the entry.
-    public (SKTextBlob? TextBlob, SKPath? StrokePath) Get(float density)
+    public (SKTextBlob? TextBlob, SKPath? StrokePath, Rect RasterBounds) Get(float density)
     {
         if (_cache.TryGetValue(density, out Entry? cache))
         {
             _lru.Remove(cache.LruNode);
             _lru.AddFirst(cache.LruNode);
-            return (cache.TextBlob, cache.StrokePath);
+            return (cache.TextBlob, cache.StrokePath, cache.RasterBounds);
         }
 
-        (SKTextBlob? textBlob, SKPath? strokePath) = _factory(density);
+        (SKTextBlob? textBlob, SKPath? strokePath, Rect rasterBounds) = _factory(density);
 
         // Nothing owns textBlob/strokePath until _cache.Add succeeds, so a throw from eviction
         // disposal or either cache mutation in between would leak the native handles. Dispose them
@@ -56,9 +58,9 @@ internal sealed class ScaledTextCache : IDisposable
 
             node = _lru.AddFirst(density);
             CommitFaultHook?.Invoke(textBlob, strokePath);
-            cache = new Entry(textBlob, strokePath, node);
+            cache = new Entry(textBlob, strokePath, rasterBounds, node);
             _cache.Add(density, cache);
-            return (textBlob, strokePath);
+            return (textBlob, strokePath, rasterBounds);
         }
         catch
         {
@@ -106,16 +108,23 @@ internal sealed class ScaledTextCache : IDisposable
 
     private sealed class Entry : IDisposable
     {
-        public Entry(SKTextBlob? textBlob, SKPath? strokePath, LinkedListNode<float> lruNode)
+        public Entry(
+            SKTextBlob? textBlob,
+            SKPath? strokePath,
+            Rect rasterBounds,
+            LinkedListNode<float> lruNode)
         {
             TextBlob = textBlob;
             StrokePath = strokePath;
+            RasterBounds = rasterBounds;
             LruNode = lruNode;
         }
 
         public SKTextBlob? TextBlob { get; }
 
         public SKPath? StrokePath { get; }
+
+        public Rect RasterBounds { get; }
 
         public LinkedListNode<float> LruNode { get; }
 

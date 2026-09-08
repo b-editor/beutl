@@ -12,39 +12,76 @@ public class ChangesModel
 
     public async Task Load(
         BeutlApiApplication apiApp,
-        string[] installItems, string[] uninstallItems, string[] updateItems)
+        string[] installItems,
+        string[] uninstallItems,
+        string[] updateItems,
+        CancellationToken cancellationToken)
     {
+        var installViewModels = new List<PackageChangeModel>();
         var hash = new HashSet<string>();
         foreach (string item in installItems)
         {
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(apiApp, item, PackageChangeAction.Install);
+            cancellationToken.ThrowIfCancellationRequested();
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                PackageChangeAction.Install,
+                cancellationToken);
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
-                InstallItems.Add(itemViewModel);
+                installViewModels.Add(itemViewModel);
             }
         }
 
+        var updateViewModels = new List<PackageChangeModel>();
         hash.Clear();
         foreach (string item in updateItems)
         {
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(apiApp, item, PackageChangeAction.Uninstall);
+            cancellationToken.ThrowIfCancellationRequested();
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                PackageChangeAction.Update,
+                cancellationToken);
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
-                UpdateItems.Add(itemViewModel);
+                updateViewModels.Add(itemViewModel);
             }
         }
 
+        var uninstallViewModels = new List<PackageChangeModel>();
         hash.Clear();
         foreach (string item in uninstallItems)
         {
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(apiApp, item, PackageChangeAction.Uninstall);
+            cancellationToken.ThrowIfCancellationRequested();
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                PackageChangeAction.Uninstall,
+                cancellationToken);
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
-                UninstallItems.Add(itemViewModel);
+                uninstallViewModels.Add(itemViewModel);
             }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        foreach (PackageChangeModel item in installViewModels)
+        {
+            InstallItems.Add(item);
+        }
+
+        foreach (PackageChangeModel item in updateViewModels)
+        {
+            UpdateItems.Add(item);
+        }
+
+        foreach (PackageChangeModel item in uninstallViewModels)
+        {
+            UninstallItems.Add(item);
         }
     }
 }

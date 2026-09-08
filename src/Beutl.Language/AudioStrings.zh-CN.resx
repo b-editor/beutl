@@ -1,0 +1,188 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SourceSound" xml:space="preserve">
+    <value>声音</value>
+  </data>
+  <data name="SourceSound_Source" xml:space="preserve">
+    <value>源</value>
+  </data>
+  <data name="SoundGroup" xml:space="preserve">
+    <value>声音组</value>
+  </data>
+  <data name="Sound_OffsetPosition" xml:space="preserve">
+    <value>偏移位置</value>
+  </data>
+  <data name="Sound_Gain" xml:space="preserve">
+    <value>增益</value>
+  </data>
+  <data name="Sound_Speed" xml:space="preserve">
+    <value>速度</value>
+  </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>音频效果</value>
+  </data>
+  <data name="DelayEffect" xml:space="preserve">
+    <value>延迟</value>
+  </data>
+  <data name="DelayEffect_DelayTime" xml:space="preserve">
+    <value>延迟时间 (ms)</value>
+  </data>
+  <data name="DelayEffect_Feedback" xml:space="preserve">
+    <value>反馈 (%)</value>
+  </data>
+  <data name="DelayEffect_DryMix" xml:space="preserve">
+    <value>干声混合 (%)</value>
+  </data>
+  <data name="DelayEffect_WetMix" xml:space="preserve">
+    <value>湿声混合 (%)</value>
+  </data>
+  <data name="AudioEffectGroup" xml:space="preserve">
+    <value>组</value>
+  </data>
+  <data name="SceneSound" xml:space="preserve">
+    <value>场景引用（音频）</value>
+  </data>
+  <data name="SceneSound_ReferencedScene" xml:space="preserve">
+    <value>引用的场景</value>
+  </data>
+  <data name="Equalizer" xml:space="preserve">
+    <value>均衡器</value>
+  </data>
+  <data name="Equalizer_Band" xml:space="preserve">
+    <value>均衡器频段</value>
+  </data>
+  <data name="Equalizer_FilterType" xml:space="preserve">
+    <value>滤波器类型</value>
+  </data>
+  <data name="Equalizer_Frequency" xml:space="preserve">
+    <value>频率 (Hz)</value>
+  </data>
+  <data name="Equalizer_Q" xml:space="preserve">
+    <value>Q</value>
+  </data>
+  <data name="Equalizer_BandCount" xml:space="preserve">
+    <value>频段数</value>
+  </data>
+  <data name="Equalizer_Bands" xml:space="preserve">
+    <value>频段</value>
+  </data>
+  <data name="Equalizer_Gain" xml:space="preserve">
+    <value>增益</value>
+  </data>
+  <data name="CompressorEffect" xml:space="preserve">
+    <value>压缩器</value>
+  </data>
+  <data name="CompressorEffect_Threshold" xml:space="preserve">
+    <value>阈值 (dB)</value>
+  </data>
+  <data name="CompressorEffect_Ratio" xml:space="preserve">
+    <value>压缩比</value>
+  </data>
+  <data name="CompressorEffect_Attack" xml:space="preserve">
+    <value>启动时间 (ms)</value>
+  </data>
+  <data name="CompressorEffect_Release" xml:space="preserve">
+    <value>释放时间 (ms)</value>
+  </data>
+  <data name="CompressorEffect_Knee" xml:space="preserve">
+    <value>拐点 (dB)</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain" xml:space="preserve">
+    <value>补偿增益 (dB)</value>
+  </data>
+  <data name="CompressorEffect_Threshold_Description" xml:space="preserve">
+    <value>信号被压缩的电平阈值。</value>
+  </data>
+  <data name="CompressorEffect_Ratio_Description" xml:space="preserve">
+    <value>超过阈值后施加的压缩量。数值越大压缩越强。</value>
+  </data>
+  <data name="CompressorEffect_Attack_Description" xml:space="preserve">
+    <value>信号超过阈值后压缩启动的速度。</value>
+  </data>
+  <data name="CompressorEffect_Release_Description" xml:space="preserve">
+    <value>信号低于阈值后压缩释放的速度。</value>
+  </data>
+  <data name="CompressorEffect_Knee_Description" xml:space="preserve">
+    <value>压缩在阈值附近启动的平缓程度。0 为硬拐点；数值越大越平滑。</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
+    <value>压缩后施加的增益，用于补偿电平的降低。</value>
+  </data>
+  <data name="LimiterEffect" xml:space="preserve">
+    <value>限制器</value>
+  </data>
+  <data name="LimiterEffect_Threshold" xml:space="preserve">
+    <value>阈值 (dB)</value>
+  </data>
+  <data name="LimiterEffect_Release" xml:space="preserve">
+    <value>释放时间 (ms)</value>
+  </data>
+  <data name="LimiterEffect_Lookahead" xml:space="preserve">
+    <value>前瞻 (ms)</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain" xml:space="preserve">
+    <value>补偿增益 (dB)</value>
+  </data>
+  <data name="LimiterEffect_Threshold_Description" xml:space="preserve">
+    <value>输出上限。前瞻窗口内的峰值会被降低，使输出保持在此电平或以下。</value>
+  </data>
+  <data name="LimiterEffect_Release_Description" xml:space="preserve">
+    <value>峰值过后增益恢复的速度。</value>
+  </data>
+  <data name="LimiterEffect_Lookahead_Description" xml:space="preserve">
+    <value>限制器提前查看的距离，以便在峰值到达前捕捉它们。0 ms 保持音频采样精确；较大的值以固定延迟换取更平滑的限制。</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
+    <value>限制后施加的增益。最终峰值可以达到阈值 + 补偿增益。</value>
+  </data>
+  <data name="GateEffect" xml:space="preserve">
+    <value>噪声门</value>
+  </data>
+  <data name="GateEffect_Threshold" xml:space="preserve">
+    <value>阈值 (dB)</value>
+  </data>
+  <data name="GateEffect_Attack" xml:space="preserve">
+    <value>启动时间 (ms)</value>
+  </data>
+  <data name="GateEffect_Hold" xml:space="preserve">
+    <value>保持时间 (ms)</value>
+  </data>
+  <data name="GateEffect_Release" xml:space="preserve">
+    <value>释放时间 (ms)</value>
+  </data>
+  <data name="GateEffect_Range" xml:space="preserve">
+    <value>范围 (dB)</value>
+  </data>
+  <data name="GateEffect_Threshold_Description" xml:space="preserve">
+    <value>门关闭并衰减信号的电平阈值。</value>
+  </data>
+  <data name="GateEffect_Attack_Description" xml:space="preserve">
+    <value>信号超过阈值后门打开的速度。</value>
+  </data>
+  <data name="GateEffect_Hold_Description" xml:space="preserve">
+    <value>信号低于阈值后门保持打开的时间，然后才释放。</value>
+  </data>
+  <data name="GateEffect_Release_Description" xml:space="preserve">
+    <value>保持时间结束后门关闭的速度。</value>
+  </data>
+  <data name="GateEffect_Range_Description" xml:space="preserve">
+    <value>门关闭时施加的衰减。0 禁用门控；更负的值衰减更强。</value>
+  </data>
+</root>

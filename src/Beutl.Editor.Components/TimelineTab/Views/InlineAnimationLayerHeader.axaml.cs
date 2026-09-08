@@ -29,7 +29,9 @@ public partial class InlineAnimationLayerHeader : UserControl
         {
             var editorContext = viewModel.Timeline.EditorContext;
             // タイムラインのタブを開く
-            var anmTimelineViewModel = new GraphEditorTabViewModel(editorContext);
+            GraphEditorTabViewModel anmTimelineViewModel =
+                GraphEditorTabViewModel.FindReusable(editorContext, viewModel.Element.Model, kfAnimation)
+                ?? new GraphEditorTabViewModel(editorContext);
             anmTimelineViewModel.Element.Value = viewModel.Element.Model;
             anmTimelineViewModel.Select(kfAnimation);
             editorContext.OpenToolTab(anmTimelineViewModel);

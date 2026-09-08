@@ -3,6 +3,7 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
+using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
@@ -76,6 +77,33 @@ public sealed class ExportOrchestrationTests
         {
             FFmpegLibraryState.MarkInstalled();
         }
+    }
+
+    [Test]
+    public async Task Frame_progress_reaches_total_only_after_encode_returns()
+    {
+        var progress = new List<(long Completed, long Total)>();
+        var encoder = new RecordingEncodingExtension(progress);
+        var exporter = new VideoExporter(new EncoderRegistration(encoder));
+        var scene = new Scene(64, 64, "progress") { Duration = TimeSpan.FromSeconds(0.1) };
+
+        ExportVideoResponse response = await exporter.ExportAsync(
+            scene,
+            Path.Combine(CreateWorkspace(), "movie.progress-test"),
+            new Rational(30, 1),
+            44100,
+            1,
+            CancellationToken.None,
+            onFrameProgress: (completed, total) => progress.Add((completed, total)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.Frames, Is.EqualTo(3));
+            Assert.That(encoder.Controller.CompletedWasReportedBeforeReturn, Is.False);
+            Assert.That(progress.Select(item => item.Completed), Is.EqualTo(new long[] { 0, 1, 2, 3 }));
+            Assert.That(progress, Has.All.Matches<(long Completed, long Total)>(item => item.Total == 3));
+            Assert.That(progress[^1], Is.EqualTo((3L, 3L)));
+        });
     }
 
     [Test]
@@ -158,5 +186,42 @@ public sealed class ExportOrchestrationTests
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private sealed class RecordingEncodingExtension(IReadOnlyList<(long Completed, long Total)> progress)
+        : ControllableEncodingExtension
+    {
+        public RecordingEncodingController Controller { get; } = new("unused", progress);
+
+        public override IEnumerable<string> SupportExtensions()
+        {
+            yield return ".progress-test";
+        }
+
+        public override EncodingController CreateController(string file) => Controller;
+    }
+
+    private sealed class RecordingEncodingController(
+        string outputFile,
+        IReadOnlyList<(long Completed, long Total)> progress) : EncodingController(outputFile)
+    {
+        public override VideoEncoderSettings VideoSettings { get; } = new();
+
+        public override AudioEncoderSettings AudioSettings { get; } = new();
+
+        public bool CompletedWasReportedBeforeReturn { get; private set; }
+
+        public override async ValueTask Encode(
+            IFrameProvider frameProvider,
+            ISampleProvider sampleProvider,
+            CancellationToken cancellationToken)
+        {
+            for (long frame = 0; frame < frameProvider.FrameCount; frame++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                using Bitmap bitmap = await frameProvider.RenderFrame(frame);
+                CompletedWasReportedBeforeReturn |= progress.Any(item => item.Total > 0 && item.Completed == item.Total);
+            }
+        }
     }
 }

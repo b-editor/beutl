@@ -1,4 +1,4 @@
-name: .NET
+﻿name: .NET
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     permissions:
-      pull-requests: write
+      contents: read
 
     runs-on: ubuntu-latest
 
@@ -37,6 +37,69 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Resolve .NET SDK version
+        id: dotnet-sdk
+        run: echo "version=$(dotnet --version)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore .NET build cache
+        id: build-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/obj
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
+          restore-keys: |
+            dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-
+
+      # Git checks out every source file with a fresh mtime while actions/cache preserves
+      # the original mtimes of obj/. Without correcting this, MSBuild sees every source as
+      # newer than the restored intermediate outputs and recompiles the whole solution.
+      # Make unchanged tracked inputs old, then touch only files changed since the cache's
+      # source commit. Deletions and submodule changes conservatively force a full rebuild.
+      - name: Prepare incremental build timestamps
+        if: steps.build-cache.outputs.cache-matched-key != ''
+        shell: bash
+        env:
+          CACHE_KEY: ${{ steps.build-cache.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+
+          CACHED_SHA="${CACHE_KEY##*-}"
+          clear_cache() {
+            echo "Discarding restored obj cache; its source commit cannot be compared safely."
+            find . -type d -name obj -prune -exec rm -rf {} +
+          }
+
+          if [[ ! "$CACHED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            clear_cache
+            exit 0
+          fi
+
+          if ! git cat-file -e "${CACHED_SHA}^{commit}" 2>/dev/null; then
+            if ! git fetch --no-tags --depth=1 origin "$CACHED_SHA"; then
+              clear_cache
+              exit 0
+            fi
+          fi
+
+          OLD_TIMESTAMP='2000-01-01 00:00:00 UTC'
+          git ls-files -z | xargs -0 -r touch -h -d "$OLD_TIMESTAMP"
+          git submodule foreach --recursive \
+            'git ls-files -z | xargs -0 -r touch -h -d "2000-01-01 00:00:00 UTC"'
+
+          if ! git diff --quiet --no-renames --diff-filter=D "$CACHED_SHA" HEAD -- \
+            || git diff --raw "$CACHED_SHA" HEAD -- | awk '$1 == ":160000" || $2 == "160000" { found = 1 } END { exit !found }'; then
+            echo "A tracked file was deleted or a submodule changed; forcing a full rebuild."
+            git ls-files -z | xargs -0 -r touch -h
+            git submodule foreach --recursive 'git ls-files -z | xargs -0 -r touch -h'
+          else
+            while IFS= read -r -d '' file; do
+              if [[ -e "$file" || -L "$file" ]]; then
+                touch -h "$file"
+              fi
+            done < <(git diff --name-only -z --diff-filter=ACMRTUXB "$CACHED_SHA" HEAD --)
+          fi
+
       - run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Restore dependencies
@@ -45,12 +108,52 @@ jobs:
       - name: Build
         run: dotnet build Beutl.slnx --no-restore
 
+      - name: Save .NET build cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/obj
+          key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
+
       - name: Test
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
         env:
           # GPU golden tests must fail loudly (not Assert.Ignore) when the bundled
           # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
           BEUTL_REQUIRE_GPU: "1"
+
+      # A validation error names API misuse the driver is not required to diagnose - a render pass instance
+      # begun inside another, a handle submitted to a device that never created it - so a suite that runs
+      # green while reporting one has already entered undefined behaviour. The layer stays off for the run
+      # above because it costs time on all 7,000 tests and is only meaningful for the GPU-backed ones; this
+      # step turns it on for exactly those. VulkanTestEnvironment/GpuTestEnvironment compare the validation
+      # log around every render-thread invocation, so an error fails the test that reported it, and
+      # VulkanValidationGateTests fails if the layer was requested but did not load - a gate that cannot
+      # observe anything must not pass quietly.
+      - name: Install Vulkan validation layers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends vulkan-validationlayers
+
+      # KnownVulkanSkiaLayoutInterop is excluded: Skia and the backend track the same image's layout
+      # independently and drift apart, which validation reports as InvalidImageLayout. Closing it needs a
+      # way to read back or command the layout Skia holds, which SkiaSharp 3.119 does not expose. Those
+      # tests still run in the step above; see TestCategories.KnownVulkanSkiaLayoutInterop and issue #2263,
+      # on whose close both TestCategory!= clauses below come out.
+      # No category filter on the unit project: a category has to be remembered, and a GPU test that
+      # forgets one is exactly the test this gate would then not cover. Every test runs instead - the ones
+      # that never reach the render thread only cost their own runtime, and the ones that do are checked.
+      # KnownVulkanSkiaLayoutInterop is the one held-back category (#2263).
+      - name: GPU tests under Vulkan validation
+        run: |
+          dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
+            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
+          dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj --no-build -f net10.0 \
+            --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
+        env:
+          BEUTL_REQUIRE_GPU: "1"
+          BEUTL_VULKAN_VALIDATION: "1"
 
       - name: Merge coverage reports
         # Every test project now collects coverage (coverlet.collector is shared via
@@ -59,30 +162,36 @@ jobs:
         # instead of listing each package once per test assembly.
         run: reportgenerator -reports:"tests/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Cobertura;Html"
 
-      - name: Code Coverage Report
-        uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: coveragereport/Cobertura.xml
-          badge: true
-          fail_below_min: true
-          format: markdown
-          hide_branch_rate: false
-          hide_complexity: false
-          indicators: true
-          output: both
-          thresholds: '0 80'
-#          thresholds: '60 80'
-
-      - name: Add Coverage PR Comment
-        uses: marocchino/sticky-pull-request-comment@v3
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        with:
-          recreate: true
-          path: code-coverage-results.md
-
       - name: Save
         uses: actions/upload-artifact@v7
         with:
           name: Coverage
           path: coveragereport
+
+  upload-coverage:
+    needs: build
+    permissions:
+      contents: read
+      id-token: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v8
+        with:
+          name: Coverage
+          path: coveragereport
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: ./coveragereport/Cobertura.xml
+          disable_search: true
+          fail_ci_if_error: true
+          use_oidc: true

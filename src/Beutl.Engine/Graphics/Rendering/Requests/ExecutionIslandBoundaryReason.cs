@@ -1,0 +1,30 @@
+﻿namespace Beutl.Graphics.Rendering.Requests;
+
+internal enum ExecutionIslandBoundaryReason : byte
+{
+    MaterializedInput,
+    CoverageResolution,
+    WholeSourceShader,
+    Geometry,
+    Opaque,
+    CustomEffectItem,
+    TargetCommand,
+    TargetCapture,
+    TargetScope,
+    Layer,
+    Readback,
+    UnsafeComposite,
+    SemanticComposite,
+    RawCanvas,
+    CacheInput,
+    CacheCapture,
+    BackendTransition,
+    ThreeD,
+    DynamicTopology,
+    ScopeMismatch,
+    ScaleTransition,
+    Branching,
+    FusionDisabled,
+    BackendLimit,
+    FilterEffectSegment,
+}

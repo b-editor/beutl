@@ -17,7 +17,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private readonly int _sourceHeight;
     private readonly PrefetchSlot<long, IpcMessage> _prefetch = new();
     private int _bufferIndex;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
         long frameCount, Rational frameRate, int sourceWidth, int sourceHeight)

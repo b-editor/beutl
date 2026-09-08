@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -23,6 +24,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly HttpClient _authHttpClient;
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly VersionControlCoordinator _versionControlCoordinator;
     private readonly ExtensionProvider _extensionProvider;
     private readonly AgentHostEndpoint _agentHostEndpoint;
     private readonly ILogger _logger = Log.CreateLogger<MainViewModel>();
@@ -35,11 +37,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
+        _versionControlCoordinator = new VersionControlCoordinator(_projectService, _editorService);
         _agentHostEndpoint = new AgentHostEndpoint(_projectService, _editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
-        MenuBar = new MenuBarViewModel(_projectService, _editorService);
+        MenuBar = new MenuBarViewModel(_projectService, _editorService, _versionControlCoordinator);
 
         IsProjectOpened = _projectService.IsOpened;
         NameOfOpenProject = _projectService.CurrentProject.Select(v =>
@@ -48,6 +51,10 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, _editorService);
+        TitleBarBranch = new TitleBarBranchViewModel(
+            _editorService.ProjectVersionControlService,
+            _versionControlCoordinator.IsGitAvailable,
+            _versionControlCoordinator);
 
         EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
@@ -98,6 +105,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
+    internal TitleBarBranchViewModel TitleBarBranch { get; }
+
     public EditorHostViewModel EditorHost { get; }
 
     // Exposed so views bound to this composition root (MainView, MacWindow) can read the
@@ -105,6 +114,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     internal ProjectService ProjectService => _projectService;
 
     internal EditorService EditorService => _editorService;
+
+    internal VersionControlCoordinator VersionControlCoordinator => _versionControlCoordinator;
 
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
@@ -148,10 +159,36 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
+        try
+        {
+            DisposeOrThrow();
+        }
+        catch (ProjectCloseAbortedException)
+        {
+        }
+    }
+
+    private void DisposeOrThrow()
+    {
+        _projectService.CloseProjectOrThrow();
         CommandPalette.Dispose();
+        TitleBarBranch.Dispose();
         _agentHostEndpoint.RequestStop();
-        _projectService.CloseProject();
+        _versionControlCoordinator.Dispose();
         BeutlApplication.Current.Items.Clear();
+    }
+
+    internal bool TryDisposeForWindowClose()
+    {
+        try
+        {
+            DisposeOrThrow();
+            return true;
+        }
+        catch (ProjectCloseAbortedException)
+        {
+            return false;
+        }
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
@@ -164,6 +201,53 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Proxy media services failed to dispose during shutdown.");
+        }
+
+        // Drain installs first so fallback queueing is reflected in the snapshot below.
+        try
+        {
+            if (_beutlClients.TryGetCreatedResource<PackageInstaller>() is { } installer)
+            {
+                Task drain = installer.DisposeAsync().AsTask();
+                // Pump UI jobs while draining so the queued activation can complete.
+                long deadline = Environment.TickCount64 + 30_000;
+                while (!drain.IsCompleted && Environment.TickCount64 < deadline)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                    Thread.Sleep(10);
+                }
+
+                if (drain.IsCompleted)
+                {
+                    drain.GetAwaiter().GetResult();
+                }
+                else
+                {
+                    _logger.LogWarning("Package installer did not drain within the shutdown deadline.");
+                    // Disposal keeps installer resources alive until the tracked work
+                    // stops, so fallback queueing for a still-running install/update can
+                    // still happen after the deadline. Wait for actual idleness so the
+                    // snapshot below reflects every queued recovery, while continuing to
+                    // pump UI jobs so queued activations keep progressing. The extra wait
+                    // is bounded so shutdown never hangs behind a non-cooperative install.
+                    Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(30));
+                    long idleDeadline = Environment.TickCount64 + 30_000;
+                    while (!idle.IsCompleted && Environment.TickCount64 < idleDeadline)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                        Thread.Sleep(10);
+                    }
+
+                    if (!idle.IsCompleted)
+                    {
+                        _logger.LogWarning("Package installer did not become idle within the shutdown deadline.");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Package installer failed to drain during shutdown.");
         }
 
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
@@ -199,6 +283,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 startInfo.ArgumentList.Add("--launch-debugger");
 
             Process.Start(startInfo);
+        }
+
+        try
+        {
+            _beutlClients.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Beutl API application failed to dispose during shutdown.");
         }
     }
 

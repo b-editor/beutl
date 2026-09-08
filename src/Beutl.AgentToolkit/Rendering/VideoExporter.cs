@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Reactive.Disposables;
 using System.Reactive.Subjects;
 using Beutl.Collections;
 using Beutl.Extensibility;
@@ -7,26 +8,12 @@ using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Rendering;
-
-public sealed record ExportVideoResponse(
-    string OutputPath,
-    long Frames,
-    long Samples,
-    string Duration,
-    string Encoder,
-    IReadOnlyList<string> Warnings);
-
-public sealed record ExportVideoResult(
-    string Status,
-    string? JobId,
-    ExportVideoResponse? Result);
 
 public sealed class VideoExporter(EncoderRegistration encoders)
 {
@@ -46,7 +33,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         float renderScale,
         CancellationToken cancellationToken,
         int? crf = null,
-        int? bitrate = null)
+        int? bitrate = null,
+        Action<long, long>? onFrameProgress = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -103,18 +91,25 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                     $"Missing source files required to export: {string.Join(", ", missingSources)}");
             }
 
-            // Video export is a final output, so force original media (proxies are preview-only);
-            // otherwise the default PreferProxy setting would encode from cached proxies here.
-            using var renderer = new SceneRenderer(
-                scene, normalizedScale, disableResourceShare: true, maxWorkingScale: float.PositiveInfinity, forceOriginalSource: true);
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
+            using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
             using var frameProgress = new Subject<TimeSpan>();
             using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);
+            double ratePerSecond = frameRate.ToDouble();
+            using IDisposable frameProgressSubscription = onFrameProgress is null
+                ? Disposable.Empty
+                : frameProgress.Subscribe(time => onFrameProgress(
+                    // The provider derives frame times from integer ticks, so the product lands
+                    // just under the frame number; round rather than truncate. RenderFrame emits
+                    // this signal before returning the requested bitmap, so only preceding frames
+                    // are complete at this point.
+                    Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond), frameProvider.FrameCount),
+                    frameProvider.FrameCount));
             using var composer = CreateExportComposer(scene, normalizedSampleRate);
             using var sampleProgress = new Subject<TimeSpan>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
 
             await controller.Encode(frameProvider, sampleProvider, cancellationToken).ConfigureAwait(false);
+            onFrameProgress?.Invoke(frameProvider.FrameCount, frameProvider.FrameCount);
             if (encoder is AVFEncodingExtension
                 && bitrate is int requestedBitrate
                 && CreateAvFoundationBitrateWarning(

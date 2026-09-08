@@ -1,0 +1,188 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:element name="root" ns1:IsDataSet="true">
+
+    </xs:element>
+  </xs:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SourceSound" xml:space="preserve">
+    <value>사운드</value>
+  </data>
+  <data name="SourceSound_Source" xml:space="preserve">
+    <value>소스</value>
+  </data>
+  <data name="SoundGroup" xml:space="preserve">
+    <value>사운드 그룹</value>
+  </data>
+  <data name="Sound_OffsetPosition" xml:space="preserve">
+    <value>오프셋 위치</value>
+  </data>
+  <data name="Sound_Gain" xml:space="preserve">
+    <value>게인</value>
+  </data>
+  <data name="Sound_Speed" xml:space="preserve">
+    <value>속도</value>
+  </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>오디오 효과</value>
+  </data>
+  <data name="DelayEffect" xml:space="preserve">
+    <value>딜레이</value>
+  </data>
+  <data name="DelayEffect_DelayTime" xml:space="preserve">
+    <value>딜레이 시간 (ms)</value>
+  </data>
+  <data name="DelayEffect_Feedback" xml:space="preserve">
+    <value>피드백 (%)</value>
+  </data>
+  <data name="DelayEffect_DryMix" xml:space="preserve">
+    <value>드라이 믹스 (%)</value>
+  </data>
+  <data name="DelayEffect_WetMix" xml:space="preserve">
+    <value>웻 믹스 (%)</value>
+  </data>
+  <data name="AudioEffectGroup" xml:space="preserve">
+    <value>그룹</value>
+  </data>
+  <data name="SceneSound" xml:space="preserve">
+    <value>장면 참조 (오디오)</value>
+  </data>
+  <data name="SceneSound_ReferencedScene" xml:space="preserve">
+    <value>참조된 장면</value>
+  </data>
+  <data name="Equalizer" xml:space="preserve">
+    <value>이퀄라이저</value>
+  </data>
+  <data name="Equalizer_Band" xml:space="preserve">
+    <value>이퀄라이저 밴드</value>
+  </data>
+  <data name="Equalizer_FilterType" xml:space="preserve">
+    <value>필터 유형</value>
+  </data>
+  <data name="Equalizer_Frequency" xml:space="preserve">
+    <value>주파수 (Hz)</value>
+  </data>
+  <data name="Equalizer_Q" xml:space="preserve">
+    <value>Q</value>
+  </data>
+  <data name="Equalizer_BandCount" xml:space="preserve">
+    <value>밴드 수</value>
+  </data>
+  <data name="Equalizer_Bands" xml:space="preserve">
+    <value>밴드</value>
+  </data>
+  <data name="Equalizer_Gain" xml:space="preserve">
+    <value>게인</value>
+  </data>
+  <data name="CompressorEffect" xml:space="preserve">
+    <value>컴프레서</value>
+  </data>
+  <data name="CompressorEffect_Threshold" xml:space="preserve">
+    <value>임계값 (dB)</value>
+  </data>
+  <data name="CompressorEffect_Ratio" xml:space="preserve">
+    <value>비율</value>
+  </data>
+  <data name="CompressorEffect_Attack" xml:space="preserve">
+    <value>어택 (ms)</value>
+  </data>
+  <data name="CompressorEffect_Release" xml:space="preserve">
+    <value>릴리즈 (ms)</value>
+  </data>
+  <data name="CompressorEffect_Knee" xml:space="preserve">
+    <value>니 (dB)</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain" xml:space="preserve">
+    <value>메이크업 게인 (dB)</value>
+  </data>
+  <data name="CompressorEffect_Threshold_Description" xml:space="preserve">
+    <value>신호가 압축되는 레벨 임계값입니다.</value>
+  </data>
+  <data name="CompressorEffect_Ratio_Description" xml:space="preserve">
+    <value>임계값 이상에서 적용되는 압축량입니다. 값이 높을수록 더 강하게 압축됩니다.</value>
+  </data>
+  <data name="CompressorEffect_Attack_Description" xml:space="preserve">
+    <value>신호가 임계값을 넘은 후 압축이 시작되는 속도입니다.</value>
+  </data>
+  <data name="CompressorEffect_Release_Description" xml:space="preserve">
+    <value>신호가 임계값 아래로 떨어진 후 압축이 해제되는 속도입니다.</value>
+  </data>
+  <data name="CompressorEffect_Knee_Description" xml:space="preserve">
+    <value>임계값 주변에서 압축이 시작되는 완만함입니다. 0은 하드 니이고, 값이 클수록 더 부드럽습니다.</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
+    <value>압축 후 감소된 레벨을 보상하기 위해 적용되는 게인입니다.</value>
+  </data>
+  <data name="LimiterEffect" xml:space="preserve">
+    <value>리미터</value>
+  </data>
+  <data name="LimiterEffect_Threshold" xml:space="preserve">
+    <value>임계값 (dB)</value>
+  </data>
+  <data name="LimiterEffect_Release" xml:space="preserve">
+    <value>릴리즈 (ms)</value>
+  </data>
+  <data name="LimiterEffect_Lookahead" xml:space="preserve">
+    <value>룩어헤드 (ms)</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain" xml:space="preserve">
+    <value>메이크업 게인 (dB)</value>
+  </data>
+  <data name="LimiterEffect_Threshold_Description" xml:space="preserve">
+    <value>출력 상한입니다. 룩어헤드 창 내의 피크가 줄어들어 출력이 이 레벨 이하로 유지됩니다.</value>
+  </data>
+  <data name="LimiterEffect_Release_Description" xml:space="preserve">
+    <value>피크가 지나간 후 게인이 회복되는 속도입니다.</value>
+  </data>
+  <data name="LimiterEffect_Lookahead_Description" xml:space="preserve">
+    <value>리미터가 피크를 미리 감지하기 위해 앞을 보는 거리입니다. 0ms는 오디오 샘플 정확도를 유지하고, 값이 클수록 고정 지연을 희생하여 더 부드러운 리미팅을 제공합니다.</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
+    <value>리미팅 후 적용되는 게인입니다. 최종 피크는 임계값 + 메이크업 게인에 도달할 수 있습니다.</value>
+  </data>
+  <data name="GateEffect" xml:space="preserve">
+    <value>게이트</value>
+  </data>
+  <data name="GateEffect_Threshold" xml:space="preserve">
+    <value>임계값 (dB)</value>
+  </data>
+  <data name="GateEffect_Attack" xml:space="preserve">
+    <value>어택 (ms)</value>
+  </data>
+  <data name="GateEffect_Hold" xml:space="preserve">
+    <value>홀드 (ms)</value>
+  </data>
+  <data name="GateEffect_Release" xml:space="preserve">
+    <value>릴리즈 (ms)</value>
+  </data>
+  <data name="GateEffect_Range" xml:space="preserve">
+    <value>범위 (dB)</value>
+  </data>
+  <data name="GateEffect_Threshold_Description" xml:space="preserve">
+    <value>게이트가 닫히고 신호를 감쇠시키는 레벨입니다.</value>
+  </data>
+  <data name="GateEffect_Attack_Description" xml:space="preserve">
+    <value>신호가 임계값 위로 올라가면 게이트가 열리는 속도입니다.</value>
+  </data>
+  <data name="GateEffect_Hold_Description" xml:space="preserve">
+    <value>신호가 임계값 아래로 떨어진 후 게이트가 열린 상태를 유지하는 시간입니다.</value>
+  </data>
+  <data name="GateEffect_Release_Description" xml:space="preserve">
+    <value>홀드 시간이 지난 후 게이트가 닫히는 속도입니다.</value>
+  </data>
+  <data name="GateEffect_Range_Description" xml:space="preserve">
+    <value>게이트가 닫혀 있는 동안 적용되는 감쇠입니다. 0은 게이팅을 비활성화하고, 더 음수 값은 더 강하게 감쇠합니다.</value>
+  </data>
+</root>

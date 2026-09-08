@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -76,7 +77,7 @@ public class PreviewFrameOrderIndependenceTests
             using var media = new SceneMedia(preferProxy, withEffect);
 
             string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene()) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
             {
                 for (int frame = 0; frame < FrameCount; frame++)
                 {
@@ -90,7 +91,7 @@ public class PreviewFrameOrderIndependenceTests
             Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
                 "the scene has to look different on every frame or the comparisons below prove nothing");
 
-            using (var renderer = new SceneRenderer(media.NewScene()) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
             {
                 var rendered = new HashSet<int>();
                 foreach (int frame in s_scrub)
@@ -128,7 +129,7 @@ public class PreviewFrameOrderIndependenceTests
             using var media = new SceneMedia(preferProxy: true, withEffect: false, withBackdrops: true);
 
             string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene()) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
             {
                 for (int frame = 0; frame < FrameCount; frame++)
                 {
@@ -141,7 +142,7 @@ public class PreviewFrameOrderIndependenceTests
             Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
                 "the scene has to look different on every frame or the comparisons below prove nothing");
 
-            using (var renderer = new SceneRenderer(media.NewScene()) { CacheOptions = RenderCacheOptions.Default })
+            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
             {
                 var rendered = new HashSet<int>();
                 foreach (int frame in s_scrub)
@@ -190,7 +191,7 @@ public class PreviewFrameOrderIndependenceTests
             group.Children.Add(glass);
 
             Scene scene = media.NewSceneWith(group);
-            using var renderer = new SceneRenderer(scene) { CacheOptions = RenderCacheOptions.Default };
+            using var renderer = new SceneRenderer(scene, RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default };
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
 
             using Bitmap snapshot = renderer.Snapshot();

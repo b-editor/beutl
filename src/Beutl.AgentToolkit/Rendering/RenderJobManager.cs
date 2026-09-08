@@ -20,7 +20,31 @@ public sealed record RenderJobSnapshot(
     JsonNode? Result,
     ToolError? Error,
     string StartedAt,
-    string? CompletedAt);
+    string? CompletedAt)
+{
+    public RenderJobProgress? Progress { get; init; }
+}
+
+public sealed record RenderJobProgress(int Completed, int Total, string? Stage)
+{
+    public double? Ratio => Total > 0 ? Math.Clamp(Completed / (double)Total, 0, 1) : null;
+}
+
+// A running job that reports nothing is indistinguishable from a hung one, so the work delegate
+// gets a reporter rather than the poller having to infer progress from output file size.
+public sealed class RenderJobProgressReporter
+{
+    private readonly Action<RenderJobProgress> _report;
+
+    internal RenderJobProgressReporter(Action<RenderJobProgress> report) => _report = report;
+
+    public static RenderJobProgressReporter Ignored { get; } = new(_ => { });
+
+    public void Report(int completed, int total, string? stage = null)
+    {
+        _report(new RenderJobProgress(Math.Max(0, completed), Math.Max(0, total), stage));
+    }
+}
 
 // Background render/export jobs so a long render is not killed by the MCP client request timeout.
 // Jobs are serialized (single-flight) because all stills share the one RenderThread and each export
@@ -35,6 +59,7 @@ public sealed class RenderJobManager : IDisposable
         public required CancellationTokenSource Cts { get; init; }
         public object Sync { get; } = new();
         public RenderJobState State { get; set; } = RenderJobState.Running;
+        public RenderJobProgress? Progress { get; set; }
         public JsonNode? Result { get; set; }
         public Exception? Failure { get; set; }
         public DateTimeOffset? CompletedAt { get; set; }
@@ -44,7 +69,7 @@ public sealed class RenderJobManager : IDisposable
     private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _disposed;
 
-    public string Enqueue(string kind, Func<CancellationToken, Task<JsonNode>> work)
+    public string Enqueue(string kind, Func<RenderJobProgressReporter, CancellationToken, Task<JsonNode>> work)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentNullException.ThrowIfNull(work);
@@ -80,7 +105,10 @@ public sealed class RenderJobManager : IDisposable
                 record.Result?.DeepClone(),
                 error,
                 record.StartedAt.ToString("O"),
-                record.CompletedAt?.ToString("O"));
+                record.CompletedAt?.ToString("O"))
+            {
+                Progress = record.Progress
+            };
         }
     }
 
@@ -132,14 +160,25 @@ public sealed class RenderJobManager : IDisposable
         }
     }
 
-    private async Task RunAsync(JobRecord record, Func<CancellationToken, Task<JsonNode>> work)
+    private async Task RunAsync(JobRecord record, Func<RenderJobProgressReporter, CancellationToken, Task<JsonNode>> work)
     {
         bool acquired = false;
+        var reporter = new RenderJobProgressReporter(progress =>
+        {
+            lock (record.Sync)
+            {
+                record.Progress = progress;
+            }
+        });
+
         try
         {
+            // Queued behind another job is still "not hung", so say so before the gate.
+            reporter.Report(0, 0, "queued");
             await _gate.WaitAsync(record.Cts.Token).ConfigureAwait(false);
             acquired = true;
-            JsonNode result = await work(record.Cts.Token).ConfigureAwait(false);
+            reporter.Report(0, 0, "starting");
+            JsonNode result = await work(reporter, record.Cts.Token).ConfigureAwait(false);
             lock (record.Sync)
             {
                 record.Result = result;

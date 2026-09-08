@@ -13,6 +13,11 @@ public sealed class OutputProfileItem : IDisposable
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
     private readonly EditorService _editorService;
+    private readonly object _outputSync = new();
+    private IDisposable? _outputOperation;
+    private long _outputGeneration;
+    private bool _disposed;
+    private bool _isRunning;
 
     public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
     {
@@ -32,40 +37,97 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
-        _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
+        long generation;
+        lock (_outputSync)
+        {
+            if (_disposed || _isRunning)
+            {
+                return;
+            }
 
-        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = false;
-            _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
+            _isRunning = true;
+            generation = ++_outputGeneration;
         }
-        else
+
+        IDisposable? operation;
+        try
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
+            operation = _editorService.BeginObservedOutputOperation(EditorContext);
         }
+        catch
+        {
+            lock (_outputSync)
+            {
+                if (_isRunning && _outputGeneration == generation)
+                {
+                    _isRunning = false;
+                    _outputGeneration++;
+                }
+            }
+
+            throw;
+        }
+
+        bool releaseOperation;
+        lock (_outputSync)
+        {
+            releaseOperation = !_isRunning || _outputGeneration != generation;
+            if (!releaseOperation)
+            {
+                _outputOperation = operation;
+            }
+        }
+
+        if (releaseOperation)
+        {
+            operation?.Dispose();
+        }
+
+        _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
     }
 
     private void OnFinished(object? sender, EventArgs e)
     {
+        FinishOutputTracking();
         _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
-
-        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
-        {
-            tabItem.Context.Value.IsEnabled.Value = true;
-            _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
-        }
-        else
-        {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
-        }
     }
 
     public void Dispose()
     {
+        lock (_outputSync)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+        }
+
+        FinishOutputTracking();
         _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Context.Started -= OnStarted;
         Context.Finished -= OnFinished;
         Context.Dispose();
+    }
+
+    private void FinishOutputTracking()
+    {
+        IDisposable? operation;
+        lock (_outputSync)
+        {
+            if (!_isRunning)
+            {
+                return;
+            }
+
+            _isRunning = false;
+            _outputGeneration++;
+            operation = _outputOperation;
+            _outputOperation = null;
+        }
+
+        operation?.Dispose();
     }
 
     public static JsonNode ToJson(OutputProfileItem item)

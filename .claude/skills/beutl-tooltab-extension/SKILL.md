@@ -54,8 +54,7 @@ public sealed class MyToolTabExtension : ToolTabExtension
     // Localized display name (shown in the "add tool tab" menu)
     public override string DisplayName => Strings.MyToolTab;
 
-    // Tab header (returning null hides it from the menu).
-    // Use null when the tab should only be opened from code.
+    // Add-tab menu label; null hides this tool. IToolContext.Header is the per-instance tab title.
     public override string? Header => Strings.MyToolTab;
 
     // Default docking position: None / Left / Right / Bottom / Player
@@ -112,7 +111,7 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public string Header => Strings.MyToolTab;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
 
     public void Dispose() => _disposables.Dispose();
 
@@ -128,6 +127,17 @@ public sealed class MyToolTabViewModel : IToolContext
 > (plus `IDisposable` / `IJsonSerializable` / `IServiceProvider`). Docking
 > placement is declared on the **Extension** via `DefaultAnchor` /
 > `DefaultOrder` / `OpenByDefault`, not on the ViewModel.
+>
+> The two `Header`s are different things. `ToolTabExtension.Header` (`string?`)
+> is static per-extension metadata: the label in the "add tool tab" menu, and
+> `null` keeps the tool out of that menu. `IToolContext.Header`
+> (`IReadOnlyReactiveProperty<string>`) is the
+> per-instance tab title, and the host binds it live onto the dockable. A
+> `CanMultiple => true` tool should derive it from whatever distinguishes one
+> instance from another — the folder a file browser shows, the element a graph
+> editor edits — otherwise every tab reads the same. Push values on the UI
+> thread; a static title is just
+> `new ReactivePropertySlim<string>(Strings.MyToolTab)`.
 
 ### Step 3: Register with `PrimitiveExtensions`
 
@@ -226,7 +236,7 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public string Header => Strings.MyToolTab;
+    public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.MyToolTab);
 
     public void Dispose() => _disposables.Dispose();
 

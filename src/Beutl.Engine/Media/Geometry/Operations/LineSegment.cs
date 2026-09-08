@@ -26,12 +26,6 @@ public sealed partial class LineSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.LineSegment_Point), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
-    public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.LineTo(r.Point);
-    }
-
     public override IProperty<Point> GetEndPoint()
     {
         return Point;
@@ -39,6 +33,11 @@ public sealed partial class LineSegment : PathSegment
 
     public partial class Resource
     {
+        public override void ApplyTo(IGeometryContext context)
+        {
+            context.LineTo(Point);
+        }
+
         public override Point? GetEndPoint()
         {
             return Point;

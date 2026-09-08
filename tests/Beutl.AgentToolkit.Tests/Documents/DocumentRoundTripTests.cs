@@ -3,8 +3,10 @@ using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
 using Beutl.Audio.Effects;
+using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
+using Beutl.Validation;
 
 namespace Beutl.AgentToolkit.Tests.Documents;
 
@@ -66,6 +68,46 @@ public class DocumentRoundTripTests
     }
 
     [Test]
+    public void Write_applies_animation_coercion_with_the_owner_property_context()
+    {
+        var target = new ContextValidatedEngineObject();
+        var adapter = new DocumentAdapter();
+        JsonObject document = adapter.Read(target);
+        document["Animations"] = new JsonObject
+        {
+            [nameof(ContextValidatedEngineObject.Amount)] = new JsonObject
+            {
+                [KeyFrameShorthand.PropertyName] = new JsonArray(new JsonArray(0, 125))
+            }
+        };
+
+        adapter.Write(target, document);
+
+        var animation = (KeyFrameAnimation<float>)target.Amount.Animation!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(animation.KeyFrames.Single().Value, Is.EqualTo(100));
+            Assert.That(target.Validator.PropertyContextCalls, Is.GreaterThan(0));
+            Assert.That(target.Validator.DefaultContextCalls, Is.Zero);
+        });
+
+        target.Validator.ResetCounts();
+        JsonObject update = adapter.Read(target);
+        var updatedAnimation = (JsonObject)update["Animations"]![nameof(ContextValidatedEngineObject.Amount)]!;
+        var updatedKeyFrames = (JsonArray)updatedAnimation[nameof(KeyFrameAnimation.KeyFrames)]!;
+        updatedKeyFrames[0]![nameof(KeyFrame<float>.Value)] = 125;
+
+        adapter.Write(target, update);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(animation.KeyFrames.Single().Value, Is.EqualTo(100));
+            Assert.That(target.Validator.PropertyContextCalls, Is.GreaterThan(0));
+            Assert.That(target.Validator.DefaultContextCalls, Is.Zero);
+        });
+    }
+
+    [Test]
     public void WriteThenRead_EmitsOnlyCurrentSerializedContent()
     {
         var root = new TestModel { Value = 3 };
@@ -96,5 +138,48 @@ public class DocumentRoundTripTests
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
         }
+    }
+
+    private sealed class ContextValidatedEngineObject : EngineObject
+    {
+        public ContextValidatedEngineObject()
+        {
+            Validator = new ContextSensitiveValidator();
+            Amount = Property.CreateAnimatable(0f, Validator);
+            ScanProperties<ContextValidatedEngineObject>();
+            Amount.SetValidator(Validator);
+        }
+
+        public ContextSensitiveValidator Validator { get; }
+
+        public IProperty<float> Amount { get; }
+    }
+
+    private sealed class ContextSensitiveValidator : IValidator<float>
+    {
+        public int PropertyContextCalls { get; private set; }
+
+        public int DefaultContextCalls { get; private set; }
+
+        public void ResetCounts()
+        {
+            PropertyContextCalls = 0;
+            DefaultContextCalls = 0;
+        }
+
+        public bool TryCoerce(ValidationContext context, ref float value)
+        {
+            if (context.Target is not IProperty<float>)
+            {
+                DefaultContextCalls++;
+                return false;
+            }
+
+            PropertyContextCalls++;
+            value = Math.Clamp(value, 0, 100);
+            return true;
+        }
+
+        public string? Validate(ValidationContext context, float value) => null;
     }
 }
