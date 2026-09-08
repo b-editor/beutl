@@ -34,8 +34,10 @@ public interface IElementResizeService
     /// <c>back.Length -= d</c>; total length is preserved. One shared delta — clamped to
     /// the intersection of every pair's window (see <see cref="GetTrimDeltaBounds"/>) — is
     /// applied to all pairs so grouped cuts (e.g. a video + audio pair on separate layers)
-    /// move together. Each back clip's media offset is advanced by the same delta so its
-    /// content stays anchored across the moving cut. Returns <see langword="false"/> (no
+    /// move together. Each back clip's media offset is advanced in source time using its
+    /// proven constant-speed mapping so its content stays anchored across the moving cut.
+    /// Animated or unknown mappings and conflicting shared-offset corrections are rejected.
+    /// Returns <see langword="false"/> (no
     /// commit) when <paramref name="pairs"/> is empty, any pair is invalid — front and back
     /// not distinct, on different layers, not both in <paramref name="scene"/>,
     /// <c>front.End != back.Start</c>, either side locked, or an element appearing in more
@@ -50,8 +52,9 @@ public interface IElementResizeService
     /// and the back clip shrinks by it, preserving the total length. One shared delta —
     /// clamped to the intersection of every lane's front/back window (the middles' lengths
     /// are unaffected) — is applied to all lanes so a grouped block spanning layers moves
-    /// together. Each back clip's media offset is advanced by the same delta so its content
-    /// stays anchored; the middle clips only move in time. Returns <see langword="false"/>
+    /// together. Back offsets use their proven constant-speed source-time corrections;
+    /// middle clips only move in time. Animated or unknown mappings that prevent proving
+    /// content preservation are rejected before any writes. Returns <see langword="false"/>
     /// (no commit) when <paramref name="lanes"/> is empty, any lane is invalid — members on
     /// different layers, not all in <paramref name="scene"/>, the
     /// front → middles → back chain not contiguously adjacent, any participant locked, or

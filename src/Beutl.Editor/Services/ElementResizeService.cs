@@ -302,13 +302,16 @@ public sealed class ElementResizeService : IElementResizeService
         ArgumentNullException.ThrowIfNull(pairs);
         ThrowIfAnyNullParticipant(pairs);
 
+        if (!TrimMediaOffsetPlan.TryCreate(pairs.Select(pair => pair.Back), [], out var offsetPlan))
+            return (TimeSpan.Zero, TimeSpan.Zero);
+
         (TimeSpan min, TimeSpan max) = (TimeSpan.Zero, TimeSpan.Zero);
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
             TimeSpan forwardExtension = GetForwardExtension(scene, front, back);
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
-                SlippableMedia.Collect(front, forwardExtension), SlippableMedia.Collect(back));
+                SlippableMedia.Collect(front, forwardExtension), SlippableMedia.Collect(back), offsetPlan);
             if (i == 0)
             {
                 (min, max) = (pairMin, pairMax);
@@ -348,6 +351,9 @@ public sealed class ElementResizeService : IElementResizeService
             if (!used.Add(front) || !used.Add(back)) return false;
         }
 
+        if (!TrimMediaOffsetPlan.TryCreate(pairs.Select(pair => pair.Back), [], out var offsetPlan))
+            return false;
+
         var backTargets = new SlippableMedia.TargetCollection[pairs.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
@@ -368,7 +374,7 @@ public sealed class ElementResizeService : IElementResizeService
             }
 
             (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back,
-                frontTargets, backTargets[i]);
+                frontTargets, backTargets[i], offsetPlan);
             if (pairMin > min) min = pairMin;
             if (pairMax < max) max = pairMax;
         }
@@ -381,7 +387,7 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 
-        var applied = new HashSet<IProperty<TimeSpan>>();
+        if (!offsetPlan.TryPrepare(clamped, out var offsetValues)) return false;
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
@@ -391,10 +397,9 @@ public sealed class ElementResizeService : IElementResizeService
             front.Length += clamped;
             back.Start += clamped;
             back.Length -= clamped;
-            // Preserve the back clip's content across the moving cut: its in-point advances
-            // by the same delta so the same source frames stay under the same timeline times.
-            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
         }
+        foreach (var (offset, value) in offsetValues)
+            offset.CurrentValue = value;
 
         _historyManager.Commit(CommandNames.RollElements);
         return true;
@@ -444,6 +449,10 @@ public sealed class ElementResizeService : IElementResizeService
         }
 
         // The middle clips' lengths are unaffected by Slide, so only front and back bound the delta.
+        if (!TrimMediaOffsetPlan.TryCreate(
+                lanes.Select(lane => lane.Back), lanes.SelectMany(lane => lane.Middles), out var offsetPlan))
+            return false;
+
         var backTargets = new SlippableMedia.TargetCollection[lanes.Count];
         var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
         (TimeSpan min, TimeSpan max) = (TimeSpan.MinValue, TimeSpan.MaxValue);
@@ -476,7 +485,7 @@ public sealed class ElementResizeService : IElementResizeService
             }
 
             (TimeSpan laneMin, TimeSpan laneMax) = ComputeTrimDeltaBounds(scene, front, back,
-                frontTargets, backTargets[i]);
+                frontTargets, backTargets[i], offsetPlan);
             if (laneMin > min) min = laneMin;
             if (laneMax < max) max = laneMax;
         }
@@ -489,7 +498,7 @@ public sealed class ElementResizeService : IElementResizeService
         TimeSpan clamped = Clamp(delta, min, max);
         if (clamped == TimeSpan.Zero) return false;
 
-        var applied = new HashSet<IProperty<TimeSpan>>();
+        if (!offsetPlan.TryPrepare(clamped, out var offsetValues)) return false;
         for (int i = 0; i < lanes.Count; i++)
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
@@ -502,11 +511,9 @@ public sealed class ElementResizeService : IElementResizeService
 
             back.Start += clamped;
             back.Length -= clamped;
-            // The middle clips only shift in time (their in-points are unchanged), but the back
-            // clip is trimmed at its head, so advance its media offset by the same delta to keep
-            // its content.
-            SlippableMedia.ApplyOffsetDelta(backTargets[i], clamped, applied);
         }
+        foreach (var (offset, value) in offsetValues)
+            offset.CurrentValue = value;
 
         _historyManager.Commit(CommandNames.SlideElements);
         return true;
@@ -530,7 +537,8 @@ public sealed class ElementResizeService : IElementResizeService
     private static (TimeSpan Min, TimeSpan Max) ComputeTrimDeltaBounds(
         Scene scene, Element front, Element back,
         IReadOnlyList<SlippableMedia.Target> frontTargets,
-        IReadOnlyList<SlippableMedia.Target> backTargets)
+        IReadOnlyList<SlippableMedia.Target> backTargets,
+        TrimMediaOffsetPlan offsetPlan)
     {
         if (frontTargets is SlippableMedia.TargetCollection { IsComplete: false }
             || backTargets is SlippableMedia.TargetCollection { IsComplete: false })
@@ -555,8 +563,9 @@ public sealed class ElementResizeService : IElementResizeService
             if (outRoom < max) max = outRoom;
         }
 
-        TimeSpan inRoom = SlippableMedia.InPointRoom(backTargets);
-        if (inRoom != TimeSpan.MaxValue && -inRoom > min) min = -inRoom;
+        (TimeSpan offsetMin, TimeSpan offsetMax) = offsetPlan.GetBounds();
+        if (offsetMin > min) min = offsetMin;
+        if (offsetMax < max) max = offsetMax;
 
         // Enforce the documented Min ≤ 0 ≤ Max contract structurally instead of relying on
         // every media OffsetPosition being non-negative (an invariant owned by other services);
