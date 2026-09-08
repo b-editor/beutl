@@ -29,6 +29,7 @@ public sealed class HistoryManager : IDisposable
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
     private int _entryPublicationDepth;
+    private readonly AsyncLocal<BeforeMutationDispatch?> _beforeMutationDispatch = new();
     private bool _isolatedTransactionActive;
     private bool _isDisposed;
 
@@ -832,6 +833,11 @@ public sealed class HistoryManager : IDisposable
     // the history operation itself is independent of any debounce flush.
     private void FireBeforeMutation()
     {
+        if (_beforeMutationDispatch.Value is { IsActive: true })
+            return;
+        BeforeMutationDispatch? previous = _beforeMutationDispatch.Value;
+        var dispatch = new BeforeMutationDispatch();
+        _beforeMutationDispatch.Value = dispatch;
         try
         {
             _beforeMutation.OnNext(System.Reactive.Unit.Default);
@@ -840,6 +846,18 @@ public sealed class HistoryManager : IDisposable
         {
             _logger.LogError(ex, "BeforeMutation subscriber threw; continuing with the pending Undo/Redo.");
         }
+        finally
+        {
+            dispatch.Complete();
+            _beforeMutationDispatch.Value = previous;
+        }
+    }
+
+    private sealed class BeforeMutationDispatch
+    {
+        private int _active = 1;
+        public bool IsActive => Volatile.Read(ref _active) != 0;
+        public void Complete() => Volatile.Write(ref _active, 0);
     }
 
     public IDisposable SuppressRecording()

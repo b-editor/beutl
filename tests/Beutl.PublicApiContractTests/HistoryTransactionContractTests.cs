@@ -8,6 +8,19 @@ namespace Beutl.PublicApiContractTests;
 public sealed class HistoryTransactionContractTests : PublicApiContractTestBase
 {
     [Test]
+    public void Entries_framework_events_are_protected_and_public_subscription_uses_interfaces()
+    {
+        var type = typeof(System.Collections.ObjectModel.ReadOnlyObservableCollection<HistoryEntry>);
+        foreach (string name in new[] { "CollectionChanged", "PropertyChanged" })
+        {
+            Assert.That(type.GetEvent(name), Is.Null);
+            var hidden = type.GetEvent(name,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(hidden!.GetAddMethod(true)!.IsFamily, Is.True);
+        }
+    }
+
+    [Test]
     public void ExecuteInTransaction_IsPublicAndCommitsPendingWorkSeparately()
     {
         AssertDoesNotHaveFriendAccess(typeof(HistoryManager).Assembly);

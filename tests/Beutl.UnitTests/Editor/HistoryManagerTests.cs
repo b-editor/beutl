@@ -2393,6 +2393,55 @@ public class HistoryManagerTests
 
     #region BeforeMutation Tests
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BeforeMutation_transaction_flush_does_not_recursively_publish(bool crossThread)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int calls = 0;
+        bool flushed = false;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            calls++;
+            if (!flushed)
+            {
+                flushed = true;
+                void Flush() => manager.ExecuteInTransaction(() => manager.Record(CreateTestOperation()), "Flush");
+                if (crossThread)
+                    Task.Run(Flush).GetAwaiter().GetResult();
+                else
+                    Flush();
+            }
+        });
+        manager.ExecuteInTransaction(() => manager.Record(CreateTestOperation()), "Edit");
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(manager.UndoCount, Is.EqualTo(2));
+        manager.FlushPendingMutations();
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task BeforeMutation_deferred_work_can_publish_after_the_original_dispatch_completes()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task? deferred = null;
+        int calls = 0;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            if (++calls == 1)
+                deferred = Task.Run(async () =>
+                {
+                    await release.Task;
+                    manager.FlushPendingMutations();
+                });
+        });
+        manager.FlushPendingMutations();
+        release.TrySetResult();
+        await deferred!.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
     [Test]
     public void BeforeMutation_Undo_FiresBeforeStackMutates()
     {
