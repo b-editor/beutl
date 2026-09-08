@@ -461,13 +461,32 @@ public sealed class ObjectTemplateService
             var result = new CanonicalPathSet(FilePathComparison.CreateResolutionContext());
             foreach (string path in paths)
             {
-                string? canonicalPath = result.TryResolve(path, out string resolvedPath)
+                string? canonicalPath = IsLiveFile(path)
+                    && result.TryResolve(path, out string resolvedPath)
                     ? resolvedPath
                     : null;
                 result.AddKnown(path, canonicalPath);
             }
 
             return result;
+        }
+
+        private static bool IsLiveFile(string path)
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                return info.LinkTarget is null
+                    ? info.Exists
+                    : info.ResolveLinkTarget(returnFinalTarget: true)?.Exists == true;
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException)
+            {
+                return false;
+            }
         }
 
         public void AddKnown(string path, string? canonicalPath)
