@@ -12,26 +12,84 @@ public class EditorHostViewModel
     private readonly ILogger _logger = Log.CreateLogger<EditorHostViewModel>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly object _operationGate = new();
+    private Task _operationTail = Task.CompletedTask;
+    private Project? _subscribedProject;
+    private long _subscriptionGeneration;
 
     public EditorHostViewModel(ProjectService projectService, EditorService editorService)
     {
         _projectService = projectService;
         _editorService = editorService;
-        _projectService.ProjectObservable.Subscribe(item => DispatchProjectChange(item.New, item.Old));
+        _projectService.Closing += OnProjectClosingAsync;
+        _projectService.Opened += OnProjectOpenedAsync;
     }
 
-    private void DispatchProjectChange(Project? @new, Project? old)
+    private Task OnProjectClosingAsync(
+        ProjectService.ProjectCloseContext closeContext,
+        CancellationToken _)
     {
-        // Run inline when already on the UI thread so callers awaiting OpenProject
-        // (e.g. RestoreLastProjectTask) still see tabs populated on return. Post only
-        // when the notification comes from a background thread.
+        return QueueOperationAsync(async () =>
+        {
+            Project? project = _projectService.CurrentProject.Value;
+            CoreObject? selectedObject = _editorService.SelectedTabItem.Value?.Context.Value?.Object;
+            if (project is not null)
+            {
+                closeContext.RegisterCompletion(projectClosed =>
+                    RestoreAfterAbortedCloseAsync(project, selectedObject, projectClosed));
+            }
+
+            await DispatchProjectChangeAsync(null, project);
+        });
+    }
+
+    private Task OnProjectOpenedAsync(Project project)
+    {
+        return QueueOperationAsync(() => DispatchProjectChangeAsync(project, null));
+    }
+
+    private async Task DispatchProjectChangeAsync(Project? @new, Project? old)
+    {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            _ = OnProjectChangedAsync(@new, old);
+            await OnProjectChangedAsync(@new, old);
         }
         else
         {
-            Dispatcher.UIThread.Post(() => _ = OnProjectChangedAsync(@new, old));
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+                await OnProjectChangedAsync(@new, old));
+        }
+    }
+
+    private Task RestoreAfterAbortedCloseAsync(
+        Project project,
+        CoreObject? selectedObject,
+        bool projectClosed)
+    {
+        if (projectClosed || !ReferenceEquals(_projectService.CurrentProject.Value, project))
+        {
+            return Task.CompletedTask;
+        }
+
+        return QueueOperationAsync(async () =>
+        {
+            await DispatchProjectChangeAsync(project, null);
+            if (selectedObject is ProjectItem selectedItem && project.Items.Contains(selectedItem))
+            {
+                await DispatchAsync(() => _editorService.ActivateTabItem(selectedItem));
+            }
+        });
+    }
+
+    private static async Task DispatchAsync(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            await Dispatcher.UIThread.InvokeAsync(action);
         }
     }
 
@@ -44,16 +102,17 @@ public class EditorHostViewModel
         {
             try
             {
+                _editorService.SelectedTabItem.Value = null;
                 _editorService.TabItems.Clear();
 
                 if (old != null)
                 {
-                    old.Items.CollectionChanged -= Project_Items_CollectionChanged;
+                    UnsubscribeFromProject(old);
                 }
 
                 if (@new != null)
                 {
-                    @new.Items.CollectionChanged += Project_Items_CollectionChanged;
+                    SubscribeToProject(@new);
                     foreach (ProjectItem item in @new.Items)
                     {
                         _editorService.ActivateTabItem(item);
@@ -97,11 +156,30 @@ public class EditorHostViewModel
 
     private void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        _ = HandleProjectItemsChangedAsync(e);
+        long generation;
+        lock (_operationGate)
+        {
+            generation = _subscriptionGeneration;
+        }
+
+        _ = QueueOperationAsync(() => HandleProjectItemsChangedAsync(sender, e, generation));
     }
 
-    private async Task HandleProjectItemsChangedAsync(NotifyCollectionChangedEventArgs e)
+    private async Task HandleProjectItemsChangedAsync(
+        object? sender,
+        NotifyCollectionChangedEventArgs e,
+        long generation)
     {
+        lock (_operationGate)
+        {
+            if (generation != _subscriptionGeneration
+                || _subscribedProject is null
+                || !ReferenceEquals(sender, _subscribedProject.Items))
+            {
+                return;
+            }
+        }
+
         try
         {
             if (e.Action == NotifyCollectionChangedAction.Add &&
@@ -153,6 +231,86 @@ public class EditorHostViewModel
                 nameof(HandleProjectItemsChangedAsync),
                 e.Action);
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
+        }
+    }
+
+    private Task QueueOperationAsync(Func<Task> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        Task previous;
+        TaskCompletionSource completion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_operationGate)
+        {
+            previous = _operationTail;
+            _operationTail = completion.Task;
+        }
+
+        _ = CompleteOperationAsync(previous, operation, completion);
+        return completion.Task;
+    }
+
+    private async Task CompleteOperationAsync(
+        Task previous,
+        Func<Task> operation,
+        TaskCompletionSource completion)
+    {
+        try
+        {
+            try
+            {
+                await previous;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "A previous editor-host operation failed before the next operation ran.");
+            }
+
+            await operation();
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException ex)
+        {
+            completion.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
+    }
+
+    private void SubscribeToProject(Project project)
+    {
+        lock (_operationGate)
+        {
+            if (ReferenceEquals(_subscribedProject, project))
+            {
+                return;
+            }
+
+            if (_subscribedProject is { } previous)
+            {
+                previous.Items.CollectionChanged -= Project_Items_CollectionChanged;
+            }
+
+            project.Items.CollectionChanged += Project_Items_CollectionChanged;
+            _subscribedProject = project;
+            _subscriptionGeneration++;
+        }
+    }
+
+    private void UnsubscribeFromProject(Project project)
+    {
+        lock (_operationGate)
+        {
+            if (ReferenceEquals(_subscribedProject, project))
+            {
+                project.Items.CollectionChanged -= Project_Items_CollectionChanged;
+                _subscribedProject = null;
+                _subscriptionGeneration++;
+            }
         }
     }
 

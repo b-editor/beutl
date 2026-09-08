@@ -1,8 +1,8 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Logging;
-using Beutl.Serialization;
 using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
@@ -208,7 +208,8 @@ internal class PackageOperationHandler
 
     public async Task<bool> EnsureProjectClosed()
     {
-        if (!_projectService.IsOpened.Value)
+        Project? expectedProject = _projectService.CurrentProject.Value;
+        if (expectedProject is null)
             return true;
 
         var dialog = new ContentDialog
@@ -221,38 +222,90 @@ internal class PackageOperationHandler
             DefaultButton = ContentDialogButton.Secondary
         };
 
-        ContentDialogResult result = await dialog.ShowAsync();
+        return await HandleProjectCloseChoice(await dialog.ShowAsync(), expectedProject);
+    }
 
+    internal async Task<bool> HandleProjectCloseChoice(
+        ContentDialogResult result,
+        Project expectedProject)
+    {
+        ArgumentNullException.ThrowIfNull(expectedProject);
         if (result == ContentDialogResult.Secondary)
         {
-            await SaveAll();
-            _projectService.CloseProject();
-            return true;
+            IProjectFileWriteLease? fileWrite = null;
+            IDisposable? editorSuspension = null;
+            try
+            {
+                fileWrite = await _editorService.BeginProjectFileWriteAsync(CancellationToken.None);
+                if (!ReferenceEquals(
+                        _projectService.CurrentProject.Value,
+                        expectedProject))
+                {
+                    return false;
+                }
+
+                editorSuspension = _editorService.SuspendEditors();
+                if (!await SaveAll(expectedProject, fileWrite))
+                {
+                    return false;
+                }
+
+                fileWrite.Dispose();
+                fileWrite = null;
+                return await _projectService.TryCloseProjectAsync(
+                    expectedProject,
+                    ProjectService.ProjectCloseIntent.SaveChanges);
+            }
+            finally
+            {
+                fileWrite?.Dispose();
+                editorSuspension?.Dispose();
+            }
         }
 
         if (result == ContentDialogResult.Primary)
         {
-            _projectService.CloseProject();
-            return true;
+            return await _projectService.TryCloseProjectAsync(
+                expectedProject,
+                ProjectService.ProjectCloseIntent.DiscardChanges);
         }
 
         return false;
     }
 
-    private async Task SaveAll()
+    private async Task<bool> SaveAll(Project project, IProjectFileWriteLease fileWrite)
     {
-        Project? project = _projectService.CurrentProject.Value;
-        if (project != null)
+        try
         {
-            CoreSerializer.StoreToUri(project, project.Uri!);
-        }
-
-        foreach (EditorTabItem item in _editorService.TabItems)
-        {
-            if (item.Commands.Value != null)
+            IProjectVersionControlSession? versionControlSession
+                = _editorService.ProjectVersionControlSession;
+            if (!await _editorService.SaveProjectFilesAsync(project, CancellationToken.None))
             {
-                await item.Commands.Value.OnSave();
+                return false;
             }
+
+            if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
+                || !ReferenceEquals(
+                    _editorService.ProjectVersionControlSession,
+                    versionControlSession))
+            {
+                return false;
+            }
+
+            if (versionControlSession is not null)
+            {
+                await versionControlSession.NotifySavedAsync(fileWrite);
+            }
+
+            return ReferenceEquals(_projectService.CurrentProject.Value, project)
+                   && ReferenceEquals(
+                       _editorService.ProjectVersionControlSession,
+                       versionControlSession);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            s_logger.LogError(ex, "Failed to save the project before a package operation.");
+            return false;
         }
     }
 

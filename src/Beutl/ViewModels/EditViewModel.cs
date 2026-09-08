@@ -9,6 +9,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.VersionControl;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
@@ -32,6 +33,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
+    private readonly CancellationTokenSource _autoSaveCancellation = new();
     private readonly HistoryMutationPlaybackGuard _historyMutationPlaybackGuard = new();
 
     private readonly CompositeDisposable _disposables = [];
@@ -45,7 +47,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementDuplicateService? _elementDuplicateService;
     private ElementMoveService? _elementMoveService;
     private ElementGapService? _elementGapService;
-    private ElementClipboardService? _elementClipboardService;
+    private IElementClipboardService? _elementClipboardService;
     private ElementStructureService? _elementStructureService;
     private ElementAttributeService? _elementAttributeService;
     private ElementNudgeService? _elementNudgeService;
@@ -394,18 +396,28 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void AutoSave(IList<ChangeOperation> list)
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            _autoSaveService.AutoSave(list);
-
-            // ビューステートを保存
             try
             {
+                using IDisposable fileWrite =
+                    await EditorService.BeginProjectFileWriteAsync(
+                        _autoSaveCancellation.Token);
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _autoSaveService.AutoSave(list);
                 SaveState();
+            }
+            catch (OperationCanceledException)
+                when (_autoSaveCancellation.IsCancellationRequested)
+            {
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while saving the view state.");
+                _logger.LogError(ex, "An exception occurred while auto-saving the editor state.");
             }
         });
     }
@@ -595,8 +607,20 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         // Block any proxy-invalidation flush already posted to the UI thread from running after this
         // nulls Scene / disposes FrameCacheManager below.
         _disposed = true;
+        _autoSaveCancellation.Cancel();
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
-        SaveState();
+        if (!EditorService.IsWorktreeMutationActive)
+        {
+            using IDisposable fileWrite = await EditorService.BeginProjectFileWriteAsync(
+                CancellationToken.None);
+            SaveState();
+        }
+        else
+        {
+            _logger.LogDebug(
+                "Skipping the final view-state save during a worktree mutation ({SceneId}).",
+                SceneId);
+        }
         _editorSelection.SelectedObject.Value = null;
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
@@ -911,6 +935,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
 
+        if (serviceType == typeof(IProjectVersionControlService))
+            return EditorService.ProjectVersionControlService.Value;
+
+        if (serviceType == typeof(IReadOnlyReactiveProperty<IProjectVersionControlService?>))
+            return EditorService.ProjectVersionControlService;
+
+        if (serviceType == typeof(IProjectVersionControlCoordinator))
+            return EditorService.ProjectVersionControlCoordinator;
+
+        if (serviceType == typeof(IProjectFileWriteAdmission))
+            return new ProjectFileWriteAdmission(EditorService);
+
         if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
             return _timelineOptionsProvider;
 
@@ -949,13 +985,15 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType.IsAssignableTo(typeof(IElementClipboardService)))
             return _elementClipboardService ??= _clipboardGateway is null
                 ? null!
-                : new ElementClipboardService(
-                    HistoryManager,
-                    _clipboardGateway,
-                    (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
-                    static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
-                        typeof(Beutl.Graphics.SourceImage).FullName!),
-                    _elementAdder);
+                : new ProjectFileWriteClipboardService(
+                    EditorService,
+                    new ElementClipboardService(
+                        HistoryManager,
+                        _clipboardGateway,
+                        (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
+                        static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
+                            typeof(Beutl.Graphics.SourceImage).FullName!),
+                        _elementAdder));
 
         if (serviceType.IsAssignableTo(typeof(IElementStructureService)))
             return _elementStructureService ??= new ElementStructureService(HistoryManager);

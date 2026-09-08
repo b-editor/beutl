@@ -6,10 +6,13 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -33,15 +36,23 @@ public partial class MainView
 
     private void InitializeCommands(MainViewModel viewModel)
     {
+        viewModel.VersionControlCoordinator.RequestIdentityAsync = RequestGitIdentityAsync;
         viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
         {
             var dialog = new CreateNewProject();
-            dialog.DataContext = new CreateNewProjectViewModel(viewModel.ProjectService);
+            dialog.DataContext = new CreateNewProjectViewModel(
+                viewModel.ProjectService,
+                viewModel.VersionControlCoordinator,
+                RequestGitIdentityAsync);
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
         viewModel.MenuBar.OpenProject.Subscribe(OnOpenProject).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
+        viewModel.MenuBar.EnableVersionControl.Subscribe(
+            () => EnableVersionControlAsync(viewModel)).AddTo(_disposables);
+        viewModel.MenuBar.CommitVersion.Subscribe(
+            () => CommitVersionAsync(viewModel)).AddTo(_disposables);
 
         viewModel.MenuBar.RemoveFromProject.Subscribe(OnRemoveFromProject).AddTo(_disposables);
 
@@ -122,6 +133,120 @@ public partial class MainView
             .ObserveOnUIDispatcher()
             .Subscribe(count => dockLayoutPresetMenuItem.IsVisible = count > 0)
             .DisposeWith(_disposables);
+    }
+
+    private async Task EnableVersionControlAsync(MainViewModel viewModel)
+    {
+        try
+        {
+            GitAvailability availability = await viewModel.VersionControlCoordinator.GetAvailabilityAsync();
+            if (availability.State != GitAvailabilityState.Installed)
+            {
+                return;
+            }
+
+            Project project = viewModel.ProjectService.CurrentProject.Value
+                              ?? throw new InvalidOperationException("No project is open.");
+            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(
+                project,
+                RequestGitIdentityAsync);
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+    }
+
+    private async Task<GitIdentity?> RequestGitIdentityAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var viewModel = new GitIdentityDialogViewModel();
+        var flyout = new VersionControlPickerFlyout();
+        VersionControlIdentityInput? input = await flyout.ShowIdentityAsync(
+            GetVersionControlFlyoutAnchor(),
+            Strings.VersionControl_IdentityTitle,
+            Strings.VersionControl_IdentityName,
+            Strings.VersionControl_IdentityEmail,
+            viewModel.Name.Value,
+            viewModel.Email.Value,
+            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (input is not { } identity)
+        {
+            return null;
+        }
+
+        viewModel.Name.Value = identity.Name;
+        viewModel.Email.Value = identity.Email;
+        return viewModel.CreateIdentity();
+    }
+
+    private async Task CommitVersionAsync(MainViewModel viewModel)
+    {
+        Project? expectedProject = viewModel.ProjectService.CurrentProject.Value;
+        IProjectVersionControlService? expectedService =
+            viewModel.VersionControlCoordinator.CurrentService;
+        if (expectedProject is null || expectedService is null)
+        {
+            return;
+        }
+
+        var flyout = new VersionControlPickerFlyout();
+        string? message = await flyout.ShowTextInputAsync(
+            GetVersionControlFlyoutAnchor(),
+            Strings.VersionControl_Commit,
+            Strings.VersionControl_CommitMessage,
+            initialText: null);
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        if (!IsCurrentCommitTarget(
+                expectedProject,
+                expectedService,
+                viewModel.ProjectService.CurrentProject.Value,
+                viewModel.VersionControlCoordinator.CurrentService))
+        {
+            return;
+        }
+
+        try
+        {
+            CommitResult result = await viewModel.VersionControlCoordinator.CommitManualAsync(
+                message.Trim());
+            NotificationService.ShowInformation(
+                Strings.VersionControl,
+                result is CommitResult.NoChanges
+                    ? Strings.VersionControl_NothingToCommit
+                    : Strings.VersionControl_CommitCreated);
+        }
+        catch (GitIdentityRequiredException)
+        {
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+    }
+
+    internal static bool IsCurrentCommitTarget(
+        Project expectedProject,
+        object expectedService,
+        Project? currentProject,
+        object? currentService)
+    {
+        return ReferenceEquals(expectedProject, currentProject)
+               && ReferenceEquals(expectedService, currentService);
+    }
+
+    private Control GetVersionControlFlyoutAnchor()
+    {
+        Control? focused =
+            TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+        return focused is not MenuItem && focused?.IsAttachedToVisualTree() == true
+            ? focused
+            : this;
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)

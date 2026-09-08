@@ -443,16 +443,20 @@ public sealed partial class MacWindow : Window
             }
         }
 
+        if (DataContext is MainViewModel viewModel)
+        {
+            if (!viewModel.TryDisposeForWindowClose())
+            {
+                e.Cancel = true;
+                return;
+            }
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
         viewConfig.WindowPosition = (Position.X, Position.Y);
         viewConfig.IsWindowMaximized = WindowState == WindowState.Maximized;
-
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.Dispose();
-        }
     }
 
     private async Task StopCaptureAndCloseAsync(MainView mv)
