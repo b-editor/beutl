@@ -327,33 +327,30 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
         try
         {
-            foreach (Element element in preparedElements)
+            _context.HistoryManager.ExecuteInIsolatedTransaction(() =>
             {
-                scene.AddChild(element);
-            }
+                foreach (Element element in preparedElements)
+                {
+                    scene.AddChild(element);
+                }
 
-            if (groups.Count > 0)
-            {
-                scene.Groups.AddRange(groups);
-            }
-
-            _context.HistoryManager.Commit(CommandNames.AddElement);
+                if (groups.Count > 0)
+                {
+                    scene.Groups.AddRange(groups);
+                }
+            }, CommandNames.AddElement);
         }
         catch (Exception ex)
         {
-            try
-            {
-                _context.HistoryManager.Rollback();
-            }
-            catch (Exception rollbackException)
-            {
-                _logger.LogError(
-                    rollbackException,
-                    "Failed to roll back an unsuccessful element batch mutation caused by {OriginalError}.",
-                    ex.Message);
-            }
-
-            CleanupStagedFiles(stagedFiles, ex);
+            var retainedPaths = preparedElements
+                .Where(scene.Children.Contains)
+                .Select(element => element.Uri?.LocalPath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => path!)
+                .ToHashSet(StringComparer.Ordinal);
+            CleanupStagedFiles(
+                stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
+                ex);
             return ElementAddResult.Failed(new ElementSceneMutationFailure(ex));
         }
 

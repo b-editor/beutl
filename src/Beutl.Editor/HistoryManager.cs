@@ -26,6 +26,7 @@ public sealed class HistoryManager : IDisposable
     private readonly ReadOnlyObservableCollection<HistoryEntry> _readOnlyEntries;
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
+    private bool _isolatedTransactionActive;
     private bool _isDisposed;
 
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
@@ -169,23 +170,8 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction.HasOperations)
-            {
-                _currentTransaction.Name = expression;
-                _currentTransaction.DisplayName = name;
-                _logger.LogDebug("Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
-                    expression, _currentTransaction.Id, _currentTransaction.OperationCount);
-                int currentEntryIndex = _undoStack.Count;
-                _undoStack.Push(_currentTransaction);
-                _redoStack.Clear();
-                TruncateEntriesAfter(currentEntryIndex);
-                _entries.Add(HistoryEntry.FromTransaction(_currentTransaction));
-                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
-            }
-            else
-            {
-                _logger.LogDebug("Commit called but no operations to commit");
-            }
+            ThrowIfIsolatedTransactionActive_NoLock();
+            CommitCurrentTransaction_NoLock(name, expression);
         }
 
         NotifyStateChanged();
@@ -197,18 +183,153 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction.HasOperations)
+            ThrowIfIsolatedTransactionActive_NoLock();
+            RollbackCurrentTransaction_NoLock();
+        }
+    }
+
+    /// <summary>
+    /// Commits already pending operations as a separate history entry, then executes and commits
+    /// <paramref name="action"/> without allowing concurrent records to join it.
+    /// </summary>
+    /// <remarks>
+    /// The action is synchronous so every observer it triggers records reentrantly while the
+    /// history gate is held. It must not call <see cref="Commit"/> or <see cref="Rollback"/>.
+    /// </remarks>
+    internal void ExecuteInIsolatedTransaction(
+        Action action,
+        string? name = null,
+        [CallerArgumentExpression(nameof(name))] string? expression = null)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(action);
+        FireBeforeMutation();
+
+        bool stateChanged = false;
+        try
+        {
+            lock (_lock)
             {
-                _logger.LogDebug("Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
-                    _currentTransaction.Id, _currentTransaction.OperationCount);
-                using (SuppressRecording())
+                ThrowIfIsolatedTransactionActive_NoLock();
+                _isolatedTransactionActive = true;
+                try
                 {
-                    _currentTransaction.Revert(_context);
+                    stateChanged |= CommitCurrentTransaction_NoLock(name: null, expression: null);
+                    try
+                    {
+                        action();
+                        stateChanged |= CommitCurrentTransaction_NoLock(name, expression);
+                    }
+                    catch (Exception actionFailure)
+                    {
+                        try
+                        {
+                            RollbackCurrentTransaction_NoLock();
+                        }
+                        catch (Exception rollbackFailure)
+                        {
+                            throw new AggregateException(
+                                "An isolated history transaction and its rollback both failed.",
+                                [actionFailure, .. GetRollbackFailures(rollbackFailure)]);
+                        }
+                        throw;
+                    }
+                }
+                finally
+                {
+                    _isolatedTransactionActive = false;
+                }
+            }
+        }
+        finally
+        {
+            if (stateChanged)
+                NotifyStateChangedSafely();
+        }
+    }
+
+    private void ThrowIfIsolatedTransactionActive_NoLock()
+    {
+        if (_isolatedTransactionActive)
+        {
+            throw new InvalidOperationException(
+                "History cannot commit or roll back from inside an isolated transaction.");
+        }
+    }
+
+    private bool CommitCurrentTransaction_NoLock(string? name, string? expression)
+    {
+        if (!_currentTransaction.HasOperations)
+        {
+            _logger.LogDebug("Commit called but no operations to commit");
+            return false;
+        }
+
+        HistoryTransaction transaction = _currentTransaction;
+        transaction.Name = expression;
+        transaction.DisplayName = name;
+        _logger.LogDebug(
+            "Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
+            expression,
+            transaction.Id,
+            transaction.OperationCount);
+        int currentEntryIndex = _undoStack.Count;
+        _undoStack.Push(transaction);
+        _redoStack.Clear();
+        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        TruncateEntriesAfter(currentEntryIndex);
+        try
+        {
+            _entries.Add(HistoryEntry.FromTransaction(transaction));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "A history entry observer failed after transaction {TransactionId} committed.",
+                transaction.Id);
+        }
+        return true;
+    }
+
+    private void RollbackCurrentTransaction_NoLock()
+    {
+        HistoryTransaction transaction = _currentTransaction;
+        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        if (transaction.HasOperations)
+        {
+            _logger.LogDebug(
+                "Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
+                transaction.Id,
+                transaction.OperationCount);
+            List<Exception>? failures = null;
+            using (SuppressRecording())
+            {
+                for (int i = transaction.Operations.Count - 1; i >= 0; i--)
+                {
+                    try
+                    {
+                        transaction.Operations[i].Revert(_context);
+                    }
+                    catch (Exception ex)
+                    {
+                        (failures ??= []).Add(ex);
+                    }
                 }
             }
 
-            _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+            if (failures is [var failure])
+                throw failure;
+            if (failures is { Count: > 1 })
+                throw new AggregateException("One or more history rollback operations failed.", failures);
         }
+    }
+
+    private static IEnumerable<Exception> GetRollbackFailures(Exception failure)
+    {
+        return failure is AggregateException aggregate
+            ? aggregate.Flatten().InnerExceptions
+            : [failure];
     }
 
     public void Record(ChangeOperation operation)
@@ -236,6 +357,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            ThrowIfIsolatedTransactionActive_NoLock();
             Rollback();
 
             if (_undoStack.Count == 0)
@@ -267,6 +389,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            ThrowIfIsolatedTransactionActive_NoLock();
             Rollback();
 
             if (_redoStack.Count == 0)
@@ -296,6 +419,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            ThrowIfIsolatedTransactionActive_NoLock();
             int undoCount = _undoStack.Count;
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
@@ -340,6 +464,7 @@ public sealed class HistoryManager : IDisposable
         {
             lock (_lock)
             {
+                ThrowIfIsolatedTransactionActive_NoLock();
                 if (index < 0 || index >= _entries.Count)
                 {
                     _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
@@ -438,7 +563,17 @@ public sealed class HistoryManager : IDisposable
     {
         for (int i = _entries.Count - 1; i > lastKeptIndex; i--)
         {
-            _entries.RemoveAt(i);
+            try
+            {
+                _entries.RemoveAt(i);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "A history entry observer failed while truncating entry {EntryIndex}.",
+                    i);
+            }
         }
     }
 
@@ -515,6 +650,20 @@ public sealed class HistoryManager : IDisposable
     private void NotifyStateChanged()
     {
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
+    }
+
+    private void NotifyStateChangedSafely()
+    {
+        try
+        {
+            NotifyStateChanged();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "A history state observer failed after an isolated transaction committed.");
+        }
     }
 
     // BeforeMutation subscribers are user-supplied (e.g. timeline flush handlers).

@@ -484,6 +484,60 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
+    public async Task AsyncMaterializationCommitsUnrelatedPendingHistorySeparately()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-history-isolation");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var handler = new LeaseBlockingTestSourceHandler();
+        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
+            new ElementSourceHandlerRegistration(handler));
+        Task<ElementAddResult> operation = adder.AddAsync(
+            [CreateTestDescription("isolated-history", 0)],
+            CancellationToken.None).AsTask();
+        int unrelatedValue = 0;
+
+        try
+        {
+            await handler.PreflightStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            handler.ReleasePreflight.TrySetResult();
+            await handler.MaterializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            unrelatedValue = 1;
+            editor.HistoryManager.Record(
+                () => unrelatedValue = 1,
+                () => unrelatedValue = 0,
+                "Concurrent edit");
+            handler.ReleaseMaterialization.TrySetResult();
+            ElementAddResult result = await operation.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.IsSuccess, Is.True);
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(2));
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+                Assert.That(unrelatedValue, Is.EqualTo(1));
+            }
+
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(unrelatedValue, Is.EqualTo(1));
+            }
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(unrelatedValue, Is.Zero);
+        }
+        finally
+        {
+            handler.ReleasePreflight.TrySetResult();
+            handler.ReleaseMaterialization.TrySetResult();
+            await operation.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task EditorDispose_OnUiThreadCancelsAwaitingHandlerAndDrainsItsLease()
     {
         await TestReset.ResetShellAsync();
@@ -911,6 +965,79 @@ public class ElementAdderTests
             Assert.That(
                 Directory.GetFiles(sceneDirectory, "*.belm", SearchOption.AllDirectories),
                 Is.EqualTo(filesBefore));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task AddAsync_WhenRollbackLeavesAnElementAttached_PreservesItsStagedFile()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-partial-rollback");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var materialized = new List<Element>();
+        var sourceHandler = new MutationTestSourceHandler((_, element) => materialized.Add(element));
+        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
+            new ElementSourceHandlerRegistration(sourceHandler));
+        bool shouldInjectMutationFailure = true;
+        NotifyCollectionChangedEventHandler handler = (_, args) =>
+        {
+            if (args.Action != NotifyCollectionChangedAction.Add)
+                return;
+
+            if (editor.Scene.Children.Count == 1 && shouldInjectMutationFailure)
+            {
+                editor.HistoryManager.Record(
+                    static () => { },
+                    () =>
+                    {
+                        editor.Scene.AddChild(materialized[1]);
+                        throw new InvalidOperationException("Injected rollback failure");
+                    },
+                    "Injected rollback operation");
+            }
+            else if (editor.Scene.Children.Count == 2 && shouldInjectMutationFailure)
+            {
+                shouldInjectMutationFailure = false;
+                throw new InvalidOperationException("Injected mutation failure");
+            }
+        };
+        editor.Scene.Children.CollectionChanged += handler;
+
+        ElementAddResult result;
+        try
+        {
+            result = await adder.AddAsync(
+            [
+                CreateTestDescription("first", 0),
+                CreateTestDescription("second", 1),
+            ], CancellationToken.None);
+        }
+        finally
+        {
+            editor.Scene.Children.CollectionChanged -= handler;
+        }
+
+        Element retained = materialized[1];
+        try
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Failure, Is.TypeOf<ElementSceneMutationFailure>());
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+                Assert.That(editor.Scene.Children[0], Is.SameAs(retained));
+                Assert.That(retained.Uri, Is.Not.Null);
+                Assert.That(File.Exists(retained.Uri!.LocalPath), Is.True);
+                Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+            }
+        }
+        finally
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Children.Remove(retained);
+            }
+            File.Delete(retained.Uri!.LocalPath);
         }
     }
 
