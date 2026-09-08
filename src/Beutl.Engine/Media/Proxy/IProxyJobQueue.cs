@@ -29,6 +29,38 @@ public interface IProxyGenerator
     ValueTask GenerateAsync(ProxyJob job);
 }
 
+/// <summary>
+/// Lets a host admit proxy generation only while the resources it shares with other operations
+/// are available.
+/// </summary>
+/// <remarks>
+/// Admission is a synchronous, non-blocking try operation. Returning <see langword="null"/> keeps
+/// the job queued and prevents the generator from running; the queue retries after a bounded
+/// per-job backoff without blocking admissible peers. A returned lease transfers to the queue and
+/// is held until generation and its terminal cleanup finish. Cancellation takes precedence over a
+/// concurrent admission or generation error; a lease-release failure remains a failure because
+/// cleanup could not be completed.
+/// </remarks>
+public interface IProxyGenerationAdmission
+{
+    /// <summary>Attempts to acquire the host resources required by <paramref name="job"/>.</summary>
+    /// <returns>
+    /// A lease that the queue disposes exactly once, or <see langword="null"/> when the host is
+    /// temporarily busy.
+    /// </returns>
+    IDisposable? TryAcquireLease(ProxyJob job);
+
+    /// <summary>
+    /// Raised when host resources may have become available after a rejected acquisition.
+    /// </summary>
+    /// <remarks>
+    /// The queue still calls <see cref="TryAcquireLease"/> to make the admission decision. This
+    /// signal only wakes deferred jobs early; bounded retry remains as a fallback for missed or
+    /// unsupported host transitions.
+    /// </remarks>
+    event EventHandler? AvailabilityChanged;
+}
+
 public interface IProxyGeneratorAvailability
 {
     bool IsAvailable { get; }
@@ -52,4 +84,5 @@ public enum ProxyJobChangeKind
     Failed,
     Canceled,
     Skipped,
+    WaitingForAdmission,
 }

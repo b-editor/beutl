@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using System.Runtime.ExceptionServices;
+using System.Threading.Channels;
 
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -26,6 +27,779 @@ public class ProxyJobQueueTests
             Assert.That(generator.Sources, Is.EqualTo(new[] { first, second }));
             Assert.That(firstJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
             Assert.That(secondJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+        });
+    }
+
+    [Test]
+    public async Task Admission_rejection_requeues_without_starting_and_caps_backoff()
+    {
+        var generator = new RecordingGenerator();
+        var admission = new SequencedAdmission(rejections: 4);
+        var firstDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var delays = new List<TimeSpan>();
+        int startedEvents = 0;
+        int enqueuedEvents = 0;
+        int waitingEvents = 0;
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(10),
+            maxUnavailableBackoff: TimeSpan.FromMilliseconds(25),
+            admission,
+            async (delay, cancellationToken) =>
+            {
+                int count;
+                lock (delays)
+                {
+                    delays.Add(delay);
+                    count = delays.Count;
+                }
+
+                if (count == 1)
+                {
+                    firstDelay.TrySetResult();
+                    await releaseFirstDelay.Task.WaitAsync(cancellationToken);
+                }
+            });
+        queue.JobChanged += (_, args) =>
+        {
+            if (args.Kind == ProxyJobChangeKind.Started)
+            {
+                Interlocked.Increment(ref startedEvents);
+            }
+            else if (args.Kind == ProxyJobChangeKind.Enqueued)
+            {
+                Interlocked.Increment(ref enqueuedEvents);
+            }
+            else if (args.Kind == ProxyJobChangeKind.WaitingForAdmission)
+            {
+                Interlocked.Increment(ref waitingEvents);
+            }
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-backoff.mov"),
+            ProxyPreset.Quarter);
+        await firstDelay.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Queued));
+            Assert.That(job.StatusMessage, Is.EqualTo("Waiting for proxy generation admission."));
+            Assert.That(generator.Sources, Is.Empty);
+            Assert.That(Volatile.Read(ref startedEvents), Is.Zero);
+        });
+
+        releaseFirstDelay.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        TimeSpan[] observedDelays;
+        lock (delays)
+        {
+            observedDelays = [.. delays];
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(
+                observedDelays,
+                Is.EqualTo(new[]
+                {
+                    TimeSpan.FromMilliseconds(10),
+                    TimeSpan.FromMilliseconds(20),
+                    TimeSpan.FromMilliseconds(25),
+                    TimeSpan.FromMilliseconds(25),
+                }));
+            Assert.That(admission.Attempts, Is.EqualTo(5));
+            Assert.That(admission.Leases, Has.Count.EqualTo(1));
+            Assert.That(admission.Leases[0].DisposeCount, Is.EqualTo(1));
+            Assert.That(generator.Sources, Has.Count.EqualTo(1));
+            Assert.That(Volatile.Read(ref startedEvents), Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref enqueuedEvents), Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref waitingEvents), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Admission_availability_signal_wakes_a_deferred_job_before_its_backoff()
+    {
+        var generator = new RecordingGenerator();
+        var admission = new SequencedAdmission(rejections: 1);
+        var delayStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30),
+            admission,
+            async (_, cancellationToken) =>
+            {
+                delayStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            });
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-signal.mov"),
+            ProxyPreset.Quarter);
+        await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        admission.SignalAvailability();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(admission.Attempts, Is.EqualTo(2));
+            Assert.That(generator.Sources, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Accepted_admission_lease_is_held_until_generation_and_terminal_publication()
+    {
+        var generator = new SignalingGenerator(ignoreCancellation: false);
+        var admission = new SequencedAdmission(rejections: 0);
+        int leaseDisposeCountAtSuccess = -1;
+        var succeeded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(generator, store: null, admission);
+        queue.JobChanged += (_, args) =>
+        {
+            if (args.Kind == ProxyJobChangeKind.Succeeded)
+            {
+                leaseDisposeCountAtSuccess = admission.Leases.Single().DisposeCount;
+                succeeded.TrySetResult();
+            }
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-lifetime.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Running));
+            Assert.That(admission.Leases, Has.Count.EqualTo(1));
+            Assert.That(admission.Leases[0].DisposeCount, Is.Zero);
+        });
+
+        generator.Release();
+        await succeeded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(admission.Leases[0].DisposeCount, Is.EqualTo(1));
+            Assert.That(leaseDisposeCountAtSuccess, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Failed_store_bookkeeping_stays_admitted_until_terminal_publication()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var admission = new SequencedAdmission(rejections: 0);
+        int leaseDisposeCountAtRegistration = -1;
+        int leaseDisposeCountAtFailure = -1;
+        store.Changed += (_, args) =>
+        {
+            if (args.Kind == ProxyStoreChangeKind.Registered && admission.Leases.Count == 1)
+            {
+                leaseDisposeCountAtRegistration = admission.Leases[0].DisposeCount;
+            }
+        };
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        queue.JobChanged += (_, args) =>
+        {
+            if (args.Kind == ProxyJobChangeKind.Failed)
+            {
+                leaseDisposeCountAtFailure = admission.Leases.Single().DisposeCount;
+            }
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admitted-failure.mov"),
+            ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(leaseDisposeCountAtRegistration, Is.Zero);
+            Assert.That(leaseDisposeCountAtFailure, Is.EqualTo(1));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Cancellation_during_failure_cleanup_rolls_back_the_failed_store_entry()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        bool leaseReleasedAtRollback = true;
+        store.Changed += (_, args) =>
+        {
+            if (args.Kind == ProxyStoreChangeKind.Deleted)
+            {
+                leaseReleasedAtRollback = admission.Leases.Single().ReleaseCompleted;
+            }
+        };
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("failure-cleanup-cancel.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.Error, Is.Null);
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+            Assert.That(leaseReleasedAtRollback, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Failure_rollback_error_prevents_clean_cancellation_publication()
+    {
+        var store = new ThrowingDeleteStore();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("failure-rollback-error.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(job.Error, Is.TypeOf<AggregateException>());
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter)?.State, Is.EqualTo(ProxyState.Failed));
+        });
+    }
+
+    [Test]
+    public async Task Cancellation_rolls_back_an_ambiguous_failure_registration()
+    {
+        var store = new MutatingThenThrowStore();
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("ambiguous-failure-registration.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.BookkeepingError, Is.InstanceOf<InvalidOperationException>());
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
+        });
+    }
+
+    [TestCase(AdmissionGeneratorOutcome.Success, ProxyJobStatus.Succeeded)]
+    [TestCase(AdmissionGeneratorOutcome.Skipped, ProxyJobStatus.Skipped)]
+    [TestCase(AdmissionGeneratorOutcome.Failed, ProxyJobStatus.Failed)]
+    [TestCase(AdmissionGeneratorOutcome.Unavailable, ProxyJobStatus.Skipped)]
+    public async Task Admission_lease_is_released_once_on_each_generator_terminal_path(
+        AdmissionGeneratorOutcome outcome,
+        ProxyJobStatus expectedStatus)
+    {
+        var admission = new SequencedAdmission(rejections: 0);
+        await using var queue = new ProxyJobQueue(
+            new OutcomeGenerator(outcome),
+            store: null,
+            admission);
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint($"admission-{outcome}.mov"),
+            ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(expectedStatus));
+            Assert.That(admission.Attempts, Is.EqualTo(1));
+            Assert.That(admission.Leases, Has.Count.EqualTo(1));
+            Assert.That(admission.Leases[0].DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Cancel_releases_the_active_admission_lease_once()
+    {
+        var generator = new SignalingGenerator(ignoreCancellation: false);
+        var admission = new SequencedAdmission(rejections: 0);
+        await using var queue = new ProxyJobQueue(generator, store: null, admission);
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-cancel.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        queue.Cancel(job.JobId);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Cancellation_callback_can_query_the_queue_without_lock_inversion()
+    {
+        ProxyJobQueue? queue = null;
+        var callbackCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var generator = new CancellationCallbackGenerator(() =>
+        {
+            _ = queue!.Pending();
+            callbackCompleted.TrySetResult();
+        });
+        await using var activeQueue = new ProxyJobQueue(generator);
+        queue = activeQueue;
+        ProxyJob job = await activeQueue.EnqueueAsync(
+            CreateFingerprint("cancellation-callback-query.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await Task.Run(() => activeQueue.Cancel(job.JobId))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await callbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
+    public async Task Canceled_job_stays_active_until_token_callbacks_finish()
+    {
+        var callbackStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseCallback = new ManualResetEventSlim();
+        var generator = new CancellationCallbackGenerator(() =>
+        {
+            callbackStarted.TrySetResult();
+            releaseCallback.Wait();
+        });
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("blocking-cancellation-callback.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task cancellation = Task.Run(() => queue.Cancel(job.JobId));
+        try
+        {
+            await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(
+                job.Status,
+                Is.Not.EqualTo(ProxyJobStatus.Canceled));
+        }
+        finally
+        {
+            releaseCallback.Set();
+        }
+
+        await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
+    public async Task Completed_generation_wins_cancellation_during_admission_release()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        int succeededEvents = 0;
+        await using var queue = new ProxyJobQueue(
+            new ReadyPublishingGenerator(store, root),
+            store,
+            admission);
+        queue.JobChanged += (_, args) =>
+        {
+            if (args.Kind == ProxyJobChangeKind.Succeeded)
+            {
+                Interlocked.Increment(ref succeededEvents);
+            }
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-release-cancel-race.mov"),
+            ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(
+                store.TryGet(job.Source, job.Preset)?.State,
+                Is.EqualTo(ProxyState.Ready));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref succeededEvents), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Admission_release_failure_remains_failed_when_cancellation_races_cleanup()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var expected = new InvalidOperationException("admission release failed");
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                expected,
+                releaseStarted,
+                releaseLease.Task));
+        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("admission-release-failure-cancel-race.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(job.Error, Is.SameAs(expected));
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter)?.State,
+                Is.EqualTo(ProxyState.Failed));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Cancel_while_admission_is_denied_never_runs_or_acquires_a_lease()
+    {
+        var generator = new RecordingGenerator();
+        var admission = new SequencedAdmission(rejections: int.MaxValue);
+        var delayStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var delayCanceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30),
+            admission,
+            async (_, cancellationToken) =>
+            {
+                delayStarted.TrySetResult();
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    delayCanceled.TrySetResult();
+                    throw;
+                }
+            });
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-denied-cancel.mov"),
+            ProxyPreset.Quarter);
+        await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        await delayCanceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(admission.Attempts, Is.EqualTo(1));
+            Assert.That(admission.Leases, Is.Empty);
+            Assert.That(generator.Sources, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Cancel_wins_when_a_blocked_admission_callback_later_throws()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var generator = new RecordingGenerator();
+        var expected = new InvalidOperationException("admission callback failed");
+        var admission = new BlockingThrowingAdmission(expected);
+        await using var queue = new ProxyJobQueue(generator, store, admission);
+        ProxyFingerprint source = CreateFingerprint("admission-callback-cancel.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await admission.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        admission.Release();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.Error, Is.Null);
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
+            Assert.That(generator.Sources, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Admission_failure_waits_for_token_cancellation_callbacks()
+    {
+        var admission = new BlockingThrowingAdmission(
+            new InvalidOperationException("admission callback failed"));
+        await using var queue = new ProxyJobQueue(
+            new RecordingGenerator(),
+            store: null,
+            admission);
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-callback-cleanup.mov"),
+            ProxyPreset.Quarter);
+        await admission.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var callbackStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseCallback = new ManualResetEventSlim();
+        using CancellationTokenRegistration registration = job.CancellationToken.Register(() =>
+        {
+            callbackStarted.TrySetResult();
+            releaseCallback.Wait();
+        });
+
+        Task cancellation = Task.Run(() => queue.Cancel(job.JobId));
+        try
+        {
+            await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            admission.Release();
+            Assert.That(job.Status, Is.Not.EqualTo(ProxyJobStatus.Canceled));
+        }
+        finally
+        {
+            releaseCallback.Set();
+        }
+
+        await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
+    public async Task Dispose_wins_when_a_blocked_admission_callback_later_throws()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var generator = new RecordingGenerator();
+        var admission = new BlockingThrowingAdmission(
+            new InvalidOperationException("admission callback failed"));
+        var queue = new ProxyJobQueue(generator, store, admission);
+        ProxyFingerprint source = CreateFingerprint("admission-callback-dispose.mov");
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await admission.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task disposal = queue.DisposeAsync().AsTask();
+        Assert.That(disposal.IsCompleted, Is.False);
+        admission.Release();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.Error, Is.Null);
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
+            Assert.That(generator.Sources, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Job_aware_admission_denial_does_not_starve_an_admissible_peer()
+    {
+        var generator = new RecordingGenerator();
+        ProxyFingerprint deniedSource = CreateFingerprint("admission-denied-a.mov");
+        ProxyFingerprint admittedSource = CreateFingerprint("admission-admitted-b.mov");
+        var admission = new JobAwareAdmission(deniedSource);
+        var delayStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30),
+            admission,
+            async (_, cancellationToken) =>
+            {
+                delayStarted.TrySetResult();
+                await releaseDelay.Task.WaitAsync(cancellationToken);
+            });
+
+        ProxyJob denied = await queue.EnqueueAsync(deniedSource, ProxyPreset.Quarter);
+        await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        ProxyJob admitted = await queue.EnqueueAsync(admittedSource, ProxyPreset.Quarter);
+        await WaitForTerminalAsync(admitted);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(denied.Status, Is.EqualTo(ProxyJobStatus.Queued));
+            Assert.That(admitted.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(generator.Sources, Is.EqualTo(new[] { admittedSource }));
+            Assert.That(admission.DeniedAttempts, Is.EqualTo(1));
+            Assert.That(admission.AdmittedAttempts, Is.EqualTo(1));
+            Assert.That(admission.Lease.DisposeCount, Is.EqualTo(1));
+        });
+
+        queue.Cancel(denied.JobId);
+        releaseDelay.TrySetResult();
+        await WaitForTerminalAsync(denied);
+        Assert.That(denied.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
+    public async Task Dispose_waits_for_generation_before_releasing_admission_once()
+    {
+        var generator = new SignalingGenerator(ignoreCancellation: true);
+        var admission = new SequencedAdmission(rejections: 0);
+        var queue = new ProxyJobQueue(generator, store: null, admission);
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-dispose.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task disposal = queue.DisposeAsync().AsTask();
+        await generator.CancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(disposal.IsCompleted, Is.False);
+            Assert.That(admission.Leases.Single().DisposeCount, Is.Zero);
+        });
+
+        generator.Release();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        await queue.DisposeAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Admission_release_failure_fails_the_job_without_success_publication()
+    {
+        var expected = new InvalidOperationException("admission release failed");
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(expected));
+        int succeededEvents = 0;
+        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null, admission);
+        queue.JobChanged += (_, args) =>
+        {
+            if (args.Kind == ProxyJobChangeKind.Succeeded)
+            {
+                Interlocked.Increment(ref succeededEvents);
+            }
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-release-failure.mov"),
+            ProxyPreset.Quarter);
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
+            Assert.That(job.Error, Is.SameAs(expected));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref succeededEvents), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task Generator_retry_releases_each_attempts_admission_before_requeueing()
+    {
+        var generator = new ToggleAvailabilityGenerator();
+        var admission = new SequencedAdmission(rejections: 0);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromMilliseconds(10),
+            maxUnavailableBackoff: TimeSpan.FromMilliseconds(20),
+            admission);
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-generator-retry.mov"),
+            ProxyPreset.Quarter);
+        await generator.UnavailableHit.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitUntilAsync(() => admission.Leases.Count == 1
+                                   && admission.Leases[0].DisposeCount == 1);
+
+        generator.SetAvailable();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(admission.Attempts, Is.EqualTo(2));
+            Assert.That(admission.Leases, Has.Count.EqualTo(2));
+            Assert.That(admission.Leases.Select(static lease => lease.DisposeCount),
+                Is.All.EqualTo(1));
         });
     }
 
@@ -838,7 +1612,21 @@ public class ProxyJobQueueTests
     [Test]
     public async Task GeneratorThrowsOceWithoutCancellation_ReportsFailedNotCanceled()
     {
-        await using var queue = new ProxyJobQueue(new OceThrowingGenerator());
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var admission = new SequencedAdmission(rejections: 0);
+        int leaseDisposeCountAtRegistration = -1;
+        store.Changed += (_, args) =>
+        {
+            if (args.Kind == ProxyStoreChangeKind.Registered)
+            {
+                leaseDisposeCountAtRegistration = admission.Leases.Single().DisposeCount;
+            }
+        };
+        await using var queue = new ProxyJobQueue(
+            new OceThrowingGenerator(),
+            store,
+            admission);
         ProxyFingerprint source = CreateFingerprint("spurious-oce.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -848,6 +1636,10 @@ public class ProxyJobQueueTests
         {
             Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
             Assert.That(job.Error, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(leaseDisposeCountAtRegistration, Is.Zero);
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter)?.State,
+                Is.EqualTo(ProxyState.Failed));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
         });
     }
 
@@ -921,6 +1713,15 @@ public class ProxyJobQueueTests
         }
     }
 
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
+            await Task.Delay(10, cts.Token);
+        }
+    }
+
     private static ProxyFingerprint CreateFingerprint(string fileName)
     {
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
@@ -953,6 +1754,200 @@ public class ProxyJobQueueTests
             now,
             now,
             null);
+    }
+
+    public enum AdmissionGeneratorOutcome
+    {
+        Success,
+        Skipped,
+        Failed,
+        Unavailable,
+    }
+
+    private sealed class OutcomeGenerator(AdmissionGeneratorOutcome outcome) : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            return outcome switch
+            {
+                AdmissionGeneratorOutcome.Success => ValueTask.CompletedTask,
+                AdmissionGeneratorOutcome.Skipped => ValueTask.FromException(
+                    new ProxyGenerationSkippedException("skipped")),
+                AdmissionGeneratorOutcome.Failed => ValueTask.FromException(
+                    new InvalidOperationException("failed")),
+                AdmissionGeneratorOutcome.Unavailable => ValueTask.FromException(
+                    new ProxyGeneratorUnavailableException("unavailable")),
+                _ => throw new ArgumentOutOfRangeException(nameof(outcome)),
+            };
+        }
+    }
+
+    private sealed class SequencedAdmission(
+        int rejections,
+        Func<CountingLease>? leaseFactory = null) : IProxyGenerationAdmission
+    {
+        public event EventHandler? AvailabilityChanged;
+
+        private readonly Lock _lock = new();
+        private readonly List<CountingLease> _leases = [];
+        private int _attempts;
+
+        public int Attempts => Volatile.Read(ref _attempts);
+
+        public IReadOnlyList<CountingLease> Leases
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return [.. _leases];
+                }
+            }
+        }
+
+        public IDisposable? TryAcquireLease(ProxyJob job)
+        {
+            int attempt = Interlocked.Increment(ref _attempts);
+            if (attempt <= rejections)
+            {
+                return null;
+            }
+
+            CountingLease lease = leaseFactory?.Invoke() ?? new CountingLease();
+            lock (_lock)
+            {
+                _leases.Add(lease);
+            }
+
+            return lease;
+        }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class BlockingThrowingAdmission(Exception failure) : IProxyGenerationAdmission
+    {
+        public event EventHandler? AvailabilityChanged;
+
+        private readonly TaskCompletionSource _release = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Entered { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IDisposable? TryAcquireLease(ProxyJob job)
+        {
+            Entered.TrySetResult();
+            _release.Task.GetAwaiter().GetResult();
+            ExceptionDispatchInfo.Capture(failure).Throw();
+            return null;
+        }
+
+        public void Release()
+        {
+            _release.TrySetResult();
+        }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class JobAwareAdmission(ProxyFingerprint deniedSource)
+        : IProxyGenerationAdmission
+    {
+        public event EventHandler? AvailabilityChanged;
+
+        private int _deniedAttempts;
+        private int _admittedAttempts;
+
+        public int DeniedAttempts => Volatile.Read(ref _deniedAttempts);
+
+        public int AdmittedAttempts => Volatile.Read(ref _admittedAttempts);
+
+        public CountingLease Lease { get; } = new();
+
+        public IDisposable? TryAcquireLease(ProxyJob job)
+        {
+            if (job.Source == deniedSource)
+            {
+                Interlocked.Increment(ref _deniedAttempts);
+                return null;
+            }
+
+            Interlocked.Increment(ref _admittedAttempts);
+            return Lease;
+        }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class CountingLease(
+        Exception? disposeFailure = null,
+        TaskCompletionSource? disposeStarted = null,
+        Task? disposeRelease = null) : IDisposable
+    {
+        private int _disposeCount;
+
+        public int DisposeCount => Volatile.Read(ref _disposeCount);
+
+        public bool ReleaseCompleted { get; private set; }
+
+        public void Dispose()
+        {
+            Interlocked.Increment(ref _disposeCount);
+            disposeStarted?.TrySetResult();
+            disposeRelease?.GetAwaiter().GetResult();
+            ReleaseCompleted = true;
+            if (disposeFailure is not null)
+            {
+                ExceptionDispatchInfo.Capture(disposeFailure).Throw();
+            }
+        }
+    }
+
+    private sealed class SignalingGenerator(bool ignoreCancellation) : IProxyGenerator
+    {
+        private readonly TaskCompletionSource _release = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource CancellationObserved { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask GenerateAsync(ProxyJob job)
+        {
+            using CancellationTokenRegistration registration = job.CancellationToken.Register(
+                () => CancellationObserved.TrySetResult());
+            Started.TrySetResult();
+            if (ignoreCancellation)
+            {
+                await _release.Task;
+            }
+            else
+            {
+                await _release.Task.WaitAsync(job.CancellationToken);
+            }
+        }
+
+        public void Release()
+        {
+            _release.TrySetResult();
+        }
+    }
+
+    private sealed class CancellationCallbackGenerator(Action callback) : IProxyGenerator
+    {
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask GenerateAsync(ProxyJob job)
+        {
+            using CancellationTokenRegistration registration =
+                job.CancellationToken.Register(callback);
+            Started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, job.CancellationToken);
+        }
     }
 
     private sealed class RecordingGenerator : IProxyGenerator
@@ -1029,6 +2024,17 @@ public class ProxyJobQueueTests
         public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new InvalidOperationException("encode failed");
+        }
+    }
+
+    private sealed class ReadyPublishingGenerator(
+        IProxyStore store,
+        string storeRoot) : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            store.Register(CreateReadyEntry(storeRoot, job.Source));
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -1186,6 +2192,88 @@ public class ProxyJobQueueTests
         public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
 
         public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+#pragma warning disable CS0067 // Not exercised by these tests.
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+#pragma warning restore CS0067
+    }
+
+    private sealed class ThrowingDeleteStore : IProxyStore
+    {
+        private ProxyEntry? _entry;
+
+        public string StoreRootPath => Path.GetTempPath();
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
+
+        public void Register(ProxyEntry entry) => _entry = entry;
+
+        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => throw new IOException("delete failed");
+
+        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
+        {
+        }
+
+        public long GetTotalBytes() => 0;
+
+        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
+
+        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
+    }
+
+    private sealed class MutatingThenThrowStore : IProxyStore
+    {
+        private ProxyEntry? _entry;
+        private bool _throwOnRegister = true;
+
+        public string StoreRootPath => Path.GetTempPath();
+
+        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+
+        public IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
+
+        public void Register(ProxyEntry entry)
+        {
+            _entry = entry;
+            if (_throwOnRegister)
+            {
+                _throwOnRegister = false;
+                throw new InvalidOperationException("persistence failed after mutation");
+            }
+        }
+
+        public bool TryTransition(
+            ProxyFingerprint source,
+            ProxyPreset preset,
+            ProxyState newState,
+            string? failureReason = null) => false;
+
+        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        {
+            bool removed = _entry is not null;
+            _entry = null;
+            return removed;
+        }
 
         public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
         {
