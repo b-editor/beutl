@@ -6,6 +6,7 @@ using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Api.Services;
