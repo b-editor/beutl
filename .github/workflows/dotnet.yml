@@ -12,12 +12,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  test:
-    name: test (${{ matrix.mode }})
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: [coverage, validation]
+  build:
     permissions:
       contents: read
 
@@ -53,17 +48,6 @@ jobs:
       - name: Resolve .NET SDK version
         id: dotnet-sdk
         run: echo "version=$(dotnet --version)" >> "$GITHUB_OUTPUT"
-
-      # Cache packages separately from obj: source-only changes can reuse the
-      # same packages, and restore still runs to reconcile the dependency graph.
-      - name: Restore NuGet package cache
-        id: nuget-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.nuget/packages
-          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json', '**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.Config', '**/nuget.config', '**/packages.lock.json') }}
-          restore-keys: |
-            nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-
 
       - name: Restore .NET build cache
         id: build-cache
@@ -124,20 +108,10 @@ jobs:
             done < <(git diff --name-only -z --diff-filter=ACMRTUXB "$CACHED_SHA" HEAD --)
           fi
 
-      - if: matrix.mode == 'coverage'
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+      - run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Restore dependencies
         run: dotnet restore Beutl.slnx
-
-      # Save immediately after restore so a later test failure does not discard
-      # downloaded dependencies and slow down the next attempt.
-      - name: Save NuGet package cache
-        if: steps.nuget-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.nuget/packages
-          key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
 
       - name: Build
         run: dotnet build Beutl.slnx --no-restore
@@ -151,7 +125,6 @@ jobs:
           key: dotnet-obj-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json') }}-${{ github.sha }}
 
       - name: Test
-        if: matrix.mode == 'coverage'
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
         env:
           # GPU golden tests must fail loudly (not Assert.Ignore) when the bundled
@@ -161,13 +134,12 @@ jobs:
       # A validation error names API misuse the driver is not required to diagnose - a render pass instance
       # begun inside another, a handle submitted to a device that never created it - so a suite that runs
       # green while reporting one has already entered undefined behaviour. The layer stays off for the run
-      # coverage run because it adds overhead; the validation matrix job enables it for the GPU-backed
-      # projects independently of coverage. VulkanTestEnvironment/GpuTestEnvironment compare the validation
+      # above because it costs time on all 7,000 tests and is only meaningful for the GPU-backed ones; this
+      # step turns it on for exactly those. VulkanTestEnvironment/GpuTestEnvironment compare the validation
       # log around every render-thread invocation, so an error fails the test that reported it, and
       # VulkanValidationGateTests fails if the layer was requested but did not load - a gate that cannot
       # observe anything must not pass quietly.
       - name: Install Vulkan validation layers
-        if: matrix.mode == 'validation'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends vulkan-validationlayers
@@ -182,7 +154,6 @@ jobs:
       # that never reach the render thread only cost their own runtime, and the ones that do are checked.
       # KnownVulkanSkiaLayoutInterop is the one held-back category (#2263).
       - name: GPU tests under Vulkan validation
-        if: matrix.mode == 'validation'
         run: |
           dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj --no-build -f net10.0 \
             --filter "TestCategory!=KnownVulkanSkiaLayoutInterop"
@@ -193,7 +164,6 @@ jobs:
           BEUTL_VULKAN_VALIDATION: "1"
 
       - name: Merge coverage reports
-        if: matrix.mode == 'coverage'
         # Every test project now collects coverage (coverlet.collector is shared via
         # tests/Directory.Build.props), so dotnet test emits one cobertura file per test
         # project. Merge them into a single report so the summary de-duplicates packages
@@ -201,24 +171,10 @@ jobs:
         run: reportgenerator -reports:"tests/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Cobertura;Html"
 
       - name: Save
-        if: matrix.mode == 'coverage'
         uses: actions/upload-artifact@v7
         with:
           name: Coverage
           path: coveragereport
-
-  # Preserve the required "build" check while running coverage and validation on
-  # separate runners. A failed or cancelled matrix leg must never pass this gate.
-  build:
-    if: always()
-    needs: test
-    permissions: {}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every test job to succeed
-        env:
-          TEST_RESULT: ${{ needs.test.result }}
-        run: test "$TEST_RESULT" = success
 
   upload-coverage:
     needs: build
