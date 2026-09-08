@@ -81,7 +81,7 @@ public class EditorWorkflowTests
     }
 
     [AvaloniaTest]
-    public async Task AddElement_requires_the_scene_to_have_a_saved_location()
+    public async Task AddElement_uses_temporary_storage_when_the_scene_is_unsaved()
     {
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("addelem-unsaved");
@@ -92,20 +92,30 @@ public class EditorWorkflowTests
         {
             editor.Scene.Uri = null;
 
-            Assert.DoesNotThrow(() => adder.AddElement(new ElementDescription(
+            ElementAddResult result = await adder.AddAsync([new ElementDescription(
                 Start: TimeSpan.Zero,
                 Length: TimeSpan.FromSeconds(2),
                 Layer: 0,
-                EngineObjectFactory: () => new RectShape())));
+                Source: new ElementSource.EngineObject(() => new RectShape()))],
+                CancellationToken.None);
+            HeadlessTestHelpers.Settle();
+
+            Element element = result.Elements.Single();
             Assert.Multiple(() =>
             {
-                Assert.That(editor.Scene.Children, Is.Empty);
-                Assert.That(editor.HistoryManager.CanUndo, Is.False);
+                Assert.That(result.IsSuccess, Is.True);
+                Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
+                Assert.That(editor.HistoryManager.CanUndo, Is.True);
+                Assert.That(
+                    UnsavedSceneStorage.OwnsPath(editor.Scene.Id, element.Uri!.LocalPath),
+                    Is.True);
+                Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
             });
         }
         finally
         {
             editor.Scene.Uri = savedUri;
+            UnsavedSceneStorage.Cleanup(editor.Scene.Id);
         }
     }
 

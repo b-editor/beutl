@@ -5360,7 +5360,7 @@ public class VersionControlRestoreTests
             (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
                 "version-control-branch-in-memory-save");
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            AddRectangle(adder, layer: 0);
+            await AddRectangleAsync(adder, layer: 0);
             HeadlessTestHelpers.Settle();
             WorkspaceStatus statusAfterEdit = await TestShell.VersionControl.CurrentService!
                 .GetStatusAsync(CancellationToken.None);
@@ -6004,7 +6004,7 @@ public class VersionControlRestoreTests
             await RunGitAsync(gitPath, projectRoot, "switch", "existing");
             await RunGitAsync(gitPath, projectRoot, "switch", "main");
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            AddRectangle(adder, layer: 0);
+            await AddRectangleAsync(adder, layer: 0);
             project.Variables[RestoreStateKey] = "unsaved-state";
             CoreSerializer.StoreToUri(project, project.Uri!);
             Assert.That(
@@ -9643,7 +9643,7 @@ public class VersionControlRestoreTests
             await RunGitAsync(gitPath, projectRoot, "switch", "existing");
             await RunGitAsync(gitPath, projectRoot, "switch", "main");
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            AddRectangle(adder, layer: 0);
+            await AddRectangleAsync(adder, layer: 0);
             project.Variables[RestoreStateKey] = "unsaved-state";
             CoreSerializer.StoreToUri(project, project.Uri!);
             Assert.That(
@@ -9885,11 +9885,11 @@ public class VersionControlRestoreTests
                 .First(commit => commit.Kind == SnapshotKind.Save);
 
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            AddRectangle(adder, layer: 0);
+            await AddRectangleAsync(adder, layer: 0);
             project.Variables[RestoreStateKey] = "version-two";
             await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
-            AddRectangle(adder, layer: 1);
+            await AddRectangleAsync(adder, layer: 1);
             project.Variables[RestoreStateKey] = "pre-restore";
             CoreSerializer.StoreToUri(project, project.Uri!);
             Scene preRestoreScene = project.Items.OfType<Scene>().Single();
@@ -10670,13 +10670,15 @@ public class VersionControlRestoreTests
         Assert.That(condition(), Is.True, "The expected state was not reached.");
     }
 
-    private static void AddRectangle(IElementAdder adder, int layer)
+    private static async Task AddRectangleAsync(IElementAdder adder, int layer)
     {
-        adder.AddElement(new ElementDescription(
+        ElementAddResult result = await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(1),
             Layer: layer,
-            EngineObjectFactory: () => new RectShape()));
+            Source: new ElementSource.EngineObject(() => new RectShape()))],
+            CancellationToken.None);
+        Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
         HeadlessTestHelpers.Settle();
     }
 

@@ -462,7 +462,7 @@ public sealed class EditorServiceTests
             PasteCalls++;
             pasteStarted.TrySetResult();
             await releasePaste;
-            return new ElementPasteOutcome(true, [], default, 0);
+            return new ElementPasteOutcome(true, [], default, 0, null);
         }
     }
 
