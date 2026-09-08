@@ -940,6 +940,9 @@ internal static class SlippableMedia
             .ToArray();
         int nextIndex = 0;
 
+        if (!IsVideoSampleReadableAt(video, cursor))
+            return MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
+
         while (cursor < horizon)
         {
             TimeSpan boundary = nextIndex < futureTimes.Length
@@ -1102,7 +1105,9 @@ internal static class SlippableMedia
         TimeSpan horizon = context.ReachableRange.Start;
         if (horizon >= cursor)
         {
-            return context.HasUnboundedTail && IsVideoRangeReadable(video, context.ReachableRange)
+            return context.HasUnboundedTail
+                && IsVideoRangeReadable(video, context.ReachableRange)
+                && IsReversedVideoTailSampleReadable(video, context)
                 ? TimeSpan.MaxValue
                 : MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
         }
@@ -1152,16 +1157,25 @@ internal static class SlippableMedia
 
                     TimeSpan rawAtBoundary = GetRawSourcePositionAt(video, boundary, resource);
                     if (video.OffsetPosition.CurrentValue == TimeSpan.Zero
-                        && rawAtCursor == TimeSpan.Zero
+                        && rawAtCursor >= TimeSpan.Zero
                         && rawAtBoundary < TimeSpan.Zero
                         && context.FrameDuration > TimeSpan.Zero
-                        && stateDuration > context.FrameDuration
+                        && FindEarliestReversedRawBoundary(
+                            video,
+                            cursor,
+                            TimeSpan.Zero,
+                            stateDuration,
+                            resource) is { } zeroCrossing
+                        && zeroCrossing <= stateDuration - context.FrameDuration
                         && !IsVideoSampleReadableAt(
                             video,
-                            cursor - context.FrameDuration,
+                            cursor - zeroCrossing - context.FrameDuration,
                             resource))
                     {
-                        return MapTimelineDuration(context, accumulated, context.FrameDuration);
+                        return MapTimelineDuration(
+                            context,
+                            accumulated,
+                            zeroCrossing + context.FrameDuration);
                     }
 
                     if (rawAtBoundary <= lowerRawBoundary)
@@ -1200,13 +1214,44 @@ internal static class SlippableMedia
 
             accumulated = AddDurationSaturated(accumulated, stateDuration);
             if (boundary == horizon)
-                return CompleteVideoTimelineRoom(context, accumulated);
+                return CompleteReversedVideoTimelineRoom(video, context, accumulated);
 
             cursor = boundary;
             nextIndex++;
         }
 
-        return CompleteVideoTimelineRoom(context, accumulated);
+        return CompleteReversedVideoTimelineRoom(video, context, accumulated);
+    }
+
+    private static TimeSpan CompleteReversedVideoTimelineRoom(
+        SourceVideo video,
+        TimeContext context,
+        TimeSpan duration)
+    {
+        return context.HasUnboundedTail && IsReversedVideoTailSampleReadable(video, context)
+            ? TimeSpan.MaxValue
+            : MapTimelineDuration(context, duration, TimeSpan.Zero);
+    }
+
+    private static bool IsReversedVideoTailSampleReadable(SourceVideo video, TimeContext context)
+    {
+        if (video.Speed.Animation == null && video.Speed.CurrentValue == 0)
+            return IsVideoSampleReadableAt(video, context.Range.Start);
+
+        MappedSampleTimes boundarySamples = context.SampleTimesAtEnd(context.ReachableRange.Start);
+        if (boundarySamples.Previous == boundarySamples.End)
+            return IsVideoSampleReadableAt(video, boundarySamples.End);
+
+        if (context.FrameDuration <= TimeSpan.Zero
+            || context.ReachableRange.Start.Ticks
+                < TimeSpan.MinValue.Ticks + context.FrameDuration.Ticks)
+        {
+            return false;
+        }
+
+        return IsVideoSampleReadableAt(
+            video,
+            context.ReachableRange.Start - context.FrameDuration);
     }
 
     private static TimeSpan CompleteVideoTimelineRoom(TimeContext context, TimeSpan duration)
@@ -1248,16 +1293,29 @@ internal static class SlippableMedia
 
     private static bool IsVideoTailSampleReadable(SourceVideo video, TimeContext context)
     {
+        if (video.Speed.Animation == null && video.Speed.CurrentValue == 0)
+            return IsVideoSampleReadableAt(video, context.Range.End);
+
         if (video.Source.Animation == null)
         {
             if (video.Source.CurrentValue is not { } currentSource)
                 return true;
 
-            using var sourceResource = (VideoSource.Resource)currentSource.ToResource(
+            using var videoResource = (SourceVideo.Resource)video.ToResource(
                 CompositionContext.Default);
+            if (videoResource.Source is not { } sourceResource)
+                return true;
+
             double sourceFrameTicks = GetVideoFrameTicks(sourceResource);
+            TimeSpan clockStart = GetVideoClockStartAt(
+                video,
+                context.ReachableRange.End - context.FrameDuration);
+            TimeSpan mappedFrameDuration = video.CalculateVideoDuration(
+                clockStart,
+                context.FrameDuration,
+                videoResource);
             if (sourceFrameTicks > 0
-                && context.FrameDuration.Ticks + 1 >= sourceFrameTicks)
+                && mappedFrameDuration.Ticks + 1 >= sourceFrameTicks)
             {
                 return true;
             }

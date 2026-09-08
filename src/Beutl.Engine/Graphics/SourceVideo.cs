@@ -114,7 +114,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         if (Speed.Animation is not KeyFrameAnimation<float> { KeyFrames.Count: > 0 })
         {
             double speed = resource.Speed / 100.0;
-            if (speed <= 0) return TimeSpan.MaxValue;
+            if (!double.IsFinite(speed) || speed <= 0) return TimeSpan.MaxValue;
 
             double ticks = sourceDuration.Ticks / speed;
             return ticks >= TimeSpan.MaxValue.Ticks

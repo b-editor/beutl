@@ -53,7 +53,7 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 100f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
@@ -143,6 +143,25 @@ public class SourceVideoSpeedTest
             TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), _sourceVideoResource);
 
         Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(expected)));
+    }
+
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    [TestCase(float.NegativeInfinity)]
+    public void CalculateTimelineDuration_NonFiniteStaticSpeedReturnsUnbounded(float speed)
+    {
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo!.ToResource(CompositionContext.Default);
+        typeof(SourceVideo.Resource)
+            .GetField("_speed", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(_sourceVideoResource, speed);
+
+        TimeSpan result = TimeSpan.Zero;
+        Assert.DoesNotThrow(() => result = _sourceVideo.CalculateTimelineDuration(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(1),
+            _sourceVideoResource));
+
+        Assert.That(result, Is.EqualTo(TimeSpan.MaxValue));
     }
 
     [Test]
