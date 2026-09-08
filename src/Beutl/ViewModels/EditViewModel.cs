@@ -1220,7 +1220,10 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
                 && scene.HierarchicalParent is Project project
                 && project.Uri is not null)
             {
-                CoreSerializer.StoreToUri(project, project.Uri);
+                CoreSerializer.StoreToUri(
+                    project,
+                    project.Uri,
+                    CoreSerializationMode.Write);
             }
 
             viewModel.SaveState(isExplicitUserSave: true);

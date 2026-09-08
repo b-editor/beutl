@@ -127,6 +127,20 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
         Assert.That(await sourceEditor.Commands!.OnSave(), Is.True);
         string elementFile = sourceScene.Children.Single().Uri!.LocalPath;
+        var unrelatedScene = new Scene
+        {
+            Name = "unrelated-original",
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(projectFile)!,
+                "unrelated.scene")),
+        };
+        Guid unrelatedSceneId = unrelatedScene.Id;
+        project.Items.Add(unrelatedScene);
+        CoreSerializer.StoreToUri(unrelatedScene, unrelatedScene.Uri);
+        CoreSerializer.StoreToUri(
+            project,
+            project.Uri,
+            CoreSerializationMode.Write);
         await ResetProjectAsync();
 
         JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
@@ -140,13 +154,18 @@ public class SaveRoundTripTests
         await TestShell.Project.OpenProject(projectFile);
         Scene migratedScene = TestShell.Project.CurrentProject.Value!.Items
             .OfType<Scene>()
-            .Single();
+            .Single(scene => scene.Id == sourceScene.Id);
+        Scene unrelated = TestShell.Project.CurrentProject.Value.Items
+            .OfType<Scene>()
+            .Single(scene => scene.Id == unrelatedSceneId);
+        unrelated.Name = "unrelated-unsaved";
         TestShell.Editor.ActivateTabItem(migratedScene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
         Assert.That(await editor.Commands!.OnSave(), Is.True);
         JsonObject savedProject = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
+        Scene persistedUnrelated = CoreSerializer.RestoreFromUri<Scene>(unrelated.Uri!);
 
         Assert.Multiple(() =>
         {
@@ -154,6 +173,7 @@ public class SaveRoundTripTests
             Assert.That(
                 (string?)savedProject["minAppVersion"],
                 Is.EqualTo(Project.DefaultMinAppVersion));
+            Assert.That(persistedUnrelated.Name, Is.EqualTo("unrelated-original"));
         });
     }
 }
