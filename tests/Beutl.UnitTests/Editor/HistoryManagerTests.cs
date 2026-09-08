@@ -655,6 +655,94 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void Commit_RejectsDirectHistoryControlReentrancyBeforeManagedPublication()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var mirroredEntries = manager.GetEntriesSnapshot().ToList();
+        using IDisposable managedSubscription = manager.SubscribeEntries((_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add && args.NewItems is not null)
+            {
+                mirroredEntries.Insert(
+                    args.NewStartingIndex,
+                    (HistoryEntry)args.NewItems[0]!);
+            }
+        }).Subscription;
+        int reentrantAttempts = 0;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler directHandler = (_, args) =>
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+            {
+                reentrantAttempts++;
+                manager.Clear();
+            }
+        };
+        entries.CollectionChanged += directHandler;
+        try
+        {
+            manager.Record(CreateTestOperation());
+            Assert.DoesNotThrow(() => manager.Commit("Commit"));
+        }
+        finally
+        {
+            entries.CollectionChanged -= directHandler;
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reentrantAttempts, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.Entries, Has.Count.EqualTo(2));
+            Assert.That(
+                mirroredEntries.Select(entry => entry.TransactionId),
+                Is.EqualTo(manager.Entries.Select(entry => entry.TransactionId)));
+        }
+    }
+
+    [Test]
+    public void Commit_DoesNotReplayAddToManagedSubscriberCreatedDuringDirectPublication()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        List<HistoryEntry>? lateMirror = null;
+        IDisposable? lateSubscription = null;
+        INotifyCollectionChanged entries = manager.Entries;
+        NotifyCollectionChangedEventHandler directHandler = (_, args) =>
+        {
+            if (args.Action != NotifyCollectionChangedAction.Add || lateSubscription is not null)
+                return;
+
+            var subscriptionResult = manager.SubscribeEntries((_, change) =>
+            {
+                if (change.Action == NotifyCollectionChangedAction.Add && change.NewItems is not null)
+                {
+                    lateMirror!.Insert(
+                        change.NewStartingIndex,
+                        (HistoryEntry)change.NewItems[0]!);
+                }
+            });
+            lateSubscription = subscriptionResult.Subscription;
+            lateMirror = subscriptionResult.InitialSnapshot.ToList();
+        };
+        entries.CollectionChanged += directHandler;
+        try
+        {
+            manager.Record(CreateTestOperation());
+            manager.Commit("Commit");
+        }
+        finally
+        {
+            entries.CollectionChanged -= directHandler;
+            lateSubscription?.Dispose();
+        }
+
+        Assert.That(lateMirror, Is.Not.Null);
+        Assert.That(
+            lateMirror!.Select(entry => entry.TransactionId),
+            Is.EqualTo(manager.Entries.Select(entry => entry.TransactionId)));
+    }
+
+    [Test]
     public void ExecuteInTransaction_GuardsPendingEntryPublication()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
