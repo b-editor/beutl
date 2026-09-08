@@ -90,7 +90,7 @@ public sealed class RenderJobManagerTests
 
         string jobId = manager.Enqueue(
             "test",
-            _ => Task.FromException<JsonNode>(
+            (_, _) => Task.FromException<JsonNode>(
                 new OperationCanceledException(unrelatedCancellation.Token)),
             new TestLease());
 
@@ -306,7 +306,34 @@ public sealed class RenderJobManagerTests
         gate.SetResult();
     }
 
-    private sealed class TestLease : IDisposable
+    [Test]
+    public async Task Terminal_snapshot_is_visible_before_the_output_lease_is_released()
+    {
+        using var manager = new RenderJobManager();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        string? jobId = null;
+        string? stateAtRelease = null;
+        var lease = new TestLease(() => stateAtRelease = manager.Get(jobId!)?.State);
+        jobId = manager.Enqueue(
+            "test",
+            async (_, _) =>
+            {
+                await gate.Task;
+                return new JsonObject();
+            },
+            lease);
+
+        gate.TrySetResult();
+        await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(stateAtRelease, Is.EqualTo("completed"));
+            Assert.That(lease.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    private sealed class TestLease(Action? onDispose = null) : IDisposable
     {
         private int _disposeCount;
 
@@ -314,6 +341,7 @@ public sealed class RenderJobManagerTests
 
         public void Dispose()
         {
+            onDispose?.Invoke();
             Interlocked.Increment(ref _disposeCount);
         }
     }
