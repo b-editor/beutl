@@ -734,6 +734,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             throw new AdmissionLeaseReleaseException(releaseFailure);
         }
 
+        if (generationFailure is not null && item.Token.IsCancellationRequested)
+        {
+            await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
+        }
+
         generationFailure?.Throw();
         if (!successfulGenerationSealed)
         {

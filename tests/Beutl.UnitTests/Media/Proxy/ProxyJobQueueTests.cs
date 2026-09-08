@@ -413,6 +413,41 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task Canceled_job_stays_active_until_token_callbacks_finish()
+    {
+        var callbackStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseCallback = new ManualResetEventSlim();
+        var generator = new CancellationCallbackGenerator(() =>
+        {
+            callbackStarted.TrySetResult();
+            releaseCallback.Wait();
+        });
+        await using var queue = new ProxyJobQueue(generator);
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("blocking-cancellation-callback.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task cancellation = Task.Run(() => queue.Cancel(job.JobId));
+        try
+        {
+            await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(
+                job.Status,
+                Is.Not.EqualTo(ProxyJobStatus.Canceled));
+        }
+        finally
+        {
+            releaseCallback.Set();
+        }
+
+        await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
     public async Task Completed_generation_wins_cancellation_during_admission_release()
     {
         string root = CreateRoot();
