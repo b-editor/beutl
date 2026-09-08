@@ -216,10 +216,33 @@ public class NoMigrationRegressionTests
         var context = new JsonSerializationContext(
             typeof(MigratingLeaf),
             options: new CoreSerializerOptions { Mode = CoreSerializationMode.Read });
-        context.EnablePersistedContentMigrationReporting();
 
         Assert.Throws<InvalidOperationException>(() =>
             context.ReportPersistedContentMigration("not-a-version"));
+    }
+
+    [Test]
+    public void Resolve_callback_migration_is_propagated_after_deserialization()
+    {
+        var owner = new MigratingContainer();
+        var target = new Scene();
+        var rootContext = new JsonSerializationContext(
+            typeof(MigratingContainer),
+            options: new CoreSerializerOptions { Mode = CoreSerializationMode.Read });
+        var targetContext = new JsonSerializationContext(
+            typeof(Scene),
+            rootContext,
+            options: new CoreSerializerOptions { Mode = CoreSerializationMode.Read });
+        targetContext.AfterDeserialized(target);
+        rootContext.Resolve(
+            target.Id,
+            _ => rootContext.ReportPersistedContentMigration("9.0.0"));
+
+        rootContext.AfterDeserialized(owner);
+        var project = new Project();
+        project.Items.Add(owner);
+
+        Assert.That(project.MinAppVersion, Is.EqualTo("9.0.0"));
     }
 
     [Test]

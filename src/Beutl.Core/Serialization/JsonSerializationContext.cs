@@ -15,8 +15,11 @@ public partial class JsonSerializationContext(
     private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
     private Dictionary<Guid, ICoreSerializable>? _objects;
     private readonly JsonObject _json = json ?? [];
+    private readonly object _migrationSync = new();
+    private ICoreSerializable? _deserializedObject;
     private string? _requiredMinAppVersionAfterMigration;
     private bool _acceptsPersistedContentMigrationReports;
+    private bool _afterDeserializedCompleted;
 
     public ICoreSerializationContext? Parent { get; } = parent;
 
@@ -31,15 +34,32 @@ public partial class JsonSerializationContext(
     public void ReportPersistedContentMigration(string minAppVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
-        if (!_acceptsPersistedContentMigrationReports)
+        if (!_acceptsPersistedContentMigrationReports
+            && (!Mode.HasFlag(CoreSerializationMode.Read)
+                || Mode.HasFlag(CoreSerializationMode.Write)))
         {
             throw new InvalidOperationException(
                 "Persisted-content migrations can only be reported while deserializing.");
         }
 
-        _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
-            _requiredMinAppVersionAfterMigration,
-            minAppVersion);
+        ICoreSerializable? deserializedObject = null;
+        string? requiredVersion = null;
+        lock (_migrationSync)
+        {
+            _requiredMinAppVersionAfterMigration = Project.GetMaximumMigrationVersion(
+                _requiredMinAppVersionAfterMigration,
+                minAppVersion);
+            if (_afterDeserializedCompleted)
+            {
+                deserializedObject = _deserializedObject;
+                requiredVersion = _requiredMinAppVersionAfterMigration;
+            }
+        }
+
+        if (deserializedObject is not null && requiredVersion is not null)
+        {
+            PropagatePersistedContentMigration(deserializedObject, requiredVersion);
+        }
     }
 
     internal void EnablePersistedContentMigrationReporting()
@@ -92,18 +112,9 @@ public partial class JsonSerializationContext(
 
     public void AfterDeserialized(ICoreSerializable obj)
     {
-        if (_requiredMinAppVersionAfterMigration is { } requiredVersion)
+        lock (_migrationSync)
         {
-            if (obj is CoreObject migratedObject)
-            {
-                migratedObject.MergePersistedContentMigration(requiredVersion);
-                if (migratedObject is Project project)
-                {
-                    project.MarkAsMigrated(requiredVersion);
-                }
-            }
-
-            Parent?.ReportPersistedContentMigration(requiredVersion);
+            _deserializedObject = obj;
         }
 
         if (_resolvers?.Count > 0)
@@ -120,34 +131,62 @@ public partial class JsonSerializationContext(
             if (IsRoot)
             {
                 // Resolve references
-                if (_rootResolvers == null || _objects == null)
-                    return;
-
-                for (int i = _rootResolvers.Count - 1; i >= 0; i--)
+                if (_rootResolvers is not null && _objects is not null)
                 {
-                    var item = _rootResolvers[i];
-                    var (self, id, callback) = item;
-                    if (_objects.TryGetValue(id, out var resolved))
+                    for (int i = _rootResolvers.Count - 1; i >= 0; i--)
                     {
-                        callback(resolved);
-                        _rootResolvers.RemoveAt(i);
-                    }
-                    else if (coreObject is IHierarchical hierarchical)
-                    {
-                        var resolver = new ReferenceResolver(hierarchical, id);
-                        resolver.Resolve().ContinueWith(t =>
+                        var item = _rootResolvers[i];
+                        var (self, id, callback) = item;
+                        if (_objects.TryGetValue(id, out var resolved))
                         {
-                            callback(t.Result);
-                            _rootResolvers?.Remove(item);
-                        });
-                    }
-                    else
-                    {
-                        // Error
+                            callback(resolved);
+                            _rootResolvers.RemoveAt(i);
+                        }
+                        else if (coreObject is IHierarchical hierarchical)
+                        {
+                            var resolver = new ReferenceResolver(hierarchical, id);
+                            resolver.Resolve().ContinueWith(t =>
+                            {
+                                callback(t.Result);
+                                _rootResolvers?.Remove(item);
+                            });
+                        }
+                        else
+                        {
+                            // Error
+                        }
                     }
                 }
             }
         }
+
+        string? requiredVersion;
+        lock (_migrationSync)
+        {
+            _afterDeserializedCompleted = true;
+            requiredVersion = _requiredMinAppVersionAfterMigration;
+        }
+
+        if (requiredVersion is not null)
+        {
+            PropagatePersistedContentMigration(obj, requiredVersion);
+        }
+    }
+
+    private void PropagatePersistedContentMigration(
+        ICoreSerializable obj,
+        string requiredVersion)
+    {
+        if (obj is CoreObject migratedObject)
+        {
+            migratedObject.MergePersistedContentMigration(requiredVersion);
+            if (migratedObject is Project project)
+            {
+                project.MarkAsMigrated(requiredVersion);
+            }
+        }
+
+        Parent?.ReportPersistedContentMigration(requiredVersion);
     }
 
     private void SetObjectAndId(CoreObject coreObject)

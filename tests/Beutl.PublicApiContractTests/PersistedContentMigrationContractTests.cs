@@ -26,8 +26,15 @@ public sealed class PersistedContentMigrationContractTests : PublicApiContractTe
             typeof(ProjectItem));
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
         project.Items.Add(restored);
+        var manualContext = new JsonSerializationContext(
+            typeof(MigratingLeaf),
+            options: new CoreSerializerOptions { Mode = CoreSerializationMode.Read });
 
-        Assert.That(project.MinAppVersion, Is.EqualTo("8.0.0"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.MinAppVersion, Is.EqualTo("8.0.0"));
+            Assert.DoesNotThrow(() => new MigratingLeaf().Deserialize(manualContext));
+        });
     }
 
     private sealed class MigratingSceneItem : Scene
