@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Text;
 using Avalonia.Threading;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -9,6 +10,8 @@ namespace Beutl.Editor.Components.FileBrowserTab.Services;
 // ディレクトリ変更を監視し、デバウンス付きで変更通知を発行する。
 internal sealed class DirectoryWatcherService : IDisposable
 {
+    private sealed record DirectoryIdentity(string LinkFingerprint, string CanonicalPath);
+
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     private readonly object _stateSync = new();
@@ -16,6 +19,8 @@ internal sealed class DirectoryWatcherService : IDisposable
     private readonly Action<Action> _postDelivery;
     private readonly Action<FileSystemWatcher> _startWatcher;
     private readonly ConcurrentDictionary<string, bool> _templateOrMaterialDirectories =
+        new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DirectoryIdentity> _directoryIdentities =
         new(StringComparer.Ordinal);
     // Limit consecutive rearm attempts because persistent failures recur immediately.
     private const int MaxErrorRearms = 3;
@@ -144,6 +149,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         CancelAndDispose(previousDebounce);
         previousWatcher?.Dispose();
         _templateOrMaterialDirectories.Clear();
+        _directoryIdentities.Clear();
 
         if (!pathResolved || canonicalPath is null || !Directory.Exists(canonicalPath))
             return;
@@ -242,6 +248,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         CancelAndDispose(debounce);
         watcher?.Dispose();
         _templateOrMaterialDirectories.Clear();
+        _directoryIdentities.Clear();
 
         if (requestedPath is null || canonicalPath is null)
         {
@@ -325,10 +332,12 @@ internal sealed class DirectoryWatcherService : IDisposable
             return false;
         }
 
-        string canonicalDirectory;
+        string fullDirectory;
+        string linkFingerprint;
         try
         {
-            canonicalDirectory = FilePathComparison.ResolveCanonicalPath(directory);
+            fullDirectory = Path.GetFullPath(directory);
+            linkFingerprint = CreateLinkFingerprint(fullDirectory);
         }
         catch (Exception ex) when (ex is IOException
                                    or UnauthorizedAccessException
@@ -338,14 +347,66 @@ internal sealed class DirectoryWatcherService : IDisposable
             return false;
         }
 
+        string canonicalDirectory;
+        if (_directoryIdentities.TryGetValue(fullDirectory, out DirectoryIdentity? identity)
+            && string.Equals(
+                identity.LinkFingerprint,
+                linkFingerprint,
+                StringComparison.Ordinal))
+        {
+            canonicalDirectory = identity.CanonicalPath;
+        }
+        else
+        {
+            try
+            {
+                canonicalDirectory = FilePathComparison.ResolveCanonicalPath(fullDirectory);
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException)
+            {
+                return false;
+            }
+
+            _directoryIdentities[fullDirectory] = new DirectoryIdentity(
+                linkFingerprint,
+                canonicalDirectory);
+        }
+
         if (_templateOrMaterialDirectories.Count >= 512)
         {
             _templateOrMaterialDirectories.Clear();
+            _directoryIdentities.Clear();
         }
 
         return _templateOrMaterialDirectories.GetOrAdd(canonicalDirectory, static candidate =>
             PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetTemplatesDirectoryPath())
             || PathScope.IsUnderDirectory(candidate, BeutlEnvironment.GetMaterialsDirectoryPath()));
+    }
+
+    private static string CreateLinkFingerprint(string directory)
+    {
+        string root = Path.GetPathRoot(directory)
+                      ?? throw new ArgumentException(
+                          "The directory has no filesystem root.",
+                          nameof(directory));
+        string current = root;
+        var fingerprint = new StringBuilder();
+        foreach (string segment in directory[root.Length..].Split(
+                     [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            var info = new DirectoryInfo(current);
+            fingerprint.Append(segment)
+                .Append('=')
+                .Append(info.LinkTarget)
+                .Append('\0');
+        }
+
+        return fingerprint.ToString();
     }
 
     private static bool HasReservedMetadataSegment(string path)
@@ -549,6 +610,7 @@ internal sealed class DirectoryWatcherService : IDisposable
         CancelAndDispose(debounce);
         watcher?.Dispose();
         _templateOrMaterialDirectories.Clear();
+        _directoryIdentities.Clear();
     }
 
     private static void CancelAndDispose(CancellationTokenSource? cancellation)

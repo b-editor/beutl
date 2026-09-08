@@ -308,21 +308,29 @@ public sealed class ObjectTemplateService
 
     private ObjectTemplateItem? FindByFilePathLocked(string filePath)
     {
+        string fullPath = Path.GetFullPath(filePath);
+        string? canonicalPath = TryResolveCanonicalPath(fullPath, out string resolvedPath)
+            ? resolvedPath
+            : null;
         foreach (ObjectTemplateItem item in _items)
         {
-            if (item.FilePath is { } itemFilePath
-                && TryAreSameCanonicalPath(itemFilePath, filePath))
+            if (item.FilePath is not { } itemFilePath)
+            {
+                continue;
+            }
+
+            if (string.Equals(Path.GetFullPath(itemFilePath), fullPath, StringComparison.Ordinal)
+                || canonicalPath is not null
+                && string.Equals(
+                    item.CanonicalFilePath,
+                    canonicalPath,
+                    StringComparison.Ordinal))
+            {
                 return item;
+            }
         }
 
         return null;
-    }
-
-    private static bool TryAreSameCanonicalPath(string left, string right)
-    {
-        return TryResolveCanonicalPath(left, out string canonicalLeft)
-               && TryResolveCanonicalPath(right, out string canonicalRight)
-               && string.Equals(canonicalLeft, canonicalRight, StringComparison.Ordinal);
     }
 
     private static bool TryResolveCanonicalPath(string path, out string canonicalPath)
