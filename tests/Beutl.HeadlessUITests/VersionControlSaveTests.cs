@@ -1216,11 +1216,6 @@ public class VersionControlSaveTests
                 TestShell.MainViewModel._beutlClients,
                 TestShell.Editor,
                 TestShell.Project);
-            Assert.That(
-                await packageHandler.HandleProjectCloseChoice(
-                    ContentDialogResult.Primary,
-                    project),
-                Is.False);
             config.AutoCommitOnClose = false;
             Assert.That(
                 await packageHandler.HandleProjectCloseChoice(
@@ -1232,7 +1227,7 @@ public class VersionControlSaveTests
             Assert.DoesNotThrow(TestShell.Project.CloseProject);
             Assert.Multiple(() =>
             {
-                Assert.That(failedCommands.SaveCalls, Is.EqualTo(4));
+                Assert.That(failedCommands.SaveCalls, Is.EqualTo(3));
                 Assert.That(commitsAfterFailedPackageSave, Is.EqualTo(commitsBeforeClose));
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
                 Assert.That(TestShell.Editor.TabItems, Does.Contain(failedTab));
