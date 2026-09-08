@@ -322,6 +322,14 @@ handle-pr-reviews). Note that no merge was performed.
   "threads_total": 0,
   "threads_resolved": 0,
   "false_positives_resolved": 0,
+  "false_positive_refutations": [
+    {
+      "thread_id": "<graphql-thread-id>",
+      "path": "<repository-relative-path>",
+      "line": 0,
+      "reason": "<verified factual refutation>"
+    }
+  ],
   "unresolved": 0,
   "changes_requested_outstanding": false,
   "human_feedback_present": false,
@@ -344,6 +352,9 @@ handle-pr-reviews). Note that no merge was performed.
 - `false_positives_resolved`: how many **bot** threads you resolved as clear false positives (with a
   factual `path:line` refutation recorded in the result, no reply and no code change). A subset of
   `threads_resolved`.
+- `false_positive_refutations`: one entry per silently resolved false positive. Record the GraphQL
+  thread ID, exact repository-relative path and line checked at the verified head, and the factual
+  reason the finding does not apply. Use an empty array when none were resolved.
 - `pushed_commit_sha`: the exact local commit created and successfully pushed by this resolver, or
   `null` when `new_commits_pushed == 0`. The orchestrator verifies it against a fresh PR-head fetch;
   never reconstruct it from `scope_state` or a moving branch ref.

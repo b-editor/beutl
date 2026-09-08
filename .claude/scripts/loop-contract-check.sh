@@ -263,7 +263,8 @@ GUIDELINES="docs/ai-workflow/coding-guidelines-for-ai.md"
 PR_TEMPLATE=".github/PULL_REQUEST_TEMPLATE.md"
 SCOPE_CHECK=".claude/scripts/review-scope-state-check.sh"
 if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
-   grep -Fq 'empty, dismissed, or unanswered response is **not approval**' "$RESOLVER" 2>/dev/null && \
+   grep -q 'dismissed or unanswered, follow the recommended action' "$RESOLVER" 2>/dev/null && \
+   grep -q 'Create independent work for anything outside' "$RESOLVER" 2>/dev/null && \
    grep -q 'Do not defer work.*applies only inside the frozen scope' "$GUIDELINES" 2>/dev/null && \
    grep -q 'applies only inside this PR.*frozen scope' "$PR_TEMPLATE" 2>/dev/null && \
    grep -q 'headRefOid' "$RESOLVER" 2>/dev/null && \
