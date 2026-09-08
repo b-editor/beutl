@@ -406,8 +406,8 @@ public sealed class AgentHostEndpointTests
 
         firstCancellation.Cancel();
         laterCancellation.Cancel();
-        await Assert.CatchAsync<OperationCanceledException>(async () => await first);
-        await Assert.CatchAsync<OperationCanceledException>(async () => await later);
+        Assert.CatchAsync<OperationCanceledException>(async () => await first);
+        Assert.CatchAsync<OperationCanceledException>(async () => await later);
         Assert.That(shared.IsCompleted, Is.False);
 
         try
@@ -523,7 +523,7 @@ public sealed class AgentHostEndpointTests
         });
 
         releaseStartup.TrySetResult();
-        await Assert.CatchAsync<OperationCanceledException>(async () => await startup);
+        Assert.CatchAsync<OperationCanceledException>(async () => await startup);
     }
 
     [AvaloniaTest]
