@@ -948,8 +948,8 @@ public sealed class RenderPipelineMigrationCensusTests
         Assert.That(
             corpus.FindMembersDeclaredByType(
                 "Beutl.Graphics.Rendering.RenderNodeProcessor",
-                ["Pull"]),
-            Has.Count.EqualTo(1));
+                ["Pull"]).ToArray(),
+            Has.Length.EqualTo(1));
     }
 
     [Test]
@@ -2430,13 +2430,16 @@ public sealed class RenderPipelineMigrationCensusTests
 
             if (type is IdentifierNameSyntax typeParameter)
             {
-                return GetTypeParameterConstraints(typeParameter)
-                    .Any(constraint => CouldReferToType(
+                TypeSyntax[] constraints = GetTypeParameterConstraints(typeParameter).ToArray();
+                if (constraints.Length > 0)
+                {
+                    return constraints.Any(constraint => CouldReferToType(
                         constraint,
                         document,
                         namespaceName,
                         typeName,
                         qualifiedTypeName));
+                }
             }
 
             string writtenType = GetWrittenTypeIdentity(type);
