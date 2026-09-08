@@ -406,8 +406,8 @@ public sealed class AgentHostEndpointTests
 
         firstCancellation.Cancel();
         laterCancellation.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await first);
-        Assert.CatchAsync<OperationCanceledException>(async () => await later);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await first);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await later);
         Assert.That(shared.IsCompleted, Is.False);
 
         try
@@ -464,13 +464,56 @@ public sealed class AgentHostEndpointTests
     public async Task StopAsync_joins_background_startup_and_leaves_no_published_endpoint()
     {
         await TestReset.ResetShellAsync();
+        var startupEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             GetAvailableLoopbackPort(),
-            "test-token");
+            "test-token",
+            async _ =>
+            {
+                startupEntered.TrySetResult();
+                await releaseStartup.Task;
+            });
 
         endpoint.StartInBackground();
+        await startupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task stop = endpoint.StopAsync();
+        Assert.That(stop.IsCompleted, Is.False);
+        releaseStartup.TrySetResult();
+        await stop.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task StopAsync_bounds_a_startup_path_that_does_not_observe_cancellation()
+    {
+        await TestReset.ResetShellAsync();
+        var startupEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async _ =>
+            {
+                startupEntered.TrySetResult();
+                await releaseStartup.Task;
+            });
+        Task startup = endpoint.StartAsync();
+        await startupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
         await endpoint.StopAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
@@ -478,6 +521,9 @@ public sealed class AgentHostEndpointTests
             Assert.That(endpoint.IsRunning, Is.False);
             Assert.That(endpoint.EndpointUri, Is.Null);
         });
+
+        releaseStartup.TrySetResult();
+        await Assert.CatchAsync<OperationCanceledException>(async () => await startup);
     }
 
     [AvaloniaTest]

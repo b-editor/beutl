@@ -36,6 +36,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly CancellationTokenSource _startupCancellation = new();
     private bool _stopRequested;
     private WebApplication? _application;
+    private Uri? _endpointUri;
     private Task? _startupTask;
     private Task? _stopTask;
 
@@ -140,7 +141,14 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public string Token { get; }
 
-    public Uri? EndpointUri { get; private set; }
+    public Uri? EndpointUri
+    {
+        get
+        {
+            lock (_lifecycleLock)
+                return _endpointUri;
+        }
+    }
 
     public bool IsRunning
     {
@@ -206,7 +214,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                         // Publish EndpointUri only after the stop check: TakeApplication already
                         // cleared it (while still null), so setting it before this check would leave
                         // a dead URL visible to the settings page after a stop-during-startup race.
-                        EndpointUri = endpointUri;
+                        _endpointUri = endpointUri;
                     }
                 }
 
@@ -239,7 +247,17 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public void StartInBackground()
     {
-        _ = ObserveBackgroundStartAsync(StartAsync());
+        Task startup;
+        lock (_lifecycleLock)
+        {
+            if (_stopRequested)
+                return;
+
+            startup = _startupTask ??= Task.Run(
+                () => StartCoreAsync(_startupCancellation.Token));
+        }
+
+        _ = ObserveBackgroundStartAsync(startup);
     }
 
     private static async Task ObserveBackgroundStartAsync(Task startup)
@@ -247,6 +265,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         try
         {
             await startup.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
@@ -262,7 +283,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         lock (_lifecycleLock)
         {
             _stopRequested = true;
-            EndpointUri = null;
+            _endpointUri = null;
             stop = _stopTask ??= StopCoreAsync();
         }
 
@@ -300,7 +321,15 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         {
             try
             {
-                await startup.ConfigureAwait(false);
+                await startup.WaitAsync(s_shutdownTimeout).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (TimeoutException)
+            {
+                s_logger.LogWarning(
+                    "Timed out waiting for the agent host startup path during shutdown.");
             }
             catch (Exception ex)
             {
@@ -315,7 +344,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         {
             app = _application;
             _application = null;
-            EndpointUri = null;
+            _endpointUri = null;
         }
 
         if (app is not null)
