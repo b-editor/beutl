@@ -357,6 +357,32 @@ public class ProxyJobQueueTests
     }
 
     [Test]
+    public async Task Cancellation_callback_can_query_the_queue_without_lock_inversion()
+    {
+        ProxyJobQueue? queue = null;
+        var callbackCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var generator = new CancellationCallbackGenerator(() =>
+        {
+            _ = queue!.Pending();
+            callbackCompleted.TrySetResult();
+        });
+        await using var activeQueue = new ProxyJobQueue(generator);
+        queue = activeQueue;
+        ProxyJob job = await activeQueue.EnqueueAsync(
+            CreateFingerprint("cancellation-callback-query.mov"),
+            ProxyPreset.Quarter);
+        await generator.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await Task.Run(() => activeQueue.Cancel(job.JobId))
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        await callbackCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await WaitForTerminalAsync(job);
+
+        Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+    }
+
+    [Test]
     public async Task Completed_generation_wins_cancellation_during_admission_release()
     {
         string root = CreateRoot();
@@ -1482,7 +1508,21 @@ public class ProxyJobQueueTests
     [Test]
     public async Task GeneratorThrowsOceWithoutCancellation_ReportsFailedNotCanceled()
     {
-        await using var queue = new ProxyJobQueue(new OceThrowingGenerator());
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var admission = new SequencedAdmission(rejections: 0);
+        int leaseDisposeCountAtRegistration = -1;
+        store.Changed += (_, args) =>
+        {
+            if (args.Kind == ProxyStoreChangeKind.Registered)
+            {
+                leaseDisposeCountAtRegistration = admission.Leases.Single().DisposeCount;
+            }
+        };
+        await using var queue = new ProxyJobQueue(
+            new OceThrowingGenerator(),
+            store,
+            admission);
         ProxyFingerprint source = CreateFingerprint("spurious-oce.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -1492,6 +1532,10 @@ public class ProxyJobQueueTests
         {
             Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
             Assert.That(job.Error, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(leaseDisposeCountAtRegistration, Is.Zero);
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter)?.State,
+                Is.EqualTo(ProxyState.Failed));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
         });
     }
 
@@ -1785,6 +1829,20 @@ public class ProxyJobQueueTests
         public void Release()
         {
             _release.TrySetResult();
+        }
+    }
+
+    private sealed class CancellationCallbackGenerator(Action callback) : IProxyGenerator
+    {
+        public TaskCompletionSource Started { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask GenerateAsync(ProxyJob job)
+        {
+            using CancellationTokenRegistration registration =
+                job.CancellationToken.Register(callback);
+            Started.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, job.CancellationToken);
         }
     }
 

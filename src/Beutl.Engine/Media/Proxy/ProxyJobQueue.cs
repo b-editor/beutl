@@ -631,9 +631,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                                           && item.TryCloseCancellationWindow();
 
         if (generationFailure is not null
-            && generationFailure.SourceException is not (OperationCanceledException
-                or ProxyGenerationSkippedException
-                or ProxyGeneratorUnavailableException))
+            && generationFailure.SourceException is not (ProxyGenerationSkippedException
+                or ProxyGeneratorUnavailableException)
+            && (generationFailure.SourceException is not OperationCanceledException
+                || !item.Token.IsCancellationRequested))
         {
             Exception failure = generationFailure.SourceException;
             item.Job.Error = failure;
@@ -789,6 +790,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     private void OnAdmissionAvailabilityChanged(object? sender, EventArgs e)
     {
         List<(WorkItem Item, long Generation)> deferred = [];
+        WorkItem[] items;
         lock (_lock)
         {
             if (_disposed)
@@ -796,12 +798,14 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 return;
             }
 
-            foreach (WorkItem item in _items)
+            items = [.. _items];
+        }
+
+        foreach (WorkItem item in items)
+        {
+            if (item.TryGetAdmissionWait(out long generation, out _))
             {
-                if (item.TryGetAdmissionWait(out long generation, out _))
-                {
-                    deferred.Add((item, generation));
-                }
+                deferred.Add((item, generation));
             }
         }
 
@@ -1138,10 +1142,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
     {
         private readonly Lock _lock = new();
         private bool _started;
-        private bool _admissionDeferred;
+        private volatile bool _admissionDeferred;
         private TaskCompletionSource? _admissionAvailability;
         private long _admissionGeneration;
         private bool _terminalTransitionClaimed;
+        private bool _cancellationRequested;
         private bool _cancellationWindowClosed;
         private bool _disposed;
         private int _consecutiveAdmissionRejections;
@@ -1166,6 +1171,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 if (_disposed
                     || _admissionDeferred
                     || _terminalTransitionClaimed
+                    || _cancellationRequested
                     || Cancellation.IsCancellationRequested)
                     return false;
 
@@ -1180,6 +1186,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 if (_disposed
                     || _terminalTransitionClaimed
+                    || _cancellationRequested
                     || Cancellation.IsCancellationRequested
                     || IsTerminal(Job.Status))
                     return false;
@@ -1197,6 +1204,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 if (_disposed
                     || _terminalTransitionClaimed
+                    || _cancellationRequested
                     || Cancellation.IsCancellationRequested
                     || IsTerminal(Job.Status))
                     return false;
@@ -1242,6 +1250,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 if (_disposed
                     || _terminalTransitionClaimed
+                    || _cancellationRequested
                     || Cancellation.IsCancellationRequested
                     || IsTerminal(Job.Status)
                     || !_admissionDeferred
@@ -1289,16 +1298,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             availability?.TrySetResult();
         }
 
-        public bool IsAdmissionDeferred
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _admissionDeferred;
-                }
-            }
-        }
+        public bool IsAdmissionDeferred => _admissionDeferred;
 
         public bool TryCompleteSuccess()
         {
@@ -1325,7 +1325,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 if (_disposed
                     || _terminalTransitionClaimed
                     || IsTerminal(Job.Status)
-                    || (cancellationWins && Cancellation.IsCancellationRequested))
+                    || (cancellationWins
+                        && (_cancellationRequested
+                            || Cancellation.IsCancellationRequested)))
                 {
                     return false;
                 }
@@ -1342,6 +1344,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 if (_disposed
                     || _terminalTransitionClaimed
                     || _cancellationWindowClosed
+                    || _cancellationRequested
                     || Cancellation.IsCancellationRequested
                     || IsTerminal(Job.Status))
                 {
@@ -1360,7 +1363,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 if (_disposed
                     || _terminalTransitionClaimed
                     || _cancellationWindowClosed
-                    || !Cancellation.IsCancellationRequested
+                    || !_cancellationRequested
+                    && !Cancellation.IsCancellationRequested
                     || IsTerminal(Job.Status))
                 {
                     return false;
@@ -1378,12 +1382,16 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 if (_disposed
                     || _started
                     || _terminalTransitionClaimed
+                    || _cancellationWindowClosed
                     || IsTerminal(Job.Status))
                     return false;
 
-                Cancellation.Cancel();
-                return true;
+                _cancellationRequested = true;
             }
+
+            CancelSource();
+
+            return true;
         }
 
         public void Cancel()
@@ -1396,7 +1404,20 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     || IsTerminal(Job.Status))
                     return;
 
+                _cancellationRequested = true;
+            }
+
+            CancelSource();
+        }
+
+        private void CancelSource()
+        {
+            try
+            {
                 Cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
             }
         }
 
