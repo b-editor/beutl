@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# A newer PR revision supersedes its previous checks. Keep main runs independent.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     permissions:
@@ -22,7 +27,10 @@ jobs:
       - name: Free disk space
         run: |
           df -h /
-          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          # Independent directory trees can be removed concurrently; wait for all
+          # removals before checkout so the same disk headroom is still reclaimed.
+          printf '%s\0' /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL \
+            | xargs -0 -n 1 -P 4 sudo rm -rf
           sudo docker image prune --all --force || true
           df -h /
 
@@ -40,6 +48,17 @@ jobs:
       - name: Resolve .NET SDK version
         id: dotnet-sdk
         run: echo "version=$(dotnet --version)" >> "$GITHUB_OUTPUT"
+
+      # Cache packages separately from obj: source-only changes can reuse the
+      # same packages, and restore still runs to reconcile the dependency graph.
+      - name: Restore NuGet package cache
+        id: nuget-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('global.json', '**/*.csproj', '**/*.props', '**/*.targets', '**/NuGet.Config', '**/nuget.config', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.dotnet-sdk.outputs.version }}-
 
       - name: Restore .NET build cache
         id: build-cache
@@ -104,6 +123,15 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore Beutl.slnx
+
+      # Save immediately after restore so a later test failure does not discard
+      # downloaded dependencies and slow down the next attempt.
+      - name: Save NuGet package cache
+        if: steps.nuget-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
 
       - name: Build
         run: dotnet build Beutl.slnx --no-restore
