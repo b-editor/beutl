@@ -1633,6 +1633,32 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void Direct_entry_subscribers_continue_after_collection_and_property_failures()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        var collection = (INotifyCollectionChanged)manager.Entries;
+        var properties = (System.ComponentModel.INotifyPropertyChanged)manager.Entries;
+        var actions = new List<NotifyCollectionChangedAction>();
+        int propertyCalls = 0;
+        collection.CollectionChanged += (_, _) => throw new InvalidOperationException("collection observer");
+        collection.CollectionChanged += (_, args) => actions.Add(args.Action);
+        properties.PropertyChanged += (_, _) => throw new InvalidOperationException("property observer");
+        properties.PropertyChanged += (_, _) => propertyCalls++;
+        manager.Record(CreateTestOperation());
+        manager.Commit("first");
+        manager.Record(CreateTestOperation());
+        manager.Commit("second");
+        manager.Undo();
+        manager.Record(CreateTestOperation());
+        manager.Commit("third");
+        manager.Clear();
+        Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Add));
+        Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Replace));
+        Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Remove));
+        Assert.That(propertyCalls, Is.GreaterThan(0));
+    }
+
+    [Test]
     public void SubscribeEntries_DisposalUnsubscribesHandler()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);

@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
@@ -42,7 +43,7 @@ public sealed class HistoryManager : IDisposable
         _context = new OperationExecutionContext(root);
         _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
         _entries.Add(HistoryEntry.CreateInitial());
-        _readOnlyEntries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
+        _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
     }
 
     public CoreObject Root { get; }
@@ -719,6 +720,53 @@ public sealed class HistoryManager : IDisposable
     private sealed class EntrySubscriber(NotifyCollectionChangedEventHandler handler)
     {
         public NotifyCollectionChangedEventHandler Handler { get; } = handler;
+    }
+
+    private sealed class IsolatedEntryCollection(
+        ObservableCollection<HistoryEntry> source,
+        ILogger logger) : ReadOnlyObservableCollection<HistoryEntry>(source),
+        INotifyCollectionChanged, INotifyPropertyChanged
+    {
+        private event NotifyCollectionChangedEventHandler? CollectionHandlers;
+        private event PropertyChangedEventHandler? PropertyHandlers;
+
+        event NotifyCollectionChangedEventHandler? INotifyCollectionChanged.CollectionChanged
+        {
+            add => CollectionHandlers += value;
+            remove => CollectionHandlers -= value;
+        }
+
+        event PropertyChangedEventHandler? INotifyPropertyChanged.PropertyChanged
+        {
+            add => PropertyHandlers += value;
+            remove => PropertyHandlers -= value;
+        }
+
+        protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs args)
+        {
+            try { base.OnCollectionChanged(args); }
+            catch (Exception ex) { Report(ex); }
+            foreach (NotifyCollectionChangedEventHandler handler in
+                     CollectionHandlers?.GetInvocationList() ?? [])
+            {
+                try { handler(this, args); }
+                catch (Exception ex) { Report(ex); }
+            }
+        }
+
+        protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+        {
+            try { base.OnPropertyChanged(args); }
+            catch (Exception ex) { Report(ex); }
+            foreach (PropertyChangedEventHandler handler in PropertyHandlers?.GetInvocationList() ?? [])
+            {
+                try { handler(this, args); }
+                catch (Exception ex) { Report(ex); }
+            }
+        }
+
+        private void Report(Exception exception)
+            => logger.LogError(exception, "A direct history entry observer failed; continuing publication.");
     }
 
     public IDisposable Subscribe(IOperationObserver observer)
