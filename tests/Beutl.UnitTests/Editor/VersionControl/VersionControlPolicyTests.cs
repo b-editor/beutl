@@ -1,5 +1,9 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.Graphics;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -92,6 +96,69 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 recordingRunner.Commands,
                 Has.None.Matches<RecordedCommand>(static command =>
                     command.Arguments.FirstOrDefault() == "check-attr"));
+        });
+    }
+
+    [Test]
+    public async Task Serialized_plugin_media_extension_receives_the_large_media_policy()
+    {
+        const string mediaRelativePath = "resources/large.pluginvideo";
+        string projectFile = Path.Combine(Root, "project.bep");
+        string sceneFile = Path.Combine(Root, "main.scene");
+        string elementFile = Path.Combine(
+            Root,
+            "elements",
+            "11111111111111111111111111111111.belm");
+        string mediaFile = Path.Combine(Root, mediaRelativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(elementFile)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(mediaFile)!);
+        var project = new Project { Uri = new Uri(projectFile) };
+        var scene = new Scene(640, 480, "main") { Uri = new Uri(sceneFile) };
+        var element = new Element { Uri = new Uri(elementFile) };
+        var mediaSource = new ImageSource();
+        mediaSource.ReadFrom(new Uri(mediaFile));
+        var image = new SourceImage();
+        image.Source.CurrentValue = mediaSource;
+        element.Objects.Add(image);
+        scene.Children.Add(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, new Uri(projectFile));
+        CoreSerializer.StoreToUri(scene, new Uri(sceneFile));
+        CoreSerializer.StoreToUri(element, new Uri(elementFile));
+        await File.WriteAllBytesAsync(mediaFile, [0]);
+        await RunGitAsync("add", "-A", "--", ".");
+        await RunGitAsync("commit", "-m", "saved project baseline");
+        await File.WriteAllBytesAsync(mediaFile, new byte[(1024 * 1024) + 1]);
+        Assert.That(
+            SerializedProjectGraph.GetFileSourceRelativePaths(projectFile, Root),
+            Does.Contain(mediaRelativePath));
+        var notices = new List<VersionControlPolicyNotice>();
+        using var service = CreateService(
+            CreateLargeMediaConfig(),
+            lfsInstalled: false,
+            notice =>
+            {
+                notices.Add(notice);
+                return Task.CompletedTask;
+            },
+            projectFile: projectFile);
+
+        CommitResult result = await service.CommitAllAsync(
+            "plugin media",
+            SnapshotKind.Manual,
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(
+                notices,
+                Is.EqualTo(new[]
+                {
+                    new VersionControlPolicyNotice.LargeMediaWithoutLfs(
+                        mediaRelativePath,
+                        (1024 * 1024) + 1),
+                }));
         });
     }
 
@@ -772,7 +839,8 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         bool lfsInstalled,
         Func<VersionControlPolicyNotice, Task> presentNotice,
         RepositoryInfo? repository = null,
-        IGitCliRunner? runner = null)
+        IGitCliRunner? runner = null,
+        string? projectFile = null)
     {
         if (runner is not null)
         {
@@ -781,14 +849,16 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 repository ?? Repository,
                 watcher: null,
                 _ => runner,
-                policyNoticeSink: (notice, _) => presentNotice(notice));
+                policyNoticeSink: (notice, _) => presentNotice(notice),
+                projectFile: projectFile);
         }
 
         return new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled, config),
             repository ?? Repository,
             static () => true,
-            (notice, _) => presentNotice(notice));
+            (notice, _) => presentNotice(notice),
+            projectFile);
     }
 
     private static VersionControlConfig CreateLargeMediaConfig()

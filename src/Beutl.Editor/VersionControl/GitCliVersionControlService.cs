@@ -10405,11 +10405,17 @@ internal sealed class GitCliVersionControlService :
         long thresholdBytes = Math.Max(
             0L,
             (long)_installationLocator.Config.LargeMediaWarningThresholdMb * 1024 * 1024);
+        IReadOnlySet<string> serializedFileSources =
+            GetSerializedFileSourceRelativePaths(repository.ProjectRoot);
         var candidates = new List<(FileChange Change, string Path)>();
         foreach (FileChange change in status.Changes)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string? path = GetLargeMediaPath(repository, change.Path, thresholdBytes);
+            string? path = GetLargeMediaPath(
+                repository,
+                change.Path,
+                serializedFileSources,
+                thresholdBytes);
             if (path is not null)
             {
                 candidates.Add((change, path));
@@ -10699,6 +10705,7 @@ internal sealed class GitCliVersionControlService :
     private static string? GetLargeMediaPath(
         RepositoryInfo repository,
         string repoRelativePath,
+        IReadOnlySet<string> serializedFileSources,
         long thresholdBytes)
     {
         string normalizedPath = NormalizeGitPath(repoRelativePath);
@@ -10716,7 +10723,8 @@ internal sealed class GitCliVersionControlService :
             return null;
         }
 
-        if (!s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath)))
+        if (!s_mediaExtensions.Contains(Path.GetExtension(projectRelativePath))
+            && !serializedFileSources.Contains(projectRelativePath))
         {
             return null;
         }
@@ -12084,6 +12092,26 @@ internal sealed class GitCliVersionControlService :
             ? projectFileDirectory
             : projectRoot;
         return SerializedProjectGraph.GetRelativePaths(_projectFile, serializationRoot);
+    }
+
+    private IReadOnlySet<string> GetSerializedFileSourceRelativePaths(string projectRoot)
+    {
+        if (_projectFile is null || !File.Exists(_projectFile))
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        string projectFileDirectory = Path.GetDirectoryName(_projectFile)
+                                      ?? throw new InvalidOperationException(
+                                          "The project file has no parent directory.");
+        string serializationRoot = VersionControlPathComparison.AreSameCanonicalPath(
+            projectFileDirectory,
+            projectRoot)
+            ? projectFileDirectory
+            : projectRoot;
+        return SerializedProjectGraph.GetFileSourceRelativePaths(
+            _projectFile,
+            serializationRoot);
     }
 
     private static async Task<PullFetchTarget> ResolvePullFetchTargetAsync(

@@ -10,15 +10,38 @@ internal static class SerializedProjectGraph
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        var paths = new HashSet<string>(StringComparer.Ordinal);
         Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
         VersionControlSerializationGraph.SerializationGraph graph =
             VersionControlSerializationGraph.DiscoverSerializationGraph(project);
-        foreach (Uri uri in graph.Objects
-                     .Select(static obj => obj.Uri)
-                     .Concat(graph.UnaddressableFileSources)
-                     .Concat(graph.AddressableFileSources)
-                     .OfType<Uri>())
+        return GetRelativePaths(
+            graph.Objects
+                .Select(static obj => obj.Uri)
+                .Concat(graph.UnaddressableFileSources)
+                .Concat(graph.AddressableFileSources)
+                .OfType<Uri>(),
+            projectRoot);
+    }
+
+    public static IReadOnlySet<string> GetFileSourceRelativePaths(
+        string projectFile,
+        string projectRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectFile);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+        Project project = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
+        VersionControlSerializationGraph.SerializationGraph graph =
+            VersionControlSerializationGraph.DiscoverSerializationGraph(project);
+        return GetRelativePaths(
+            graph.UnaddressableFileSources.Concat(graph.AddressableFileSources),
+            projectRoot);
+    }
+
+    private static IReadOnlySet<string> GetRelativePaths(
+        IEnumerable<Uri> uris,
+        string projectRoot)
+    {
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Uri uri in uris)
         {
             if (!uri.IsFile)
             {
