@@ -1,6 +1,6 @@
 # Beutl.FFmpegWorker — GPL-only subtree
 
-> **License:** GPL-3.0-or-later. This is the only GPL project in the solution. **MIT code must never link against it.** See the [development requirements](../../docs/development/quality-gates.md).
+> **License:** GPL-3.0-or-later. This is the only GPL project in the solution. **MIT code must never link against it.** See the [GPL/MIT boundary guide](../../docs/development/gpl-mit-boundary.md).
 
 ## Hard boundary
 

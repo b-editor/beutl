@@ -4,7 +4,7 @@ These requirements apply to all Beutl changes regardless of the editor, automati
 
 ## Architecture requirements
 
-- Keep the GPL/MIT license boundary intact. MIT projects must not reference `Beutl.FFmpegWorker`; communicate with it through `Beutl.FFmpegIpc`. The application may retain its build-order-only reference with `ReferenceOutputAssembly="false"`. The non-distributed `Beutl.FFmpegBenchmarks` and `Beutl.FFmpegWorker.Tests` projects may source-link worker code for direct benchmarking and testing.
+- Keep the [GPL/MIT license boundary](gpl-mit-boundary.md) intact. MIT projects must not reference `Beutl.FFmpegWorker`; communicate with it through `Beutl.FFmpegIpc`. The application may retain its build-order-only reference with `ReferenceOutputAssembly="false"`. The non-distributed `Beutl.FFmpegBenchmarks` and `Beutl.FFmpegWorker.Tests` projects may source-link worker code for direct benchmarking and testing.
 - Keep both `net10.0` and `net10.0-windows` targets building. A new target framework requires an explicit design decision and corresponding build configuration.
 - Add NUnit coverage for new production logic in the matching project under `tests/`.
 - Every new Avalonia `UserControl` must enable compiled bindings with `x:CompileBindings="True"` and declare `x:DataType`.

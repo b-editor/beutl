@@ -52,6 +52,8 @@ breaking changes — please fill it in. A few rules CI and reviewers enforce:
 
 The complete build, test, coverage, and architecture requirements are listed in
 the [development quality gates](docs/development/quality-gates.md).
+Packaging changes that include the FFmpeg worker must also follow the
+[GPL/MIT distribution requirements](docs/development/gpl-mit-boundary.md).
 
 ### Public API design
 

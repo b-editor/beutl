@@ -39,6 +39,8 @@ PRテンプレートでは概要・影響範囲・テスト計画・破壊的変
 
 ビルド、テスト、カバレッジ、アーキテクチャに関する要件は、
 [開発品質ゲート](docs/development/quality-gates.md)にまとめています。
+FFmpeg worker を含む配布物を変更する場合は、
+[GPL/MIT 配布要件](docs/development/gpl-mit-boundary.md)にも従ってください。
 
 ### 公開 API の設計
 

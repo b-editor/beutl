@@ -45,6 +45,6 @@ Use localized resources for `DisplayName`, menu `Header`, and the context's tab 
 - `src/Beutl.Editor.Components/ProxiesTab/ProxiesTabExtension.cs` and `ViewModels/ProxiesTabViewModel.cs`: single-instance right-side tool with service subscriptions and persisted context state.
 - `src/Beutl.Editor.Components/FileBrowserTab/`: multi-instance context pattern.
 - `src/Beutl/Services/PrimitiveImpls/VersionControlTabExtension.cs`: conditional content/context creation.
-- `src/Beutl/ViewModels/Dock/BeutlDockFactory.cs` and `DockHostViewModel.cs`: host placement, opening, and closing behavior.
+- `src/Beutl/ViewModels/Dock/BeutlDockFactory.cs` and `src/Beutl/ViewModels/DockHostViewModel.cs`: host placement, opening, and closing behavior.
 
 New views must enable Avalonia compiled bindings with both `x:CompileBindings="True"` and `x:DataType`.

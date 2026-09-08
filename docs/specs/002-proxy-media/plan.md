@@ -31,7 +31,7 @@ While editing, Beutl must transparently serve preview video decode requests from
 - Eviction and store lookups must not block UI thread (lookup ≤1 ms p95 for hot path; eviction off the UI thread)
 
 **Constraints**:
-- **License firewall and project-reference direction (NON-NEGOTIABLE)**: no MIT project may take a `ProjectReference` to `Beutl.FFmpegWorker`, and `Beutl.Engine` MUST NOT take a new reference to `Beutl.FFmpegIpc` or `Beutl.Extensions.FFmpeg` because those projects already depend on Engine-side media abstractions. Engine exposes `IProxyGenerator`; the concrete FFmpeg implementation is registered from the application / extension composition root and goes through existing `FFmpegIpc` + `FFmpegEncodingControllerProxy`. The PreToolUse hook enforces the GPL boundary and must remain green.
+- **License firewall and project-reference direction (NON-NEGOTIABLE)**: no MIT project may take a `ProjectReference` to `Beutl.FFmpegWorker`, and `Beutl.Engine` MUST NOT take a new reference to `Beutl.FFmpegIpc` or `Beutl.Extensions.FFmpeg` because those projects already depend on Engine-side media abstractions. Engine exposes `IProxyGenerator`; the concrete FFmpeg implementation is registered from the application / extension composition root and goes through existing `FFmpegIpc` + `FFmpegEncodingControllerProxy`. `Beutl.PublicApiContractTests` enforces the compile-time GPL boundary and must remain green.
 - Dual-target build must stay green on both `net10.0` and `net10.0-windows`.
 - Default proxy-store root must NOT live inside the project directory (project portability).
 - LRU eviction must never delete a file that is currently being decoded for preview or whose generation job is in flight (FR-018a safety clause).
@@ -52,7 +52,7 @@ While editing, Beutl must transparently serve preview video decode requests from
 | I. License Firewall | MIT projects must not `ProjectReference` `Beutl.FFmpegWorker`; proxy generation goes through `Beutl.FFmpegIpc` only. | **PASS** — Engine owns only the `IProxyGenerator` abstraction; the FFmpeg concrete generator lives in `Beutl.Extensions.FFmpeg`, reuses `FFmpegEncodingControllerProxy` (already IPC-only), and adds no MIT → GPL edge. |
 | II. Dual-Target Framework | Must keep `net10.0` and `net10.0-windows` building. | **PASS** — new core code lands in `Beutl.Engine` / `Beutl.ProjectSystem` / `Beutl.Editor*`; the FFmpeg-backed generator lands in the existing `Beutl.Extensions.FFmpeg` project. No new TFM. |
 | III. Test-First with NUnit | New logic ships with NUnit tests under `tests/`. | **PASS** — see [Phase 1 testing](#phase-1-testing). Tests target `tests/Beutl.UnitTests` for store/queue/resolver/fingerprint/eviction plus the extension-backed FFmpeg generation E2E. |
-| IV. Avalonia + Compiled Bindings | New `UserControl`s declare `x:CompileBindings="True"` + `x:DataType`. | **PASS** — the new Proxies tool tab follows the existing pattern; `beutl-xaml-binder` subagent will spot regressions. |
+| IV. Avalonia + Compiled Bindings | New `UserControl`s declare `x:CompileBindings="True"` + `x:DataType`. | **PASS** — the new Proxies tool tab follows the existing pattern; build and code review verify both required attributes. |
 | V. Style Belongs to the Linter | No stylistic-only edits; rely on `dotnet format`. | **PASS** — no manual style changes planned. |
 | VI. Source Generators Are Load-Bearing | Generator changes need build + `tests/SourceGeneratorTest/`. | **PASS** — feature does not change source generators. |
 

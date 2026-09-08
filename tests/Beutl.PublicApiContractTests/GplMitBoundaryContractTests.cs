@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -32,7 +31,7 @@ public sealed class GplMitBoundaryContractTests
             {
                 string? include = element.Attribute("Include")?.Value;
                 if (include is null
-                    || !include.Contains("Beutl.FFmpegWorker", StringComparison.Ordinal))
+                    || !include.Contains("Beutl.FFmpegWorker", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -65,38 +64,82 @@ public sealed class GplMitBoundaryContractTests
             "GPL/MIT boundary violations:" + Environment.NewLine + string.Join(Environment.NewLine, violations));
     }
 
+    [Test]
+    public void Build_file_enumeration_skips_nested_repositories_and_local_agent_state()
+    {
+        string testRoot = Path.Combine(
+            TestContext.CurrentContext.WorkDirectory,
+            "gpl-boundary-enumeration-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            string projectDirectory = Directory.CreateDirectory(Path.Combine(testRoot, "src", "Project")).FullName;
+            string nestedRepository = Directory.CreateDirectory(Path.Combine(testRoot, "nested")).FullName;
+            string localAgentWorktree = Directory.CreateDirectory(
+                Path.Combine(testRoot, ".claude", "worktrees", "nested")).FullName;
+            File.WriteAllText(Path.Combine(projectDirectory, "Project.csproj"), "<Project />");
+            File.WriteAllText(Path.Combine(nestedRepository, ".git"), "gitdir: elsewhere");
+            File.WriteAllText(Path.Combine(nestedRepository, "Nested.csproj"), "<Project />");
+            File.WriteAllText(Path.Combine(localAgentWorktree, "Agent.csproj"), "<Project />");
+
+            string[] files = EnumerateBuildFiles(testRoot)
+                .Select(path => Path.GetRelativePath(testRoot, path).Replace('\\', '/'))
+                .ToArray();
+
+            Assert.That(files, Is.EqualTo(new[] { "src/Project/Project.csproj" }));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, true);
+            }
+        }
+    }
+
     private static IReadOnlyList<string> EnumerateBuildFiles(string repositoryRoot)
     {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = repositoryRoot,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        startInfo.ArgumentList.Add("ls-files");
-        startInfo.ArgumentList.Add("-z");
-        startInfo.ArgumentList.Add("--");
-        startInfo.ArgumentList.Add("*.csproj");
-        startInfo.ArgumentList.Add("*.props");
-        startInfo.ArgumentList.Add("*.targets");
+        return EnumerateBuildFiles(new DirectoryInfo(repositoryRoot))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
 
-        using Process process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("Could not start git to enumerate tracked build files.");
-        string output = process.StandardOutput.ReadToEnd();
-        string error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-
-        if (process.ExitCode != 0)
+    private static IEnumerable<string> EnumerateBuildFiles(DirectoryInfo directory)
+    {
+        foreach (FileInfo file in directory.EnumerateFiles())
         {
-            throw new InvalidOperationException(
-                $"Could not enumerate tracked build files (exit {process.ExitCode}): {error}");
+            if (file.Extension is ".csproj" or ".props" or ".targets")
+            {
+                yield return file.FullName;
+            }
         }
 
-        return output
-            .Split('\0', StringSplitOptions.RemoveEmptyEntries)
-            .Select(path => Path.Combine(repositoryRoot, path.Replace('/', Path.DirectorySeparatorChar)))
-            .ToArray();
+        foreach (DirectoryInfo child in directory.EnumerateDirectories())
+        {
+            if (ShouldSkipDirectory(child)
+                || IsRepositoryRoot(child))
+            {
+                continue;
+            }
+
+            foreach (string file in EnumerateBuildFiles(child))
+            {
+                yield return file;
+            }
+        }
+    }
+
+    private static bool ShouldSkipDirectory(DirectoryInfo directory)
+    {
+        return directory.Name is ".git" or ".agents" or ".claude" or ".codex"
+            or "bin" or "obj" or "node_modules" or "TestResults"
+            || directory.Attributes.HasFlag(FileAttributes.ReparsePoint);
+    }
+
+    private static bool IsRepositoryRoot(DirectoryInfo directory)
+    {
+        return Directory.Exists(Path.Combine(directory.FullName, ".git"))
+            || File.Exists(Path.Combine(directory.FullName, ".git"));
     }
 
     private static string FindRepositoryRoot()
