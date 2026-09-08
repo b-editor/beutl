@@ -93,6 +93,7 @@ public sealed class ObjectTemplateService
         string filePath = Path.Combine(_directoryPath, name + ".json");
         if (File.Exists(filePath)) return true;
 
+        // Display names remain case-insensitively unique independently of path identity.
         foreach (ObjectTemplateItem item in _items)
         {
             if (string.Equals(item.Name.Value, name, StringComparison.OrdinalIgnoreCase))
@@ -136,8 +137,16 @@ public sealed class ObjectTemplateService
             ObjectTemplateItem? cached = FindByFilePathLocked(filePath);
             if (cached != null)
             {
+                string? canonicalPath = TryResolveCanonicalPath(filePath, out string resolvedPath)
+                    ? resolvedPath
+                    : null;
                 DateTime diskTime = GetLastWriteTimeOrDefault(filePath);
-                if (diskTime != default && diskTime <= cached.LastWriteTimeUtc)
+                if (string.Equals(
+                        canonicalPath,
+                        cached.CanonicalFilePath,
+                        StringComparison.Ordinal)
+                    && diskTime != default
+                    && diskTime <= cached.LastWriteTimeUtc)
                 {
                     return cached;
                 }
@@ -178,6 +187,11 @@ public sealed class ObjectTemplateService
             if (item != null)
             {
                 item.LastWriteTimeUtc = lastWriteTime;
+                item.CanonicalFilePath = TryResolveCanonicalPath(
+                    filePath,
+                    out string canonicalPath)
+                    ? canonicalPath
+                    : null;
             }
 
             return item;
@@ -217,6 +231,11 @@ public sealed class ObjectTemplateService
 
             item.FilePath = filePath;
             item.LastWriteTimeUtc = File.GetLastWriteTimeUtc(filePath);
+            item.CanonicalFilePath = TryResolveCanonicalPath(
+                filePath,
+                out string canonicalPath)
+                ? canonicalPath
+                : null;
             _logger.LogInformation("Saved ObjectTemplateItem to file: {FilePath}", filePath);
             return true;
         }
@@ -240,14 +259,23 @@ public sealed class ObjectTemplateService
             lock (_lock)
             {
                 _items.Clear();
-
-                foreach (string filePath in Directory.EnumerateFiles(
-                             _directoryPath, "*.json", SearchOption.AllDirectories))
+                string[] diskFiles = Directory.EnumerateFiles(
+                        _directoryPath,
+                        "*.json",
+                        SearchOption.AllDirectories)
+                    .ToArray();
+                CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
+                var loadedPaths = new CanonicalPathSet();
+                foreach (string filePath in diskPaths.GetPreferredPaths(diskFiles))
                 {
+                    diskPaths.TryGetExact(filePath, out string? canonicalPath);
+                    if (loadedPaths.ContainsKnown(filePath, canonicalPath)) continue;
+
                     var item = LoadFromFile(filePath);
                     if (item != null)
                     {
                         _items.Add(item);
+                        loadedPaths.AddKnown(filePath, canonicalPath);
                     }
                 }
 
@@ -289,13 +317,58 @@ public sealed class ObjectTemplateService
 
     private ObjectTemplateItem? FindByFilePathLocked(string filePath)
     {
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(filePath);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return null;
+        }
+
+        string? canonicalPath = TryResolveCanonicalPath(fullPath, out string resolvedPath)
+            ? resolvedPath
+            : null;
         foreach (ObjectTemplateItem item in _items)
         {
-            if (FilePathComparison.Equals(item.FilePath, filePath))
+            if (item.FilePath is not { } itemFilePath)
+            {
+                continue;
+            }
+
+            if (string.Equals(Path.GetFullPath(itemFilePath), fullPath, StringComparison.Ordinal)
+                || canonicalPath is not null
+                && string.Equals(
+                    item.CanonicalFilePath,
+                    canonicalPath,
+                    StringComparison.Ordinal))
+            {
                 return item;
+            }
         }
 
         return null;
+    }
+
+    private static bool TryResolveCanonicalPath(string path, out string canonicalPath)
+    {
+        canonicalPath = string.Empty;
+        try
+        {
+            canonicalPath = FilePathComparison.ResolveCanonicalPath(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
@@ -320,15 +393,17 @@ public sealed class ObjectTemplateService
         }
     }
 
-    private void RefreshFromFileSystem()
+    internal void RefreshFromFileSystem()
     {
         try
         {
             if (!Directory.Exists(_directoryPath)) return;
 
-            var diskFiles = new HashSet<string>(
-                Directory.EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories),
-                StringComparer.OrdinalIgnoreCase);
+            string[] diskFiles = Directory
+                .EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories)
+                .ToArray();
+            CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
+            IEnumerable<string> preferredDiskFiles = diskPaths.GetPreferredPaths(diskFiles);
 
             lock (_lock)
             {
@@ -336,24 +411,63 @@ public sealed class ObjectTemplateService
                 for (int i = _items.Count - 1; i >= 0; i--)
                 {
                     ObjectTemplateItem item = _items[i];
-                    if (item.FilePath == null || !diskFiles.Contains(item.FilePath))
+                    if (item.FilePath == null
+                        || !diskPaths.TryMatch(item.FilePath, out _))
                     {
                         _items.RemoveAt(i);
                         _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
+                        continue;
                     }
+
                 }
 
                 // 外部変更を検知したら再読み込み、既読パスを収集
-                var loadedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var loadedPaths = new CanonicalPathSet();
                 for (int i = 0; i < _items.Count; i++)
                 {
                     ObjectTemplateItem item = _items[i];
                     if (item.FilePath == null) continue;
 
-                    loadedPaths.Add(item.FilePath);
+                    diskPaths.TryMatch(item.FilePath, out string? currentCanonicalPath);
+                    if (currentCanonicalPath is not null
+                        && diskPaths.TryGetPreferredPath(
+                            currentCanonicalPath,
+                            out string? preferredPath)
+                        && preferredPath is not null
+                        && !string.Equals(
+                            item.FilePath,
+                            preferredPath,
+                            StringComparison.Ordinal))
+                    {
+                        ObjectTemplateItem? preferred = LoadFromFile(preferredPath);
+                        if (preferred is not null)
+                        {
+                            _items[i] = item = preferred;
+                            currentCanonicalPath = preferred.CanonicalFilePath;
+                            _logger.LogInformation(
+                                "Reloaded template from preferred path: {FilePath}",
+                                preferredPath);
+                        }
+                    }
+
+                    if (loadedPaths.ContainsKnown(item.FilePath, currentCanonicalPath))
+                    {
+                        _items.RemoveAt(i--);
+                        _logger.LogInformation(
+                            "Removed duplicate template identity: {FilePath}",
+                            item.FilePath);
+                        continue;
+                    }
+
+                    loadedPaths.AddKnown(item.FilePath, currentCanonicalPath);
 
                     DateTime diskTime = GetLastWriteTimeOrDefault(item.FilePath);
-                    if (diskTime == default || diskTime <= item.LastWriteTimeUtc)
+                    bool targetChanged = !string.Equals(
+                        currentCanonicalPath,
+                        item.CanonicalFilePath,
+                        StringComparison.Ordinal);
+                    if (!targetChanged
+                        && (diskTime == default || diskTime <= item.LastWriteTimeUtc))
                         continue;
 
                     ObjectTemplateItem? reloaded = LoadFromFile(item.FilePath);
@@ -365,14 +479,16 @@ public sealed class ObjectTemplateService
                 }
 
                 // 新しいファイルを読み込んで追加
-                foreach (string filePath in diskFiles)
+                foreach (string filePath in preferredDiskFiles)
                 {
-                    if (loadedPaths.Contains(filePath)) continue;
+                    diskPaths.TryGetExact(filePath, out string? canonicalPath);
+                    if (loadedPaths.ContainsKnown(filePath, canonicalPath)) continue;
 
                     ObjectTemplateItem? newItem = LoadFromFile(filePath);
                     if (newItem != null)
                     {
                         _items.Add(newItem);
+                        loadedPaths.AddKnown(filePath, canonicalPath);
                         _logger.LogInformation("Added template (new file): {FilePath}", filePath);
                     }
                 }
@@ -381,6 +497,159 @@ public sealed class ObjectTemplateService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to refresh templates from filesystem.");
+        }
+    }
+
+    private sealed class CanonicalPathSet
+    {
+        private readonly HashSet<string> _canonicalPaths = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string?> _exactPaths = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> _preferredPaths = new(StringComparer.Ordinal);
+        private readonly FilePathComparison.ResolutionContext _resolutionContext;
+
+        public CanonicalPathSet()
+            : this(FilePathComparison.CreateResolutionContext())
+        {
+        }
+
+        private CanonicalPathSet(FilePathComparison.ResolutionContext resolutionContext)
+        {
+            _resolutionContext = resolutionContext;
+        }
+
+        public static CanonicalPathSet FromEnumeratedFiles(IEnumerable<string> paths)
+        {
+            var result = new CanonicalPathSet(FilePathComparison.CreateResolutionContext());
+            foreach (string path in paths)
+            {
+                string? canonicalPath = IsLiveFile(path)
+                    && result.TryResolve(path, out string resolvedPath)
+                    ? resolvedPath
+                    : null;
+                result.AddKnown(path, canonicalPath);
+            }
+
+            return result;
+        }
+
+        private static bool IsLiveFile(string path)
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                return info.LinkTarget is null
+                    ? info.Exists
+                    : info.ResolveLinkTarget(returnFinalTarget: true)?.Exists == true;
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        public void AddKnown(string path, string? canonicalPath)
+        {
+            _exactPaths[path] = canonicalPath;
+            if (canonicalPath is not null)
+            {
+                _canonicalPaths.Add(canonicalPath);
+                if (!_preferredPaths.TryGetValue(canonicalPath, out string? current)
+                    || IsPreferredPath(path, current, canonicalPath))
+                {
+                    _preferredPaths[canonicalPath] = path;
+                }
+            }
+        }
+
+        public IEnumerable<string> GetPreferredPaths(IEnumerable<string> paths)
+        {
+            foreach (string path in paths)
+            {
+                if (!_exactPaths.TryGetValue(path, out string? canonicalPath)
+                    || canonicalPath is null)
+                {
+                    yield return path;
+                    continue;
+                }
+
+                if (_preferredPaths.TryGetValue(canonicalPath, out string? preferredPath)
+                    && string.Equals(path, preferredPath, StringComparison.Ordinal))
+                {
+                    yield return path;
+                }
+            }
+        }
+
+        public bool TryGetPreferredPath(string canonicalPath, out string? preferredPath)
+        {
+            return _preferredPaths.TryGetValue(canonicalPath, out preferredPath);
+        }
+
+        public bool TryGetExact(string path, out string? canonicalPath)
+        {
+            return _exactPaths.TryGetValue(path, out canonicalPath);
+        }
+
+        public bool TryMatch(string path, out string? canonicalPath)
+        {
+            if (_exactPaths.TryGetValue(path, out canonicalPath))
+            {
+                return canonicalPath is not null;
+            }
+
+            if (TryResolve(path, out string resolvedPath)
+                && _canonicalPaths.Contains(resolvedPath))
+            {
+                canonicalPath = resolvedPath;
+                return true;
+            }
+
+            canonicalPath = null;
+            return false;
+        }
+
+        public bool ContainsKnown(string path, string? canonicalPath)
+        {
+            return _exactPaths.ContainsKey(path)
+                   || canonicalPath is not null && _canonicalPaths.Contains(canonicalPath);
+        }
+
+        private bool TryResolve(string path, out string canonicalPath)
+        {
+            canonicalPath = string.Empty;
+            try
+            {
+                canonicalPath = _resolutionContext.ResolveCanonicalPath(path);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPreferredPath(
+            string candidate,
+            string current,
+            string canonicalPath)
+        {
+            bool candidateIsCanonical = string.Equals(
+                Path.GetFullPath(candidate),
+                canonicalPath,
+                StringComparison.Ordinal);
+            bool currentIsCanonical = string.Equals(
+                Path.GetFullPath(current),
+                canonicalPath,
+                StringComparison.Ordinal);
+            return candidateIsCanonical != currentIsCanonical
+                ? candidateIsCanonical
+                : string.CompareOrdinal(candidate, current) < 0;
         }
     }
 }

@@ -93,6 +93,8 @@ public sealed class FileThumbnailService : IDisposable
     private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
     private readonly ConcurrentDictionary<string, CachedThumbnail> _cache = new();
     private readonly ConcurrentDictionary<string, (MediaFileInfo Info, long LastAccessTicks)> _mediaInfoCache = new();
+    private readonly ConcurrentDictionary<TemplateDirectoryMembershipKey, bool>
+        _templateDirectoryMembership = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
     private readonly Timer _pruneTimer;
@@ -106,6 +108,8 @@ public sealed class FileThumbnailService : IDisposable
     public static FileThumbnailService Instance => s_instance.Value;
 
     public int ThumbnailSize { get; set; } = 64;
+
+    internal int TemplateDirectoryMembershipCount => _templateDirectoryMembership.Count;
 
     public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
@@ -300,9 +304,58 @@ public sealed class FileThumbnailService : IDisposable
     /// </remarks>
     public bool IsObjectTemplateFile(string filePath)
     {
-        return string.Equals(Path.GetExtension(filePath), ".json", StringComparison.OrdinalIgnoreCase)
-               && PathScope.IsUnderDirectory(filePath, BeutlEnvironment.GetTemplatesDirectoryPath());
+        return IsObjectTemplateFile(
+            filePath,
+            BeutlEnvironment.GetTemplatesDirectoryPath());
     }
+
+    internal bool IsObjectTemplateFile(string filePath, string templatesDirectoryPath)
+    {
+        if (!string.Equals(Path.GetExtension(filePath), ".json", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string canonicalDirectory;
+        string canonicalTemplatesDirectory;
+        try
+        {
+            string fullPath = Path.GetFullPath(filePath);
+            string? directory = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrEmpty(directory))
+            {
+                return false;
+            }
+
+            canonicalDirectory = FilePathComparison.ResolveCanonicalPath(directory);
+            canonicalTemplatesDirectory = FilePathComparison.ResolveCanonicalPath(
+                templatesDirectoryPath);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return false;
+        }
+
+        if (_templateDirectoryMembership.Count >= 512)
+        {
+            _templateDirectoryMembership.Clear();
+        }
+
+        return _templateDirectoryMembership.GetOrAdd(
+            new TemplateDirectoryMembershipKey(
+                canonicalTemplatesDirectory,
+                canonicalDirectory),
+            static key => FilePathComparison.IsSameOrDescendant(
+                key.TemplatesDirectory,
+                key.CandidateDirectory));
+    }
+
+    private readonly record struct TemplateDirectoryMembershipKey(
+        string TemplatesDirectory,
+        string CandidateDirectory);
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
     {
@@ -487,6 +540,7 @@ public sealed class FileThumbnailService : IDisposable
     {
         _cache.Clear();
         _mediaInfoCache.Clear();
+        _templateDirectoryMembership.Clear();
     }
 
     public void Dispose()
