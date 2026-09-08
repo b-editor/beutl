@@ -37,7 +37,7 @@ public sealed class AgentHostEndpointTests
                 "live",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
@@ -97,7 +97,7 @@ public sealed class AgentHostEndpointTests
                 "live",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var liveSessions = new LiveSessionSource();
@@ -191,7 +191,7 @@ public sealed class AgentHostEndpointTests
                 "live",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
@@ -235,7 +235,7 @@ public sealed class AgentHostEndpointTests
                 "live",
                 location))!;
             Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
+            await TestShell.Editor.ActivateTabItemAsync(scene);
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
