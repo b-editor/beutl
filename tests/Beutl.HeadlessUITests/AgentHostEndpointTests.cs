@@ -260,6 +260,60 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task RequestStop_detaches_a_published_host_while_startup_completion_is_pending()
+    {
+        await TestReset.ResetShellAsync();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(), "test-token");
+        await endpoint.StartAsync();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        typeof(AgentHostEndpoint).GetField("_startupTask",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(endpoint, completion.Task);
+        try
+        {
+            endpoint.RequestStop();
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        }
+        finally
+        {
+            completion.TrySetResult();
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Direct_startup_callback_cannot_hold_the_lifecycle_lock_past_stop_timeout()
+    {
+        await TestReset.ResetShellAsync();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(), "test-token", _ =>
+            {
+                entered.TrySetResult();
+                release.Wait();
+                return Task.CompletedTask;
+            });
+        Task startup = Task.Run(() => endpoint.StartAsync());
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.Run(() => endpoint.StopAsync()).WaitAsync(TimeSpan.FromSeconds(4));
+            Assert.That(endpoint.IsRunning, Is.False);
+        }
+        finally
+        {
+            release.Set();
+            try { await startup.WaitAsync(TimeSpan.FromSeconds(5)); }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
     {
         await TestReset.ResetShellAsync();
@@ -380,6 +434,50 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task ConcurrentStartCallersCancelOnlyTheirOwnWaits()
+    {
+        await TestReset.ResetShellAsync();
+        var startupEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async token =>
+            {
+                startupEntered.TrySetResult();
+                await releaseStartup.Task.WaitAsync(token);
+            });
+        using var firstCancellation = new CancellationTokenSource();
+        using var laterCancellation = new CancellationTokenSource();
+        Task first = endpoint.StartAsync(firstCancellation.Token);
+        await startupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task shared = endpoint.StartAsync();
+        Task later = endpoint.StartAsync(laterCancellation.Token);
+
+        firstCancellation.Cancel();
+        laterCancellation.Cancel();
+        await AssertCanceledAsync(first);
+        await AssertCanceledAsync(later);
+        Assert.That(shared.IsCompleted, Is.False);
+
+        try
+        {
+            releaseStartup.TrySetResult();
+            await shared.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(endpoint.IsRunning, Is.True);
+        }
+        finally
+        {
+            releaseStartup.TrySetResult();
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
     public async Task RequestStop_before_start_keeps_the_endpoint_stopped()
     {
         await TestReset.ResetShellAsync();
@@ -414,6 +512,72 @@ public sealed class AgentHostEndpointTests
         });
 
         await endpoint.StopAsync();
+    }
+
+    [AvaloniaTest]
+    public async Task StopAsync_joins_background_startup_and_leaves_no_published_endpoint()
+    {
+        await TestReset.ResetShellAsync();
+        var startupEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async _ =>
+            {
+                startupEntered.TrySetResult();
+                await releaseStartup.Task;
+            });
+
+        endpoint.StartInBackground();
+        await startupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task stop = endpoint.StopAsync();
+        Assert.That(stop.IsCompleted, Is.False);
+        releaseStartup.TrySetResult();
+        await stop.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task StopAsync_bounds_a_startup_path_that_does_not_observe_cancellation()
+    {
+        await TestReset.ResetShellAsync();
+        var startupEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseStartup = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new AgentHostEndpoint(
+            new ProjectService(),
+            new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(),
+            "test-token",
+            async _ =>
+            {
+                startupEntered.TrySetResult();
+                await releaseStartup.Task;
+            });
+        Task startup = endpoint.StartAsync();
+        await startupEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await endpoint.StopAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+
+        releaseStartup.TrySetResult();
+        await AssertCanceledAsync(startup);
     }
 
     [AvaloniaTest]
@@ -536,6 +700,13 @@ public sealed class AgentHostEndpointTests
 
         Assert.Inconclusive("Could not reserve a loopback port with an available successor.");
         throw new InvalidOperationException();
+    }
+
+    private static async Task AssertCanceledAsync(Task task)
+    {
+        try { await task.WaitAsync(TimeSpan.FromSeconds(5)); }
+        catch (OperationCanceledException) { return; }
+        Assert.Fail("Expected startup cancellation.");
     }
 
     private static int GetAvailableLoopbackPort()
