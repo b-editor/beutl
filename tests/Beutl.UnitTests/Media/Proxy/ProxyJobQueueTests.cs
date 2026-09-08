@@ -39,6 +39,8 @@ public class ProxyJobQueueTests
         var releaseFirstDelay = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var delays = new List<TimeSpan>();
         int startedEvents = 0;
+        int enqueuedEvents = 0;
+        int waitingEvents = 0;
         await using var queue = new ProxyJobQueue(
             generator,
             store: null,
@@ -65,6 +67,14 @@ public class ProxyJobQueueTests
             if (args.Kind == ProxyJobChangeKind.Started)
             {
                 Interlocked.Increment(ref startedEvents);
+            }
+            else if (args.Kind == ProxyJobChangeKind.Enqueued)
+            {
+                Interlocked.Increment(ref enqueuedEvents);
+            }
+            else if (args.Kind == ProxyJobChangeKind.WaitingForAdmission)
+            {
+                Interlocked.Increment(ref waitingEvents);
             }
         };
 
@@ -107,6 +117,43 @@ public class ProxyJobQueueTests
             Assert.That(admission.Leases[0].DisposeCount, Is.EqualTo(1));
             Assert.That(generator.Sources, Has.Count.EqualTo(1));
             Assert.That(Volatile.Read(ref startedEvents), Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref enqueuedEvents), Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref waitingEvents), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Admission_availability_signal_wakes_a_deferred_job_before_its_backoff()
+    {
+        var generator = new RecordingGenerator();
+        var admission = new SequencedAdmission(rejections: 1);
+        var delayStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30),
+            admission,
+            async (_, cancellationToken) =>
+            {
+                delayStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            });
+
+        ProxyJob job = await queue.EnqueueAsync(
+            CreateFingerprint("admission-signal.mov"),
+            ProxyPreset.Quarter);
+        await delayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        admission.SignalAvailability();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(admission.Attempts, Is.EqualTo(2));
+            Assert.That(generator.Sources, Has.Count.EqualTo(1));
         });
     }
 
@@ -184,6 +231,38 @@ public class ProxyJobQueueTests
             Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
             Assert.That(leaseDisposeCountAtRegistration, Is.Zero);
             Assert.That(leaseDisposeCountAtFailure, Is.EqualTo(1));
+            Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Cancellation_during_failure_cleanup_rolls_back_the_failed_store_entry()
+    {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
+        var releaseStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseLease = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var admission = new SequencedAdmission(
+            rejections: 0,
+            leaseFactory: () => new CountingLease(
+                disposeStarted: releaseStarted,
+                disposeRelease: releaseLease.Task));
+        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        ProxyFingerprint source = CreateFingerprint("failure-cleanup-cancel.mov");
+
+        ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
+        await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        queue.Cancel(job.JobId);
+        releaseLease.TrySetResult();
+        await WaitForTerminalAsync(job);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.Error, Is.Null);
+            Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
             Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
         });
     }
@@ -1512,6 +1591,8 @@ public class ProxyJobQueueTests
         int rejections,
         Func<CountingLease>? leaseFactory = null) : IProxyGenerationAdmission
     {
+        public event EventHandler? AvailabilityChanged;
+
         private readonly Lock _lock = new();
         private readonly List<CountingLease> _leases = [];
         private int _attempts;
@@ -1545,10 +1626,14 @@ public class ProxyJobQueueTests
 
             return lease;
         }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class BlockingThrowingAdmission(Exception failure) : IProxyGenerationAdmission
     {
+        public event EventHandler? AvailabilityChanged;
+
         private readonly TaskCompletionSource _release = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -1567,11 +1652,15 @@ public class ProxyJobQueueTests
         {
             _release.TrySetResult();
         }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class JobAwareAdmission(ProxyFingerprint deniedSource)
         : IProxyGenerationAdmission
     {
+        public event EventHandler? AvailabilityChanged;
+
         private int _deniedAttempts;
         private int _admittedAttempts;
 
@@ -1592,6 +1681,8 @@ public class ProxyJobQueueTests
             Interlocked.Increment(ref _admittedAttempts);
             return Lease;
         }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class CountingLease(

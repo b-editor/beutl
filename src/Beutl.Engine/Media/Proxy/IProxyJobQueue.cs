@@ -49,6 +49,16 @@ public interface IProxyGenerationAdmission
     /// temporarily busy.
     /// </returns>
     IDisposable? TryAcquireLease(ProxyJob job);
+
+    /// <summary>
+    /// Raised when host resources may have become available after a rejected acquisition.
+    /// </summary>
+    /// <remarks>
+    /// The queue still calls <see cref="TryAcquireLease"/> to make the admission decision. This
+    /// signal only wakes deferred jobs early; bounded retry remains as a fallback for missed or
+    /// unsupported host transitions.
+    /// </remarks>
+    event EventHandler? AvailabilityChanged;
 }
 
 public interface IProxyGeneratorAvailability
@@ -68,6 +78,7 @@ public sealed class ProxyJobChangedEventArgs : EventArgs
 public enum ProxyJobChangeKind
 {
     Enqueued,
+    WaitingForAdmission,
     Started,
     Progressed,
     Succeeded,

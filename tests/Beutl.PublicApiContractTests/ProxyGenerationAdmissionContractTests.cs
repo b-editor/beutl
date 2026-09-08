@@ -40,6 +40,8 @@ public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTes
 
     private sealed class TestAdmission : IProxyGenerationAdmission
     {
+        public event EventHandler? AvailabilityChanged;
+
         public int AcquireCalls { get; private set; }
 
         public TestLease Lease { get; } = new();
@@ -49,6 +51,8 @@ public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTes
             AcquireCalls++;
             return Lease;
         }
+
+        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class TestGenerator : IProxyGenerator

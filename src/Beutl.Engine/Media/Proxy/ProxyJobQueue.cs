@@ -9,6 +9,8 @@ namespace Beutl.Media.Proxy;
 
 public sealed class ProxyJobQueue : IProxyJobQueue
 {
+    private readonly record struct FailureRegistration(ProxyEntry? Previous, bool Changed);
+
     private static readonly ILogger s_logger = Log.CreateLogger("ProxyJobQueue");
     private readonly Func<IProxyGenerator?> _generatorProvider;
     private IProxyGenerator? _generator;
@@ -128,6 +130,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         _minUnavailableBackoff = minUnavailableBackoff;
         _maxUnavailableBackoff = maxUnavailableBackoff;
         _admission = admission;
+        if (_admission is not null)
+        {
+            _admission.AvailabilityChanged += OnAdmissionAvailabilityChanged;
+        }
         _delayAsync = delayAsync ?? (static (delay, token) => Task.Delay(delay, token));
         // Unbounded: each queued item needs exactly one wake permit, and the drain (single reader,
         // MaxConcurrency 1) consumes one per dispatch. Items already live in _items — deduplicated by
@@ -371,6 +377,11 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             return;
 
         _disposed = true;
+        if (_admission is not null)
+        {
+            _admission.AvailabilityChanged -= OnAdmissionAvailabilityChanged;
+        }
+
         CancelAll();
         _channel.Writer.TryComplete();
         _disposeCts.Cancel();
@@ -621,30 +632,29 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 or ProxyGenerationSkippedException
                 or ProxyGeneratorUnavailableException))
         {
-            if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
-            {
-                Exception? cancellationReleaseFailure = ReleaseAdmissionLease(admissionLease);
-                if (cancellationReleaseFailure is not null)
-                {
-                    throw new AdmissionLeaseReleaseException(cancellationReleaseFailure);
-                }
-
-                CompleteCanceled(item);
-                return false;
-            }
-
             Exception failure = generationFailure.SourceException;
             item.Job.Error = failure;
             // Store bookkeeping is part of terminal cleanup and remains inside admission.
-            RegisterFailure(item.Job, failure.Message);
+            FailureRegistration failureRegistration = RegisterFailure(
+                item.Job,
+                failure.Message);
 
             Exception? releaseFailure = ReleaseAdmissionLease(admissionLease);
             if (releaseFailure is not null)
             {
+                item.TryClaimNonCancellationTerminal(cancellationWins: false);
                 item.Job.Error = new AggregateException(
                     "Proxy generation and admission-lease release both failed.",
                     failure,
                     releaseFailure);
+            }
+            else if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
+            {
+                RollBackFailure(item.Job, failureRegistration);
+                item.Job.Error = null;
+                item.Job.Status = ProxyJobStatus.Canceled;
+                OnJobChanged(item.Job, ProxyJobChangeKind.Canceled);
+                return false;
             }
 
             // Publish only after admission is released; observers can now safely start conflicting
@@ -701,10 +711,15 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         if (!item.ResetForAdmissionRetry())
             return false;
 
-        OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
         TimeSpan backoff = item.NextAdmissionBackoff(
             _minUnavailableBackoff,
-            _maxUnavailableBackoff);
+            _maxUnavailableBackoff,
+            out bool firstRejection);
+        if (firstRejection)
+        {
+            OnJobChanged(item.Job, ProxyJobChangeKind.WaitingForAdmission);
+        }
+
         Task retry = ResumeAdmissionAfterBackoffAsync(item, backoff);
         lock (_lock)
         {
@@ -715,14 +730,62 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         return true;
     }
 
+    private void OnAdmissionAvailabilityChanged(object? sender, EventArgs e)
+    {
+        List<(WorkItem Item, long Generation)> deferred = [];
+        lock (_lock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            foreach (WorkItem item in _items)
+            {
+                if (item.TryGetAdmissionWait(out long generation, out _))
+                {
+                    deferred.Add((item, generation));
+                }
+            }
+        }
+
+        foreach ((WorkItem item, long generation) in deferred)
+        {
+            item.SignalAdmissionAvailability(generation);
+        }
+    }
+
     private async Task ResumeAdmissionAfterBackoffAsync(WorkItem item, TimeSpan backoff)
     {
+        if (!item.TryGetAdmissionWait(out long generation, out Task availability))
+        {
+            return;
+        }
+
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
             _disposeCts.Token,
             item.Token);
         try
         {
-            await _delayAsync(backoff, linked.Token).ConfigureAwait(false);
+            Task delay = _delayAsync(backoff, linked.Token);
+            Task completed = await Task.WhenAny(delay, availability)
+                .WaitAsync(linked.Token)
+                .ConfigureAwait(false);
+            if (ReferenceEquals(completed, availability))
+            {
+                linked.Cancel();
+                try
+                {
+                    await delay.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (linked.IsCancellationRequested)
+                {
+                }
+            }
+            else
+            {
+                await delay.ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
@@ -734,7 +797,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             s_logger.LogError(ex, "Proxy admission retry delay failed; retrying immediately.");
         }
 
-        if (item.TryResumeAdmission())
+        if (item.TryResumeAdmission(generation))
         {
             _channel.Writer.TryWrite(item);
         }
@@ -858,15 +921,16 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         item.Cancel();
     }
 
-    private void RegisterFailure(ProxyJob job, string? failureReason)
+    private FailureRegistration RegisterFailure(ProxyJob job, string? failureReason)
     {
         if (_store == null)
-            return;
+            return default;
 
         try
         {
-            if (_store.TryGet(job.Source, job.Preset) is { State: ProxyState.Ready or ProxyState.Stale })
-                return;
+            ProxyEntry? previous = _store.TryGet(job.Source, job.Preset);
+            if (previous is { State: ProxyState.Ready or ProxyState.Stale })
+                return default;
 
             var now = DateTime.UtcNow;
             _store.Register(new ProxyEntry(
@@ -880,6 +944,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                 now,
                 now,
                 failureReason));
+            return new FailureRegistration(previous, Changed: true);
         }
         catch (Exception ex)
         {
@@ -887,6 +952,38 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             s_logger.LogError(
                 ex,
                 "Failed to record Failed proxy entry for {Source} ({Preset}).",
+                job.Source.AbsolutePath,
+                job.Preset);
+            return default;
+        }
+    }
+
+    private void RollBackFailure(ProxyJob job, FailureRegistration registration)
+    {
+        if (_store is null || !registration.Changed)
+        {
+            return;
+        }
+
+        try
+        {
+            if (registration.Previous is { } previous)
+            {
+                _store.Register(previous);
+            }
+            else
+            {
+                _store.Delete(job.Source, job.Preset);
+            }
+        }
+        catch (Exception ex)
+        {
+            job.BookkeepingError = job.BookkeepingError is null
+                ? ex
+                : new AggregateException(job.BookkeepingError, ex);
+            s_logger.LogError(
+                ex,
+                "Failed to roll back the proxy failure entry after cancellation for {Source} ({Preset}).",
                 job.Source.AbsolutePath,
                 job.Preset);
         }
@@ -983,6 +1080,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         private readonly Lock _lock = new();
         private bool _started;
         private bool _admissionDeferred;
+        private TaskCompletionSource? _admissionAvailability;
+        private long _admissionGeneration;
         private bool _terminalTransitionClaimed;
         private bool _disposed;
         private int _consecutiveAdmissionRejections;
@@ -1044,16 +1143,23 @@ public sealed class ProxyJobQueue : IProxyJobQueue
 
                 _started = false;
                 _admissionDeferred = true;
+                _admissionGeneration++;
+                _admissionAvailability = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
                 Job.Status = ProxyJobStatus.Queued;
                 return true;
             }
         }
 
-        public TimeSpan NextAdmissionBackoff(TimeSpan minimum, TimeSpan maximum)
+        public TimeSpan NextAdmissionBackoff(
+            TimeSpan minimum,
+            TimeSpan maximum,
+            out bool firstRejection)
         {
             lock (_lock)
             {
                 int attempt = ++_consecutiveAdmissionRejections;
+                firstRejection = attempt == 1;
                 double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
                 double milliseconds = Math.Min(
                     maximum.TotalMilliseconds,
@@ -1070,7 +1176,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
         }
 
-        public bool TryResumeAdmission()
+        public bool TryResumeAdmission(long generation)
         {
             lock (_lock)
             {
@@ -1078,14 +1184,49 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     || _terminalTransitionClaimed
                     || Cancellation.IsCancellationRequested
                     || IsTerminal(Job.Status)
-                    || !_admissionDeferred)
+                    || !_admissionDeferred
+                    || _admissionGeneration != generation)
                 {
                     return false;
                 }
 
                 _admissionDeferred = false;
+                _admissionAvailability = null;
                 return true;
             }
+        }
+
+        public bool TryGetAdmissionWait(out long generation, out Task availability)
+        {
+            lock (_lock)
+            {
+                if (!_admissionDeferred || _admissionAvailability is null)
+                {
+                    generation = 0;
+                    availability = Task.CompletedTask;
+                    return false;
+                }
+
+                generation = _admissionGeneration;
+                availability = _admissionAvailability.Task;
+                return true;
+            }
+        }
+
+        public void SignalAdmissionAvailability(long generation)
+        {
+            TaskCompletionSource? availability;
+            lock (_lock)
+            {
+                if (!_admissionDeferred || _admissionGeneration != generation)
+                {
+                    return;
+                }
+
+                availability = _admissionAvailability;
+            }
+
+            availability?.TrySetResult();
         }
 
         public bool IsAdmissionDeferred
@@ -1153,7 +1294,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             lock (_lock)
             {
-                if (_disposed || _terminalTransitionClaimed || IsTerminal(Job.Status))
+                if (_disposed || IsTerminal(Job.Status))
                     return;
 
                 Cancellation.Cancel();
