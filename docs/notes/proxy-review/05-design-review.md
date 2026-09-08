@@ -3,7 +3,7 @@
 Design-axis review of the proxy-media public surface on branch `yuto-trd/proxy`
 (base `main`), against the design priorities used for the review:
 orthogonality, library-user flexibility, compatibility-shim avoidance, and
-breaking-change hygiene. The four `beutl-reviewer` axes (GPL/MIT, XAML bindings,
+breaking-change hygiene. The four general review axes (GPL/MIT, XAML bindings,
 NUnit, SourceGen) are out of scope here.
 
 ## Severity summary

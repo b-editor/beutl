@@ -21,6 +21,8 @@
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-asset-sourcing.SKILL.md" />
     <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-source-grounding\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.SKILL.md" />
+    <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-source-grounding\agents\openai.yaml"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.agents.openai.yaml" />
     <EmbeddedResource Include="Installation\Assets\skills\beutl-agent-visual-review\SKILL.md"
                       LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-visual-review.SKILL.md" />
     <EmbeddedResource Include="Installation\Assets\agents\beutl-agent-timeline-builder.md"

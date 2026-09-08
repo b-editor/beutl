@@ -291,8 +291,8 @@ Both authoring contexts accept the same public `ShaderDescription` and `Geometry
 - Request-wide recording (C) precedes region/cache decisions (D); cache short-circuiting or top-down ROI during recursive traversal is prohibited.
 - Canonical descriptions (E) precede fusion (F); an author declaration alone never makes work fusible.
 - Structural plan caching is introduced only after request identity and cache-island behavior are correct without it.
-- Public API changes require `beutl-design-reviewer`; the complete diff requires `beutl-reviewer`.
-- Feature 004 adds no `EngineObject.Resource` ownership protocol. The final cleanup restores plain generated nested-resource assignment and existing disposal behavior in `Beutl.Engine.SourceGenerators`, updates generator snapshots in `tests/SourceGeneratorTest`, runs `beutl-source-generator-impact`, and requires source-generator review before the public breaking commit.
+- Public API changes require an independent design review; the complete diff requires review across the GPL/MIT, XAML, NUnit, and source-generator axes.
+- Feature 004 adds no `EngineObject.Resource` ownership protocol. The final cleanup restores plain generated nested-resource assignment and existing disposal behavior in `Beutl.Engine.SourceGenerators`, updates generator snapshots in `tests/SourceGeneratorTest`, and requires an explicit source-generator impact review before the public breaking commit.
 
 ## Risk Controls
 

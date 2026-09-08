@@ -190,8 +190,8 @@ release train with a `BREAKING CHANGE:` footer listing affected projects.*
 ## Phase 3 — Engine core consolidation
 
 *Size: 6–10 weeks; the heaviest phase. Everything here is plugin-facing surface:
-route public-API changes through `beutl-design-reviewer`, use `refactor!:` +
-`BREAKING CHANGE:` footers, never add compat shims.*
+perform an independent public-API design review, use `refactor!:` +
+`BREAKING CHANGE:` footers, and never add compatibility shims.*
 
 **3a. Property plumbing unification (do first; M)**
 Extract `PropertyBase<T>` from the token-identical ~200 lines shared by
@@ -404,8 +404,8 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
   `AVFDecoderInfo` advertising Windows-only formats (.wmv/.asf/.wma/.sami) pasted
   from MediaFoundation; make the three copy-pasted sync-over-async FFmpeg
   property editors async (they block the UI thread today).
-- **Worker/IPC tests**: `VideoRingBuffer` concurrency, handler coverage, IPC
-  protocol round-trip. Process-level tests do not currently exist.
+- **Worker/IPC tests**: expand the existing process-level reader proxy contracts
+  to cover `VideoRingBuffer` concurrency, handlers, and IPC protocol round trips.
 - 🚩 **ColorPicker decision**: the 4.2k-line FluentAvalonia port
   (`FAColorPicker`, `ColorSpectrum`, 14 sibling files in the
   `FluentAvalonia.UI.Controls` namespace) — evaluate replacing with the upstream
@@ -431,7 +431,7 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
   boundary invariants drifting across documents.
 - ⚠️ CI workflow dedup (six copies of checkout/setup-dotnet boilerplate in the
   `build-*` family) — **only with explicit approval** (mandatory rule 5).
-- **Re-audit**: run the same multi-agent audit workflow again; declare the program
+- **Re-audit**: run the same independent audit again; declare the program
   done when a round produces no new findings. Add analyzer rules to lock in the
   fixed patterns (ban empty `catch`, restrict `async void`, etc.).
 

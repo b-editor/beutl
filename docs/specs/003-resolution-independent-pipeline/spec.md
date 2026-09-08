@@ -196,7 +196,7 @@ Selecting a layer, dragging a transform handle, and hit-testing all behave ident
 
 - **FR-026**: The export encoder's source size MUST be derived from the size of the buffer actually handed to the encoder (the post-supersample-downscale output buffer when `s > 1`, per FR-034) and asserted equal to that buffer before encoding, so a scale change cannot cause a stride / size mismatch.
 - **FR-027**: Hit-testing and transform-handle math MUST run in logical space, independent of render scale; the editor pointer MUST be divided by display zoom only. `Matrix` decomposition used by editor gizmos and serialization MUST remain invariant across render scales (render scale MUST NOT be folded into the artistic transform matrix).
-- **FR-028**: Public-surface changes (render context/operation, effect context, effect target, renderer / scene-renderer / graphics-context constructors) MUST ship as a breaking change (`refactor!:` / `feat!:` with a `BREAKING CHANGE:` footer naming affected projects), with all in-tree call sites updated in the same change and no `[Obsolete]` compatibility shims. Changes to the published extensibility surface MUST be routed through `beutl-design-reviewer`.
+- **FR-028**: Public-surface changes (render context/operation, effect context, effect target, renderer / scene-renderer / graphics-context constructors) MUST ship as a breaking change (`refactor!:` / `feat!:` with a `BREAKING CHANGE:` footer naming affected projects), with all in-tree call sites updated in the same change and no `[Obsolete]` compatibility shims. Changes to the published extensibility surface MUST receive an independent public-API design review.
 
 **Completeness, concurrency & invalidation** *(added after independent code-verification review)*
 

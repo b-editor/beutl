@@ -28,6 +28,10 @@ public static class BundledAgentToolkitAssets
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.SKILL.md"),
         new(
             AgentToolkitAssetKind.Skill,
+            "beutl-agent-source-grounding/agents/openai.yaml",
+            "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-source-grounding.agents.openai.yaml"),
+        new(
+            AgentToolkitAssetKind.Skill,
             "beutl-agent-visual-review/SKILL.md",
             "Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-visual-review.SKILL.md"),
         new(
