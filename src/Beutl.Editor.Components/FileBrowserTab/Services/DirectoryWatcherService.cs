@@ -109,7 +109,19 @@ internal sealed class DirectoryWatcherService : IDisposable
                 canonicalPath,
                 StringComparison.Ordinal))
         {
-            return;
+            lock (_stateSync)
+            {
+                if (!_disposed
+                    && ReferenceEquals(_watcher, currentWatcher)
+                    && string.Equals(
+                        _watchedCanonicalPath,
+                        canonicalPath,
+                        StringComparison.Ordinal))
+                {
+                    _watchedRequestedPath = Path.GetFullPath(path!);
+                    return;
+                }
+            }
         }
 
         CancellationTokenSource? previousDebounce;

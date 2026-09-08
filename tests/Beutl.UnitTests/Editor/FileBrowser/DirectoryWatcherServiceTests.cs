@@ -270,6 +270,32 @@ public class DirectoryWatcherServiceTests
         }
     }
 
+    [Test]
+    public void Same_target_navigation_refreshes_the_alias_used_for_error_rearm()
+    {
+        string firstTarget = Path.Combine(_projectRoot, "first-target");
+        string secondTarget = Path.Combine(_projectRoot, "second-target");
+        string firstAlias = Path.Combine(_projectRoot, "first-alias");
+        string secondAlias = Path.Combine(_projectRoot, "second-alias");
+        Directory.CreateDirectory(firstTarget);
+        Directory.CreateDirectory(secondTarget);
+        CreateDirectorySymlinkOrIgnore(firstAlias, firstTarget);
+        CreateDirectorySymlinkOrIgnore(secondAlias, firstTarget);
+        var startedPaths = new List<string>();
+        using var service = new DirectoryWatcherService(
+            TimeSpan.Zero,
+            static action => action(),
+            watcher => startedPaths.Add(watcher.Path));
+
+        service.Watch(firstAlias);
+        service.Watch(secondAlias);
+        Directory.Delete(secondAlias);
+        CreateDirectorySymlinkOrIgnore(secondAlias, secondTarget);
+
+        Assert.That(service.TryRearmAfterError(), Is.True);
+        Assert.That(startedPaths.Last(), Is.EqualTo(FilePathComparison.ResolveCanonicalPath(secondTarget)));
+    }
+
     private string CreateFile(string relativePath)
     {
         string path = Path.Combine(

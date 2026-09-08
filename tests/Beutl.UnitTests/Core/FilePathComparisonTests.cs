@@ -273,6 +273,40 @@ public class FilePathComparisonTests
     }
 
     [Test]
+    public void Child_path_comparison_resolves_differently_named_symbolic_links()
+    {
+        string temporaryRoot = CreateTemporaryDirectory();
+        string target = Path.Combine(temporaryRoot, ".git");
+        string alias = Path.Combine(temporaryRoot, "metadata");
+        Directory.CreateDirectory(target);
+        try
+        {
+            try
+            {
+                Directory.CreateSymbolicLink(alias, target);
+            }
+            catch (Exception ex)
+                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
+            }
+
+            Assert.That(
+                FilePathComparison.TryAreSameChildPath(
+                    temporaryRoot,
+                    "metadata",
+                    ".git",
+                    out bool areSame),
+                Is.True);
+            Assert.That(areSame, Is.True);
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    [Test]
     public void Canonical_identity_applies_parent_segments_after_resolving_symbolic_links()
     {
         string temporaryRoot = CreateTemporaryDirectory();

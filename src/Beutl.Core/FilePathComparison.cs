@@ -76,11 +76,6 @@ public static class FilePathComparison
             return true;
         }
 
-        if (!CouldHaveEquivalentFilesystemSpelling(leftName, rightName))
-        {
-            return true;
-        }
-
         string leftPath = Path.Combine(parentPath, leftName);
         string rightPath = Path.Combine(parentPath, rightName);
         bool leftExists = Path.Exists(leftPath);
@@ -88,6 +83,26 @@ public static class FilePathComparison
         if (!leftExists || !rightExists)
         {
             return leftExists != rightExists;
+        }
+
+        if (!CouldHaveEquivalentFilesystemSpelling(leftName, rightName))
+        {
+            try
+            {
+                bool leftIsLink = GetFileSystemInfo(leftPath).LinkTarget is not null;
+                bool rightIsLink = GetFileSystemInfo(rightPath).LinkTarget is not null;
+                if (!leftIsLink && !rightIsLink)
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or ArgumentException
+                                       or NotSupportedException)
+            {
+                return false;
+            }
         }
 
         try
@@ -277,9 +292,7 @@ public static class FilePathComparison
 
     private static string? TryGetLinkTarget(string path)
     {
-        FileSystemInfo info = Directory.Exists(path)
-            ? new DirectoryInfo(path)
-            : new FileInfo(path);
+        FileSystemInfo info = GetFileSystemInfo(path);
         try
         {
             return info.LinkTarget;
@@ -294,6 +307,13 @@ public static class FilePathComparison
                 $"Could not inspect symbolic-link metadata for '{path}'.",
                 ex);
         }
+    }
+
+    private static FileSystemInfo GetFileSystemInfo(string path)
+    {
+        return Directory.Exists(path)
+            ? new DirectoryInfo(path)
+            : new FileInfo(path);
     }
 
     private static bool CouldHaveEquivalentFilesystemSpelling(string left, string right)
