@@ -18,7 +18,7 @@ public sealed class HistoryManager : IDisposable
     private readonly Stack<HistoryTransaction> _redoStack = new();
     private readonly OperationExecutionContext _context;
     private readonly OperationSequenceGenerator _sequenceGenerator;
-    private readonly Subject<HistoryState> _stateChanged = new();
+    private readonly FaultIsolatedSubject<HistoryState> _stateChanged;
     private readonly Subject<System.Reactive.Unit> _beforeMutation = new();
     private readonly List<IDisposable> _subscriptions = new();
     private readonly List<NotifyCollectionChangedEventHandler> _entrySubscribers = [];
@@ -32,6 +32,8 @@ public sealed class HistoryManager : IDisposable
 
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
     {
+        _stateChanged = new FaultIsolatedSubject<HistoryState>(ex =>
+            _logger.LogError(ex, "A history state observer failed; continuing publication."));
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
@@ -246,7 +248,7 @@ public sealed class HistoryManager : IDisposable
         finally
         {
             if (stateChanged)
-                NotifyStateChangedSafely();
+                NotifyStateChanged();
         }
     }
 
@@ -706,20 +708,6 @@ public sealed class HistoryManager : IDisposable
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
     }
 
-    private void NotifyStateChangedSafely()
-    {
-        try
-        {
-            NotifyStateChanged();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "A history state observer failed after an isolated transaction committed.");
-        }
-    }
-
     // BeforeMutation subscribers are user-supplied (e.g. timeline flush handlers).
     // A throw must not abort the Undo/Redo that triggered the notification, since
     // the history operation itself is independent of any debounce flush.
@@ -770,6 +758,102 @@ public sealed class HistoryManager : IDisposable
         _beforeMutation.Dispose();
         _undoStack.Clear();
         _redoStack.Clear();
+    }
+
+    private sealed class FaultIsolatedSubject<T>(Action<Exception> observerFailure) : IObservable<T>, IDisposable
+    {
+        private readonly object _gate = new();
+        private readonly List<SubscriptionEntry> _subscriptions = [];
+        private bool _isCompleted;
+        private bool _isDisposed;
+
+        public IDisposable Subscribe(IObserver<T> observer)
+        {
+            ArgumentNullException.ThrowIfNull(observer);
+            var entry = new SubscriptionEntry(observer);
+            lock (_gate)
+            {
+                ObjectDisposedException.ThrowIf(_isDisposed, this);
+                if (_isCompleted)
+                {
+                    observer.OnCompleted();
+                    return Disposable.Empty;
+                }
+
+                _subscriptions.Add(entry);
+            }
+
+            return Disposable.Create(() =>
+            {
+                lock (_gate)
+                {
+                    _subscriptions.Remove(entry);
+                }
+            });
+        }
+
+        public void OnNext(T value)
+        {
+            SubscriptionEntry[] subscriptions;
+            lock (_gate)
+            {
+                ObjectDisposedException.ThrowIf(_isDisposed, this);
+                if (_isCompleted)
+                    return;
+                subscriptions = _subscriptions.ToArray();
+            }
+
+            foreach (SubscriptionEntry subscription in subscriptions)
+            {
+                try
+                {
+                    subscription.Observer.OnNext(value);
+                }
+                catch (Exception ex)
+                {
+                    observerFailure(ex);
+                }
+            }
+        }
+
+        public void OnCompleted()
+        {
+            SubscriptionEntry[] subscriptions;
+            lock (_gate)
+            {
+                if (_isDisposed || _isCompleted)
+                    return;
+                _isCompleted = true;
+                subscriptions = _subscriptions.ToArray();
+                _subscriptions.Clear();
+            }
+
+            foreach (SubscriptionEntry subscription in subscriptions)
+            {
+                try
+                {
+                    subscription.Observer.OnCompleted();
+                }
+                catch (Exception ex)
+                {
+                    observerFailure(ex);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                _isDisposed = true;
+                _subscriptions.Clear();
+            }
+        }
+
+        private sealed class SubscriptionEntry(IObserver<T> observer)
+        {
+            public IObserver<T> Observer { get; } = observer;
+        }
     }
 }
 

@@ -601,6 +601,64 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
+    public async Task AddAsync_RevalidatesAfterWaitingForHistoryGate()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditorForNewScene("element-adder-gated-revalidation");
+        var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
+        using var historyGateEntered = new ManualResetEventSlim();
+        using var beforeHistoryTransaction = new ManualResetEventSlim();
+        var lockedLayer = new TimelineLayer { ZIndex = 0, IsLocked = true };
+        Task blocker = Task.Run(() => editor.HistoryManager.ExecuteInTransaction(() =>
+        {
+            historyGateEntered.Set();
+            if (!beforeHistoryTransaction.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("ElementAdder did not reach the history boundary.");
+            editor.Scene.Layers.Add(lockedLayer);
+        }, "Lock target layer"));
+        Assert.That(historyGateEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+        adder.BeforeHistoryTransaction = beforeHistoryTransaction.Set;
+
+        ElementAddResult result;
+        try
+        {
+            result = await adder.AddAsync(
+            [
+                new ElementDescription(
+                    TimeSpan.Zero,
+                    TimeSpan.FromSeconds(1),
+                    0,
+                    new ElementSource.EngineObject(() => new RectShape())),
+            ], CancellationToken.None);
+            await blocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            adder.BeforeHistoryTransaction = null;
+            beforeHistoryTransaction.Set();
+            await blocker.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        try
+        {
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
+                Assert.That(editor.Scene.Children, Is.Empty);
+                Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
+                Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(1));
+            }
+        }
+        finally
+        {
+            using (editor.HistoryManager.SuppressRecording())
+            {
+                editor.Scene.Layers.Remove(lockedLayer);
+            }
+        }
+    }
+
+    [AvaloniaTest]
     public async Task EditorDispose_OnUiThreadCancelsAwaitingHandlerAndDrainsItsLease()
     {
         await TestReset.ResetShellAsync();

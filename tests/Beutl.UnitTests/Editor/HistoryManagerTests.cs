@@ -561,6 +561,9 @@ public class HistoryManagerTests
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         using IDisposable subscription = manager.StateChanged.Subscribe(_ =>
             throw new InvalidOperationException("observer failed"));
+        HistoryState? laterState = null;
+        using IDisposable laterSubscription = manager.StateChanged.Subscribe(state =>
+            laterState = state);
 
         Assert.DoesNotThrow(() => manager.ExecuteInTransaction(
             () => CreateValueOperation(
@@ -575,6 +578,7 @@ public class HistoryManagerTests
             Assert.That(_root.Value, Is.EqualTo(1));
             Assert.That(manager.UndoCount, Is.EqualTo(1));
             Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(laterState?.UndoCount, Is.EqualTo(1));
         }
     }
 
@@ -775,6 +779,29 @@ public class HistoryManagerTests
             Assert.That(receivedState!.Value.UndoCount, Is.EqualTo(1));
             Assert.That(receivedState!.Value.RedoCount, Is.EqualTo(0));
         });
+    }
+
+    [Test]
+    public void StateChanged_DisposingOneOfTwoEqualObserversRemovesOnlyItsSubscription()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        var first = new EqualHistoryObserver();
+        var second = new EqualHistoryObserver();
+        using IDisposable firstSubscription = manager.StateChanged.Subscribe(first);
+        IDisposable secondSubscription = manager.StateChanged.Subscribe(second);
+        secondSubscription.Dispose();
+
+        manager.Record(CreateTestOperation());
+        manager.Commit("Test");
+        manager.Dispose();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.NotificationCount, Is.EqualTo(1));
+            Assert.That(first.CompletionCount, Is.EqualTo(1));
+            Assert.That(second.NotificationCount, Is.Zero);
+            Assert.That(second.CompletionCount, Is.Zero);
+        }
     }
 
     [Test]
@@ -2393,6 +2420,25 @@ public class HistoryManagerTests
         manager.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => manager.FlushPendingMutations());
+    }
+
+    private sealed class EqualHistoryObserver : IObserver<HistoryState>
+    {
+        public int NotificationCount { get; private set; }
+
+        public int CompletionCount { get; private set; }
+
+        public void OnCompleted() => CompletionCount++;
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(HistoryState value) => NotificationCount++;
+
+        public override bool Equals(object? obj) => obj is EqualHistoryObserver;
+
+        public override int GetHashCode() => 0;
     }
 
     #endregion

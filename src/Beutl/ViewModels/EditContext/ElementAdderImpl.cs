@@ -327,12 +327,21 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 commitValidation.Description);
         }
 
+        CommitValidationFailure? gatedCommitValidation = null;
         try
         {
             BeforeHistoryTransaction?.Invoke();
             _context.HistoryManager.ExecuteInTransaction(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                gatedCommitValidation = RevalidateBeforeCommit(
+                    scene,
+                    sceneId,
+                    plans,
+                    itemResults);
+                if (gatedCommitValidation is not null)
+                    return;
+
                 foreach (Element element in preparedElements)
                 {
                     scene.AddChild(element);
@@ -353,6 +362,17 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
         {
             CleanupDetachedStagedFiles(scene, preparedElements, stagedFiles, ex);
             return ElementAddResult.Failed(new ElementSceneMutationFailure(ex));
+        }
+
+        if (gatedCommitValidation is not null)
+        {
+            CleanupStagedFiles(
+                stagedFiles,
+                gatedCommitValidation.Failure.Exception
+                ?? new InvalidOperationException(gatedCommitValidation.Failure.Message));
+            return ElementAddResult.Failed(
+                gatedCommitValidation.Failure,
+                gatedCommitValidation.Description);
         }
 
         _logger.LogInformation("Added {Count} elements successfully.", preparedElements.Count);
