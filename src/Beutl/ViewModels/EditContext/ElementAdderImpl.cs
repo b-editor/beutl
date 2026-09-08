@@ -649,7 +649,7 @@ internal sealed class ElementAdderImpl : IElementAdder, IAsyncDisposable
             .Select(element => element.Uri?.LocalPath)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Select(path => path!)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToHashSet(System.OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         CleanupStagedFiles(
             stagedFiles.Where(path => path is null || !retainedPaths.Contains(path)),
             originalException);
