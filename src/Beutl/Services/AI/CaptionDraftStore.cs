@@ -94,7 +94,10 @@ internal sealed record CaptionSourceTranscriptionResume(
     string RequestKeyModel = "",
     // Whether the draft ended while holding a dispatched but unsettled name. A seed alone cannot
     // answer this because unreserved and refunded requests also retain seeds.
-    bool RequestKeyNamePending = false);
+    bool RequestKeyNamePending = false,
+    // The canonical start of the selected source window. Together with TotalSamples this identifies
+    // the exact audio submitted for this run. Null marks a legacy draft that cannot safely resume.
+    long? SourceStartSamples = null);
 
 internal sealed record CaptionDraft(
     int Version,
@@ -724,6 +727,7 @@ internal sealed class FileCaptionDraftStore : ICaptionDraftStore
             && resume.FileLength > 0
             && resume.LastWriteTimeUtcTicks >= 0
             && resume.LastWriteTimeUtcTicks <= DateTime.MaxValue.Ticks
+            && resume.SourceStartSamples is null or >= 0
             && resume.Segments.All(segment => segment is not null
                 && double.IsFinite(segment.Start)
                 && double.IsFinite(segment.End)

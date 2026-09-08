@@ -388,6 +388,16 @@ public sealed class AiModelCatalog
                         "Model identifiers must be unique within an operation.",
                         nameof(operations));
                 }
+                if (model.Video?.DurationsSeconds is { IsSpecified: true } durations
+                    && durations.Values.Any(seconds =>
+                        !AiRequestLimits.IsValidVideoDurationSeconds(seconds)))
+                {
+                    throw new ArgumentException(
+                        $"Video duration capabilities must be between "
+                        + $"{AiRequestLimits.MinVideoDurationSeconds} and "
+                        + $"{AiRequestLimits.MaxVideoDurationSeconds} seconds.",
+                        nameof(operations));
+                }
             }
 
             return models;

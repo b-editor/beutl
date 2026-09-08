@@ -563,6 +563,7 @@ public sealed partial class AiSubtitleDialogViewModel
             filePath,
             language,
             sampleRate,
+            sourceStartSamples,
             totalSamples,
             chunkSamples,
             chunkCount,
@@ -583,6 +584,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     filePath,
                     language,
                     sampleRate,
+                    sourceStartSamples,
                     totalSamples,
                     chunkSamples,
                     chunkCount,
@@ -611,6 +613,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     fingerprint.LastWriteTimeUtcTicks,
                     language,
                     sampleRate,
+                    sourceStartSamples,
                     totalSamples,
                     chunkSamples,
                     chunkCount,
@@ -655,7 +658,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     chunk = await Task.Run(
                         () => WriteSpeechWave(
                             reader,
-                            checked((int)(sourceStartSamples + chunkOffset)),
+                            checked((int)(operation.SourceStartSamples + chunkOffset)),
                             requestedSamples,
                             stream,
                             RequestToken),
@@ -1878,6 +1881,7 @@ public sealed partial class AiSubtitleDialogViewModel
         string filePath,
         string? language,
         int sampleRate,
+        long sourceStartSamples,
         long totalSamples,
         int chunkSamples,
         int chunkCount,
@@ -1892,6 +1896,7 @@ public sealed partial class AiSubtitleDialogViewModel
             && operation.ElementId == source.ElementId
             && operation.Language == language
             && operation.SampleRate == sampleRate
+            && operation.SourceStartSamples == sourceStartSamples
             && operation.TotalSamples == totalSamples
             && operation.ChunkSamples == chunkSamples
             && operation.ChunkCount == chunkCount
@@ -1906,6 +1911,7 @@ public sealed partial class AiSubtitleDialogViewModel
         string filePath,
         string? language,
         int sampleRate,
+        long sourceStartSamples,
         long totalSamples,
         int chunkSamples,
         int chunkCount,
@@ -1916,6 +1922,7 @@ public sealed partial class AiSubtitleDialogViewModel
             && resume.ElementId == source.ElementId
             && resume.Language == language
             && resume.SampleRate == sampleRate
+            && resume.SourceStartSamples == sourceStartSamples
             && resume.TotalSamples == totalSamples
             && resume.ChunkSamples == chunkSamples
             && resume.ChunkCount == chunkCount
@@ -1938,6 +1945,7 @@ public sealed partial class AiSubtitleDialogViewModel
             resume.LastWriteTimeUtcTicks,
             resume.Language,
             resume.SampleRate,
+            resume.SourceStartSamples ?? -1,
             resume.TotalSamples,
             resume.ChunkSamples,
             resume.ChunkCount,
@@ -2190,7 +2198,8 @@ public sealed partial class AiSubtitleDialogViewModel
                 sourceTranscription.CompletedChunkCount,
                 sourceTranscription.RequestKeySeed,
                 sourceTranscription.RequestKeyModel,
-                sourceTranscription.RequestKey.HasOutstandingName.Value);
+                sourceTranscription.RequestKey.HasOutstandingName.Value,
+                sourceTranscription.SourceStartSamples);
         }
 
         return new CaptionDraft(
@@ -2426,6 +2435,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     source.LastWriteTimeUtcTicks,
                     source.Language,
                     source.SampleRate,
+                    source.SourceStartSamples ?? -1,
                     source.TotalSamples,
                     source.ChunkSamples,
                     source.ChunkCount,
@@ -4760,6 +4770,7 @@ public sealed partial class AiSubtitleDialogViewModel
         long lastWriteTimeUtcTicks,
         string? language,
         int sampleRate,
+        long sourceStartSamples,
         long totalSamples,
         int chunkSamples,
         int chunkCount,
@@ -4800,6 +4811,8 @@ public sealed partial class AiSubtitleDialogViewModel
         public string? Language { get; } = language;
 
         public int SampleRate { get; } = sampleRate;
+
+        public long SourceStartSamples { get; } = sourceStartSamples;
 
         public long TotalSamples { get; set; } = totalSamples;
 

@@ -4092,6 +4092,96 @@ public sealed class AiDialogWorkflowTests
     }
 
     [AvaloniaTest]
+    public async Task SourceFileTranscription_RestartWithDifferentSourceWindowStartsANewRun()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await OpenEditor("ai-source-window-draft-identity");
+        var draftStore = new FileCaptionDraftStore(Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "source-window-draft-identity"));
+        CaptionDraftScope scope = new("user-a", Guid.NewGuid(), editor.Scene.Id);
+        IObservable<CaptionDraftScope?> scopes = Observable.Return<CaptionDraftScope?>(scope);
+        string sourcePath = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "source-window-draft-identity.wav");
+        const int sampleRate = 16_000;
+        WritePcmWave(sourcePath, sampleRate, sampleCount: sampleRate * 2);
+        var keys = new List<string?>();
+        int requestCount = 0;
+        using var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements")
+                return JsonResponse(HttpStatusCode.OK, EntitlementsJson());
+            if (request.RequestUri?.AbsolutePath == "/api/v3/ai/transcriptions")
+            {
+                keys.Add(IdempotencyKeyOf(request));
+                if (++requestCount == 1)
+                {
+                    return JsonResponse(HttpStatusCode.ServiceUnavailable, """
+                        {
+                          "error_code": "aiResultUnavailable",
+                          "message": "The paid result is temporarily unavailable.",
+                          "documentation_url": null
+                        }
+                        """);
+                }
+                return CreateTranscriptionResponse("replacement-source-window");
+            }
+            return JsonResponse(HttpStatusCode.NotFound, "{}");
+        });
+        using var httpClient = new HttpClient(handler);
+        await using var clients = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        SetAuthenticatedUser(clients, httpClient);
+        Guid elementId = Guid.NewGuid();
+        var originalWindow = new AudioSourceItem(
+            "Source",
+            sourcePath,
+            TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(1),
+            sourceOffset: TimeSpan.Zero,
+            elementId: elementId);
+        var shiftedWindow = new AudioSourceItem(
+            "Source",
+            sourcePath,
+            TimeSpan.FromSeconds(2),
+            elementLength: TimeSpan.FromSeconds(1),
+            sourceOffset: TimeSpan.FromSeconds(1),
+            elementId: elementId);
+
+        try
+        {
+            await using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
+            {
+                first.SelectedAudioSource.Value = originalWindow;
+                await WaitUntilAsync(() => first.Usage.HasSnapshot.Value && first.CanTranscribe.Value);
+                await first.Transcribe.ExecuteAsync();
+                Assert.That(first.HasOutstandingTranscriptionRequest.Value, Is.True);
+            }
+
+            await using var restored = CreateSubtitleDialog(clients, editor, draftStore, scopes);
+            restored.SelectedAudioSource.Value = shiftedWindow;
+            await WaitUntilAsync(() => restored.Usage.HasSnapshot.Value
+                && restored.TranscriptionModelPicker.IsLoaded.Value);
+            restored.RefreshAvailability();
+            await WaitUntilAsync(() => restored.CanTranscribe.Value);
+            await restored.Transcribe.ExecuteAsync();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(requestCount, Is.EqualTo(2));
+                Assert.That(keys, Has.Count.EqualTo(2));
+                Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
+                Assert.That(restored.HasOutstandingTranscriptionRequest.Value, Is.True,
+                    "The original paid recovery remains available after the replacement window completes.");
+            }
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task SourceFileTranscription_SaveFailureAfterFinalResponsePreservesSeedForRestart()
     {
         await TestReset.ResetShellAsync();

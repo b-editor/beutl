@@ -358,6 +358,27 @@ public class CaptionDocumentSerializerTests
         }
     }
 
+    [TestCase("<b>bold</b>", "bold")]
+    [TestCase("<ruby>漢<rt>かん</rt></ruby>", "漢かん")]
+    [TestCase("before <00:00:00.500>after", "before after")]
+    public void ImportWebVtt_StrippedInlineMarkupProducesAnExplicitDiagnostic(
+        string payload,
+        string expectedText)
+    {
+        CaptionImportResult result = Import(
+            $"WEBVTT\n\n00:00.000 --> 00:01.000\n{payload}\n",
+            CaptionFormats.WebVtt);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Document![0].Text, Is.EqualTo(expectedText));
+            Assert.That(result.Diagnostics, Has.One.Matches<CaptionDiagnostic>(diagnostic =>
+                diagnostic.Kind == CaptionDiagnosticKinds.UnsupportedMarkup
+                && diagnostic.LineNumber == 4));
+        }
+    }
+
     [TestCase(" Alice")]
     [TestCase("Alice ")]
     [TestCase("Alice\tBob")]

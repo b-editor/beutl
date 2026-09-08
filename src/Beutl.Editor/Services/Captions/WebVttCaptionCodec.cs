@@ -97,6 +97,13 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
                         textStart + 1,
                         "A WebVTT voice span that does not cover the whole cue cannot be represented by one caption speaker."));
                 }
+                if (parsed.HasUnsupportedInlineMarkup)
+                {
+                    errors.Add(new CaptionDiagnostic(
+                        CaptionDiagnosticKinds.UnsupportedMarkup,
+                        textStart + 1,
+                        "WebVTT inline formatting, ruby, and timestamp tags cannot be represented by a plain caption cue."));
+                }
                 CaptionMetadata metadata = parsed.Classes is null
                     ? CaptionMetadata.Empty
                     : CaptionMetadata.Empty.Set(CaptionMetadataKeys.WebVttClasses, parsed.Classes);
@@ -180,6 +187,7 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         int voiceSpanCount = 0;
         int voiceDepth = 0;
         bool hasTextOutsideVoiceSpan = false;
+        bool hasUnsupportedInlineMarkup = false;
         for (int i = 0; i < payload.Length; i++)
         {
             if (payload[i] == '<')
@@ -190,6 +198,7 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
                     : [];
                 if (close >= 0 && IsRecognizedCueTag(tagSpan))
                 {
+                    hasUnsupportedInlineMarkup |= IsUnsupportedInlineCueTag(tagSpan);
                     string tag = TrimWebVttWhitespace(tagSpan.ToString());
                     if (TryGetAnnotation(tag, "v", out string voiceAnnotation))
                     {
@@ -222,7 +231,8 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
             EmptyToNull(style),
             voiceSpanCount > 1,
             voiceSpanCount > 0
-                && (string.IsNullOrEmpty(speaker) || hasTextOutsideVoiceSpan));
+                && (string.IsNullOrEmpty(speaker) || hasTextOutsideVoiceSpan),
+            hasUnsupportedInlineMarkup);
     }
 
     private static string EncodeText(CaptionCue cue)
@@ -349,6 +359,22 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         return CaptionCodecUtilities.TryParseWebVttTime(tag.ToString(), out _);
     }
 
+    private static bool IsUnsupportedInlineCueTag(ReadOnlySpan<char> rawTag)
+    {
+        ReadOnlySpan<char> tag = rawTag.Trim();
+        if (!tag.IsEmpty && tag[0] == '/')
+            tag = tag[1..].TrimStart();
+
+        int annotation = IndexOfAnnotationSeparator(tag);
+        ReadOnlySpan<char> name = annotation >= 0 ? tag[..annotation] : tag;
+        return name.Equals("b", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("i", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("u", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("ruby", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("rt", StringComparison.OrdinalIgnoreCase)
+            || CaptionCodecUtilities.TryParseWebVttTime(tag.ToString(), out _);
+    }
+
     private static bool IsLanguageCharacter(char value)
         => value is >= 'a' and <= 'z'
            or >= 'A' and <= 'Z'
@@ -438,5 +464,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         string? Language,
         string? Classes,
         bool HasMultipleVoiceSpans,
-        bool HasPartialVoiceSpan);
+        bool HasPartialVoiceSpan,
+        bool HasUnsupportedInlineMarkup);
 }

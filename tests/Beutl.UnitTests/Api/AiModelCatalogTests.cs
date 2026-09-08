@@ -186,6 +186,30 @@ public class AiModelCatalogTests
         ]));
     }
 
+    [TestCase(0)]
+    [TestCase(61)]
+    public void Catalog_RejectsInvalidVideoDurationsFromCustomProviders(int durationSeconds)
+    {
+        var operation = new AiOperationId("vendor.invalid-video-duration");
+
+        Assert.Throws<ArgumentException>(() => new AiModelCatalog(
+        [
+            KeyValuePair.Create(
+                operation,
+                ImmutableArray.Create(new AiModelOption(
+                    new AiModelId("vendor/video"),
+                    "Vendor Video",
+                    AiModelCostTier.Medium,
+                    IsDefault: true,
+                    Video: new AiVideoModelCapabilities(
+                        AiCapabilityDimension<int>.Supported([durationSeconds]),
+                        AiCapabilityDimension<string>.Unspecified,
+                        AiCapabilityDimension<string>.Unspecified,
+                        SupportsAudio: true,
+                        SupportsSeed: true)))),
+        ]));
+    }
+
     [Test]
     public void Catalog_TreatsAFullyFilteredModelListAsExplicitlyUnavailable()
     {

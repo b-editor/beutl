@@ -672,7 +672,8 @@ public sealed class CaptionDraftStoreTests
                 "en",
                 1,
                 "1f4c2b0d9e6a4f118b7c3d5e6f708192",
-                "openai/whisper-1"));
+                "openai/whisper-1",
+                SourceStartSamples: 96_000));
 
         Assert.That(store.TryOpen(scope, out ICaptionDraftSession? session), Is.True);
         using (session)
@@ -702,6 +703,9 @@ public sealed class CaptionDraftStoreTests
                 Assert.That(
                     restored.Draft.SourceTranscriptionResume.RequestKeyModel,
                     Is.EqualTo("openai/whisper-1"));
+                Assert.That(
+                    restored.Draft.SourceTranscriptionResume.SourceStartSamples,
+                    Is.EqualTo(96_000));
             });
         }
     }
