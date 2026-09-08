@@ -918,13 +918,16 @@ internal static class SlippableMedia
         TimeSpan horizon = context.ReachableRange.End;
         if (horizon <= cursor)
         {
-            return context.HasUnboundedTail && IsVideoRangeReadable(video, context.ReachableRange)
+            return context.HasUnboundedTail
+                && IsVideoRangeReadable(video, context.ReachableRange)
+                && IsVideoTailSampleReadable(video, context)
                 ? TimeSpan.MaxValue
                 : MapTimelineDuration(context, TimeSpan.Zero, TimeSpan.Zero);
         }
         if (context.HasUnboundedTail
             && context.ReachableRange == video.TimeRange
-            && IsVideoRangeReadable(video, context.ReachableRange))
+            && IsVideoRangeReadable(video, context.ReachableRange)
+            && IsVideoTailSampleReadable(video, context))
         {
             // A presenter loop that already covers the complete readable target repeats it after
             // this horizon; the source endpoint inside one cycle is not a finite media tail.
@@ -1148,6 +1151,19 @@ internal static class SlippableMedia
                     }
 
                     TimeSpan rawAtBoundary = GetRawSourcePositionAt(video, boundary, resource);
+                    if (video.OffsetPosition.CurrentValue == TimeSpan.Zero
+                        && rawAtCursor == TimeSpan.Zero
+                        && rawAtBoundary < TimeSpan.Zero
+                        && context.FrameDuration > TimeSpan.Zero
+                        && stateDuration > context.FrameDuration
+                        && !IsVideoSampleReadableAt(
+                            video,
+                            cursor - context.FrameDuration,
+                            resource))
+                    {
+                        return MapTimelineDuration(context, accumulated, context.FrameDuration);
+                    }
+
                     if (rawAtBoundary <= lowerRawBoundary)
                     {
                         TimeSpan reachableDuration = FindEarliestReversedRawBoundary(
@@ -1228,6 +1244,56 @@ internal static class SlippableMedia
         }
 
         return true;
+    }
+
+    private static bool IsVideoTailSampleReadable(SourceVideo video, TimeContext context)
+    {
+        if (video.Source.Animation == null)
+        {
+            if (video.Source.CurrentValue is not { } currentSource)
+                return true;
+
+            using var sourceResource = (VideoSource.Resource)currentSource.ToResource(
+                CompositionContext.Default);
+            double sourceFrameTicks = GetVideoFrameTicks(sourceResource);
+            if (sourceFrameTicks > 0
+                && context.FrameDuration.Ticks + 1 >= sourceFrameTicks)
+            {
+                return true;
+            }
+        }
+
+        MappedSampleTimes samples = context.SampleTimesAtEnd(context.ReachableRange.End);
+        return samples.Previous >= context.ReachableRange.Start
+            && samples.Previous <= context.ReachableRange.End
+            && IsVideoSampleReadableAt(video, samples.Previous);
+    }
+
+    private static bool IsVideoSampleReadableAt(
+        SourceVideo video,
+        TimeSpan sampleTime,
+        SourceVideo.Resource? existingResource = null)
+    {
+        using SourceVideo.Resource? ownedResource = existingResource is null
+            ? (SourceVideo.Resource)video.ToResource(new CompositionContext(sampleTime))
+            : null;
+        SourceVideo.Resource resource = existingResource ?? ownedResource!;
+        if (resource.Source is not { } source || source.Duration <= TimeSpan.Zero)
+            return true;
+
+        TimeSpan sourcePosition = GetSourcePositionAt(video, sampleTime, resource);
+        if (resource.IsLoop)
+            sourcePosition = NormalizeLoopPosition(sourcePosition, source.Duration);
+
+        double renderedTicks = video.OffsetPosition.CurrentValue.Ticks
+            + (double)sourcePosition.Ticks;
+        if (renderedTicks < 0 || renderedTicks >= source.Duration.Ticks)
+            return false;
+
+        return !ReachesVideoSourceLimit(
+            TimeSpan.FromTicks((long)renderedTicks),
+            GetVideoFrameRoundingHeadroom(source),
+            source.Duration);
     }
 
     private static bool IsVideoStateRangeReadable(
@@ -1890,8 +1956,11 @@ internal static class SlippableMedia
         {
             if (!target.AffectsOffset) continue;
             found = true;
+            long arithmeticHeadroom = target.Current.Ticks > 0
+                ? TimeSpan.MaxValue.Ticks - target.Current.Ticks
+                : TimeSpan.MaxValue.Ticks;
             long allowed = delta > TimeSpan.Zero
-                ? ForwardHeadroom(target, elementLength)
+                ? Math.Min(ForwardHeadroom(target, elementLength), arithmeticHeadroom)
                 : Math.Max(0L, target.Current.Ticks);
             magnitude = Math.Min(magnitude, allowed);
         }

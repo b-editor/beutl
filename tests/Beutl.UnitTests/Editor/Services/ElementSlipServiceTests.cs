@@ -229,6 +229,28 @@ public class ElementSlipServiceTests
     }
 
     [Test]
+    public void Slip_UnboundedOffsetSaturatesBeforeTimeSpanOverflow()
+    {
+        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var sound = new SourceSound
+        {
+            OffsetPosition = { CurrentValue = TimeSpan.MaxValue - TimeSpan.FromTicks(1) },
+        };
+        element.Objects.Add(sound);
+        bool applied = false;
+
+        Assert.DoesNotThrow(() => applied = _service.Slip(
+            _scene,
+            [element],
+            TimeSpan.FromTicks(10)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(applied, Is.True);
+            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.MaxValue));
+        });
+    }
+
+    [Test]
     public void Slip_NoSplittableMedia_NoCommit()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));

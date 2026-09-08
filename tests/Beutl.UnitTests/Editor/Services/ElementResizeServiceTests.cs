@@ -2107,6 +2107,72 @@ public class ElementResizeServiceTests
     }
 
     [Test]
+    public void GetTrimDeltaBounds_HighRateTimelineValidatesNestedPresenterLoopBoundary()
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "60";
+        project.Items.Add(_scene);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var controller = new DrawableTimeController
+        {
+            Loop = { CurrentValue = true },
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(controller);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(max, Is.GreaterThan(TimeSpan.FromSeconds(1.9)));
+            Assert.That(max, Is.LessThan(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void GetTrimDeltaBounds_ReversedMappingStopsAtRoundedNegativeWrapSample()
+    {
+        var project = new Project();
+        project.Variables[ProjectVariableKeys.FrameRate] = "60";
+        project.Items.Add(_scene);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(
+            100, 100, new Rational(30, 1), 90)));
+        var video = new SourceVideo
+        {
+            Source = { CurrentValue = source },
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(3)),
+        };
+        var presenter = new TestTimeMappingPresenter
+        {
+            MappedStart = TimeSpan.FromSeconds(1),
+            MapRangeBackward = true,
+            ReverseSelector = _ => true,
+            Target = { CurrentValue = video },
+        };
+        Element front = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        front.Objects.Add(presenter);
+        Element back = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10));
+
+        (TimeSpan _, TimeSpan max) = _service.GetTrimDeltaBounds(
+            _scene,
+            [new ElementTrimPair(front, back)]);
+
+        Assert.That(max, Is.EqualTo(TimeSpan.FromSeconds(1d / 60)).Within(TimeSpan.FromTicks(1)));
+    }
+
+    [Test]
     public void GetTrimDeltaBounds_LoopedSourceVideoWithZeroOffsetHasUnboundedTail()
     {
         var source = new VideoSource();
