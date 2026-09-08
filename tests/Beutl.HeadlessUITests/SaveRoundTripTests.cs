@@ -1,8 +1,10 @@
-﻿using Avalonia.Headless.NUnit;
+﻿using System.Text.Json.Nodes;
+using Avalonia.Headless.NUnit;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -102,5 +104,44 @@ public class SaveRoundTripTests
         Assert.That(saved, Is.True);
         Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
         Assert.That(new FileInfo(element.Uri!.LocalPath).Length, Is.GreaterThan(0));
+    }
+
+    [AvaloniaTest]
+    public async Task Saving_a_migrated_scene_persists_project_version_metadata()
+    {
+        await ResetProjectAsync();
+
+        Project project = (await TestShell.Project.CreateProject(
+            640, 480, 30, 44100, "migrated-save", NewWorkspace("migrated-save")))!;
+        string projectFile = project.Uri!.LocalPath;
+        string sceneFile = project.Items.OfType<Scene>().Single().Uri!.LocalPath;
+        await ResetProjectAsync();
+
+        JsonObject projectJson = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
+        projectJson["appVersion"] = "1.0.0";
+        projectJson["minAppVersion"] = "1.0.0";
+        projectJson.JsonSave(projectFile);
+        JsonObject sceneJson = JsonNode.Parse(File.ReadAllText(sceneFile))!.AsObject();
+        sceneJson.Remove("$type");
+        sceneJson.JsonSave(sceneFile);
+
+        await TestShell.Project.OpenProject(projectFile);
+        Scene migratedScene = TestShell.Project.CurrentProject.Value!.Items
+            .OfType<Scene>()
+            .Single();
+        TestShell.Editor.ActivateTabItem(migratedScene);
+        HeadlessTestHelpers.Settle();
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+
+        Assert.That(await editor.Commands!.OnSave(), Is.True);
+        JsonObject savedProject = JsonNode.Parse(File.ReadAllText(projectFile))!.AsObject();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((string?)savedProject["appVersion"], Is.EqualTo(BeutlApplication.Version));
+            Assert.That(
+                (string?)savedProject["minAppVersion"],
+                Is.EqualTo(Project.DefaultMinAppVersion));
+        });
     }
 }

@@ -1216,6 +1216,13 @@ public sealed partial class EditViewModel : IEditorContext, IAiJobResultEditorCo
             }
 
             relocation.Commit();
+            if (scene.RequiredMinAppVersionAfterMigration is not null
+                && scene.HierarchicalParent is Project project
+                && project.Uri is not null)
+            {
+                CoreSerializer.StoreToUri(project, project.Uri);
+            }
+
             viewModel.SaveState(isExplicitUserSave: true);
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 
