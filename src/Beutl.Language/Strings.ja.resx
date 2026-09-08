@@ -1171,6 +1171,51 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Website" xml:space="preserve">
     <value>ウェブサイト</value>
   </data>
+  <data name="WebBrowser" xml:space="preserve">
+    <value>ウェブブラウザ</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>検索またはURLを入力</value>
+  </data>
+  <data name="Forward" xml:space="preserve">
+    <value>進む</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Menu" xml:space="preserve">
+    <value>メニュー</value>
+  </data>
+  <data name="NewTab" xml:space="preserve">
+    <value>新しいタブ</value>
+  </data>
+  <data name="OpenInDefaultBrowser" xml:space="preserve">
+    <value>既定のブラウザで開く</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>印刷</value>
+  </data>
+  <data name="WebBrowserActionFailed" xml:space="preserve">
+    <value>ブラウザ操作を完了できませんでした。</value>
+  </data>
+  <data name="InvalidWebAddress" xml:space="preserve">
+    <value>有効な HTTP または HTTPS アドレスを入力してください。</value>
+  </data>
+  <data name="WebPageLoadFailed" xml:space="preserve">
+    <value>ウェブページを読み込めませんでした。</value>
+  </data>
+  <data name="WebViewUnavailable" xml:space="preserve">
+    <value>利用できる WebView ランタイムがありません。</value>
+  </data>
+  <data name="WebViewWindowsRuntimeHint" xml:space="preserve">
+    <value>Microsoft Edge WebView2 Runtime をインストールしてください。</value>
+  </data>
+  <data name="WebViewLinuxRuntimeHint" xml:space="preserve">
+    <value>WebKitGTK 4.1 または WPE WebKit をインストールしてください。</value>
+  </data>
+  <data name="OpenLinuxWebViewSetupGuide" xml:space="preserve">
+    <value>WebViewのセットアップ手順を開く</value>
+  </data>
   <data name="DisplayMode" xml:space="preserve">
     <value>表示モード</value>
   </data>

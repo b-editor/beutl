@@ -1,5 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.TerminalTab;
+using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 
@@ -40,6 +41,15 @@ public class MainViewModelExtensionTests
         // The tab is how the user saves and applies dock layouts, so it has to be listed in
         // the tool tab menu.
         Assert.That(vm.ToolTabExtensions, Does.Contain(DockLayoutTabExtension.Instance));
+    }
+
+    [AvaloniaTest]
+    public async Task ToolTabExtensions_include_the_built_in_web_browser_tab()
+    {
+        await ResetProjectAsync();
+        MainViewModel vm = SharedMainViewModel;
+
+        Assert.That(vm.ToolTabExtensions, Does.Contain(WebBrowserTabExtension.Instance));
     }
 
     [AvaloniaTest]

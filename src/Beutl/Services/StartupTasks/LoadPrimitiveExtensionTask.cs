@@ -16,6 +16,7 @@ using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Editor.Components.TerminalTab;
+using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
@@ -62,6 +63,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         VersionControlTabExtension.Instance,
         DockLayoutTabExtension.Instance,
         TerminalTabExtension.Instance,
+        WebBrowserTabExtension.Instance,
         DarkBorderThemeExtension.Instance
     ];
 

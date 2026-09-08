@@ -1,0 +1,102 @@
+<UserControl x:Class="Beutl.Editor.Components.WebBrowserTab.Views.WebBrowserTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.Editor.Components.WebBrowserTab.ViewModels"
+             d:DesignHeight="500"
+             d:DesignWidth="700"
+             x:ClassModifier="internal"
+             x:CompileBindings="True"
+             x:DataType="viewModel:WebBrowserTabViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <Border Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="4">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="2">
+                <Button Grid.Column="0"
+                        Click="OnBackClick"
+                        IsEnabled="{Binding CanGoBack.Value}"
+                        Padding="6"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Back}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowLeft" />
+                </Button>
+                <Button Grid.Column="1"
+                        Click="OnForwardClick"
+                        IsEnabled="{Binding CanGoForward.Value}"
+                        Padding="6"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Forward}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowRight" />
+                </Button>
+                <Panel Grid.Column="2">
+                    <Button Click="OnRefreshClick"
+                            IsVisible="{Binding !IsLoading.Value}"
+                            Padding="6"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{x:Static lang:Strings.Refresh}">
+                        <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                    </Button>
+                    <Button Click="OnStopClick"
+                            IsVisible="{Binding IsLoading.Value}"
+                            Padding="6"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{x:Static lang:Strings.Stop}">
+                        <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                    </Button>
+                </Panel>
+                <TextBox x:Name="AddressTextBox"
+                         Grid.Column="3"
+                         controls:TextBoxAttachment.EnterDownBehavior="None"
+                         KeyDown="OnAddressKeyDown"
+                         Text="{Binding Address.Value, Mode=TwoWay}"
+                         VerticalContentAlignment="Center"
+                         Watermark="{x:Static lang:Strings.WebAddress}" />
+                <Button x:Name="BrowserMenuButton"
+                        Grid.Column="4"
+                        Padding="6"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Menu}">
+                    <Button.Flyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="OnNewTabClick" Text="{x:Static lang:Strings.NewTab}" />
+                            <ui:MenuFlyoutSeparator />
+                            <ui:MenuFlyoutItem Click="OnOpenInDefaultBrowserClick"
+                                                   IsEnabled="{Binding HasWebAddress.Value}"
+                                                   Text="{x:Static lang:Strings.OpenInDefaultBrowser}" />
+                            <ui:MenuFlyoutItem Click="OnPrintClick"
+                                                   IsEnabled="{Binding HasWebAddress.Value}"
+                                                   Text="{x:Static lang:Strings.Print}" />
+                        </ui:FAMenuFlyout>
+                    </Button.Flyout>
+                    <icons:FluentIcon FontSize="16" Icon="MoreHorizontal" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Background="{DynamicResource SystemFillColorCriticalBackgroundBrush}"
+                IsVisible="{Binding ErrorMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                Padding="8,4">
+            <StackPanel Spacing="6">
+                <TextBlock Text="{Binding ErrorMessage.Value}" TextWrapping="Wrap" />
+                <Button x:Name="LinuxRuntimeHelpButton"
+                        Click="OnOpenLinuxRuntimeHelpClick"
+                        Content="{x:Static lang:Strings.OpenLinuxWebViewSetupGuide}"
+                        HorizontalAlignment="Left"
+                        IsVisible="{Binding IsLinuxRuntimeHelpVisible.Value}"
+                        Padding="8,4"
+                        Theme="{StaticResource TransparentButton}" />
+            </StackPanel>
+        </Border>
+
+        <ContentControl x:Name="WebViewHost" Grid.Row="2" />
+    </Grid>
+</UserControl>

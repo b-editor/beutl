@@ -1176,6 +1176,51 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Website" xml:space="preserve">
     <value>Website</value>
   </data>
+  <data name="WebBrowser" xml:space="preserve">
+    <value>Web Browser</value>
+  </data>
+  <data name="WebAddress" xml:space="preserve">
+    <value>Search or enter URL</value>
+  </data>
+  <data name="Forward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Menu" xml:space="preserve">
+    <value>Menu</value>
+  </data>
+  <data name="NewTab" xml:space="preserve">
+    <value>New Tab</value>
+  </data>
+  <data name="OpenInDefaultBrowser" xml:space="preserve">
+    <value>Open in Default Browser</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="WebBrowserActionFailed" xml:space="preserve">
+    <value>The browser action could not be completed.</value>
+  </data>
+  <data name="InvalidWebAddress" xml:space="preserve">
+    <value>Enter a valid HTTP or HTTPS address.</value>
+  </data>
+  <data name="WebPageLoadFailed" xml:space="preserve">
+    <value>The web page could not be loaded.</value>
+  </data>
+  <data name="WebViewUnavailable" xml:space="preserve">
+    <value>No supported WebView runtime is available.</value>
+  </data>
+  <data name="WebViewWindowsRuntimeHint" xml:space="preserve">
+    <value>Install the Microsoft Edge WebView2 Runtime.</value>
+  </data>
+  <data name="WebViewLinuxRuntimeHint" xml:space="preserve">
+    <value>Install WebKitGTK 4.1 or WPE WebKit.</value>
+  </data>
+  <data name="OpenLinuxWebViewSetupGuide" xml:space="preserve">
+    <value>Open WebView Setup Guide</value>
+  </data>
   <data name="DisplayMode" xml:space="preserve">
     <value>Display mode</value>
   </data>
