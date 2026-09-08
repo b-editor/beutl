@@ -233,10 +233,9 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                 }
                 else
                 {
-                    // Keep admission until any deferred context disposal has finished, then release
-                    // it immediately before publishing the terminal execution. Dispose linearizes
-                    // on this lock, so a request that loses this race is an idle-profile disposal,
-                    // not cleanup belonging to the completed output operation.
+                    // Keep admission until any deferred context disposal has finished. The terminal
+                    // task is published before releasing the lease so a newly admitted workspace
+                    // mutation can never overlap an execution that still appears incomplete.
                     CaptureCleanupFailure(() => _isRunning.Value = false, ref failures);
                     disposeContext = _disposeRequested
                                      && !_contextDisposed
@@ -247,16 +246,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                     }
                     else
                     {
-                        if (!outputOperationReleased)
-                        {
-                            CaptureCleanupFailure(outputOperation.Dispose, ref failures);
-                            outputOperationReleased = true;
-                            if (ReferenceEquals(_outputOperation, outputOperation))
-                            {
-                                _outputOperation = null;
-                            }
-                        }
-
                         if (disposeRunningProperty)
                         {
                             CaptureCleanupFailure(_isRunning.Dispose, ref failures);
@@ -283,6 +272,26 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
                         else
                         {
                             completion.TrySetException(new AggregateException(failures));
+                        }
+
+                        if (!outputOperationReleased)
+                        {
+                            try
+                            {
+                                outputOperation.Dispose();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(
+                                    ex,
+                                    "The output workspace lease failed during terminal release.");
+                            }
+
+                            outputOperationReleased = true;
+                            if (ReferenceEquals(_outputOperation, outputOperation))
+                            {
+                                _outputOperation = null;
+                            }
                         }
 
                         if (ReferenceEquals(_executionTask, completion.Task))

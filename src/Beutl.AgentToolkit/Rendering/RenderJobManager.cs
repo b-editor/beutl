@@ -184,6 +184,7 @@ public sealed class RenderJobManager : IDisposable
 
     private async Task RunAsync(JobRecord record, Func<RenderJobProgressReporter, CancellationToken, Task<JsonNode>> work)
     {
+        await Task.Yield();
         bool acquired = false;
         var reporter = new RenderJobProgressReporter(progress =>
         {

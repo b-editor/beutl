@@ -390,7 +390,7 @@ public sealed class RenderJobManagerTests
         await releaseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Multiple(() =>
         {
-            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("running"));
+            Assert.That(manager.Get(jobId)?.State, Is.EqualTo("completed"));
             Assert.That(manager.Cancel(jobId), Is.False);
         });
 
