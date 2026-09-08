@@ -61,7 +61,7 @@ Recommended fix: only expose the item to `TakeNextDispatchable` after the permit
 
 Standard four axes:
 
-- **GPL/MIT boundary** — all reviewed files live in `Beutl.Engine` (MIT). No `ProjectReference` to `Beutl.FFmpegWorker`, no `Beutl.Extensions.FFmpeg` / FFmpeg IPC types, no native-binary embedding. The subtree correctly exposes only Engine abstractions (`IProxyGenerator`, `IProxyGeneratorFactory`), matching `Beutl.Engine/CLAUDE.md` rule 6.
+- **GPL/MIT boundary** — all reviewed files live in `Beutl.Engine` (MIT). No `ProjectReference` to `Beutl.FFmpegWorker`, no `Beutl.Extensions.FFmpeg` / FFmpeg IPC types, no native-binary embedding. The subtree correctly exposes only Engine abstractions (`IProxyGenerator`, `IProxyGeneratorFactory`).
 - **XAML compiled bindings** — no XAML / UserControls in scope.
 - **NUnit conventions** — comprehensive matching tests exist under `tests/Beutl.UnitTests/Media/Proxy/` (`ProxyStoreTests`, `ProxyJobQueueTests`, `ProxyResolverTests`, `ProxyEvictionTests`, `ProxyFingerprintTests`, `ProxyPathUtilitiesTests`, `ProxyPresetDefinitionsTests`, `ProxyGeneratorRegistryTests`, `ProxyEntryStateTransitionsTests`, `ProxyMediaReaderTests`) plus integration suites. Coverage tracks the new logic.
 - **SourceGenerator impact** — no changes under `src/Beutl.Engine.SourceGenerators/`; no generated-symbol surface touched.

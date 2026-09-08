@@ -133,7 +133,7 @@ Cache lookup and publication now occur after complete-request metadata and densi
 | Member | Change | Rule |
 |---|---|---|
 | `Scale` | **+ `EffectiveScale Scale { get; set; }`** (default `Unbounded`) | Per-intermediate supply density, set from the producing op's `e`, so divergent-scale inputs normalize to `w` before a shared filter/flatten (FR-019; LayerEffect/DelayAnimation/InnerShadow/Blend/Mosaic). Propagated through `Clone`/flush re-wrap. |
-| `Empty`/`Size` | **removed** (obsolete) | Per AGENTS.md no-shim policy. |
+| `Empty`/`Size` | **removed** (obsolete) | No compatibility shim is retained. |
 
 `EffectTargets`: no scale accessor — `w` is selected once by `FilterEffectRenderNode` through the standard or explicit custom contract and threaded through the activator, so the targets do not derive it. (Earlier drafts' `MaxScale()`/`ResolveScale(...)` were both dropped.) `CalculateBounds` (`:27`) stays logical (scale-invariant).
 

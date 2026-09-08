@@ -8,7 +8,7 @@ description: "Task list for Agent Editing Toolkit implementation"
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/mcp-tools.md](./contracts/mcp-tools.md), [contracts/declarative-document.md](./contracts/declarative-document.md), [quickstart.md](./quickstart.md)
 
-**Tests**: INCLUDED. NUnit tests are explicitly required for this feature — Constitution III (Test-First with NUnit), AGENTS.md mandatory rule 3 ("New logic ships with a NUnit test"), and the quickstart's Tests section. Test tasks are written before the implementation they cover and must fail first.
+**Tests**: INCLUDED. NUnit tests are explicitly required for this feature, and the quickstart's Tests section defines the relevant coverage. Test tasks are written before the implementation they cover and must fail first.
 
 **Organization**: Tasks are grouped by user story. Phases run in spec priority order — P1 (US1), then P2 (US2, US3, US6), then P3 (US4, US5) — so each story is an independently testable increment.
 
@@ -232,8 +232,8 @@ New code lives under three new MIT `net10.0` projects plus one test project (see
 
 ### Implementation for User Story 5
 
-- [x] T076 [P] [US5] Author two editing-recipe Skills — `.claude/skills/beutl-agent-timeline-from-shotlist/SKILL.md` (lay out a timeline from a shot list) and `.claude/skills/beutl-agent-look-effect-chain/SKILL.md` (apply a consistent look/effect chain) — each documenting the declarative loop, the id-keyed array-merge rule, PascalCase property keys, and in-range values (FR-019; quickstart "guidance pillar")
-- [x] T077 [P] [US5] Author three scoped Subagents — `.claude/agents/beutl-agent-timeline-builder.md` (builds a timeline from a shot list), `.claude/agents/beutl-agent-look-applier.md` (applies a look/effect chain), and `.claude/agents/beutl-agent-quality-reviewer.md` (runs deterministic MCP quality/preflight gates) — for delegated editing sub-tasks an orchestrator can compose (FR-020)
+- [x] T076 [P] [US5] Author two editing-recipe Skills under `src/Beutl.AgentToolkit/Installation/Assets/skills/` — `beutl-agent-timeline-from-shotlist` (lay out a timeline from a shot list) and `beutl-agent-look-effect-chain` (apply a consistent look/effect chain) — each documenting the declarative loop, the id-keyed array-merge rule, PascalCase property keys, and in-range values (FR-019; quickstart "guidance pillar")
+- [x] T077 [P] [US5] Author three scoped Subagents under `src/Beutl.AgentToolkit/Installation/Assets/agents/` — `beutl-agent-timeline-builder.md` (builds a timeline from a shot list), `beutl-agent-look-applier.md` (applies a look/effect chain), and `beutl-agent-quality-reviewer.md` (runs deterministic MCP quality/preflight gates) — for delegated editing sub-tasks an orchestrator can compose (FR-020)
 - [x] T078 [US5] Extend `docs/specs/001-agent-editing-toolkit/quickstart.md`'s guidance section with a recipe/specialist index so a new integrator finds the entry points for the SC-006 zero-to-first-project flow
 
 **Checkpoint**: All six user stories are independently functional.

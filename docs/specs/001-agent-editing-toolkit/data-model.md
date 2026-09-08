@@ -15,7 +15,7 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 | Workspace Guard | The write-boundary policy (read anywhere, write only under the configured root) | `IWorkspaceGuard.ResolveForWrite` (new) |
 | Render Job / Export Job | A request to produce a still image or a video/audio file | `SceneRenderer`+`Renderer.Snapshot`+`Bitmap.Save` / `EncodingController.Encode` via `Beutl.FFmpegIpc` |
 | Quality Review | Deterministic review of AI-generated editing quality before export | scene graph + sampled still/motion analysis (`QualityAnalyzer`) |
-| Editing Recipe / Specialist | Packaged Skill / Subagent guidance (the non-code pillar) | `.claude/skills/*`, `.claude/agents/*` assets |
+| Editing Recipe / Specialist | Packaged Skill / Subagent guidance (the non-code pillar) | `src/Beutl.AgentToolkit/Installation/Assets/` |
 
 ---
 

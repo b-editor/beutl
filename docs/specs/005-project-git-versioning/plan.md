@@ -58,7 +58,7 @@ docs/specs/005-project-git-versioning/
 │   ├── version-control-service.md   # IProjectVersionControlService seam
 │   ├── git-cli-invocation.md        # GitCliRunner process contract
 │   └── coordinator-lifecycle.md     # trigger wiring + close/reopen cycle + UI map
-└── tasks.md             # Phase 2 (/speckit-tasks — not created by /speckit-plan)
+└── tasks.md             # Phase 2 (created during task planning, not this planning phase)
 ```
 
 ### Source Code (repository root)

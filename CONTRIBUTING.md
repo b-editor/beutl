@@ -82,11 +82,5 @@ XAML Files
 </UserControl>
 ```
 
-### Where things live
-
-See the module boundary map and detailed contributor rules in
-[`AGENTS.md`](AGENTS.md), and the AI-assisted workflow docs under
-[`docs/ai-workflow/`](docs/ai-workflow/README.md).
-
 Packaging materials or object templates for the store is described in
 [`docs/data-packages.md`](docs/data-packages.md).

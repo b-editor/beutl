@@ -215,7 +215,7 @@ the validator. Centralize the `ValidationAttribute → IValidator` conversion
   generator (in `Beutl.Engine.SourceGenerators`) that emits the static field +
   registration + CLR wrapper from one annotated partial-property declaration.
 
-Drive the decision through `/speckit-specify`. **Leaving both idioms as the
+Resolve the decision in a dedicated design review. **Leaving both idioms as the
 permanent answer is the one option that is off the table.**
 
 **3c. Audio graph scaffolding (L)**
@@ -253,8 +253,8 @@ IPC protocol/buffer sizing channel-aware — today it is stereo-hardcoded,
 `Pcm<T>`/`IPcm`/`ISample`/the sample structs/`Convert`/`AudioBuffer.ToPcm` (this also
 removes the latent `Pcm<T>.Slice` lifetime bug). Breaks the published `ISampleProvider`
 and `MediaReader.ReadAudio` plugin contracts and the IPC surface → `refactor!:` +
-`BREAKING CHANGE:`, no `[Obsolete]` shims, route through `beutl-design-reviewer`; drive
-via `/speckit-specify`. Pairs with 3f (audio device backends). This **corrects the Phase 1
+`BREAKING CHANGE:`, no `[Obsolete]` shims, with an explicit public-API design review.
+Pairs with 3f (audio device backends). This **corrects the Phase 1
 premise** that `Pcm`/`ISample` was already dead.
 
 **3d. Animation hierarchy and editing-logic placement**
@@ -405,8 +405,7 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
   from MediaFoundation; make the three copy-pasted sync-over-async FFmpeg
   property editors async (they block the UI thread today).
 - **Worker/IPC tests**: `VideoRingBuffer` concurrency, handler coverage, IPC
-  protocol round-trip. (The worker CLAUDE.md claims process-level tests exist;
-  they never have.)
+  protocol round-trip. Process-level tests do not currently exist.
 - 🚩 **ColorPicker decision**: the 4.2k-line FluentAvalonia port
   (`FAColorPicker`, `ColorSpectrum`, 14 sibling files in the
   `FluentAvalonia.UI.Controls` namespace) — evaluate replacing with the upstream
@@ -428,8 +427,8 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
 - **Docs drift**: module boundary map errors (Engine "no project dependencies";
   `Beutl.Editor` misclassified as UI), `InternalsVisibleTo` documented as 3 grants
   vs 14 actual (incl. one dead grant), NodeGraph docs routing to a test directory
-  that never existed, FFmpegWorker CLAUDE.md's phantom tests, stale counts in the
-  AI-workflow README, GPL/MIT boundary invariants drifting across three documents.
+  that never existed, phantom FFmpegWorker process-level tests, and GPL/MIT
+  boundary invariants drifting across documents.
 - ⚠️ CI workflow dedup (six copies of checkout/setup-dotnet boilerplate in the
   `build-*` family) — **only with explicit approval** (mandatory rule 5).
 - **Re-audit**: run the same multi-agent audit workflow again; declare the program
@@ -448,7 +447,7 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
   (repo policy). The single sanctioned exception is 3g's `IJsonSerializable` if a
   deprecation window is chosen.
 - **Gates per PR**: `dotnet build` + `dotnet test Beutl.slnx -f net10.0` +
-  `dotnet format`; `beutl-design-reviewer` for public-surface changes; for every
+  `dotnet format`; an explicit design review for public-surface changes; for every
   deletion PR, a final liveness grep (CoreProperty registrations, XAML, reflection,
   JSON discriminators, source generators) before merging.
 - **Unverified findings**: the 59 adversarially verified findings are
@@ -456,6 +455,6 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
   the start of the PR that addresses them.
 - **Decision gates (🚩)**: 3b property-system end-state, 3d animation hierarchy,
   3g `IJsonSerializable` break vs deprecation window, Phase 6 ColorPicker
-  replacement. Decide at phase start; 3b should go through `/speckit-specify`.
+  replacement. Decide at phase start.
 - **Approval required**: Phase 2 dual-TFM change and Phase 7 workflow dedup touch
-  `.github/workflows` (mandatory rule 5).
+  `.github/workflows`.

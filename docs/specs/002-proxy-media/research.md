@@ -2,7 +2,7 @@
 
 **Feature**: 002-proxy-media | **Phase**: 0 | **Date**: 2026-05-20
 
-Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (contracts + data model) and `/speckit-tasks` have concrete inputs. Each section follows: **Decision → Rationale → Alternatives considered**.
+Phase 0 resolves the open items left after the clarification phase so that Phase 1 (contracts + data model) and the task-planning phase have concrete inputs. Each section follows: **Decision → Rationale → Alternatives considered**.
 
 ---
 
@@ -197,7 +197,7 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 1. **Settings → "Preview source" toggle** (radio: Proxy / Original) — bound to the editor-wide `EditorConfig.PreviewSourceMode` (shipped location; originally planned on `Scene`).
 2. **New tool tab: "Proxies"** — implemented as a `ToolTabExtension` registered via the existing extensibility surface. Contents: per-project clip list with proxy state badge (None / Generating / Ready / Stale / Failed), action buttons (Generate / Regenerate / Delete) for selection, current/pending job list with progress bars, current store totals (per-project size, global size, % of cap), "Delete all for this project" button.
 
-A small per-clip badge on the timeline strip is captured as a stretch goal and left for `/speckit-tasks` to slot.
+A small per-clip badge on the timeline strip is captured as a stretch goal and left for the task-planning phase to slot.
 
 **Rationale**: Tool tab is the established Beutl pattern for "auxiliary feature with its own state" (see `beutl-tooltab-extension` skill). Putting visibility behind a tab keeps the timeline UI uncluttered for users who don't use proxies.
 

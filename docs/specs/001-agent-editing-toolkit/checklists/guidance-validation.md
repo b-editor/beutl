@@ -13,11 +13,11 @@ Create a 10-second 1920x1080 project from this brief:
 
 ## Required Entry Points
 
-- Timeline: `.claude/skills/beutl-agent-timeline-from-shotlist/SKILL.md`
-- Look/effects: `.claude/skills/beutl-agent-look-effect-chain/SKILL.md`
-- Optional specialist: `.claude/agents/beutl-agent-timeline-builder.md`
-- Optional specialist: `.claude/agents/beutl-agent-look-applier.md`
-- Optional specialist: `.claude/agents/beutl-agent-quality-reviewer.md`
+- Timeline: `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-timeline-from-shotlist/SKILL.md`
+- Look/effects: `src/Beutl.AgentToolkit/Installation/Assets/skills/beutl-agent-look-effect-chain/SKILL.md`
+- Optional specialist: `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-timeline-builder.md`
+- Optional specialist: `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-look-applier.md`
+- Optional specialist: `src/Beutl.AgentToolkit/Installation/Assets/agents/beutl-agent-quality-reviewer.md`
 
 ## Pass Criteria
 

@@ -194,7 +194,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 - [ ] T057 Manually walk through `docs/specs/002-proxy-media/quickstart.md` steps 1 → 12; report any deviation as a defect, not as quickstart drift. The "Measurement protocol" section in quickstart.md is the official verification path for SC-001 and SC-004 (no automated benchmark in MVP — manual is the contract)
 - [ ] T058 Trigger `@beutl-design-reviewer` against the diff to catch any public-API drift that doesn't match the "adopt better designs eagerly" priority (e.g., overlapping abstractions, compatibility shims)
 - [ ] T059 Trigger `@beutl-reviewer` to validate GPL/MIT boundary, XAML compiled-bindings, NUnit conventions, and source-generator impact across the diff
-- [ ] T060 Update `docs/ai-workflow/` (if affected) and the per-module anchor in `src/Beutl.Engine/CLAUDE.md` with a short pointer to the new `Beutl.Media.Proxy` namespace
+- [ ] T060 Update the relevant developer documentation with a short pointer to the new `Beutl.Media.Proxy` namespace
 - [ ] T061 Run `/beutl-ai-self-review` to ensure the AI workflow scaffolding (subagents, skills, rules, hooks) still reflects current reality after a non-trivial feature has landed
 
 **Final checkpoint**: Beutl ships a working proxy media workflow with green CI, no GPL ↔ MIT leakage, full NUnit coverage on the new namespace, and a quickstart that walks anyone through verifying the headline guarantee.

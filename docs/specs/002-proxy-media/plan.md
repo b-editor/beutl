@@ -67,7 +67,7 @@ Post-Phase 1 re-check: PASS — no design decision in `research.md` / `data-mode
 ```text
 docs/specs/002-proxy-media/
 ├── plan.md              # this file
-├── spec.md              # /speckit-specify + /speckit-clarify output
+├── spec.md              # specification phase + clarification phase output
 ├── research.md          # Phase 0 (this command)
 ├── data-model.md        # Phase 1 (this command)
 ├── quickstart.md        # Phase 1 (this command)
@@ -78,7 +78,7 @@ docs/specs/002-proxy-media/
 │   └── proxy-index.schema.json
 ├── checklists/
 │   └── requirements.md
-└── tasks.md             # /speckit-tasks output and implementation checklist
+└── tasks.md             # task-planning phase output and implementation checklist
 ```
 
 ### Source Code (repository root)

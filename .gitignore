@@ -376,17 +376,3 @@ coverage_report/
 .nuke/temp
 
 telemetry-data.json
-
-# Claude Code / agent-mirror personal settings and hook output (team-shared files live in .claude/settings.json)
-.claude/settings.local.json
-.claude/logs/
-.claude/.DS_Store
-.claude/.last-self-review
-.agents/.last-self-review
-.codex/.last-self-review
-.claude/worktrees/
-.claude/loop-memory/
-.claude/agent-memory/
-
-# `.mcp.json` is team-shared (see docs/ai-workflow/README.md); override any global gitignore
-!.mcp.json

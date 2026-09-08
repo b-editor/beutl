@@ -70,7 +70,3 @@ XAMLファイル
              Text="{Binding Text.Value}" />
 </UserControl>
 ```
-
-### 各モジュールについて
-
-モジュール境界マップと詳細なコントリビューションルールは [`AGENTS.md`](AGENTS.md) を、AI 支援ワークフローのドキュメントは [`docs/ai-workflow/`](docs/ai-workflow/README.md) を参照してください。

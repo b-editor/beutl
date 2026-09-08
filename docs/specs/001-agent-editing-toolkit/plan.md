@@ -51,7 +51,7 @@ The technical approach is **adapter, not reimplementation**: the toolkit drives 
 
 ```text
 docs/specs/001-agent-editing-toolkit/
-├── plan.md              # This file (/speckit-plan)
+├── plan.md              # This file (planning phase)
 ├── research.md          # Phase 0 — decisions on the 6 unknowns
 ├── data-model.md        # Phase 1 — entities (declarative document, schema, change set, sessions)
 ├── quickstart.md        # Phase 1 — build, wire .mcp.json, worked example, tests
@@ -113,11 +113,11 @@ See [research.md](./research.md). Six unknowns resolved: (1) MCP .NET SDK & host
 
 **Post-design Constitution re-check: PASS** — the design adds three MIT `net10.0` projects (`Beutl.AgentToolkit`, `Beutl.AgentToolkit.Mcp`, the split-out non-UI `Beutl.Extensions.FFmpeg.Core`) + one test project, no generator changes, NUnit-tested, no GPL edge except via `Beutl.FFmpegIpc`. All new projects single-target `net10.0` (no new TFM). No new violations; Complexity Tracking remains empty.
 
-## Key risks carried into `/speckit-tasks`
+## Key risks carried into the task-planning phase
 
 - **Headless render fidelity on the CPU fallback**: vector/text/bitmap, SKSL runtime-shader effects, and particles render CPU-side (verified — `SKRuntimeEffect.CreateShader` / `RenderTarget.Create` have CPU paths); only 3D (Graphics3D/Vulkan) needs a real device. Plan: render-capability preflight + typed "rendering unavailable" error for GPU-required content; GPU-gated tests self-skip.
 - **Type universe registration in a headless host** — `LibraryService.Current` is populated by the app-side registrar; the toolkit host must run an equivalent registration (or enumerate `EngineObject`/`CoreObject` subclasses) so schema discovery sees all built-in + installed-extension types.
-- **Headless encoder (export) — DECIDED** (was a deferred risk): the FFmpeg encode core is split into a MIT **non-UI** assembly (`Beutl.Extensions.FFmpeg.Core`) the toolkit references directly (built-in encoder), and installed third-party encoders load via a **public headless encoder-registration service** factored out of the app-startup `LoadPrimitiveExtensionTask` / internal `PackageManager` (Technical Context). The remaining `/speckit-tasks` work is mechanical: perform the split, add the registration service, and update tests/dependencies. FFmpeg native libraries remain a runtime prerequisite (preflight + typed error).
+- **Headless encoder (export) — DECIDED** (was a deferred risk): the FFmpeg encode core is split into a MIT **non-UI** assembly (`Beutl.Extensions.FFmpeg.Core`) the toolkit references directly (built-in encoder), and installed third-party encoders load via a **public headless encoder-registration service** factored out of the app-startup `LoadPrimitiveExtensionTask` / internal `PackageManager` (Technical Context). The remaining task-planning phase work is mechanical: perform the split, add the registration service, and update tests/dependencies. FFmpeg native libraries remain a runtime prerequisite (preflight + typed error).
 - **Project vs Scene scope** — the undoable history is per-Scene (`EditViewModel.Scene` + one `HistoryManager`); project-level operations (create project, add/remove scenes, project variables) are separate file-level actions, not part of a scene's undo stack. Keep the declarative reconcile/undo surface Scene-rooted and provide distinct project tools.
 - **Validation-preview adapter** — `CoreObject.SetValue` is `void` and coerces-then-records-errors; `IProperty` setters assign coerced values without returning status. To report typed accepted/coerced/rejected for `plan` and `apply` (FR-007/FR-030/SC-002/SC-009), run each property's validator (`TryCoerce`/`Validate`) explicitly to compute the outcome, rather than inferring it post-mutation.
 - **`TypeFormat` is `internal`** to `Beutl.Core` — get the `$type` string via the public `JsonHelper.WriteDiscriminator`/`TryGetDiscriminator` (or `CoreSerializer` output), not by reaching into the internal API.
