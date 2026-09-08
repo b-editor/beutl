@@ -34,6 +34,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly CompositeDisposable _disposable = [];
     private string? _activeDestination;
 
+    internal bool LastFailureWasReported { get; private set; }
+
     public OutputViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
@@ -214,6 +216,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        LastFailureWasReported = false;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -400,6 +403,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             // Keep the translated message visible after failure.
             ProgressText.Value = userMessage;
             NotificationService.ShowError(MessageStrings.OutputException, userMessage);
+            LastFailureWasReported = true;
             if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
             {
                 // Keep the code for diagnostics.

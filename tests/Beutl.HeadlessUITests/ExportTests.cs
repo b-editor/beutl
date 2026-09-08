@@ -243,6 +243,7 @@ public class ExportTests
             recorder.ErrorMessages,
             Does.Contain(expected),
             "The error notification must carry the translated message.");
+        Assert.That(recorder.ErrorMessages.Count(message => message == expected), Is.EqualTo(1));
     }
 
     private sealed class ThrowingMp4EncoderExtension : ControllableEncodingExtension
