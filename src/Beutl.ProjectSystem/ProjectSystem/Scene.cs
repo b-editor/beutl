@@ -814,13 +814,7 @@ public class Scene : ProjectItem, INotifyEdited
             .ToArray();
 
         var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
-        foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
-        {
-            foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
-            {
-                claimedIds.Add(graphObject.Id);
-            }
-        }
+        claimedIds.UnionWith(EnumerateSceneOwnedObjects().Select(static obj => obj.Id));
 
         var seenDescendants = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
         var persistedDescendantIds = new Dictionary<string, Guid>(
@@ -1078,13 +1072,7 @@ public class Scene : ProjectItem, INotifyEdited
             retainedIds.Add(graphObject.Id);
         }
 
-        foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
-        {
-            foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
-            {
-                retainedIds.Add(graphObject.Id);
-            }
-        }
+        retainedIds.UnionWith(EnumerateSceneOwnedObjects().Select(static obj => obj.Id));
 
         foreach (Guid originalId in _pendingRecoveredElementIdMigrations.Keys.ToArray())
         {
@@ -1121,6 +1109,29 @@ public class Scene : ProjectItem, INotifyEdited
 
         throw new InvalidOperationException(
             $"Could not assign a unique recovered element Id for '{relativePath}'.");
+    }
+
+    private IEnumerable<CoreObject> EnumerateSceneOwnedObjects()
+    {
+        // Scene serializes these collections explicitly, independent of property metadata.
+        foreach (CoreObject sceneObject in Layers.Cast<CoreObject>().Concat(Markers))
+        {
+            foreach (CoreObject obj in EnumerateSerializedGraphObjects(sceneObject).OfType<CoreObject>())
+                yield return obj;
+        }
+
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(GetType()))
+        {
+            if (property == ChildrenProperty || property == LayersProperty || property == MarkersProperty
+                || !property.GetMetadata<CorePropertyMetadata>(GetType()).ShouldSerialize
+                || GetValue(property) is not { } value)
+            {
+                continue;
+            }
+
+            foreach (CoreObject obj in EnumerateSerializedGraphObjects(value).OfType<CoreObject>())
+                yield return obj;
+        }
     }
 
     private static Guid ClaimRecoveredDescendantId(
@@ -1393,7 +1404,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         if (removedValue is null)
         {
-            return false;
+            return source.UntraversedFallbacks is { Length: > 0 };
         }
 
         if (SerializedGraphTraversal.Enumerate(removedValue).Any(static value =>

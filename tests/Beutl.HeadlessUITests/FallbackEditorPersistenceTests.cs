@@ -45,6 +45,20 @@ public sealed class FallbackEditorPersistenceTests
         public IProperty<TextureSource?> TextureValue { get; } = Property.Create<TextureSource?>();
     }
 
+    [SuppressResourceClassGeneration]
+    public sealed class NullableRecoveryHolder : EngineObject
+    {
+        public NullableRecoveryHolder() => ScanProperties<NullableRecoveryHolder>();
+
+        public IProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Id = context.GetValue<Guid>(nameof(Id));
+            Transform.CurrentValue = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+        }
+    }
+
     [AvaloniaTest]
     public void BrushTryPasteJson_LastFallbackResumesPersistenceInReplacementTransaction()
     {
@@ -135,6 +149,12 @@ public sealed class FallbackEditorPersistenceTests
     public void FilterEffectPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
     {
         AssertPresenterTargetClearResumesPersistence(PresenterKind.FilterEffect);
+    }
+
+    [AvaloniaTest]
+    public void GenericPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    {
+        AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform, genericEditor: true);
     }
 
     [AvaloniaTest]
@@ -538,6 +558,17 @@ public sealed class FallbackEditorPersistenceTests
     [AvaloniaTest]
     public void ListRemoveItem_LastFallbackResumesPersistenceInReplacementTransaction()
     {
+        AssertListClearResumesPersistence(initialize: false);
+    }
+
+    [AvaloniaTest]
+    public void ListInitialize_LastFallbackResumesPersistenceInReplacementTransaction()
+    {
+        AssertListClearResumesPersistence(initialize: true);
+    }
+
+    private static void AssertListClearResumesPersistence(bool initialize)
+    {
         TestReset.ResetShellAsync().GetAwaiter().GetResult();
 
         string root = CreateRoot();
@@ -582,7 +613,10 @@ public sealed class FallbackEditorPersistenceTests
             using var viewModel = new ListEditorViewModel<FilterEffect>(adapter);
             viewModel.Accept(new Visitor(recoveredElement, context.History));
 
-            viewModel.RemoveItem(0);
+            if (initialize)
+                viewModel.Initialize();
+            else
+                viewModel.RemoveItem(0);
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
             byte[] repairedBytes = File.ReadAllBytes(elementPath);
             bool undone = context.History.Undo();
@@ -602,6 +636,52 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    [AvaloniaTest]
+    public void NullRecoveredTransform_ChangeTypeResumesPersistenceAndUndoRestoresBytes()
+    {
+        TestReset.ResetShellAsync().GetAwaiter().GetResult();
+        string root = CreateRoot();
+        try
+        {
+            var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
+            string elementPath = Path.Combine(root, "element.belm");
+            var effect = new NullableRecoveryHolder();
+            effect.Transform.CurrentValue = new DisplacementMapTranslateTransform();
+            var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+            element.AddObject(effect);
+            var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, sceneUri);
+            JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+            json["Objects"]![0]!["Transform"]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            File.WriteAllText(elementPath, json.ToJsonString());
+            byte[] originalBytes = File.ReadAllBytes(elementPath);
+
+            Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
+            var recoveredEffect = (NullableRecoveryHolder)recovered.Objects.Single();
+            Assert.That(recoveredEffect.Transform.CurrentValue, Is.Null);
+            CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            using var context = new EditorTestContext(recovered);
+            using var editor = new CoreObjectEditorViewModel<DisplacementMapTransform>(
+                new SimplePropertyAdapter<DisplacementMapTransform>(
+                    (SimpleProperty<DisplacementMapTransform>)recoveredEffect.Transform, recoveredEffect));
+            editor.Accept(new Visitor(recovered, context.History));
+
+            editor.SetNewInstance(typeof(DisplacementMapTranslateTransform));
+            CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+            Assert.That(((NullableRecoveryHolder)CoreSerializer.RestoreFromUri<Element>(recovered.Uri!)
+                .Objects.Single()).Transform.CurrentValue, Is.InstanceOf<DisplacementMapTranslateTransform>());
+            Assert.That(context.History.Undo(), Is.True);
+            CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static KeyFrameAnimation<T> CreateAnimation<T>(KeyFrame<T> keyFrame)
     {
         var animation = new KeyFrameAnimation<T>();
@@ -609,7 +689,7 @@ public sealed class FallbackEditorPersistenceTests
         return animation;
     }
 
-    private static void AssertPresenterTargetClearResumesPersistence(PresenterKind kind)
+    private static void AssertPresenterTargetClearResumesPersistence(PresenterKind kind, bool genericEditor = false)
     {
         TestReset.ResetShellAsync().GetAwaiter().GetResult();
 
@@ -648,10 +728,16 @@ public sealed class FallbackEditorPersistenceTests
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
             Assert.That(GetPresenterTarget(recoveredShape, kind), Is.InstanceOf<IFallback>());
             using var context = new EditorTestContext(recoveredElement);
-            using BaseEditorViewModel viewModel = CreatePresenterEditor(recoveredShape, kind);
+            using BaseEditorViewModel viewModel = genericEditor
+                ? new CoreObjectEditorViewModel<Transform>(
+                    new SimplePropertyAdapter<Transform>((SimpleProperty<Transform>)recoveredShape.Transform, recoveredShape))
+                : CreatePresenterEditor(recoveredShape, kind);
             viewModel.Accept(new Visitor(recoveredElement, context.History));
 
-            ClearPresenterTarget(viewModel, kind);
+            if (genericEditor)
+                ((ICoreObjectEditorViewModel)viewModel).SetTarget(null);
+            else
+                ClearPresenterTarget(viewModel, kind);
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
             byte[] repairedBytes = File.ReadAllBytes(elementPath);
             bool undone = context.History.Undo();

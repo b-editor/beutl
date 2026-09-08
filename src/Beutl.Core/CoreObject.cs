@@ -32,6 +32,7 @@ public abstract class CoreObject : ICoreObject
     public static readonly CoreProperty<string> NameProperty;
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
+    private CoreProperty? _forcedReplacementProperty;
 
     internal interface IEntry
     {
@@ -223,7 +224,16 @@ public abstract class CoreObject : ICoreObject
 
         if (property is StaticProperty<TValue> staticProperty)
         {
-            staticProperty.RouteSetTypedValue(this, value);
+            CoreProperty? previous = _forcedReplacementProperty;
+            _forcedReplacementProperty = forceReferenceReplacement ? property : null;
+            try
+            {
+                staticProperty.RouteSetTypedValue(this, value);
+            }
+            finally
+            {
+                _forcedReplacementProperty = previous;
+            }
             return;
         }
 
@@ -304,6 +314,12 @@ public abstract class CoreObject : ICoreObject
         T value,
         bool forceReferenceReplacement)
     {
+        if (ReferenceEquals(_forcedReplacementProperty, property))
+        {
+            forceReferenceReplacement = true;
+            _forcedReplacementProperty = null;
+        }
+
         CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
         ValidateProperty(metadata, property, ref value!);
 

@@ -282,7 +282,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void Initialize()
     {
-        IList<TItem?>? previous = List.Value;
+        TItem?[]? previous = List.Value?.ToArray();
         if (List.Value == null)
         {
             Type listType = PropertyAdapter.PropertyType;

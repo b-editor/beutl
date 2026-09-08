@@ -56,6 +56,28 @@ public class KeyFrameTests
         public override float Ease(float progress) => progress;
     }
 
+    public sealed class FatalConstructorTestEasing<T> : Easing where T : Exception, new()
+    {
+        public FatalConstructorTestEasing()
+        {
+            throw new TypeInitializationException("Plugin", new T());
+        }
+
+        public override float Ease(float progress) => progress;
+    }
+
+    [TestCase(typeof(AccessViolationException))]
+    [TestCase(typeof(OutOfMemoryException))]
+    [TestCase(typeof(OperationCanceledException))]
+    public void Deserialize_FatalEasingConstructorFailure_Propagates(Type exceptionType)
+    {
+        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        Type easingType = typeof(FatalConstructorTestEasing<>).MakeGenericType(exceptionType);
+        var exception = Assert.Throws<TypeInitializationException>(() => Deserialize(TypeFormat.ToString(easingType)));
+        Assert.That(exception!.InnerException, Is.TypeOf(exceptionType));
+        Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore));
+    }
+
     [Test]
     public void Serialize_ShouldCorrectlySerializeLinearEasing()
     {

@@ -24,6 +24,55 @@ public sealed class MalformedElementRecoveryTests
 {
     private string _root = null!;
 
+    public sealed class PluginScene : Scene
+    {
+        public static readonly CoreProperty<CoreObject?> OwnedProperty =
+            ConfigureProperty<CoreObject?, PluginScene>(nameof(Owned)).Register();
+
+        public CoreObject? Owned
+        {
+            get => GetValue(OwnedProperty);
+            set => SetValue(OwnedProperty, value);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ReassignDuplicateRecoveredIds_RetainsSceneRegisteredPropertyGraph(bool collideWithElement)
+    {
+        var claimant = new RotationTransform();
+        var reference = new TransformReferenceHolder();
+        reference.Target.CurrentValue = new Reference<Transform>(claimant.Id);
+        var healthy = new Element { Uri = new Uri(Path.Combine(_root, "healthy.belm")) };
+        healthy.AddObject(reference);
+        var recovered = new Element { Uri = new Uri(Path.Combine(_root, "recovered.belm")) };
+        var fallback = new FallbackTransform();
+        recovered.AddObject(fallback);
+        if (collideWithElement)
+            recovered.Id = claimant.Id;
+        else
+            fallback.Id = claimant.Id;
+        recovered.SuppressedStorageSource = new SuppressedStorageSource([], recovered.Uri);
+        var scene = new PluginScene
+        {
+            Uri = new Uri(Path.Combine(_root, "plugin.scene")),
+            Owned = claimant,
+        };
+        scene.Children.Add(healthy);
+        scene.Children.Add(recovered);
+
+        typeof(Scene).GetMethod("ReassignDuplicateRecoveredIds", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(scene, null);
+        typeof(Scene).GetMethod("MigrateRecoveredElementReferences", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(scene, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(collideWithElement ? recovered.Id : fallback.Id, Is.Not.EqualTo(claimant.Id));
+            Assert.That(reference.Target.CurrentValue.Id, Is.EqualTo(claimant.Id));
+        });
+    }
+
     private sealed class IOExceptionElement : Element
     {
         public IOExceptionElement()

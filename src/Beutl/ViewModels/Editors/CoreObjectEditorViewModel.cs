@@ -228,6 +228,10 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             presenter = p;
             PropertyAdapter.SetValue(presenter);
         }
+        else
+        {
+            previous = presenter.Target.CurrentValue;
+        }
 
         if (target is T)
         {
