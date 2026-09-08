@@ -627,6 +627,9 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             generationFailure = ExceptionDispatchInfo.Capture(ex);
         }
 
+        bool successfulGenerationSealed = generationFailure is null
+                                          && item.TryCloseCancellationWindow();
+
         if (generationFailure is not null
             && generationFailure.SourceException is not (OperationCanceledException
                 or ProxyGenerationSkippedException
@@ -642,8 +645,14 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             Exception? rollbackFailure = null;
             var rollbackSync = new object();
             Exception? terminalReleaseFailure;
+            bool failureCanPublish;
             using (item.Token.Register(() =>
                    {
+                       if (!item.TryClaimCancellationDuringCleanup())
+                       {
+                           return;
+                       }
+
                        Exception? currentRollbackFailure = RollBackFailure(
                            item.Job,
                            failureRegistration);
@@ -657,6 +666,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                    }))
             {
                 terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
+                failureCanPublish = terminalReleaseFailure is not null
+                                    || item.TryCloseCancellationWindow();
             }
 
             Exception? synchronizedRollbackFailure;
@@ -677,7 +688,8 @@ public sealed class ProxyJobQueue : IProxyJobQueue
                     RegisterFailure(item.Job, item.Job.Error.Message);
                 }
             }
-            else if (!item.TryClaimNonCancellationTerminal(cancellationWins: true))
+            else if (!failureCanPublish
+                     || !item.TryClaimNonCancellationTerminal(cancellationWins: false))
             {
                 if (synchronizedRollbackFailure is null)
                 {
@@ -718,6 +730,13 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         }
 
         generationFailure?.Throw();
+        if (!successfulGenerationSealed)
+        {
+            item.Token.ThrowIfCancellationRequested();
+            throw new InvalidOperationException(
+                "Proxy generation completed after its terminal transition was closed.");
+        }
+
         return true;
     }
 
@@ -1123,6 +1142,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         private TaskCompletionSource? _admissionAvailability;
         private long _admissionGeneration;
         private bool _terminalTransitionClaimed;
+        private bool _cancellationWindowClosed;
         private bool _disposed;
         private int _consecutiveAdmissionRejections;
 
@@ -1286,7 +1306,7 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             {
                 if (_disposed
                     || _terminalTransitionClaimed
-                    || Cancellation.IsCancellationRequested
+                    || !_cancellationWindowClosed
                     || IsTerminal(Job.Status))
                 {
                     return false;
@@ -1315,6 +1335,42 @@ public sealed class ProxyJobQueue : IProxyJobQueue
             }
         }
 
+        public bool TryCloseCancellationWindow()
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || _cancellationWindowClosed
+                    || Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status))
+                {
+                    return false;
+                }
+
+                _cancellationWindowClosed = true;
+                return true;
+            }
+        }
+
+        public bool TryClaimCancellationDuringCleanup()
+        {
+            lock (_lock)
+            {
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || _cancellationWindowClosed
+                    || !Cancellation.IsCancellationRequested
+                    || IsTerminal(Job.Status))
+                {
+                    return false;
+                }
+
+                _cancellationWindowClosed = true;
+                return true;
+            }
+        }
+
         public bool TryCancelQueued()
         {
             lock (_lock)
@@ -1334,7 +1390,10 @@ public sealed class ProxyJobQueue : IProxyJobQueue
         {
             lock (_lock)
             {
-                if (_disposed || IsTerminal(Job.Status))
+                if (_disposed
+                    || _terminalTransitionClaimed
+                    || _cancellationWindowClosed
+                    || IsTerminal(Job.Status))
                     return;
 
                 Cancellation.Cancel();

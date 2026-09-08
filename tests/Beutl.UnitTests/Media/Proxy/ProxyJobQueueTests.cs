@@ -357,8 +357,10 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task Cancel_racing_admission_release_wins_before_success_publication()
+    public async Task Completed_generation_wins_cancellation_during_admission_release()
     {
+        string root = CreateRoot();
+        var store = new ProxyStore(root);
         var releaseStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseLease = new TaskCompletionSource(
@@ -369,7 +371,10 @@ public class ProxyJobQueueTests
                 disposeStarted: releaseStarted,
                 disposeRelease: releaseLease.Task));
         int succeededEvents = 0;
-        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null, admission);
+        await using var queue = new ProxyJobQueue(
+            new ReadyPublishingGenerator(store, root),
+            store,
+            admission);
         queue.JobChanged += (_, args) =>
         {
             if (args.Kind == ProxyJobChangeKind.Succeeded)
@@ -389,9 +394,12 @@ public class ProxyJobQueueTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(
+                store.TryGet(job.Source, job.Preset)?.State,
+                Is.EqualTo(ProxyState.Ready));
             Assert.That(admission.Leases.Single().DisposeCount, Is.EqualTo(1));
-            Assert.That(Volatile.Read(ref succeededEvents), Is.Zero);
+            Assert.That(Volatile.Read(ref succeededEvents), Is.EqualTo(1));
         });
     }
 
@@ -1854,6 +1862,17 @@ public class ProxyJobQueueTests
         public ValueTask GenerateAsync(ProxyJob job)
         {
             throw new InvalidOperationException("encode failed");
+        }
+    }
+
+    private sealed class ReadyPublishingGenerator(
+        IProxyStore store,
+        string storeRoot) : IProxyGenerator
+    {
+        public ValueTask GenerateAsync(ProxyJob job)
+        {
+            store.Register(CreateReadyEntry(storeRoot, job.Source));
+            return ValueTask.CompletedTask;
         }
     }
 
