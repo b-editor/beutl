@@ -106,6 +106,7 @@ public partial class JsonSerializationContext
                 parent: parent,
                 json: obj,
                 options: options);
+            context.EnablePersistedContentMigrationReporting();
 
             using (ThreadLocalSerializationContext.Enter(context))
             {

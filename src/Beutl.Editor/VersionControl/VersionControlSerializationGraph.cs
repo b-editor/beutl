@@ -1767,6 +1767,13 @@ internal static class VersionControlSerializationGraph
 
         public Type OwnerType => owner.GetType();
 
+        public void ReportPersistedContentMigration(string minAppVersion)
+        {
+            // Round-trip inspection deserializes temporary values to discover their resources.
+            // A valid migration report belongs to that temporary graph and must not mutate or
+            // reject the live project being inspected.
+        }
+
         public JsonObject GetJsonObject()
         {
             throw new InvalidDataException(

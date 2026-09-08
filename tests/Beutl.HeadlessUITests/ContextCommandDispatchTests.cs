@@ -132,11 +132,12 @@ public class ContextCommandDispatchTests
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
+            await adder.AddAsync([new ElementDescription(
                 Start: TimeSpan.Zero,
                 Length: TimeSpan.FromSeconds(1),
                 Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+                Source: new ElementSource.EngineObject(() => new RectShape()))],
+                CancellationToken.None);
             HeadlessTestHelpers.Settle();
             TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
             ElementViewModel target = timeline.Elements.Single();
@@ -182,11 +183,12 @@ public class ContextCommandDispatchTests
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            adder.AddElement(new ElementDescription(
+            await adder.AddAsync([new ElementDescription(
                 Start: TimeSpan.Zero,
                 Length: TimeSpan.FromSeconds(1),
                 Layer: 0,
-                EngineObjectFactory: () => new RectShape()));
+                Source: new ElementSource.EngineObject(() => new RectShape()))],
+                CancellationToken.None);
             HeadlessTestHelpers.Settle();
             TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
             ElementViewModel target = timeline.Elements.Single();

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Beutl.Collections;
 using Beutl.Serialization;
+using NuGet.Versioning;
 
 namespace Beutl;
 
@@ -17,6 +18,7 @@ public sealed class Project : Hierarchical
     public static readonly CoreProperty<string> AppVersionProperty;
     public static readonly CoreProperty<string> MinAppVersionProperty;
     private readonly HierarchicalList<ProjectItem> _items;
+    private readonly object _versionMetadataSync = new();
 
     public const string DefaultMinAppVersion = "2.0.0-preview.1";
 
@@ -44,6 +46,7 @@ public sealed class Project : Hierarchical
     {
         MinAppVersion = DefaultMinAppVersion;
         _items = new HierarchicalList<ProjectItem>(this);
+        _items.Attached += PropagateItemMigration;
     }
 
     public string AppVersion { get; private set; } = BeutlApplication.Version;
@@ -94,17 +97,124 @@ public sealed class Project : Hierarchical
         activity?.SetTag("itemsCount", Items.Count);
     }
 
+    // Call only after a migration has rewritten persisted content. Project-item migrations,
+    // including extension-provided item types, are aggregated during deserialization; a plain
+    // load/save keeps the version from disk.
+    internal void MarkAsMigrated(string requiredMinAppVersion = DefaultMinAppVersion)
+    {
+        lock (_versionMetadataSync)
+        {
+            AppVersion = BeutlApplication.Version;
+            MinAppVersion = GetMaximumVersion(MinAppVersion, requiredMinAppVersion);
+        }
+    }
+
+    internal void RestoreVersionMetadata(string appVersion, string minAppVersion)
+    {
+        lock (_versionMetadataSync)
+        {
+            AppVersion = appVersion;
+            MinAppVersion = minAppVersion;
+        }
+    }
+
+    private void PropagateItemMigration(ProjectItem item)
+    {
+        string? requiredVersion = GetRequiredMigrationVersion(item);
+        if (requiredVersion is not null)
+        {
+            MarkAsMigrated(requiredVersion);
+        }
+    }
+
+    internal static string? GetRequiredMigrationVersion(ProjectItem item)
+    {
+        string? requiredVersion = null;
+        var pending = new Stack<CoreObject>();
+        pending.Push(item);
+        while (pending.TryPop(out CoreObject? current))
+        {
+            requiredVersion = GetMaximumMigrationVersion(
+                requiredVersion,
+                current.RequiredMinAppVersionAfterMigration);
+            if (current is IHierarchical hierarchical)
+            {
+                foreach (IHierarchical child in hierarchical.HierarchicalChildren)
+                {
+                    if (child is CoreObject coreObject)
+                    {
+                        pending.Push(coreObject);
+                    }
+                }
+            }
+        }
+
+        return requiredVersion;
+    }
+
+    internal static string? GetMaximumMigrationVersion(string? left, string? right)
+    {
+        NuGetVersion? leftVersion = null;
+        if (left is not null && !NuGetVersion.TryParse(left, out leftVersion))
+        {
+            throw new InvalidOperationException($"Invalid migration minimum version '{left}'.");
+        }
+
+        NuGetVersion? rightVersion = null;
+        if (right is not null && !NuGetVersion.TryParse(right, out rightVersion))
+        {
+            throw new InvalidOperationException($"Invalid migration minimum version '{right}'.");
+        }
+
+        if (leftVersion is null)
+        {
+            return right;
+        }
+
+        if (rightVersion is null)
+        {
+            return left;
+        }
+
+        return VersionComparer.VersionRelease.Compare(leftVersion, rightVersion) < 0
+            ? right
+            : left;
+    }
+
+    private static string GetMaximumVersion(string persistedVersion, string requiredVersion)
+    {
+        // An unknown persisted constraint is retained so migration cannot weaken it.
+        return NuGetVersion.TryParse(persistedVersion, out NuGetVersion? persisted)
+               && NuGetVersion.TryParse(requiredVersion, out NuGetVersion? required)
+               && VersionComparer.VersionRelease.Compare(persisted, required) < 0
+            ? requiredVersion
+            : persistedVersion;
+    }
+
     public override void Serialize(ICoreSerializationContext context)
     {
+        foreach (ProjectItem item in Items)
+        {
+            PropagateItemMigration(item);
+        }
+
+        string appVersion;
+        string minAppVersion;
+        lock (_versionMetadataSync)
+        {
+            appVersion = AppVersion;
+            minAppVersion = MinAppVersion;
+        }
+
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
-        activity?.SetTag("appVersion", AppVersion);
-        activity?.SetTag("minAppVersion", MinAppVersion);
+        activity?.SetTag("appVersion", appVersion);
+        activity?.SetTag("minAppVersion", minAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
 
         base.Serialize(context);
 
-        context.SetValue("appVersion", AppVersion);
-        context.SetValue("minAppVersion", MinAppVersion);
+        context.SetValue("appVersion", appVersion);
+        context.SetValue("minAppVersion", minAppVersion);
 
         context.SetValue("items", Items);
 
