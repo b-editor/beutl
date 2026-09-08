@@ -260,6 +260,60 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task RequestStop_detaches_a_published_host_while_startup_completion_is_pending()
+    {
+        await TestReset.ResetShellAsync();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(), "test-token");
+        await endpoint.StartAsync();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        typeof(AgentHostEndpoint).GetField("_startupTask",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(endpoint, completion.Task);
+        try
+        {
+            endpoint.RequestStop();
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        }
+        finally
+        {
+            completion.TrySetResult();
+            await endpoint.StopAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Direct_startup_callback_cannot_hold_the_lifecycle_lock_past_stop_timeout()
+    {
+        await TestReset.ResetShellAsync();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            GetAvailableLoopbackPort(), "test-token", _ =>
+            {
+                entered.TrySetResult();
+                release.Wait();
+                return Task.CompletedTask;
+            });
+        Task startup = Task.Run(() => endpoint.StartAsync());
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.Run(() => endpoint.StopAsync()).WaitAsync(TimeSpan.FromSeconds(4));
+            Assert.That(endpoint.IsRunning, Is.False);
+        }
+        finally
+        {
+            release.Set();
+            try { await startup.WaitAsync(TimeSpan.FromSeconds(5)); }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    [AvaloniaTest]
     public async Task Endpoint_binds_default_loopback_port_uses_fixed_token_and_stops_cleanly()
     {
         await TestReset.ResetShellAsync();
@@ -406,8 +460,8 @@ public sealed class AgentHostEndpointTests
 
         firstCancellation.Cancel();
         laterCancellation.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await first);
-        Assert.CatchAsync<OperationCanceledException>(async () => await later);
+        await AssertCanceledAsync(first);
+        await AssertCanceledAsync(later);
         Assert.That(shared.IsCompleted, Is.False);
 
         try
@@ -523,7 +577,7 @@ public sealed class AgentHostEndpointTests
         });
 
         releaseStartup.TrySetResult();
-        Assert.CatchAsync<OperationCanceledException>(async () => await startup);
+        await AssertCanceledAsync(startup);
     }
 
     [AvaloniaTest]
@@ -646,6 +700,13 @@ public sealed class AgentHostEndpointTests
 
         Assert.Inconclusive("Could not reserve a loopback port with an available successor.");
         throw new InvalidOperationException();
+    }
+
+    private static async Task AssertCanceledAsync(Task task)
+    {
+        try { await task.WaitAsync(TimeSpan.FromSeconds(5)); }
+        catch (OperationCanceledException) { return; }
+        Assert.Fail("Expected startup cancellation.");
     }
 
     private static int GetAvailableLoopbackPort()

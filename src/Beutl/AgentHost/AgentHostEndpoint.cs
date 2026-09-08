@@ -165,6 +165,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             return Task.FromCanceled(cancellationToken);
 
         Task startup;
+        TaskCompletionSource? completion = null;
+        CancellationToken startupToken = default;
         lock (_lifecycleLock)
         {
             // This endpoint is a one-shot application-lifetime resource. Sharing the startup task
@@ -173,12 +175,37 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             if (_stopRequested)
                 return Task.CompletedTask;
 
-            startup = _startupTask ??= StartCoreAsync(_startupCancellation.Token);
+            if (_startupTask is null)
+            {
+                completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _startupTask = completion.Task;
+                startupToken = _startupCancellation.Token;
+            }
+            startup = _startupTask;
         }
 
+        if (completion is not null)
+            _ = Task.Run(() => CompleteStartupAsync(startupToken, completion));
         return cancellationToken.CanBeCanceled
             ? startup.WaitAsync(cancellationToken)
             : startup;
+    }
+
+    private async Task CompleteStartupAsync(CancellationToken token, TaskCompletionSource completion)
+    {
+        try
+        {
+            await StartCoreAsync(token).ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException ex) when (token.IsCancellationRequested)
+        {
+            completion.TrySetCanceled(ex.CancellationToken);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+        }
     }
 
     private async Task StartCoreAsync(CancellationToken cancellationToken)
@@ -247,17 +274,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public void StartInBackground()
     {
-        Task startup;
-        lock (_lifecycleLock)
-        {
-            if (_stopRequested)
-                return;
-
-            startup = _startupTask ??= Task.Run(
-                () => StartCoreAsync(_startupCancellation.Token));
-        }
-
-        _ = ObserveBackgroundStartAsync(startup);
+        _ = ObserveBackgroundStartAsync(StartAsync());
     }
 
     private async Task ObserveBackgroundStartAsync(Task startup)
@@ -284,7 +301,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         {
             _stopRequested = true;
             _endpointUri = null;
-            stop = _stopTask ??= StopCoreAsync();
+            WebApplication? application = _application;
+            _application = null;
+            stop = _stopTask ??= StopCoreAsync(application);
         }
 
         try
@@ -311,7 +330,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _startupCancellation.Dispose();
     }
 
-    private async Task StopCoreAsync()
+    private async Task StopCoreAsync(WebApplication? app)
     {
         Task? startup;
         lock (_lifecycleLock)
@@ -337,14 +356,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 // continue and dispose any partially-created host.
                 s_logger.LogWarning(ex, "The agent host startup failed before shutdown completed.");
             }
-        }
-
-        WebApplication? app;
-        lock (_lifecycleLock)
-        {
-            app = _application;
-            _application = null;
-            _endpointUri = null;
         }
 
         if (app is not null)
