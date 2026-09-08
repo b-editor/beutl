@@ -24,6 +24,7 @@ Beutl's main app is **MIT-licensed**; only `Beutl.FFmpegWorker` is **GPL-3.0-or-
    - `tests/Beutl.PublicApiContractTests/GplMitBoundaryContractTests.cs` enforces this mechanically across project and shared build files in the active checkout while excluding nested repositories and machine-local tooling state.
    - Sanctioned exception: a build-order-only reference carrying `ReferenceOutputAssembly="false"`, paired with a target that mirrors the worker's output next to the app (dev builds only — `src/Beutl/Beutl.csproj` uses this shape; Nuke publishes lay the worker out separately).
    - Any `ProjectReference Update` targeting the worker must explicitly preserve `ReferenceOutputAssembly="false"`; setting, removing, or replacing that metadata with another value is a boundary violation.
+   - Keep the worker item spec literal and the `ReferenceOutputAssembly="false"` metadata unconditional. Property-backed or wildcard project references whose targets cannot be proven statically, and conditioned metadata that can disappear in another configuration, fail the boundary contract.
    - Do not look for workarounds — surface the design issue instead.
 
 2. **All communication goes through `Beutl.FFmpegIpc`.**
