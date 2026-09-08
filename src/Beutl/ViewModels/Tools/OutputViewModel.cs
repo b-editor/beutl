@@ -411,6 +411,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 _logger.LogError(ex, "An exception occurred during the encoding process.");
             }
+
+            throw;
         }
         finally
         {

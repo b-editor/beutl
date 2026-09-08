@@ -228,7 +228,8 @@ public class ExportTests
         NotificationService.Handler = recorder;
         try
         {
-            await output.RunAsync(CancellationToken.None);
+            Assert.ThrowsAsync<FFmpegWorkerException>(async () =>
+                await output.RunAsync(CancellationToken.None));
         }
         finally
         {

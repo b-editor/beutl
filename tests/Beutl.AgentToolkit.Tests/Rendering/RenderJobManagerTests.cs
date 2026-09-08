@@ -307,7 +307,7 @@ public sealed class RenderJobManagerTests
     }
 
     [Test]
-    public async Task Terminal_snapshot_is_visible_before_the_output_lease_is_released()
+    public async Task Terminal_snapshot_is_published_after_the_output_lease_is_released()
     {
         using var manager = new RenderJobManager();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -328,8 +328,28 @@ public sealed class RenderJobManagerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(stateAtRelease, Is.EqualTo("completed"));
+            Assert.That(stateAtRelease, Is.EqualTo("running"));
             Assert.That(lease.DisposeCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Output_lease_failure_publishes_only_the_failed_terminal_state()
+    {
+        using var manager = new RenderJobManager();
+        var expected = new InvalidOperationException("lease release failed");
+        string jobId = manager.Enqueue(
+            "test",
+            (_, _) => Task.FromResult<JsonNode>(new JsonObject()),
+            new ThrowingLease(expected));
+
+        RenderJobSnapshot snapshot = await WaitForTerminalAsync(manager, jobId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.State, Is.EqualTo("failed"));
+            Assert.That(snapshot.Result, Is.Null);
+            Assert.That(snapshot.Error, Is.Not.Null);
         });
     }
 
@@ -343,6 +363,14 @@ public sealed class RenderJobManagerTests
         {
             onDispose?.Invoke();
             Interlocked.Increment(ref _disposeCount);
+        }
+    }
+
+    private sealed class ThrowingLease(Exception failure) : IDisposable
+    {
+        public void Dispose()
+        {
+            throw failure;
         }
     }
 }
