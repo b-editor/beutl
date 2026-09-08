@@ -344,15 +344,20 @@ DRAFT_ISSUE_ID=$(gh api graphql -f query='query{node(id:"'"$ITEM_ID"'"){...on Pr
 #   explicit approval. Left In Progress for a human. Reason: <…>.", then:
 gh api graphql -f query='mutation{updateProjectV2DraftIssue(input:{projectId:"PVT_kwDOBLw8Fs4BW4g5",draftIssueId:"'"$DRAFT_ISSUE_ID"'",body:"<escaped updated body>"}){draftIssue{body}}}'
 # If the item has a linked repo issue (not a pure DraftIssue), also post an issue comment there.
-``` Otherwise, re-dispatch the runner
-in Rework mode with `OPEN_PR=true` and empty
+``` Otherwise, fetch the reviewed draft immediately before opening the PR and pin its exact remote
+OID: `git fetch origin "$DRAFT_BRANCH"` followed by
+`REVIEWED_DRAFT_HEAD=$(git rev-parse "origin/$DRAFT_BRANCH")`. Then re-dispatch the runner in Rework
+mode with `OPEN_PR=true` and empty
 `review_findings` to open the PR from the (possibly amended) draft branch. This is the step-2 **"PR
 opened"** outcome: reset both stagnation counters to 0, **clear `last_failure_signature`** (any
 progress reset must also clear it — otherwise an unrelated later item that fails with the same first
 error line trips Step 0's back-to-back repeat-signature stop despite real progress in between), and
 mark the tick as PR-opened (step 5 records `last_pr_tick`). Before waiting for any review, query the
-new PR's exact `headRefOid` and write its complete `review_scope` into the orchestrator-owned journal:
-that OID is `initial_head`, `previous_remediation_head` is null, and the intended behavior, affected
+new PR's exact `headRefOid` and require it to equal `REVIEWED_DRAFT_HEAD`. A mismatch means an
+unreviewed push won the create/query race: do not persist a scope for it, force risk to high, and
+leave the PR for a human. Only after equality is verified, write its complete `review_scope` into the
+orchestrator-owned journal: `REVIEWED_DRAFT_HEAD` is `initial_head`,
+`previous_remediation_head` is null, and the intended behavior, affected
 modules, and acceptance tests come from the already-reviewed draft/spec. Keep the authoritative value
 in the orchestrator context as well as the journal; do not ask a later resolver invocation to infer it
 from its checkout or from review commit IDs. If this record cannot be written, the PR is not eligible
@@ -427,9 +432,12 @@ the PR worktree, then dispatch a sub-agent running **`beutl-resolve-reviews --au
 and resolve threads. Compare the returned `scope_state` with the authoritative in-memory/journal value:
 `initial_head` and all three frozen arrays must be byte-for-byte unchanged; only
 `previous_remediation_head` may advance to a commit the resolver actually pushed. Materialize the
-authoritative in-memory value and returned value as separate temporary JSON files and run
-`.claude/scripts/review-scope-state-check.sh <authoritative> <returned> <pushed-head>`; a nonzero exit
-forces `needs_human`. Delete the temporary
+authoritative in-memory value and returned value as separate temporary JSON files. When
+`new_commits_pushed == 0`, run the two-argument form
+`.claude/scripts/review-scope-state-check.sh <authoritative> <returned>` so
+`previous_remediation_head` must remain unchanged. Only when `new_commits_pushed > 0`, run
+`.claude/scripts/review-scope-state-check.sh <authoritative> <returned> <pushed-head>` so the verified
+push is required as the new `previous_remediation_head`. A nonzero exit forces `needs_human`. Delete the temporary
 copy after the result is validated. If the authoritative record is absent, inconsistent, or changes
 unexpectedly, set `needs_human` and leave the PR unchanged; never recover a full scope from a review
 commit ID alone. "**Settled**" = CI complete+green · zero unresolved threads · no

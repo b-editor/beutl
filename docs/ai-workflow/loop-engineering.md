@@ -223,13 +223,17 @@ item to `Done`; that happens only on a successful auto-merge. A journal older th
 zero, which is intentional (a long gap means a new run context) but means a run that was thrashing
 can re-arm its no-progress budget after the 12h boundary.
 
-The orchestrator records `review_scope` (`initial_head`, previous remediation head, intended behavior,
-affected modules, and acceptance tests) immediately after it opens a PR and before the first review
-poll. Each resolver receives an absolute temporary copy outside its PR worktree after Step 1 has
+Immediately before opening a PR, the orchestrator fetches and records the exact reviewed remote
+draft OID. The newly-created PR must still point to that OID; otherwise an unreviewed push won the
+creation race and the PR is left for a human without a frozen scope. After that equality check, the
+orchestrator records `review_scope` (`initial_head`, previous remediation head, intended behavior,
+affected modules, and acceptance tests) before the first review poll. Each resolver receives an absolute temporary copy outside its PR worktree after Step 1 has
 fetched and verified the exact PR head, and returns the full record for comparison. PR-controlled
 tests never become the source of truth: the orchestrator keeps the authoritative value in its own
 context and journal, rejects changes to the initial head or frozen arrays, and deletes the temporary
-copy after validation. A missing exact full record always leaves the PR for a human; review commit IDs
+copy after validation. A clean resolver result with no pushed commit uses the two-argument scope
+check and must leave the previous remediation head unchanged; the allowed-head argument is supplied
+only after a verified push. A missing exact full record always leaves the PR for a human; review commit IDs
 alone cannot reconstruct the agreed behavior or acceptance tests.
 
 ## In-session execution + safety

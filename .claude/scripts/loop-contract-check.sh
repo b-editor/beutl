@@ -274,6 +274,8 @@ if grep -q 'never authorizes scope expansion' AGENTS.md 2>/dev/null && \
    grep -q 'Pre-existing/adjacent issues' "$RESOLVER" 2>/dev/null && \
    grep -q 'acceptance gaps always set.*needs_human' "$RESOLVER" 2>/dev/null && \
    grep -q 'Before waiting for any review' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'REVIEWED_DRAFT_HEAD' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
+   grep -q 'new_commits_pushed == 0' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'review-scope-state-check.sh' .claude/skills/beutl-loop/SKILL.md 2>/dev/null && \
    grep -q 'tests never become the source of truth' "$DOC" 2>/dev/null && \
    have "$SCOPE_CHECK"; then
@@ -306,6 +308,11 @@ if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/not-advanced.json"
   fail "review scope fixture accepted stale state after a verified push"
 else
   pass "review scope fixture requires verified previous-head advancement"
+fi
+if "$SCOPE_CHECK" "$scope_tmp/authoritative.json" "$scope_tmp/not-advanced.json" >/dev/null 2>&1; then
+  pass "review scope fixture accepts unchanged state when no remediation commit was pushed"
+else
+  fail "review scope fixture rejected unchanged state without a remediation push"
 fi
 if "$SCOPE_CHECK" "$scope_tmp/incomplete.json" "$scope_tmp/incomplete.json" >/dev/null 2>&1; then
   fail "review scope fixture accepted an incomplete frozen record"
