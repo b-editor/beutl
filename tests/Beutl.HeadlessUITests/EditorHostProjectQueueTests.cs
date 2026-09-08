@@ -75,7 +75,11 @@ public sealed class EditorHostProjectQueueTests
             Assert.That(projects.CurrentProject.Value, Is.SameAs(original));
             Assert.That(Directory.Exists(Path.Combine(location, "retry")), Is.False);
             projects.ClosingPreparing -= reject;
-            Assert.That(await projects.CreateProject(16, 16, 30, 44100, "retry", location), Is.Not.Null);
+            Project? retried = await projects.CreateProject(16, 16, 30, 44100, "retry", location);
+            Assert.That(retried, Is.Not.Null);
+            Project restored = Beutl.Serialization.CoreSerializer.RestoreFromUri<Project>(retried!.Uri!);
+            Assert.That(restored.Items.Single().Uri, Is.EqualTo(retried.Items.Single().Uri));
+            Assert.That(Directory.EnumerateDirectories(location, ".beutl-create-*"), Is.Empty);
         }
         finally
         {
@@ -108,6 +112,39 @@ public sealed class EditorHostProjectQueueTests
         finally
         {
             initialization.TrySetResult();
+            await DisposeCompositionAsync(projects, editors, host);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Project_preparation_never_removes_a_competing_destination(bool abortClose)
+    {
+        await TestReset.ResetShellAsync();
+        var (projects, editors, host) = CreateComposition(new TestContextFactory());
+        string location = NewWorkspace("competing-project-" + abortClose);
+        string destination = Path.Combine(location, "competing");
+        string foreignFile = Path.Combine(destination, $"competing.{Beutl.Editor.EditorConstants.ProjectFileExtension}");
+        Func<ProjectService.ProjectCloseContext, CancellationToken, Task> compete = (_, _) =>
+        {
+            Directory.CreateDirectory(destination);
+            File.WriteAllText(foreignFile, "foreign project");
+            return abortClose
+                ? Task.FromException(new ProjectCloseAbortedException("close rejected"))
+                : Task.CompletedTask;
+        };
+        try
+        {
+            await projects.CreateProject(16, 16, 30, 44100, "original", location);
+            projects.ClosingPreparing += compete;
+            Assert.That(await projects.CreateProject(16, 16, 30, 44100, "competing", location), Is.Null);
+            Assert.That(File.ReadAllText(foreignFile), Is.EqualTo("foreign project"));
+            Assert.That(Directory.EnumerateDirectories(location, ".beutl-create-*"), Is.Empty);
+        }
+        finally
+        {
+            projects.ClosingPreparing -= compete;
             await DisposeCompositionAsync(projects, editors, host);
         }
     }

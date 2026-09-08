@@ -558,22 +558,27 @@ public sealed partial class ProjectService
         activity?.SetTag(nameof(height), height);
         activity?.SetTag(nameof(framerate), framerate);
         activity?.SetTag(nameof(samplerate), samplerate);
-        Project? preparedProject = null;
-        var createdFiles = new List<string>();
-        var createdDirectories = new List<string>();
+        string? stagingDirectory = null;
         try
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+            if (name is "." or ".." || Path.GetFileName(name) != name)
+                throw new ArgumentException("The project name must be a single directory name.", nameof(name));
             if (BeforeCreateProjectPreparation is { } beforePreparation)
                 await beforePreparation(name);
+            string parentDirectory = location;
             location = Path.Combine(location, name);
+            if (Directory.Exists(location) || File.Exists(location))
+                throw new IOException("The project destination already exists.");
+            stagingDirectory = Path.Combine(parentDirectory, $".beutl-create-{Guid.NewGuid():N}.tmp");
             var scene = new Scene(width, height, name)
             {
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{EditorConstants.SceneFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(stagingDirectory, name, $"{name}.{EditorConstants.SceneFileExtension}")),
             };
             var project = new Project()
             {
                 Items = { scene },
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(stagingDirectory, $"{name}.{EditorConstants.ProjectFileExtension}")),
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),
@@ -581,33 +586,17 @@ public sealed partial class ProjectService
                 }
             };
 
-            preparedProject = project;
-            foreach (string directory in new[] { Path.GetDirectoryName(scene.Uri.LocalPath)!, location })
-                if (!Directory.Exists(directory))
-                    createdDirectories.Add(directory);
-            foreach (string file in new[] { scene.Uri.LocalPath, project.Uri.LocalPath })
-                if (!File.Exists(file))
-                    createdFiles.Add(file);
             CoreSerializer.StoreToUri(scene, scene.Uri);
-            ProjectPersistence.PersistOrRollback(
-                () => CoreSerializer.StoreToUri(project, project.Uri),
-                () =>
-                {
-                    // The project write failed. Remove only a scene created by this attempt;
-                    // the outer failure path also removes its empty prepared directories.
-                    try
-                    {
-                        if (createdFiles.Contains(scene.Uri.LocalPath))
-                            File.Delete(scene.Uri.LocalPath);
-                    }
-                    catch (Exception deleteEx)
-                    {
-                        _logger.LogWarning(deleteEx, "Failed to delete orphaned scene file: {Uri}", scene.Uri);
-                    }
-                });
+            CoreSerializer.StoreToUri(project, project.Uri);
 
             AfterCreateProjectPreparation?.Invoke(name);
             await CloseProjectCoreAsync(transition, CancellationToken.None);
+            // Promote the complete bundle without overwriting a concurrently created destination.
+            // Serialized references stay relative because the bundle's internal layout is unchanged.
+            Directory.Move(stagingDirectory, location);
+            stagingDirectory = null;
+            scene.Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{EditorConstants.SceneFileExtension}"));
+            project.Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}"));
             await ActivateProjectAsync(project);
 
             await TryAddToRecentProjectsAsync(project.Uri.LocalPath);
@@ -619,34 +608,26 @@ public sealed partial class ProjectService
         }
         catch (Exception ex)
         {
-            if (preparedProject is not null && !ReferenceEquals(_app.Project, preparedProject))
-            {
-                foreach (string file in createdFiles)
-                {
-                    try { File.Delete(file); }
-                    catch (Exception cleanupError)
-                    {
-                        _logger.LogWarning(cleanupError, "Failed to remove prepared project file {Path}.", file);
-                    }
-                }
-                foreach (string directory in createdDirectories)
-                {
-                    try
-                    {
-                        if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
-                            Directory.Delete(directory);
-                    }
-                    catch (Exception cleanupError)
-                    {
-                        _logger.LogWarning(cleanupError, "Failed to remove empty prepared project directory {Path}.", directory);
-                    }
-                }
-            }
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.
             NotificationService.ShowError(Strings.Error, ex.Message);
             return null;
+        }
+        finally
+        {
+            if (stagingDirectory is not null)
+            {
+                try
+                {
+                    if (Directory.Exists(stagingDirectory))
+                        Directory.Delete(stagingDirectory, recursive: true);
+                }
+                catch (Exception cleanupError)
+                {
+                    _logger.LogWarning(cleanupError, "Failed to remove private project staging directory {Path}.", stagingDirectory);
+                }
+            }
         }
     }
 
