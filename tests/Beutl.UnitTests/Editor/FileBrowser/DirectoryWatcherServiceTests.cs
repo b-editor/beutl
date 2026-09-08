@@ -296,6 +296,37 @@ public class DirectoryWatcherServiceTests
         Assert.That(startedPaths.Last(), Is.EqualTo(FilePathComparison.ResolveCanonicalPath(secondTarget)));
     }
 
+    [Test]
+    public void Nested_directory_link_retarget_invalidates_the_cached_identity()
+    {
+        string templatesRoot = BeutlEnvironment.GetTemplatesDirectoryPath();
+        string templateTarget = Path.Combine(templatesRoot, $"nested-{Guid.NewGuid():N}");
+        string outsideTarget = Path.Combine(_projectRoot, "nested-outside");
+        string intermediate = Path.Combine(_projectRoot, "intermediate");
+        string alias = Path.Combine(_projectRoot, "nested-alias");
+        Directory.CreateDirectory(templateTarget);
+        Directory.CreateDirectory(outsideTarget);
+        CreateDirectorySymlinkOrIgnore(intermediate, templateTarget);
+        CreateDirectorySymlinkOrIgnore(alias, intermediate);
+        using var service = new DirectoryWatcherService();
+
+        try
+        {
+            Assert.That(service.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.False);
+
+            Directory.Delete(intermediate);
+            CreateDirectorySymlinkOrIgnore(intermediate, outsideTarget);
+
+            Assert.That(service.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.True);
+        }
+        finally
+        {
+            if (Directory.Exists(alias)) Directory.Delete(alias);
+            if (Directory.Exists(intermediate)) Directory.Delete(intermediate);
+            Directory.Delete(templateTarget, recursive: true);
+        }
+    }
+
     private string CreateFile(string relativePath)
     {
         string path = Path.Combine(

@@ -259,14 +259,23 @@ public sealed class ObjectTemplateService
             lock (_lock)
             {
                 _items.Clear();
-
-                foreach (string filePath in Directory.EnumerateFiles(
-                             _directoryPath, "*.json", SearchOption.AllDirectories))
+                string[] diskFiles = Directory.EnumerateFiles(
+                        _directoryPath,
+                        "*.json",
+                        SearchOption.AllDirectories)
+                    .ToArray();
+                CanonicalPathSet diskPaths = CanonicalPathSet.FromEnumeratedFiles(diskFiles);
+                var loadedPaths = new CanonicalPathSet();
+                foreach (string filePath in diskFiles)
                 {
+                    diskPaths.TryGetExact(filePath, out string? canonicalPath);
+                    if (loadedPaths.ContainsKnown(filePath, canonicalPath)) continue;
+
                     var item = LoadFromFile(filePath);
                     if (item != null)
                     {
                         _items.Add(item);
+                        loadedPaths.AddKnown(filePath, canonicalPath);
                     }
                 }
 
@@ -308,7 +317,19 @@ public sealed class ObjectTemplateService
 
     private ObjectTemplateItem? FindByFilePathLocked(string filePath)
     {
-        string fullPath = Path.GetFullPath(filePath);
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(filePath);
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or ArgumentException
+                                   or NotSupportedException)
+        {
+            return null;
+        }
+
         string? canonicalPath = TryResolveCanonicalPath(fullPath, out string resolvedPath)
             ? resolvedPath
             : null;

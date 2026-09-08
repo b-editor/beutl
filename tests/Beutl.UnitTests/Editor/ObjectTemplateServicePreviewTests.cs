@@ -235,4 +235,43 @@ public class ObjectTemplateServicePreviewTests
             service.RestoreItems();
         }
     }
+
+    [Test]
+    public async Task RestoreItems_deduplicates_a_template_and_its_symbolic_link_alias()
+    {
+        ObjectTemplateService service = ObjectTemplateService.Instance;
+        ObjectTemplateItem? item = await service.AddFromInstanceAsync(
+            new Audio.Effects.AudioEffectGroup(),
+            $"deduplicate-{Guid.NewGuid():N}");
+        Assert.That(item, Is.Not.Null);
+        string originalPath = item!.FilePath!;
+        string aliasPath = Path.Combine(
+            Path.GetDirectoryName(originalPath)!,
+            $"alias-{Guid.NewGuid():N}.json");
+        try
+        {
+            try
+            {
+                File.CreateSymbolicLink(aliasPath, originalPath);
+            }
+            catch (Exception ex) when (ex is IOException
+                                       or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
+            }
+
+            service.RestoreItems();
+
+            int matching = service.FindByBaseType(item.BaseType).Count(template =>
+                template.FilePath == originalPath || template.FilePath == aliasPath);
+            Assert.That(matching, Is.EqualTo(1));
+        }
+        finally
+        {
+            File.Delete(aliasPath);
+            File.Delete(originalPath);
+            service.RestoreItems();
+        }
+    }
 }

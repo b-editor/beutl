@@ -400,9 +400,17 @@ internal sealed class DirectoryWatcherService : IDisposable
         {
             current = Path.Combine(current, segment);
             var info = new DirectoryInfo(current);
+            string? linkTarget = info.LinkTarget;
             fingerprint.Append(segment)
                 .Append('=')
-                .Append(info.LinkTarget)
+                .Append(linkTarget);
+            if (linkTarget is not null)
+            {
+                fingerprint.Append("->")
+                    .Append(info.ResolveLinkTarget(returnFinalTarget: true)?.FullName);
+            }
+
+            fingerprint
                 .Append('\0');
         }
 
