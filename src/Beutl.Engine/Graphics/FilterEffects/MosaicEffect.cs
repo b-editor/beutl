@@ -43,7 +43,11 @@ public partial class MosaicEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        var tileSize = new Vector2(r.TileSize.Width, r.TileSize.Height);
+        // Animated values can overshoot the property range between valid keyframes.
+        var logicalTileSize = new Size(
+            float.IsFinite(r.TileSize.Width) ? MathF.Max(0.0001f, r.TileSize.Width) : 0.0001f,
+            float.IsFinite(r.TileSize.Height) ? MathF.Max(0.0001f, r.TileSize.Height) : 0.0001f);
+        var tileSize = new Vector2(logicalTileSize.Width, logicalTileSize.Height);
         var origin = new Vector2(r.Origin.Point.X, r.Origin.Point.Y);
         context.Shader(ShaderDescription.WholeSource(
             s_shaderSource,
@@ -71,7 +75,7 @@ public partial class MosaicEffect : FilterEffect
             },
             SKShaderTileMode.Clamp,
             hitTest: RenderHitTestContract.Custom(
-                new MosaicSampling(r.TileSize, r.Origin),
+                new MosaicSampling(logicalTileSize, r.Origin),
                 static (state, context, point) => state.HitTest(context, point))));
     }
 
