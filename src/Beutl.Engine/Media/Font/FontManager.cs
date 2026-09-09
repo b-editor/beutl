@@ -199,45 +199,55 @@ public sealed class FontManager
     /// </remarks>
     public static IEnumerable<string> EnumerateFontCandidates(string root)
     {
-        var options = new EnumerationOptions
+        var pending = new Stack<string>();
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        pending.Push(root);
+        while (pending.TryPop(out string? directory))
         {
-            RecurseSubdirectories = true,
-            IgnoreInaccessible = true,
-            AttributesToSkip = FileAttributes.System
-        };
-
-        IEnumerator<string> enumerator;
-        try
-        {
-            enumerator = Directory.EnumerateFiles(root, "*.*", options).GetEnumerator();
-        }
-        catch (Exception)
-        {
-            yield break;
-        }
-
-        using (enumerator)
-        {
-            while (true)
+            string identity;
+            try { identity = FilePathComparison.ResolveCanonicalPath(directory); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { continue; }
+            if (!visited.Add(identity)) continue;
+            foreach (string entry in EnumerateDirectory(directory))
             {
-                string file;
-                try
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(entry); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+                if ((attributes & FileAttributes.Directory) != 0)
                 {
-                    if (!enumerator.MoveNext()) break;
-                    file = enumerator.Current;
+                    pending.Push(entry);
+                    continue;
                 }
-                catch (Exception)
-                {
-                    yield break;
-                }
-
-                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
+                string ext = Path.GetExtension(entry);
                 if (ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
                     || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
                     || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
-                {
-                    yield return file;
-                }
+                    yield return entry;
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumerateDirectory(string directory)
+    {
+        IEnumerator<string> entries;
+        try
+        {
+            entries = Directory.EnumerateFileSystemEntries(directory, "*", new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                AttributesToSkip = FileAttributes.System,
+            }).GetEnumerator();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { yield break; }
+        using (entries)
+        {
+            while (true)
+            {
+                bool hasNext;
+                try { hasNext = entries.MoveNext(); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { yield break; }
+                if (!hasNext) yield break;
+                yield return entries.Current;
             }
         }
     }
