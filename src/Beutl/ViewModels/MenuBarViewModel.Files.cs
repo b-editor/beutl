@@ -266,7 +266,8 @@ public partial class MenuBarViewModel
             var uri = UriHelper.CreateFromPath(file);
             ProjectItem? projItem = null;
             if (project != null)
-                projItem = project.Items.FirstOrDefault(i => i.Uri == uri);
+                projItem = project.Items.FirstOrDefault(i => i.Uri is { IsFile: true } current
+                    && FilePathComparison.AreSameCanonicalPath(current.LocalPath, uri.LocalPath));
 
             projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
 
