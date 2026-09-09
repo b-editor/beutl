@@ -401,7 +401,8 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
                         + "the second";
 
                 case IParameterReferenceOperation parameter
-                    when IsDeclaredOutside(parameter.Parameter, lambda):
+                    when IsDeclaredOutside(parameter.Parameter, lambda)
+                         && !IsNodePrimaryConstructorParameter(context, parameter.Parameter):
                     return $"the lambda closes over the parameter '{parameter.Parameter.Name}', which the "
                         + "caller decides per call, so one plan compiles for the first answer and is "
                         + "replayed for the second";
@@ -422,6 +423,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             + "change marking and the recorded-answer cross-check are a node's, so nothing holds what this "
             + "reads to one answer";
     }
+
+    private static bool IsNodePrimaryConstructorParameter(SyntaxNodeAnalysisContext context, IParameterSymbol parameter)
+        => parameter.ContainingType is { } type && IsRenderNode(type)
+           && parameter.DeclaringSyntaxReferences.Any(reference =>
+               reference.GetSyntax(context.CancellationToken) is ParameterSyntax { Parent.Parent: TypeDeclarationSyntax });
 
     private static bool IsDeclaredOutside(ISymbol symbol, AnonymousFunctionExpressionSyntax lambda)
     {
@@ -519,30 +525,39 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax callback,
         Location callSite)
     {
-        void Report(SyntaxNode node, string kind, ISymbol symbol, string reason)
-        {
-            // A callback reached through a readonly field, and any body the walk follows into, can be
-            // written in another file, and a syntax node action may only report where it was asked to
-            // look. The call is where the author chose this callback, so it is the location that survives.
-            Location location = node.SyntaxTree == context.Node.SyntaxTree
-                ? node.GetLocation()
-                : callSite;
+        Dictionary<ISymbol, int> walked = new(SymbolEqualityComparer.Default);
+        var depthReports = new List<(SyntaxNode Node, string Kind, ISymbol Symbol)>();
+        var reported = new HashSet<(SyntaxTree? Tree, Microsoft.CodeAnalysis.Text.TextSpan Span, string Symbol, string Reason)>();
 
+        void Emit(SyntaxNode node, string kind, ISymbol symbol, string reason)
+        {
+            Location location = node.SyntaxTree == context.Node.SyntaxTree ? node.GetLocation() : callSite;
+            string display = symbol.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat);
+            if (!reported.Add((location.SourceTree, location.SourceSpan, display, reason))) return;
             context.ReportDiagnostic(Diagnostic.Create(
-                DiagnosticDescriptors.StaticStateMetadataCallback,
-                location,
-                containingType.Name,
-                method.Name,
-                kind,
-                symbol.ToDisplayString(SymbolDisplayFormat.CSharpShortErrorMessageFormat),
-                reason));
+                DiagnosticDescriptors.StaticStateMetadataCallback, location,
+                containingType.Name, method.Name, kind, display, reason));
         }
 
-        HashSet<ISymbol> walked = new(SymbolEqualityComparer.Default);
+        void Report(SyntaxNode node, string kind, ISymbol symbol, string reason)
+        {
+            if (reason == DeeperThanTheWalk)
+                depthReports.Add((node, kind, symbol));
+            else
+                Emit(node, kind, symbol, reason);
+        }
+
+        void CompleteDepthReports()
+        {
+            foreach (var report in depthReports)
+                if (!walked.TryGetValue(report.Symbol.OriginalDefinition, out int depth) || depth <= 0)
+                    Emit(report.Node, report.Kind, report.Symbol, DeeperThanTheWalk);
+        }
 
         if (callback is AnonymousFunctionExpressionSyntax { Body: { } lambdaBody })
         {
             WalkBody(context, model, lambdaBody, MaxCallbackCallDepth, walked, Report);
+            CompleteDepthReports();
             return;
         }
 
@@ -554,7 +569,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        walked.Add((group.ReducedFrom ?? group).OriginalDefinition);
+        walked[(group.ReducedFrom ?? group).OriginalDefinition] = MaxCallbackCallDepth;
 
         if (GetBody(context, group) is not { } groupBody)
         {
@@ -569,6 +584,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             MaxCallbackCallDepth,
             walked,
             Report);
+        CompleteDepthReports();
     }
 
     private const string UnreadableCallbackBody =
@@ -589,7 +605,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         SyntaxNode body,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         foreach (SyntaxNode node in body.DescendantNodesAndSelf(
@@ -726,7 +742,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNode body,
         SyntaxNode node,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         // An indexer is spelled as brackets around an argument, so the name loop never sees it, and the
@@ -863,7 +879,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         WithExpressionSyntax with,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (model.GetTypeInfo(with.Expression, context.CancellationToken).Type
@@ -900,7 +916,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         SyntaxNode scope,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         VariableDeclarationSyntax? declaration;
@@ -997,7 +1013,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CollectionExpressionSyntax collection,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (model.GetOperation(collection, context.CancellationToken)
@@ -1035,7 +1051,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         InterpolatedStringExpressionSyntax interpolated,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         IOperation? operation = model.GetOperation(interpolated, context.CancellationToken);
@@ -1090,7 +1106,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CommonForEachStatementSyntax loop,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         ForEachStatementInfo iteration = model.GetForEachStatementInfo(loop);
@@ -1139,7 +1155,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         DeconstructionInfo deconstruction,
         SyntaxNode node,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (deconstruction.Method is { } deconstruct)
@@ -1163,7 +1179,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         ExpressionSyntax expression,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (model.GetConversion(expression, context.CancellationToken)
@@ -1181,7 +1197,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNode reference,
         ExpressionSyntax access,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (FollowReceiverCreation(context, model, body, reference, depth, walked, report)
@@ -1204,7 +1220,7 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNode body,
         SyntaxNode reference,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         if (GetReceiverCreation(context, model, reference) is not { } made)
@@ -1600,13 +1616,14 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         string kind,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
         // Keyed on the method that declares the body rather than on the symbol the call site bound to, so
         // an extension reached in both its spellings is walked - and reported - once.
-        if (!walked.Add((called.ReducedFrom ?? called).OriginalDefinition))
-            return;
+        ISymbol declaration = (called.ReducedFrom ?? called).OriginalDefinition;
+        if (walked.TryGetValue(declaration, out int previousDepth) && previousDepth >= depth) return;
+        walked[declaration] = depth;
 
         if (GetBody(context, called) is not { } body)
             return;
@@ -1625,11 +1642,11 @@ public sealed class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         IMethodSymbol constructor,
         SyntaxNode node,
         int depth,
-        HashSet<ISymbol> walked,
+        Dictionary<ISymbol, int> walked,
         Action<SyntaxNode, string, ISymbol, string> report)
     {
-        if (!walked.Add(constructor.OriginalDefinition))
-            return;
+        if (walked.TryGetValue(constructor.OriginalDefinition, out int previousDepth) && previousDepth >= depth) return;
+        walked[constructor.OriginalDefinition] = depth;
 
         List<SyntaxNode> bodies = GetConstructorBodies(context, constructor);
         IMethodSymbol? implicitBase = GetImplicitBaseConstructor(context, constructor);

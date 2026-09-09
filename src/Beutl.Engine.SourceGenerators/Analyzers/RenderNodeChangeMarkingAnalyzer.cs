@@ -757,6 +757,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
             return symbol switch
             {
                 IFieldSymbol { IsConst: false, AssociatedSymbol: null } => true,
+                IParameterSymbol parameter => parameter.DeclaringSyntaxReferences.Any(reference =>
+                    reference.GetSyntax() is ParameterSyntax { Parent.Parent: TypeDeclarationSyntax }),
 
                 // The backing field a property body names with the field keyword. Nothing else in source can
                 // reach it, so tracking it reports the setter that writes it and never doubles up with the

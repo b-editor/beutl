@@ -13,6 +13,57 @@ namespace SourceGeneratorTest;
 public sealed class MetadataCallbackPurityAnalyzerTests
 {
     [Test]
+    public void NodePrimaryConstructorCapture_IsInstanceState()
+    {
+        var diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            class Example(float offset) : RenderNode
+            {
+                public RenderBoundsContract Create() => RenderBoundsContract.Create(
+                    value => new(value.X + offset, value.Y, value.Width, value.Height), static value => value);
+            }
+            """);
+        Assert.That(diagnostics.Where(d => d.Id == "BESG003"), Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void HelperReachedAtDifferentDepths_IsIndependentOfWalkOrder(bool shallowFirst)
+    {
+        string chain = string.Join("\n", Enumerable.Range(0, 8).Select(i => $"public static float Step{i}() => Step{i + 1}();"));
+        string calls = shallowFirst ? "Helper.Step8() + Helper.Step0()" : "Helper.Step0() + Helper.Step8()";
+        var diagnostics = Analyze($$"""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            static class Helper { {{chain}} public static float Step8() => 1f; }
+            class Example {
+                public RenderBoundsContract Create() => RenderBoundsContract.Create(
+                    static value => new(value.X + {{calls}}, value.Y, value.Width, value.Height), static value => value);
+            }
+            """);
+        Assert.That(diagnostics, Is.Empty);
+    }
+
+    [Test]
+    public void StaticLocalFunctionStateRead_IsReportedOnce()
+    {
+        var diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            static class Settings { public static float Offset; }
+            class Example {
+                public RenderBoundsContract Create() => RenderBoundsContract.Create(
+                    static value => {
+                        static float Read() => Settings.Offset;
+                        return new Rect(value.X + Read(), value.Y, value.Width, value.Height);
+                    }, static value => value);
+            }
+            """);
+        Assert.That(diagnostics.Count(d => d.Id == "BESG004"), Is.EqualTo(1));
+    }
+
+    [Test]
     public void ConstructorReassignedCallback_IsNotTreatedAsItsStaticInitializer()
     {
         var diagnostics = Analyze("""
