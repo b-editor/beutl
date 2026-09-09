@@ -9,6 +9,26 @@ namespace SourceGeneratorTest;
 [TestFixture]
 public sealed class RenderNodeChangeMarkingAnalyzerTests
 {
+    [Test]
+    public void GenericBaseHelperMutation_IsReportedForDerivedProcess()
+    {
+        var diagnostics = Analyze("""
+            using Beutl.Graphics;
+            using Beutl.Graphics.Rendering;
+            abstract class Base<T> : RenderNode
+            {
+                protected Rect bounds;
+                protected void Set(Rect value) => bounds = value;
+            }
+            sealed class Derived : Base<int>
+            {
+                public void Update(Rect value) => Set(value);
+                public override void Process(RenderNodeContext context) => context.Publish(bounds);
+            }
+            """);
+        Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG005"), Is.True);
+    }
+
     private const string RenderNodeStubs = """
         namespace Beutl.Graphics
         {

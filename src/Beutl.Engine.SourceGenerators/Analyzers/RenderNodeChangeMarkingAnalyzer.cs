@@ -106,7 +106,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         foreach (IMethodSymbol method in EnumerateChainMethods(type, renderNodeType))
         {
             if (!RunsBetweenRecordings(method, renderNodeType, processClosure, overridden)
-                || !reachedUnmarked.Contains(method)
+                || !reachedUnmarked.Contains(method.OriginalDefinition)
                 || analysis.MarksChanged(method))
             {
                 continue;
@@ -170,7 +170,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
     {
         foreach (ReportedByBase reported in reportedByBases)
         {
-            if (reported.State.Contains(state) && reported.Members.Contains(method))
+            if (reported.State.Contains(state.OriginalDefinition) && reported.Members.Contains(method.OriginalDefinition))
                 return true;
         }
 
@@ -274,7 +274,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                or MethodKind.Destructor)
            && !method.IsStatic
            && !IsDisposalOverride(method, renderNodeType)
-           && !processClosure.Contains(method)
+           && !processClosure.Contains(method.OriginalDefinition)
            && !overridden.Contains(method.OriginalDefinition);
 
     private static bool IsReachableFromOutsideTheChain(IMethodSymbol method)
@@ -518,8 +518,8 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
         {
             var visited = ImmutableHashSet.CreateBuilder<ISymbol>(SymbolEqualityComparer.Default);
             var pending = new Stack<IMethodSymbol>();
-            pending.Push(entryPoint);
-            visited.Add(entryPoint);
+            pending.Push(entryPoint.OriginalDefinition);
+            visited.Add(entryPoint.OriginalDefinition);
 
             while (pending.Count > 0)
             {
@@ -535,9 +535,9 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         {
                             if (IsOwnTypeChainMember(callee)
                                 && callee.DeclaringSyntaxReferences.Length > 0
-                                && visited.Add(callee))
+                                && visited.Add(callee.OriginalDefinition))
                             {
-                                pending.Push(callee);
+                                pending.Push(callee.OriginalDefinition);
                             }
                         }
                     }
@@ -588,7 +588,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                         // A simple assignment overwrites without reading, so the target alone does not make
                         // the member part of what Process depends on.
                         if (!IsSimpleAssignmentTarget(reference.Access))
-                            read.Add(symbol);
+                            read.Add(symbol.OriginalDefinition);
                     }
                 }
             }
@@ -653,7 +653,7 @@ public sealed class RenderNodeChangeMarkingAnalyzer : DiagnosticAnalyzer
                     if (GetStateReference(body.Model, node) is not { Symbol: { } symbol } reference)
                         continue;
 
-                    if (!trackedState.Contains(symbol))
+                    if (!trackedState.Contains(symbol.OriginalDefinition))
                         continue;
 
                     // An assignment to another instance of the same type is a different object's state, and
