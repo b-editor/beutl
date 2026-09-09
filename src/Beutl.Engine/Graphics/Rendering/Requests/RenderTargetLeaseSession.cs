@@ -294,6 +294,8 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             catch (Exception ex)
             {
                 current.Session.RecordCleanupFailure(ex);
+                try { s_logger.LogError(ex, "Deferred render-target release failed."); }
+                catch { }
             }
         }
     }

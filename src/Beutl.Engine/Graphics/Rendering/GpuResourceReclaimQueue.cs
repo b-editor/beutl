@@ -1,4 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 using SkiaSharp;
 
@@ -118,9 +120,10 @@ internal static class GpuResourceReclaimQueue
                 {
                     s_pending[i].Dispose();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // A backend teardown failure must not strand the remaining resources.
+                    try { Log.CreateLogger(typeof(GpuResourceReclaimQueue)).LogError(ex, "Deferred GPU resource release failed; continuing cleanup."); }
+                    catch { }
                 }
             }
         }
