@@ -57,6 +57,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private float[] _fftMagnitudes = [];
         private float[] _smoothedMagnitudes = [];
         private float[] _normalizedBars = [];
+        private int? _renderedSpectrumVersion;
+        private int _renderedBarCount;
 
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
@@ -71,6 +73,12 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
             SpectrumShape.Resource? shapeResource = Shape;
             if (shapeResource is null) return;
+            if (_renderedSpectrumVersion == Version)
+            {
+                shapeResource.Render(new SpectrumRenderContext(canvas, bounds,
+                    _normalizedBars.AsSpan(0, _renderedBarCount), Fill));
+                return;
+            }
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
             if (fftSize < 2) return;
@@ -177,6 +185,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 normalized[i] = Math.Clamp(n, 0f, 1f);
             }
 
+            _renderedBarCount = barCount;
+            _renderedSpectrumVersion = Version;
             shapeResource.Render(new SpectrumRenderContext(canvas, bounds, normalized, Fill));
         }
     }

@@ -38,6 +38,25 @@ public class AudioVisualizerDrawableTests
         });
     }
 
+    [Test]
+    public void Spectrum_ReplayingOneResourceDoesNotAdvancePeakRelease()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = CreateSpectrum();
+            AttachSyntheticSource(drawable);
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+            Assert.That(resource.CachedSampleLength, Is.GreaterThan(0));
+            typeof(AudioSpectrumDrawable.Resource).GetField("_smoothedMagnitudes",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .SetValue(resource, Enumerable.Repeat(100f, 2048).ToArray());
+            using Bitmap first = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
+            using Bitmap second = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), 1);
+            Assert.That(second.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(first.GetPixelSpan<ushort>().ToArray()));
+        });
+    }
+
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
     private static AudioWaveformDrawable CreateWaveform() => new()
