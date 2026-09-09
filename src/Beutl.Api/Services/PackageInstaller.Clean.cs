@@ -3,6 +3,7 @@
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
+using NuGet.Versioning;
 
 namespace Beutl.Api.Services;
 
@@ -180,7 +181,7 @@ public partial class PackageInstaller
         PackageIdentity? survivor = _installedPackageRepository.GetLocalPackages(package.Id)
             .Where(other => !other.Equals(package) && !removedPackages.Contains(other))
             .OrderByDescending(other => other.Version)
-            .FirstOrDefault();
+            .FirstOrDefault(other => Directory.Exists(Helper.ResolveInstalledDirectory(other)));
         if (survivor is null)
             return false;
 
@@ -188,7 +189,8 @@ public partial class PackageInstaller
         if (roots.Select(root => ReadPayloadOwner(Path.Combine(root, package.Id)))
             .Any(owner => owner is not null
                 && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, package.Id)
-                && owner.Version == package.Version.ToString()))
+                && NuGetVersion.TryParse(owner.Version, out NuGetVersion? ownerVersion)
+                && ownerVersion == package.Version))
         {
             string installed = Helper.ResolveInstalledDirectory(survivor);
             using var reader = new PackageFolderReader(installed);

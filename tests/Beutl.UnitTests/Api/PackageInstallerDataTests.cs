@@ -99,8 +99,10 @@ public class PackageInstallerDataTests
         Assert.That(File.ReadAllText(userFile), Is.EqualTo("user template"));
     }
 
-    [Test]
-    public void RemovingPublishedVersion_RestoresSurvivingVersionPayload()
+    [TestCase("2.0.0", false)]
+    [TestCase("2.0", false)]
+    [TestCase("2.0.0", true)]
+    public void RemovingPublishedVersion_RestoresSurvivingVersionPayload(string ownerVersion, bool missingSurvivor)
     {
         const string name = "Beutl.Package.DataTest.Downgrade";
         var oldId = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
@@ -112,8 +114,14 @@ public class PackageInstallerDataTests
         _repository.AddPackage(oldId);
         _repository.AddPackage(newId);
         _installer.InstallDataPackage(current);
+        File.WriteAllText(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"),
+            System.Text.Json.JsonSerializer.Serialize(new { Name = name, Version = ownerVersion }));
+        if (missingSurvivor) Directory.Delete(old.InstalledPath!, true);
         _installer.Uninstall(new PackageUninstallContext(newId, current.InstalledPath) { UnnecessaryPackages = [newId] }, new Progress<double>());
-        Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
+        if (missingSurvivor)
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(name)), Is.False);
+        else
+            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
     }
 
     private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
